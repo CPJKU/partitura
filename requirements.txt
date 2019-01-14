@@ -1,0 +1,5 @@
+numpy
+lxml
+scipy
+ply
+roman
