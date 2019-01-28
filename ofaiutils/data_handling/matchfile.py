@@ -387,7 +387,7 @@ class TrillNoteLine(MatchLine):
     def __init__(self, m2, version=LATEST_VERSION):
         self.note = Note(m2, version)
         self.field_names = self.note.field_names
-        pattern = 'trill\([^\)]*\)-'+self.note.pattern
+        self.pattern = 'trill\([^\)]*\)-'+self.note.pattern
         self.re_obj = re.compile(self.pattern)
 
 
