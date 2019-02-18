@@ -12,16 +12,16 @@ LOGGER = logging.getLogger(__name__)
 
 from ..utils.lang_utils import iter_subclasses
 from .scoreontology import (ScorePart, TimePoint, TimeLine, Measure,
-                           PartGroup, Transposition, Repeat, Ending,
-                           TimeSignature, KeySignature, Divisions,
-                           Note, Words, Direction, Slur, Fine, DaCapo,
-                           DynamicLoudnessDirection, Fermata, Page,
-                           DynamicTempoDirection, ConstantTempoDirection,
-                           System, ConstantLoudnessDirection,# AnyDirection,
-                           ImpulsiveLoudnessDirection, Tempo,
-                           #preprocess_direction_name,
-                           )
-from .annotation_parser import parse_words # tokenizer, TokenizeException
+                            PartGroup, Transposition, Repeat, Ending,
+                            TimeSignature, KeySignature, Divisions,
+                            Note, Words, Direction, Slur, Fine, DaCapo,
+                            DynamicLoudnessDirection, Fermata, Page,
+                            DynamicTempoDirection, ConstantTempoDirection,
+                            System, ConstantLoudnessDirection,  # AnyDirection,
+                            ImpulsiveLoudnessDirection, Tempo,
+                            # preprocess_direction_name,
+                            )
+from .annotation_parser import parse_words  # tokenizer, TokenizeException
 
 DYNAMICS_DIRECTIONS = {
     'f': ConstantLoudnessDirection,
@@ -47,6 +47,7 @@ DYNAMICS_DIRECTIONS = {
     'sfpp': ImpulsiveLoudnessDirection,
     'sfz': ImpulsiveLoudnessDirection,
 }
+
 
 def write2LogFile(logEntry):
     """
@@ -87,6 +88,7 @@ def _get_wedge_key(e):
         return ('wedge', int(e.attrib['number']))
     else:
         return ('wedge',)
+
 
 def _get_dashes_key(e):
     """
@@ -157,7 +159,7 @@ def _get_tie_key(e):
         voice = int(e.find('voice').text)
 
     if pitchk is not None:    # element is a note
-        return ('tie', tuple(list(pitchk)+[staff]))
+        return ('tie', tuple(list(pitchk) + [staff]))
     else:
         if e.find('rest') is not None:
             pitch = None
@@ -356,7 +358,7 @@ def _get_transposition(e):
 #         print('exception', e)
 #         print(label, type(label))
 #         nlabel = label
-    
+
 #     for directionType in iter_subclasses(Direction):
 #         if directionType.matches(unicode(nlabel)):
 #             return directionType(unicode(nlabel))
@@ -384,7 +386,7 @@ def _get_transposition(e):
 #         print('exception', e)
 #         print(label, type(label))
 #         nlabel = label
-    
+
 #     ## TEST AnyDirection
 #     return [AnyDirection(word) for word in nlabel.split('_')]
 
@@ -403,7 +405,8 @@ def _make_direction_new(label):
         return r
     else:
         return Words(label)
-    
+
+
 def make_measure(xml_measure):
     measure = Measure()
     try:
@@ -496,7 +499,8 @@ class ScorePartBuilder(object):
                 obj_list = obj
 
             for o in obj_list:
-                LOGGER.warning('ongoing object "{}" until end of piece'.format(o))
+                LOGGER.warning(
+                    'ongoing object "{}" until end of piece'.format(o))
                 end_pos = tp
                 if isinstance(o, DynamicTempoDirection):
                     ct = o.start.get_next_of_type(ConstantTempoDirection)
@@ -505,7 +509,7 @@ class ScorePartBuilder(object):
                 end_pos.add_ending_object(o)
 
         self.timeline.lock()
-        #self.timeline.link()
+        # self.timeline.link()
 
     def close_current_measure_at(self, t_quarter):
         """End the Measure object stored in `self.current_measure` at time
@@ -515,9 +519,11 @@ class ScorePartBuilder(object):
 
         """
 
-        actual_end_q = np.sum(np.diff(self.measure_divs[:, 0]) / self.measure_divs[:-1, 1])
+        actual_end_q = np.sum(
+            np.diff(self.measure_divs[:, 0]) / self.measure_divs[:-1, 1])
         missing_q = t_quarter - actual_end_q
-        t = int(self.measure_divs[-1, 0] + missing_q * self.measure_divs[-1, 1])
+        t = int(self.measure_divs[-1, 0]
+                + missing_q * self.measure_divs[-1, 1])
         tp = self.timeline.get_or_add_point(t)
         tp.add_ending_object(self.current_measure)
         if t > self.position:
@@ -560,7 +566,8 @@ class ScorePartBuilder(object):
                 measure_position += duration
 
             elif e.tag == 'note':
-                (measure_position, prev_note_start_dur) = self._do_note(e, measure_position, prev_note_start_dur)
+                (measure_position, prev_note_start_dur) = self._do_note(
+                    e, measure_position, prev_note_start_dur)
                 # <note> tags trigger an update of the measure
                 # duration up to the measure position (after the
                 # <note> has been processed )
@@ -593,7 +600,7 @@ class ScorePartBuilder(object):
         self.position += measure_duration
 
         div = np.array([(self.current_measure.start.t, division.divs) for division
-                                              in self.current_measure.start.get_next_of_type(Divisions, eq=True)])
+                        in self.current_measure.start.get_next_of_type(Divisions, eq=True)])
         # print(div)
         if div.shape[0] > 0:
             self.divisions = np.vstack((self.divisions, div))
@@ -601,21 +608,24 @@ class ScorePartBuilder(object):
         # print([self.current_measure.start.t, self.position])
         # print(self.divisions)
 
-        start = np.searchsorted(self.divisions[:, 0], self.current_measure.start.t, side='right')
+        start = np.searchsorted(
+            self.divisions[:, 0], self.current_measure.start.t, side='right')
         end = np.searchsorted(self.divisions[:, 0], self.position, side='left')
         # print('pos')
         # print(self.position)
 
         if self.divisions[start - 1, 0] < self.current_measure.start.t:
             self.measure_divs = np.vstack(((self.current_measure.start.t, self.divisions[start - 1, 1]),
-                                      self.divisions[start:end, :]))
+                                           self.divisions[start:end, :]))
         else:
             self.measure_divs = self.divisions[start - 1:end, :]
 
         if end == self.divisions.shape[0]:
-            self.measure_divs = np.vstack((self.measure_divs, (self.position, self.divisions[end-1, 1])))
+            self.measure_divs = np.vstack(
+                (self.measure_divs, (self.position, self.divisions[end - 1, 1])))
 
-        measure_duration_quarters = np.sum(np.diff(self.measure_divs[:, 0] / self.measure_divs[:-1, 1]))
+        measure_duration_quarters = np.sum(
+            np.diff(self.measure_divs[:, 0] / self.measure_divs[:-1, 1]))
         return self.position, measure_duration_quarters
 
     # <!--
@@ -662,7 +672,8 @@ class ScorePartBuilder(object):
         if repeat.attrib['direction'] == 'forward':
             o = Repeat()
             self.ongoing[_get_repeat_key(repeat)] = o
-            self.timeline.add_starting_object(self.position + measure_position, o)
+            self.timeline.add_starting_object(
+                self.position + measure_position, o)
 
         elif repeat.attrib['direction'] == 'backward':
             key = _get_repeat_key(repeat)
@@ -675,21 +686,25 @@ class ScorePartBuilder(object):
                 # the self.timeline retroactively
                 o = Repeat()
                 self.timeline.add_starting_object(0, o)
-            self.timeline.add_ending_object(self.position + measure_position, o)
+            self.timeline.add_ending_object(
+                self.position + measure_position, o)
 
     def _do_ending(self, ending, measure_position):
         if ending.attrib['type'] == 'start':
             o = Ending(ending.attrib['number'])
             self.ongoing[_get_ending_key(ending)] = o
-            self.timeline.add_starting_object(self.position + measure_position, o)
+            self.timeline.add_starting_object(
+                self.position + measure_position, o)
         elif ending.attrib['type'] in ['stop', 'discontinue']:
             key = _get_ending_key(ending)
             if key in self.ongoing:
                 o = self.ongoing[key]
                 del self.ongoing[key]
-                self.timeline.add_ending_object(self.position + measure_position, o)
+                self.timeline.add_ending_object(
+                    self.position + measure_position, o)
             else:
-                LOGGER.warning('Found ending[stop] without a preceding ending[start]')
+                LOGGER.warning(
+                    'Found ending[stop] without a preceding ending[start]')
 
     def _do_direction(self, e, measure_position):
 
@@ -727,7 +742,8 @@ class ScorePartBuilder(object):
             if 'dacapo' in sounds[0].attrib:
                 starting_directions.append(DaCapo())
 
-        direction_types = e.xpath('direction-type')    # <direction-type> ... </...>
+        # <direction-type> ... </...>
+        direction_types = e.xpath('direction-type')
         # <!ELEMENT direction-type (rehearsal+ | segno+ | words+ |
         #     coda+ | wedge | dynamics+ | dashes | bracket | pedal |
         #     metronome | octave-shift | harp-pedals | damp | damp-all |
@@ -743,7 +759,8 @@ class ScorePartBuilder(object):
             assert len(dts) >= 1
 
             if len(dts) > 1:
-                LOGGER.warning('(FIXME) ignoring trailing direction-types in direction')
+                LOGGER.warning(
+                    '(FIXME) ignoring trailing direction-types in direction')
             direction_type = dts[0].tag
 
             if direction_type == 'dynamics':
@@ -752,7 +769,8 @@ class ScorePartBuilder(object):
                     # there may be multiple dynamics components
                     for dyn in dt:
                         # direction = None # _make_direction(dyn.tag)
-                        direction = DYNAMICS_DIRECTIONS.get(dyn.tag, Words)(dyn.tag)
+                        direction = DYNAMICS_DIRECTIONS.get(
+                            dyn.tag, Words)(dyn.tag)
                         if direction is not None:
                             starting_directions.append(direction)
 
@@ -765,7 +783,7 @@ class ScorePartBuilder(object):
                     if parse_result is not None:
 
                         # starting_directions.append(direction)
-                        
+
                         if isinstance(parse_result, list) or isinstance(parse_result, tuple):
                             starting_directions.extend(parse_result)
                         else:
@@ -787,7 +805,8 @@ class ScorePartBuilder(object):
                         ending_directions.append(o)
                         del self.ongoing[key]
                     else:
-                        LOGGER.warning('did not find a wedge start element for wedge stop!')
+                        LOGGER.warning(
+                            'did not find a wedge start element for wedge stop!')
 
             elif direction_type == 'dashes':
                 if dts[0].attrib['type'] == 'start':
@@ -795,8 +814,9 @@ class ScorePartBuilder(object):
                 else:
                     dashes_end = dts[0]
             else:
-                LOGGER.warning('ignoring direction type: {} {}'.format(direction_type, dts[0].attrib))
-                
+                LOGGER.warning('ignoring direction type: {} {}'.format(
+                    direction_type, dts[0].attrib))
+
         if dashes_start is not None:
             key = _get_dashes_key(dashes_start)
             self.ongoing[key] = starting_directions
@@ -809,13 +829,14 @@ class ScorePartBuilder(object):
             else:
                 ending_directions.extend(oo)
                 del self.ongoing[key]
-            
 
         for o in starting_directions:
-            self.timeline.add_starting_object(self.position + measure_position, o)
+            self.timeline.add_starting_object(
+                self.position + measure_position, o)
 
         for o in ending_directions:
-            self.timeline.add_ending_object(self.position + measure_position, o)
+            self.timeline.add_ending_object(
+                self.position + measure_position, o)
 
     def _do_note(self, e, measure_position, prev_note_start_dur):
         # Note: part_builder is only passed as an argument to report the
@@ -883,14 +904,17 @@ class ScorePartBuilder(object):
         n_dur_dots = len(e.xpath('dot'))
 
         if len(dur_type_els) > 0:
-            symbolic_duration = dict(type=dur_type_els[0].text, dots=n_dur_dots)
+            symbolic_duration = dict(
+                type=dur_type_els[0].text, dots=n_dur_dots)
         else:
             symbolic_duration = dict()
 
         time_mod_els = e.xpath('time-modification')
         if len(time_mod_els) > 0:
-            symbolic_duration['actual_notes'] = time_mod_els[0].xpath('actual-notes')[0]
-            symbolic_duration['normal_notes'] = time_mod_els[0].xpath('normal-notes')[0]
+            symbolic_duration['actual_notes'] = time_mod_els[0].xpath(
+                'actual-notes')[0]
+            symbolic_duration['normal_notes'] = time_mod_els[0].xpath(
+                'normal-notes')[0]
 
         if chord:
             # this note starts at the same position as the previous note, and has same duration
@@ -898,7 +922,8 @@ class ScorePartBuilder(object):
             measure_position, duration = prev_note_start_dur
 
         if fermata:
-            self.timeline.add_starting_object(self.position + measure_position, Fermata())
+            self.timeline.add_starting_object(
+                self.position + measure_position, Fermata())
 
         if len(e.xpath('coordinates')) > 0:
             coordinates = _get_coordinates(e)
@@ -916,7 +941,7 @@ class ScorePartBuilder(object):
 
             # TODO: Slur stop can preceed slur start in document order (in the
             # case of <backup>). Current implementation does not recognize that.
-            
+
             # this sorts all found slurs by type (either 'start' or 'stop')
             # in reverse order, so all with type 'stop' will be before
             # the ones with 'start'?!.
@@ -930,7 +955,8 @@ class ScorePartBuilder(object):
             # numbered so that they can be distinguished. If however
             # a (single) slur ends and the next (single) one starts
             # at the same note, none of them needs to be numbered.
-            eslurs.sort(key=lambda x: int(x.attrib['number']) if 'number' in x.attrib else 1)
+            eslurs.sort(key=lambda x: int(
+                x.attrib['number']) if 'number' in x.attrib else 1)
 
             erroneous_stops = []    # gather stray stops that have no beginning?
 
@@ -939,9 +965,10 @@ class ScorePartBuilder(object):
                 if eslur.attrib['type'] == 'stop':
                     try:
                         o = self.ongoing[key]
-                        self.timeline.add_ending_object(self.position + measure_position, o)
+                        self.timeline.add_ending_object(
+                            self.position + measure_position, o)
                         del self.ongoing[key]
-                    except KeyError: # as exception:
+                    except KeyError:  # as exception:
 
                         note_id = e.attrib.get('ID', None)
                         LOGGER.warning(("Part xx, Measure xx: Stopping slur with number {0} was never started (Note ID: {1})"
@@ -961,10 +988,12 @@ class ScorePartBuilder(object):
 
                     if key not in self.ongoing:
                         o = Slur(voice)
-                        self.timeline.add_starting_object(self.position + measure_position, o)
+                        self.timeline.add_starting_object(
+                            self.position + measure_position, o)
                         self.ongoing[key] = o
                     else:
-                        LOGGER.warning("Slur with number {0} started twice; Ignoring the second slur start".format(key[1]))
+                        LOGGER.warning(
+                            "Slur with number {0} started twice; Ignoring the second slur start".format(key[1]))
             for k in erroneous_stops:
                 if k in self.ongoing:
                     del self.ongoing[k]
@@ -988,9 +1017,11 @@ class ScorePartBuilder(object):
             tie_key = _get_tie_key(e)
 
             if tie_key in self.ongoing:
-                self.timeline.add_ending_object(self.position + measure_position, self.ongoing[tie_key])
+                self.timeline.add_ending_object(
+                    self.position + measure_position, self.ongoing[tie_key])
                 if symbolic_duration is not None:
-                    self.ongoing[tie_key].symbolic_durations.append(symbolic_duration)
+                    self.ongoing[tie_key].symbolic_durations.append(
+                        symbolic_duration)
                 del self.ongoing[tie_key]
 
             if len(e.xpath('tie')) > 0:    # look for a <tie> tag.
@@ -1024,15 +1055,18 @@ class ScorePartBuilder(object):
                              grace_type=grace_type, staccato=staccato, fermata=fermata,
                              steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
                              accent=accent, coordinates=coordinates, staff=staff)
-                    self.timeline.add_starting_object(self.position + measure_position, o)
+                    self.timeline.add_starting_object(
+                        self.position + measure_position, o)
                     self.ongoing[tie_key] = o
             else:
                 o = Note(step, alter, octave, voice=_get_voice(e), id=note_id,
                          grace_type=grace_type, staccato=staccato, fermata=fermata,
                          steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
                          accent=accent, coordinates=coordinates, staff=staff)
-                self.timeline.add_starting_object(self.position + measure_position, o)
-                self.timeline.add_ending_object(self.position + measure_position + duration, o)
+                self.timeline.add_starting_object(
+                    self.position + measure_position, o)
+                self.timeline.add_ending_object(
+                    self.position + measure_position + duration, o)
         else:
             # REST (NOTE) ELEMENT #####################################
             pass
@@ -1091,7 +1125,8 @@ class ScorePartBuilder(object):
 
     def _do_new_system(self, measure_position):
         if 'system' in self.ongoing and self.ongoing['system'].start.t == self.position + measure_position:
-            LOGGER.debug('ignoring non-informative new-system at start of score')
+            LOGGER.debug(
+                'ignoring non-informative new-system at start of score')
             return
 
         if 'system' in self.ongoing:
@@ -1136,7 +1171,8 @@ def parse_parts(document, score_part_dict):
     assert len(part_builders) > 0
 
     # a list of measures of each score part (in a list)
-    measures = [part_builder.part_etree.xpath('measure') for part_builder in part_builders]
+    measures = [part_builder.part_etree.xpath(
+        'measure') for part_builder in part_builders]
 
     # all score parts have an equal number of measures
     assert np.all(np.diff([len(x) for x in measures]) == 0)
@@ -1151,9 +1187,9 @@ def parse_parts(document, score_part_dict):
             _, position_dict[i] = part_builder.add_measure(measures[i][j])
         if len(position_dict) == 0:
             break
-        assert len(position_dict) == len(part_builders), ('Some score-parts'
-                                            + ' have less bars than others,'
-                                            + ' don\'t know how to handle this')
+        assert len(position_dict) == len(part_builders), ('Some score-parts' +
+                                            ' have less bars than others,' +
+                                                          ' don\'t know how to handle this')
 
         # After processing a measure, the position of all
         # score-builders should be identical, but measures are
@@ -1212,7 +1248,8 @@ def parse_musicxml(fn):
         # parse the (hierarchical) structure of score parts
         # (instruments) that are listed in the part-list element
         if partlist is not None:
-            top_structure.constituents, score_part_dict = parse_partlist(partlist)
+            top_structure.constituents, score_part_dict = parse_partlist(
+                partlist)
             for c in top_structure.constituents:
                 c.parent = top_structure
         # go through each <part> (i.e. more or less instrument).
@@ -1230,6 +1267,60 @@ def parse_musicxml(fn):
         #                      complete_measures)
 
         # return top_structure
+
+
+SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
+
+
+def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True):
+    """
+    Get a note array from a MusicXML file
+
+    Parameters
+    ----------
+    fn : str
+        Path to a MusicXML file
+    flatten_parts : bool
+        If `True`, returns a single array containing all notes.
+        Otherwise, returns a list of arrays for each part.
+
+    Returns
+    -------
+    score : structured array or list of structured arrays
+        Structured array containing the score. The fields are
+        'pitch', 'onset' and 'duration'.
+    """
+
+    # Parse MusicXML
+    xml_parts = parse_music_xml(fn).score_parts
+
+    score = []
+    for xml_part in xml_parts:
+        # Unfold timeline to have repetitions
+        xml_part.timeline = xml_part.unfold_timeline()
+
+        # get beat map
+        bm = xml_part.beat_map
+        # Build score from beat map
+        _score = np.array(
+            [(n.midi_pitch, bm(n.start.t), bm(n.end.t) - bm(n.start.t))
+             for n in xml_part.notes],
+            dtype=SCORE_DTYPES)
+
+        # Sort notes according to onset
+        if sort_onsets:
+            _score = _score[_score['onset'].argsort()]
+        score.append(_score)
+
+    # Return a structured array if the score has only one part
+    if len(score) == 1:
+        return score[0]
+    elif len(score) > 1 and flatten_parts:
+        score = np.vstack(score)
+        if sort_onsets:
+            return score[score['onset'].argsort()]
+    else:
+        return score
 
 
 def parse_partlist(partlist):
@@ -1269,7 +1360,8 @@ def parse_partlist(partlist):
                 if len(grouping) > 0:
                     gr_type = grouping[0].text
 
-                new_group = PartGroup(gr_type, gr_name)    # set up a PartGroup object
+                # set up a PartGroup object
+                new_group = PartGroup(gr_type, gr_name)
 
                 if 'number' in e.attrib:
                     new_group.number = int(e.attrib['number'])
@@ -1311,13 +1403,15 @@ def parse_partlist(partlist):
                 sp.parent = current_group
 
     if current_group is not None:
-        LOGGER.warning('part-group {0} was not ended'.format(current_group.number))
+        LOGGER.warning(
+            'part-group {0} was not ended'.format(current_group.number))
         structure.append(current_group)
 
     # for g in structure:
     #     print(g.pprint())
 
     return structure, score_part_dict
+
 
 if __name__ == '__main__':
     xml_fn = sys.argv[1]
