@@ -1176,7 +1176,7 @@ def parse_parts(document, score_part_dict):
         part_builder.finalize()
 
 
-def parse_music_xml(fn):
+def parse_musicxml(fn):
     """
     Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
@@ -1322,4 +1322,4 @@ def parse_partlist(partlist):
 if __name__ == '__main__':
     xml_fn = sys.argv[1]
     # failing xml: op's 34_1, 63_1
-    parts = parse_music_xml(xml_fn)
+    parts = parse_musicxml(xml_fn)

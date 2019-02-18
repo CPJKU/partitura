@@ -45,7 +45,7 @@ def main():
     args = parser.parse_args()
 
     # the musicxml returns a list of score parts
-    structure = mxml.parse_music_xml(args.file)
+    structure = mxml.parse_musicxml(args.file)
 
     if isinstance(structure, list):
 
@@ -69,7 +69,7 @@ def test_load_file():
     flatten = not args.get_parts
 
     # the musicxml returns a list of score parts
-    structure = mxml.parse_music_xml(fn)
+    structure = mxml.parse_musicxml(fn)
 
     parts = []
     for part in structure.score_parts:
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     flatten = not args.get_parts
 
     # the musicxml returns a list of score parts
-    structure = mxml.parse_music_xml(fn)
+    structure = mxml.parse_musicxml(fn)
 
     parts = []
     for part in structure.score_parts:
