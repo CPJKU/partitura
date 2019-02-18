@@ -1,20 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import numpy as np
-from scipy.interpolate import interp1d
 from sys import stderr
 from collections import OrderedDict
 import logging
 from functools import reduce
-logging.basicConfig()
-LOGGER = logging.getLogger(__name__)
+import numpy as np
+from scipy.interpolate import interp1d
+
+from mxm.midifile.MidiOutStream import MidiOutStream
+from mxm.midifile.MidiInFile import MidiInFile
+from mxm.midifile.MidiOutFile import MidiOutFile
 
 from ..utils.container_utils import partition
 
-from .midi_backend.MidiOutStream import MidiOutStream
-from .midi_backend.MidiInFile import MidiInFile
-from .midi_backend.MidiOutFile import MidiOutFile
+LOGGER = logging.getLogger(__name__)
 
 
 def tic2ms(t, tempo, div):
