@@ -19,7 +19,6 @@ from . import scoreontology
 # Utilities
 from . import annotation_parser
 from . import instrument_assignment
-from . import ply_annotation_parser
 from . import sparse_datafiles
 from . import sparse_feature_extraction
 
