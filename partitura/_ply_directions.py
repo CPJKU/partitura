@@ -5,14 +5,7 @@ import argparse
 import re
 import logging
 
-logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
-
-try:
-    import roman
-except ImportError as e:
-    LOGGER.warning('package "roman" not found')
-    raise e
 
 try:
     import ply.lex as lex
@@ -21,12 +14,13 @@ except ImportError as e:
     LOGGER.warning('package "ply" not found')
     raise e
 
-from .scoreontology import (Words, Direction,
-                           DynamicLoudnessDirection,
-                           DynamicTempoDirection, ConstantTempoDirection,
-                           ConstantLoudnessDirection, ResetTempoDirection,
-                           ImpulsiveLoudnessDirection, Tempo,)
+try:
+    import roman
+except ImportError as e:
+    LOGGER.warning('package "roman" not found')
+    raise e
 
+import partitura.score as score
 
 TEMPOHINT_PARSER = re.compile('explicittempo:(?P<durtype>.+)=(?P<bpm>.+)')
 
@@ -527,7 +521,7 @@ def p_annotation0(p):
 def p_annotation1(p):
     ''' annotation : annotation PARENOPEN TEMPOHINT PARENCLOSE
     '''
-    if isinstance(p[1], ConstantTempoDirection):
+    if isinstance(p[1], score.ConstantTempoDirection):
         m = TEMPOHINT_PARSER.search(p[3])
         if m:
             p[1].duration = m.group('durtype')
@@ -606,7 +600,7 @@ def p_quantifier1(p):
 def p_pp(p):
     ''' pp : p np
     '''
-    p[0] = ConstantTempoDirection('{}_{}'.format(p[1], p[2]).lower())
+    p[0] = score.ConstantTempoDirection('{}_{}'.format(p[1], p[2]).lower())
 
 
 def p_p(p):
@@ -625,7 +619,7 @@ def p_a_dynamic_tempo(p):
           | RALLENTANDO
           | SMORZANDO
     '''
-    p[0] = DynamicTempoDirection(p.slice[-1].type.lower())
+    p[0] = score.DynamicTempoDirection(p.slice[-1].type.lower())
 
 def p_a_dynamic_loudness(p):
     ''' a : CRESCENDO
@@ -633,7 +627,7 @@ def p_a_dynamic_loudness(p):
           | CALANDO
           | DIMINUENDO
     '''
-    p[0] = DynamicLoudnessDirection(p.slice[-1].type.lower())
+    p[0] = score.DynamicLoudnessDirection(p.slice[-1].type.lower())
     
 
 def p_a_constant_loudness(p):
@@ -648,7 +642,7 @@ def p_a_constant_loudness(p):
           | DOLCE
           | GRAZIOSO
     '''
-    p[0] = ConstantLoudnessDirection(p.slice[-1].type.lower())
+    p[0] = score.ConstantLoudnessDirection(p.slice[-1].type.lower())
 
 def p_a_constant_tempo(p):
     ''' a : ESPRESSIVO
@@ -697,7 +691,7 @@ def p_a_constant_tempo(p):
     # print(p.slice[-1].type,)
     # p[0] = p[1]
     # print()
-    p[0] = ConstantTempoDirection(p.slice[-1].type.lower())
+    p[0] = score.ConstantTempoDirection(p.slice[-1].type.lower())
 
 
 def p_np(p):
@@ -738,7 +732,7 @@ def p_temporeset(p):
                    | A TEMPO
                    | IN TEMPO
     '''
-    p[0] = ResetTempoDirection('_'.join(p[1:]))
+    p[0] = score.ResetTempoDirection('_'.join(p[1:]))
 
 
 def p_error(p):
@@ -755,11 +749,11 @@ def parse_words(words):
         LOGGER.warning('Cannot tokenize: "{}"'.format(lwords).encode('utf8'))
         r = None
 
-    if isinstance(r, Direction):
+    if isinstance(r, score.Direction):
         r.raw = lwords
     elif r is None:
         LOGGER.warning('Cannot not convert "{}" into a direction'.format(lwords))
-        r = Words(words)
+        r = score.Words(words)
     return r
 
 
@@ -798,7 +792,7 @@ def main():
             print(('cannot tokenize: "{}"'.format(
                 ltest.lower()).encode('utf8')))
             continue
-        if isinstance(r, Direction):
+        if isinstance(r, score.Direction):
             r.raw = words
         print(('correctly parsed into: "{}"'.format(r).encode('utf8')))
         # return True

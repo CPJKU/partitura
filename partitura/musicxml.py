@@ -9,8 +9,8 @@ import logging
 import numpy as np
 from lxml import etree
 
-from .directions import parse_words
-import .score
+from partitura.directions import parse_words
+import partitura.score as score
 
 LOGGER = logging.getLogger(__name__)
 DYNAMICS_DIRECTIONS = {
@@ -685,7 +685,7 @@ class ScorePartBuilder(object):
                     for dyn in dt:
                         # direction = None # _make_direction(dyn.tag)
                         direction = DYNAMICS_DIRECTIONS.get(
-                            dyn.tag, Words)(dyn.tag)
+                            dyn.tag, score.Words)(dyn.tag)
                         if direction is not None:
                             starting_directions.append(direction)
 
@@ -838,7 +838,7 @@ class ScorePartBuilder(object):
 
         if fermata:
             self.timeline.add_starting_object(
-                self.position + measure_position, Fermata())
+                self.position + measure_position, score.Fermata())
 
         if len(e.xpath('coordinates')) > 0:
             coordinates = _get_coordinates(e)
@@ -902,7 +902,7 @@ class ScorePartBuilder(object):
                     #     del self.ongoing[key]
 
                     if key not in self.ongoing:
-                        o = Slur(voice)
+                        o = score.Slur(voice)
                         self.timeline.add_starting_object(
                             self.position + measure_position, o)
                         self.ongoing[key] = o
@@ -998,23 +998,23 @@ class ScorePartBuilder(object):
         if ts is not None:
             ts_num, ts_den = ts
             self.timeline.add_starting_object(self.position + measure_position,
-                                              TimeSignature(ts_num, ts_den))
+                                              score.TimeSignature(ts_num, ts_den))
             # self.quarters_per_measure = ts_num * 4 / ts_den
 
         ks = _get_key_signature(e)
         if ks is not None:
             self.timeline.add_starting_object(self.position + measure_position,
-                                              KeySignature(ks[0], ks[1]))
+                                              score.KeySignature(ks[0], ks[1]))
 
         tr = _get_transposition(e)
         if tr is not None:
             self.timeline.add_starting_object(self.position + measure_position,
-                                              Transposition(tr[0], tr[1]))
-
+                                              score.Transposition(tr[0], tr[1]))
+            
         divs = _get_divisions(e)
         if divs is not None:
             self.timeline.add_starting_object(self.position + measure_position,
-                                              Divisions(divs))
+                                              score.Divisions(divs))
 
         return divs, ts_num, ts_den
 
@@ -1149,7 +1149,7 @@ def parse_musicxml(fn):
         LOGGER.error('Currently only score-partwise structure is supported')
         return []
     else:
-        top_structure = PartGroup()  # PartGroup class from scoreontology.py
+        top_structure = score.PartGroup()
         score_part_dict = {}
 
         try:

@@ -5,8 +5,8 @@ import sys
 import os
 import numpy as np
 
-import ofaiutils.data_handling.musicxml as mxml
-import ofaiutils.data_handling.scoreontology as ont
+import partitura.musicxml as mxml
+import partitura.score as score
 
 
 def get_notes_from_part(part):
@@ -26,8 +26,8 @@ def get_notes_from_part(part):
     print(('part', part))
     f = open('/tmp/out.txt', 'w')
     for tp in tl.points:
-        notes = tp.starting_objects.get(ont.Note, [])
-        tp_divs = tp.starting_objects.get(ont.Divisions, [])
+        notes = tp.starting_objects.get(score.Note, [])
+        tp_divs = tp.starting_objects.get(score.Divisions, [])
 
         if len(tp_divs) > 0:
             div = float(tp_divs[0].divs)

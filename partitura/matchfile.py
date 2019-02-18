@@ -12,7 +12,7 @@ import re
 import operator
 import numpy as np
 import codecs
-from ..utils.lang_utils import cached_property
+
 
 ####################################################################
 rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')

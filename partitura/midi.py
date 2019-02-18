@@ -12,9 +12,19 @@ from mxm.midifile.MidiOutStream import MidiOutStream
 from mxm.midifile.MidiInFile import MidiInFile
 from mxm.midifile.MidiOutFile import MidiOutFile
 
-from ..utils.container_utils import partition
-
 LOGGER = logging.getLogger(__name__)
+
+
+def partition(func, iterable):
+    """
+    Return a dictionary containing the equivalence classes (actually bags)
+    of iterable, partioned according to func. The value of a key k is the 
+    list of all elements e from iterable such that k = func(e)
+    """
+    result = defaultdict(list)
+    for v in iterable:
+        result[func(v)].append(v) 
+    return result
 
 
 def tic2ms(t, tempo, div):

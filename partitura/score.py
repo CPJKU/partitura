@@ -28,8 +28,7 @@ from numbers import Number
 import numpy as np
 from scipy.interpolate import interp1d
 
-from ..utils.lang_utils import cached_property, ComparableMixin, iter_subclasses
-from ..utils.container_utils import partition
+from partitura.utils import cached_property, ComparableMixin, partition
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
@@ -37,6 +36,7 @@ sys.setrecursionlimit(100000)
 
 LOGGER = logging.getLogger(__name__)
 NON_ALPHA_NUM_PAT = re.compile(r'\W', re.UNICODE)
+
 
 def kahan_cumsum(x):
     """
