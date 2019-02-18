@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-from scipy.interpolate import interp1d
 """
 This module contains an ontology to represent musical scores. A score
 is defined at the highest level by a ScorePart object. This object
@@ -20,52 +19,24 @@ import sys
 import string
 import re
 from copy import copy
-import numpy as np
-from scipy.interpolate import InterpolatedUnivariateSpline
 from collections import defaultdict
 import logging
 import operator
 import itertools
 from numbers import Number
 
+import numpy as np
+from scipy.interpolate import interp1d
+
 from ..utils.lang_utils import cached_property, ComparableMixin, iter_subclasses
 from ..utils.container_utils import partition
-# from annotation_tokenizer import parse_words # tokenizer, TokenizeException
-
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
 sys.setrecursionlimit(100000)
 
-logging.basicConfig()
 LOGGER = logging.getLogger(__name__)
-
 NON_ALPHA_NUM_PAT = re.compile(r'\W', re.UNICODE)
-
-
-# this produces less rounding error than scipy.interpolate.interp1d
-
-# def interp1d_old(x, y):
-#     return InterpolatedUnivariateSpline(x, y, k=1)
-
-# def my_interp1d(x, y):
-#     def f(x_new):
-#         if not hasattr(x_new, "__len__"):
-#             x_new = np.array([x_new])
-#         # output values
-#         v = np.empty(len(x_new))
-#         # insert index
-#         i = np.searchsorted(x, x_new)
-#         same = x[i] == x_new
-#         v[same] = y[i[same]]
-#         if np.sum(same) < len(x_new):
-#             i = i[~same]
-#             v[~same] = y[i-1] + (y[i] - y[i - 1]) * ( x_new[~same] - x[i - 1]) / (x[i] - x[i - 1])
-#             # np.savetxt('/tmp/nsame.txt', np.column_stack((x_new[~same], x[i-1], x[i], y[i-1], y[i], v[~same])), fmt='%.3f')
-#         return v
-
-#     return f
-
 
 def kahan_cumsum(x):
     """
@@ -135,97 +106,6 @@ def symbolic_to_numeric_duration(symbolic_durs, divs):
     for symbolic_dur in symbolic_durs:
         numdur += _symbolic_to_numeric_duration(symbolic_dur, divs)
     return numdur
-
-# def preprocess_direction_name(l):
-#     try:
-#         to_remove = set(('COMMA','CARLOSCOMMENT', 'PARENOPEN', 'PARENCLOSE', 'TEMPOHINT'))
-#         tokens = tokenizer.tokenize(l)
-#         parts = []
-#         for t in tokens:
-#             if t.type in ('ROMAN_NUMBER', 'TEMPOHINT', 'PRIMO'):
-#                 parts.append(t.value)
-#             elif t.type in to_remove:
-#                 continue
-#             else:
-#                 parts.append(t.type.lower())
-#         return '_'.join(parts)
-#     except TokenizeException as e:
-#         return l.lower().replace(' ', '_')
-
-# def preprocess_direction_fallback(l):
-#     """
-#     try to convert direction name into a normalized form; some
-#     translation takes place to correct for common abbreviations
-#     (e.g. rall. for rallentando), and OCR errors; furthermore the
-#     string will be converted to lowercase and spaces are replaced by
-#     underscores
-
-#     this function is obsolete and should only be used if the ply module is not available
-
-#     Parameters
-#     ----------
-#     l : str
-#         a direction name
-
-#     Returns
-#     -------
-#     str
-#         a string containing the processed version of `l`
-#     """
-
-#     # TODO:
-#     # Lento Sostenuto -> lento
-#     # poco rall. -> rallentando
-#     # poco ritenuto -> ritenuto
-#     # pp e poco ritenuto -> ritenuto
-
-#     # for simplicity of equiv replacements,
-#     # do more normalization:
-#     # lkey = ln.replace(',._-','')
-#     lsl = l.strip().lower()
-#     lkey = NON_ALPHA_NUM_PAT.sub(ur'', lsl)
-#     # print(r, l)
-#     # tr = string.ascii_lowercase + '_'
-#     # delete_table = string.maketrans(tr, ' ' * len(tr))
-#     # ln = l.strip().lower()
-#     # lkey = ln.translate(None, delete_table)
-#     equivalences = {u'dim': u'diminuendo',
-#                     u'dimin': u'diminuendo',
-#                     u'diminuend': u'diminuendo',
-#                     u'diminuendosempre': u'diminuendo',
-#                     u'dirn': u'diminuendo',  # OCR errors
-#                     u'cresc': u'crescendo',
-#                     u'cre': u'crescendo',
-#                     u'ten': u'tenuto',
-#                     u'cr': u'crescendo',
-#                     u'rall': u'rallentando',
-#                     u'espress': u'espressivo',
-#                     u'pocoritenuto': u'ritenuto',
-#                     u'pocoriten': u'ritenuto',
-#                     u'pocorubato': u'ritardando',
-#                     u'pocorall': u'rallentando',
-#                     u'pocorallentando': u'rallentando',
-#                     u'pizz': u'pizzicato',
-#                     u'atenepo': u'a_tempo',
-#                     u'rallentandomolto': u'rallentando',
-#                     u'appasionato': u'appassionato',
-#                     u'legatissizno': u'legatissimo',
-#                     u'rallent': u'rallentando',
-#                     u'rallent': u'rallentando',
-#                     u'rit': u'ritardando',
-#                     u'ritpocoapoco': u'ritardando',
-#                     u'ritard': u'ritardando',
-#                     u'riten': u'ritenuto',
-#                     u'rinf': u'rinforzando',
-#                     u'rinforz': u'rinforzando',
-#                     u'smorz': u'smorzando',
-#                     u'tenute': u'tenuto',
-#                     u'pi\xf9_lento': u'piu_lento'
-#                     }
-
-#     # print('lkey', lkey, equivalences.get(lkey))
-#     return equivalences.get(lkey, NON_ALPHA_NUM_PAT.sub(ur'_', lsl))
-
 
 class TimeLine(object):
 

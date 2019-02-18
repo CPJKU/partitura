@@ -3,69 +3,40 @@
 
 import sys
 import os
-import numpy as np
-from lxml import etree
 from collections import defaultdict
 import logging
 
+import numpy as np
+from lxml import etree
+
+from .directions import parse_words
+import .score
+
 LOGGER = logging.getLogger(__name__)
-
-from ..utils.lang_utils import iter_subclasses
-from .scoreontology import (ScorePart, TimePoint, TimeLine, Measure,
-                            PartGroup, Transposition, Repeat, Ending,
-                            TimeSignature, KeySignature, Divisions,
-                            Note, Words, Direction, Slur, Fine, DaCapo,
-                            DynamicLoudnessDirection, Fermata, Page,
-                            DynamicTempoDirection, ConstantTempoDirection,
-                            System, ConstantLoudnessDirection,  # AnyDirection,
-                            ImpulsiveLoudnessDirection, Tempo,
-                            # preprocess_direction_name,
-                            )
-from .annotation_parser import parse_words  # tokenizer, TokenizeException
-
 DYNAMICS_DIRECTIONS = {
-    'f': ConstantLoudnessDirection,
-    'ff': ConstantLoudnessDirection,
-    'fff': ConstantLoudnessDirection,
-    'ffff': ConstantLoudnessDirection,
-    'fffff': ConstantLoudnessDirection,
-    'ffffff': ConstantLoudnessDirection,
-    'mf': ConstantLoudnessDirection,
-    'mp': ConstantLoudnessDirection,
-    'pp': ConstantLoudnessDirection,
-    'ppp': ConstantLoudnessDirection,
-    'pppp': ConstantLoudnessDirection,
-    'ppppp': ConstantLoudnessDirection,
-    'pppppp': ConstantLoudnessDirection,
-    'fp': ImpulsiveLoudnessDirection,
-    'rf': ImpulsiveLoudnessDirection,
-    'rfz': ImpulsiveLoudnessDirection,
-    'fz': ImpulsiveLoudnessDirection,
-    'sf': ImpulsiveLoudnessDirection,
-    'sffz': ImpulsiveLoudnessDirection,
-    'sfp': ImpulsiveLoudnessDirection,
-    'sfpp': ImpulsiveLoudnessDirection,
-    'sfz': ImpulsiveLoudnessDirection,
+    'f': score.ConstantLoudnessDirection,
+    'ff': score.ConstantLoudnessDirection,
+    'fff': score.ConstantLoudnessDirection,
+    'ffff': score.ConstantLoudnessDirection,
+    'fffff': score.ConstantLoudnessDirection,
+    'ffffff': score.ConstantLoudnessDirection,
+    'mf': score.ConstantLoudnessDirection,
+    'mp': score.ConstantLoudnessDirection,
+    'pp': score.ConstantLoudnessDirection,
+    'ppp': score.ConstantLoudnessDirection,
+    'pppp': score.ConstantLoudnessDirection,
+    'ppppp': score.ConstantLoudnessDirection,
+    'pppppp': score.ConstantLoudnessDirection,
+    'fp': score.ImpulsiveLoudnessDirection,
+    'rf': score.ImpulsiveLoudnessDirection,
+    'rfz': score.ImpulsiveLoudnessDirection,
+    'fz': score.ImpulsiveLoudnessDirection,
+    'sf': score.ImpulsiveLoudnessDirection,
+    'sffz': score.ImpulsiveLoudnessDirection,
+    'sfp': score.ImpulsiveLoudnessDirection,
+    'sfpp': score.ImpulsiveLoudnessDirection,
+    'sfz': score.ImpulsiveLoudnessDirection,
 }
-
-
-def write2LogFile(logEntry):
-    """
-    This function is used to create and write to a logfile
-    for documenting problems in the parsing process.
-    If a logfile exists, `logEntry` will be appended to the log file
-    as new entry; if no logfile exists, a new one will be created.
-
-    Parameters
-    ----------
-    logEntry : str
-        this is the string to be written to the log file.
-
-    """
-
-    with open("mxml_log_file.txt", "a") as myfile:
-        myfile.write(logEntry)
-
 
 # the _get_*_key functions are helper functions for musical elements
 # spanning a time interval. The start of those elements gets added to
@@ -340,56 +311,6 @@ def _get_transposition(e):
         return (diat, chrom)
 
 
-# def _make_direction(label):
-#     """
-#     Parameters
-#     ----------
-#     label : str
-#         A performance direction label such as "crescendo", "ritardando", "allegro"
-#     Returns
-#     -------
-#     Direction object or None
-#     """
-
-#     try:
-#         # todo, make this handle unicode
-#         nlabel = preprocess_direction_name(label)
-#     except Exception as e:
-#         print('exception', e)
-#         print(label, type(label))
-#         nlabel = label
-
-#     for directionType in iter_subclasses(Direction):
-#         if directionType.matches(unicode(nlabel)):
-#             return directionType(unicode(nlabel))
-
-#     print('unknown direction', label, nlabel)
-
-#     LOGGER.warn(u'Ignoring unkown direction "{0}"'.format(label))
-#     return None
-
-# def _make_any_directions(label):
-#     """
-#     Parameters
-#     ----------
-#     label : str
-#         A performance direction label such as "crescendo", "ritardando", "allegro"
-#     Returns
-#     -------
-#     Direction object or None
-#     """
-
-#     try:
-#         # todo, make this handle unicode
-#         nlabel = preprocess_direction_name(label)
-#     except Exception as e:
-#         print('exception', e)
-#         print(label, type(label))
-#         nlabel = label
-
-#     ## TEST AnyDirection
-#     return [AnyDirection(word) for word in nlabel.split('_')]
-
 def _make_direction_new(label):
     """
     Parameters
@@ -401,14 +322,14 @@ def _make_direction_new(label):
     Direction object or None
     """
     r = parse_direction(label)
-    if isinstance(Direction):
+    if isinstance(score.Direction):
         return r
     else:
-        return Words(label)
-
+        return score.Words(label)
+    
 
 def make_measure(xml_measure):
-    measure = Measure()
+    measure = score.Measure()
     try:
         measure.number = int(xml_measure.attrib['number'])
     except:
@@ -502,8 +423,8 @@ class ScorePartBuilder(object):
                 LOGGER.warning(
                     'ongoing object "{}" until end of piece'.format(o))
                 end_pos = tp
-                if isinstance(o, DynamicTempoDirection):
-                    ct = o.start.get_next_of_type(ConstantTempoDirection)
+                if isinstance(o, score.DynamicTempoDirection):
+                    ct = o.start.get_next_of_type(score.ConstantTempoDirection)
                     if any(c.text == 'a_tempo' for c in ct):
                         end_pos = ct[0].start
                 end_pos.add_ending_object(o)
@@ -600,19 +521,13 @@ class ScorePartBuilder(object):
         self.position += measure_duration
 
         div = np.array([(self.current_measure.start.t, division.divs) for division
-                        in self.current_measure.start.get_next_of_type(Divisions, eq=True)])
-        # print(div)
+                        in self.current_measure.start.get_next_of_type(score.Divisions, eq=True)])
+
         if div.shape[0] > 0:
             self.divisions = np.vstack((self.divisions, div))
 
-        # print([self.current_measure.start.t, self.position])
-        # print(self.divisions)
-
-        start = np.searchsorted(
-            self.divisions[:, 0], self.current_measure.start.t, side='right')
+        start = np.searchsorted(self.divisions[:, 0], self.current_measure.start.t, side='right')
         end = np.searchsorted(self.divisions[:, 0], self.position, side='left')
-        # print('pos')
-        # print(self.position)
 
         if self.divisions[start - 1, 0] < self.current_measure.start.t:
             self.measure_divs = np.vstack(((self.current_measure.start.t, self.divisions[start - 1, 1]),
@@ -670,7 +585,7 @@ class ScorePartBuilder(object):
 
     def _do_repeat(self, repeat, measure_position):
         if repeat.attrib['direction'] == 'forward':
-            o = Repeat()
+            o = score.Repeat()
             self.ongoing[_get_repeat_key(repeat)] = o
             self.timeline.add_starting_object(
                 self.position + measure_position, o)
@@ -684,14 +599,14 @@ class ScorePartBuilder(object):
                 # implicit repeat start: create Repeat
                 # object and add it at the beginning of
                 # the self.timeline retroactively
-                o = Repeat()
+                o = score.Repeat()
                 self.timeline.add_starting_object(0, o)
             self.timeline.add_ending_object(
                 self.position + measure_position, o)
 
     def _do_ending(self, ending, measure_position):
         if ending.attrib['type'] == 'start':
-            o = Ending(ending.attrib['number'])
+            o = score.Ending(ending.attrib['number'])
             self.ongoing[_get_ending_key(ending)] = o
             self.timeline.add_starting_object(
                 self.position + measure_position, o)
@@ -796,7 +711,7 @@ class ScorePartBuilder(object):
             elif direction_type == 'wedge':
                 key = _get_wedge_key(dts[0])
                 if dts[0].attrib['type'] in ('crescendo', 'diminuendo'):
-                    o = DynamicLoudnessDirection(dts[0].attrib['type'])
+                    o = score.DynamicLoudnessDirection(dts[0].attrib['type'])
                     starting_directions.append(o)
                     self.ongoing[key] = o
                 elif dts[0].attrib['type'] == 'stop':
@@ -1051,22 +966,19 @@ class ScorePartBuilder(object):
                     # this is the start note/rest
                     # save the note under the tie_key
                     # until we encounter the stop note/rest
-                    o = Note(step, alter, octave, voice=_get_voice(e), id=note_id,
-                             grace_type=grace_type, staccato=staccato, fermata=fermata,
-                             steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
-                             accent=accent, coordinates=coordinates, staff=staff)
-                    self.timeline.add_starting_object(
-                        self.position + measure_position, o)
+                    o = score.Note(step, alter, octave, voice=_get_voice(e), id=note_id,
+                                   grace_type=grace_type, staccato=staccato, fermata=fermata,
+                                   steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
+                                   accent=accent, coordinates=coordinates, staff=staff)
+                    self.timeline.add_starting_object(self.position + measure_position, o)
                     self.ongoing[tie_key] = o
             else:
-                o = Note(step, alter, octave, voice=_get_voice(e), id=note_id,
-                         grace_type=grace_type, staccato=staccato, fermata=fermata,
-                         steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
-                         accent=accent, coordinates=coordinates, staff=staff)
-                self.timeline.add_starting_object(
-                    self.position + measure_position, o)
-                self.timeline.add_ending_object(
-                    self.position + measure_position + duration, o)
+                o = score.Note(step, alter, octave, voice=_get_voice(e), id=note_id,
+                               grace_type=grace_type, staccato=staccato, fermata=fermata,
+                               steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
+                               accent=accent, coordinates=coordinates, staff=staff)
+                self.timeline.add_starting_object(self.position + measure_position, o)
+                self.timeline.add_ending_object(self.position + measure_position + duration, o)
         else:
             # REST (NOTE) ELEMENT #####################################
             pass
@@ -1117,7 +1029,7 @@ class ScorePartBuilder(object):
                                             self.ongoing['page'])
 
         # start new page
-        page = Page(self.page_nr)
+        page = score.Page(self.page_nr)
         self.ongoing['page'] = page
         self.timeline.add_starting_object(self.position + measure_position,
                                           self.ongoing['page'])
@@ -1135,7 +1047,7 @@ class ScorePartBuilder(object):
                                             self.ongoing['system'])
 
         # start new system
-        system = System(self.system_nr)
+        system = score.System(self.system_nr)
         self.ongoing['system'] = system
         self.timeline.add_starting_object(self.position + measure_position,
                                           self.ongoing['system'])
@@ -1165,7 +1077,7 @@ def parse_parts(document, score_part_dict):
         a dictionary as returned by the parse_partlist() function.
     """
     # initialize a ScorePartBuilder instance for each scorepart
-    part_builders = [ScorePartBuilder(score_part_dict.get(part_id, ScorePart(part_id)),
+    part_builders = [ScorePartBuilder(score_part_dict.get(part_id, score.ScorePart(part_id)),
                                       document.xpath('/score-partwise/part[@id="{0}"]'.format(part_id))[0])
                      for part_id in document.xpath('/score-partwise/part/@id')]
     assert len(part_builders) > 0
@@ -1360,8 +1272,7 @@ def parse_partlist(partlist):
                 if len(grouping) > 0:
                     gr_type = grouping[0].text
 
-                # set up a PartGroup object
-                new_group = PartGroup(gr_type, gr_name)
+                new_group = score.PartGroup(gr_type, gr_name)
 
                 if 'number' in e.attrib:
                     new_group.number = int(e.attrib['number'])
@@ -1382,7 +1293,7 @@ def parse_partlist(partlist):
 
         elif e.tag == 'score-part':
             part_id = e.attrib['id']  # like "P1"
-            sp = ScorePart(part_id, TimeLine())
+            sp = score.ScorePart(part_id, score.TimeLine())
 
             try:
                 sp.part_name = e.xpath('part-name/text()')[0]
