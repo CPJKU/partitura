@@ -288,9 +288,11 @@ class _GetchUnix:
         if self.enc:
             import codecs
             import locale
-            # Wrap stdin with an encoding-aware reader.
-            _, encoding = locale.getdefaultlocale()
-            encoding = encoding or 'utf8'
+            try:
+                # Wrap stdin with an encoding-aware reader.
+                _, encoding = locale.getdefaultlocale()
+            except ValueError:
+                encoding = 'UTF-8'
             self.stdin = codecs.getreader(encoding)(sys.stdin)
         else:
             self.stdin = sys.stdin
