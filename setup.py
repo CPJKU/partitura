@@ -9,11 +9,11 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'ofaiutils'
+NAME = 'partitura'
 DESCRIPTION = 'A package to handle musicXML, match, worm and MIDI files'
 URL = 'https://github.com/me/myproject'
 EMAIL = 'carlos.cancino@ofai.at'
-AUTHOR = 'Maarten Grachten, Thassilo Gadermaier and Carlos Cancino-Chacon'
+AUTHOR = 'Maarten Grachten, Thassilo Gadermaier and Carlos Cancino-Chacón'
 REQUIRES_PYTHON = '>=3.6.0'
 VERSION = '0.0.1'
 

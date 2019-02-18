@@ -13,11 +13,12 @@ import operator
 import numpy as np
 import codecs
 
-
-####################################################################
-rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')
+from partitura.utils import cached_property
 
 LATEST_VERSION = 4.0
+
+RATIONAL_PATTERN = re.compile('^([0-9]+)/([0-9]+)$')
+
 
 
 def interpret_field(data):
@@ -61,10 +62,10 @@ def interpret_field_rational(data, allow_additions=False):
     """Convert data to int, if not possible, to float, if not possible
     try to interpret as rational number and return it as float, if not
     possible, return data itself."""
-    global rational_pattern
+    global RATIONAL_PATTERN
     v = interpret_field(data)
     if type(v) == str:
-        m = rational_pattern.match(v)
+        m = RATIONAL_PATTERN.match(v)
         if m:
             groups = m.groups()
             return float(groups[0])/float(groups[1])
@@ -578,7 +579,7 @@ class MatchFile(object):
         if len(ml) == 0:
             ts = self.info('timeSignature')
             ml = [self.parse_matchline(
-                'meta(timeSignature,{0},1,{1}).'.format(ts, self.first_onset()))]
+                'meta(timeSignature,{0},1,{1}).'.format(ts, self.first_onset))]
         return ml
 
     def snote_idx(self):

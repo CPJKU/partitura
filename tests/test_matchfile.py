@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 import re
 
-from ofaiutils.data_handling import matchfile
+import partitura.match as match
 
 key_patt = re.compile('\[([a-g])(.*),(.*)\]')
 
@@ -33,10 +33,10 @@ def get_note_info(snote, note, div=480.0, rate=50000.0):
 
     Parameters
     ----------
-    snote : `matchfile.Snote`
+    snote : `match.Snote`
         Instance of `Snote` from the MatchFile` containing
         the score note information
-    note : `matchfile.Note`
+    note : `match.Note`
         Performed note information
     div = float
         Time division
@@ -68,7 +68,7 @@ def get_note_info(snote, note, div=480.0, rate=50000.0):
     offset_b = snote.OffsetInBeats
     octave = snote.Octave
 
-    pitch = matchfile.pitch_name_2_midi_PC(modifier, step, octave)[0]
+    pitch = match.pitch_name_2_midi_PC(modifier, step, octave)[0]
 
     # The soprano check (for database differrences):
     soprano = 0
@@ -98,7 +98,7 @@ def get_score_from_match(fn, version='auto'):
     fn : string
         Path to Match File.
     """
-    mf = matchfile.MatchFile(fn, version)
+    mf = match.MatchFile(fn, version)
 
     div = float(mf.info('midiClockUnits'))
     rate = float(mf.info('midiClockRate'))
@@ -148,7 +148,7 @@ def main():
     parser.add_argument("file", help="Match file")
     args = parser.parse_args()
 
-    m = matchfile.MatchFile(args.file)
+    m = match.MatchFile(args.file)
 
     summarize_match_file(m)
     # get_notes_from_match(m)
