@@ -443,8 +443,8 @@ class ScorePartBuilder(object):
         actual_end_q = np.sum(
             np.diff(self.measure_divs[:, 0]) / self.measure_divs[:-1, 1])
         missing_q = t_quarter - actual_end_q
-        t = int(self.measure_divs[-1, 0]
-                + missing_q * self.measure_divs[-1, 1])
+        t = int(self.measure_divs[-1, 0] +
+                missing_q * self.measure_divs[-1, 1])
         tp = self.timeline.get_or_add_point(t)
         tp.add_ending_object(self.current_measure)
         if t > self.position:
@@ -1099,9 +1099,9 @@ def parse_parts(document, score_part_dict):
             _, position_dict[i] = part_builder.add_measure(measures[i][j])
         if len(position_dict) == 0:
             break
-        assert len(position_dict) == len(part_builders), ('Some score-parts' +
-                                            ' have less bars than others,' +
-                                                          ' don\'t know how to handle this')
+        assert len(position_dict) == len(part_builders), ('Some score-parts'
+                                            + ' have less bars than others,'
+                                                          + ' don\'t know how to handle this')
 
         # After processing a measure, the position of all
         # score-builders should be identical, but measures are
@@ -1184,7 +1184,8 @@ def parse_musicxml(fn):
 SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
 
 
-def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True):
+def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
+                     expand_grace_notes=True):
     """
     Get a note array from a MusicXML file
 
@@ -1195,6 +1196,7 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True):
     flatten_parts : bool
         If `True`, returns a single array containing all notes.
         Otherwise, returns a list of arrays for each part.
+    expand_grace_notes : bool or 'delete'
 
     Returns
     -------
@@ -1202,6 +1204,17 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True):
         Structured array containing the score. The fields are
         'pitch', 'onset' and 'duration'.
     """
+
+    if not isinstance(expand_grace_notes, (bool, str)):
+        raise ValueError('`expand_grace_notes` must be a boolean or '
+                         '"delete"')
+    if isinstance(expand_grace_notes, str):
+
+        if expand_grace_notes in ('omit', 'delete', 'd'):
+            expand_grace_notes = True
+        else:
+            raise ValueError('`expand_grace_notes` must be a boolean or '
+                             '"delete"')
 
     # Parse MusicXML
     xml_parts = parse_music_xml(fn).score_parts
@@ -1211,6 +1224,9 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True):
         # Unfold timeline to have repetitions
         xml_part.timeline = xml_part.unfold_timeline()
 
+        if expand_grace_notes:
+            LOGGER.debug('Expanding grace notes...')
+            xml_part.expand_grace_notes()
         # get beat map
         bm = xml_part.beat_map
         # Build score from beat map

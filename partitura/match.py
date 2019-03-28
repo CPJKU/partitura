@@ -93,8 +93,8 @@ def interpret_field_rational(data, allow_additions=False):
 def pitch_name_2_midi_PC(modifier, name, octave):
     if name == 'r':
         return (0, 0)
-    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()] +
-                  {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
+    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()]
+                  + {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
     mid = (octave + 1) * 12 + base_class
     # for mozartmatch files (in which the octave numbers are off by one)
     # mid = octave*12 + base_class
@@ -570,9 +570,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MetaLine) and
-                hasattr(i, 'Attribute') and
-                i.Attribute == 'timeSignature']
+                isinstance(i, MetaLine)
+                and hasattr(i, 'Attribute')
+                and i.Attribute == 'timeSignature']
 
     def time_sig_lines(self):
         ml = self._time_sig_lines()
@@ -618,6 +618,12 @@ class MatchFile(object):
                     's' in l.snote.ScoreAttributesList and
                     not 'grace' in l.snote.ScoreAttributesList
                     and l.snote.Duration > 0.0]
+        else:
+            return [l for l in self.lines
+                    if hasattr(l, 'snote') and
+                    's' in l.snote.ScoreAttributesList and
+                    not 'grace' in l.snote.ScoreAttributesList and
+                    l.snote.Duration > 0.0]
 
     def highest_voice_without_indexfile(self, exclude_grace=True, return_indices=False):
         """
@@ -647,9 +653,9 @@ class MatchFile(object):
         features = []
         for i, idx in enumerate(self.snoteIdx):
             n = self.lines[idx].snote
-            if not (in_lower_staff(n)
-                    or (exclude_grace and is_grace(n))
-                    or n.Duration == 0.0):
+            if not (in_lower_staff(n) or
+                    (exclude_grace and is_grace(n)) or
+                    n.Duration == 0.0):
                 features.append(
                     (n.OnsetInBeats, n.OffsetInBeats, n.MidiPitch[0], i))
 
@@ -705,8 +711,8 @@ class MatchFile(object):
             if noteMatch:
                 return SnoteNoteLine(snoteMatch, noteMatch, version=self.version)
             else:
-                if (re.compile('-deletion\.$').search(l, pos=snoteMatch.end()) or
-                        re.compile('-no_played_note\.$').search(l, pos=snoteMatch.end())):
+                if (re.compile('-deletion\.$').search(l, pos=snoteMatch.end())
+                        or re.compile('-no_played_note\.$').search(l, pos=snoteMatch.end())):
                     return SnoteDeletionLine(snoteMatch)
                 else:
                     if re.compile('-trailing_score_note\.$').search(l, pos=snoteMatch.end()):
@@ -747,6 +753,215 @@ class MatchFile(object):
                             else:
                                 # return UnknownMatchLine(l)
                                 return False
+
+
+def match_to_notearray(fn_or_matchfile, sort_onsets=True,
+                       expand_grace_notes=False,
+                       score_attributes=[],
+                       set_sustain=True,
+                       pedal_threshold=63):
+    """
+    Extract the score and performance information from a MatchFile
+    and makes a structured array
+
+    Parameters
+    ----------
+    fn : string
+        Path to Match File.
+    sort_onsets : bool (optional)
+        Sort array by onsets. This is the default option. Otherwise,
+        the order of the notes will be the order in the matchfile
+    expand_grace_notes: bool
+        Expand the value of the grace notes.
+
+
+    Returns
+    -------
+     score : structured array
+        Structured array containing the score. The fields are
+        'notes' (note name), 'octave', 'pitch', 'onset', 'duration',
+        'velocity', 'p_onset', 'p_duration' plus any score attribute
+        specified in `score_attributes`.
+    """
+    if isinstance(expand_grace_notes, str):
+
+        if expand_grace_notes in ('omit', 'delete', 'd'):
+            expand_grace_notes = True
+        else:
+            raise ValueError('`expand_grace_notes` must be a boolean or '
+                             '"delete"')
+
+    if isinstance(fn_or_matchfile, MatchFile):
+        mf = fn_or_matchfile
+    elif isinstance(fn_or_matchfile, str):
+        # Parse matchfile
+        mf = MatchFile(fn_or_matchfile)
+
+    if set_sustain:
+        adjust_offsets_w_sustain(mf, pedal_threshold)
+
+    div = float(mf.info('midiClockUnits'))
+    rate = float(mf.info('midiClockRate'))
+
+    note_info = []
+    for snote, note in mf.note_pairs:
+        ni = get_note_info(snote=snote,
+                           note=note, div=div,
+                           rate=rate,
+                           score_attributes=score_attributes,
+                           use_adj_offset=set_sustain,
+                           expand_grace_notes=expand_grace_notes)
+        note_info.append(ni)
+
+    # output dtypes
+    dtypes = [('notes', 'S8'),
+              ('octave', 'i4'),
+              ('pitch', 'i4'),
+              ('onset', 'f4'),
+              ('duration', 'f4'),
+              ('velocity', 'f4'),
+              ('p_onset', 'f4'),
+              ('p_duration', 'f4')]
+
+    for attr in score_attributes:
+        dtypes.append((attr, 'i4'))
+    note_info = np.array(note_info, dtype=dtypes)
+    if sort_onsets:
+        sort_idx_pitch = np.argsort(note_info['pitch'])
+        note_info = note_info[sort_idx_pitch]
+        # use a stable sorting to sort by onset and then by pitch
+        sort_idx_onset = np.argsort(note_info['onset'], kind='mergesort')
+        note_info = note_info[sort_idx_onset]
+
+    return note_info
+
+
+def get_note_info(snote, note, div=480.0, rate=50000.0, score_attributes=[],
+                  use_adj_offset=True, expand_grace_notes=True):
+    """
+    Get note information from a `Snote` instance
+
+    Parameters
+    ----------
+    snote : `matchfile.Snote`
+        Instance of `Snote` from the MatchFile` containing
+        the score note information
+    note : `matchfile.Note`
+        Performed note information
+    div = float
+        Time division
+    score_attributes : list
+        A list of strings with the name of score attributes
+
+    Returns
+    -------
+    note_name : str
+        Name of the note
+    octave : int
+        Octave of the note
+    pitch : int
+        MIDI pitch
+    onset_b : float
+        Onset in beats
+    duration_b : float
+        Duration in beats
+    velocity : int
+        Performed MIDI velocity
+    onset_s : float
+        Performed onset in seconds
+    duration_s : float
+        Performed duration in seconds
+    score_attributes : bool
+        If `score_attributes` is not an empty list, it appends as
+        many booleans indicating whether the note has a score attribute.
+    """
+    # Name of the note (wo accidental)
+    step = str(snote.NoteName).upper()
+    # accidental
+    modifier = str(snote.Modifier)
+    onset_b = snote.OnsetInBeats
+    offset_b = snote.OffsetInBeats
+    octave = snote.Octave
+    pitch = snote.MidiPitch[0]
+    duration_b = offset_b - onset_b
+
+    # Check for score attributes
+    out_attributes = []
+
+    for attribute in score_attributes:
+        att = 0
+        if attribute in snote.ScoreAttributesList:
+            att = 1
+
+        out_attributes.append(att)
+
+    is_grace = duration_b == 0 or 'grace' in snote.ScoreAttributesList
+
+    if is_grace and expand_grace_notes:
+        if duration_b == 0:
+            # This is a hack. This just adds a small value to the
+            # duration of the note and shifts the onset an eight
+            # of a beat.
+            onset_b -= 0.125
+            duration_b = 0.125
+
+    # TODO:
+    # * Check if this case is correct for bb and x
+    if modifier != 'n':
+        step += modifier
+
+    velocity = note.Velocity
+    onset_s = float(note.Onset) * rate / (div * 1e6)
+
+    if use_adj_offset:
+        # Get adjusted offset if available, else use use the unadjusted
+        offset_in_ticks = float(getattr(note, 'AdjOffset', note.Offset))
+    else:
+        offset_in_ticks = float(note.Offset)
+    offset_s = offset_in_ticks * rate / (div * 1e6)
+
+    duration_s = offset_s - onset_s
+
+    return (step, octave, pitch, onset_b, duration_b, velocity,
+            onset_s, duration_s) + tuple(out_attributes)
+
+
+def adjust_offsets_w_sustain(mf, threshold=63):
+    """
+    Add sustain pedal information if available to the adjusted offset
+    """
+    # get all performed notes
+    notes = [l.note for l in mf.lines if hasattr(l, 'note')]
+
+    # get all note offsets
+    offs = np.array([n.Offset for n in notes])
+    first_off = np.min(offs)
+    last_off = np.max(offs)
+
+    sustain_lines = mf.sustain_lines
+
+    if len(sustain_lines) > 0:
+        # Get pedal times
+        pedal = np.array([(x.Time, x.Value > threshold) for x in sustain_lines])
+        # sort, just in case
+        pedal = pedal[np.argsort(pedal[:, 0]), :]
+
+        # reduce the pedal info to just the times where there is a change in pedal state
+        pedal = np.vstack(((min(pedal[0, 0] - 1, first_off - 1), 0),  # if there is an onset before the first pedal info, assume pedal is off
+                           pedal[0, :],
+                           pedal[np.where(np.diff(pedal[:, 1]) != 0)[0] + 1, :],
+                           (max(pedal[-1, 0] + 1, last_off + 1), 0)  # if there is an offset after the last pedal info, assume pedal is off
+                           ))
+        last_pedal_change_before_off = np.searchsorted(pedal[:, 0], offs) - 1
+
+        pedal_state_at_off = pedal[last_pedal_change_before_off, 1]
+        pedal_down_at_off = pedal_state_at_off == 1
+        next_pedal_time = pedal[last_pedal_change_before_off + 1, 0]
+
+        offs[pedal_down_at_off] = next_pedal_time[pedal_down_at_off]
+
+        for offset, note in zip(offs, notes):
+            note.AdjOffset = offset
 
 
 if __name__ == '__main__':
