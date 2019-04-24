@@ -1208,10 +1208,12 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     if not isinstance(expand_grace_notes, (bool, str)):
         raise ValueError('`expand_grace_notes` must be a boolean or '
                          '"delete"')
+    delete_grace_notes = False
     if isinstance(expand_grace_notes, str):
 
         if expand_grace_notes in ('omit', 'delete', 'd'):
-            expand_grace_notes = True
+            expand_grace_notes = False
+            delete_grace_notes = True
         else:
             raise ValueError('`expand_grace_notes` must be a boolean or '
                              '"delete"')
@@ -1238,6 +1240,10 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         # Sort notes according to onset
         if sort_onsets:
             _score = _score[_score['onset'].argsort()]
+
+        if delete_grace_notes:
+            LOGGER.debug('Deleting grace notes...')
+            _score = _score[_score['duration'] != 0]
         score.append(_score)
 
     # Return a structured array if the score has only one part

@@ -1,5 +1,6 @@
 numpy
-lxml
 scipy
+lxml
 ply
 roman
+mido
