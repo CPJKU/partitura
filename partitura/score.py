@@ -245,6 +245,13 @@ class TimeLine(object):
 
         return r
 
+    @property
+    def last_point(self): 
+        return self.points[-1] if len(self.points) > 0 else None
+
+    @property
+    def first_point(self): 
+        return self.points[0] if len(self.points) > 0 else None
 
 class TimePoint(ComparableMixin):
 
@@ -574,14 +581,14 @@ class Measure(TimedObject):
 
     system :
 
-    upbeat : boolean
+    incomplete : boolean
     """
 
-    def __init__(self):
+    def __init__(self, number=None, page=None, system=None):
         super(Measure, self).__init__()
-        self.number = None
-        self.page = None
-        self.system = None
+        self.number = number
+        self.page = page
+        self.system = system
 
     def __unicode__(self):
         return u'measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
@@ -619,20 +626,18 @@ class Measure(TimedObject):
             return beat_type * measure_dur / (4. * div)
 
     @property
-    def upbeat(self):
-        """Returns True if the duration of the measure
-        is equal to the expected duration (based on
-        divisions and time signature).
-
-        NOTE: What does "expected duration" refer to here?
+    def incomplete(self):
+        """
+        Returns True if the duration of the measure is less than the expected
+        duration (as computed based on the current divisions and time
+        signature), and False otherwise
 
         WARNING: this property does not work reliably to detect
         incomplete measures in the middle of the piece
 
         Returns
         -------
-        boolean
-
+        bool
         """
 
         assert self.start.next is not None, LOGGER.error(
@@ -654,7 +659,7 @@ class Measure(TimedObject):
 
         if invalid:
             LOGGER.warning(
-                'upbeat could not be determined properly, assuming no upbeat')
+                'could not be determine if meaure is incomplete, assuming complete')
             return False
 
         measure_dur = nextm[0].start.t - self.start.t
@@ -663,9 +668,14 @@ class Measure(TimedObject):
         div = float(divs[0].divs)
 
         # this will return a boolean, so either True or False
-        return beat_type * measure_dur / (4 * div * beats) % 1.0 > 0.0
+        # return beat_type * measure_dur / (4 * div * beats) % 1 > 0
+        return beat_type*measure_dur < 4*div*beats
 
-
+    # upbeat is deprecated in favor of incomplete
+    @property
+    def upbeat(self):
+        return self.incomplete
+    
 class TimeSignature(TimedObject):
 
     """
@@ -722,27 +732,51 @@ class Tempo(TimedObject):
 
 
 class KeySignature(TimedObject):
-
     """
+
     Parameters
     ----------
-    fifths :
+    fifths : number
+        Number of sharps (positive) or flats (negative)
 
-    mode :
+    mode : str
+        Mode of the key, either 'major' or 'minor'
+
     """
 
+    names = ['C','G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F']
+    
     def __init__(self, fifths, mode):
         super(KeySignature, self).__init__()
         self.fifths = fifths
         self.mode = mode
+        
+    @property
+    def name(self):
+        """
+        A human-readable representation of the key, such as "C#" for C sharp major,
+        or "Ebm" for E flat minor. Compatible with the key signature names used
+        by mido.
 
-    def __unicode__(self):
-        return u'key signature: fifths={0}, mode={1}'.format(self.fifths, self.mode)
-
+        Returns
+        -------
+        str
+            Human-readable representation of the key
+        """
+        
+        if self.mode == 'major':
+            o = 0
+            m = ''
+        else:
+            o = 3
+            m = 'm'
+        return self.names[(len(self.names) + self.fifths + o) % len(self.names)] + m
+    
     def __str__(self):
-        return str(self.__unicode__())
+        return f'key signature: fifths={self.fifths}, mode={self.mode} ({self.name})'
 
 
+    
 class Transposition(TimedObject):
 
     """
@@ -998,7 +1032,7 @@ class Note(TimedObject):
         -------
         str
         """
-        return {None: ' ', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}[self.alter]
+        return {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}[self.alter]
 
     @property
     def duration(self):
@@ -1029,7 +1063,7 @@ class Note(TimedObject):
 
     def __unicode__(self):
         return u'{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5}, voice: {4}, id: {6}, {7})'\
-            .format(self.alter_sign, self.step, self.octave,
+            .format(self.step, self.alter_sign, self.octave,
                     self.midi_pitch, self.voice, self.duration,
                     self.id or '', self.grace_type if self.grace_type else '',
                     self.start and self.start.t, self.end and self.end.t)
@@ -1626,14 +1660,16 @@ class ScorePart(object):
         Parameters
         ----------
         default_type : str, optional. Default: 'appoggiatura'
-            the type of grace note, if no type is specified. Possibilites
-            are: {'appoggiatura', 'acciaccatura'}.
+            The type of grace note, if no type is specified in the grace note
+            itself. Possibilites are: {'appoggiatura', 'acciaccatura'}.
 
         min_steal : float, optional
-            the min steal proportion if no proportion is specified
+            The minimal proportion of the note to steal wherever no proportion
+            is speficied in the grace notes themselves.
 
         max_steal : float, optional
-            the max steal proportion if no proportion is specified
+            The maximal proportion of the note to steal wherever no proportion
+            is speficied in the grace notes themselves.
         """
 
         assert default_type in (u'appoggiatura', u'acciaccatura')
@@ -1643,24 +1679,10 @@ class ScorePart(object):
         def n_notes_to_steal(n_notes):
             return min_steal + (max_steal - min_steal) * 2 * (1 / (1 + np.exp(- n_notes + 1)) - .5)
 
-        # def shorten_main_notes_by(dur_prop, notes, group_id):
-        #     # start and duration of the main note
-        #     old_start = notes[0].start
-        #     n_dur = np.min([n.duration for n in notes])
-        #     new_start_t = old_start.t + n_dur * dur_prop
-        #     print(n_dur * dur_prop)
-        #     for i, n in enumerate(notes):
-        #         old_start.starting_objects[Note].remove(n)
-        #         self.timeline.add_starting_object(new_start_t, n)
-        #         n.appoggiatura_group_id = group_id
-        #         n.appoggiatura_duration = dur_prop
-        #     return new_start_t
-
         def shorten_main_notes_by(offset, notes, group_id):
             # start and duration of the main note
             old_start = notes[0].start
             n_dur = np.min([n.duration for n in notes])
-            # print('app', n_dur, offset)
             offset = min(n_dur * .5, offset)
             new_start_t = old_start.t + offset
             for i, n in enumerate(notes):
@@ -1670,23 +1692,9 @@ class ScorePart(object):
                 n.appoggiatura_duration = offset / float(n_dur)
             return new_start_t
 
-        # def shorten_prev_notes_by(dur_prop, notes, group_id):
-        #     old_end = notes[0].end
-        #     n_dur = notes[0].duration
-        #     new_end_t = old_end.t - n_dur * dur_prop
-
-        #     for n in notes:
-        #         old_end.ending_objects[Note].remove(n)
-        #         self.timeline.add_ending_object(new_end_t, n)
-        #         n.acciaccatura_group_id = group_id
-        #         n.acciaccatura_duration = dur_prop
-
-        #     return new_end_t
-
         def shorten_prev_notes_by(offset, notes, group_id):
             old_end = notes[0].end
             n_dur = notes[0].duration
-            #print('acc', n_dur, offset)
             offset = min(n_dur * .5, offset)
             new_end_t = old_end.t - offset
 
@@ -1736,9 +1744,9 @@ class ScorePart(object):
 
             voice_grouped_gns = partition(operator.attrgetter('voice'),
                                           time_grouped_gns[t])
-            # print(t)
+
             for voice, gn_group in voice_grouped_gns.items():
-                # print('  voice {}'.format(voice))
+
                 for n in gn_group:
                     if n.grace_type == 'grace':
                         n.grace_type = default_type
@@ -1750,34 +1758,23 @@ class ScorePart(object):
                     total_steal_old = n_notes_to_steal(len(type_group))
                     total_steal = np.sum([n.duration_from_symbolic for n
                                           in type_group])
-                    # print("n_notes, old, new", len(type_group), total_steal_old, total_steal)
-
-                    # print('    {}: {} {:.3f}'.format(gtype, len(type_group),
-                    # total_steal))
                     main_notes = [m for m in type_group[0].simultaneous_notes_in_voice
                                   if m.grace_type is None]
-                    # multip
+
                     if len(main_notes) > 0:
-                        # total_steal =
                         total_steal = min(
                             main_notes[0].duration / 2., total_steal)
 
                     if gtype == 'appoggiatura':
-                        # main_notes = [m for m in type_group[0].simultaneous_notes_in_voice
-                        #               if m.grace_type is None]
-                        # print(total_steal, len(type_group))
                         total_steal = np.sum([n.duration_from_symbolic for n
                                               in type_group])
-                        # if len(main_notes) == 0:
-                        #     main_notes = [m for m in type_group[0].next_notes_in_voice
-                        #                   if m.grace_type is None]
-                        # print('    main: {}'.format(len(main_notes)))
                         if len(main_notes) > 0:
                             new_onset = shorten_main_notes_by(
                                 total_steal, main_notes, group_counter)
                             set_appoggiatura_times(
                                 type_group, new_onset, group_counter)
                             group_counter += 1
+                            
                     elif gtype == 'acciaccatura':
                         prev_notes = [m for m in type_group[0].previous_notes_in_voice
                                       if m.grace_type is None]
@@ -1798,25 +1795,21 @@ class ScorePart(object):
         bm = self.beat_map
 
         for tp in self.timeline.points:
-            #s.append(pre + tp.__unicode__() + u'(beat: {0})'.format(bm(tp.t)))
-            # s.append(u'{}{}(beat: {})'.format(pre, tp, bm(tp.t)[0]))
-            s.append('{}{}(beat: {})'.format(pre, tp, bm(tp.t)))
+            s.append('\n{}{}(beat: {})'.format(pre, tp, bm(tp.t)))
+            s.append(u' Start')
             for cls, objects in list(tp.starting_objects.items()):
                 if len(objects) > 0:
-                    #s.append(pre + u'  {0}'.format(cls.__name__))
                     s.append('{}  {}'.format(pre, cls.__name__))
                     for o in objects:
-                        #s.append(pre + u'    {0}'.format(o))
                         s.append('{}    {}'.format(pre, o))
             s.append(u' Stop')
             for cls, objects in list(tp.ending_objects.items()):
                 if len(objects) > 0:
-                    #s.append(pre + u'  {0}'.format(cls.__name__))
                     s.append(u'{}  {}'.format(pre, cls.__name__))
                     for o in objects:
-                        #s.append(pre + u'    {0}'.format(o))
                         s.append(u'{}    {}'.format(pre, o))
         return u'\n'.join(s)
+
 
     def _get_beat_map(self, quarter=False, default_div=1, default_den=4):
         """
@@ -1826,13 +1819,22 @@ class ScorePart(object):
 
         Parameters
         ----------
-        quarter : boolean, optional. Default: False
+        quarter : boolean, optional (default: False)
+            If True return a function that outputs times in quarter units,
+            otherwise return a function that outputs times in beat units.
+        
+        default_div : int, optional (default: 1)
+            Divisions to use wherever there are none specified in the timeline
+            itself.
+
+        default_den : int, optional (default: 4)
+            Denominator to use wherever there is no time signature specified in
+            the timeline itself.
 
         Returns
         -------
         scipy interpolate interp1d object
-
-       """
+        """
 
         if len(self.timeline.points) == 0:
             return None
@@ -1840,7 +1842,7 @@ class ScorePart(object):
         try:
             first_measure = self.timeline.points[
                 0].get_starting_objects_of_type(Measure)[0]
-            if first_measure.upbeat:
+            if first_measure.incomplete:
                 offset = -first_measure.get_measure_duration(quarter=quarter)
             else:
                 offset = 0
@@ -1926,13 +1928,7 @@ class ScorePart(object):
         else:
             def f(x):
                 try:
-                    # divi = div_intp(x)
-                    # deni = den_intp(divi) + offset
-                    # np.savetxt('/tmp/bm.txt', np.column_stack((x, divi, deni)), fmt="%.3f")
-                    # np.savetxt('/tmp/den.txt', dens, fmt="%.3f")
-                    # return deni
                     return den_intp(div_intp(x)) + offset
-
                 except ValueError:
                     print(np.min(x), np.max(x))
                     raise
@@ -1940,16 +1936,17 @@ class ScorePart(object):
 
     def _get_notes(self, unfolded=False):
         """
-        return all note objects of the score part.
+        Return all note objects of the score part.
 
         Parameters
         ----------
         unfolded : boolean, optional. Default: False
-            whether to unfolded the timeline or not.
+            Whether to unfolded the timeline or not.
 
         Returns
         -------
-        notes : list of Note objects
+        notes
+            List of Note objects
 
         """
         notes = []
@@ -1963,61 +1960,68 @@ class ScorePart(object):
 
     def get_loudness_directions(self):
         """
-        return all loudness directions
+        Return all loudness directions
 
         """
         return self.timeline.get_all_of_type(LoudnessDirection, include_subclasses=True)
-        # directions = []
-        # for tp in self.timeline.points:
-        #     directions.extend(
-        #         tp.get_starting_objects_of_type(DynamicLoudnessDirection) or [])
-        #     directions.extend(
-        #         tp.get_starting_objects_of_type(ConstantLoudnessDirection) or [])
-        #     directions.extend(
-        #         tp.get_starting_objects_of_type(ImpulsiveLoudnessDirection) or [])
-        # return directions
+
 
     def get_tempo_directions(self):
         """
-        return all tempo directions
+        Return all tempo directions
 
         """
         return self.timeline.get_all_of_type(TempoDirection, include_subclasses=True)
-        # directions = []
-        # for tp in self.timeline.points:
-        #     directions.extend(
-        #         tp.get_starting_objects_of_type(DynamicTempoDirection) or [])
-        #     directions.extend(
-        #         tp.get_starting_objects_of_type(ConstantTempoDirection) or [])
-        # return directions
 
-    # @property
-    @cached_property
+
+    @property
     def notes(self):
         """
-        all note objects
+        Return all note objects of the score part.
+
+        Returns
+        -------
+        list
+            list of Note objects
+
         """
         return self._get_notes()
 
-    @cached_property
+    @property
     def notes_unfolded(self):
         """
-        all note objects, with unfolded timeline.
+        return all note objects of the score part, after unfolding the timeline
+
+        Returns
+        -------
+        list
+            list of Note objects
+
         """
         return self._get_notes(unfolded=True)
 
-    # @cached_property
     @property
     def beat_map(self):
         """
-        map timeline times to beat times
+        A function that maps timeline times to beat units
+
+        Returns
+        -------
+        function
+            The mapping function
+
         """
         return self._get_beat_map()
 
-    # @cached_property
     @property
     def quarter_map(self):
         """
-        map timeline times to beat times
+        A function that maps timeline times to quarter note units
+
+        Returns
+        -------
+        function
+            The mapping function
+
         """
         return self._get_beat_map(quarter=True)
