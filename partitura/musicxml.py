@@ -1237,21 +1237,23 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True):
 
 def parse_partlist(partlist):
     """
-    This goes through the <part-list> ... </part-list> in the beginning
-    of the mxml file where each instrument is declarated, instruments and
+    This parses the <part-list> ... </part-list> element in the beginning
+    of the MusicXML file where each instrument is declared, instruments and
     their staves are grouped (braces, brackets), etc.
 
     Parameters
     ----------
-    partlist : list
-
+    partlist : etree element
+        The part-list etree element
 
     Returns
     -------
-    structure : list
-
-    score_part_dict : dict
-
+    list:
+        list of PartGroup objects
+    dict:
+        Dictionary of pairs (partid, ScorePart) where the ScorePart objects are
+        instantiated with part-name and part-abbreviation if these are specified in
+        the part list definition.
     """
 
     structure = []
