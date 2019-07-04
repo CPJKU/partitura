@@ -12,13 +12,12 @@ import re
 import operator
 import numpy as np
 import codecs
+from .utils.lang_utils import cached_property
 
-from partitura.utils import cached_property
+####################################################################
+rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')
 
 LATEST_VERSION = 4.0
-
-RATIONAL_PATTERN = re.compile('^([0-9]+)/([0-9]+)$')
-
 
 
 def interpret_field(data):
@@ -62,13 +61,13 @@ def interpret_field_rational(data, allow_additions=False):
     """Convert data to int, if not possible, to float, if not possible
     try to interpret as rational number and return it as float, if not
     possible, return data itself."""
-    global RATIONAL_PATTERN
+    global rational_pattern
     v = interpret_field(data)
     if type(v) == str:
-        m = RATIONAL_PATTERN.match(v)
+        m = rational_pattern.match(v)
         if m:
             groups = m.groups()
-            return float(groups[0])/float(groups[1])
+            return float(groups[0]) / float(groups[1])
         else:
             if allow_additions:
                 parts = v.split('+')
@@ -116,7 +115,7 @@ class MatchLine(object):
         r = [self.__class__.__name__]
         for fn in self.field_names:
             r.append(' {0}: {1}'.format(fn, self.__dict__[fn]))
-        return '\n'.join(r)+'\n'
+        return '\n'.join(r) + '\n'
 
     def __init__(self, match_obj, field_interpreter=interpret_field_rational):
         self.set_attributes(match_obj, field_interpreter)
@@ -326,7 +325,7 @@ class SnoteNoteLine(MatchLine):
     def __init__(self, m1, m2, version=LATEST_VERSION):
         self.snote = Snote(m1)
         self.note = Note(m2, version)
-        self.pattern = Snote.pattern+'-'+self.note.pattern
+        self.pattern = Snote.pattern + '-' + self.note.pattern
         self.re_obj = re.compile(self.pattern)
 
 
@@ -336,7 +335,7 @@ class SnoteDeletionLine(MatchLine):
 
     """
     field_names = Snote.field_names
-    pattern = Snote.pattern+'-deletion\.'  # unused for efficiency reasons
+    pattern = Snote.pattern + '-deletion\.'  # unused for efficiency reasons
     re_obj = re.compile(pattern)
 
     def __init__(self, m1):
@@ -351,7 +350,7 @@ class InsertionNoteLine(MatchLine):
 
     def __init__(self, m2, version=LATEST_VERSION):
         self.note = Note(m2, version)
-        self.pattern = 'insertion-'+self.note.pattern
+        self.pattern = 'insertion-' + self.note.pattern
         self.re_obj = re.compile(self.pattern)
 
 
@@ -363,7 +362,7 @@ class HammerBounceNoteLine(MatchLine):
     def __init__(self, m2, version=LATEST_VERSION):
         self.note = Note(m2, version)
         self.field_names = self.note.field_names
-        self.pattern = 'hammer_bounce-'+self.note.pattern
+        self.pattern = 'hammer_bounce-' + self.note.pattern
         self.re_obj = re.compile(self.pattern)
 
 
@@ -376,7 +375,7 @@ class OrnamentNoteLine(MatchLine):
     def __init__(self, m2, version=LATEST_VERSION):
         self.note = Note(m2, version)
         self.field_names = self.note.field_names
-        self.pattern = 'ornament\([^\)]*\)-'+self.note.pattern
+        self.pattern = 'ornament\([^\)]*\)-' + self.note.pattern
         self.re_obj = re.compile(self.pattern)
 
 
@@ -388,7 +387,7 @@ class TrillNoteLine(MatchLine):
     def __init__(self, m2, version=LATEST_VERSION):
         self.note = Note(m2, version)
         self.field_names = self.note.field_names
-        self.pattern = 'trill\([^\)]*\)-'+self.note.pattern
+        self.pattern = 'trill\([^\)]*\)-' + self.note.pattern
         self.re_obj = re.compile(self.pattern)
 
 
@@ -436,23 +435,23 @@ class MatchFile(object):
 
         self.version = LATEST_VERSION
         if version == 'auto':
-            print('Identifying Matchfile version')
+            # print('Identifying Matchfile version')
             info_lines = [self.parse_matchline(l)
                           for l in fileData if l.startswith('info')]
             self.version = None
             for l in info_lines:
                 if l.Attribute == 'matchFileVersion':
                     self.version = float(l.Value)
-                    print('Using version {0:.1f}'.format(self.version))
+                    # print('Using version {0:.1f}'.format(self.version))
 
             if self.version is None:
-                print('File does include version. Using version {0:.1f}'.format(
-                    1.0))
+                # print('File does include version. Using version {0:.1f}'.format(
+                #     1.0))
                 self.version = 1.0
 
         else:
             self.version = float(version)
-            print('Using version {0:.1f}'.format(self.version))
+            # print('Using version {0:.1f}'.format(self.version))
         # the lines of the file, represented as MatchLine objects
         self.lines = np.array([self.parse_matchline(l) for l in fileData])
 
@@ -558,14 +557,24 @@ class MatchFile(object):
         tspat = re.compile('([0-9]+)/([0-9]*)')
         m = [(int(x[0]), int(x[1])) for x in
              tspat.findall(self.info('timeSignature'))]
-        timeSigs = []
+        _timeSigs = []
         if len(m) > 0:
-            timeSigs.append((self.first_onset, m[0]))
+            _timeSigs.append((self.first_onset, m[0]))
         for l in self.time_sig_lines():
-            timeSigs.append((float(l.TimeInBeats), [
+            _timeSigs.append((float(l.TimeInBeats), [
                             (int(x[0]), int(x[1])) for x in tspat.findall(l.Value)][0]))
-        timeSigs = list(set(timeSigs))
-        timeSigs.sort(key=lambda x: x[0])
+        _timeSigs = list(set(_timeSigs))
+        _timeSigs.sort(key=lambda x: x[0])
+
+        # ensure that all consecutive time signatures are different
+        timeSigs = [_timeSigs[0]]
+
+        for ts in _timeSigs:
+            ts_on, (ts_num, ts_den) = ts
+            ts_on_prev, (ts_num_prev, ts_den_prev) = timeSigs[-1]
+            if ts_num != ts_num_prev or ts_den != ts_den_prev:
+                timeSigs.append(ts)
+
         return timeSigs
 
     def _time_sig_lines(self):
@@ -608,15 +617,9 @@ class MatchFile(object):
         """
         if return_indices:
             return [i for i, l in enumerate(self.lines)
-                    if hasattr(l, 'snote') and
-                    's' in l.snote.ScoreAttributesList and
-                    not 'grace' in l.snote.ScoreAttributesList and
-                    l.snote.Duration > 0.0]
-        else:
-            return [l for l in self.lines
-                    if hasattr(l, 'snote') and
-                    's' in l.snote.ScoreAttributesList and
-                    not 'grace' in l.snote.ScoreAttributesList
+                    if hasattr(l, 'snote')
+                    and 's' in l.snote.ScoreAttributesList
+                    and not 'grace' in l.snote.ScoreAttributesList
                     and l.snote.Duration > 0.0]
         else:
             return [l for l in self.lines
@@ -766,8 +769,10 @@ def match_to_notearray(fn_or_matchfile, sort_onsets=True,
 
     Parameters
     ----------
-    fn : string
-        Path to Match File.
+    fn_or_matchfile : string or MatchFile
+        Path to a .match file (string) or a Matchfile instance. If a path is
+        given, the function reads the file and converts it into a Matchfile
+        instance.
     sort_onsets : bool (optional)
         Sort array by onsets. This is the default option. Otherwise,
         the order of the notes will be the order in the matchfile
@@ -783,10 +788,13 @@ def match_to_notearray(fn_or_matchfile, sort_onsets=True,
         'velocity', 'p_onset', 'p_duration' plus any score attribute
         specified in `score_attributes`.
     """
+
+    delete_grace_notes = False
     if isinstance(expand_grace_notes, str):
 
         if expand_grace_notes in ('omit', 'delete', 'd'):
-            expand_grace_notes = True
+            delete_grace_notes = True
+            expand_grace_notes = False
         else:
             raise ValueError('`expand_grace_notes` must be a boolean or '
                              '"delete"')
@@ -803,14 +811,21 @@ def match_to_notearray(fn_or_matchfile, sort_onsets=True,
     div = float(mf.info('midiClockUnits'))
     rate = float(mf.info('midiClockRate'))
 
+    time_signatures = np.array([(ts[0], ts[1][0], ts[1][1])
+                                for ts in mf.time_signatures])
     note_info = []
+    c_ts = time_signatures[0, 1:]
     for snote, note in mf.note_pairs:
+        ts_idx = np.where(time_signatures[:, 0] == snote.OnsetInBeats)[0]
+        if len(ts_idx) > 0:
+            c_ts = time_signatures[int(ts_idx), 1:]
         ni = get_note_info(snote=snote,
                            note=note, div=div,
                            rate=rate,
                            score_attributes=score_attributes,
                            use_adj_offset=set_sustain,
-                           expand_grace_notes=expand_grace_notes)
+                           expand_grace_notes=expand_grace_notes,
+                           ts=c_ts)
         note_info.append(ni)
 
     # output dtypes
@@ -821,11 +836,18 @@ def match_to_notearray(fn_or_matchfile, sort_onsets=True,
               ('duration', 'f4'),
               ('velocity', 'f4'),
               ('p_onset', 'f4'),
-              ('p_duration', 'f4')]
+              ('p_duration', 'f4'),
+              ('bar', 'i4'),
+              ('onset_in_bar', 'f4'),
+              ('beat_phase', 'f4')]
 
     for attr in score_attributes:
         dtypes.append((attr, 'i4'))
     note_info = np.array(note_info, dtype=dtypes)
+
+    if delete_grace_notes:
+        # Remove notes with duration equal to 0
+        note_info = note_info[note_info['duration'] != 0]
     if sort_onsets:
         sort_idx_pitch = np.argsort(note_info['pitch'])
         note_info = note_info[sort_idx_pitch]
@@ -837,7 +859,8 @@ def match_to_notearray(fn_or_matchfile, sort_onsets=True,
 
 
 def get_note_info(snote, note, div=480.0, rate=50000.0, score_attributes=[],
-                  use_adj_offset=True, expand_grace_notes=True):
+                  use_adj_offset=True, expand_grace_notes=True,
+                  ts=(4, 4)):
     """
     Get note information from a `Snote` instance
 
@@ -884,6 +907,10 @@ def get_note_info(snote, note, div=480.0, rate=50000.0, score_attributes=[],
     octave = snote.Octave
     pitch = snote.MidiPitch[0]
     duration_b = offset_b - onset_b
+    ts_num, ts_den = ts
+    bar = snote.Bar
+    onset_in_bar = float(snote.Beat + snote.Offset * ts_den)
+    beat_phase = np.mod(onset_in_bar, ts_num) / float(ts_num)
 
     # Check for score attributes
     out_attributes = []
@@ -915,7 +942,13 @@ def get_note_info(snote, note, div=480.0, rate=50000.0, score_attributes=[],
 
     if use_adj_offset:
         # Get adjusted offset if available, else use use the unadjusted
-        offset_in_ticks = float(getattr(note, 'AdjOffset', note.Offset))
+        offset_in_ticks = max(float(getattr(note, 'AdjOffset', note.Offset)),
+                              note.Offset)
+
+        if offset_in_ticks < note.Onset:
+            print('Negative duration! The duration of the note is set to 1')
+            offset_in_ticks = note.Onset + 1
+
     else:
         offset_in_ticks = float(note.Offset)
     offset_s = offset_in_ticks * rate / (div * 1e6)
@@ -923,7 +956,7 @@ def get_note_info(snote, note, div=480.0, rate=50000.0, score_attributes=[],
     duration_s = offset_s - onset_s
 
     return (step, octave, pitch, onset_b, duration_b, velocity,
-            onset_s, duration_s) + tuple(out_attributes)
+            onset_s, duration_s, bar, onset_in_bar, beat_phase) + tuple(out_attributes)
 
 
 def adjust_offsets_w_sustain(mf, threshold=63):
