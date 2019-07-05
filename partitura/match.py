@@ -9,14 +9,9 @@ you want.
 """
 
 import re
-import operator
 import numpy as np
-import codecs
-from .utils.lang_utils import cached_property
 
-####################################################################
 rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')
-
 LATEST_VERSION = 4.0
 
 
@@ -265,11 +260,11 @@ class Snote(MatchLine):
             except AttributeError:
                 self.ScoreAttributesList = [self.ScoreAttributesList]
 
-    @cached_property
+    @property
     def DurationInBeats(self):
         return self.OffsetInBeats - self.OnsetInBeats
 
-    @cached_property
+    @property
     def MidiPitch(self):
         return pitch_name_2_midi_PC(self.Modifier, self.NoteName, self.Octave)
 
@@ -455,7 +450,7 @@ class MatchFile(object):
         # the lines of the file, represented as MatchLine objects
         self.lines = np.array([self.parse_matchline(l) for l in fileData])
 
-    @cached_property
+    @property
     def _info(self):
         """
         Return all InfoLine objects
@@ -480,7 +475,7 @@ class MatchFile(object):
         else:
             return self._info
 
-    @cached_property
+    @property
     def sustain_lines(self):
         """
         Return all sustain pedal lines
@@ -488,7 +483,7 @@ class MatchFile(object):
 
         return [i for i in self.lines if isinstance(i, SustainPedalLine)]
 
-    @cached_property
+    @property
     def soft_lines(self):
         """
         Return all soft pedal lines
@@ -496,7 +491,7 @@ class MatchFile(object):
 
         return [i for i in self.lines if isinstance(i, SoftPedalLine)]
 
-    @cached_property
+    @property
     def note_pairs(self):
         """
         Return all(snote, note) tuples
@@ -536,7 +531,7 @@ class MatchFile(object):
             result.append(r)
         return [[snoteLines[x] for x in notes] for notes in result]
 
-    @cached_property
+    @property
     def first_onset(self):
         """
         The earliest snote onset in the file
@@ -548,7 +543,7 @@ class MatchFile(object):
         else:
             return self.lines[self.snoteIdx[0]].snote.OnsetInBeats
 
-    @cached_property
+    @property
     def time_signatures(self):
         """
         A list of tuples(t, (a, b)), indicating a time signature of a over b, starting at t
@@ -909,6 +904,7 @@ def get_note_info(snote, note, div=480.0, rate=50000.0, score_attributes=[],
     duration_b = offset_b - onset_b
     ts_num, ts_den = ts
     bar = snote.Bar
+    print(snote.Beat ,  snote.Offset,  ts_den)
     onset_in_bar = float(snote.Beat + snote.Offset * ts_den)
     beat_phase = np.mod(onset_in_bar, ts_num) / float(ts_num)
 

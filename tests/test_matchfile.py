@@ -152,7 +152,9 @@ def main():
 
     summarize_match_file(m)
     # get_notes_from_match(m)
-
+    array = match.match_to_notearray(args.file)
+    print(array)
+    
 
 def test_dir():
     import os
@@ -169,7 +171,6 @@ def test_dir():
         note_info, key, mf, timesig = get_score_from_match(
             fn, version=args.version)
 
-        print(key)
 
 
 if __name__ == '__main__':
