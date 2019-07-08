@@ -38,14 +38,14 @@ DYNAMICS_DIRECTIONS = {
     'sfz': score.ImpulsiveLoudnessDirection,
 }
 
-# the _get_*_key functions are helper functions for musical elements
+# the get_*_key functions are helper functions for musical elements
 # spanning a time interval. The start of those elements gets added to
 # the timeline, and then they need to be stored until their end is
 # encountered (e.g. wedges, ties, slurs). The keys that these
 # functions produce must be such that the starting and the stopping
 # xml elements produce the same key
 
-def _get_wedge_key(e):
+def get_wedge_key(e):
     """
     Generate a key to store ongoing wedges temporarily.
     A <wedge ... /> is a so called "hairpin" (ger: Gabel)
@@ -61,7 +61,7 @@ def _get_wedge_key(e):
         return ('wedge',)
 
 
-def _get_dashes_key(e):
+def get_dashes_key(e):
     """
     Generate a key to store ongoing dashes temporarily. A <dashes ... /> tag
     specifies the temporal range of some textual annotation at the start of the
@@ -77,21 +77,21 @@ def _get_dashes_key(e):
         return ('dashes', 1)
 
 
-def _get_repeat_key(e):
+def get_repeat_key(e):
     """
     Generate a key to store repeats temporarily
     """
     return ('repeat',)
 
 
-def _get_ending_key(e):
+def get_ending_key(e):
     """
     Generate a key to store repeats temporarily
     """
     return ('ending',)
 
 
-def _get_slur_key(e):
+def get_slur_key(e):
     """
     Generate a key to store slurred notes temporarily
 
@@ -106,7 +106,7 @@ def _get_slur_key(e):
         return ('slur', 1)
 
 
-def _get_tie_key(e):
+def get_tie_key(e):
     """
     Generate a key to store tied notes temporarily.
     If the element has a pitch then a tuple is returned and
@@ -120,7 +120,7 @@ def _get_tie_key(e):
         and serve as a key to identify a <tie>.
     """
 
-    pitchk = _get_pitch(e)    # tuple (step, alter, octave)
+    pitchk = get_pitch(e)    # tuple (step, alter, octave)
     staff = None
     voice = None
 
@@ -145,7 +145,7 @@ def _get_tie_key(e):
             return None
 
 
-def _get_pitch(e):
+def get_pitch(e):
     """
     checks whether the element has a pitch and if so it
     returns pitch/alter/octave as a tuple.
@@ -170,10 +170,10 @@ def _get_pitch(e):
         return None
 
 
-def _get_integer_from_tag(e, tag):
+def get_integer_from_tag(e, tag):
     """This convenience function returns an integer value for a particular
     tag in element e. For example, if element e represents
-    <note><duration>2</duration></note>, _get_integer_from_tag(e,
+    <note><duration>2</duration></note>, get_integer_from_tag(e,
     'duration') will return 2
 
     """
@@ -181,10 +181,10 @@ def _get_integer_from_tag(e, tag):
     return int(d.text) if d is not None else None
 
 
-def _get_float_from_tag(e, tag):
+def get_float_from_tag(e, tag):
     """This convenience function returns an float value for a particular
     tag in element e. For example, if element e represents
-    <note><duration>2</duration></note>, _get_integer_from_tag(e,
+    <note><duration>2</duration></note>, get_integer_from_tag(e,
     'duration') will return 2
 
     """
@@ -192,11 +192,11 @@ def _get_float_from_tag(e, tag):
     return float(d.text) if d is not None else None
 
 
-def _get_duration(e):
-    return _get_integer_from_tag(e, 'duration')
+def get_duration(e):
+    return get_integer_from_tag(e, 'duration')
 
 
-def _get_offset(e):
+def get_offset(e):
     el = e.find('offset')
 
     if el is None:
@@ -207,33 +207,33 @@ def _get_offset(e):
     return int(el.text) if sounding == 'yes' else 0
 
 
-def _get_staff(e):
-    return _get_integer_from_tag(e, 'staff')
+def get_staff(e):
+    return get_integer_from_tag(e, 'staff')
 
 
-def _get_voice(e):
-    return _get_integer_from_tag(e, 'voice')
+def get_voice(e):
+    return get_integer_from_tag(e, 'voice')
 
 
-def _get_divisions(e):
-    return _get_integer_from_tag(e, 'divisions')
+def get_divisions(e):
+    return get_integer_from_tag(e, 'divisions')
 
 
-def _get_coordinates(e):
+def get_coordinates(e):
     """
     get the coordinates of an element in pixel.
     """
     pixel_e = e.find('coordinates/pixel')
 
     if pixel_e is not None:
-        top = _get_float_from_tag(pixel_e, 'top')
-        left = _get_float_from_tag(pixel_e, 'left')
+        top = get_float_from_tag(pixel_e, 'top')
+        left = get_float_from_tag(pixel_e, 'left')
         return (top, left)
     else:
         return (None, None)
 
 
-def _get_time_signature(e):
+def get_time_signature(e):
     """
     Get the time signature and return
 
@@ -252,7 +252,7 @@ def _get_time_signature(e):
         return None
 
 
-def _get_key_signature(e):
+def get_key_signature(e):
     """
     Get the key signature. Note that the key is defined by the amount
     of fifths (+/-) it is away from c major. This of course equals to
@@ -282,7 +282,7 @@ def _get_key_signature(e):
         return (fifths, mode)
 
 
-def _get_transposition(e):
+def get_transposition(e):
     """
     Get the transposition of the respective part. This is used for
     instruments that are notated in transposed fashion. Pitches will have
@@ -338,16 +338,13 @@ def make_measure(xml_measure):
     # page and system attributes are non-standard, but are used by
     # either SharpEye, or Flossmann's code
     try:
-        # do some measures have a page number as an attribute? TG
         measure.page = int(xml_measure.attrib['page'])
     except:
-        # LOGGER.warn('No page attribute found for measure')
         pass
 
     try:
         measure.system = int(xml_measure.attrib['system'])
     except:
-        # LOGGER.warn('No system attribute found for measure')
         pass
 
     return measure
@@ -396,48 +393,69 @@ class ScorePartBuilder(object):
         self.system_nr = 0
 
         # start a new page by default
-        self._do_new_page(0)
+        self.do_new_page(0)
         # start a new system by default
-        self._do_new_system(0)
+        self.do_new_system(0)
 
         self.disable_default_note_id = disable_default_note_id
         if self.disable_default_note_id:
             self.default_note_id = None  # id counter for notes disabled
         else:
             self.default_note_id = 0  # id counter for notes
-        # self.quarters_per_measure = 4
+
         self.current_measure = None
 
+
+    # def finalize(self):
+    #     if self.ongoing:
+    #         tp = self.timeline.get_or_add_point(self.position)
+    #         for obj in list(self.ongoing.values()):
+    #             if not isinstance(obj, (list, tuple)):
+    #                 obj_list = [obj]
+    #             else:
+    #                 obj_list = obj
+    
+    #             for o in obj_list:
+    #                 LOGGER.warning(
+    #                     'ongoing object "{}" until end of piece'.format(o))
+    #                 end_pos = tp
+
+    #                 # special case: 
+    #                 if isinstance(o, score.DynamicTempoDirection):
+    #                     ct = o.start.get_next_of_type(score.ConstantTempoDirection)
+    #                     if any(c.text == 'a_tempo' for c in ct):
+    #                         end_pos = ct[0].start
+
+    #                 end_pos.add_ending_object(o)
+
     def finalize(self):
-        tp = self.timeline.get_or_add_point(self.position)
-        self.timeline.lock()
-        self.timeline.link()
-        self.timeline.unlock()
-        for obj in list(self.ongoing.values()):
-            if not isinstance(obj, (list, tuple)):
-                obj_list = [obj]
-            else:
-                obj_list = obj
+        if self.ongoing:
+            tp = self.timeline.get_or_add_point(self.position)
+            for obj in list(self.ongoing.values()):
+                if not isinstance(obj, (list, tuple)):
+                    obj_list = [obj]
+                else:
+                    obj_list = obj
+    
+                for o in obj_list:
+                    LOGGER.warning(
+                        'ongoing object "{}" until end of piece'.format(o))
+                    end_pos = tp
 
-            for o in obj_list:
-                LOGGER.warning(
-                    'ongoing object "{}" until end of piece'.format(o))
-                end_pos = tp
-                if isinstance(o, score.DynamicTempoDirection):
-                    ct = o.start.get_next_of_type(score.ConstantTempoDirection)
-                    if any(c.text == 'a_tempo' for c in ct):
-                        end_pos = ct[0].start
-                end_pos.add_ending_object(o)
+                    # special case: 
+                    if isinstance(o, score.DynamicTempoDirection):
+                        ct = o.start.get_next_of_type(score.ConstantTempoDirection)
+                        if any(c.text == 'a_tempo' for c in ct):
+                            end_pos = ct[0].start
 
-        self.timeline.lock()
-        # self.timeline.link()
+                    end_pos.add_ending_object(o)
 
-    def close_current_measure_at(self, t_quarter):
-        """End the Measure object stored in `self.current_measure` at time
-        `t`; if `t` > `self.position`, this implies
-        `self.current_measure` is incomplete but is treated as a
-        complete measure.
 
+    def end_current_measure_at(self, t_quarter):
+        """
+        End the Measure object stored in `self.current_measure` at time `t`; if `t`
+        > `self.position`, this implies `self.current_measure` is incomplete but
+        is treated as a complete measure.
         """
 
         actual_end_q = np.sum(
@@ -473,7 +491,7 @@ class ScorePartBuilder(object):
 
             if e.tag == 'backup':
                 # print(e.tag)
-                duration = _get_duration(e) or 0
+                duration = get_duration(e) or 0
                 measure_position -= duration
                 # <backup> tags trigger an update of the measure
                 # duration up to the measure position (after the
@@ -483,11 +501,11 @@ class ScorePartBuilder(object):
                 measure_duration = max(measure_duration, measure_position)
 
             elif e.tag == 'forward':
-                duration = _get_duration(e) or 0
+                duration = get_duration(e) or 0
                 measure_position += duration
 
             elif e.tag == 'note':
-                (measure_position, prev_note_start_dur) = self._do_note(
+                (measure_position, prev_note_start_dur) = self.do_note(
                     e, measure_position, prev_note_start_dur)
                 # <note> tags trigger an update of the measure
                 # duration up to the measure position (after the
@@ -497,23 +515,23 @@ class ScorePartBuilder(object):
             elif e.tag == 'barline':
                 repeats = e.xpath('repeat')
                 if len(repeats) > 0:
-                    self._do_repeat(repeats[0], measure_position)
+                    self.do_repeat(repeats[0], measure_position)
 
                 endings = e.xpath('ending')
                 if len(endings) > 0:
-                    self._do_ending(endings[0], measure_position)
+                    self.do_ending(endings[0], measure_position)
 
             elif e.tag == 'attributes':
-                self._do_attributes(e, measure_position)
+                self.do_attributes(e, measure_position)
 
             elif e.tag == 'direction':          # <direction> ... </direction>
-                self._do_direction(e, measure_position)
+                self.do_direction(e, measure_position)
 
             elif e.tag == 'print':
-                self._do_print(e, measure_position)
+                self.do_print(e, measure_position)
 
             elif e.tag == 'sound':
-                self._do_sound(e, measure_position)
+                self.do_sound(e, measure_position)
             else:
                 print((e, type(e)))
                 LOGGER.debug('ignoring tag {0}'.format(e.tag))
@@ -583,15 +601,15 @@ class ScorePartBuilder(object):
     #     divisions CDATA #IMPLIED
     # >
 
-    def _do_repeat(self, repeat, measure_position):
+    def do_repeat(self, repeat, measure_position):
         if repeat.attrib['direction'] == 'forward':
             o = score.Repeat()
-            self.ongoing[_get_repeat_key(repeat)] = o
+            self.ongoing[get_repeat_key(repeat)] = o
             self.timeline.add_starting_object(
                 self.position + measure_position, o)
 
         elif repeat.attrib['direction'] == 'backward':
-            key = _get_repeat_key(repeat)
+            key = get_repeat_key(repeat)
             if key in self.ongoing:
                 o = self.ongoing[key]
                 del self.ongoing[key]
@@ -604,14 +622,14 @@ class ScorePartBuilder(object):
             self.timeline.add_ending_object(
                 self.position + measure_position, o)
 
-    def _do_ending(self, ending, measure_position):
+    def do_ending(self, ending, measure_position):
         if ending.attrib['type'] == 'start':
             o = score.Ending(ending.attrib['number'])
-            self.ongoing[_get_ending_key(ending)] = o
+            self.ongoing[get_ending_key(ending)] = o
             self.timeline.add_starting_object(
                 self.position + measure_position, o)
         elif ending.attrib['type'] in ['stop', 'discontinue']:
-            key = _get_ending_key(ending)
+            key = get_ending_key(ending)
             if key in self.ongoing:
                 o = self.ongoing[key]
                 del self.ongoing[key]
@@ -621,7 +639,7 @@ class ScorePartBuilder(object):
                 LOGGER.warning(
                     'Found ending[stop] without a preceding ending[start]')
 
-    def _do_direction(self, e, measure_position):
+    def do_direction(self, e, measure_position):
 
         # <!--
         #     A direction is a musical indication that is not attached
@@ -645,7 +663,7 @@ class ScorePartBuilder(object):
         # directions may have an explicit temporal offset (does not
         # affect measure_duration)
 
-        offset = _get_offset(e) or 0
+        offset = get_offset(e) or 0
 
         starting_directions = []
         ending_directions = []
@@ -709,7 +727,7 @@ class ScorePartBuilder(object):
                     #     starting_directions.append(Words(unicode(dt.text)))
 
             elif direction_type == 'wedge':
-                key = _get_wedge_key(dts[0])
+                key = get_wedge_key(dts[0])
                 if dts[0].attrib['type'] in ('crescendo', 'diminuendo'):
                     o = score.DynamicLoudnessDirection(dts[0].attrib['type'])
                     starting_directions.append(o)
@@ -733,11 +751,11 @@ class ScorePartBuilder(object):
                     direction_type, dts[0].attrib))
 
         if dashes_start is not None:
-            key = _get_dashes_key(dashes_start)
+            key = get_dashes_key(dashes_start)
             self.ongoing[key] = starting_directions
 
         if dashes_end is not None:
-            key = _get_dashes_key(dashes_end)
+            key = get_dashes_key(dashes_end)
             oo = self.ongoing.get(key, None)
             if oo is None:
                 LOGGER.warning('Dashes end without dashes start')
@@ -753,16 +771,16 @@ class ScorePartBuilder(object):
             self.timeline.add_ending_object(
                 self.position + measure_position, o)
 
-    def _do_note(self, e, measure_position, prev_note_start_dur):
+    def do_note(self, e, measure_position, prev_note_start_dur):
         # Note: part_builder is only passed as an argument to report the
         # part ID/ measure number when an error is encountered
 
         # get some common features of element if available
-        duration = _get_duration(e) or 0
+        duration = get_duration(e) or 0
         # elements may have an explicit temporal offset
-        offset = _get_offset(e) or 0
-        staff = _get_staff(e) or 0
-        voice = _get_voice(e) or 0
+        offset = get_offset(e) or 0
+        staff = get_staff(e) or 0
+        voice = get_voice(e) or 0
 
         try:
             note_id = e.attrib['ID']
@@ -841,7 +859,7 @@ class ScorePartBuilder(object):
                 self.position + measure_position, score.Fermata())
 
         if len(e.xpath('coordinates')) > 0:
-            coordinates = _get_coordinates(e)
+            coordinates = get_coordinates(e)
         else:
             coordinates = None
 
@@ -876,7 +894,7 @@ class ScorePartBuilder(object):
             erroneous_stops = []    # gather stray stops that have no beginning?
 
             for eslur in eslurs:    # loop over all found slurs
-                key = _get_slur_key(eslur)    # number that represents the slur
+                key = get_slur_key(eslur)    # number that represents the slur
                 if eslur.attrib['type'] == 'stop':
                     try:
                         o = self.ongoing[key]
@@ -914,7 +932,7 @@ class ScorePartBuilder(object):
                     del self.ongoing[k]
 
         # pitch will be None if there is no <pitch> ... </pitch> tag
-        pitch = _get_pitch(e)
+        pitch = get_pitch(e)
 
         if pitch is not None:
             # NON-REST NOTE ELEMENT ###################################
@@ -929,7 +947,7 @@ class ScorePartBuilder(object):
             # generate a key for the tied note
             # `key` looks like: ('tie', ('E', None, 6, 1)),
             # that is ('tie', (step, alter, octave, staff))
-            tie_key = _get_tie_key(e)
+            tie_key = get_tie_key(e)
 
             if tie_key in self.ongoing:
                 self.timeline.add_ending_object(
@@ -941,7 +959,7 @@ class ScorePartBuilder(object):
 
             if len(e.xpath('tie')) > 0:    # look for a <tie> tag.
                 tietypes = [tie.attrib['type'] for tie in e.xpath('tie')]
-                tie_key = _get_tie_key(e)
+                tie_key = get_tie_key(e)
 
                 # TG: NOTE: it may be useful to integrate the `voice`
                 # number into the `key`. However, when a multipart, i.e.
@@ -966,14 +984,14 @@ class ScorePartBuilder(object):
                     # this is the start note/rest
                     # save the note under the tie_key
                     # until we encounter the stop note/rest
-                    o = score.Note(step, alter, octave, voice=_get_voice(e), id=note_id,
+                    o = score.Note(step, alter, octave, voice=get_voice(e), id=note_id,
                                    grace_type=grace_type, staccato=staccato, fermata=fermata,
                                    steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
                                    accent=accent, coordinates=coordinates, staff=staff)
                     self.timeline.add_starting_object(self.position + measure_position, o)
                     self.ongoing[tie_key] = o
             else:
-                o = score.Note(step, alter, octave, voice=_get_voice(e), id=note_id,
+                o = score.Note(step, alter, octave, voice=get_voice(e), id=note_id,
                                grace_type=grace_type, staccato=staccato, fermata=fermata,
                                steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
                                accent=accent, coordinates=coordinates, staff=staff)
@@ -987,11 +1005,11 @@ class ScorePartBuilder(object):
         # position of this note (within the measure)
         return measure_position + duration, (measure_position, duration)
 
-    def _do_attributes(self, e, measure_position):
+    def do_attributes(self, e, measure_position):
         """
 
         """
-        ts = _get_time_signature(e)
+        ts = get_time_signature(e)
 
         ts_num = None
         ts_den = None
@@ -1001,24 +1019,24 @@ class ScorePartBuilder(object):
                                               score.TimeSignature(ts_num, ts_den))
             # self.quarters_per_measure = ts_num * 4 / ts_den
 
-        ks = _get_key_signature(e)
+        ks = get_key_signature(e)
         if ks is not None:
             self.timeline.add_starting_object(self.position + measure_position,
                                               score.KeySignature(ks[0], ks[1]))
 
-        tr = _get_transposition(e)
+        tr = get_transposition(e)
         if tr is not None:
             self.timeline.add_starting_object(self.position + measure_position,
                                               score.Transposition(tr[0], tr[1]))
             
-        divs = _get_divisions(e)
+        divs = get_divisions(e)
         if divs is not None:
             self.timeline.add_starting_object(self.position + measure_position,
                                               score.Divisions(divs))
 
         return divs, ts_num, ts_den
 
-    def _do_new_page(self, measure_position):
+    def do_new_page(self, measure_position):
         if 'page' in self.ongoing and self.ongoing['page'].start.t == self.position + measure_position:
             # LOGGER.debug('ignoring non-informative new-page at start of score')
             return
@@ -1035,7 +1053,7 @@ class ScorePartBuilder(object):
                                           self.ongoing['page'])
         self.page_nr += 1
 
-    def _do_new_system(self, measure_position):
+    def do_new_system(self, measure_position):
         if 'system' in self.ongoing and self.ongoing['system'].start.t == self.position + measure_position:
             LOGGER.debug(
                 'ignoring non-informative new-system at start of score')
@@ -1053,14 +1071,14 @@ class ScorePartBuilder(object):
                                           self.ongoing['system'])
         self.system_nr += 1
 
-    def _do_print(self, e, measure_position):
+    def do_print(self, e, measure_position):
         if "new-page" in e.attrib:
-            self._do_new_page(measure_position)
-            self._do_new_system(measure_position)
+            self.do_new_page(measure_position)
+            self.do_new_system(measure_position)
         if "new-system" in e.attrib:
-            self._do_new_system(measure_position)
+            self.do_new_system(measure_position)
 
-    def _do_sound(self, e, measure_position):
+    def do_sound(self, e, measure_position):
         if "tempo" in e.attrib:
             self.timeline.add_starting_object(self.position + measure_position,
                                               Tempo(int(e.attrib['tempo'])))
@@ -1076,6 +1094,7 @@ def parse_parts(document, score_part_dict):
     score_part_dict : dictionary
         a dictionary as returned by the parse_partlist() function.
     """
+
     # initialize a ScorePartBuilder instance for each scorepart
     part_builders = [ScorePartBuilder(score_part_dict.get(part_id, score.ScorePart(part_id)),
                                       document.xpath('/score-partwise/part[@id="{0}"]'.format(part_id))[0])
@@ -1083,42 +1102,32 @@ def parse_parts(document, score_part_dict):
     assert len(part_builders) > 0
 
     # a list of measures of each score part (in a list)
-    measures = [part_builder.part_etree.xpath(
-        'measure') for part_builder in part_builders]
+    measures_per_sp = [part_builder.part_etree.xpath('measure')
+                       for part_builder in part_builders]
 
-    # all score parts have an equal number of measures
-    assert np.all(np.diff([len(x) for x in measures]) == 0)
+    # equal number of measures in all score parts
+    assert len(set(len(measure) for measure in measures_per_sp)) == 1
 
     # number of measures (in the first score part)
-    n_measures = len(measures[0])
+    n_measures = len(measures_per_sp[0])
 
+    # we build the score parts measure by measure in parallel, rather than
+    # building the score parts one after another. This makes it possible to deal
+    # with the case where the measures of some score parts are shorter than the
+    # corresponding measures in other score parts by adjusting the length of
+    # incomplete measures to the length of the longest measure.
     for j in range(n_measures):
 
-        position_dict = {}
-        for i, part_builder in enumerate(part_builders):
-            _, position_dict[i] = part_builder.add_measure(measures[i][j])
-        if len(position_dict) == 0:
-            break
-        assert len(position_dict) == len(part_builders), ('Some score-parts'
-                                            + ' have less bars than others,'
-                                                          + ' don\'t know how to handle this')
+        # position_dict = {}
+        measure_max_end = 0
+        for i, (measure, part_builder) in enumerate(zip(measures_per_sp,
+                                                        part_builders)):
+            _, measure_end = part_builder.add_measure(measure[j])
+            measure_max_end = max(measure_max_end, measure_end)
 
-        # After processing a measure, the position of all
-        # score-builders should be identical, but measures are
-        # sometimes incomplete (where the corresponding measures in
-        # other score parts are not). To correct this
-        # error, we close the measures of all score parts at the same
-        # position.
-        # get the current positions of all part builders
-        positions = np.array([(v, k) for k, v in list(position_dict.items())])
-        # print(positions)
-        # print(part_builders[33].part_id)
-        # take max
-        max_pos = np.max(positions[:, 0])
-        # close all at max_pos
+        # end all measures at max_pos
         for part_builder in part_builders:
-            # print('q p m', part_builder.part_id,  part_builder.quarters_per_measure)
-            part_builder.close_current_measure_at(max_pos)
+            part_builder.end_current_measure_at(measure_max_end)
 
     for part_builder in part_builders:
         part_builder.finalize()
@@ -1144,41 +1153,23 @@ def parse_musicxml(fn):
     parser = etree.XMLParser(resolve_entities=False, huge_tree=False,
                              remove_comments=True, remove_blank_text=True)
     document = etree.parse(fn, parser)
-
+    
     if document.getroot().tag != 'score-partwise':
-        LOGGER.error('Currently only score-partwise structure is supported')
-        return []
-    else:
-        top_structure = score.PartGroup()
-        score_part_dict = {}
+        raise Exception('Currently only score-partwise structure is supported')
 
-        try:
-            partlist = document.xpath('part-list')[0]
-        except IndexError:
-            partlist = None
-
+    partlist_el = document.xpath('part-list')
+    
+    if partlist_el:
         # parse the (hierarchical) structure of score parts
         # (instruments) that are listed in the part-list element
-        if partlist is not None:
-            top_structure.constituents, score_part_dict = parse_partlist(
-                partlist)
-            for c in top_structure.constituents:
-                c.parent = top_structure
-        # go through each <part> (i.e. more or less instrument).
-        # print(document.xpath('part[0]/measure[1]')[0].attrib)
+        partlist, score_part_dict = parse_partlist(partlist_el[0])
+        # go through each <part> to obtain the content of the scoreparts
         parse_parts(document, score_part_dict)
-        return top_structure
+    else:
+        partlist = []
+    
 
-        # return False
-
-        # complete_measures = set()
-        # for part in document.iterfind('part'):
-        #     part_id = part.attrib['id']
-        #     parse_score_part(part,
-        #                      score_part_dict.get(part_id, ScorePart(part_id)),
-        #                      complete_measures)
-
-        # return top_structure
+    return partlist
 
 
 SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]

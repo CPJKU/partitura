@@ -28,7 +28,8 @@ from numbers import Number
 import numpy as np
 from scipy.interpolate import interp1d
 
-from partitura.utils import cached_property, ComparableMixin, partition
+#from partitura.utils import cached_property, ComparableMixin, partition
+from partitura.utils import ComparableMixin, partition
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
@@ -111,11 +112,7 @@ class TimeLine(object):
 
     """
     The `TimeLine` class collects `TimePoint` objects in a doubly
-    linked list fashion (as well as in an array). Once all `TimePoint`
-    objects have beed added, the TimeLine can be locked (that is, no
-    more `TimePoint` objects can be added), in order to allow for
-    caching of property values (without locking the correctness of the
-    cached values cannot be guaranteed)
+    linked list fashion (as well as in an array).
 
     Parameters
     ----------
@@ -135,43 +132,28 @@ class TimeLine(object):
         self.points = np.array([], dtype=TimePoint)
         self.locked = False
 
-    def lock(self):
-        """
-        lock the time line; no points can be added until `unlock` is called
-        """
-        self.locked = True
-
-    def unlock(self):
-        """
-        unlock the time line; points can be added until `lock` is called
-        """
-        self.locked = False
-
-    def link(self):
-        """
-        double link all points in the time line
-        """
-        for i in range(len(self.points) - 1):
-            self.points[i].next = self.points[i + 1]
-            self.points[i + 1].prev = self.points[i]
+    # def link(self):
+    #     """
+    #     Double-link all points in the time line
+    #     """
+    #     for i in range(len(self.points) - 1):
+    #         self.points[i].next = self.points[i + 1]
+    #         self.points[i + 1].prev = self.points[i]
 
     def add_point(self, tp):
         """
         add `TimePoint` object `tp` to the time line
         """
-        if self.locked:
-            LOGGER.warning('Attempt to mutate locked TimeLine object')
-        else:
-            N = len(self.points)
-            i = np.searchsorted(self.points, tp)
-            if not (i < N and self.points[i].t == tp.t):
-                self.points = np.insert(self.points, i, tp)
-                if i > 0:
-                    self.points[i - 1].next = self.points[i]
-                    self.points[i].prev = self.points[i - 1]
-                if i < len(self.points) - 1:
-                    self.points[i].next = self.points[i + 1]
-                    self.points[i + 1].prev = self.points[i]
+        N = len(self.points)
+        i = np.searchsorted(self.points, tp)
+        if not (i < N and self.points[i].t == tp.t):
+            self.points = np.insert(self.points, i, tp)
+            if i > 0:
+                self.points[i - 1].next = self.points[i]
+                self.points[i].prev = self.points[i - 1]
+            if i < len(self.points) - 1:
+                self.points[i].next = self.points[i + 1]
+                self.points[i + 1].prev = self.points[i]
 
     def get_point(self, t):
         """
@@ -301,7 +283,9 @@ class TimePoint(ComparableMixin):
         self.label = label
         self.starting_objects = defaultdict(list)
         self.ending_objects = defaultdict(list)
-
+        self.next = None # to be dynamically updated timepoint is part of a timeline
+        self.prev = None # to be dynamically updated timepoint is part of a timeline
+        
     def __iadd__(self, value):
         assert isinstance(value, Number)
         self.t += value
@@ -408,25 +392,25 @@ class TimePoint(ComparableMixin):
             else:
                 return self.next._get_next_of_type(otype)
 
-    @cached_property
-    def next(self):
-        """
-        return the next time point, or None if there is no such
-        object; this property will be set when the object is part of a
-        time line
+    # @cached_property
+    # def next(self):
+    #     """
+    #     return the next time point, or None if there is no such
+    #     object; this property will be set when the object is part of a
+    #     time line
 
-        """
-        return None
+    #     """
+    #     return None
 
-    @cached_property
-    def prev(self):
-        """
-        return the previous time point, or None if there is no such
-        object; this property will be set when the object is part of a
-        time line
+    # @cached_property
+    # def prev(self):
+    #     """
+    #     return the previous time point, or None if there is no such
+    #     object; this property will be set when the object is part of a
+    #     time line
 
-        """
-        return None
+    #     """
+    #     return None
 
     def _cmpkey(self):
         """
@@ -630,10 +614,16 @@ class Measure(TimedObject):
         """
         Returns True if the duration of the measure is less than the expected
         duration (as computed based on the current divisions and time
-        signature), and False otherwise
+        signature), and False otherwise.
 
         WARNING: this property does not work reliably to detect
         incomplete measures in the middle of the piece
+
+        NOTE: this is probably because of the way incomplete measures are dealt
+        with in the musicxml parser. When a score part has an incomplete measure
+        where the corresponding measure in some other scorepart is complete, the
+        duration of the incomplete measure is adjusted to that it is complete
+        (otherwise the times would be misaligned after the incomplete measure).
 
         Returns
         -------
@@ -1072,7 +1062,7 @@ class Note(TimedObject):
         return str(self.__unicode__())
 
 
-def get_all_score_parts(constituents):
+def get_all_scoreparts(constituents):
     """
     From a list whose elements are either ScorePart objects or
     PartGroup objects, return an ordered list of ScorePart objects.
@@ -1089,10 +1079,10 @@ def get_all_score_parts(constituents):
 
     """
 
-    return [score_part for constituent in constituents
-            for score_part in
+    return [scorepart for constituent in constituents
+            for scorepart in
             ((constituent,) if isinstance(constituent, ScorePart)
-             else get_all_score_parts(constituent.constituents))]
+             else get_all_scoreparts(constituent.constituents))]
 
 
 class PartGroup(object):
@@ -1127,7 +1117,7 @@ class PartGroup(object):
 
     number :
 
-    score_parts : list of ScorePart objects
+    scoreparts : list of ScorePart objects
         a list of all ScorePart objects in this PartGroup
     """
 
@@ -1139,8 +1129,8 @@ class PartGroup(object):
         self.number = None
 
     @property
-    def score_parts(self):
-        return get_all_score_parts(self.constituents)
+    def scoreparts(self):
+        return get_all_scoreparts(self.constituents)
 
     def pprint(self, l=0):
         if self.name is not None:
@@ -1164,18 +1154,17 @@ class ScoreVariant(object):
         self.t_unfold += (end.t - start.t)
 
     def get_segments(self):
-        """return segment (start, end, offset) information for each of
-        the segments in the score variant.
-
-        PHENICX NOTE: these numbers can be inserted directly into the
-        ScoreVariantSequence table, as "ScoreStartBeat",
-        "ScoreStopBeat", and "Offset", respectively
-
+        """
+        Return segment (start, end, offset) information for each of the segments in
+        the score variant.
         """
         return [(s.t, e.t, 0 if i > 0 else o)
                 for i, (s, e, o) in enumerate(self.segments)]
 
     def clone(self):
+        """
+        Return a clone of the ScoreVariant
+        """
         clone = ScoreVariant(self.t_unfold)
         clone.segments = self.segments[:]
         return clone
