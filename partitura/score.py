@@ -38,6 +38,19 @@ sys.setrecursionlimit(100000)
 LOGGER = logging.getLogger(__name__)
 NON_ALPHA_NUM_PAT = re.compile(r'\W', re.UNICODE)
 
+LABEL_DURS = {
+    'long': 16,
+    'breve': 8,
+    'whole': 4,
+    'half': 2,
+    'quarter': 1,
+    'eighth': 1./2,
+    '16th': 1./4,
+    '32nd': 1./8.,
+    '64th': 1./16,
+    '128th': 1./32,
+    '256th': 1./64
+}
 
 def kahan_cumsum(x):
     """
@@ -79,34 +92,33 @@ def divide_outside_cumsum(X):
     den = np.prod(X[:-1, 1])
     return num / np.float(den)
 
+def format_symbolic_duration(symbolic_durs):
+    return '+'.join(sd['type']+'.'*sd['dots'] for sd in symbolic_durs)
 
-def _symbolic_to_numeric_duration(symbolic_dur, divs):
-    label_durs = {
-        'long': 16,
-        'breve': 8,
-        'whole': 4,
-        'half': 2,
-        'quarter': 1,
-        'eighth': 1./2,
-        '16th': 1./4,
-        '32nd': 1./8.,
-        '64th': 1./16,
-        '128th': 1./32,
-        '256th': 1./64
-    }
-    dot_multipliers = (1, 1 + 1./2, 1 + 3./4, 1 + 7./8)
-    numdur = divs * label_durs[symbolic_dur.get('type', 'quarter')]
+def symbolic_to_numeric_duration(symbolic_dur, divs):
+    dot_multipliers = (1, 1+1/2., 1+3/4., 1+7/8.)
+    numdur = divs * LABEL_DURS[symbolic_dur.get('type', 'quarter')]
     numdur *= dot_multipliers[symbolic_dur.get('dots', 0)]
     numdur *= float(symbolic_dur.get('normal_notes', 1)) / \
         symbolic_dur.get('actual_notes', 1)
     return numdur
 
-
-def symbolic_to_numeric_duration(symbolic_durs, divs):
-    numdur = 0
-    for symbolic_dur in symbolic_durs:
-        numdur += _symbolic_to_numeric_duration(symbolic_dur, divs)
-    return numdur
+# def numeric_to_symbolic_duration(dur, divs):
+#     LABEL_DURS = {
+#     'long': 16,
+#     'breve': 8,
+#     'whole': 4,
+#     'half': 2,
+#     'quarter': 1,
+#     'eighth': 1./2,
+#     '16th': 1./4,
+#     '32nd': 1./8.,
+#     '64th': 1./16,
+#     '128th': 1./32,
+#     '256th': 1./64
+#     }
+#     sorted(LABEL_DURS.values())
+#     # dur/divs
 
 class TimeLine(object):
 
@@ -123,22 +135,10 @@ class TimeLine(object):
     points : numpy array of TimePoint objects
         a numpy array of TimePoint objects.
 
-    locked : boolean
-        if the timeline is locked, no points can be added until
-        `unlock()` is called.
     """
 
     def __init__(self):
         self.points = np.array([], dtype=TimePoint)
-        self.locked = False
-
-    # def link(self):
-    #     """
-    #     Double-link all points in the time line
-    #     """
-    #     for i in range(len(self.points) - 1):
-    #         self.points[i].next = self.points[i + 1]
-    #         self.points[i + 1].prev = self.points[i]
 
     def add_point(self, tp):
         """
@@ -265,8 +265,6 @@ class TimePoint(ComparableMixin):
         a dictionary where the musical objects ending at this
         time are grouped by class.
 
-
-
     * `prev`: the preceding time instant (or None if there is none)
 
     * `next`: the succeding time instant (or None if there is none)
@@ -274,7 +272,7 @@ class TimePoint(ComparableMixin):
     The `TimeLine` class stores sorted TimePoint objects in an array
     under TimeLine.points, as well as doubly linked (through the
     `prev` and `next` attributes). The `TimeLine` class also has
-    functionality to add, remove, lock, and unlock the TimePoints.
+    functionality to add, and remove TimePoints.
 
     """
 
@@ -283,8 +281,9 @@ class TimePoint(ComparableMixin):
         self.label = label
         self.starting_objects = defaultdict(list)
         self.ending_objects = defaultdict(list)
-        self.next = None # to be dynamically updated timepoint is part of a timeline
-        self.prev = None # to be dynamically updated timepoint is part of a timeline
+        # prev and next are dynamically updated once the timepoint is part of a timeline
+        self.next = None 
+        self.prev = None
         
     def __iadd__(self, value):
         assert isinstance(value, Number)
@@ -307,9 +306,6 @@ class TimePoint(ComparableMixin):
         new = copy(self)
         new -= value
         return new
-
-    def __unicode__(self):
-        return u'Timepoint {0}: {1}'.format(self.t, self.label)
 
     def __str__(self):
         return 'Timepoint {0}: {1}'.format(self.t, self.label)
@@ -391,26 +387,6 @@ class TimePoint(ComparableMixin):
                 return r[:]
             else:
                 return self.next._get_next_of_type(otype)
-
-    # @cached_property
-    # def next(self):
-    #     """
-    #     return the next time point, or None if there is no such
-    #     object; this property will be set when the object is part of a
-    #     time line
-
-    #     """
-    #     return None
-
-    # @cached_property
-    # def prev(self):
-    #     """
-    #     return the previous time point, or None if there is no such
-    #     object; this property will be set when the object is part of a
-    #     time line
-
-    #     """
-    #     return None
 
     def _cmpkey(self):
         """
@@ -568,11 +544,9 @@ class Measure(TimedObject):
     incomplete : boolean
     """
 
-    def __init__(self, number=None, page=None, system=None):
+    def __init__(self, number=None):
         super(Measure, self).__init__()
         self.number = number
-        self.page = page
-        self.system = system
 
     def __unicode__(self):
         return u'measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
@@ -580,6 +554,23 @@ class Measure(TimedObject):
     def __str__(self):
         return str(self.__unicode__())
 
+    @property
+    def page(self):
+        pages = self.start.get_prev_of_type(Page, eq=True)
+        if pages:
+            return pages[0].nr
+        else:
+            return None
+
+    @property
+    def system(self):
+        systems = self.start.get_prev_of_type(System, eq=True)
+        if systems:
+            return systems[0].nr
+        else:
+            return None
+
+    
     def get_measure_duration(self, quarter=False):
         """
         Parameters
@@ -754,12 +745,13 @@ class KeySignature(TimedObject):
             Human-readable representation of the key
         """
         
-        if self.mode == 'major':
-            o = 0
-            m = ''
-        else:
+        if self.mode == 'minor':
             o = 3
             m = 'm'
+        else:
+            o = 0
+            m = ''
+
         return self.names[(len(self.names) + self.fifths + o) % len(self.names)] + m
     
     def __str__(self):
@@ -924,7 +916,7 @@ class Note(TimedObject):
                  symbolic_duration=None,
                  grace_type=None, steal_proportion=None,
                  staccato=False, fermata=False, accent=False,
-                 coordinates=None, staff=None):
+                 staff=None):
         super(Note, self).__init__()
         self.step = step
         if alter not in (None, 0, 1, 2, 3, -1, -2, 3):
@@ -942,7 +934,6 @@ class Note(TimedObject):
         self.fermata = fermata
         self.accent = accent
         self.staff = staff
-        self.coordinates = coordinates
         self.symbolic_durations = []
         if symbolic_duration is not None:
             self.symbolic_durations.append(symbolic_duration)
@@ -1048,15 +1039,17 @@ class Note(TimedObject):
         else:
             div = divs[0].divs
         # TODO: it is theoretically possible that the divisions change
-        # in between tied notes. The current assumes this does not happen.
-        return symbolic_to_numeric_duration(self.symbolic_durations, div)
+        # in between tied notes. The current code assumes this does not happen.
+        # return symbolic_to_numeric_duration(self.symbolic_durations, div)
+        return sum(symbolic_to_numeric_duration(sd, div) for sd in self.symbolic_durations)
 
     def __unicode__(self):
-        return u'{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5}, voice: {4}, id: {6}, {7})'\
+        return u'{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7})'\
             .format(self.step, self.alter_sign, self.octave,
                     self.midi_pitch, self.voice, self.duration,
                     self.id or '', self.grace_type if self.grace_type else '',
-                    self.start and self.start.t, self.end and self.end.t)
+                    self.start and self.start.t, self.end and self.end.t,
+                    format_symbolic_duration(self.symbolic_durations))
 
     def __str__(self):
         return str(self.__unicode__())
@@ -1215,9 +1208,9 @@ class ScorePart(object):
         note.
     """
 
-    def __init__(self, part_id, tl=None):
+    def __init__(self, part_id, timeline=None):
         self.part_id = part_id
-        self.timeline = TimeLine() if tl is None else tl
+        self.timeline = timeline or TimeLine()
         self.parent = None
         self.part_name = None
         self.part_abbreviation = None
@@ -1721,8 +1714,6 @@ class ScorePart(object):
                 n.appoggiatura_idx = i
                 n.appoggiatura_size = N
 
-        self.timeline.unlock()
-
         grace_notes = [n for n in self.notes if n.grace_type is not None]
         time_grouped_gns = partition(
             operator.attrgetter('start.t'), grace_notes)
@@ -1775,8 +1766,6 @@ class ScorePart(object):
                                 type_group, new_offset, group_counter)
                             group_counter += 1
 
-        self.timeline.link()
-        self.timeline.lock()
 
     def pprint(self, l=0):
         pre = u'  ' * l
@@ -1946,6 +1935,29 @@ class ScorePart(object):
         for tp in tl.points:
             notes.extend(tp.get_starting_objects_of_type(Note) or [])
         return notes
+
+    def get_measures(self, unfolded=False):
+        """
+        Return all measure objects of the score part.
+
+        Parameters
+        ----------
+        unfolded : boolean, optional. Default: False
+            Whether to unfolded the timeline or not.
+
+        Returns
+        -------
+            List of Measure objects
+
+        """
+        measures = []
+        if unfolded:
+            tl = self.unfold_timeline()
+        else:
+            tl = self.timeline
+        for tp in tl.points:
+            measures.extend(tp.get_starting_objects_of_type(Measure) or [])
+        return measures
 
     def get_loudness_directions(self):
         """

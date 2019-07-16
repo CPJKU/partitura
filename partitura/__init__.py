@@ -1,1 +1,3 @@
-from .musicxml import parse_musicxml as load_musicxml
+from .musicxml import load_musicxml
+from .exportmusicxml import to_musicxml
+from .midi import load_midi

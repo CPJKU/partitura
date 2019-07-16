@@ -87,6 +87,7 @@ class AnnotationTokenizer(object):
         "DOCH",
         "DOLCE",
         "DOLENTE",
+        "DOPPIO",
         "DUE",
         "DUN",
         "DURCHAUS",
@@ -137,6 +138,7 @@ class AnnotationTokenizer(object):
         "MINUETTO",
         "MIT",
         "MODERATO",
+        "MOVIMENTO",
         "MOLTO",
         "MOSSO",
         "MOTO",
@@ -263,6 +265,7 @@ class AnnotationTokenizer(object):
     t_DOCH = r'doch'
     t_DOLCE = r'(dolcissimo|dolciss\.?|dolce)'
     t_DOLENTE = r'dolente'
+    t_DOPPIO = r'doppi[ao]'
     t_DUE = r'due'
     t_DUN = r"d'un"
     t_DURCHAUS = r'durchaus'
@@ -303,6 +306,7 @@ class AnnotationTokenizer(object):
     t_MOLTO = r'(molt[oa]|sehr)'
     t_MOSSO = r'mosso'
     t_MOTO = r'moto'
+    t_MOVIMENTO = r'movimento'
     t_NOT = r'(non|nicht)'
     t_NUOVO = r'nuovo'
     t_ONE = r'una?'
@@ -584,7 +588,9 @@ def p_quantifier(p):
                    | PIU
                    | PIO
                    | MENO
+                   | MEZZO
                    | QUASI
+                   | DOPPIO
                    | TROPPO
                    | SEMPRE
                    | MA NOT TROPPO
@@ -716,14 +722,9 @@ def p_noun(p):
               | VOCE
               | TEMPO
               | SENTIMENTO
+              | MOVIMENTO
     '''
     p[0] = p[1]
-
-# def p_annotation(p):
-#     ''' annotation : tempo
-#                    | dynamics
-#     '''
-#     p[0] = p[1]
 
 
 def p_temporeset(p):
@@ -738,7 +739,7 @@ def p_temporeset(p):
 def p_error(p):
     if p is not None:
         LOGGER.warning("Syntax error at '{}' in '{}'"
-                       .format(p.value, p.lexer.lexdata).encode('utf8'))
+                       .format(p.value, p.lexer.lexdata))
 
 def parse_words(words):
     lwords = words.lower()
@@ -746,7 +747,7 @@ def parse_words(words):
     try:
         r = parser.parse(lwords)
     except TokenizeException as e:
-        LOGGER.warning('Cannot tokenize: "{}"'.format(lwords).encode('utf8'))
+        LOGGER.warning('Cannot tokenize: "{}"'.format(lwords))
         r = None
 
     if isinstance(r, score.Direction):
