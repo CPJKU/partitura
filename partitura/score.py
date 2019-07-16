@@ -1869,7 +1869,7 @@ class ScorePart(object):
             dens = np.vstack(((start, dens[0, 1]), dens))
 
         if quarter:
-            dens[:, 1] = 1
+            dens[:, 1] = 2 # i.e. np.log2(4)
 
         # integrate second column, where first column is time:
         # new_divs = np.cumsum(np.diff(divs[:, 0]) * divs[:-1, 1])
