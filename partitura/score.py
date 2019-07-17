@@ -4,7 +4,7 @@
 
 """
 This module contains an ontology to represent musical scores. A score
-is defined at the highest level by a ScorePart object. This object
+is defined at the highest level by a Part object. This object
 contains a TimeLine object, which as acts as a washing line for the
 elements in a musical score such as measures, notes, slurs, words,
 expressive directions. The TimeLine object contains a sequence of
@@ -28,8 +28,7 @@ from numbers import Number
 import numpy as np
 from scipy.interpolate import interp1d
 
-#from partitura.utils import cached_property, ComparableMixin, partition
-from partitura.utils import ComparableMixin, partition
+from partitura.utils import ComparableMixin, partition, iter_subclasses
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
@@ -612,7 +611,7 @@ class Measure(TimedObject):
 
         NOTE: this is probably because of the way incomplete measures are dealt
         with in the musicxml parser. When a score part has an incomplete measure
-        where the corresponding measure in some other scorepart is complete, the
+        where the corresponding measure in some other part is complete, the
         duration of the incomplete measure is adjusted to that it is complete
         (otherwise the times would be misaligned after the incomplete measure).
 
@@ -622,20 +621,20 @@ class Measure(TimedObject):
         """
 
         assert self.start.next is not None, LOGGER.error(
-            'ScorePart is empty')
+            'Part is empty')
         divs = self.start.next.get_prev_of_type(Divisions)
         ts = self.start.next.get_prev_of_type(TimeSignature)
         nextm = self.start.get_next_of_type(Measure)
 
         invalid = False
         if len(divs) == 0:
-            LOGGER.warning('ScorePart specifies no divisions')
+            LOGGER.warning('Part specifies no divisions')
             invalid = True
         if len(ts) == 0:
-            LOGGER.warning('ScorePart specifies no time signatures')
+            LOGGER.warning('Part specifies no time signatures')
             invalid = True
         if len(nextm) == 0:
-            LOGGER.warning('ScorePart has just one measure')
+            LOGGER.warning('Part has just one measure')
             invalid = True
 
         if invalid:
@@ -1055,27 +1054,27 @@ class Note(TimedObject):
         return str(self.__unicode__())
 
 
-def get_all_scoreparts(constituents):
+def get_all_parts(constituents):
     """
-    From a list whose elements are either ScorePart objects or
-    PartGroup objects, return an ordered list of ScorePart objects.
+    From a list whose elements are either Part objects or
+    PartGroup objects, return an ordered list of Part objects.
 
     Parameters:
     -----------
     constituents : iterable
-        a list of ScorePart/PartGroup objects
+        a list of Part/PartGroup objects
 
     Returns:
     --------
     iterable
-        a list of all ScorePart objects embedded in `constituents`
+        a list of all Part objects embedded in `constituents`
 
     """
 
-    return [scorepart for constituent in constituents
-            for scorepart in
-            ((constituent,) if isinstance(constituent, ScorePart)
-             else get_all_scoreparts(constituent.constituents))]
+    return [part for constituent in constituents
+            for part in
+            ((constituent,) if isinstance(constituent, Part)
+             else get_all_parts(constituent.constituents))]
 
 
 class PartGroup(object):
@@ -1110,8 +1109,8 @@ class PartGroup(object):
 
     number :
 
-    scoreparts : list of ScorePart objects
-        a list of all ScorePart objects in this PartGroup
+    parts : list of Part objects
+        a list of all Part objects in this PartGroup
     """
 
     def __init__(self, grouping_symbol=None, name=None):
@@ -1122,8 +1121,8 @@ class PartGroup(object):
         self.number = None
 
     @property
-    def scoreparts(self):
-        return get_all_scoreparts(self.constituents)
+    def parts(self):
+        return get_all_parts(self.constituents)
 
     def pprint(self, l=0):
         if self.name is not None:
@@ -1163,7 +1162,7 @@ class ScoreVariant(object):
         return clone
 
 
-class ScorePart(object):
+class Part(object):
 
     """
     Represents a whole score part, e.g. all notes of one single instrument
@@ -1836,12 +1835,12 @@ class ScorePart(object):
              self.timeline.get_all_of_type(TimeSignature)], dtype=np.int)
 
         if divs.shape[0] == 0:
-            LOGGER.warning(("No Divisions found in ScorePart, "
+            LOGGER.warning(("No Divisions found in Part, "
                             "assuming divisions = {0}").format(default_div))
             divs = np.array(((0, default_div),), dtype=np.int)
 
         if dens.shape[0] == 0:
-            LOGGER.warning(("No TimeSignature found in ScorePart, "
+            LOGGER.warning(("No TimeSignature found in Part, "
                             "assuming denominator = {0}").format(default_den))
             dens = np.array(((0, np.log2(default_den)),), dtype=np.int)
 
@@ -1912,68 +1911,46 @@ class ScorePart(object):
                     raise
             return f
 
-    def _get_notes(self, unfolded=False):
-        """
-        Return all note objects of the score part.
+    # def _get_notes(self, unfolded=False):
+    #     """
+    #     Return all note objects of the score part.
 
-        Parameters
-        ----------
-        unfolded : boolean, optional. Default: False
-            Whether to unfolded the timeline or not.
+    #     Parameters
+    #     ----------
+    #     unfolded : boolean, optional. Default: False
+    #         Whether to unfolded the timeline or not.
 
-        Returns
-        -------
-        notes
-            List of Note objects
+    #     Returns
+    #     -------
+    #     notes
+    #         List of Note objects
 
-        """
-        notes = []
-        if unfolded:
-            tl = self.unfold_timeline()
-        else:
-            tl = self.timeline
-        for tp in tl.points:
-            notes.extend(tp.get_starting_objects_of_type(Note) or [])
-        return notes
-
-    def get_measures(self, unfolded=False):
-        """
-        Return all measure objects of the score part.
-
-        Parameters
-        ----------
-        unfolded : boolean, optional. Default: False
-            Whether to unfolded the timeline or not.
-
-        Returns
-        -------
-            List of Measure objects
-
-        """
-        measures = []
-        if unfolded:
-            tl = self.unfold_timeline()
-        else:
-            tl = self.timeline
-        for tp in tl.points:
-            measures.extend(tp.get_starting_objects_of_type(Measure) or [])
-        return measures
+    #     """
+    #     return self.list_all(Note, unfolded=unfolded)
 
     def get_loudness_directions(self):
         """
         Return all loudness directions
 
         """
-        return self.timeline.get_all_of_type(LoudnessDirection, include_subclasses=True)
+        return self.list_all(LoudnessDirection, unfolded=unfolded, include_subclasses=True)
 
 
-    def get_tempo_directions(self):
+    def get_tempo_directions(self, unfolded=False):
         """
         Return all tempo directions
 
         """
-        return self.timeline.get_all_of_type(TempoDirection, include_subclasses=True)
+        return self.list_all(TempoDirection, unfolded=unfolded, include_subclasses=True)
 
+
+    def list_all(self, cls, unfolded=False, include_subclasses=False):
+        if unfolded:
+            tl = self.unfold_timeline()
+        else:
+            tl = self.timeline
+        return tl.get_all_of_type(cls, include_subclasses=include_subclasses)
+    
 
     @property
     def notes(self):
@@ -1986,7 +1963,7 @@ class ScorePart(object):
             list of Note objects
 
         """
-        return self._get_notes()
+        return self.list_all(Note, unfolded=False)
 
     @property
     def notes_unfolded(self):
@@ -1999,7 +1976,7 @@ class ScorePart(object):
             list of Note objects
 
         """
-        return self._get_notes(unfolded=True)
+        return self.list_all(Note, unfolded=True)
 
     @property
     def beat_map(self):

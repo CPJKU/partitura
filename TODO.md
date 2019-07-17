@@ -15,7 +15,9 @@ TODO
 	- slurs
 	- tied notes
 	- grace notes
+    - [X] cue notes 
 	- accents
+
  - test
      - musicxml -> score -> musicxml
  

@@ -346,12 +346,12 @@ def make_measure(xml_measure):
     return measure
 
 
-class ScorePartBuilder(object):
+class PartBuilder(object):
     """
 
     Parameters
     ----------
-    scorepart :
+    part :
 
     part_etree :
 
@@ -364,10 +364,10 @@ class ScorePartBuilder(object):
 
     """
 
-    def __init__(self, scorepart, part_etree, no_default_note_id=False):
-        self.timeline = scorepart.timeline
+    def __init__(self, part, part_etree, no_default_note_id=False):
+        self.timeline = part.timeline
         self.part_etree = part_etree
-        self.part_id = scorepart.part_id
+        self.part_id = part.part_id
         self.ongoing = {}
         self.divisions = np.empty((0, 2))
         self.position = 0
@@ -449,6 +449,14 @@ class ScorePartBuilder(object):
         for i, e in enumerate(xml_measure):
 
             if e.tag == 'backup':
+		# <xs:documentation>The backup and forward elements are required
+		# to coordinate multiple voices in one part, including music on
+		# multiple staves. The backup type is generally used to move
+		# between voices and staves. Thus the backup element does not
+		# include voice or staff elements. Duration values should always
+		# be positive, and should not cross measure boundaries or
+		# mid-measure changes in the divisions value.</xs:documentation>
+
                 duration = get_duration(e) or 0
                 measure_pos -= duration
                 # <backup> tags trigger an update of the measure
@@ -891,6 +899,8 @@ class ScorePartBuilder(object):
             # `key` looks like: ('tie', ('E', None, 6, 1)),
             # that is ('tie', (step, alter, octave, staff))
             tie_key = get_tie_key(e)
+
+            # according to the definition, there are no more than two tie elements in a note
             ties = e.xpath('tie')
             tie_types = [tie.attrib['type'] for tie in ties]
 
@@ -1010,19 +1020,19 @@ class ScorePartBuilder(object):
                                               Tempo(int(e.attrib['tempo'])))
 
 
-def parse_parts(document, score_part_dict):
+def parse_parts(document, part_dict):
     """
 
     Parameters
     ----------
     document : lxml etree object (?)
 
-    score_part_dict : dictionary
+    part_dict : dictionary
         a dictionary as returned by the parse_partlist() function.
     """
 
-    # initialize a ScorePartBuilder instance for each scorepart
-    part_builders = [ScorePartBuilder(score_part_dict.get(part_id, score.ScorePart(part_id)),
+    # initialize a PartBuilder instance for each part
+    part_builders = [PartBuilder(part_dict.get(part_id, score.Part(part_id)),
                                       document.xpath('/score-partwise/part[@id="{0}"]'.format(part_id))[0])
                      for part_id in document.xpath('/score-partwise/part/@id')]
     assert len(part_builders) > 0
@@ -1088,9 +1098,9 @@ def load_musicxml(fn):
     if partlist_el:
         # parse the (hierarchical) structure of score parts
         # (instruments) that are listed in the part-list element
-        partlist, score_part_dict = parse_partlist(partlist_el[0])
-        # go through each <part> to obtain the content of the scoreparts
-        parse_parts(document, score_part_dict)
+        partlist, part_dict = parse_partlist(partlist_el[0])
+        # go through each <part> to obtain the content of the parts
+        parse_parts(document, part_dict)
     else:
         partlist = []
     
@@ -1136,22 +1146,22 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
                              '"delete"')
 
     # Parse MusicXML
-    xml_parts = load_musicxml(fn).score_parts
+    parts = load_musicxml(fn)
 
     score = []
-    for xml_part in xml_parts:
+    for part in parts:
         # Unfold timeline to have repetitions
-        xml_part.timeline = xml_part.unfold_timeline()
+        part.timeline = part.unfold_timeline()
 
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
-            xml_part.expand_grace_notes()
+            part.expand_grace_notes()
         # get beat map
-        bm = xml_part.beat_map
+        bm = part.beat_map
         # Build score from beat map
         _score = np.array(
             [(n.midi_pitch, bm(n.start.t), bm(n.end.t) - bm(n.start.t))
-             for n in xml_part.notes],
+             for n in part.notes],
             dtype=SCORE_DTYPES)
 
         # Sort notes according to onset
@@ -1190,14 +1200,14 @@ def parse_partlist(partlist):
     list:
         list of PartGroup objects
     dict:
-        Dictionary of pairs (partid, ScorePart) where the ScorePart objects are
+        Dictionary of pairs (partid, Part) where the Part objects are
         instantiated with part-name and part-abbreviation if these are specified in
         the part list definition.
     """
 
     structure = []
     current_group = None
-    score_part_dict = {}
+    part_dict = {}
 
     for e in partlist:
         if e.tag == 'part-group':
@@ -1234,7 +1244,7 @@ def parse_partlist(partlist):
 
         elif e.tag == 'score-part':
             part_id = e.attrib['id']  # like "P1"
-            sp = score.ScorePart(part_id, score.TimeLine())
+            sp = score.Part(part_id, score.TimeLine())
 
             try:
                 sp.part_name = e.xpath('part-name/text()')[0]
@@ -1246,7 +1256,7 @@ def parse_partlist(partlist):
             except:
                 pass
 
-            score_part_dict[part_id] = sp
+            part_dict[part_id] = sp
 
             if current_group is None:
                 structure.append(sp)
@@ -1259,5 +1269,29 @@ def parse_partlist(partlist):
             'part-group {0} was not ended'.format(current_group.number))
         structure.append(current_group)
 
-    return structure, score_part_dict
+    return structure, part_dict
+
+
+# <xs:group name="music-data">
+# 	<xs:annotation>
+# 		<xs:documentation>The music-data group contains the basic musical data that is either associated with a part or a measure, depending on whether the partwise or timewise hierarchy is used.</xs:documentation>
+# 	</xs:annotation>
+# 	<xs:sequence>
+# 		<xs:choice minOccurs="0" maxOccurs="unbounded">
+# 			<xs:element name="note" type="note"/>
+# 			<xs:element name="backup" type="backup"/>
+# 			<xs:element name="forward" type="forward"/>
+# 			<xs:element name="direction" type="direction"/>
+# 			<xs:element name="attributes" type="attributes"/>
+# 			<xs:element name="harmony" type="harmony"/>
+# 			<xs:element name="figured-bass" type="figured-bass"/>
+# 			<xs:element name="print" type="print"/>
+# 			<xs:element name="sound" type="sound"/>
+# 			<xs:element name="barline" type="barline"/>
+# 			<xs:element name="grouping" type="grouping"/>
+# 			<xs:element name="link" type="link"/>
+# 			<xs:element name="bookmark" type="bookmark"/>
+# 		</xs:choice>
+# 	</xs:sequence>
+# </xs:group>
 
