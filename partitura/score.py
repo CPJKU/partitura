@@ -141,12 +141,26 @@ class TimeLine(object):
 
     def add_point(self, tp):
         """
-        add `TimePoint` object `tp` to the time line
+        add `TimePoint` object `tp` to the time line, unless there is already a timepoint at the same time
         """
-        N = len(self.points)
         i = np.searchsorted(self.points, tp)
-        if not (i < N and self.points[i].t == tp.t):
+        # if not (i < len(self.points) and self.points[i].t == tp.t):
+        if i == len(self.points) or self.points[i].t != tp.t:
             self.points = np.insert(self.points, i, tp)
+            if i > 0:
+                self.points[i - 1].next = self.points[i]
+                self.points[i].prev = self.points[i - 1]
+            if i < len(self.points) - 1:
+                self.points[i].next = self.points[i + 1]
+                self.points[i + 1].prev = self.points[i]
+
+    def remove_point(self, tp):
+        """
+        remove `TimePoint` object `tp` from the time line
+        """
+        i = np.searchsorted(self.points, tp)
+        if self.points[i] == tp:
+            self.points = np.delete(self.points, i)
             if i > 0:
                 self.points[i - 1].next = self.points[i]
                 self.points[i].prev = self.points[i - 1]
@@ -160,9 +174,8 @@ class TimeLine(object):
         is no such object
 
         """
-        N = len(self.points)
         i = np.searchsorted(self.points, TimePoint(t))
-        if i < N and self.points[i].t == t:
+        if i < len(self.points) and self.points[i].t == t:
             return self.points[i]
         else:
             return None
@@ -199,6 +212,25 @@ class TimeLine(object):
         """
         self.get_or_add_point(t).add_ending_object(o)
 
+    def remove_ending_object(self, o):
+        """
+        remove object `o` as an object ending at time `t`. This involves:
+          - removing `o` from the timeline
+          - remove the note ending timepoint if no starting or ending objects
+            remain at that time
+          - set o.end to None
+        """
+        if o.end:
+            try:
+                o.end.ending_objects[o.__class__].remove(o)
+            except:
+                raise Exception('Not implemented: removing an ending object that is registered by its superclass')
+            if (sum(len(oo) for oo in o.end.starting_objects.values()) +
+                sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
+                self.remove_point(o.end)
+            o.end = None
+        # self.get_or_add_point(t).add_ending_object(o)
+        
     def get_all_of_type(self, cls, start=None, end=None, include_subclasses=False):
         """
         return all objects of type `cls`
@@ -233,6 +265,21 @@ class TimeLine(object):
     @property
     def first_point(self): 
         return self.points[0] if len(self.points) > 0 else None
+
+    def get_all_ongoing_objects(self, t):
+        if not isinstance(t, TimePoint):
+            t = TimePoint(t)
+        t_idx = np.searchsorted(self.points, t, side='left')
+        ongoing = set()
+        for tp in self.points[: t_idx]:
+            for starting in tp.starting_objects.values():
+                for o in starting:
+                    ongoing.add(o)
+            for ending in tp.ending_objects.values():
+                for o in ending:
+                    ongoing.remove(o)
+        return ongoing
+        
 
 class TimePoint(ComparableMixin):
 

@@ -408,6 +408,21 @@ class PartBuilder(object):
 
                     end_pos.add_ending_object(o)
 
+        # when a divisions object occurs at any position other than the start of
+        # the part, we need to correct the end time of any object that spans the
+        # divisions object. This is because the end time was computed based on
+        # the previous divisions object.
+        divs = self.timeline.get_all_of_type(score.Divisions)
+        if len(divs) > 0:
+            prev_divs = 1
+            for div in divs:
+                ongoing = self.timeline.get_all_ongoing_objects(div.start.t)
+                for o in ongoing:
+                    if isinstance(o, score.Note):
+                        new_end = int(div.start.t + div.divs * (o.end.t-div.start.t)/prev_divs)
+                        self.timeline.remove_ending_object(o)
+                        self.timeline.add_ending_object(new_end, o)
+                prev_divs = div.divs
 
     def end_current_measure_at(self, t_quarter):
         """
