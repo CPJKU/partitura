@@ -215,7 +215,7 @@ class TimeLine(object):
 
         if end is not None:
             if not isinstance(end, TimePoint):
-                end = TimePoint(start)
+                end = TimePoint(end)
             end_idx = np.searchsorted(self.points, end, side='left')
         else:
             end_idx = len(self.points)
