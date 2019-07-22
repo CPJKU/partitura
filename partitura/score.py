@@ -50,6 +50,7 @@ LABEL_DURS = {
     '128th': 1./32,
     '256th': 1./64
 }
+DOT_MULTIPLIERS = (1, 1+1/2., 1+3/4., 1+7/8.)
 
 def kahan_cumsum(x):
     """
@@ -95,9 +96,8 @@ def format_symbolic_duration(symbolic_durs):
     return '+'.join(sd['type']+'.'*sd['dots'] for sd in symbolic_durs)
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
-    dot_multipliers = (1, 1+1/2., 1+3/4., 1+7/8.)
     numdur = divs * LABEL_DURS[symbolic_dur.get('type', 'quarter')]
-    numdur *= dot_multipliers[symbolic_dur.get('dots', 0)]
+    numdur *= DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
     numdur *= float(symbolic_dur.get('normal_notes', 1)) / \
         symbolic_dur.get('actual_notes', 1)
     return numdur
@@ -913,10 +913,17 @@ class ImpulsiveLoudnessDirection(LoudnessDirection):
     pass
 
 
+class Chord(TimedObject):
+    """
+    Represents a chord.
+    """
+    def __init__(self):
+        pass
+
 class Note(TimedObject):
 
     """
-    represents a note.
+    Represents a note.
 
     Parameters
     ----------
@@ -1173,13 +1180,13 @@ class PartGroup(object):
 
     def pprint(self, l=0):
         if self.name is not None:
-            name_str = u' / {0}'.format(self.name)
+            name_str = ' / {0}'.format(self.name)
         else:
-            name_str = u''
-        s = [u'  ' * l + u'{0}{1}'.format(self.grouping_symbol, name_str)]
+            name_str = ''
+        s = ['    ' * l + '{0}{1}'.format(self.grouping_symbol, name_str)]
         for ch in self.constituents:
             s.append(ch.pprint(l + 1))
-        return u'\n'.join(s)
+        return '\n'.join(s)
 
 
 class ScoreVariant(object):
@@ -1274,7 +1281,7 @@ class Part(object):
         while part is not None:
             if part.name is not None:
                 chunks.insert(0, part.name)
-                yield u' '.join(chunks)
+                yield '  '.join(chunks)
             part = part.parent
 
     def make_score_variants(self):
@@ -1813,20 +1820,20 @@ class Part(object):
                             group_counter += 1
 
 
-    def pprint(self, l=0):
-        pre = u'  ' * l
-        s = [u'{}{} ({})'.format(pre, self.part_name, self.part_id)]
+    def pprint(self, l=1):
+        pre = '    ' * l
+        s = ['{} ({})'.format(self.part_name, self.part_id)]
         bm = self.beat_map
 
         for tp in self.timeline.points:
             s.append('\n{}{}(beat: {})'.format(pre, tp, bm(tp.t)))
-            s.append(u' Start')
+            s.append('{}Start'.format(pre))
             for cls, objects in list(tp.starting_objects.items()):
                 if len(objects) > 0:
                     s.append('{}  {}'.format(pre, cls.__name__))
                     for o in objects:
                         s.append('{}    {}'.format(pre, o))
-            s.append(u' Stop')
+            s.append('{}Stop'.format(pre))
             for cls, objects in list(tp.ending_objects.items()):
                 if len(objects) > 0:
                     s.append(u'{}  {}'.format(pre, cls.__name__))

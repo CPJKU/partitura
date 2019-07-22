@@ -457,8 +457,8 @@ class PartBuilder(object):
 
         # keep track of the position within the measure
         measure_pos = 0
-        # keep track of the start of the previous note (in case of <chord>)
-        prev_note_start_dur = None
+        # keep track of the previous note (in case of <chord>)
+        prev_note = None
         # keep track of the duration of the measure
         measure_duration = 0
         for i, e in enumerate(xml_measure):
@@ -498,8 +498,9 @@ class PartBuilder(object):
                 self.handle_sound(e, measure_pos)
 
             elif e.tag == 'note':
-                (measure_pos, prev_note_start_dur) = self.handle_note(
-                    e, measure_pos, prev_note_start_dur)
+                (measure_pos, maybe_prev_note) = self.handle_note(e, measure_pos, prev_note)
+                if maybe_prev_note:
+                    prev_note = maybe_prev_note
                 measure_duration = max(measure_duration, measure_pos)
 
             elif e.tag == 'barline':
@@ -751,7 +752,7 @@ class PartBuilder(object):
             self.timeline.add_ending_object(
                 self.position + measure_pos, o)
 
-    def handle_note(self, e, measure_pos, prev_note_start_dur):
+    def handle_note(self, e, measure_pos, prev_note):
 
         # get some common features of element if available
         duration = get_duration(e) or 0
@@ -822,8 +823,23 @@ class PartBuilder(object):
 
         if chord:
             # this note starts at the same position as the previous note, and has same duration
-            assert prev_note_start_dur is not None
-            measure_pos, duration = prev_note_start_dur
+            assert prev_note is not None
+            measure_pos, duration = prev_note.start.t - self.position, prev_note.duration
+            
+            # add chord
+            if 'chord' in self.ongoing:
+                chord = self.ongoing['chord']
+            else:
+                chord = score.Chord()
+                self.timeline.add_starting_object(prev_note.start.t, chord)
+                self.ongoing['chord'] = chord
+        else:
+            # end the current chord
+            if 'chord' in self.ongoing:
+                chord = self.ongoing['chord']
+                self.timeline.add_ending_object(
+                    self.position + measure_pos, chord)
+                del self.ongoing['chord']
 
         if fermata:
             self.timeline.add_starting_object(
@@ -948,10 +964,11 @@ class PartBuilder(object):
 
         else:
             # note element is a rest
-            pass
+            note = None
 
         # return the measure_pos after this note, and the pair (measure_pos, duration)
-        return measure_pos + duration, (measure_pos, duration)
+        
+        return measure_pos + duration, note # (measure_pos, duration)
 
 
     def handle_attributes(self, e, measure_pos):
