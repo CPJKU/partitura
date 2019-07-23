@@ -1,5 +1,6 @@
 numpy
 scipy
+xmlschema
 lxml
 ply
 roman

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Base classes to represent score elements
+Base classes to represent score elements for voice separation
 
 TODO
 ----
@@ -12,11 +12,11 @@ TODO
 import numpy as np
 from collections import defaultdict
 
-from madmom.io.midi import MIDIFile
+# from madmom.io.midi import MIDIFile
 
 from statistics import mode
 
-SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
+from ...utils import add_field
 
 
 def sort_by_pitch(sounding_notes):
@@ -106,10 +106,6 @@ class VSNote(object):
 
         self.is_grace = self.duration == 0
         self._grace = None
-
-        # I think this is no longer used... remove?
-        self.array = np.array([(self.pitch, self.onset, self.duration)],
-                              dtype=SCORE_DTYPES)
         self._voice = voice
         self.velocity = None
 
@@ -495,14 +491,26 @@ class Contig(VSBaseScore):
 
 
 class VSScore(VSBaseScore):
-    """Class to represent a score
+    """Class to represent a score for voice separation
+
+    TODO:
+    * rename this class or simplify to avoid overlap in naming
+      conventions with the main package
+    * better handle grace notes
     """
 
     def __init__(self, score, delete_gracenotes=True):
 
+        # Score
         self.score = score
 
+        # Get the IDs of the notes
+        if 'id' not in self.score.dtype.names:
+            self.score = add_field(self.score, [('id', int)])
+            self.score['id'] = np.arange(len(self.score), dtype=int)
+
         if delete_gracenotes:
+            # TODO: Handle grace notes correctly
             self.score = self.score[score['duration'] != 0]
         else:
             grace_note_idxs = np.where(score['duration'] == 0)[0]
@@ -520,12 +528,12 @@ class VSScore(VSBaseScore):
 
         self.notes = []
 
-        for i, n in enumerate(self.score):
+        for n in self.score:
 
             note = VSNote(pitch=n['pitch'],
                           onset=n['onset'],
                           duration=n['duration'],
-                          note_id=i,
+                          note_id=n['id'],
                           velocity=n['velocity'] if 'velocity' in self.score.dtype.names else None)
 
             self.notes.append(note)
@@ -543,31 +551,31 @@ class VSScore(VSBaseScore):
 
         self.contigs = None
 
-    def write_midi(self, outfile, tempo=120, default_vel=60, skip_notes_wo_voice=True):
-        note_info = []
+    # def write_midi(self, outfile, tempo=120, default_vel=60, skip_notes_wo_voice=True):
+    #     note_info = []
 
-        if skip_notes_wo_voice:
-            out_notes = [n for n in self.notes if n.voice is not None]
-        else:
-            out_notes = self.notes
-        for n in out_notes:
+    #     if skip_notes_wo_voice:
+    #         out_notes = [n for n in self.notes if n.voice is not None]
+    #     else:
+    #         out_notes = self.notes
+    #     for n in out_notes:
 
-            pitch = n.pitch
-            onset = n.onset
-            duration = n.duration
-            velocity = n.velocity if n.velocity is not None else default_vel
-            channel = n.voice if n.voice is not None else 0
+    #         pitch = n.pitch
+    #         onset = n.onset
+    #         duration = n.duration
+    #         velocity = n.velocity if n.velocity is not None else default_vel
+    #         channel = n.voice if n.voice is not None else 0
 
-            note_info.append((onset, pitch, duration, velocity, channel))
+    #         note_info.append((onset, pitch, duration, velocity, channel))
 
-        note_info = np.array(sorted(note_info), dtype=np.float)
-        # onsets start at 0 (MIDI files cannot represent anacrusis)
-        note_info[:, 0] -= note_info[:, 0].min()
+    #     note_info = np.array(sorted(note_info), dtype=np.float)
+    #     # onsets start at 0 (MIDI files cannot represent anacrusis)
+    #     note_info[:, 0] -= note_info[:, 0].min()
 
-        mf = MIDIFile.from_notes(note_info,
-                                 tempo=tempo,
-                                 unit='beats')
-        mf.save(outfile)
+    #     mf = MIDIFile.from_notes(note_info,
+    #                              tempo=tempo,
+    #                              unit='beats')
+    #     mf.save(outfile)
 
     def write_txt(self, outfile, skip_notes_wo_voice=False):
 
@@ -588,13 +596,23 @@ class VSScore(VSBaseScore):
 
     @property
     def note_array(self):
-
+        """
+        TODO:
+        Check that all notes have the same type of id
+        """
         out_array = []
+
         for n in self.notes:
-            out_note = (n.pitch, n.onset, n.duration, n.voice if n.voice is not None else -1)
+            out_note = (n.pitch, n.onset, n.duration,
+                        n.voice if n.voice is not None else -1, n.id)
             out_array.append(out_note)
 
-        return np.array(out_array)
+        return np.array(out_array, dtype=[('pitch', 'i4'),
+                                          ('onset', 'f4'),
+                                          ('duration', 'f4'),
+                                          ('voice', 'i4'),
+                                          ('id', type(self.notes[0].id))]
+                        )
 
     def make_contigs(self):
 

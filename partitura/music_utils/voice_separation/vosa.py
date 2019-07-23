@@ -11,11 +11,8 @@ import numpy as np
 from collections import defaultdict
 import numpy.ma as ma
 
-try:
-    from score_representation import VSScore, VSNote, VoiceManager, Contig, NoteStream
-except ModuleNotFoundError:
-    from .score_representation import VSScore, VSNote, VoiceManager, Contig, NoteStream
-
+from ._vs_utils import VSScore, VSNote, VoiceManager, Contig, NoteStream
+from ...utils import add_field
 
 # Maximal cost of a jump (in Chew  and Wu (2006) is 2 ** 31)
 MAX_COST = 1000
@@ -36,7 +33,7 @@ def pairwise_cost(prev, nxt):
     Returns
     -------
     cost : np.ndarray
-        Cost of connecting each note in the last onset of the 
+        Cost of connecting each note in the last onset of the
         previous of the contig to each note in the first onset
         of the next contig. (index [i, j] represents the cost
         from connecting i in `prev` to  j in `nxt`.
@@ -285,13 +282,67 @@ class VoSA(VSScore):
                 keep_loop = False
 
 
-if __name__ == '__main__':
+def estimate_voices(notearray):
+    """
+    Voice estimation using the voice separation algorithm
+    proposed in [1]
 
-    import partitura
+    Parameters
+    ----------
+    notearray : numpy structured array
+        Structured array containing score information.
+        Required fields are `pitch` (MIDI pitch),
+        `onset` (starting time of the notes) and
+        `duration` (duration of the notes). Additionally,
+        It might be useful to have an `id` field containing
+        the ID's of the notes. If this field is not contained
+        in the array, ID's will be created for the notes.
 
-    fn = './Three-Part_Invention_No_13_(fragment).musicxml'
+    Returns
+    -------
+    v_notearray : numpy structured array
+        Structured array containing score information.
+        This array contains `pitch`, `onset`, `duration`
+        `voice` and `id`.
 
-    xml = partitura.musicxml.xml_to_notearray(fn)
+    References
+    ----------
+    [1] Elaine Chew and Xiaodan Wu (2006) Separating Voices in
+        Polyphonic Music: A Contig Mapping Approach.
 
-    vsa = VoSA(xml)
-    vsa.write_midi('test.mid')
+    TODO
+    ----
+    * Handle grace notes correctly. The current version simply
+      deletes all grace notes.
+    """
+
+    if notearray.dtype.fields is None:
+        raise ValueError('`notearray` must be a structured numpy array')
+
+    for field in ('pitch', 'onset', 'duration'):
+        if field not in notearray.dtype.names:
+            raise ValueError('Input array does not contain the field {0}'.format(field))
+
+    if 'id' not in notearray.dtype.names:
+        print("The input score does not contain note ID's. They will be created")
+
+        input_array = add_field(notearray, [('id', int)])
+        input_array['id'] = np.arange(len(notearray), dtype=int)
+
+    else:
+        input_array = notearray
+
+    # Indices for sorting the output such that it matches
+    # the original input (VoSA reorders the notes by onset and
+    # by pitch)
+    orig_idxs = np.arange(len(notearray))
+
+    id_sort_idxs = np.sort(input_array['id'])
+
+    # Perform voice separation
+    v_notearray = VoSA(input_array[id_sort_idxs]).note_array
+
+    # Sort output according to the note id's
+    v_notearray = v_notearray[v_notearray['id'].argsort()]
+
+    return v_notearray[np.argsort(orig_idxs[id_sort_idxs])]
