@@ -8,12 +8,9 @@ TODO
 * Reduce overlap between the main Note and Score classes in partitura
 * Finish documentation.
 """
-
 import numpy as np
+
 from collections import defaultdict
-
-# from madmom.io.midi import MIDIFile
-
 from statistics import mode
 
 from ...utils import add_field
@@ -283,6 +280,10 @@ class VoiceManager(object):
 
 
 class VSBaseScore(object):
+    """
+    Base class for holding score-like objects for voice separation
+    """
+
     def __init__(self, notes):
 
         # Set list of notes
@@ -550,32 +551,6 @@ class VSScore(VSBaseScore):
         super(VSScore, self).__init__(self.notes)
 
         self.contigs = None
-
-    # def write_midi(self, outfile, tempo=120, default_vel=60, skip_notes_wo_voice=True):
-    #     note_info = []
-
-    #     if skip_notes_wo_voice:
-    #         out_notes = [n for n in self.notes if n.voice is not None]
-    #     else:
-    #         out_notes = self.notes
-    #     for n in out_notes:
-
-    #         pitch = n.pitch
-    #         onset = n.onset
-    #         duration = n.duration
-    #         velocity = n.velocity if n.velocity is not None else default_vel
-    #         channel = n.voice if n.voice is not None else 0
-
-    #         note_info.append((onset, pitch, duration, velocity, channel))
-
-    #     note_info = np.array(sorted(note_info), dtype=np.float)
-    #     # onsets start at 0 (MIDI files cannot represent anacrusis)
-    #     note_info[:, 0] -= note_info[:, 0].min()
-
-    #     mf = MIDIFile.from_notes(note_info,
-    #                              tempo=tempo,
-    #                              unit='beats')
-    #     mf.save(outfile)
 
     def write_txt(self, outfile, skip_notes_wo_voice=False):
 
