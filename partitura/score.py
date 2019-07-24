@@ -231,7 +231,7 @@ class TimeLine(object):
             o.end = None
         # self.get_or_add_point(t).add_ending_object(o)
         
-    def get_all_of_type(self, cls, start=None, end=None, include_subclasses=False):
+    def get_all(self, cls, start=None, end=None, include_subclasses=False):
         """
         return all objects of type `cls`
 
@@ -513,9 +513,6 @@ class Repeat(TimedObject):
     def __init__(self):
         super(Repeat, self).__init__()
 
-    def __unicode__(self):
-        return u'Repeat (from {0} to {1})'.format(self.start and self.start.t, self.end and self.end.t)
-
     def __str__(self):
         return 'Repeat (from {0} to {1})'.format(self.start and self.start.t, self.end and self.end.t)
 
@@ -525,11 +522,8 @@ class DaCapo(TimedObject):
     def __init__(self):
         super(DaCapo, self).__init__()
 
-    def __unicode__(self):
-        return u'Dacapo'  # (at {0} to {1})'.format(self.start.t, self.end.t)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return u'Dacapo'
 
 
 class Fine(TimedObject):
@@ -537,11 +531,8 @@ class Fine(TimedObject):
     def __init__(self):
         super(Fine, self).__init__()
 
-    def __unicode__(self):
-        return u'Fine'
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'Fine'
 
 
 class Fermata(TimedObject):
@@ -549,11 +540,8 @@ class Fermata(TimedObject):
     def __init__(self):
         super(Fermata, self).__init__()
 
-    def __unicode__(self):
-        return u'Fermata'
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'Fermata'
 
 
 class Ending(TimedObject):
@@ -567,11 +555,8 @@ class Ending(TimedObject):
         super(Ending, self).__init__()
         self.number = number
 
-    def __unicode__(self):
-        return u'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
 
 
 class Measure(TimedObject):
@@ -594,11 +579,9 @@ class Measure(TimedObject):
         super(Measure, self).__init__()
         self.number = number
 
-    def __unicode__(self):
-        return u'measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
 
     def __str__(self):
-        return str(self.__unicode__())
+        return 'measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
 
     @property
     def page(self):
@@ -628,8 +611,10 @@ class Measure(TimedObject):
 
         """
 
-        assert self.start.next is not None, LOGGER.error(
-            'Measure has no successor')
+        if self.start.next is None:
+            LOGGER.warning('Measure start has no successor')
+            return 0
+        
         divs = self.start.next.get_prev_of_type(Divisions)
         ts = self.start.next.get_prev_of_type(TimeSignature)
         nextm = self.start.get_next_of_type(Measure)
@@ -718,11 +703,8 @@ class TimeSignature(TimedObject):
         self.beats = beats
         self.beat_type = beat_type
 
-    def __unicode__(self):
-        return u'time signature: {0}/{1}'.format(self.beats, self.beat_type)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'time signature: {0}/{1}'.format(self.beats, self.beat_type)
 
 
 class Divisions(TimedObject):
@@ -738,11 +720,8 @@ class Divisions(TimedObject):
         super(Divisions, self).__init__()
         self.divs = divs
 
-    def __unicode__(self):
-        return u'divisions: quarter={0}'.format(self.divs)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'divisions: quarter={0}'.format(self.divs)
 
 
 class Tempo(TimedObject):
@@ -751,11 +730,8 @@ class Tempo(TimedObject):
         super(Tempo, self).__init__()
         self.bpm = bpm
 
-    def __unicode__(self):
-        return u'tempo: bpm={0}'.format(self.bpm)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'tempo: bpm={0}'.format(self.bpm)
 
 
 class KeySignature(TimedObject):
@@ -825,11 +801,8 @@ class Transposition(TimedObject):
         self.diatonic = diatonic
         self.chromatic = chromatic
 
-    def __unicode__(self):
-        return u'transposition: diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return 'transposition: diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
 
 
 class Words(TimedObject):
@@ -844,14 +817,8 @@ class Words(TimedObject):
         super(Words, self).__init__()
         self.text = text
 
-    # def __str__(self):
-    #     return self.__unicode__().encode('utf8')
-
-    def __unicode__(self):
-        return u'{}: {}'.format(type(self).__name__, self.text)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return '{}: {}'.format(type(self).__name__, self.text)
 
 
 class Direction(TimedObject):
@@ -860,25 +827,16 @@ class Direction(TimedObject):
 
     """
 
-    # labels = []
-    # patterns = []
     def __init__(self, text):
         self.text = text
         self.start = None
         self.end = None
 
-    # def __str__(self):
-    #     return self.__unicode__().encode('utf8')
-
-    def __unicode__(self):
-        return u'{}: {}'.format(type(self).__name__, self.text)
-
     def __str__(self):
-        return str(self.__unicode__())
+        return '{}: {}'.format(type(self).__name__, self.text)
 
 
-class TempoDirection(Direction):
-    pass
+class TempoDirection(Direction): pass
 
 
 class DynamicTempoDirection(TempoDirection):
@@ -887,16 +845,13 @@ class DynamicTempoDirection(TempoDirection):
         self.intermediate = []
 
 
-class ConstantTempoDirection(TempoDirection):
-    pass
+class ConstantTempoDirection(TempoDirection): pass
 
 
-class ResetTempoDirection(ConstantTempoDirection):
-    pass
+class ResetTempoDirection(ConstantTempoDirection): pass
 
 
-class LoudnessDirection(Direction):
-    pass
+class LoudnessDirection(Direction): pass
 
 
 class DynamicLoudnessDirection(LoudnessDirection):
@@ -904,13 +859,10 @@ class DynamicLoudnessDirection(LoudnessDirection):
         Direction.__init__(self, text)
         self.intermediate = []
 
-
-class ConstantLoudnessDirection(LoudnessDirection):
-    pass
+class ConstantLoudnessDirection(LoudnessDirection): pass
 
 
-class ImpulsiveLoudnessDirection(LoudnessDirection):
-    pass
+class ImpulsiveLoudnessDirection(LoudnessDirection): pass
 
 
 class Chord(TimedObject):
@@ -1096,16 +1048,13 @@ class Note(TimedObject):
         # return symbolic_to_numeric_duration(self.symbolic_durations, div)
         return sum(symbolic_to_numeric_duration(sd, div) for sd in self.symbolic_durations)
 
-    def __unicode__(self):
-        return u'{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7})'\
-            .format(self.step, self.alter_sign, self.octave,
-                    self.midi_pitch, self.voice, self.duration,
-                    self.id or '', self.grace_type if self.grace_type else '',
-                    self.start and self.start.t, self.end and self.end.t,
-                    format_symbolic_duration(self.symbolic_durations))
-
     def __str__(self):
-        return str(self.__unicode__())
+        return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7})'
+                .format(self.step, self.alter_sign, self.octave,
+                        self.midi_pitch, self.voice, self.duration,
+                        self.id or '', self.grace_type if self.grace_type else '',
+                        self.start and self.start.t, self.end and self.end.t,
+                        format_symbolic_duration(self.symbolic_durations)))
 
 
 def get_all_parts(constituents):
@@ -1303,7 +1252,7 @@ class Part(object):
                         'capo/fine/coda/segno directions is not (properly) '
                         'implemented yet'))
 
-        repeats = self.timeline.get_all_of_type(Repeat)
+        repeats = self.timeline.get_all(Repeat)
 
         # t_score is used to keep the time in the score
         t_score = TimePoint(0)
@@ -1416,9 +1365,9 @@ class Part(object):
                        ' capo/fine/coda/segno directions is not (properly)'
                        ' implemented yet')
 
-        repeats = self.timeline.get_all_of_type(Repeat)
-        dacapos = self.timeline.get_all_of_type(DaCapo)
-        fines = self.timeline.get_all_of_type(Fine)
+        repeats = self.timeline.get_all(Repeat)
+        dacapos = self.timeline.get_all(DaCapo)
+        fines = self.timeline.get_all(Fine)
 
         if len(dacapos) > 0:
             dacapo = dacapos[0]
@@ -1645,14 +1594,6 @@ class Part(object):
 
             new_timeline.append(new_points)
 
-            # for new_points in new_timeline:
-            #     for i,p in enumerate(new_points):
-            #         for n in p.get_starting_objects_of_type(Note):
-            #             if n.duration > 130:
-            #                 print(i, len(new_points))
-            #                 print(n)
-            #                 print('',n)
-            #                 assert 1 == 0
         new_timeline = np.concatenate(new_timeline)
 
         for i in range(1, len(new_timeline)):
@@ -1666,12 +1607,6 @@ class Part(object):
 
         tl = TimeLine()
         tl.points = new_timeline
-
-        # for tp in tl.points:
-        #     print(tp)
-        #     for n in tp.get_starting_objects_of_type(Note):
-        #         print(n.start.t, tp.t, n.end.t)
-        #         assert n.start.t <= n.end.t
 
         return tl
 
@@ -1882,11 +1817,11 @@ class Part(object):
 
         divs = np.array(
             [(x.start.t, x.divs) for x in
-             self.timeline.get_all_of_type(Divisions)], dtype=np.int)
+             self.timeline.get_all(Divisions)], dtype=np.int)
 
         dens = np.array(
             [(x.start.t, np.log2(x.beat_type)) for x in
-             self.timeline.get_all_of_type(TimeSignature)], dtype=np.int)
+             self.timeline.get_all(TimeSignature)], dtype=np.int)
 
         if divs.shape[0] == 0:
             LOGGER.warning(("No Divisions found in Part, "
@@ -1965,30 +1900,12 @@ class Part(object):
                     raise
             return f
 
-    # def _get_notes(self, unfolded=False):
-    #     """
-    #     Return all note objects of the score part.
-
-    #     Parameters
-    #     ----------
-    #     unfolded : boolean, optional. Default: False
-    #         Whether to unfolded the timeline or not.
-
-    #     Returns
-    #     -------
-    #     notes
-    #         List of Note objects
-
-    #     """
-    #     return self.list_all(Note, unfolded=unfolded)
-
     def get_loudness_directions(self):
         """
         Return all loudness directions
 
         """
         return self.list_all(LoudnessDirection, unfolded=unfolded, include_subclasses=True)
-
 
     def get_tempo_directions(self, unfolded=False):
         """
@@ -1997,14 +1914,12 @@ class Part(object):
         """
         return self.list_all(TempoDirection, unfolded=unfolded, include_subclasses=True)
 
-
     def list_all(self, cls, unfolded=False, include_subclasses=False):
         if unfolded:
             tl = self.unfold_timeline()
         else:
             tl = self.timeline
-        return tl.get_all_of_type(cls, include_subclasses=include_subclasses)
-    
+        return tl.get_all(cls, include_subclasses=include_subclasses)
 
     @property
     def notes(self):

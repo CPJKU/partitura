@@ -30,7 +30,7 @@ class TestMusicXML(unittest.TestCase):
 
             # scorepart = partgroup.score_parts[0]
         #     # print(score.pprint())
-        #     measures = scorepart.timeline.get_all_of_type(score.Measure)
+        #     measures = scorepart.timeline.get_all(score.Measure)
         #     for measure in measures:
         #         print(measure.end.t - measure.start.t)
         # self.assertEqual(1, 1, "Should be equal")

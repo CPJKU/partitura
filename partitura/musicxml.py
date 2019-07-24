@@ -444,7 +444,7 @@ class PartBuilder(object):
         # the part, we need to correct the end time of any object that spans the
         # divisions object. This is because the end time was computed based on
         # the previous divisions object.
-        divs = self.timeline.get_all_of_type(score.Divisions)
+        divs = self.timeline.get_all(score.Divisions)
         if len(divs) > 0:
             prev_divs = 1
             for div in divs:

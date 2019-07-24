@@ -13,7 +13,7 @@ MEASURE_SEP_COMMENT = '======================================================='
 
 def make_note_el(note, i, n, dur):
     # child order
-    # <grace>
+    # <grace> | <chord> | <cue>
     # <pitch>
     # <duration>
     # <tie type="stop"/>
@@ -21,52 +21,68 @@ def make_note_el(note, i, n, dur):
     # <type>
     # <notations>
 
-    # TODO: make id unique for tied notes
     note_id = note.id
     if n > 1:
         note_id = f'{note.id}_{i+1}'
+
     note_e = etree.Element('note', id=note_id)
 
     if note.grace_type:
+
         if note.grace_type == 'acciaccatura':
+
             etree.SubElement(note_e, 'grace', slash='yes')
+
         else:
+
             etree.SubElement(note_e, 'grace')
 
     pitch_e = etree.SubElement(note_e, 'pitch')
+
     etree.SubElement(pitch_e, 'step').text = f'{note.step}'
+
     if note.alter is not None:
         etree.SubElement(pitch_e, 'alter').text = f'{note.alter}'
+
     etree.SubElement(pitch_e, 'octave').text = f'{note.octave}'
 
     if not note.grace_type:
+
         duration_e = etree.SubElement(note_e, 'duration')
         duration_e.text = f'{int(dur):d}'
 
     tied = []
+
     if n > 1 and i > 0:
+
         etree.SubElement(note_e, 'tie', type='stop')
         tied.append(etree.Element('tied', type='stop'))
+
     if n > 1 and i < n-1:
         etree.SubElement(note_e, 'tie', type='start')
         tied.append(etree.Element('tied', type='start'))
 
     if note.voice is not None:
+
         etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
     sym_dur = note.symbolic_durations[i]
     etree.SubElement(note_e, 'type').text = sym_dur['type']
 
     for i in range(sym_dur['dots']):
+
         etree.SubElement(note_e, 'dot')
 
     if tied:
+
         notations_e = etree.SubElement(note_e, 'notations')
         notations_e.extend(tied)
 
     return note_e
+
             
 def group_notes_by_voice(notes):
+
     if all(hasattr(n, 'voice') for n in notes):
 
         by_voice = defaultdict(list)
@@ -79,6 +95,7 @@ def group_notes_by_voice(notes):
     else:
         raise NotImplementedError('currently all notes must have a voice attribute for exporting to MusicXML')
     
+
 def do_note(note, measure_end, timeline):
     onset = note.start.t
     notes = []
@@ -90,8 +107,11 @@ def do_note(note, measure_end, timeline):
         t = timeline.get_or_add_point(onset)
 
         if note.grace_type:
+
             dur_divs = 0
+
         else:
+
             divs = next(iter(t.get_prev_of_type(score.Divisions, eq=True)),
                         score.Divisions(1)).divs
     
@@ -101,8 +121,11 @@ def do_note(note, measure_end, timeline):
         note_e = make_note_el(note, i, N, dur_divs)
 
         if onset >= measure_end:
+
             ongoing_tied.append((onset, dur_divs, note_e))
+
         else:
+
             notes.append((onset, dur_divs, note_e))
 
         onset += dur_divs
@@ -128,9 +151,7 @@ def linearize_measure_contents(measure, part, saved_from_prev=[]):
     type
         Description of return value
     """
-    # print('saved_from_prev')
-    # print(saved_from_prev)
-    notes = part.timeline.get_all_of_type(score.Note, start=measure.start, end=measure.end)
+    notes = part.timeline.get_all(score.Note, start=measure.start, end=measure.end)
     notes_by_voice = group_notes_by_voice(notes)
     # tied notes that extend into the next measure(s)
     save_for_next_measure = {}
@@ -143,29 +164,42 @@ def linearize_measure_contents(measure, part, saved_from_prev=[]):
     for voice in sorted(voices):
 
         if voice in saved_from_prev:
+
             # TODO: this is not correct if tie spans three measures or more
             voices_e[voice].extend(saved_from_prev[voice])
-
+        
         for n in notes_by_voice[voice]:
+
             notes, ongoing_notes = do_note(n, measure.end.t, part.timeline)
             voices_e[voice].extend(notes)
             save_for_next_measure[voice] = ongoing_notes
 
-    # insert directions
-    attributes = (part.timeline.get_all_of_type(score.Divisions, start=measure.start, end=measure.end)
-                  +part.timeline.get_all_of_type(score.KeySignature, start=measure.start, end=measure.end)
-                  +part.timeline.get_all_of_type(score.TimeSignature, start=measure.start, end=measure.end))
+        add_chord_tags(voices_e[voice])
+        
+    attributes = (part.timeline.get_all(score.Divisions, measure.start, measure.end)
+                  +part.timeline.get_all(score.KeySignature, measure.start, measure.end)
+                  +part.timeline.get_all(score.TimeSignature, measure.start, measure.end))
     
     attributes_e = do_attributes(attributes)
     
-    directions = part.timeline.get_all_of_type(score.Direction, start=measure.start, end=measure.end,
-                                               include_subclasses=True)
+    directions = part.timeline.get_all(score.Direction, measure.start, measure.end,
+                                       include_subclasses=True)
+    # TODO: deal with directions
     directions_e = []
+    
     # merge other and contents
     contents = merge_measure_contents(voices_e, attributes_e, directions_e, measure.start.t)
     
     # print(other)
     return contents, save_for_next_measure
+
+def add_chord_tags(notes):
+    print(notes)
+    prev = None
+    for onset, _, note in notes:
+        if onset == prev:
+            note.insert(0, etree.Element('chord'))
+        prev = onset
 
 def forward_backup_if_needed(t, t_prev):
     result = []
@@ -184,6 +218,7 @@ def forward_backup_if_needed(t, t_prev):
         result.append((t, None, e))
     return result, gap
 
+    
 def merge_with_voice(notes, other, measure_start):
     other = iter(other)
     notes = iter(notes)
@@ -194,42 +229,44 @@ def merge_with_voice(notes, other, measure_start):
     last_t = measure_start
     fb_cost = 0
     while o is not None or n is not None:
-        if o is None:
-            # print('a', n_t, last_t)
-            els, cost = forward_backup_if_needed(n_t, last_t)
-            fb_cost += cost
-            result.extend(els)
+        if o is None or n_t < o_t:
+            # if n has a chord tag it can be assumed to start at the same time
+            # as the previous note, so we don't need to forward or backup
+            if n[0].tag != 'chord':
+                els, cost = forward_backup_if_needed(n_t, last_t)
+                fb_cost += cost
+                result.extend(els)
             result.append((n_t, n_dur, n))
             last_t = n_t + (n_dur or 0)
             n_t, n_dur, n = next(notes, end_token)
-        elif n is None:
-            # print('b', o_t, last_t)
+        # elif n is None or o_t >= n_t:
+        else:
             els, cost = forward_backup_if_needed(o_t, last_t)
             fb_cost += cost
             result.extend(els)
             result.append((o_t, o_dur, o))
             last_t = o_t
             o_t, _, o = next(other, end_token)
-        elif o_t <= n_t:
-            # print('c', o_t, n_t, last_t)
 
-            # we have n and o, and o comes first
-            els, cost = forward_backup_if_needed(o_t, last_t)
-            fb_cost += cost
-            result.extend(els)
-            result.append((o_t, o_dur, o))
-            last_t = o_t
-            o_t, _, o = next(other, end_token)
-        else: 
-            # print('d', o_t, n_t, last_t)
-
-            # we have n and o, and n comes first
-            els, cost = forward_backup_if_needed(n_t, last_t)
-            fb_cost += cost
-            result.extend(els)
-            result.append((n_t, n_dur, n))
-            last_t = n_t + (n_dur or 0)
-            n_t, n_dur, n = next(notes, end_token)
+        # elif n_t < o_t:
+        #     # we have n and o, and n comes first
+        #     # if n has a chord tag it can be assumed to start at the same time
+        #     # as the previous note, so we don't need to forward or backup
+        #     if n[0].tag != 'chord':
+        #         els, cost = forward_backup_if_needed(n_t, last_t)
+        #         fb_cost += cost
+        #         result.extend(els)
+        #     result.append((n_t, n_dur, n))
+        #     last_t = n_t + (n_dur or 0)
+        #     n_t, n_dur, n = next(notes, end_token)
+        # else: 
+        #     # we have n and o, and o comes first
+        #     els, cost = forward_backup_if_needed(o_t, last_t)
+        #     fb_cost += cost
+        #     result.extend(els)
+        #     result.append((o_t, o_dur, o))
+        #     last_t = o_t
+        #     o_t, _, o = next(other, end_token)
 
     return result, fb_cost
     
