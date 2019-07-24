@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+import numpy as np
 from functools import wraps
 from collections import defaultdict
+
 
 def cached_property(func, name=None):
     """
@@ -23,14 +25,14 @@ def cached_property(func, name=None):
     >>> # subsequent access of foo (fast):
     >>> x.foo
     """
-    if name is None :
+    if name is None:
         name = func.__name__
 
     @wraps(func)
     def _get(self):
-        try :
+        try:
             return self.__dict__[name]
-        except KeyError :
+        except KeyError:
             self.__dict__[name] = func(self)
             return self.__dict__[name]
 
@@ -39,13 +41,13 @@ def cached_property(func, name=None):
         self.__dict__[name] = value
 
     @wraps(func)
-    def _del(self ):
+    def _del(self):
         self.__dict__.pop(name, None)
 
     return property(_get, _set, _del)
 
 
-def iter_subclasses(cls, _seen = None):
+def iter_subclasses(cls, _seen=None):
     """
     iter_subclasses(cls)
 
@@ -69,14 +71,15 @@ def iter_subclasses(cls, _seen = None):
     >>> [cls.__name__ for cls in iter_subclasses(object)] #doctest: +ELLIPSIS
     ['type', ...'tuple', ...]
     """
-    
+
     if not isinstance(cls, type):
         raise TypeError('iter_subclasses must be called with '
                         'new-style classes, not %.100r' % cls)
-    if _seen is None: _seen = set()
+    if _seen is None:
+        _seen = set()
     try:
         subs = cls.__subclasses__()
-    except TypeError: # fails only when cls is type
+    except TypeError:  # fails only when cls is type
         subs = cls.__subclasses__(cls)
     for sub in subs:
         if sub not in _seen:
@@ -90,6 +93,7 @@ class ComparableMixin(object):
     """source:
     http://regebro.wordpress.com/2010/12/13/python-implementing-rich-comparison-the-correct-way/
     """
+
     def _compare(self, other, method):
         try:
             return method(self._cmpkey(), other._cmpkey())
@@ -99,22 +103,22 @@ class ComparableMixin(object):
             return NotImplemented
 
     def __lt__(self, other):
-        return self._compare(other, lambda s,o: s < o)
+        return self._compare(other, lambda s, o: s < o)
 
     def __le__(self, other):
-        return self._compare(other, lambda s,o: s <= o)
+        return self._compare(other, lambda s, o: s <= o)
 
     def __eq__(self, other):
-       return self._compare(other, lambda s,o: s == o)
+        return self._compare(other, lambda s, o: s == o)
 
     def __ge__(self, other):
-        return self._compare(other, lambda s,o: s >= o)
+        return self._compare(other, lambda s, o: s >= o)
 
     def __gt__(self, other):
-        return self._compare(other, lambda s,o: s > o)
+        return self._compare(other, lambda s, o: s > o)
 
     def __ne__(self, other):
-        return self._compare(other, lambda s,o: s != o)
+        return self._compare(other, lambda s, o: s != o)
 
 
 def partition(func, iterable):
@@ -125,5 +129,39 @@ def partition(func, iterable):
     """
     result = defaultdict(list)
     for v in iterable:
-        result[func(v)].append(v) 
+        result[func(v)].append(v)
     return result
+
+
+def add_field(a, descr):
+    """Return a new array that is like "a", but has additional fields.
+
+    From https://stackoverflow.com/questions/1201817/adding-a-field-to-a-structured-numpy-array
+
+    Arguments:
+      a     -- a structured numpy array
+      descr -- a numpy type description of the new fields
+
+    The contents of "a" are copied over to the appropriate fields in
+    the new array, whereas the new fields are uninitialized.  The
+    arguments are not modified.
+
+    >>> sa = np.array([(1, 'Foo'), (2, 'Bar')], \
+                         dtype=[('id', int), ('name', 'S3')])
+    >>> sa.dtype.descr == np.dtype([('id', int), ('name', 'S3')])
+    True
+    >>> sb = add_field(sa, [('score', float)])
+    >>> sb.dtype.descr == np.dtype([('id', int), ('name', 'S3'), \
+                                       ('score', float)])
+    True
+    >>> np.all(sa['id'] == sb['id'])
+    True
+    >>> np.all(sa['name'] == sb['name'])
+    True
+    """
+    if a.dtype.fields is None:
+        raise ValueError("`A` must be a structured numpy array")
+    b = np.empty(a.shape, dtype=a.dtype.descr + descr)
+    for name in a.dtype.names:
+        b[name] = a[name]
+    return b
