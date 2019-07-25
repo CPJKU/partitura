@@ -464,11 +464,8 @@ class TimedObject(object):
 class Page(TimedObject):
 
     def __init__(self, nr=0):
-        super(Page, self).__init__()
+        super().__init__()
         self.nr = nr
-
-    def __unicode__(self):
-        return u'page {0}'.format(self.nr)
 
     def __str__(self):
         return 'page {0}'.format(self.nr)
@@ -477,15 +474,24 @@ class Page(TimedObject):
 class System(TimedObject):
 
     def __init__(self, nr=0):
-        super(System, self).__init__()
+        super().__init__()
         self.nr = nr
-
-    def __unicode__(self):
-        return u'system {0}'.format(self.nr)
 
     def __str__(self):
         return 'system {0}'.format(self.nr)
 
+class Clef(TimedObject):
+
+    def __init__(self, number, sign, line, octave_change):
+        super().__init__()
+        self.number = number
+        self.sign = sign
+        self.line = line
+        self.octave_change = octave_change
+
+    def __str__(self):
+        return 'clef {} on line {} (number {})'.format(self.sign, self.line, self.number)
+    
 
 class Slur(TimedObject):
 
@@ -500,9 +506,6 @@ class Slur(TimedObject):
     def __init__(self, voice):
         super(Slur, self).__init__()
         self.voice = voice
-
-    def __unicode__(self):
-        return u'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
 
     def __str__(self):
         return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)

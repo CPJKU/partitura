@@ -211,15 +211,96 @@ def get_pitch(e):
         return None
 
 
-def get_integer_from_tag(e, tag):
-    """This convenience function returns an integer value for a particular
+def get_integer_from_attribute(e, attr, none_on_error=True):
+    """
+    This convenience function returns an integer value for a particular
+    attribute of element e.
+
+    Parameters
+    ----------
+    e: etree.Element
+        An etree Element instance
+    attr: string
+        Attribute to retrieve
+    none_on_error: bool, optional (default: True)
+        When False, an exception is raised when `attr` is not found in `e` or the
+        text inside `attr` cannot be cast to an integer. When True, None is returned
+        in such cases.
+    
+    Returns
+    -------
+    integer or None
+        The integer read from `attr`
+    """
+    try:
+        return int(e.get(attr))
+    except:
+        if none_on_error:
+            return None
+        else:
+            raise
+
+
+def get_integer_from_tag(e, tag, none_on_error=True):
+    """
+    This convenience function returns an integer value for a particular
     tag in element e. For example, if element e represents
     <note><duration>2</duration></note>, get_integer_from_tag(e,
-    'duration') will return 2
+    'duration') will return 2.
 
+    Parameters
+    ----------
+    e: etree.Element
+        An etree Element instance
+    tag: string
+        Child tag to retrieve
+    none_on_error: bool, optional (default: True)
+        When False, an exception is raised when `tag` is not found in `e` or the
+        text inside `tag` cannot be cast to an integer. When True, None is returned
+        in such cases.
+    
+    Returns
+    -------
+    integer or None
+        The integer read from `tag`
     """
     d = e.find(tag)
-    return int(d.text) if d is not None else None
+    try:
+        return int(d.text)
+    except:
+        if none_on_error:
+            return None
+        else:
+            raise
+
+def get_string_from_tag(e, tag, none_on_error=True):
+    """
+    This convenience function returns an integer value for a particular
+    tag in element e.
+
+    Parameters
+    ----------
+    e: etree.Element
+        An etree Element instance
+    tag: string
+        Child tag to retrieve
+    none_on_error: bool, optional (default: True)
+        When False, an exception is raised when `tag` is not found.
+        When True, None is returned in such cases.
+
+    Returns
+    -------
+    str or None
+        The string read from `tag`
+    """
+    d = e.find(tag)
+    try:
+        return d.text
+    except:
+        if none_on_error:
+            return None
+        else:
+            raise
 
 
 def get_float_from_tag(e, tag):
@@ -258,7 +339,6 @@ def get_voice(e):
 
 def get_divisions(e):
     return get_integer_from_tag(e, 'divisions')
-
 
 def get_coordinates(e):
     """
@@ -322,6 +402,25 @@ def get_key_signature(e):
     else:
         return (fifths, mode)
 
+
+def get_clefs(e):
+    """
+    Get the clefs
+
+    Returns
+    -------
+
+    (fifths, mode) OR None : tuple of or None.
+
+    """
+    clefs = e.xpath('clef')
+    result = []
+    for clef in clefs:
+        result.append(dict(number=get_integer_from_attribute(clef, 'number'),
+                           sign=get_string_from_tag(clef, 'sign'),
+                           line=get_integer_from_tag(clef, 'line'),
+                           octave_change=get_integer_from_tag(clef, 'clef-octave-change')))
+    return result
 
 def get_transposition(e):
     """
@@ -1031,6 +1130,11 @@ class PartBuilder(object):
         if divs is not None:
             self.timeline.add_starting_object(self.position + measure_pos,
                                               score.Divisions(divs))
+
+        clefs = get_clefs(e)
+        for clef in clefs:
+            self.timeline.add_starting_object(self.position + measure_pos,
+                                              score.Clef(**clef))
 
         return divs, ts_num, ts_den
 

@@ -62,7 +62,7 @@ def make_note_el(note, i, n, dur):
         etree.SubElement(note_e, 'tie', type='start')
         tied.append(etree.Element('tied', type='start'))
 
-    if note.voice is not None:
+    if note.voice:
 
         etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
@@ -72,6 +72,10 @@ def make_note_el(note, i, n, dur):
     for i in range(sym_dur['dots']):
 
         etree.SubElement(note_e, 'dot')
+
+    if note.staff:
+        
+        etree.SubElement(note_e, 'staff').text = f'{note.staff}'
 
     if tied:
 
@@ -178,7 +182,8 @@ def linearize_measure_contents(measure, part, saved_from_prev=[]):
         
     attributes = (part.timeline.get_all(score.Divisions, measure.start, measure.end)
                   +part.timeline.get_all(score.KeySignature, measure.start, measure.end)
-                  +part.timeline.get_all(score.TimeSignature, measure.start, measure.end))
+                  +part.timeline.get_all(score.TimeSignature, measure.start, measure.end)
+                  +part.timeline.get_all(score.Clef, measure.start, measure.end))
     
     attributes_e = do_attributes(attributes)
     
@@ -352,6 +357,14 @@ def do_attributes(attributes):
                 ts_e = etree.SubElement(attr_e, 'time')
                 etree.SubElement(ts_e, 'beats').text = f'{o.beats}'
                 etree.SubElement(ts_e, 'beat-type').text = f'{o.beat_type}'
+            elif isinstance(o, score.Clef):
+                clef_e = etree.SubElement(attr_e, 'clef')
+                if o.number:
+                    clef_e.set('number', f'{o.number}')
+                etree.SubElement(clef_e, 'sign').text = f'{o.sign}'
+                etree.SubElement(clef_e, 'line').text = f'{o.line}'
+                if o.octave_change:
+                    etree.SubElement(clef_e, 'clef-octave-change').text = f'{o.octave_change}'
         result.append((t, None, attr_e))
 
         # directions = [o for o in by_start[t] if isinstance(o, score.Direction)]
