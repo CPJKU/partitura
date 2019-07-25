@@ -62,11 +62,14 @@ def make_note_el(note, i, n, dur):
         etree.SubElement(note_e, 'tie', type='start')
         tied.append(etree.Element('tied', type='start'))
 
-    if note.voice:
+    # if note.voice:
+    #     etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
-        etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
     sym_dur = note.symbolic_durations[i]
+
+    etree.SubElement(note_e, 'voice').text = f'{sym_dur["voice"]}'
+    
     etree.SubElement(note_e, 'type').text = sym_dur['type']
 
     for i in range(sym_dur['dots']):

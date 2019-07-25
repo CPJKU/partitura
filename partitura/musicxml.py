@@ -939,9 +939,11 @@ class PartBuilder(object):
         dur_type_els = e.xpath('type')
         n_dur_dots = len(e.xpath('dot'))
 
-        if len(dur_type_els) > 0:
+        if dur_type_els:
+            # we add voice here because tied notes may belong to different
+            # voices.
             symbolic_duration = dict(
-                type=dur_type_els[0].text, dots=n_dur_dots)
+                type=dur_type_els[0].text, dots=n_dur_dots, voice=voice)
         else:
             symbolic_duration = dict()
 
@@ -1075,10 +1077,10 @@ class PartBuilder(object):
 
             else:
 
-                note = score.Note(step, alter, octave, voice=get_voice(e), id=note_id,
-                               grace_type=grace_type, staccato=staccato, fermata=fermata,
-                               steal_proportion=steal_proportion, symbolic_duration=symbolic_duration,
-                               accent=accent, staff=staff)
+                note = score.Note(step, alter, octave, voice, note_id,
+                                  symbolic_duration, grace_type,
+                                  steal_proportion, staccato, fermata,
+                                  accent, staff)
 
                 self.timeline.add_starting_object(self.position + measure_pos, note)
                 
