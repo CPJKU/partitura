@@ -1017,8 +1017,6 @@ class PartBuilder(object):
                             self.position + measure_pos, o)
                         del self.ongoing[key]
                     except KeyError:  # as exception:
-
-                        note_id = e.attrib.get('ID', None)
                         LOGGER.warning(("Part xx, Measure xx: Stopping slur with number {0} was never started (Note ID: {1})"
                                         "").format(key[1], note_id))
 
