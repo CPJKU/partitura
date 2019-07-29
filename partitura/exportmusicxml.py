@@ -9,9 +9,10 @@ from operator import itemgetter
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger()
 
+DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
 
-def make_note_el(note, i, n, dur):
+def make_note_el(note, dur):
     # child order
     # <grace> | <chord> | <cue>
     # <pitch>
@@ -22,8 +23,8 @@ def make_note_el(note, i, n, dur):
     # <notations>
 
     note_id = note.id
-    if n > 1:
-        note_id = f'{note.id}_{i+1}'
+    # if n > 1:
+    #     note_id = f'{note.id}_{i+1}'
 
     note_e = etree.Element('note', id=note_id)
 
@@ -53,24 +54,22 @@ def make_note_el(note, i, n, dur):
 
     tied = []
 
-    if n > 1 and i > 0:
-
+    if note.tie_prev:
         etree.SubElement(note_e, 'tie', type='stop')
         tied.append(etree.Element('tied', type='stop'))
 
-    if n > 1 and i < n-1:
+    if note.tie_next:
         etree.SubElement(note_e, 'tie', type='start')
         tied.append(etree.Element('tied', type='start'))
 
-    # if note.voice:
-    #     etree.SubElement(note_e, 'voice').text = f'{note.voice}'
+    if note.voice:
+        etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
-
-    sym_dur = note.symbolic_durations[i]
-
-    etree.SubElement(note_e, 'voice').text = f'{sym_dur["voice"]}'
+    sym_dur = note.symbolic_duration
     
     etree.SubElement(note_e, 'type').text = sym_dur['type']
+
+    # TODO: add actual/normal notes
 
     for i in range(sym_dur['dots']):
 
@@ -104,47 +103,31 @@ def group_notes_by_voice(notes):
     
 
 def do_note(note, measure_end, timeline):
-    onset = note.start.t
+    # onset = note.start.t
     notes = []
     ongoing_tied = []
-    N = len(note.symbolic_durations)
 
-    for i, sd in enumerate(note.symbolic_durations):
+    # make_note_el
+    if note.grace_type:
 
-        t = timeline.get_or_add_point(onset)
+        dur_divs = 0
 
-        if note.grace_type:
+    else:
 
-            dur_divs = 0
+        divs = next(iter(note.start.get_prev_of_type(score.Divisions, eq=True)),
+                    score.Divisions(1)).divs
+        
+        dur_divs = divs * score.LABEL_DURS[note.symbolic_duration['type']]
+        dur_divs *= score.DOT_MULTIPLIERS[note.symbolic_duration['dots']]
 
-        else:
+    note_e = make_note_el(note, dur_divs)
 
-            divs = next(iter(t.get_prev_of_type(score.Divisions, eq=True)),
-                        score.Divisions(1)).divs
-    
-            dur_divs = divs * score.LABEL_DURS[sd['type']]
-            dur_divs *= score.DOT_MULTIPLIERS[sd['dots']]
-
-        note_e = make_note_el(note, i, N, dur_divs)
-
-        if onset >= measure_end:
-
-            ongoing_tied.append((onset, dur_divs, note_e))
-
-        else:
-
-            notes.append((onset, dur_divs, note_e))
-
-        onset += dur_divs
-
-    # notes and ongoing_tied are lists of one or more notes
-    # if the sum of notes in these lists is larger than 1 the note consists of
-    # multiple tied notes.
-
-    return notes, ongoing_tied
+    return (note.start.t, dur_divs, note_e)
 
 
-def linearize_measure_contents(measure, part, saved_from_prev=[]):
+def linearize_measure_contents(measure, part
+                               # , saved_from_prev=[]
+                               ):
     """
     Determine the order in which the contents of the measure (notes, directions, divisions, time signatures)
     
@@ -161,25 +144,27 @@ def linearize_measure_contents(measure, part, saved_from_prev=[]):
     notes = part.timeline.get_all(score.Note, start=measure.start, end=measure.end)
     notes_by_voice = group_notes_by_voice(notes)
     # tied notes that extend into the next measure(s)
-    save_for_next_measure = {}
+    # save_for_next_measure = {}
     # xml elements to be added to the measure
     voices_e = defaultdict(list)
 
     voices = set(notes_by_voice.keys())
-    voices.update(set(saved_from_prev.keys()))
+    # voices.update(set(saved_from_prev.keys()))
 
     for voice in sorted(voices):
 
-        if voice in saved_from_prev:
-
-            # TODO: this is not correct if tie spans three measures or more
-            voices_e[voice].extend(saved_from_prev[voice])
+        # if voice in saved_from_prev:
+        #     raise
+        #     # TODO: this is not correct if tie spans three measures or more
+        #     voices_e[voice].extend(saved_from_prev[voice])
         
         for n in notes_by_voice[voice]:
 
-            notes, ongoing_notes = do_note(n, measure.end.t, part.timeline)
-            voices_e[voice].extend(notes)
-            save_for_next_measure[voice] = ongoing_notes
+            note_e = do_note(n, measure.end.t, part.timeline)
+            voices_e[voice].append(note_e)
+            # notes, ongoing_notes = do_note(n, measure.end.t, part.timeline)
+            # voices_e[voice].extend(notes)
+            # save_for_next_measure[voice] = ongoing_notes
 
         add_chord_tags(voices_e[voice])
         
@@ -199,7 +184,7 @@ def linearize_measure_contents(measure, part, saved_from_prev=[]):
     contents = merge_measure_contents(voices_e, attributes_e, directions_e, measure.start.t)
     
     # print(other)
-    return contents, save_for_next_measure
+    return contents # , save_for_next_measure
 
 def add_chord_tags(notes):
     print(notes)
@@ -207,7 +192,12 @@ def add_chord_tags(notes):
     for onset, _, note in notes:
         if onset == prev:
             note.insert(0, etree.Element('chord'))
-        prev = onset
+        if any(e.tag == 'grace' for e in note):
+            # if note is a grace note we don't want to trigger a chord for the
+            # next note
+            prev = None
+        else:
+            prev = onset
 
 def forward_backup_if_needed(t, t_prev):
     result = []
@@ -355,7 +345,8 @@ def do_attributes(attributes):
             elif isinstance(o, score.KeySignature):
                 ks_e = etree.SubElement(attr_e, 'key')
                 etree.SubElement(ks_e, 'fifths').text = f'{o.fifths}'
-                etree.SubElement(ks_e, 'mode').text = f'{o.mode}'
+                if o.mode:
+                    etree.SubElement(ks_e, 'mode').text = f'{o.mode}'
             elif isinstance(o, score.TimeSignature):
                 ts_e = etree.SubElement(attr_e, 'time')
                 etree.SubElement(ts_e, 'beats').text = f'{o.beats}'
@@ -388,16 +379,16 @@ def to_musicxml(part, out_fn=None):
     quarter_map = part.quarter_map
     beat_map = part.beat_map
     ts = part.list_all(score.TimeSignature)
-    saved_from_prev = {}
     for measure in part.list_all(score.Measure):
         part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
         measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
-        contents, saved_from_prev = linearize_measure_contents(measure, part, saved_from_prev)
+        # contents, saved_from_prev = linearize_measure_contents(measure, part)
+        contents = linearize_measure_contents(measure, part)
         measure_e.extend(contents)
         
     if out_fn:
-        with open(out_fn, 'w') as f:
-            f.write(etree.tostring(root, encoding='unicode', pretty_print=True))
+        with open(out_fn, 'wb') as f:
+            f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True, pretty_print=True, doctype=DOCTYPE))
     else:
-        print(etree.tostring(root, encoding='unicode', pretty_print=True))
+        print(etree.tostring(root.getroottree(), encoding='unicode', pretty_print=True, doctype=DOCTYPE))
 
