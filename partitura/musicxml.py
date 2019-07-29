@@ -163,12 +163,9 @@ def get_tie_key(e):
 
     pitchk = get_pitch(e)    # tuple (step, alter, octave)
     staff = None
-    voice = None
 
     if e.find('staff') is not None:
         staff = int(e.find('staff').text)
-    if e.find('voice') is not None:
-        voice = int(e.find('voice').text)
 
     if pitchk is not None:    # element is a note
         return ('tie', tuple(list(pitchk) + [staff]))
@@ -655,6 +652,10 @@ class PartBuilder(object):
         if div.shape[0] > 0:
             self.divisions = np.vstack((self.divisions, div))
 
+        if len(self.divisions) == 0:
+            # TODO: assume divisions = 1 instead of raising Exception
+            raise Exception('No divisions are defined in the MusicXML file')
+
         start = np.searchsorted(self.divisions[:, 0], self.current_measure.start.t, side='right')
         end = np.searchsorted(self.divisions[:, 0], self.position, side='left')
 
@@ -885,6 +886,8 @@ class PartBuilder(object):
 
     def handle_note(self, e, measure_pos, prev_note):
 
+        # prev_note is used when the current note has a <chord/> tag
+
         # get some common features of element if available
         duration = get_duration(e) or 0
         # elements may have an explicit temporal offset
@@ -943,8 +946,9 @@ class PartBuilder(object):
             # we add voice here because tied notes may belong to different
             # voices.
             symbolic_duration = dict(
-                type=dur_type_els[0].text, dots=n_dur_dots, voice=voice)
+                type=dur_type_els[0].text, dots=n_dur_dots)
         else:
+            # can this happen?
             symbolic_duration = dict()
 
         time_mod_els = e.xpath('time-modification')
@@ -1023,15 +1027,6 @@ class PartBuilder(object):
                         erroneous_stops.append(key)
 
                 elif eslur.attrib['type'] == 'start':
-                    # # first check if a slur with our key was already
-                    # # started (unfortunately, this happens in the
-                    # # Zeilingercorpus)
-                    # if key in self.ongoing:
-                    #     LOGGER.warning("Slur with number {0} started twice; Assuming an implicit stopping of the first slur".format(key[1]))
-                    #     o = self.ongoing[key]
-                    #     self.timeline.add_ending_object(self.position + measure_pos, o)
-                    #     del self.ongoing[key]
-
                     if key not in self.ongoing:
                         o = score.Slur(voice)
                         self.timeline.add_starting_object(
@@ -1057,47 +1052,37 @@ class PartBuilder(object):
             # end tags, we end any started tie as soon as the tie-key of a
             # note is found in `self.ongoing`
 
-            # generate a key for the tied note
-            # `key` looks like: ('tie', ('E', None, 6, 1)),
-            # that is ('tie', (step, alter, octave, staff))
-            tie_key = get_tie_key(e)
 
+            note = score.Note(step, alter, octave, voice, note_id,
+                              symbolic_duration, grace_type,
+                              steal_proportion, staccato, fermata,
+                              accent, staff)
+
+            self.timeline.add_starting_object(self.position + measure_pos, note)
+            self.timeline.add_ending_object(self.position+measure_pos+duration, note)
+            
             # according to the definition, there are no more than two tie elements in a note
             ties = e.xpath('tie')
-            tie_types = [tie.attrib['type'] for tie in ties]
-
-            if tie_key in self.ongoing:
-
-                note = self.ongoing[tie_key]
-
-                if symbolic_duration:
-                    note.symbolic_durations.append(symbolic_duration)
-
-            else:
-
-                note = score.Note(step, alter, octave, voice, note_id,
-                                  symbolic_duration, grace_type,
-                                  steal_proportion, staccato, fermata,
-                                  accent, staff)
-
-                self.timeline.add_starting_object(self.position + measure_pos, note)
-                
-            if 'start' in tie_types:
-                
-                self.ongoing[tie_key] = note
-
-            else:
-
-                self.timeline.add_ending_object(self.position+measure_pos+duration, note)
-
-                if tie_key in self.ongoing:
-                    del self.ongoing[tie_key]
+            if ties:
+                tie_key = ('tie', note.midi_pitch)
+                tie_types = set(tie.attrib['type'] for tie in ties)
+                if 'stop' in tie_types:
+                    tie_prev = self.ongoing.get(tie_key, None)
+                    if tie_prev:
+                        note.tie_prev = tie_prev
+                        tie_prev.tie_next = note
+                        del self.ongoing[tie_key]
+                if 'start' in tie_types:
+                    self.ongoing[tie_key] = note
 
         else:
             # note element is a rest
+            rest = score.Rest(voice, note_id, symbolic_duration, staff)
+            self.timeline.add_starting_object(self.position + measure_pos, rest)
+            self.timeline.add_ending_object(self.position+measure_pos+duration, rest)
             note = None
-
-        # return the measure_pos after this note, and the pair (measure_pos, duration)
+            
+        # return the measure_pos after this note, and the note itself (or None, in case of rest)
         
         return measure_pos + duration, note # (measure_pos, duration)
 

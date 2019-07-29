@@ -93,7 +93,8 @@ def divide_outside_cumsum(X):
     return num / np.float(den)
 
 def format_symbolic_duration(symbolic_durs):
-    return '+'.join(sd['type']+'.'*sd['dots'] for sd in symbolic_durs)
+    # return '+'.join(sd['type']+'.'*sd['dots'] for sd in symbolic_durs)
+    return symbolic_durs['type']+'.'*symbolic_durs['dots']
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
     numdur = divs * LABEL_DURS[symbolic_dur.get('type', 'quarter')]
@@ -870,15 +871,26 @@ class ImpulsiveLoudnessDirection(LoudnessDirection): pass
 
 class Chord(TimedObject):
     """
-    Represents a chord.
+    Represents a chord
     """
     def __init__(self):
+        # TODO: add references to constituent notes
         pass
+
+# class GenericNote(TimedObject):
+#     """
+#     Represents the common aspects of notes and rests (and in the future unpitched notes)
+#     """
+#     def __init__(self, voice=None, id=None,
+#                  symbolic_duration=None,
+#                  grace_type=None, steal_proportion=None,
+#                  staccato=False, fermata=False, accent=False,
+#                  staff=None):
 
 class Note(TimedObject):
 
     """
-    Represents a note.
+    Represents a note
 
     Parameters
     ----------
@@ -925,7 +937,6 @@ class Note(TimedObject):
                  grace_type=None, steal_proportion=None,
                  staccato=False, fermata=False, accent=False,
                  staff=None):
-        super(Note, self).__init__()
         self.step = step
         if alter not in (None, 0, 1, 2, 3, -1, -2, 3):
             print('alter', step, alter, octave)
@@ -942,9 +953,12 @@ class Note(TimedObject):
         self.fermata = fermata
         self.accent = accent
         self.staff = staff
-        self.symbolic_durations = []
-        if symbolic_duration is not None:
-            self.symbolic_durations.append(symbolic_duration)
+        # self.symbolic_durations = []
+        # if symbolic_duration is not None:
+        #     self.symbolic_durations.append(symbolic_duration)
+        self.symbolic_duration = symbolic_duration
+        self.tie_prev = None
+        self.tie_next = None
 
     @property
     def previous_notes_in_voice(self):
@@ -1046,18 +1060,55 @@ class Note(TimedObject):
             div = 1
         else:
             div = divs[0].divs
+        return symbolic_to_numeric_duration(self.symbolic_duration, div)
         # TODO: it is theoretically possible that the divisions change
         # in between tied notes. The current code assumes this does not happen.
         # return symbolic_to_numeric_duration(self.symbolic_durations, div)
-        return sum(symbolic_to_numeric_duration(sd, div) for sd in self.symbolic_durations)
+        # return sum(symbolic_to_numeric_duration(sd, div) for sd in self.symbolic_durations)
 
     def __str__(self):
-        return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7})'
+        all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
+        tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
+        tied_id = '+'.join(n.id or 'None' for n in all_tied)
+        return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
                 .format(self.step, self.alter_sign, self.octave,
                         self.midi_pitch, self.voice, self.duration,
                         self.id or '', self.grace_type if self.grace_type else '',
                         self.start and self.start.t, self.end and self.end.t,
-                        format_symbolic_duration(self.symbolic_durations)))
+                        tied_dur, tied_id))
+
+    @property
+    def tie_prev_notes(self):
+        if self.tie_prev:
+            return self.tie_prev.tie_prev_notes + [self.tie_prev]
+        else:
+            return []
+
+    @property
+    def tie_next_notes(self):
+        if self.tie_next:
+            return [self.tie_next] + self.tie_next.tie_next_notes
+        else:
+            return []
+
+
+class Rest(Note):
+    """
+    Represents a rest. It is defined as a subclass of Note so that it can be
+    conveniently retrieved from a timeline along with Note objects if needed.
+    """
+    def __init__(self, voice=None, id=None,
+                 symbolic_duration=None,
+                 staff=None):
+        self.voice = voice
+        self.id = id
+        self.staff = staff
+        self.symbolic_duration = symbolic_duration
+
+    def __str__(self):
+        return ('rest (id: {}, duration: {}; voice: {}; staff: {})'
+                .format(self.id, format_symbolic_duration(self.symbolic_duration),
+                        self.voice, self.staff))
 
 
 def get_all_parts(constituents):
