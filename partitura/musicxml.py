@@ -9,11 +9,13 @@ from lxml import etree
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
-
+import pkg_resources
 from partitura.directions import parse_words
 import partitura.score as score
 
 LOGGER = logging.getLogger(__name__)
+MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'musicxml.xsd')
+XML_VALIDATOR = None
 DYNAMICS_DIRECTIONS = {
     'f': score.ConstantLoudnessDirection,
     'ff': score.ConstantLoudnessDirection,
@@ -42,16 +44,12 @@ DYNAMICS_DIRECTIONS = {
     'sfz': score.ImpulsiveLoudnessDirection,
 }
 
-XML_VALIDATOR = None
-
-def validate(xsd, xml, debug=False):
+def validate_musicxml(xml, debug=False):
     """
     Validate an XML file against an XSD. 
     
     Parameters
     ----------
-    xsd: str
-        Path to XSD file
     xml: str
         Path to XML file
     debug: bool, optional
@@ -66,7 +64,7 @@ def validate(xsd, xml, debug=False):
     """
     global XML_VALIDATOR
     if not XML_VALIDATOR:
-        XML_VALIDATOR = xmlschema.XMLSchema(xsd)
+        XML_VALIDATOR = xmlschema.XMLSchema(MUSICXML_SCHEMA)
     if debug:
         return XML_VALIDATOR.validate(xml)
     else:
@@ -1223,7 +1221,7 @@ def parse_parts(document, part_dict):
         print(part_builder.timeline)
 
 
-def load_musicxml(fn, schema=None):
+def load_musicxml(fn, validate=False):
     """
     Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
@@ -1232,19 +1230,18 @@ def load_musicxml(fn, schema=None):
     ----------
     fn : str
         Path to the MusicXML file to be parsed.
-    schema : str or None (optional, default=None)
-        Path to the MusicXML XSD specification. When specified, the validity of
-        the MusicXML is checked before loading the file. An exception will be 
-        raised when the MusicXML is invalid.
+    validate : bool (optional, default=False)
+        When True, the validity of the MusicXML is checked against the MusicXML
+        3.1 specification before loading the file. An exception will be raised 
+        when the MusicXML is invalid.
 
     Returns
     -------
     partlist : list
         A list of either Part or PartGroup objects
-
     """
-    if schema:
-        validate(schema, fn, debug=True)
+    if validate:
+        validate_musicxml(fn, debug=True)
 
     parser = etree.XMLParser(resolve_entities=False, huge_tree=False,
                              remove_comments=True, remove_blank_text=True)
