@@ -187,7 +187,7 @@ def linearize_measure_contents(measure, part
     return contents # , save_for_next_measure
 
 def add_chord_tags(notes):
-    print(notes)
+    # print(notes)
     prev = None
     for onset, _, note in notes:
         if onset == prev:
@@ -366,29 +366,73 @@ def do_attributes(attributes):
     return result
 
 
-def to_musicxml(part, out_fn=None):
+# def to_musicxml(part, out=None):
+#     root = etree.Element('score-partwise')
+    
+#     partlist_e = etree.SubElement(root, 'part-list')
+#     scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
+#     partname_e = etree.SubElement(scorepart_e, 'part-name')
+#     if part.part_name:
+#         partname_e.text = part.part_name
+#     part_e = etree.SubElement(root, 'part', id=part.part_id)
+#     # store quarter_map in a variable to avoid re-creating it for each call
+#     quarter_map = part.quarter_map
+#     beat_map = part.beat_map
+#     ts = part.list_all(score.TimeSignature)
+#     for measure in part.list_all(score.Measure):
+#         part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
+#         measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
+#         # contents, saved_from_prev = linearize_measure_contents(measure, part)
+#         contents = linearize_measure_contents(measure, part)
+#         measure_e.extend(contents)
+        
+#     if out:
+#         if hasattr(out, 'write'):
+#             out.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+#                                      pretty_print=True, doctype=DOCTYPE))
+#         else:
+#             with open(out, 'wb') as f:
+#                 f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+#                                        pretty_print=True, doctype=DOCTYPE))
+#     else:
+#         # print(etree.tostring(root.getroottree(), encoding='unicode', pretty_print=True, doctype=DOCTYPE))
+#         return etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+#                               pretty_print=True, doctype=DOCTYPE)
+def to_musicxml(parts, out=None):
+    if isinstance(parts, (score.Part, score.PartGroup)):
+        parts = [parts]
+        
     root = etree.Element('score-partwise')
     
     partlist_e = etree.SubElement(root, 'part-list')
-    scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
-    partname_e = etree.SubElement(scorepart_e, 'part-name')
-    if part.part_name:
-        partname_e.text = part.part_name
-    part_e = etree.SubElement(root, 'part', id=part.part_id)
-    # store quarter_map in a variable to avoid re-creating it for each call
-    quarter_map = part.quarter_map
-    beat_map = part.beat_map
-    ts = part.list_all(score.TimeSignature)
-    for measure in part.list_all(score.Measure):
-        part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
-        measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
-        # contents, saved_from_prev = linearize_measure_contents(measure, part)
-        contents = linearize_measure_contents(measure, part)
-        measure_e.extend(contents)
-        
-    if out_fn:
-        with open(out_fn, 'wb') as f:
-            f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True, pretty_print=True, doctype=DOCTYPE))
+    for part in parts:
+        scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
+        if part.part_name:
+            partname_e = etree.SubElement(scorepart_e, 'part-name')
+            partname_e.text = part.part_name
+
+        part_e = etree.SubElement(root, 'part', id=part.part_id)
+        # store quarter_map in a variable to avoid re-creating it for each call
+        quarter_map = part.quarter_map
+        beat_map = part.beat_map
+        ts = part.list_all(score.TimeSignature)
+        for measure in part.list_all(score.Measure):
+            part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
+            measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
+            # contents, saved_from_prev = linearize_measure_contents(measure, part)
+            contents = linearize_measure_contents(measure, part)
+            measure_e.extend(contents)
+            
+    if out:
+        if hasattr(out, 'write'):
+            out.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+                                     pretty_print=True, doctype=DOCTYPE))
+        else:
+            with open(out, 'wb') as f:
+                f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+                                       pretty_print=True, doctype=DOCTYPE))
     else:
-        print(etree.tostring(root.getroottree(), encoding='unicode', pretty_print=True, doctype=DOCTYPE))
+        # print(etree.tostring(root.getroottree(), encoding='unicode', pretty_print=True, doctype=DOCTYPE))
+        return etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+                              pretty_print=True, doctype=DOCTYPE)
 

@@ -1218,18 +1218,17 @@ def parse_parts(document, part_dict):
 
     for part_builder in part_builders:
         part_builder.finalize()
-        print(part_builder.timeline)
 
 
-def load_musicxml(fn, validate=False):
+def load_musicxml(xml, validate=False):
     """
     Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
     Parameters
     ----------
-    fn : str
-        Path to the MusicXML file to be parsed.
+    xml : str or file-like  object
+        Path to the MusicXML file to be parsed, or a file-like object
     validate : bool (optional, default=False)
         When True, the validity of the MusicXML is checked against the MusicXML
         3.1 specification before loading the file. An exception will be raised 
@@ -1241,11 +1240,15 @@ def load_musicxml(fn, validate=False):
         A list of either Part or PartGroup objects
     """
     if validate:
-        validate_musicxml(fn, debug=True)
-
+        validate_musicxml(xml, debug=True)
+        # if xml is a file-like object we need to set the read pointer to the
+        # start of the file for parsing
+        if hasattr(xml, 'seek'):
+            xml.seek(0)
+    
     parser = etree.XMLParser(resolve_entities=False, huge_tree=False,
                              remove_comments=True, remove_blank_text=True)
-    document = etree.parse(fn, parser)
+    document = etree.parse(xml, parser)
     
     if document.getroot().tag != 'score-partwise':
         raise Exception('Currently only score-partwise structure is supported')
