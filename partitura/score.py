@@ -52,49 +52,11 @@ LABEL_DURS = {
 }
 DOT_MULTIPLIERS = (1, 1+1/2., 1+3/4., 1+7/8.)
 
-def kahan_cumsum(x):
-    """
-    Return the cumsum of a sequence of numbers `x` using the Kahan sum algorithm
-    to bound numerical error.
-
-    Parameters
-    ----------
-    x: iterable over numbers
-        A sequence of numbers to be cumsummed
-
-    Returns
-    -------
-    ndarray: The cumsum of the elements in `x`
-    """
-
-    x = np.asarray(x)
-    cumulator = np.zeros_like(x)
-    compensation = 0.0
-
-    cumulator[0] = x[0]
-    for i in range(1, len(x)):
-        y = x[i] - compensation
-        t = cumulator[i - 1] + y
-        compensation = (t - cumulator[i - 1]) - y
-        cumulator[i] = t
-    return cumulator
-
-
-def divide_outside_cumsum(X):
-    """
-    this computes np.cumsum(np.diff(X[:, 0]) / X[:-1, 1]), but produces less
-    rounding errors when X.dtype = int, by moving the division operation out of
-    the cumsum.
-    """
-    diff = np.diff(X[:, 0])
-    num = kahan_cumsum([diff[i] * np.prod(X[:i, 1]) * np.prod(X[i + 1:-1, 1])
-                        for i in range(len(X) - 1)])
-    den = np.prod(X[:-1, 1])
-    return num / np.float(den)
 
 def format_symbolic_duration(symbolic_durs):
     # return '+'.join(sd['type']+'.'*sd['dots'] for sd in symbolic_durs)
     return symbolic_durs['type']+'.'*symbolic_durs['dots']
+
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
     numdur = divs * LABEL_DURS[symbolic_dur.get('type', 'quarter')]
@@ -103,22 +65,6 @@ def symbolic_to_numeric_duration(symbolic_dur, divs):
         symbolic_dur.get('actual_notes', 1)
     return numdur
 
-# def numeric_to_symbolic_duration(dur, divs):
-#     LABEL_DURS = {
-#     'long': 16,
-#     'breve': 8,
-#     'whole': 4,
-#     'half': 2,
-#     'quarter': 1,
-#     'eighth': 1./2,
-#     '16th': 1./4,
-#     '32nd': 1./8.,
-#     '64th': 1./16,
-#     '128th': 1./32,
-#     '256th': 1./64
-#     }
-#     sorted(LABEL_DURS.values())
-#     # dur/divs
 
 class TimeLine(object):
 
@@ -1914,8 +1860,7 @@ class Part(object):
             dens[:, 1] = 2 # i.e. np.log2(4)
 
         # integrate second column, where first column is time:
-        # new_divs = np.cumsum(np.diff(divs[:, 0]) * divs[:-1, 1])
-        new_divs = divide_outside_cumsum(divs)
+        new_divs = np.cumsum(np.diff(divs[:, 0]) * divs[:-1, 1])
 
         divs = divs.astype(np.float)
         divs[1:, 1] = new_divs
@@ -1936,8 +1881,7 @@ class Part(object):
         # dividing rather than multiplying:
         dens[:, 1] = 4 / 2**dens[:, 1]
 
-        # dens_new = np.cumsum(np.diff(dens[:, 0]) * dens[:-1, 1])
-        dens_new = divide_outside_cumsum(dens)
+        dens_new = np.cumsum(np.diff(dens[:, 0]) * dens[:-1, 1])
         dens[1:, 1] = dens_new
         dens[0, 1] = dens[0, 0]
 
