@@ -7,26 +7,54 @@ This file contains test functions for the partitura.musicxml module.
 import unittest
 import os
 
-from . import MUSICXML_PATH
+from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES
 #import partitura.musicxml as mxml
-from partitura import load_musicxml
+from partitura import load_musicxml, to_musicxml
 import partitura.score as score
+
+
+
+# class TestMusicXML(unittest.TestCase):
+
+#     def setUp(self):
+#         files = os.listdir(MUSICXML_PATH)
+#         self.partlists = [load_musicxml(os.path.join(MUSICXML_PATH, fn)) 
+#                          for fn in files]
+        
+#     def test_partlist(self):
+#         for partlist in self.partlists:
+#             for part in partlist:
+#                 self.assertTrue(isinstance(part, (score.Part, score.PartGroup)),
+#                                 'partlists should be either ScorePart or PartGroup')
+
+#             # scorepart = partgroup.score_parts[0]
+#         #     # print(score.pprint())
+#         #     measures = scorepart.timeline.get_all(score.Measure)
+#         #     for measure in measures:
+#         #         print(measure.end.t - measure.start.t)
+#         # self.assertEqual(1, 1, "Should be equal")
+
+#     # def test_sum_tuple(self):
+#     #     self.assertEqual(sum((1, 2, 2)), 6, "Should be 6")
 
 class TestMusicXML(unittest.TestCase):
 
     def setUp(self):
-        files = os.listdir(MUSICXML_PATH)
-        self.partlists = [load_musicxml(os.path.join(MUSICXML_PATH, fn)) 
-                         for fn in files]
-        
-    def test_partlist(self):
-        for partlist in self.partlists:
-            for part in partlist:
-                self.assertTrue(isinstance(part, (score.ScorePart, score.PartGroup)),
-                                'partlists should be either ScorePart or PartGroup')
-                # self.assertTrue(hasattr(pg, 'scoreparts'), 'PartGroup should have an property score_parts')
-                # self.assertTrue(isinstance(pg.scoreparts, list), 'PartGroup property score_parts should be a list')
-                # self.assertGreater(len(pg.scoreparts), 0, 'Should have one or more ScoreParts')
+        pass
+    
+    def test_import_export(self):
+        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
+            with open(fn) as f:
+                parts = load_musicxml(f, validate=False)
+                result = to_musicxml(parts).decode('UTF-8')
+                f.seek(0)
+                target = f.read()
+                self.assertEqual(target, result, "Should be equal")
+
+        # for partlist in self.partlists:
+        #     for part in partlist:
+        #         self.assertTrue(isinstance(part, (score.Part, score.PartGroup)),
+        #                         'partlists should be either ScorePart or PartGroup')
 
             # scorepart = partgroup.score_parts[0]
         #     # print(score.pprint())
@@ -37,6 +65,8 @@ class TestMusicXML(unittest.TestCase):
 
     # def test_sum_tuple(self):
     #     self.assertEqual(sum((1, 2, 2)), 6, "Should be 6")
+
+
 
 if __name__ == '__main__':
     unittest.main()
