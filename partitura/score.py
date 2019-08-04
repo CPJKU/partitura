@@ -448,17 +448,16 @@ class Slur(TimedObject):
     """
     Parameters
     ----------
-    voice : number
-        the voice the slur corresponds to, this is given by a
-        <voice>number_of_voice</voice> tag inside <note> ... </note>.
+
     """
 
-    def __init__(self, voice):
-        super(Slur, self).__init__()
-        self.voice = voice
+    def __init__(self, start_note=None, end_note=None):
+        self.start_note = start_note
+        self.end_note = end_note
 
     def __str__(self):
-        return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
+        # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
+        return 'slur'
 
 
 class Repeat(TimedObject):
@@ -473,7 +472,7 @@ class Repeat(TimedObject):
 class DaCapo(TimedObject):
 
     def __init__(self):
-        super(DaCapo, self).__init__()
+        pass
 
     def __str__(self):
         return u'Dacapo'
@@ -482,7 +481,7 @@ class DaCapo(TimedObject):
 class Fine(TimedObject):
 
     def __init__(self):
-        super(Fine, self).__init__()
+        pass
 
     def __str__(self):
         return 'Fine'
@@ -490,8 +489,8 @@ class Fine(TimedObject):
 
 class Fermata(TimedObject):
 
-    def __init__(self):
-        super(Fermata, self).__init__()
+    def __init__(self, note):
+        self.note = note
 
     def __str__(self):
         return 'Fermata'
@@ -845,7 +844,9 @@ class GenericNote(TimedObject):
         self.symbolic_duration = symbolic_duration
         self.tie_prev = None
         self.tie_next = None
-    
+        self.slur_stops = []
+        self.slur_starts = []
+        
     @property
     def duration(self):
         """

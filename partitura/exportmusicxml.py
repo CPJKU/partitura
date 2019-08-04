@@ -12,7 +12,7 @@ LOGGER = logging.getLogger()
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
 
-def make_note_el(note, dur):
+def make_note_el(note, dur, counter):
     # child order
     # <grace> | <chord> | <cue>
     # <pitch>
@@ -60,15 +60,15 @@ def make_note_el(note, dur):
         duration_e.text = f'{int(dur):d}'
     
 
-    tied = []
+    notations = []
 
     if note.tie_prev:
         etree.SubElement(note_e, 'tie', type='stop')
-        tied.append(etree.Element('tied', type='stop'))
+        notations.append(etree.Element('tied', type='stop'))
 
     if note.tie_next:
         etree.SubElement(note_e, 'tie', type='start')
-        tied.append(etree.Element('tied', type='start'))
+        notations.append(etree.Element('tied', type='start'))
 
     if note.voice:
         etree.SubElement(note_e, 'voice').text = f'{note.voice}'
@@ -87,10 +87,22 @@ def make_note_el(note, dur):
         
         etree.SubElement(note_e, 'staff').text = f'{note.staff}'
 
-    if tied:
+    for slur in note.slur_starts:
+        number = 1 + sum(1 for o in counter.keys() if isinstance(o, score.Slur))
+        counter[slur] = number
+        notations.append(etree.Element('slur', number=f'{number}', type='start'))
+
+    for slur in note.slur_stops:
+        number = counter.get(slur, None)
+        if number is None:
+            LOGGER.warning('unmatched slur')
+        notations.append(etree.Element('slur', number=f'{number}', type='stop'))
+        del counter[slur]
+
+    if notations:
 
         notations_e = etree.SubElement(note_e, 'notations')
-        notations_e.extend(tied)
+        notations_e.extend(notations)
 
     return note_e
 
@@ -110,7 +122,7 @@ def group_notes_by_voice(notes):
         raise NotImplementedError('currently all notes must have a voice attribute for exporting to MusicXML')
     
 
-def do_note(note, measure_end, timeline):
+def do_note(note, measure_end, timeline, counter):
     # onset = note.start.t
     notes = []
     ongoing_tied = []
@@ -128,12 +140,12 @@ def do_note(note, measure_end, timeline):
         dur_divs = divs * score._LABEL_DURS[note.symbolic_duration['type']]
         dur_divs *= score._DOT_MULTIPLIERS[note.symbolic_duration['dots']]
 
-    note_e = make_note_el(note, dur_divs)
+    note_e = make_note_el(note, dur_divs, counter)
 
     return (note.start.t, dur_divs, note_e)
 
 
-def linearize_measure_contents(part, start, end):
+def linearize_measure_contents(part, start, end, counter):
     """
     Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
     (notes, directions, divisions, time signatures)
@@ -159,11 +171,11 @@ def linearize_measure_contents(part, start, end):
     splits.append(end)
     contents = []
     for i in range(1, len(splits)):
-        contents.extend(linearize_segment_contents(part, splits[i-1], splits[i]))
+        contents.extend(linearize_segment_contents(part, splits[i-1], splits[i], counter))
     return contents
 
 
-def linearize_segment_contents(part, start, end):
+def linearize_segment_contents(part, start, end, counter):
     notes = part.timeline.get_all(score.GenericNote, start=start, end=end, include_subclasses=True)
 
     notes_by_voice = group_notes_by_voice(notes)
@@ -183,7 +195,7 @@ def linearize_segment_contents(part, start, end):
 
         for n in voice_notes:
 
-            note_e = do_note(n, end.t, part.timeline)
+            note_e = do_note(n, end.t, part.timeline, counter)
             voices_e[voice].append(note_e)
             
         add_chord_tags(voices_e[voice])
@@ -426,6 +438,7 @@ def to_musicxml(parts, out=None):
     root = etree.Element('score-partwise')
     
     partlist_e = etree.SubElement(root, 'part-list')
+    counter = {}
     for part in parts:
         scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
         if part.part_name:
@@ -441,7 +454,7 @@ def to_musicxml(parts, out=None):
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
             # contents, saved_from_prev = linearize_measure_contents(measure, part)
-            contents = linearize_measure_contents(part, measure.start, measure.end)
+            contents = linearize_measure_contents(part, measure.start, measure.end, counter)
             measure_e.extend(contents)
             
     if out:

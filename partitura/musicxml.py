@@ -14,7 +14,7 @@ import pkg_resources
 from partitura.directions import parse_words
 import partitura.score as score
 
-_LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 _MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'musicxml.xsd')
 _XML_VALIDATOR = None
 _DYNAMICS_DIRECTIONS = {
@@ -755,10 +755,51 @@ def handle_note(e, position, timeline, ongoing, prev_note):
 
     # staccato = e.find('notations/articulations/staccato') is not None
     # accent = e.find('notations/articulations/accent') is not None
-    # if fermata:
-    #     self.timeline.add_starting_object(
-    #         position, score.Fermata())
+    notations = e.find('notations')
+    if notations is not None:
+        if notations.find('fermata'):
+            self.timeline.add_starting_object(position, score.Fermata(note))
+
+        slurs = notations.findall('slur')
+        # TODO: Slur stop can preceed slur start in document order (in the
+        # case of <backup>). Current implementation does not recognize that.
+
+        # this sorts all found slurs by type (either 'start' or 'stop')
+        # in reverse order, so all with type 'stop' will be before
+        # the ones with 'start'?!.
+        slurs.sort(key=lambda x: x.attrib['type'], reverse=True)
+
+        # Now that the slurs are sorted by their type, sort them
+        # by their numbers; First note that slurs do not always
+        # have a number attribute, then 1 is implied.
+        slurs.sort(key=lambda x: get_value_from_attribute(x, 'number', int) or 1)
+        # slurs.sort(key=lambda x: x.attrib.setdefault('number', 1))
         
+        for slur_e in slurs:
+
+            slur_number = get_value_from_attribute(slur_e, 'number', int)
+            slur_type = get_value_from_attribute(slur_e, 'type', str)
+            slur_key = ('slur', slur_number)
+
+            if slur_type == 'start':
+
+                slur = score.Slur(note)
+                ongoing[slur_key] = slur
+                note.slur_starts.append(slur)
+                timeline.add_starting_object(position, slur)
+
+            else:
+
+                slur = ongoing.get(slur_key, None)
+                if slur:
+                    slur.end_note = note
+                    note.slur_stops.append(slur)
+                    del ongoing[slur_key]
+                    timeline.add_ending_object(position, slur)
+                else:
+                    LOGGER.warning(f'unmatched slur stop at note {note.id}')
+
+                
     # # look for <notations> tags. Inside them, <tied> and <slur>
     # # may be present. Note that for a tie, a <tied> should be present
     # # here as well as a <tie> tag inside the <note> ... </note> tags
