@@ -28,29 +28,37 @@ def make_note_el(note, dur):
 
     note_e = etree.Element('note', id=note_id)
 
-    if note.grace_type:
-
-        if note.grace_type == 'acciaccatura':
-
-            etree.SubElement(note_e, 'grace', slash='yes')
-
-        else:
-
-            etree.SubElement(note_e, 'grace')
-
-    pitch_e = etree.SubElement(note_e, 'pitch')
-
-    etree.SubElement(pitch_e, 'step').text = f'{note.step}'
-
-    if note.alter is not None:
-        etree.SubElement(pitch_e, 'alter').text = f'{note.alter}'
-
-    etree.SubElement(pitch_e, 'octave').text = f'{note.octave}'
-
-    if not note.grace_type:
+    if isinstance(note, score.Note):
+        # if not note.grace_type:
+        if isinstance(note, score.GraceNote):
+    
+            if note.grace_type == 'acciaccatura':
+    
+                etree.SubElement(note_e, 'grace', slash='yes')
+    
+            else:
+    
+                etree.SubElement(note_e, 'grace')
+    
+        pitch_e = etree.SubElement(note_e, 'pitch')
+    
+        etree.SubElement(pitch_e, 'step').text = f'{note.step}'
+    
+        if note.alter is not None:
+            etree.SubElement(pitch_e, 'alter').text = f'{note.alter}'
+    
+        etree.SubElement(pitch_e, 'octave').text = f'{note.octave}'
+    
+    elif isinstance(note, score.Rest):
+        
+        etree.SubElement(note_e, 'rest')
+            
+    # if not note.grace_type:
+    if not isinstance(note, score.GraceNote):
 
         duration_e = etree.SubElement(note_e, 'duration')
         duration_e.text = f'{int(dur):d}'
+    
 
     tied = []
 
@@ -108,7 +116,8 @@ def do_note(note, measure_end, timeline):
     ongoing_tied = []
 
     # make_note_el
-    if note.grace_type:
+    # if note.grace_type:
+    if isinstance(note, score.GraceNote):
 
         dur_divs = 0
 
@@ -116,75 +125,87 @@ def do_note(note, measure_end, timeline):
 
         divs = next(iter(note.start.get_prev_of_type(score.Divisions, eq=True)),
                     score.Divisions(1)).divs
-        
-        dur_divs = divs * score.LABEL_DURS[note.symbolic_duration['type']]
-        dur_divs *= score.DOT_MULTIPLIERS[note.symbolic_duration['dots']]
+        dur_divs = divs * score._LABEL_DURS[note.symbolic_duration['type']]
+        dur_divs *= score._DOT_MULTIPLIERS[note.symbolic_duration['dots']]
 
     note_e = make_note_el(note, dur_divs)
 
     return (note.start.t, dur_divs, note_e)
 
 
-def linearize_measure_contents(measure, part
-                               # , saved_from_prev=[]
-                               ):
+def linearize_measure_contents(part, start, end):
     """
-    Determine the order in which the contents of the measure (notes, directions, divisions, time signatures)
+    Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
+    (notes, directions, divisions, time signatures)
     
     Parameters
     ----------
-    measure: type
-        Description of `measure`
-    
+    start: score.TimePoint
+        start
+    end: score.TimePoint
+        end
+    part: score.Part
+
     Returns
     -------
     type
         Description of return value
     """
-    notes = part.timeline.get_all(score.Note, start=measure.start, end=measure.end)
+    divisions = part.timeline.get_all(score.Divisions, start=start, end=end)
+    splits = [start]
+    for d in divisions:
+        if d.start != splits[-1]:
+            splits.append(d.start)
+    splits.append(end)
+    contents = []
+    for i in range(1, len(splits)):
+        contents.extend(linearize_segment_contents(part, splits[i-1], splits[i]))
+    return contents
+
+
+def linearize_segment_contents(part, start, end):
+    notes = part.timeline.get_all(score.GenericNote, start=start, end=end, include_subclasses=True)
+
     notes_by_voice = group_notes_by_voice(notes)
-    # tied notes that extend into the next measure(s)
-    # save_for_next_measure = {}
-    # xml elements to be added to the measure
+
     voices_e = defaultdict(list)
 
     voices = set(notes_by_voice.keys())
-    # voices.update(set(saved_from_prev.keys()))
 
     for voice in sorted(voices):
 
-        # if voice in saved_from_prev:
-        #     raise
-        #     # TODO: this is not correct if tie spans three measures or more
-        #     voices_e[voice].extend(saved_from_prev[voice])
-        
-        for n in notes_by_voice[voice]:
+        voice_notes = notes_by_voice[voice]
 
-            note_e = do_note(n, measure.end.t, part.timeline)
+        # grace notes should precede other notes at the same onset
+        voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
+        # vnotes.sort(key=lambda n: n.duration, reverse)
+        voice_notes.sort(key=lambda n: n.start.t)
+
+        for n in voice_notes:
+
+            note_e = do_note(n, end.t, part.timeline)
             voices_e[voice].append(note_e)
-            # notes, ongoing_notes = do_note(n, measure.end.t, part.timeline)
-            # voices_e[voice].extend(notes)
-            # save_for_next_measure[voice] = ongoing_notes
-
+            
         add_chord_tags(voices_e[voice])
         
-    attributes = (part.timeline.get_all(score.Divisions, measure.start, measure.end)
-                  +part.timeline.get_all(score.KeySignature, measure.start, measure.end)
-                  +part.timeline.get_all(score.TimeSignature, measure.start, measure.end)
-                  +part.timeline.get_all(score.Clef, measure.start, measure.end))
+    attributes = (part.timeline.get_all(score.Divisions, start, end)
+                  +part.timeline.get_all(score.KeySignature, start, end)
+                  +part.timeline.get_all(score.TimeSignature, start, end)
+                  +part.timeline.get_all(score.Clef, start, end))
     
     attributes_e = do_attributes(attributes)
     
-    directions = part.timeline.get_all(score.Direction, measure.start, measure.end,
+    directions = part.timeline.get_all(score.Direction, start, end,
                                        include_subclasses=True)
     # TODO: deal with directions
     directions_e = []
     
     # merge other and contents
-    contents = merge_measure_contents(voices_e, attributes_e, directions_e, measure.start.t)
+    contents = merge_measure_contents(voices_e, attributes_e, directions_e, start.t)
     
     # print(other)
     return contents # , save_for_next_measure
+
 
 def add_chord_tags(notes):
     # print(notes)
@@ -420,7 +441,7 @@ def to_musicxml(parts, out=None):
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
             # contents, saved_from_prev = linearize_measure_contents(measure, part)
-            contents = linearize_measure_contents(measure, part)
+            contents = linearize_measure_contents(part, measure.start, measure.end)
             measure_e.extend(contents)
             
     if out:

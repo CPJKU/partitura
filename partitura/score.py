@@ -35,9 +35,8 @@ from partitura.utils import ComparableMixin, partition, iter_subclasses
 sys.setrecursionlimit(100000)
 
 LOGGER = logging.getLogger(__name__)
-NON_ALPHA_NUM_PAT = re.compile(r'\W', re.UNICODE)
-
-LABEL_DURS = {
+# _NON_ALPHA_NUM_PAT = re.compile(r'\W', re.UNICODE)
+_LABEL_DURS = {
     'long': 16,
     'breve': 8,
     'whole': 4,
@@ -50,19 +49,23 @@ LABEL_DURS = {
     '128th': 1./32,
     '256th': 1./64
 }
-DOT_MULTIPLIERS = (1, 1+1/2., 1+3/4., 1+7/8.)
+_DOT_MULTIPLIERS = (1, 1+1/2., 1+3/4., 1+7/8.)
+_MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
+_MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
+_MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
+_ALTER_SIGNS = {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
-
-def format_symbolic_duration(symbolic_durs):
-    # return '+'.join(sd['type']+'.'*sd['dots'] for sd in symbolic_durs)
-    return symbolic_durs['type']+'.'*symbolic_durs['dots']
+def format_symbolic_duration(symbolic_dur):
+    # TODO: can symbolic_dur be None?
+    return symbolic_dur['type']+'.'*symbolic_dur['dots']
 
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
-    numdur = divs * LABEL_DURS[symbolic_dur.get('type', 'quarter')]
-    numdur *= DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
-    numdur *= float(symbolic_dur.get('normal_notes', 1)) / \
-        symbolic_dur.get('actual_notes', 1)
+    # TODO: can symbolic_dur be None?
+    numdur = divs * _LABEL_DURS[symbolic_dur.get('type', None)]
+    numdur *= _DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
+    numdur *= (symbolic_dur.get('normal_notes', 1) / 
+               symbolic_dur.get('actual_notes', 1))
     return numdur
 
 
@@ -823,166 +826,26 @@ class Chord(TimedObject):
         # TODO: add references to constituent notes
         pass
 
-# class GenericNote(TimedObject):
-#     """
-#     Represents the common aspects of notes and rests (and in the future unpitched notes)
-#     """
-#     def __init__(self, voice=None, id=None,
-#                  symbolic_duration=None,
-#                  grace_type=None, steal_proportion=None,
-#                  staccato=False, fermata=False, accent=False,
-#                  staff=None):
 
-class Note(TimedObject):
-
+class GenericNote(TimedObject):
     """
-    Represents a note
+    Represents the common aspects of notes and rests (and in the future unpitched notes)
 
     Parameters
     ----------
-    step : str
-        the basic pitch class, like 'C', 'D', 'E', etc.
+    voice : integer, optional (default: None)
 
-    alter: integer
-        number of semi-tones to alterate the note from its basic pitch
-        given by `step`.
-        Note that the musicxml standard in principle allows for this to
-        be a float number for microtones (micro-intonation). In Midi this
-        would/could then translate to a pitch-bend.
-
-    octave : integer
-        the octave where octave 4 is the one having middle C (C4).
-
-    voice : integer, optional. Default: None
-
-    id : integer, optional. Default: None
-
-    ...
-
-
-    Attributes
-    ----------
-    previous_notes_in_voice :
-
-    simultaneous_notes_in_voice :
-
-    next_notes_in_voice :
-
-    midi_pitch : integer
-
-    morphetic_pitch :
-
-    alter_sign :
-
-    duration :
+    id : integer, optional (default: None)
 
     """
-
-    def __init__(self, step, alter, octave, voice=None, id=None,
-                 symbolic_duration=None,
-                 grace_type=None, steal_proportion=None,
-                 staccato=False, fermata=False, accent=False,
-                 staff=None):
-        self.step = step
-        if alter not in (None, 0, 1, 2, 3, -1, -2, 3):
-            print('alter', step, alter, octave)
-            raise Exception()
-        if alter == 0:
-            alter = None
-        self.alter = alter
-        self.octave = octave
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None):
         self.voice = voice
         self.id = id
-        self.grace_type = grace_type
-        self.steal_proportion = steal_proportion
-        self.staccato = staccato
-        self.fermata = fermata
-        self.accent = accent
         self.staff = staff
-        # self.symbolic_durations = []
-        # if symbolic_duration is not None:
-        #     self.symbolic_durations.append(symbolic_duration)
         self.symbolic_duration = symbolic_duration
         self.tie_prev = None
         self.tie_next = None
-
-    @property
-    def previous_notes_in_voice(self):
-        n = self
-        while True:
-            nn = n.start.get_prev_of_type(Note)
-            if nn == []:
-                return nn
-            else:
-                voice_notes = [m for m in nn if m.voice == self.voice]
-                if len(voice_notes) > 0:
-                    return voice_notes
-                n = nn[0]
-
-    @property
-    def simultaneous_notes_in_voice(self):
-        return [m for m in self.start.starting_objects[Note]
-                if m.voice == self.voice and m != self]
-
-    @property
-    def next_notes_in_voice(self):
-        n = self
-        while True:
-            nn = n.start.get_next_of_type(Note)
-            if nn == []:
-                return nn
-            else:
-                voice_notes = [m for m in nn if m.voice == self.voice]
-                if len(voice_notes) > 0:
-                    return voice_notes
-                n = nn[0]
-
-    @property
-    def midi_pitch(self):
-        """
-        the midi pitch value of the note (MIDI note number).
-        C4 (middle C, in german: c') is note number 60.
-
-        Returns
-        -------
-        integer
-            the note's pitch as MIDI note number.
-        """
-        base_class = {'c': 0, 'd': 2, 'e': 4, 'f': 5,
-                      'g': 7, 'a': 9, 'b': 11}[self.step.lower()] + (self.alter or 0)
-
-        return (self.octave + 1) * 12 + base_class
-
-    @property
-    def morphetic_pitch(self):
-        """
-        the morphetic value of the note, i.e. a single integer.
-        It corresponds to the (vertical) position of the note in
-        the barline system.
-
-        Returns
-        -------
-        integer
-        """
-        base_class = {'c': 0, 'd': 1, 'e': 2, 'f': 3,
-                      'g': 4, 'a': 5, 'b': 6}[self.step.lower()]
-        octave_number = {0: 32, 1: 39, 2: 46, 3: 53,
-                         4: 60, 5: 67, 6: 74, 7: 81,
-                         8: 89}[self.octave]
-
-        return octave_number + base_class
-
-    @property
-    def alter_sign(self):
-        """
-        the alteration of the note
-
-        Returns
-        -------
-        str
-        """
-        return {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}[self.alter]
-
+    
     @property
     def duration(self):
         """
@@ -1001,27 +864,15 @@ class Note(TimedObject):
 
     @property
     def duration_from_symbolic(self):
-        divs = self.start.get_prev_of_type(Divisions, True)
-        if len(divs) == 0:
-            div = 1
+        if self.symbolic_duration:
+            divs = self.start.get_prev_of_type(Divisions, eq=True)
+            if len(divs) == 0:
+                div = 1
+            else:
+                div = divs[0].divs
+            return symbolic_to_numeric_duration(self.symbolic_duration, div)
         else:
-            div = divs[0].divs
-        return symbolic_to_numeric_duration(self.symbolic_duration, div)
-        # TODO: it is theoretically possible that the divisions change
-        # in between tied notes. The current code assumes this does not happen.
-        # return symbolic_to_numeric_duration(self.symbolic_durations, div)
-        # return sum(symbolic_to_numeric_duration(sd, div) for sd in self.symbolic_durations)
-
-    def __str__(self):
-        all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
-        tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
-        tied_id = '+'.join(n.id or 'None' for n in all_tied)
-        return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
-                .format(self.step, self.alter_sign, self.octave,
-                        self.midi_pitch, self.voice, self.duration,
-                        self.id or '', self.grace_type if self.grace_type else '',
-                        self.start and self.start.t, self.end and self.end.t,
-                        tied_dur, tied_id))
+            return None
 
     @property
     def tie_prev_notes(self):
@@ -1036,25 +887,296 @@ class Note(TimedObject):
             return [self.tie_next] + self.tie_next.tie_next_notes
         else:
             return []
+        
+    def __str__(self):
+        s = f'{self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        if self.tie_prev or self.tie_next:
+            all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
+            tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
+            tied_id = '+'.join(n.id or 'None' for n in all_tied)
+            return s + f' tied: {tied_id}'
+        else:
+            return s
+    #     return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
+    #             .format(self.step, self.alter_sign, self.octave,
+    #                     self.midi_pitch, self.voice, self.duration,
+    #                     self.id or '', self.grace_type if self.grace_type else '',
+    #                     self.start and self.start.t, self.end and self.end.t,
+    #                     tied_dur, tied_id))
 
-
-class Rest(Note):
-    """
-    Represents a rest. It is defined as a subclass of Note so that it can be
-    conveniently retrieved from a timeline along with Note objects if needed.
-    """
-    def __init__(self, voice=None, id=None,
-                 symbolic_duration=None,
-                 staff=None):
-        self.voice = voice
-        self.id = id
-        self.staff = staff
-        self.symbolic_duration = symbolic_duration
+class Note(GenericNote):
+    def __init__(self, step, alter, octave, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.step = step
+        self.alter = alter
+        self.octave = octave
 
     def __str__(self):
-        return ('rest (id: {}, duration: {}; voice: {}; staff: {})'
-                .format(self.id, format_symbolic_duration(self.symbolic_duration),
-                        self.voice, self.staff))
+        return ' '.join((super().__str__(),
+                         f'pitch={self.step}{self.alter_sign}{self.octave}'))
+    #     return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
+    #             .format(self.step, self.alter_sign, self.octave,
+    #                     self.midi_pitch, self.voice, self.duration,
+
+    @property
+    def midi_pitch(self):
+        """
+        the midi pitch value of the note (MIDI note number).
+        C4 (middle C, in german: c') is note number 60.
+
+        Returns
+        -------
+        integer
+            the note's pitch as MIDI note number.
+        """
+        return ((self.octave + 1) * 12
+                + _MIDI_BASE_CLASS[self.step.lower()]
+                + (self.alter or 0))
+
+    @property
+    def morphetic_pitch(self):
+        """
+        the morphetic value of the note, i.e. a single integer.
+        It corresponds to the (vertical) position of the note in
+        the barline system.
+
+        Returns
+        -------
+        integer
+        """
+        return (_MORPHETIC_OCTAVE[self.octave] +
+                _MORPHETIC_BASE_CLASS[self.step.lower()])
+
+    @property
+    def alter_sign(self):
+        """
+        the alteration of the note
+
+        Returns
+        -------
+        str
+        """
+        return _ALTER_SIGNS[self.alter]
+
+
+class Rest(GenericNote):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class GraceNote(Note):
+    def __init__(self, grace_type, *args, steal_proportion=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.grace_type = grace_type
+        self.steal_proportion = steal_proportion
+
+# class Note(TimedObject):
+
+#     """
+#     Represents a note
+
+#     Parameters
+#     ----------
+#     step : str
+#         the basic pitch class, like 'C', 'D', 'E', etc.
+
+#     alter: integer
+#         number of semi-tones to alterate the note from its basic pitch
+#         given by `step`.
+#         Note that the musicxml standard in principle allows for this to
+#         be a float number for microtones (micro-intonation). In Midi this
+#         would/could then translate to a pitch-bend.
+
+#     octave : integer
+#         the octave where octave 4 is the one having middle C (C4).
+
+#     voice : integer, optional. Default: None
+
+#     id : integer, optional. Default: None
+
+#     ...
+
+
+#     Attributes
+#     ----------
+#     previous_notes_in_voice :
+
+#     simultaneous_notes_in_voice :
+
+#     next_notes_in_voice :
+
+#     midi_pitch : integer
+
+#     morphetic_pitch :
+
+#     alter_sign :
+
+#     duration :
+
+#     """
+
+#     def __init__(self, step, alter, octave, voice=None, id=None,
+#                  symbolic_duration=None,
+#                  grace_type=None, steal_proportion=None,
+#                  staccato=False, fermata=False, accent=False,
+#                  staff=None):
+#         self.step = step
+#         # alter_values = (None, 0, 1, 2, 3, -1, -2, 3)
+#         # if alter not in alter_values:
+#         #     raise Exception('alter should be one of {}'.format(alter_values))
+#         self.alter = alter
+#         if alter == 0:
+#             alter = None
+#         self.octave = octave
+#         self.voice = voice
+#         self.id = id
+#         self.grace_type = grace_type
+#         self.steal_proportion = steal_proportion
+#         self.staccato = staccato
+#         self.fermata = fermata
+#         self.accent = accent
+#         self.staff = staff
+#         # self.symbolic_durations = []
+#         # if symbolic_duration is not None:
+#         #     self.symbolic_durations.append(symbolic_duration)
+#         self.symbolic_duration = symbolic_duration
+#         self.tie_prev = None
+#         self.tie_next = None
+
+#     @property
+#     def previous_notes_in_voice(self):
+#         n = self
+#         while True:
+#             nn = n.start.get_prev_of_type(Note)
+#             if nn == []:
+#                 return nn
+#             else:
+#                 voice_notes = [m for m in nn if m.voice == self.voice]
+#                 if len(voice_notes) > 0:
+#                     return voice_notes
+#                 n = nn[0]
+
+#     @property
+#     def simultaneous_notes_in_voice(self):
+#         return [m for m in self.start.starting_objects[Note]
+#                 if m.voice == self.voice and m != self]
+
+#     @property
+#     def next_notes_in_voice(self):
+#         n = self
+#         while True:
+#             nn = n.start.get_next_of_type(Note)
+#             if nn == []:
+#                 return nn
+#             else:
+#                 voice_notes = [m for m in nn if m.voice == self.voice]
+#                 if len(voice_notes) > 0:
+#                     return voice_notes
+#                 n = nn[0]
+
+#     @property
+#     def midi_pitch(self):
+#         """
+#         the midi pitch value of the note (MIDI note number).
+#         C4 (middle C, in german: c') is note number 60.
+
+#         Returns
+#         -------
+#         integer
+#             the note's pitch as MIDI note number.
+#         """
+#         base_class = {'c': 0, 'd': 2, 'e': 4, 'f': 5,
+#                       'g': 7, 'a': 9, 'b': 11}[self.step.lower()] + (self.alter or 0)
+
+#         return (self.octave + 1) * 12 + base_class
+
+#     @property
+#     def morphetic_pitch(self):
+#         """
+#         the morphetic value of the note, i.e. a single integer.
+#         It corresponds to the (vertical) position of the note in
+#         the barline system.
+
+#         Returns
+#         -------
+#         integer
+#         """
+#         base_class = {'c': 0, 'd': 1, 'e': 2, 'f': 3,
+#                       'g': 4, 'a': 5, 'b': 6}[self.step.lower()]
+#         octave_number = {0: 32, 1: 39, 2: 46, 3: 53,
+#                          4: 60, 5: 67, 6: 74, 7: 81,
+#                          8: 89}[self.octave]
+
+#         return octave_number + base_class
+
+#     @property
+#     def alter_sign(self):
+#         """
+#         the alteration of the note
+
+#         Returns
+#         -------
+#         str
+#         """
+#         return {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}[self.alter]
+
+#     @property
+#     def duration(self):
+#         """
+#         the duration of the note in divisions
+
+#         Returns
+#         -------
+#         number
+#         """
+
+#         try:
+#             return self.end.t - self.start.t
+#         except:
+#             LOGGER.warn('no end time found for note')
+#             return 0
+
+#     @property
+#     def duration_from_symbolic(self):
+#         divs = self.start.get_prev_of_type(Divisions, True)
+#         if len(divs) == 0:
+#             div = 1
+#         else:
+#             div = divs[0].divs
+#         return symbolic_to_numeric_duration(self.symbolic_duration, div)
+#         # TODO: it is theoretically possible that the divisions change
+#         # in between tied notes. The current code assumes this does not happen.
+#         # return symbolic_to_numeric_duration(self.symbolic_durations, div)
+#         # return sum(symbolic_to_numeric_duration(sd, div) for sd in self.symbolic_durations)
+
+    # def __str__(self):
+    #     all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
+    #     tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
+    #     tied_id = '+'.join(n.id or 'None' for n in all_tied)
+    #     return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
+    #             .format(self.step, self.alter_sign, self.octave,
+    #                     self.midi_pitch, self.voice, self.duration,
+    #                     self.id or '', self.grace_type if self.grace_type else '',
+    #                     self.start and self.start.t, self.end and self.end.t,
+    #                     tied_dur, tied_id))
+
+
+# class Rest(Note):
+#     """
+#     Represents a rest. It is defined as a subclass of Note so that it can be
+#     conveniently retrieved from a timeline along with Note objects if needed.
+#     """
+#     def __init__(self, voice=None, id=None,
+#                  symbolic_duration=None,
+#                  staff=None):
+#         self.voice = voice
+#         self.id = id
+#         self.staff = staff
+#         self.symbolic_duration = symbolic_duration
+
+#     def __str__(self):
+#         return ('rest (id: {}, duration: {}; voice: {}; staff: {})'
+#                 .format(self.id, format_symbolic_duration(self.symbolic_duration),
+#                         self.voice, self.staff))
 
 
 def get_all_parts(constituents):
@@ -1860,8 +1982,9 @@ class Part(object):
             dens[:, 1] = 2 # i.e. np.log2(4)
 
         # integrate second column, where first column is time:
-        new_divs = np.cumsum(np.diff(divs[:, 0]) * divs[:-1, 1])
-
+        # new_divs = np.cumsum(np.diff(divs[:, 0]) * divs[:-1, 1])
+        new_divs = np.cumsum(np.diff(divs[:, 0]) / divs[:-1, 1])
+        
         divs = divs.astype(np.float)
         divs[1:, 1] = new_divs
         divs[0, 1] = divs[0, 0]
@@ -1881,7 +2004,9 @@ class Part(object):
         # dividing rather than multiplying:
         dens[:, 1] = 4 / 2**dens[:, 1]
 
-        dens_new = np.cumsum(np.diff(dens[:, 0]) * dens[:-1, 1])
+        # dens_new = np.cumsum(np.diff(dens[:, 0]) * dens[:-1, 1])
+        dens_new = np.cumsum(np.diff(dens[:, 0]) / dens[:-1, 1])
+        
         dens[1:, 1] = dens_new
         dens[0, 1] = dens[0, 0]
 
@@ -1894,7 +2019,6 @@ class Part(object):
                 try:
                     return den_intp(div_intp(x)) + offset
                 except ValueError:
-                    print(np.min(x), np.max(x))
                     raise
             return f
 
