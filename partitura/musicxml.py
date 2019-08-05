@@ -17,7 +17,7 @@ import partitura.score as score
 LOGGER = logging.getLogger(__name__)
 _MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'musicxml.xsd')
 _XML_VALIDATOR = None
-_DYNAMICS_DIRECTIONS = {
+_DYN_DIRECTIONS = {
     'f': score.ConstantLoudnessDirection,
     'ff': score.ConstantLoudnessDirection,
     'fff': score.ConstantLoudnessDirection,
@@ -27,6 +27,7 @@ _DYNAMICS_DIRECTIONS = {
     'n': score.ConstantLoudnessDirection,
     'mf': score.ConstantLoudnessDirection,
     'mp': score.ConstantLoudnessDirection,
+    'p': score.ConstantLoudnessDirection,
     'pp': score.ConstantLoudnessDirection,
     'ppp': score.ConstantLoudnessDirection,
     'pppp': score.ConstantLoudnessDirection,
@@ -417,23 +418,15 @@ def handle_direction(e, position, timeline, ongoing):
     #     %direction;
     # >
 
-    # directions may have an explicit temporal offset (does not
-    # affect measure_duration)
+    staff = get_value_from_tag(e, 'staff', int) or 1
 
-    offset = get_value_from_tag(e, 'offset', int) or 0
-
-    starting_directions = []
-    ending_directions = []
-
-    sounds = e.xpath('sound')
-    if len(sounds) > 0:
-        if 'fine' in sounds[0].attrib:
-            starting_directions.append(Fine())
-        if 'dacapo' in sounds[0].attrib:
-            starting_directions.append(DaCapo())
+    if get_value_from_attribute(e, 'sound/fine', str) == 'yes':
+        timeline.add_starting_object(position, Fine())
+    if get_value_from_attribute(e, 'sound/dacapo', str) == 'yes':
+        timeline.add_starting_object(position, DaCapo())
 
     # <direction-type> ... </...>
-    direction_types = e.xpath('direction-type')
+    direction_types = e.findall('direction-type')
     # <!ELEMENT direction-type (rehearsal+ | segno+ | words+ |
     #     coda+ | wedge | dynamics+ | dashes | bracket | pedal |
     #     metronome | octave-shift | harp-pedals | damp | damp-all |
@@ -441,34 +434,43 @@ def handle_direction(e, position, timeline, ongoing):
     #     principal-voice | accordion-registration | percussion+ |
     #     other-direction)>
 
-    # flag indicating presence of <dashes type=start>
-    dashes_start = None
-    dashes_end = None
+    # direction-types supported here:
+    # * words
+    # * wedge
+    # * dynamics
+    # * dashes
+    # * coda
+    # * TODO: pedal
+    # * TODO: damp
+    
+    # here we gather all starting and ending directions, to be added to the timeline afterwards
+    starting_directions = []
+    ending_directions = []
 
-    for dts in direction_types:
-        assert len(dts) >= 1
+    # keep track of starting and stopping dashes
+    dashes_keys = {}
 
-        if len(dts) > 1:
-            LOGGER.warning(
-                '(FIXME) ignoring trailing direction-types in direction')
-        direction_type = dts[0].tag
+    for direction_type in direction_types:
+        # direction_type 
+        dt = next(iter(direction_type))
 
-        if direction_type == 'dynamics':
-            # there may be multiple dynamics items in dts, loop:
-            for dt in dts:
-                # there may be multiple dynamics components
-                for dyn in dt:
-                    # direction = None # _make_direction(dyn.tag)
-                    direction = _DYNAMICS_DIRECTIONS.get(dyn.tag, score.Words)(dyn.tag)
-                    if direction is not None:
-                        starting_directions.append(direction)
+        if dt.tag == 'dynamics':
+            # first child of direction-type is dynamics, there may be subsequent
+            # dynamics items, so we loop:
+            for child in direction_type:
+                # interpret as score.Direction, fall back to score.Words
+                dyn_el = next(iter(child))
+                if dyn_el is not None:
+                    direction = _DYN_DIRECTIONS.get(dyn_el.tag, score.Words)(dyn_el.tag)
+                    starting_directions.append(direction)
+            
+        elif dt.tag == 'words':
+            # first child of direction-type is words, there may be subsequent
+            # words items, so we loop:
+            for child in direction_type:
 
-        elif direction_type == 'words':
-            # there may be multiple dynamics/words items in dts, loop:
-            for dt in dts:
                 # try to make a direction out of words
-                # TODO: check if we need str in python3
-                parse_result = parse_words(str(dt.text))
+                parse_result = parse_words(child.text)
 
                 if parse_result is not None:
 
@@ -477,51 +479,56 @@ def handle_direction(e, position, timeline, ongoing):
                     else:
                         starting_directions.append(parse_result)
 
-        elif direction_type == 'wedge':
-            key = get_wedge_key(dts[0])
+        elif dt.type == 'wedge':
 
-            if dts[0].attrib['type'] in ('crescendo', 'diminuendo'):
+            number = get_value_from_attribute(dt, 'number', int) or 1
+            key = ('wedge', number)
+            wedge_type = get_value_from_attribute(dt, 'type', str)
 
-                o = score.DynamicLoudnessDirection(dts[0].attrib['type'])
+            if wedge_type in ('crescendo', 'diminuendo'):
+
+                o = score.DynamicLoudnessDirection(wedge_type)
                 starting_directions.append(o)
                 ongoing[key] = o
 
-            elif dts[0].attrib['type'] == 'stop':
+            elif wedge_type == 'stop':
 
-                o = ongoing.get(key, None)
-
+                o = ongoing.get(key)
                 if o is not None:
                     ending_directions.append(o)
                     del ongoing[key]
                 else:
                     LOGGER.warning(
-                        'did not find a wedge start element for wedge stop!')
+                        'Did not find a wedge start element for wedge stop!')
 
-        elif direction_type == 'dashes':
+        elif dt.type == 'dashes':
 
-            if dts[0].attrib['type'] == 'start':
-                dashes_start = dts[0]
-            else:
-                dashes_end = dts[0]
+            # start/stop/continue
+            dashes_type = get_value_from_attribute(dt, 'type', str)
+            number = get_value_from_attribute(dt, 'number', int) or 1
+            dashes_keys[('dashes', number)] = dashes_type
+            # TODO: for now we ignore dashes_type == continue, because it exists
+            # only as a function of the visual appearance. However, if dashes
+            # that are continued over a system are stopped at the end of the
+            # system before they are continued at the start of the next, this
+            # will not be treated correctly. I'm not sure how dashes spanning
+            # systems are encoded in practice (need examples).
+
         else:
             LOGGER.warning('ignoring direction type: {} {}'.format(
-                direction_type, dts[0].attrib))
+                dt.tag, dt.attrib))
 
-    if dashes_start is not None:
+    for dashes_key, dashes_type in dashes_keys:
+        if dashes_type == 'start':
+            ongoing[dashes_key] = starting_directions
+        elif dashes_type == 'stop':
 
-        key = get_dashes_key(dashes_start)
-        ongoing[key] = starting_directions
-
-    if dashes_end is not None:
-
-        key = get_dashes_key(dashes_end)
-        oo = ongoing.get(key, None)
-
-        if oo is None:
-            LOGGER.warning('Dashes end without dashes start')
-        else:
-            ending_directions.extend(oo)
-            del ongoing[key]
+            oo = ongoing.get(dashes_key)
+            if oo is None:
+                LOGGER.warning('Dashes end without dashes start')
+            else:
+                ending_directions.extend(oo)
+                del ongoing[key]
 
     for o in starting_directions:
         timeline.add_starting_object(position, o)
@@ -761,8 +768,6 @@ def handle_note(e, position, timeline, ongoing, prev_note):
             self.timeline.add_starting_object(position, score.Fermata(note))
 
         slurs = notations.findall('slur')
-        # TODO: Slur stop can preceed slur start in document order (in the
-        # case of <backup>). Current implementation does not recognize that.
 
         # this sorts all found slurs by type (either 'start' or 'stop')
         # in reverse order, so all with type 'stop' will be before
@@ -773,90 +778,43 @@ def handle_note(e, position, timeline, ongoing, prev_note):
         # by their numbers; First note that slurs do not always
         # have a number attribute, then 1 is implied.
         slurs.sort(key=lambda x: get_value_from_attribute(x, 'number', int) or 1)
-        # slurs.sort(key=lambda x: x.attrib.setdefault('number', 1))
         
         for slur_e in slurs:
 
             slur_number = get_value_from_attribute(slur_e, 'number', int)
             slur_type = get_value_from_attribute(slur_e, 'type', str)
-            slur_key = ('slur', slur_number)
+            start_slur_key = ('start_slur', slur_number)
+            stop_slur_key = ('stop_slur', slur_number)
 
             if slur_type == 'start':
 
-                slur = score.Slur(note)
-                ongoing[slur_key] = slur
+                # check if we have a stopped_slur in ongoing that corresponds to
+                # this stop
+                slur = ongoing.pop(stop_slur_key, None)
+
+                if slur is None:
+
+                    slur = score.Slur(note)
+                    ongoing[start_slur_key] = slur
+
                 note.slur_starts.append(slur)
                 timeline.add_starting_object(position, slur)
 
-            else:
+            elif slur_type == 'stop':
 
-                slur = ongoing.get(slur_key, None)
-                if slur:
-                    slur.end_note = note
-                    note.slur_stops.append(slur)
-                    del ongoing[slur_key]
-                    timeline.add_ending_object(position, slur)
+                slur = ongoing.pop(start_slur_key, None)
+                if slur is None:
+                    # slur stop occurs before slur start in document order, that
+                    # is a valid scenario
+                    slur = score.Slur(None, note)
+                    ongoing[stop_slur_key] = slur
                 else:
-                    LOGGER.warning(f'unmatched slur stop at note {note.id}')
+                    slur.end_note = note
+
+                note.slur_stops.append(slur)
+                timeline.add_ending_object(position, slur)
 
                 
-    # # look for <notations> tags. Inside them, <tied> and <slur>
-    # # may be present. Note that for a tie, a <tied> should be present
-    # # here as well as a <tie> tag inside the <note> ... </note> tags
-    # # of the same note (this is not looked for here). The code
-    # # so far only looks for <slur> here.
-    # if len(e.xpath('notations')) > 0:
-
-    #     eslurs = e.xpath('notations/slur')    # list
-
-    #     # TODO: Slur stop can preceed slur start in document order (in the
-    #     # case of <backup>). Current implementation does not recognize that.
-
-    #     # this sorts all found slurs by type (either 'start' or 'stop')
-    #     # in reverse order, so all with type 'stop' will be before
-    #     # the ones with 'start'?!.
-    #     eslurs.sort(key=lambda x: x.attrib['type'], reverse=True)
-
-    #     # Now that the slurs are sorted by their type, sort them
-    #     # by their numbers; First note that slurs do not always
-    #     # have a number attribute, then 1 is implied.
-    #     # If, however, either more than one slur starts
-    #     # or ends at the same note (!) they must be
-    #     # numbered so that they can be distinguished. If however
-    #     # a (single) slur ends and the next (single) one starts
-    #     # at the same note, none of them needs to be numbered.
-    #     eslurs.sort(key=lambda x: int(
-    #         x.attrib['number']) if 'number' in x.attrib else 1)
-
-    #     erroneous_stops = []    # gather stray stops that have no beginning?
-
-    #     for eslur in eslurs:    # loop over all found slurs
-    #         key = get_slur_key(eslur)    # number that represents the slur
-    #         if eslur.attrib['type'] == 'stop':
-    #             try:
-    #                 o = self.ongoing[key]
-    #                 self.timeline.add_ending_object(
-    #                     self.position + measure_pos, o)
-    #                 del self.ongoing[key]
-    #             except KeyError:  # as exception:
-    #                 LOGGER.warning(("Part xx, Measure xx: Stopping slur with number {0} was never started (Note ID: {1})"
-    #                                 "").format(key[1], note_id))
-
-    #                 erroneous_stops.append(key)
-
-    #         elif eslur.attrib['type'] == 'start':
-    #             if key not in self.ongoing:
-    #                 o = score.Slur(voice)
-    #                 self.timeline.add_starting_object(
-    #                     self.position + measure_pos, o)
-    #                 self.ongoing[key] = o
-    #             else:
-    #                 LOGGER.warning(
-    #                     "Slur with number {0} started twice; Ignoring the second slur start".format(key[1]))
-    #     for k in erroneous_stops:
-    #         if k in self.ongoing:
-    #             del self.ongoing[k]
-
     new_position = position + duration
 
     return new_position, note 

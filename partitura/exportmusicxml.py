@@ -87,17 +87,27 @@ def make_note_el(note, dur, counter):
         
         etree.SubElement(note_e, 'staff').text = f'{note.staff}'
 
-    for slur in note.slur_starts:
-        number = 1 + sum(1 for o in counter.keys() if isinstance(o, score.Slur))
-        counter[slur] = number
-        notations.append(etree.Element('slur', number=f'{number}', type='start'))
-
     for slur in note.slur_stops:
         number = counter.get(slur, None)
         if number is None:
-            LOGGER.warning('unmatched slur')
+            number = 1
+            counter[slur] = number
+            pass # LOGGER.warning('unmatched slur')
+        else:
+            del counter[slur]
+
         notations.append(etree.Element('slur', number=f'{number}', type='stop'))
-        del counter[slur]
+
+    for slur in note.slur_starts:
+        number = counter.get(slur, None)
+        if number is None:
+            number = 1 + sum(1 for o in counter.keys() if isinstance(o, score.Slur))
+            counter[slur] = number
+        else:
+            del counter[slur]
+            
+        notations.append(etree.Element('slur', number=f'{number}', type='start'))
+
 
     if notations:
 

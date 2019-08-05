@@ -608,7 +608,7 @@ class Measure(TimedObject):
             'Part is empty')
         divs = self.start.next.get_prev_of_type(Divisions)
         ts = self.start.next.get_prev_of_type(TimeSignature)
-        nextm = self.start.get_next_of_type(Measure)
+        # nextm = self.start.get_next_of_type(Measure)
 
         invalid = False
         if len(divs) == 0:
@@ -617,16 +617,17 @@ class Measure(TimedObject):
         if len(ts) == 0:
             LOGGER.warning('Part specifies no time signatures')
             invalid = True
-        if len(nextm) == 0:
-            LOGGER.warning('Part has just one measure')
-            invalid = True
+        # if len(nextm) == 0:
+        #     LOGGER.warning('Part has just one measure')
+        #     # invalid = True
 
         if invalid:
             LOGGER.warning(
                 'could not be determine if meaure is incomplete, assuming complete')
             return False
 
-        measure_dur = nextm[0].start.t - self.start.t
+        # measure_dur = nextm[0].start.t - self.start.t
+        measure_dur = self.end.t - self.start.t
         beats = ts[0].beats
         beat_type = ts[0].beat_type
         div = float(divs[0].divs)
