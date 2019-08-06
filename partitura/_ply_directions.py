@@ -687,6 +687,7 @@ def p_a_constant_tempo(p):
           | RISOLUTO
           | LEGGIERO
           | MARCATO
+          | LEGATO
           | LIGATO
           | TENUTO
           | SECCO
