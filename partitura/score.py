@@ -57,7 +57,7 @@ _ALTER_SIGNS = {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
 def format_symbolic_duration(symbolic_dur):
     # TODO: can symbolic_dur be None?
-    return symbolic_dur['type']+'.'*symbolic_dur['dots']
+    return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
 
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
@@ -457,7 +457,9 @@ class Slur(TimedObject):
 
     def __str__(self):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
-        return 'slur'
+        start = '' if self.start_note is None else f'start={self.start_note.id}'
+        end = '' if self.end_note is None else f'end={self.end_note.id}'
+        return ' '.join(('slur', start, end)).strip()
 
 
 class Repeat(TimedObject):

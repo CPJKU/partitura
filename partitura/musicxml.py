@@ -479,7 +479,7 @@ def handle_direction(e, position, timeline, ongoing):
                     else:
                         starting_directions.append(parse_result)
 
-        elif dt.type == 'wedge':
+        elif dt.tag == 'wedge':
 
             number = get_value_from_attribute(dt, 'number', int) or 1
             key = ('wedge', number)
@@ -501,7 +501,7 @@ def handle_direction(e, position, timeline, ongoing):
                     LOGGER.warning(
                         'Did not find a wedge start element for wedge stop!')
 
-        elif dt.type == 'dashes':
+        elif dt.tag == 'dashes':
 
             # start/stop/continue
             dashes_type = get_value_from_attribute(dt, 'type', str)
@@ -628,13 +628,18 @@ def get_value_from_attribute(e, attr, as_type, none_on_error=True):
     object or None
         The attribute value, or None
     """
-    try:
-        return as_type(e.get(attr))
-    except:
-        if none_on_error:
-            return None
-        else:
-            raise
+
+    value = e.get(attr)
+    if value is None:
+        return None
+    else:
+        try:
+            return as_type(value)
+        except:
+            if none_on_error:
+                return None
+            else:
+                raise
 
 
 def get_pitch(e):

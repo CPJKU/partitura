@@ -22,11 +22,10 @@ def make_note_el(note, dur, counter):
     # <type>
     # <notations>
 
-    note_id = note.id
-    # if n > 1:
-    #     note_id = f'{note.id}_{i+1}'
+    note_e = etree.Element('note')
 
-    note_e = etree.Element('note', id=note_id)
+    if note.id is not None:
+        note_e.attrib['id'] = note.id
 
     if isinstance(note, score.Note):
         # if not note.grace_type:
@@ -133,12 +132,10 @@ def group_notes_by_voice(notes):
     
 
 def do_note(note, measure_end, timeline, counter):
-    # onset = note.start.t
     notes = []
     ongoing_tied = []
 
     # make_note_el
-    # if note.grace_type:
     if isinstance(note, score.GraceNote):
 
         dur_divs = 0
@@ -230,7 +227,7 @@ def linearize_segment_contents(part, start, end, counter):
 
 
 def add_chord_tags(notes):
-    # print(notes)
+
     prev = None
     for onset, _, note in notes:
         if onset == prev:
