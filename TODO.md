@@ -1,23 +1,28 @@
 TODO
 ====
 
-  - load MIDI to ScorePart
+  - load MIDI to score.Part
+    - compute symbolic_durations from MIDI durations
     - pitch spelling (implement PS13?)
     - convert mido keysig names (A#m) to fifths+mode representation
-  - export ScorePart to MIDI
-    - compute symbolic_durations from MIDI durations
-  - export ScorePart to MusicXML
+    - [V] voice assignment
+
+  - load match/score format to score.Part
+
+  - export score.Part to MIDI
+
+  - export score.Part to MusicXML
     - [V] measure
     - [V] divisions
     - [V] key sig
     - [V] time sig
     - directions
-	- slurs
-	- tied notes
-	- grace notes
+	- [V] slurs
+	- [V] tied notes
+	- [V] grace notes
     - [X] cue notes 
 	- accents
 
  - test
-     - musicxml -> score -> musicxml
+     - [V] musicxml -> score -> musicxml
  
