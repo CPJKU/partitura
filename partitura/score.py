@@ -861,6 +861,7 @@ class DynamicTempoDirection(TempoDirection):
 
 class ConstantTempoDirection(TempoDirection): pass
 
+class ConstantArticulationDirection(TempoDirection): pass
 
 class ResetTempoDirection(ConstantTempoDirection): pass
 
@@ -1434,9 +1435,11 @@ class Part(object):
 
         """
 
-        LOGGER.warning(('Generation of repeat structures involving da '
-                        'capo/fine/coda/segno directions is not (properly) '
-                        'implemented yet'))
+        if len(self.timeline.get_all(DaCapo) +
+               self.timeline.get_all(Fine)) > 0:
+            LOGGER.warning(('Generation of repeat structures involving da '
+                            'capo/fine/coda/segno directions is not (properly) '
+                            'implemented yet'))
 
         repeats = self.timeline.get_all(Repeat)
 
@@ -1444,8 +1447,6 @@ class Part(object):
         t_score = TimePoint(0)
         # the last time instance in the piece
         end_point = self.timeline.points[-1]
-        # t_unfold is used to keep the time in the score variant
-        # t_unfold = 0
         # times will aggregate the triples that make up the result
         times = []
         # flag that tells... if we've reached a "da capo" sign in the

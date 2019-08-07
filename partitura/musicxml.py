@@ -140,7 +140,7 @@ def parse_partlist(partlist):
                 current_group.constituents.append(part)
                 sp.parent = current_group
 
-    if current_group:
+    if current_group is not None:
         LOGGER.warning(
             'part-group {0} was not ended'.format(current_group.number))
         structure.append(current_group)
@@ -291,11 +291,12 @@ def handle_measure(measure_el, position, timeline, ongoing):
 
         elif e.tag == 'barline':
             repeat = e.find('repeat')
-            if repeat:
+            print('rep', (repeat,))
+            if repeat is not None:
                 handle_repeat(repeat, position, timeline, ongoing)
 
             ending = e.find('ending')
-            if ending:
+            if ending is not None:
                 handle_ending(ending, position, timeline, ongoing)
 
         else:
@@ -334,7 +335,7 @@ def handle_ending(e, position, timeline, ongoing):
     
     if e.get('type') == 'start':
 
-        o = score.Ending(ending.get('number'))
+        o = score.Ending(e.get('number'))
         ongoing[key] = o
         timeline.add_starting_object(position, o)
 
@@ -427,14 +428,15 @@ def handle_attributes(e, position, timeline):
 def get_offset(e):
     offset = e.find('offset')
 
-    if offset:
+    if offset is None:
+
+        return None
+
+    else:
 
         sounding = offset.attrib.get('sound', 'no')
         return int(offset.text) if sounding == 'yes' else 0
 
-    else:
-
-        return None
 
 
 def handle_direction(e, position, timeline, ongoing):
@@ -697,7 +699,7 @@ def get_pitch(e):
     """
 
     pitch = e.find('pitch')
-    if pitch:
+    if pitch is not None:
         step = get_value_from_tag(pitch, 'step', str)
         alter = get_value_from_tag(pitch, 'alter', int)
         octave = get_value_from_tag(pitch, 'octave', int)
@@ -736,8 +738,8 @@ def handle_note(e, position, timeline, ongoing, prev_note):
     symbolic_duration['actual_notes'] = get_value_from_tag(e, 'time-modification/actual-notes', int)
     symbolic_duration['normal_notes'] = get_value_from_tag(e, 'time-modification/normal-notes', int)
 
-    chord = e.find('chord') is not None
-    if chord:
+    chord = e.find('chord')
+    if chord is not None:
         # this note starts at the same position as the previous note, and has same duration
         assert prev_note is not None
         position = prev_note.start.t
@@ -787,7 +789,7 @@ def handle_note(e, position, timeline, ongoing, prev_note):
     timeline.add_ending_object(position+duration, note)
 
     ties = e.findall('tie')
-    if ties:
+    if len(ties) > 0:
 
         # TODO: this fails when note is a rest
         tie_key = ('tie', note.midi_pitch)

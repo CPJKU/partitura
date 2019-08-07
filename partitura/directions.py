@@ -96,7 +96,17 @@ CONSTANT_QUANTIFIER = [
     "etwas",
 ]
 
-CONSTANT_ADJ = [
+CONSTANT_LOUDNESS_ADJ = [
+    "dolce",
+    "forte",
+    "piano",
+    "pp",
+    "p",
+    "f",
+    '/(sostenuto|(sosten|sost)\.?)/',
+]
+
+CONSTANT_TEMPO_ADJ = [
     "adagio",
     "agitato",
     "andante",
@@ -109,10 +119,8 @@ CONSTANT_ADJ = [
     "comodo",
     "delicatissimo",
     "religioso",
-    "dolce",
     "dolente",
     "energico",
-    "forte",
     "grave",
     "grazioso",
     "langsamer",
@@ -120,7 +128,6 @@ CONSTANT_ADJ = [
     "largo",
     '/(leggiermente|leggiero|leggierissimo|(leggieriss|legg)\.?)/',
     "lento",
-    "ligato",
     "lusingando",
     "maestoso",
     "mancando",
@@ -130,7 +137,6 @@ CONSTANT_ADJ = [
     "mosso",
     "pesante",
     "piacevole",
-    "piano",
     "prestissimo",
     "presto",
     "risoluto",
@@ -150,13 +156,18 @@ CONSTANT_ADJ = [
     '/(vivo|vivacissimamente|vivace)/',
     '/(allegro|allegretto)/',
     '/(espressivo|espress\.?)/',
-    '/(legato|legatissimo|ligato|ligatissimo)/',
-    '/(rinforzando|(rinforz|rinf|rfz|rf)\.?)/',
-    '/(sostenuto|(sosten|sost)\.?)/',
-    "pp",
-    "p",
-    "f",
 ]
+
+
+CONSTANT_ARTICULATION_ADJ = [
+    '/(legato|legatissimo|ligato|ligatissimo)/',
+]
+
+# adjectives that may express a combination of tempo loudness and articulation directions
+CONSTANT_MIXED_ADJ = [
+    '/(rinforzando|(rinforz|rinf|rfz|rf)\.?)/',
+]
+
 
 NOUN = [
     "brio",
@@ -223,13 +234,19 @@ ap: _adj      -> do_first    // allegro
   | _adj _quantifier -> do_first
   | _quantifier pp -> do_second
 
-_adj: constant_adj
+_adj: constant_tempo_adj
+    | constant_loudness_adj
+    | constant_articulation_adj
+    | constant_mixed_adj
     | inc_loudness_adj
     | dec_loudness_adj
     | inc_tempo_adj
     | dec_tempo_adj
 
-constant_adj: CONSTANT_ADJ
+constant_tempo_adj: CONSTANT_TEMPO_ADJ
+constant_loudness_adj: CONSTANT_LOUDNESS_ADJ
+constant_articulation_adj: CONSTANT_ARTICULATION_ADJ
+constant_mixed_adj: CONSTANT_MIXED_ADJ
 inc_loudness_adj: INC_LOUDNESS_ADJ
 dec_loudness_adj: DEC_LOUDNESS_ADJ
 inc_tempo_adj: INC_TEMPO_ADJ
@@ -254,7 +271,10 @@ BPM: /[0-9]+/
 
 NOUN: {join_items(NOUN)}
 PREP: {join_items(PREP)}
-CONSTANT_ADJ: {join_items(CONSTANT_ADJ)}
+CONSTANT_TEMPO_ADJ: {join_items(CONSTANT_TEMPO_ADJ)}
+CONSTANT_LOUDNESS_ADJ: {join_items(CONSTANT_LOUDNESS_ADJ)}
+CONSTANT_ARTICULATION_ADJ: {join_items(CONSTANT_ARTICULATION_ADJ)}
+CONSTANT_MIXED_ADJ: {join_items(CONSTANT_MIXED_ADJ)}
 INC_LOUDNESS_ADJ: {join_items(INC_LOUDNESS_ADJ)}
 DEC_LOUDNESS_ADJ: {join_items(DEC_LOUDNESS_ADJ)}
 INC_TEMPO_ADJ: {join_items(INC_TEMPO_ADJ)}
@@ -290,7 +310,16 @@ def create_directions(tree, string):
         return (create_directions(tree.children[0], string),
                 create_directions(tree.children[1], string))
 
-    elif tree.data == 'constant_adj':
+    elif tree.data == 'constant_tempo_adj':
+        return score.ConstantTempoDirection(" ".join(tree.children), string)
+
+    elif tree.data == 'constant_loudness_adj':
+        return score.ConstantLoudnessDirection(" ".join(tree.children), string)
+
+    elif tree.data == 'constant_articulation_adj':
+        return score.ConstantArticulationDirection(" ".join(tree.children), string)
+
+    elif tree.data == 'constant_mixed_adj':
         return score.Direction(" ".join(tree.children), string)
 
     elif tree.data in ('inc_loudness_adj', 'dec_loudness_adj'):
@@ -331,7 +360,7 @@ def parse_words(string, parser=DEFAULT_PARSER):
             parse_result = parser.parse(string)
             direction = create_directions(parse_result, string)
         except Exception as e:
-            LOGGER.warning('error parsing "{}" ({})'.format(string, e))
+            LOGGER.warning('error parsing "{}" ({})'.format(string, type(e).__name__))
             direction = score.Words(string)
     else:
         direction = score.Words(string)
