@@ -80,7 +80,8 @@ def make_note_el(note, dur, counter):
 
         etree.SubElement(note_e, 'dot')
 
-    if 'actual_notes' in sym_dur and 'normal_notes' in sym_dur:
+    if (sym_dur.get('actual_notes') is not None
+        and sym_dur.get('normal_notes') is not None):
 
         time_mod_e = etree.SubElement(note_e, 'time-modification')
         actual_e = etree.SubElement(time_mod_e, 'actual-notes')
