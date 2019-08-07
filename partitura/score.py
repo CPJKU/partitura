@@ -55,6 +55,58 @@ _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
 _ALTER_SIGNS = {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
+
+def estimate_symbolic_duration(dur, div, eps=10**-3):
+    """
+    Given a numeric duration, a divisions value (specifiying the number of units
+    per quarter note) and optionally a tolerance `eps` for numerical
+    imprecisions, estimate corresponding the symbolic duration. If a matching
+    symbolic duration is found, it is returned as a tuple (type, dots), where
+    type is a string such as 'quarter', or '16th', and dots is an integer
+    specifying the number of dots. If no matching symbolic duration is found the
+    function returns None.
+    
+    NOTE this function does not estimate composite durations, nor
+    time-modifications such as triplets.
+
+    Parameters
+    ----------
+    dur: float or int
+        Numeric duration value
+    div: int
+        Number of units per quarter note
+    eps: float, optional (default: 10**-3)
+        Tolerance in case of imprecise matches
+    
+    Examples
+    --------
+
+    >>> estimate_symbolic_duration(24, 16)
+    ('quarter', 1)
+    
+    >>> estimate_symbolic_duration(23, 16)
+    None
+
+    Returns
+    -------
+    tuple or None
+        The estimated symbolic duration (type, dots) or None
+    """
+    global _DOT_MULTIPLIERS, _LABEL_DURS
+
+    for i, dotm in enumerate(_DOT_MULTIPLIERS):
+
+        ddur = (dur/div)/dotm
+
+        for k, v in _LABEL_DURS.items():
+
+            if np.abs(ddur-v) < eps:
+
+                return dict(type=k, dots=i)
+
+    return None
+
+
 def format_symbolic_duration(symbolic_dur):
     # TODO: can symbolic_dur be None?
     return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
