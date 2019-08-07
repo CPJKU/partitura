@@ -888,3 +888,80 @@ def get_grace_info(grace):
         grace_type = 'acciaccatura'
 
     return grace_type, steal_proportion
+
+
+SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
+
+def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
+                     expand_grace_notes=True, validate=False):
+    """
+    Get a note array from a MusicXML file
+
+    Parameters
+    ----------
+    fn : str
+        Path to a MusicXML file
+    flatten_parts : bool
+        If `True`, returns a single array containing all notes.
+        Otherwise, returns a list of arrays for each part.
+    expand_grace_notes : bool or 'delete'
+
+    Returns
+    -------
+    score : structured array or list of structured arrays
+        Structured array containing the score. The fields are
+        'pitch', 'onset' and 'duration'.
+    """
+
+    if not isinstance(expand_grace_notes, (bool, str)):
+        raise ValueError('`expand_grace_notes` must be a boolean or '
+                         '"delete"')
+    delete_grace_notes = False
+    if isinstance(expand_grace_notes, str):
+
+        if expand_grace_notes in ('omit', 'delete', 'd'):
+            expand_grace_notes = False
+            delete_grace_notes = True
+        else:
+            raise ValueError('`expand_grace_notes` must be a boolean or '
+                             '"delete"')
+
+    # Parse MusicXML
+    parts = load_musicxml(fn, validate)
+    score = []
+    for part in parts:
+        # Unfold timeline to have repetitions
+        print(part.pprint())
+        if expand_grace_notes:
+            LOGGER.debug('Expanding grace notes...')
+            part.expand_grace_notes()
+
+        part.timeline = part.unfold_timeline()
+        # get beat map
+        bm = part.beat_map
+        print('ja')
+        # Build score from beat map
+        _score = np.array(
+            [(n.midi_pitch, bm(n.start.t), bm(n.end.t) - bm(n.start.t))
+             for n in part.notes],
+            dtype=SCORE_DTYPES)
+
+        # Sort notes according to onset
+        if sort_onsets:
+            _score = _score[_score['onset'].argsort()]
+
+        if delete_grace_notes:
+            LOGGER.debug('Deleting grace notes...')
+            _score = _score[_score['duration'] != 0]
+        score.append(_score)
+
+    # Return a structured array if the score has only one part
+    if len(score) == 1:
+        return score[0]
+    elif len(score) > 1 and flatten_parts:
+        score = np.vstack(score)
+        if sort_onsets:
+            return score[score['onset'].argsort()]
+    else:
+        return score
+
