@@ -2,6 +2,5 @@ numpy
 scipy
 xmlschema
 lxml
-ply
-roman
+lark-parser
 mido

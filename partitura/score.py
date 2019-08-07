@@ -681,12 +681,15 @@ class Divisions(TimedObject):
 
 class Tempo(TimedObject):
 
-    def __init__(self, bpm):
-        super(Tempo, self).__init__()
+    def __init__(self, bpm, unit=None):
         self.bpm = bpm
+        self.unit = unit
 
     def __str__(self):
-        return 'tempo: bpm={0}'.format(self.bpm)
+        if self.unit:
+            return 'Tempo: {}={}'.format(self.unit, self.bpm)
+        else:
+            return 'Tempo: bpm={0}'.format(self.bpm)
 
 
 class KeySignature(TimedObject):
@@ -782,21 +785,25 @@ class Direction(TimedObject):
 
     """
 
-    def __init__(self, text):
+    def __init__(self, text, raw_text=None):
         self.text = text
+        self.raw_text = raw_text
         self.start = None
         self.end = None
 
     def __str__(self):
-        return '{}: {}'.format(type(self).__name__, self.text)
+        if self.raw_text is not None:
+            return '{}: {} ({})'.format(type(self).__name__, self.text, self.raw_text)
+        else:
+            return '{}: {}'.format(type(self).__name__, self.text)
 
 
 class TempoDirection(Direction): pass
 
 
 class DynamicTempoDirection(TempoDirection):
-    def __init__(self, text):
-        Direction.__init__(self, text)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.intermediate = []
 
 
@@ -810,8 +817,8 @@ class LoudnessDirection(Direction): pass
 
 
 class DynamicLoudnessDirection(LoudnessDirection):
-    def __init__(self, text):
-        Direction.__init__(self, text)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.intermediate = []
 
 class ConstantLoudnessDirection(LoudnessDirection): pass
