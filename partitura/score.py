@@ -116,8 +116,8 @@ def symbolic_to_numeric_duration(symbolic_dur, divs):
     # TODO: can symbolic_dur be None?
     numdur = divs * _LABEL_DURS[symbolic_dur.get('type', None)]
     numdur *= _DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
-    numdur *= (symbolic_dur.get('normal_notes', 1) / 
-               symbolic_dur.get('actual_notes', 1))
+    numdur *= ((symbolic_dur.get('normal_notes') or 1) / 
+               (symbolic_dur.get('actual_notes') or 1))
     return numdur
 
 
@@ -1022,6 +1022,37 @@ class Note(GenericNote):
         return _ALTER_SIGNS[self.alter]
 
 
+    @property
+    def previous_notes_in_voice(self):
+        n = self
+        while True:
+            nn = n.start.get_prev_of_type(Note)
+            if nn == []:
+                return nn
+            else:
+                voice_notes = [m for m in nn if m.voice == self.voice]
+                if len(voice_notes) > 0:
+                    return voice_notes
+                n = nn[0]
+
+    @property
+    def simultaneous_notes_in_voice(self):
+        return [m for m in self.start.starting_objects[Note]
+                if m.voice == self.voice and m != self]
+
+    @property
+    def next_notes_in_voice(self):
+        n = self
+        while True:
+            nn = n.start.get_next_of_type(Note)
+            if nn == []:
+                return nn
+            else:
+                voice_notes = [m for m in nn if m.voice == self.voice]
+                if len(voice_notes) > 0:
+                    return voice_notes
+                n = nn[0]
+
 class Rest(GenericNote):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1105,36 +1136,6 @@ class GraceNote(Note):
 #         self.tie_prev = None
 #         self.tie_next = None
 
-#     @property
-#     def previous_notes_in_voice(self):
-#         n = self
-#         while True:
-#             nn = n.start.get_prev_of_type(Note)
-#             if nn == []:
-#                 return nn
-#             else:
-#                 voice_notes = [m for m in nn if m.voice == self.voice]
-#                 if len(voice_notes) > 0:
-#                     return voice_notes
-#                 n = nn[0]
-
-#     @property
-#     def simultaneous_notes_in_voice(self):
-#         return [m for m in self.start.starting_objects[Note]
-#                 if m.voice == self.voice and m != self]
-
-#     @property
-#     def next_notes_in_voice(self):
-#         n = self
-#         while True:
-#             nn = n.start.get_next_of_type(Note)
-#             if nn == []:
-#                 return nn
-#             else:
-#                 voice_notes = [m for m in nn if m.voice == self.voice]
-#                 if len(voice_notes) > 0:
-#                     return voice_notes
-#                 n = nn[0]
 
 #     @property
 #     def midi_pitch(self):
@@ -1769,6 +1770,9 @@ class Part(object):
         segments = self._make_repeat_structure()
         N = len(segments)
 
+        if N == 0:
+            return self.timeline
+
         for i, (start, end, offset) in enumerate(segments):
 
             include_end = i == N - 1
@@ -1878,16 +1882,21 @@ class Part(object):
             N = len(notes)
             start_t = notes[0].start.t
             times = np.linspace(start_t, end_t, N + 1, endpoint=True)
+            print(notes)
             for i, n in enumerate(notes):
-                n.start.starting_objects[Note].remove(n)
+                print(n)
+                print(n.end.ending_objects)
+                n.start.starting_objects[type(n)].remove(n)
                 self.timeline.add_starting_object(times[i], n)
-                n.end.ending_objects[Note].remove(n)
+                n.end.ending_objects[type(n)].remove(n)
                 self.timeline.add_ending_object(times[i + 1], n)
                 n.appoggiatura_group_id = group_id
                 n.appoggiatura_idx = i
                 n.appoggiatura_size = N
 
-        grace_notes = [n for n in self.notes if n.grace_type is not None]
+        # grace_notes = [n for n in self.notes if n.grace_type is not None]
+        # grace_notes = [n for n in self.notes if n.grace_type is not None]
+        grace_notes = self.list_all(GraceNote)
         time_grouped_gns = partition(
             operator.attrgetter('start.t'), grace_notes)
         times = sorted(time_grouped_gns.keys())
@@ -1912,7 +1921,7 @@ class Part(object):
                     total_steal = np.sum([n.duration_from_symbolic for n
                                           in type_group])
                     main_notes = [m for m in type_group[0].simultaneous_notes_in_voice
-                                  if m.grace_type is None]
+                                  if not isinstance(m, GraceNote)]
 
                     if len(main_notes) > 0:
                         total_steal = min(
@@ -2117,7 +2126,7 @@ class Part(object):
             list of Note objects
 
         """
-        return self.list_all(Note, unfolded=False)
+        return self.list_all(Note, unfolded=False, include_subclasses=True)
 
     @property
     def notes_unfolded(self):
