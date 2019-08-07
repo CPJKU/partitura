@@ -821,10 +821,11 @@ class Words(TimedObject):
     text : str
     """
 
-    def __init__(self, text):
+    def __init__(self, text, staff=None):
         super(Words, self).__init__()
         self.text = text
-
+        self.staff = staff
+        
     def __str__(self):
         return '{}: {}'.format(type(self).__name__, self.text)
 
@@ -835,12 +836,13 @@ class Direction(TimedObject):
 
     """
 
-    def __init__(self, text, raw_text=None):
+    def __init__(self, text, raw_text=None, staff=None):
         self.text = text
         self.raw_text = raw_text
         self.start = None
         self.end = None
-
+        self.staff = staff
+        
     def __str__(self):
         if self.raw_text is not None:
             return '{}: {} ({})'.format(type(self).__name__, self.text, self.raw_text)
