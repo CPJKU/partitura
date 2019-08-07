@@ -6,6 +6,8 @@ import logging
 import partitura.score as score
 from operator import itemgetter
 
+from partitura.musicxml import DYN_DIRECTIONS
+
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger()
 
@@ -52,13 +54,11 @@ def make_note_el(note, dur, counter):
         
         etree.SubElement(note_e, 'rest')
             
-    # if not note.grace_type:
     if not isinstance(note, score.GraceNote):
 
         duration_e = etree.SubElement(note_e, 'duration')
         duration_e.text = f'{int(dur):d}'
     
-
     notations = []
 
     if note.tie_prev:
@@ -76,11 +76,17 @@ def make_note_el(note, dur, counter):
     
     etree.SubElement(note_e, 'type').text = sym_dur['type']
 
-    # TODO: add actual/normal notes
-
     for i in range(sym_dur['dots']):
 
         etree.SubElement(note_e, 'dot')
+
+    if 'actual_notes' in sym_dur and 'normal_notes' in sym_dur:
+
+        time_mod_e = etree.SubElement(note_e, 'time-modification')
+        actual_e = etree.SubElement(time_mod_e, 'actual-notes')
+        actual_e.text = str(sym_dur['actual_notes'])
+        normal_e = etree.SubElement(time_mod_e, 'normal-notes')
+        normal_e.text = str(sym_dur['normal_notes'])
 
     if note.staff:
         
@@ -106,7 +112,6 @@ def make_note_el(note, dur, counter):
             del counter[slur]
             
         notations.append(etree.Element('slur', number=f'{number}', type='start'))
-
 
     if notations:
 
@@ -142,11 +147,17 @@ def do_note(note, measure_end, timeline, counter):
 
     else:
 
-        divs = next(iter(note.start.get_prev_of_type(score.Divisions, eq=True)),
-                    score.Divisions(1)).divs
-        dur_divs = divs * score._LABEL_DURS[note.symbolic_duration['type']]
-        dur_divs *= score._DOT_MULTIPLIERS[note.symbolic_duration['dots']]
-
+        # divs = next(iter(note.start.get_prev_of_type(score.Divisions, eq=True)),
+        #             score.Divisions(1)).divs
+        # dur_divs = divs * score._LABEL_DURS[note.symbolic_duration['type']]
+        # dur_divs *= score._DOT_MULTIPLIERS[note.symbolic_duration['dots']]
+        
+        # if dur_divs != note.end.t - note.start.t:
+        #     print(note)
+        #     print(note.id, dur_divs, note.end.t, note.start.t)
+        #     raise
+        dur_divs = note.end.t - note.start.t
+        
     note_e = make_note_el(note, dur_divs, counter)
 
     return (note.start.t, dur_divs, note_e)
@@ -154,8 +165,12 @@ def do_note(note, measure_end, timeline, counter):
 
 def linearize_measure_contents(part, start, end, counter):
     """
-    Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
-    (notes, directions, divisions, time signatures)
+    Determine the document order of events starting between `start` (inclusive)
+    and `end` (exlusive).  (notes, directions, divisions, time signatures). This
+    function finds any mid-measure attribute/divisions and splits up the measure
+    into segments by divisions, to be linearized separately and
+    concatenated. The actual linearization is done by
+    the `linearize_segment_contents` function.
     
     Parameters
     ----------
@@ -167,9 +182,11 @@ def linearize_measure_contents(part, start, end, counter):
 
     Returns
     -------
-    type
-        Description of return value
+    list
+        The contents of measure in document order
     """
+
+    
     divisions = part.timeline.get_all(score.Divisions, start=start, end=end)
     splits = [start]
     for d in divisions:
@@ -183,6 +200,10 @@ def linearize_measure_contents(part, start, end, counter):
 
 
 def linearize_segment_contents(part, start, end, counter):
+    """
+    Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
+    (notes, directions, divisions, time signatures).
+    """
     notes = part.timeline.get_all(score.GenericNote, start=start, end=end, include_subclasses=True)
 
     notes_by_voice = group_notes_by_voice(notes)
@@ -217,13 +238,12 @@ def linearize_segment_contents(part, start, end, counter):
     directions = part.timeline.get_all(score.Direction, start, end,
                                        include_subclasses=True)
     # TODO: deal with directions
-    directions_e = []
+    directions_e = do_directions(directions)
     
     # merge other and contents
     contents = merge_measure_contents(voices_e, attributes_e, directions_e, start.t)
     
-    # print(other)
-    return contents # , save_for_next_measure
+    return contents
 
 
 def add_chord_tags(notes):
@@ -247,13 +267,13 @@ def forward_backup_if_needed(t, t_prev):
         e = etree.Element('forward')
         ee = etree.SubElement(e, 'duration')
         ee.text = f'{int(gap):d}'
-        result.append((t, None, e))
+        result.append((t_prev, gap, e))
     elif t < t_prev:
         gap = t_prev - t
         e = etree.Element('backup')
         ee = etree.SubElement(e, 'duration')
         ee.text = f'{int(gap):d}'
-        result.append((t, None, e))
+        result.append((t_prev, -gap, e))
     return result, gap
 
     
@@ -267,7 +287,8 @@ def merge_with_voice(notes, other, measure_start):
     last_t = measure_start
     fb_cost = 0
     while o is not None or n is not None:
-        if o is None or n_t < o_t:
+
+        if (o is None) or (n is not None and n_t < o_t):
             # if n has a chord tag it can be assumed to start at the same time
             # as the previous note, so we don't need to forward or backup
             if n[0].tag != 'chord':
@@ -277,7 +298,6 @@ def merge_with_voice(notes, other, measure_start):
             result.append((n_t, n_dur, n))
             last_t = n_t + (n_dur or 0)
             n_t, n_dur, n = next(notes, end_token)
-        # elif n is None or o_t >= n_t:
         else:
             els, cost = forward_backup_if_needed(o_t, last_t)
             fb_cost += cost
@@ -285,26 +305,6 @@ def merge_with_voice(notes, other, measure_start):
             result.append((o_t, o_dur, o))
             last_t = o_t
             o_t, _, o = next(other, end_token)
-
-        # elif n_t < o_t:
-        #     # we have n and o, and n comes first
-        #     # if n has a chord tag it can be assumed to start at the same time
-        #     # as the previous note, so we don't need to forward or backup
-        #     if n[0].tag != 'chord':
-        #         els, cost = forward_backup_if_needed(n_t, last_t)
-        #         fb_cost += cost
-        #         result.extend(els)
-        #     result.append((n_t, n_dur, n))
-        #     last_t = n_t + (n_dur or 0)
-        #     n_t, n_dur, n = next(notes, end_token)
-        # else: 
-        #     # we have n and o, and o comes first
-        #     els, cost = forward_backup_if_needed(o_t, last_t)
-        #     fb_cost += cost
-        #     result.extend(els)
-        #     result.append((o_t, o_dur, o))
-        #     last_t = o_t
-        #     o_t, _, o = next(other, end_token)
 
     return result, fb_cost
     
@@ -318,6 +318,7 @@ def merge_measure_contents(notes, attributes, other, measure_start):
         # merge `other` with each voice, and keep track of the cost
         merged[voice], cost[voice] = merge_with_voice(notes[voice], other, measure_start)
 
+    # get the voice for which merging notes and other has lowest cost
     merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
 
     result = []
@@ -353,7 +354,42 @@ def merge_measure_contents(notes, attributes, other, measure_start):
     # attributes take effect in score order, not document order, so we add them to the first voice.
     return result
         
+def do_directions(directions):
+    result = []
+    for direction in directions:
 
+        text = direction.raw_text or direction.text
+        e0 = etree.Element('direction')
+        e1 = etree.SubElement(e0, 'direction-type')
+        if text in DYN_DIRECTIONS:
+            e2 = etree.SubElement(e1, 'dynamics')
+            etree.SubElement(e2, text)
+        else:
+            e2 = etree.SubElement(e1, 'words')
+            e2.text = text
+            
+        if direction.end is not None:
+            e3 = etree.SubElement(e0, 'direction-type')
+            etree.SubElement(e3, 'dashes', type='start')
+
+
+        if direction.staff is not None:
+            e5 = etree.SubElement(e0, 'staff')
+            e5.text = str(direction.staff)
+
+        elem = (direction.start.t, None, e0)
+        result.append(elem)
+
+        if direction.end is not None:
+            e6 = etree.Element('direction')
+            e7 = etree.SubElement(e6, 'direction-type')
+            etree.SubElement(e7, 'dashes', type='stop')
+
+            elem = (direction.end.t, None, e6)
+            result.append(elem)
+
+    return result
+    
 def do_attributes(attributes):
     """
     Produce xml objects for non-note measure content 

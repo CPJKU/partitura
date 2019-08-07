@@ -28,6 +28,7 @@ The following elements that are extracted from the MusicXML:
 * tempo and dynamics directions notated as `<words>` (rallentando, crescendo, ...)
 * Repeats (all types?)
 
-unsupported:
+unsupported (for now):
 
 * unpitched notes
+* visual attributes like placement, x-offset

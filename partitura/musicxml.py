@@ -17,7 +17,7 @@ import partitura.score as score
 LOGGER = logging.getLogger(__name__)
 _MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'musicxml.xsd')
 _XML_VALIDATOR = None
-_DYN_DIRECTIONS = {
+DYN_DIRECTIONS = {
     'f': score.ConstantLoudnessDirection,
     'ff': score.ConstantLoudnessDirection,
     'fff': score.ConstantLoudnessDirection,
@@ -183,7 +183,7 @@ def load_musicxml(xml, validate=False):
 
     partlist_el = document.find('part-list')
     
-    if partlist_el:
+    if partlist_el is not None:
         # parse the (hierarchical) structure of score parts
         # (instruments) that are listed in the part-list element
         partlist, part_dict = parse_partlist(partlist_el)
@@ -501,7 +501,7 @@ def handle_direction(e, position, timeline, ongoing):
                 # interpret as score.Direction, fall back to score.Words
                 dyn_el = next(iter(child))
                 if dyn_el is not None:
-                    direction = _DYN_DIRECTIONS.get(dyn_el.tag, score.Words)(dyn_el.tag)
+                    direction = DYN_DIRECTIONS.get(dyn_el.tag, score.Words)(dyn_el.tag, staff=staff)
                     starting_directions.append(direction)
             
         elif dt.tag == 'words':
@@ -558,9 +558,12 @@ def handle_direction(e, position, timeline, ongoing):
             LOGGER.warning('ignoring direction type: {} {}'.format(
                 dt.tag, dt.attrib))
 
-    for dashes_key, dashes_type in dashes_keys:
+    for dashes_key, dashes_type in dashes_keys.items():
+
         if dashes_type == 'start':
+
             ongoing[dashes_key] = starting_directions
+
         elif dashes_type == 'stop':
 
             oo = ongoing.get(dashes_key)
@@ -568,7 +571,7 @@ def handle_direction(e, position, timeline, ongoing):
                 LOGGER.warning('Dashes end without dashes start')
             else:
                 ending_directions.extend(oo)
-                del ongoing[key]
+                del ongoing[dashes_key]
 
     for o in starting_directions:
         timeline.add_starting_object(position, o)

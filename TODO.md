@@ -16,13 +16,13 @@ TODO
     - [V] divisions
     - [V] key sig
     - [V] time sig
-    - directions
+    - [V] directions
 	- [V] slurs
 	- [V] tied notes
 	- [V] grace notes
     - [X] cue notes 
 	- accents
-
+    - da capo/fine
  - test
      - [V] musicxml -> score -> musicxml
  
