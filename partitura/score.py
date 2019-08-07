@@ -571,11 +571,9 @@ class Measure(TimedObject):
         
         divs = self.start.next.get_prev_of_type(Divisions)
         ts = self.start.next.get_prev_of_type(TimeSignature)
-        nextm = self.start.get_next_of_type(Measure)
         assert len(divs) > 0
         assert len(ts) > 0
-        assert len(nextm) > 0
-        measure_dur = nextm[0].start.t - self.start.t
+        measure_dur = self.end.t - self.start.t
         beats = ts[0].beats
         beat_type = ts[0].beat_type
         div = float(divs[0].divs)

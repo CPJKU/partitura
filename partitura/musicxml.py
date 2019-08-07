@@ -181,12 +181,12 @@ def load_musicxml(xml, validate=False):
     if document.getroot().tag != 'score-partwise':
         raise Exception('Currently only score-partwise structure is supported')
 
-    partlist_el = document.xpath('part-list')
+    partlist_el = document.find('part-list')
     
     if partlist_el:
         # parse the (hierarchical) structure of score parts
         # (instruments) that are listed in the part-list element
-        partlist, part_dict = parse_partlist(partlist_el[0])
+        partlist, part_dict = parse_partlist(partlist_el)
         # Go through each <part> to obtain the content of the parts.
         # The Part instances will be modified in place
         parse_parts(document, part_dict)
@@ -210,24 +210,20 @@ def parse_parts(document, part_dict):
         by the parse_partlist() function.
     """
 
-    for part_id in document.xpath('/score-partwise/part/@id'):
-        part_el = document.xpath('/score-partwise/part[@id="{}"]'.format(part_id))[0]
+    for part_el in document.findall('part'):
+
+        part_id = part_el.get('id', 'P1')
         part = part_dict.get(part_id, score.Part(part_id))
-        populate_part(part_el, part)
-        
-        # part_builder.finalize()
 
-
-def populate_part(part_el, part):
-    position = 0
-    ongoing = {}
-
-    # add new page and system at start of part
-    handle_new_page(position, part.timeline, ongoing)
-    handle_new_system(position, part.timeline, ongoing)
+        position = 0
+        ongoing = {}
     
-    for measure_el in part_el.xpath('measure'):
-        position = handle_measure(measure_el, position, part.timeline, ongoing)
+        # add new page and system at start of part
+        handle_new_page(position, part.timeline, ongoing)
+        handle_new_system(position, part.timeline, ongoing)
+        
+        for measure_el in part_el.xpath('measure'):
+            position = handle_measure(measure_el, position, part.timeline, ongoing)
 
 
 def handle_measure(measure_el, position, timeline, ongoing):
@@ -292,16 +288,15 @@ def handle_measure(measure_el, position, timeline, ongoing):
         elif e.tag == 'note':
             (position, prev_note) = handle_note(e, position, timeline, ongoing, prev_note)
             measure_maxtime = max(measure_maxtime, position)
-            # measure_duration = max(measure_duration, measure_pos)
 
         elif e.tag == 'barline':
-            repeats = e.xpath('repeat')
-            if len(repeats) > 0:
-                handle_repeat(repeats[0], measure_pos)
+            repeat = e.find('repeat')
+            if repeat:
+                handle_repeat(repeat, position, timeline, ongoing)
 
-            endings = e.xpath('ending')
-            if len(endings) > 0:
-                handle_ending(endings[0], measure_pos)
+            ending = e.find('ending')
+            if ending:
+                handle_ending(ending, position, timeline, ongoing)
 
         else:
             LOGGER.debug('ignoring tag {0}'.format(e.tag))
@@ -309,6 +304,51 @@ def handle_measure(measure_el, position, timeline, ongoing):
     timeline.add_ending_object(measure_maxtime, measure)
 
     return measure_maxtime
+
+
+def handle_repeat(e, position, timeline, ongoing):
+    key = 'repeat'
+
+    if e.get('direction') == 'forward':
+
+        o = score.Repeat()
+        ongoing[key] = o
+        timeline.add_starting_object(position, o)
+
+    elif e.get('direction') == 'backward':
+
+        o = ongoing.pop(key, None)
+
+        if o is None:
+            # implicit repeat start: create Repeat
+            # object and add it at the beginning of
+            # the self.timeline retroactively
+            o = score.Repeat()
+            timeline.add_starting_object(0, o)
+
+        timeline.add_ending_object(position, o)
+
+
+def handle_ending(e, position, timeline, ongoing):
+    key = 'ending'
+    
+    if e.get('type') == 'start':
+
+        o = score.Ending(ending.get('number'))
+        ongoing[key] = o
+        timeline.add_starting_object(position, o)
+
+    elif e.get('type') in ('stop', 'discontinue'):
+
+        o = ongoing.pop(key, None)
+
+        if o is None:
+
+            LOGGER.warning('Found ending[stop] without a preceding ending[start]')
+
+        else:
+
+            timeline.add_ending_object(position, o)
 
 
 def handle_new_page(position, timeline, ongoing):
@@ -714,7 +754,7 @@ def handle_note(e, position, timeline, ongoing, prev_note):
         # if 'chord' in ongoing:
         #     chord = ongoing['chord']
         #     self.timeline.add_ending_object(
-        #         self.position + measure_pos, chord)
+        #         position, chord)
         #     del self.ongoing['chord']
         pass
 
@@ -845,4 +885,3 @@ def get_grace_info(grace):
         grace_type = 'acciaccatura'
 
     return grace_type, steal_proportion
-    
