@@ -73,8 +73,10 @@ def make_note_el(note, dur, counter):
         etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
     sym_dur = note.symbolic_duration
+
     
-    etree.SubElement(note_e, 'type').text = sym_dur['type']
+    if sym_dur.get('type') is not None:
+        etree.SubElement(note_e, 'type').text = sym_dur['type']
 
     for i in range(sym_dur['dots']):
 
@@ -187,7 +189,6 @@ def linearize_measure_contents(part, start, end, counter):
         The contents of measure in document order
     """
 
-    
     divisions = part.timeline.get_all(score.Divisions, start=start, end=end)
     splits = [start]
     for d in divisions:
@@ -313,7 +314,8 @@ def merge_measure_contents(notes, attributes, other, measure_start):
     merged = {}
     # cost (measured as the total forward/backup jumps needed to merge) all elements in `other` into each voice
     cost = {} 
-    assert 1 in notes
+    # print(notes)
+    # assert 1 in notes
     
     for voice in sorted(notes.keys()):
         # merge `other` with each voice, and keep track of the cost
@@ -324,12 +326,12 @@ def merge_measure_contents(notes, attributes, other, measure_start):
 
     result = []
     pos = measure_start
-    for voice in sorted(notes.keys()):
+    for i, voice in enumerate(sorted(notes.keys())):
         if voice == merge_voice:
             elements = merged[voice]
         else:
             elements = notes[voice]
-        if voice == 1:
+        if i == 0:
             elements, _ =  merge_with_voice(elements, attributes, measure_start)
 
         # backup/forward when switching voices if necessary
@@ -498,6 +500,7 @@ def to_musicxml(parts, out=None):
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             measure_e = etree.SubElement(part_e, 'measure', number='{}'.format(measure.number))
             # contents, saved_from_prev = linearize_measure_contents(measure, part)
+            # print(measure.number, measure.start, measure.end)
             contents = linearize_measure_contents(part, measure.start, measure.end, counter)
             measure_e.extend(contents)
             
