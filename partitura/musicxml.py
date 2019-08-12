@@ -113,7 +113,7 @@ def parse_partlist(partlist):
                 if current_group is None:
                     current_group = new_group
                 else:
-                    current_group.constituents.append(new_group)
+                    current_group.children.append(new_group)
                     new_group.parent = current_group
                     current_group = new_group
 
@@ -137,8 +137,8 @@ def parse_partlist(partlist):
             if current_group is None:
                 structure.append(part)
             else:
-                current_group.constituents.append(part)
-                sp.parent = current_group
+                current_group.children.append(part)
+                part.parent = current_group
 
     if current_group is not None:
         LOGGER.warning(
@@ -195,8 +195,8 @@ def load_musicxml(xml, validate=False):
     
 
     return partlist
-
-
+    
+    
 def parse_parts(document, part_dict):
     """
     Populate the Part instances that are the values of `part_dict` with the musical content in document.
@@ -291,7 +291,6 @@ def handle_measure(measure_el, position, timeline, ongoing):
 
         elif e.tag == 'barline':
             repeat = e.find('repeat')
-            print('rep', (repeat,))
             if repeat is not None:
                 handle_repeat(repeat, position, timeline, ongoing)
 
@@ -743,25 +742,6 @@ def handle_note(e, position, timeline, ongoing, prev_note):
         # this note starts at the same position as the previous note, and has same duration
         assert prev_note is not None
         position = prev_note.start.t
-        # duration = prev_note.duration
-        
-        # TODO: fix logic for Chord instances
-
-        # if 'chord' in ongoing:
-        #     chord = ongoing['chord']
-        # else:
-        #     chord = score.Chord()
-        #     timeline.add_starting_object(prev_note.start.t, chord)
-        #     ongoing['chord'] = chord
-    else:
-        # end the current chord
-
-        # if 'chord' in ongoing:
-        #     chord = ongoing['chord']
-        #     self.timeline.add_ending_object(
-        #         position, chord)
-        #     del self.ongoing['chord']
-        pass
 
     pitch = e.find('pitch')
     if pitch is not None:
@@ -814,8 +794,8 @@ def handle_note(e, position, timeline, ongoing, prev_note):
     # accent = e.find('notations/articulations/accent') is not None
     notations = e.find('notations')
     if notations is not None:
-        if notations.find('fermata'):
-            self.timeline.add_starting_object(position, score.Fermata(note))
+        if notations.find('fermata') is not None:
+            timeline.add_starting_object(position, score.Fermata(note))
 
         slurs = notations.findall('slur')
 
@@ -933,12 +913,13 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     score = []
     for part in parts:
         # Unfold timeline to have repetitions
+        new_timeline = next(part.unfold_timeline())
+        part.timeline = new_timeline
         print(part.pprint())
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
             part.expand_grace_notes()
 
-        part.timeline = part.unfold_timeline()
         # get beat map
         bm = part.beat_map
         print('ja')
