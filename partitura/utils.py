@@ -8,24 +8,27 @@ import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
-def current_next_iter(iterable):
+def iter_current_next(iterable):
     """
     Make an iterator that yields an (previous, current, next) tuple per element.
 
     Returns None if the value does not make sense (i.e. previous before
     first and next after last).
 
+    Examples
+    --------
+
     >>> l = []
-    >>> list(current_next_iter(l))
+    >>> list(iter_current_next(l))
     []
     >>> l = range(1)
-    >>> list(current_next_iter(l))
+    >>> list(iter_current_next(l))
     []
     >>> l = range(2)
-    >>> list(current_next_iter(l))
+    >>> list(iter_current_next(l))
     [(0, 1)]
     >>> l = range(3)
-    >>> list(current_next_iter(l))
+    >>> list(iter_current_next(l))
     [(0, 1), (1, 2)]
 
     """
@@ -44,6 +47,9 @@ def iter_subclasses(cls, _seen=None):
     iter_subclasses(cls)
 
     Generator over all subclasses of a given class, in depth first order.
+
+    Examples
+    --------
 
     >>> class A(object): pass
     >>> class B(A): pass
@@ -89,7 +95,7 @@ class ComparableMixin(object):
     http://regebro.wordpress.com/2010/12/13/python-implementing-rich-comparison-the-correct-way/
 
     Examples
-    ========
+    --------
 
     >>> class MyClass(ComparableMixin):
     ...     def __init__(self, x):
@@ -144,7 +150,7 @@ class ReplaceRefMixin(object):
     a list of all attributes that contain references.
 
     Examples
-    ========
+    --------
 
     >>> from copy import copy
     >>>
@@ -231,17 +237,29 @@ def partition(func, iterable):
 
 
 def add_field(a, descr):
-    """Return a new array that is like "a", but has additional fields.
+    """
+    Return a new array that is like "a", but has additional fields.
 
-    From https://stackoverflow.com/questions/1201817/adding-a-field-to-a-structured-numpy-array
+    Source: https://stackoverflow.com/questions/1201817/adding-a-field-to-a-structured-numpy-array
 
-    Arguments:
-      a     -- a structured numpy array
-      descr -- a numpy type description of the new fields
+    Parameters
+    ----------
+    a: np.ndarray
+        A structured numpy array
+    descr: np.dtype
+        A numpy type description of the new fields
 
     The contents of "a" are copied over to the appropriate fields in
     the new array, whereas the new fields are uninitialized.  The
     arguments are not modified.
+
+    Returns
+    -------
+    np.ndarray
+         The new structured numpy array
+
+    Examples
+    --------
 
     >>> sa = np.array([(1, 'Foo'), (2, 'Bar')], \
                          dtype=[('id', int), ('name', 'S3')])
@@ -255,6 +273,7 @@ def add_field(a, descr):
     True
     >>> np.all(sa['name'] == sb['name'])
     True
+
     """
     if a.dtype.fields is None:
         raise ValueError("`A` must be a structured numpy array")

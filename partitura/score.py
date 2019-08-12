@@ -3,16 +3,15 @@
 
 
 """
-This module contains an ontology to represent musical scores. A score
-is defined at the highest level by a Part object. This object
-contains a TimeLine object, which as acts as a washing line for the
-elements in a musical score such as measures, notes, slurs, words,
-expressive directions. The TimeLine object contains a sequence of
-TimePoint objects, which are the pegs that fix the score elements in
-time. Each TimePoint object has a time value `t`, and optionally a
-label. Furthermore, it contains a list of objects that start at `t`,
-and another list of objects that end at `t`.
-
+This module contains an ontology to represent musical scores. A score is
+ defined at the highest level by a Part object (or a hierarchy of Part objects,
+ in a PartGroup object). This object contains a TimeLine object, which as acts
+ as a washing line for the elements in a musical score such as measures, notes,
+ slurs, words, expressive directions. The TimeLine object contains a sequence of
+ TimePoint objects, which are the pegs that fix the score elements in time. Each
+ TimePoint object has a time value `t` (an integer), and optionally a
+ label. Furthermore, it contains dictionaries with the objects starting and
+ ending at `t`, respectively (indexed by class).
 """
 
 import sys
@@ -28,14 +27,13 @@ from numbers import Number
 import numpy as np
 from scipy.interpolate import interp1d
 
-from partitura.utils import ComparableMixin, ReplaceRefMixin, partition, iter_subclasses, current_next_iter
+from partitura.utils import ComparableMixin, ReplaceRefMixin, partition, iter_subclasses, iter_current_next
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
 sys.setrecursionlimit(100000)
 
 LOGGER = logging.getLogger(__name__)
-# _NON_ALPHA_NUM_PAT = re.compile(r'\W', re.UNICODE)
 _LABEL_DURS = {
     'long': 16,
     'breve': 8,
@@ -82,10 +80,11 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     --------
 
     >>> estimate_symbolic_duration(24, 16)
-    ('quarter', 1)
+    {'type': 'quarter', 'dots': 1}
     
+    The following returns None:
     >>> estimate_symbolic_duration(23, 16)
-    None
+
 
     Returns
     -------
@@ -108,7 +107,30 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
 
 
 def format_symbolic_duration(symbolic_dur):
-    # TODO: can symbolic_dur be None?
+    """
+    Create a string representation of the symbolic duration encoded in the
+    dictionary `symbolic_dur`.
+
+    Examples
+    --------
+    >>> format_symbolic_duration({'type': 'q', 'dots': 2})
+    'q..'
+    >>> format_symbolic_duration({'type': '16th'})
+    '16th'
+    
+
+    Parameters
+    ----------
+    symbolic_dur: dict
+        Dictionary with keys 'type' and 'dots'
+    
+    Returns
+    -------
+    str
+        A string representation of the specified symbolic duration
+    """
+    
+    
     return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
 
 
@@ -510,12 +532,6 @@ class Clef(TimedObject):
 
 class Slur(TimedObject):
 
-    """
-    Parameters
-    ----------
-
-    """
-
     def __init__(self, start_note=None, end_note=None):
         super().__init__()
         self.start_note = start_note
@@ -563,8 +579,8 @@ class Fermata(TimedObject):
 class Ending(TimedObject):
 
     """
-    Object that represents one part of a 1---2--- type ending of a
-    musical passage (aka Volta brackets).
+    Class that represents one part of a 1---2--- type ending of a
+    musical passage (a.k.a Volta brackets).
     """
 
     def __init__(self, number):
@@ -615,24 +631,24 @@ class Measure(TimedObject):
         else:
             return None
 
-    
     def get_measure_duration(self, quarter=False):
         """
+        Return the measure duration, either in beats or in quarter note units.
+
         Parameters
         ----------
-        quarter : ????, optional. Default: False
+        quarter: bool (optional, default: False)
+            If True, return the measure duration in quarter note units, otherwise in beat units
 
         Returns
         -------
-
+        float
+            The measure duration
         """
 
-        if self.start.next is None:
-            LOGGER.warning('Measure start has no successor')
-            return 0
-        
-        divs = self.start.next.get_prev_of_type(Divisions)
-        ts = self.start.next.get_prev_of_type(TimeSignature)
+        # TODO: support mid-measure time sig and division changes
+        divs = self.start.get_prev_of_type(Divisions, eq=True)
+        ts = self.start.get_prev_of_type(TimeSignature, eq=True)
         assert len(divs) > 0
         assert len(ts) > 0
         measure_dur = self.end.t - self.start.t
@@ -702,6 +718,7 @@ class Measure(TimedObject):
     @property
     def upbeat(self):
         return self.incomplete
+
     
 class TimeSignature(TimedObject):
 
@@ -709,7 +726,6 @@ class TimeSignature(TimedObject):
     Parameters
     ----------
     beats :
-
     beat_type :
     """
 
@@ -798,7 +814,6 @@ class KeySignature(TimedObject):
         return f'key signature: fifths={self.fifths}, mode={self.mode} ({self.name})'
 
 
-    
 class Transposition(TimedObject):
 
     """
@@ -963,12 +978,7 @@ class GenericNote(TimedObject):
             return s + f' tied: {tied_id}'
         else:
             return s
-    #     return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
-    #             .format(self.step, self.alter_sign, self.octave,
-    #                     self.midi_pitch, self.voice, self.duration,
-    #                     self.id or '', self.grace_type if self.grace_type else '',
-    #                     self.start and self.start.t, self.end and self.end.t,
-    #                     tied_dur, tied_id))
+
 
 class Note(GenericNote):
     def __init__(self, step, alter, octave, *args, **kwargs):
@@ -980,9 +990,6 @@ class Note(GenericNote):
     def __str__(self):
         return ' '.join((super().__str__(),
                          f'pitch={self.step}{self.alter_sign}{self.octave}'))
-    #     return ('{0}{1}{2} ({8}-{9}, midi: {3}, duration: {5} ({10}), voice: {4}, id: {6}, {7}) {11}'
-    #             .format(self.step, self.alter_sign, self.octave,
-    #                     self.midi_pitch, self.voice, self.duration,
 
     @property
     def midi_pitch(self):
@@ -1199,7 +1206,9 @@ class PartGroup(object):
 
 
 class ScoreVariant(object):
-
+    """
+    """
+    
     def __init__(self, start_time=0):
         self.t_unfold = start_time
         self.segments = []
@@ -1234,11 +1243,9 @@ class ScoreVariant(object):
         # (e.g. t.next, t.prev, note.tie_next). For this we keep track of
         # correspondences between objects (timepoints, notes, measures, etc)
 
-        print(self.segment_times)
         for start, end, offset in self.segments:
             delta = offset - start.t
             o_map = {}
-            o_check = {}
             o_new = set()
             tp = start
             while tp != end:
@@ -1246,8 +1253,10 @@ class ScoreVariant(object):
                 tp_new = timeline.get_or_add_point(tp.t+delta)
                 o_gen = (o for oo in tp.starting_objects.values() for o in oo)
                 for o in o_gen:
+                    # don't include repeats/endings in the unfolded timeline
+                    if isinstance(o, (Repeat, Ending)):
+                        continue
                     o_copy = copy(o)
-                    o_check[o] = o
                     o_new.add(o_copy)
                     o_map[o] = o_copy
                     tp_new.add_starting_object(o_copy)
@@ -1258,14 +1267,11 @@ class ScoreVariant(object):
                 if tp is None:
                     raise Exception('segment end not a successor of segment start, invalid score variant')
 
-            # for o in o_check.keys():
-            #     o.replace_refs(o_check)
-
             for o in o_new:
                 o.replace_refs(o_map)
 
         # replace prev/next references in timepoints
-        for tp, tp_next in current_next_iter(timeline.points):
+        for tp, tp_next in iter_current_next(timeline.points):
             tp.next = tp_next
             tp_next.prev = tp
             
@@ -1353,6 +1359,12 @@ class Part(object):
         Returns
         -------
 
+        Note
+        ----
+
+        This function does not currently support nested repeats, such as in case
+        45d of the MusicXML Test Suite.
+
         """
 
         if len(self.timeline.get_all(DaCapo) +
@@ -1363,21 +1375,32 @@ class Part(object):
 
         repeats = self.timeline.get_all(Repeat)
 
+        # repeats may not have start or end times. `repeats_to_start_end`
+        # returns the start/end paisr for each repeat, making educated guesses
+        # when these are missing.
+        repeat_start_ends = repeats_to_start_end(repeats,
+                                                 self.timeline.first_point,
+                                                 self.timeline.last_point)
+
+        # check for nestings and raise if necessary
+        if any(n < c for c, n in iter_current_next(repeat_start_ends)):
+            raise NotImplementedError('Nested endings are currently not supported')
+        
         # t_score is used to keep the time in the score
         t_score = self.timeline.first_point
         svs = [ScoreVariant()]
         # each repeat holds start and end time of a score interval to
         # be repeated
-        for i, repeat in enumerate(repeats):
+        for i, (rep_start, rep_end) in enumerate(repeat_start_ends):
             new_svs = []
             for sv in svs:
                 # is the start of the repeat after our current score
                 # position?
-                if repeat.start > t_score:
-                    # yes: add the tuple (t_score, repeat.start) to the
+                if rep_start > t_score:
+                    # yes: add the tuple (t_score, rep_start) to the
                     # result this is the span before the interval that is
                     # to be repeated
-                    sv.add_segment(t_score, repeat.start)
+                    sv.add_segment(t_score, rep_start)
 
                 # create a new ScoreVariant for the repetition (sv will be the
                 # score variant where this repeat is played only once)
@@ -1385,16 +1408,16 @@ class Part(object):
 
                 # get any "endings" (e.g. 1 / 2 volta) of the repeat
                 # (there are not supposed to be more than one)
-                endings1 = repeat.end.get_ending_objects_of_type(Ending)
+                endings1 = rep_end.get_ending_objects_of_type(Ending)
                 # is there an ending?
                 if len(endings1) > 0:
                     # yes
                     ending1 = endings1[0]
 
                     # add the first occurrence of the repeat
-                    sv.add_segment(repeat.start, ending1.start)
+                    sv.add_segment(rep_start, ending1.start)
 
-                    endings2 = repeat.end.get_starting_objects_of_type(Ending)
+                    endings2 = rep_end.get_starting_objects_of_type(Ending)
                     if len(endings2) > 0:
                         ending2 = endings2[0]
                         # add the first occurrence of the repeat
@@ -1405,9 +1428,9 @@ class Part(object):
 
                     # new_sv includes the 1/2 ending repeat, which means:
                     # 1. from repeat start to repeat end (which includes ending 1)
-                    new_sv.add_segment(repeat.start, repeat.end)
+                    new_sv.add_segment(rep_start, rep_end)
                     # 2. from repeat start to ending 1 start
-                    new_sv.add_segment(repeat.start, ending1.start)
+                    new_sv.add_segment(rep_start, ending1.start)
                     # 3. ending 2 start to ending 2 end
                     new_sv.add_segment(ending2.start, ending2.end)
 
@@ -1416,14 +1439,14 @@ class Part(object):
 
                 else:
                     # add the first occurrence of the repeat
-                    sv.add_segment(repeat.start, repeat.end)
+                    sv.add_segment(rep_start, rep_end)
 
                     # no: add the full interval of the repeat (the second time)
-                    new_sv.add_segment(repeat.start, repeat.end)
-                    new_sv.add_segment(repeat.start, repeat.end)
+                    new_sv.add_segment(rep_start, rep_end)
+                    new_sv.add_segment(rep_start, rep_end)
 
                     # update the score time
-                    t_score = repeat.end
+                    t_score = rep_end
 
                 # add both score variants
                 new_svs.append(sv)
@@ -1452,6 +1475,16 @@ class Part(object):
             yield sv.create_variant_timeline()
 
     def unfold_timeline_maximal(self):
+        """
+        Return the "maximally" unfolded timeline, that is, a copy of the timeline
+        where all segments marked with repeat signs are included twice.
+        
+        Returns
+        -------
+        TimeLine
+            The unfolded TimeLine
+        """
+        
         sv = self.make_score_variants()[-1]
         return sv.create_variant_timeline()
 
@@ -1766,7 +1799,7 @@ class Part(object):
 
     def list_all(self, cls, unfolded=False, include_subclasses=False):
         if unfolded:
-            tl = self.unfold_timeline()
+            tl = self.unfold_timeline_maximal()
         else:
             tl = self.timeline
         return tl.get_all(cls, include_subclasses=include_subclasses)
@@ -1845,3 +1878,46 @@ def iter_parts(partlist):
         else:
             for eel in iter_parts(el.children):
                 yield eel
+
+
+def repeats_to_start_end(repeats, first, last):
+    """
+    Return pairs of (start, end) TimePoints corresponding to the start and end
+    times of each Repeat object. If any of the start or end attributes are None,
+    replace it with the end/start of the preceding/succeeding Repeat,
+    respectively, or `first` or `last`.
+    
+    Parameters
+    ----------
+    repeats: list
+        list of Repeat instances, possibly with None-valued start/end attributes
+    first: TimePoint
+        The first TimePoint in the timeline
+    last: TimePoint
+        The last TimePoint in the timeline
+    
+    Returns
+    -------
+    list
+        list of (start, end) TimePoints corresponding to each Repeat in `repeats`
+    """
+    t = first
+    starts = []
+    ends = []
+    for repeat in repeats:
+        starts.append(t if repeat.start is None else repeat.start)
+        if repeat.end is not None:
+            t = repeat.end
+
+    t = last
+    for repeat in reversed(repeats):
+        ends.append(t if repeat.end is None else repeat.end)
+        if repeat.start is not None:
+            t = repeat.start
+
+    return zip(starts, ends)
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
