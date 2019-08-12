@@ -1,51 +1,43 @@
 #!/usr/bin/env python
 
-import numpy as np
+import logging
 from functools import wraps
 from collections import defaultdict
 
+import numpy as np
 
-def cached_property(func, name=None):
+LOGGER = logging.getLogger(__name__)
+
+def current_next_iter(iterable):
     """
-    cached_property(func, name=None) -> a descriptor
-    This decorator implements an object's property which is computed
-    the first time it is accessed, and which value is then stored in
-    the object's __dict__ for later use. If the attribute is deleted,
-    the value will be recomputed the next time it is accessed.
+    Make an iterator that yields an (previous, current, next) tuple per element.
 
-    Usage:
+    Returns None if the value does not make sense (i.e. previous before
+    first and next after last).
 
-    >>> class X(object):
-    >>>     @cached_property
-    >>>     def foo(self):
-    >>>         return slow_computation()
-    >>> x = X()
-    >>> # first access of foo(slow):
-    >>> x.foo
-    >>> # subsequent access of foo (fast):
-    >>> x.foo
+    >>> l = []
+    >>> list(current_next_iter(l))
+    []
+    >>> l = range(1)
+    >>> list(current_next_iter(l))
+    []
+    >>> l = range(2)
+    >>> list(current_next_iter(l))
+    [(0, 1)]
+    >>> l = range(3)
+    >>> list(current_next_iter(l))
+    [(0, 1), (1, 2)]
+
     """
-    if name is None:
-        name = func.__name__
-
-    @wraps(func)
-    def _get(self):
-        try:
-            return self.__dict__[name]
-        except KeyError:
-            self.__dict__[name] = func(self)
-            return self.__dict__[name]
-
-    @wraps(func)
-    def _set(self, value):
-        self.__dict__[name] = value
-
-    @wraps(func)
-    def _del(self):
-        self.__dict__.pop(name, None)
-
-    return property(_get, _set, _del)
-
+    iterable=iter(iterable)
+    try:
+        cur = next(iterable)
+        while True:
+            nxt = next(iterable)
+            yield (cur, nxt)
+            cur = nxt
+    except StopIteration:
+        pass
 
 def iter_subclasses(cls, _seen=None):
     """
@@ -53,8 +45,6 @@ def iter_subclasses(cls, _seen=None):
 
     Generator over all subclasses of a given class, in depth first order.
 
-    >>> list(iter_subclasses(int)) == [bool]
-    True
     >>> class A(object): pass
     >>> class B(A): pass
     >>> class C(A): pass
@@ -90,8 +80,30 @@ def iter_subclasses(cls, _seen=None):
 
 
 class ComparableMixin(object):
-    """source:
+    """
+    Mixin class that makes instances comparable in a rich way (i.e. in !=, <, <=
+    etc), by just implementing a _cmpkey() method that returns a comparable
+    value.
+
+    source:
     http://regebro.wordpress.com/2010/12/13/python-implementing-rich-comparison-the-correct-way/
+
+    Examples
+    ========
+
+    >>> class MyClass(ComparableMixin):
+    ...     def __init__(self, x):
+    ...         self.x = x
+    ...     def _cmpkey(self):
+    ...         return self.x
+    >>>
+    >>> a = MyClass(3)
+    >>> b = MyClass(4)
+    >>> a == b
+    False
+    >>> a < b
+    True
+
     """
 
     def _compare(self, other, method):
@@ -121,16 +133,101 @@ class ComparableMixin(object):
         return self._compare(other, lambda s, o: s != o)
 
 
+class ReplaceRefMixin(object):
+    """
+    This class is a utility mixin class to replace references to objects with
+    references to other objects. This is useful for example when cloning a
+    timeline with a doubly linked list of timepoints, as it updates the `next`
+    and `prev` references of the new timepoints with their new neighbors.
+
+    To use this functionality, a class should inherit from this class, and keep
+    a list of all attributes that contain references.
+
+    Examples
+    ========
+
+    >>> from copy import copy
+    >>>
+    >>> class MyClass(ReplaceRefMixin):
+    ...     def __init__(self, next=None):
+    ...         super().__init__()
+    ...         self.next = next
+    ...         self._ref_attrs.append('next')
+    >>>
+    >>> a1 = MyClass()
+    >>> a2 = MyClass(a1)
+    >>> object_map = {}
+    >>> b1 = copy(a1)
+    >>> b2 = copy(a2)
+    >>> object_map[a1] = b1
+    >>> object_map[a2] = b2
+    >>> b2.next == b1
+    False
+    >>> b2.next == a1
+    True
+    >>> b2.replace_refs(object_map)
+    >>> b2.next == b1
+    True
+
+    """
+    def __init__(self):
+        self._ref_attrs = []
+        
+    def replace_refs(self, o_map):
+        if hasattr(self, '_ref_attrs'):
+            for attr in self._ref_attrs:
+                o = getattr(self, attr)
+                # if isinstance(o, list):
+                #     setattr(self, attr, [o_map.get(o_el) for o_el in o])
+                # else:
+                #     setattr(self, attr, o_map.get(o))
+                if o is None:
+                    pass
+                elif isinstance(o, list):
+                    o_list_new = []
+
+                    for o_el in o:
+                        if o_el in o_map:
+                            o_list_new.append(o_map[o_el])
+                        else:
+                            LOGGER.warning(f'reference not found in o_map: {o_el} start={o_el.start} end={o_el.end}, substituting None')
+                            # raise
+                            o_list_new.append(None)
+
+                    setattr(self, attr, o_list_new)
+                else:
+                    if o in o_map:
+                        o_new = o_map[o]
+                    else:
+                        print([type(o), o])
+                        import partitura.score as score
+                        if isinstance(o, score.Note):
+                            m =o.start.get_prev_of_type(score.Measure, eq=True)[0]
+                            print(m)
+                        LOGGER.warning(f'reference not found in o_map: {o} start={o.start} end={o.end}, substituting None')
+                        # raise
+                        o_new = None
+                    setattr(self, attr, o_new)
+
+
 def partition(func, iterable):
     """
     Return a dictionary containing the equivalence classes (actually bags)
     of iterable, partioned according to func. The value of a key k is the 
     list of all elements e from iterable such that k = func(e)
+
+    Examples
+    ========
+
+    >>> l = range(10)
+    >>> partition(lambda x: x % 3, l)
+    {0: [0, 3, 6, 9], 1: [1, 4, 7], 2: [2, 5, 8]}
+
     """
     result = defaultdict(list)
     for v in iterable:
         result[func(v)].append(v)
-    return result
+    return dict(result)
 
 
 def add_field(a, descr):
@@ -165,3 +262,8 @@ def add_field(a, descr):
     for name in a.dtype.names:
         b[name] = a[name]
     return b
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
