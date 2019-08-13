@@ -1928,7 +1928,7 @@ def repeats_to_start_end(repeats, first, last):
         if repeat.start is not None:
             t = repeat.start
 
-    return zip(starts, ends)
+    return list(zip(starts, ends))
 
 
 if __name__ == '__main__':
