@@ -1194,13 +1194,14 @@ class ScoreVariant(object):
 
     def create_variant_timeline(self):
         timeline = TimeLine()
-        # After creating the new timeline we need to replace references to
-        # objects in the old timeline to references in the new timeline
-        # (e.g. t.next, t.prev, note.tie_next). For this we keep track of
-        # correspondences between objects (timepoints, notes, measures, etc)
 
         for start, end, offset in self.segments:
             delta = offset - start.t
+            # After creating the new timeline we need to replace references to
+            # objects in the old timeline to references in the new timeline
+            # (e.g. t.next, t.prev, note.tie_next). For this we keep track of
+            # correspondences between objects (timepoints, notes, measures,
+            # etc), in o_map
             o_map = {}
             o_new = set()
             tp = start
@@ -1209,16 +1210,43 @@ class ScoreVariant(object):
                 tp_new = timeline.get_or_add_point(tp.t+delta)
                 o_gen = (o for oo in tp.starting_objects.values() for o in oo)
                 for o in o_gen:
+
+                    # special cases:
+                    
                     # don't include repeats/endings in the unfolded timeline
                     if isinstance(o, (Repeat, Ending)):
                         continue
+                    # don't repeat divisions if it hasn't changed
+                    elif isinstance(o, Divisions):
+                        prev = next(iter(tp_new.get_prev_of_type(Divisions)), None)
+                        if prev is not None and o.divs == prev.divs:
+                            continue
+                    # don't repeat time sig if it hasn't changed
+                    elif isinstance(o, TimeSignature):
+                        prev = next(iter(tp_new.get_prev_of_type(TimeSignature)), None)
+                        if prev is not None and ((o.beats, o.beat_type) ==
+                                                 (prev.beats, prev.beat_type)):
+                            continue
+                    # don't repeat key sig if it hasn't changed
+                    elif isinstance(o, KeySignature):
+                        prev = next(iter(tp_new.get_prev_of_type(KeySignature)), None)
+                        if prev is not None and ((o.fifths, o.mode) ==
+                                                 (prev.fifths, prev.mode)):
+                            continue
+
+                    # make a copy of the object
                     o_copy = copy(o)
+                    # add it to the set of new objects (for which the refs will be replaced)
                     o_new.add(o_copy)
+                    # keep track of the correspondence between o and o_copy
                     o_map[o] = o_copy
+                    # add the start of the new object to the timeline
                     tp_new.add_starting_object(o_copy)
                     if o.end is not None:
+                        # add the end of the object to the timeline
                         tp_end = timeline.get_or_add_point(o.end.t+delta)
                         tp_end.add_ending_object(o_copy)
+
                 tp = tp.next
                 if tp is None:
                     raise Exception('segment end not a successor of segment start, invalid score variant')
@@ -1232,6 +1260,8 @@ class ScoreVariant(object):
                     tp_new = timeline.get_or_add_point(end.t+delta)
                     tp_new.add_starting_object(o_copy)
             
+            # for each of the new objects, replace the references to the old
+            # objects to their corresponding new objects
             for o in o_new:
                 o.replace_refs(o_map)
 
@@ -1535,10 +1565,7 @@ class Part(object):
             N = len(notes)
             start_t = notes[0].start.t
             times = np.linspace(start_t, end_t, N + 1, endpoint=True)
-            print(notes)
             for i, n in enumerate(notes):
-                print(n)
-                print(n.end.ending_objects)
                 n.start.starting_objects[type(n)].remove(n)
                 self.timeline.add_starting_object(times[i], n)
                 n.end.ending_objects[type(n)].remove(n)
@@ -1878,7 +1905,7 @@ def repeats_to_start_end(repeats, first, last):
         ends.append(t if repeat.end is None else repeat.end)
         if repeat.start is not None:
             t = repeat.start
-
+    ends.reverse()
     return list(zip(starts, ends))
 
 
