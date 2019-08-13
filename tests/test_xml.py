@@ -43,7 +43,9 @@ class TestMusicXML(unittest.TestCase):
                 result = to_musicxml(parts).decode('UTF-8')
                 f.seek(0)
                 target = f.read()
-                self.assertEqual(target, result, "Should be equal")
+                equal = target == result
+                # self.assertEqual(target, result, "Should be equal")
+                self.assertTrue(equal, "")
 
 
 if __name__ == '__main__':
