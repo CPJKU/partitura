@@ -254,11 +254,21 @@ class TimeLine(object):
             o.end = None
         # self.get_or_add_point(t).add_ending_object(o)
         
-    def get_all(self, cls, start=None, end=None, include_subclasses=False):
+    def get_all_starting(self, cls, start=None, end=None, include_subclasses=False):
+        return self.get_all(cls, start, end, include_subclasses, mode='starting')
+
+    def get_all_ending(self, cls, start=None, end=None, include_subclasses=False):
+        return self.get_all(cls, start, end, include_subclasses, mode='ending')
+    
+    def get_all(self, cls, start=None, end=None, include_subclasses=False, mode='starting'):
         """
         return all objects of type `cls`
 
         """
+        if not mode in ('starting', 'ending'):
+            LOGGER.warning(f'unknown mode "{mode}", using "starting" instead')
+            mode = 'starting'
+        
         if start is not None:
             if not isinstance(start, TimePoint):
                 start = TimePoint(start)
@@ -276,9 +286,12 @@ class TimeLine(object):
             end_idx = len(self.points)
 
         r = []
-        for tp in self.points[start_idx: end_idx]:
-            r.extend(tp.get_starting_objects_of_type(cls, include_subclasses))
-
+        if mode == 'ending':
+            for tp in self.points[start_idx: end_idx]:
+                r.extend(tp.get_ending_objects_of_type(cls, include_subclasses))
+        else:
+            for tp in self.points[start_idx: end_idx]:
+                r.extend(tp.get_starting_objects_of_type(cls, include_subclasses))
         return r
 
     @property
