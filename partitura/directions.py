@@ -50,6 +50,7 @@ INC_LOUDNESS_ADJ = [
 DEC_LOUDNESS_ADJ = [
     "raddolcendo",
     '/(smorzando|smorz\.?)/',
+    'perdendosi',
     'calando',
     '/(diminuendo|decrescendo|(decresc|decr|dimin|dim)\.?)/',
     ]
@@ -72,9 +73,9 @@ DYNAMIC_QUANTIFIER = [
 ]
 
 CONSTANT_QUANTIFIER = [
-    "molto",
+    '/molt[oa]/',
     "di molto",
-    "poco",
+    '/poc[oa]/',
     "un poco",
     "ben",
     "piu",
@@ -82,10 +83,10 @@ CONSTANT_QUANTIFIER = [
     "pio",
     "meno",
     "gran",
-    "mezzo",
+    '/mezz[oa]/',
     "quasi",
     "assai",
-    "doppio",
+    "/doppi[oa]/",
     "troppo",
     "tanto",
     "sempre",
@@ -97,8 +98,10 @@ CONSTANT_QUANTIFIER = [
 ]
 
 CONSTANT_LOUDNESS_ADJ = [
-    "dolce",
+    '/(dolcissimo|dolciss\.?|dolce)/',
     "forte",
+    "delicato",
+    "energico",
     "piano",
     "pp",
     "p",
@@ -117,16 +120,16 @@ CONSTANT_TEMPO_ADJ = [
     "brillante",
     "cantabile",
     "comodo",
-    "delicatissimo",
+    '/(delicatissimo|delicatiss\.?)/',
     "religioso",
     "dolente",
-    "energico",
+    "funebre",
     "grave",
     "grazioso",
     "langsamer",
     "larghetto",
     "largo",
-    '/(leggiermente|leggiero|leggierissimo|(leggieriss|legg)\.?)/',
+    '/(leggieramente|leggiermente|leggiero|leggierissimo|(leggieriss|legg)\.?)/',
     "lento",
     "lusingando",
     "maestoso",
@@ -141,11 +144,10 @@ CONSTANT_TEMPO_ADJ = [
     "presto",
     "risoluto",
     "risvegliato",
-    "scherzando",
+    '/(scherzando|scherz\.?)/',
     "secco",
     "/s[ei]mplice/",
     "slentando",
-    "staccato",
     "stretto",
     "stringendo",
     "teneramente",
@@ -160,6 +162,7 @@ CONSTANT_TEMPO_ADJ = [
 
 
 CONSTANT_ARTICULATION_ADJ = [
+    '/(staccato|staccatissimo)/',
     '/(legato|legatissimo|ligato|ligatissimo)/',
 ]
 
@@ -177,6 +180,7 @@ NOUN = [
     "variation",
     "moto",
     "fine",
+    "energia",
     "fuoco",
     "duolo",
     "anima",
@@ -214,6 +218,7 @@ start: direction -> do_first
 
 direction: ap
          | pp 
+         | np
          | ap pp -> do_first
          | tempo_reset
          | "("? tempo_indication ")"?
