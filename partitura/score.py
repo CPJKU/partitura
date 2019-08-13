@@ -9,9 +9,15 @@ This module contains an ontology to represent musical scores. A score is
  as a washing line for the elements in a musical score such as measures, notes,
  slurs, words, expressive directions. The TimeLine object contains a sequence of
  TimePoint objects, which are the pegs that fix the score elements in time. Each
- TimePoint object has a time value `t` (an integer), and optionally a
- label. Furthermore, it contains dictionaries with the objects starting and
- ending at `t`, respectively (indexed by class).
+ TimePoint object has a time value `t` (an integer). Furthermore, it contains
+ dictionaries with the objects starting and ending at `t`, respectively (indexed
+ by class).
+
+TODO: example of Part/Timeline construction from scratch
+
+TODO: explain that ontology roughly follows MusicXML schema (should be mostly
+ compatible with MEI as well)
+
 """
 
 import sys
@@ -370,9 +376,8 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
 
     """
 
-    def __init__(self, t, label=''):
+    def __init__(self, t):
         self.t = t
-        self.label = label
         self.starting_objects = defaultdict(list)
         self.ending_objects = defaultdict(list)
         # prev and next are dynamically updated once the timepoint is part of a timeline
@@ -402,7 +407,7 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         return new
 
     def __str__(self):
-        return 'Timepoint {0}: {1}'.format(self.t, self.label)
+        return f'Timepoint {self.t}'
 
     def add_starting_object(self, obj):
         """
@@ -581,12 +586,13 @@ class Fine(TimedObject):
 
 class Fermata(TimedObject):
 
-    def __init__(self, note):
+    def __init__(self, ref=None):
         super().__init__()
-        self.note = note
+        # ref(erent) can be a note or a barline
+        self.ref = ref
 
     def __str__(self):
-        return 'Fermata'
+        return f'Fermata ref={self.ref}'
 
 
 class Ending(TimedObject):
@@ -771,6 +777,7 @@ class Divisions(TimedObject):
 class Tempo(TimedObject):
 
     def __init__(self, bpm, unit=None):
+        super().__init__()
         self.bpm = bpm
         self.unit = unit
 
@@ -928,18 +935,23 @@ class GenericNote(TimedObject):
     id : integer, optional (default: None)
 
     """
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations={}):
         super().__init__()
         self.voice = voice
         self.id = id
         self.staff = staff
         self.symbolic_duration = symbolic_duration
+        self.articulations = articulations
+
+        # these attributes are set after the instance is constructed
+        self.fermata = None
         self.tie_prev = None
         self.tie_next = None
         self.slur_stops = []
         self.slur_starts = []
-        self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
         
+        self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
+
     @property
     def duration(self):
         """
@@ -984,6 +996,8 @@ class GenericNote(TimedObject):
         
     def __str__(self):
         s = f'{self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        if len(self.articulations) > 0:
+            s += f' articulations=({", ".join(self.articulations)})'
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
             tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
@@ -1076,88 +1090,17 @@ class Note(GenericNote):
                     return voice_notes
                 n = nn[0]
 
+
 class Rest(GenericNote):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
 
 class GraceNote(Note):
     def __init__(self, grace_type, *args, steal_proportion=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.grace_type = grace_type
         self.steal_proportion = steal_proportion
-
-# class Note(TimedObject):
-
-#     """
-#     Represents a note
-
-#     Parameters
-#     ----------
-#     step : str
-#         the basic pitch class, like 'C', 'D', 'E', etc.
-
-#     alter: integer
-#         number of semi-tones to alterate the note from its basic pitch
-#         given by `step`.
-#         Note that the musicxml standard in principle allows for this to
-#         be a float number for microtones (micro-intonation). In Midi this
-#         would/could then translate to a pitch-bend.
-
-#     octave : integer
-#         the octave where octave 4 is the one having middle C (C4).
-
-#     voice : integer, optional. Default: None
-
-#     id : integer, optional. Default: None
-
-#     ...
-
-
-#     Attributes
-#     ----------
-#     previous_notes_in_voice :
-
-#     simultaneous_notes_in_voice :
-
-#     next_notes_in_voice :
-
-#     midi_pitch : integer
-
-#     morphetic_pitch :
-
-#     alter_sign :
-
-#     duration :
-
-#     """
-
-#     def __init__(self, step, alter, octave, voice=None, id=None,
-#                  symbolic_duration=None,
-#                  grace_type=None, steal_proportion=None,
-#                  staccato=False, fermata=False, accent=False,
-#                  staff=None):
-#         self.step = step
-#         # alter_values = (None, 0, 1, 2, 3, -1, -2, 3)
-#         # if alter not in alter_values:
-#         #     raise Exception('alter should be one of {}'.format(alter_values))
-#         self.alter = alter
-#         if alter == 0:
-#             alter = None
-#         self.octave = octave
-#         self.voice = voice
-#         self.id = id
-#         self.grace_type = grace_type
-#         self.steal_proportion = steal_proportion
-#         self.staccato = staccato
-#         self.fermata = fermata
-#         self.accent = accent
-#         self.staff = staff
-#         # self.symbolic_durations = []
-#         # if symbolic_duration is not None:
-#         #     self.symbolic_durations.append(symbolic_duration)
-#         self.symbolic_duration = symbolic_duration
-#         self.tie_prev = None
-#         self.tie_next = None
 
 
 class PartGroup(object):
@@ -1280,6 +1223,15 @@ class ScoreVariant(object):
                 if tp is None:
                     raise Exception('segment end not a successor of segment start, invalid score variant')
 
+            # special case: fermata starting at end of segment should be
+            # included if it does not belong to a note, and comes at the end of
+            # a measure (o.ref == 'right')
+            for o in end.starting_objects[Fermata]:
+                if o.ref in (None, 'right'):
+                    o_copy = copy(o)
+                    tp_new = timeline.get_or_add_point(end.t+delta)
+                    tp_new.add_starting_object(o_copy)
+            
             for o in o_new:
                 o.replace_refs(o_map)
 
@@ -1387,7 +1339,6 @@ class Part(object):
                             'supported yet'))
 
         repeats = self.timeline.get_all(Repeat)
-
         # repeats may not have start or end times. `repeats_to_start_end`
         # returns the start/end paisr for each repeat, making educated guesses
         # when these are missing.
