@@ -27,7 +27,14 @@ def make_note_el(note, dur, counter):
     note_e = etree.Element('note')
 
     if note.id is not None:
-        note_e.attrib['id'] = note.id
+        note_id = note.id
+        # make sure note_id is unique by appending _x to the note_id for the
+        # x-th repetition of the id
+        counter[note_id] = counter.get(note_id, 0) + 1
+        if counter[note_id] > 1:
+            note_id += f'_{counter[note_id]}'
+        note_e.attrib['id'] = note_id
+        
 
     if isinstance(note, score.Note):
         # if not note.grace_type:
