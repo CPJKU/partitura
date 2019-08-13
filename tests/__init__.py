@@ -15,3 +15,7 @@ MUSICXML_PATH = os.path.join(DATA_PATH, 'musicxml')
 MUSICXML_IMPORT_EXPORT_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
                                     ['test_note_ties.xml',
                                      'test_note_ties_divs.xml']]
+MUSICXML_UNFOLD_TESTPAIRS = [(os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2))
+                             for fn1, fn2 in
+                             [('test_unfold_timeline.xml', 'test_unfold_timeline_result.xml')]]
+

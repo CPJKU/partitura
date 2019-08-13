@@ -6,7 +6,7 @@ This file contains test functions for the partitura.musicxml module.
 
 import unittest
 
-from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES
+from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
 
 from partitura.directions import parse_words
 from partitura import load_musicxml, to_musicxml
@@ -44,9 +44,30 @@ class TestMusicXML(unittest.TestCase):
                 f.seek(0)
                 target = f.read()
                 equal = target == result
-                # self.assertEqual(target, result, "Should be equal")
+                if not equal:
+                    show_diff(result, target)
                 self.assertTrue(equal, "")
 
+    def test_unfold_timeline(self):
+        for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
+            parts = load_musicxml(fn, validate=False)
+            part = next(score.iter_parts(parts))
+            part.timeline = part.unfold_timeline_maximal()
+            result = to_musicxml(part).decode('UTF-8')
+            with open(fn_target) as f:
+                target = f.read()
+            equal = target == result
+            if not equal:
+                show_diff(result, target)
+            self.assertTrue(equal, "")
+                
+
+def show_diff(a, b):
+    import difflib
+    differ = difflib.Differ()
+    for l in differ.compare(a.split(), b.split()):
+        print(l)
+    
 
 if __name__ == '__main__':
     unittest.main()
