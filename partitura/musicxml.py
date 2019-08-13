@@ -948,8 +948,7 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     score = []
     for part in parts:
         # Unfold timeline to have repetitions
-        new_timeline = next(part.unfold_timeline())
-        part.timeline = new_timeline
+        part.timeline = part.unfold_timeline_maximal()
         print(part.pprint())
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
@@ -957,7 +956,7 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
 
         # get beat map
         bm = part.beat_map
-        print('ja')
+
         # Build score from beat map
         _score = np.array(
             [(n.midi_pitch, bm(n.start.t), bm(n.end.t) - bm(n.start.t))
