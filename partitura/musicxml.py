@@ -100,7 +100,7 @@ def parse_partlist(partlist):
 
     for e in partlist:
         if e.tag == 'part-group':
-            if e.attrib['type'] == 'start':
+            if e.get('type') == 'start':
 
                 gr_name = get_value_from_tag(e, 'group-name', str)
                 gr_type = get_value_from_tag(e, 'group-symbol', str)
@@ -117,7 +117,7 @@ def parse_partlist(partlist):
                     new_group.parent = current_group
                     current_group = new_group
 
-            elif e.attrib['type'] == 'stop':
+            elif e.get('type') == 'stop':
                 if current_group.parent is None:
                     structure.append(current_group)
                     current_group = None
@@ -125,7 +125,7 @@ def parse_partlist(partlist):
                     current_group = current_group.parent
 
         elif e.tag == 'score-part':
-            part_id = e.attrib['id']
+            part_id = e.get('id')
             part = score.Part(part_id)
 
             # set part name and abbreviation if available
@@ -244,7 +244,7 @@ def handle_measure(measure_el, position, timeline, ongoing):
     prev_note = None
     # used to keep track of the duration of the measure
     measure_maxtime = measure_start
-
+    trailing_children = []
     for i, e in enumerate(measure_el):
 
         if e.tag == 'backup':
@@ -298,9 +298,35 @@ def handle_measure(measure_el, position, timeline, ongoing):
             if ending is not None:
                 handle_ending(ending, position, timeline, ongoing)
 
+            # <!ELEMENT barline (bar-style?, %editorial;, wavy-line?,
+            #     segno?, coda?, (fermata, fermata?)?, ending?, repeat?)>
+            # <!ATTLIST barline
+            #     location (right | left | middle) "right"
+            #     segno CDATA #IMPLIED
+            #     coda CDATA #IMPLIED
+            #     divisions CDATA #IMPLIED
+
+            fermata_e = e.find('fermata')
+            if fermata_e is not None:
+                location = e.get('location')
+                fermata = score.Fermata(location)
+                if location is None:
+                    # missing location attribute on barline defaults to
+                    # "right". In this case the barline should occur as the last
+                    # element in the measure
+                    trailing_children.append(fermata)
+                else:
+                    timeline.add_starting_object(position, fermata)
+                
+
+            # TODO: handle segno/fine/dacapo
+
         else:
             LOGGER.debug('ignoring tag {0}'.format(e.tag))
 
+    for obj in trailing_children:
+        timeline.add_starting_object(measure_maxtime, obj)
+    
     timeline.add_ending_object(measure_maxtime, measure)
 
     return measure_maxtime
@@ -388,10 +414,11 @@ def handle_new_system(position, timeline, ongoing):
 
 def make_measure(xml_measure):
     measure = score.Measure()
-    try:
-        measure.number = int(xml_measure.attrib['number'])
-    except:
-        LOGGER.warn('No number attribute found for measure')
+    # try:
+    #     measure.number = int(xml_measure.attrib['number'])
+    # except:
+    #     LOGGER.warn('No number attribute found for measure')
+    measure.number = get_value_from_attribute(xml_measure, 'number', int)
     return measure
 
 
@@ -743,6 +770,13 @@ def handle_note(e, position, timeline, ongoing, prev_note):
         assert prev_note is not None
         position = prev_note.start.t
 
+    articulations_e = e.find('notations/articulations')
+    if articulations_e is not None:
+        articulations = get_articulations(articulations_e)
+    else:
+        articulations = {}
+
+
     pitch = e.find('pitch')
     if pitch is not None:
 
@@ -756,14 +790,15 @@ def handle_note(e, position, timeline, ongoing, prev_note):
             grace_type, steal_proportion = get_grace_info(grace)
             note = score.GraceNote(grace_type, step, alter, octave,
                                    note_id, voice, staff, symbolic_duration,
-                                   steal_proportion=steal_proportion)
+                                   articulations, steal_proportion=steal_proportion)
         else:
 
-            note = score.Note(step, alter, octave, note_id, voice, staff, symbolic_duration)
+            note = score.Note(step, alter, octave, note_id, voice, staff,
+                              symbolic_duration, articulations)
 
     else:
         # note element is a rest
-        note = score.Rest(note_id, voice, staff, symbolic_duration)
+        note = score.Rest(note_id, voice, staff, symbolic_duration, articulations)
 
     timeline.add_starting_object(position, note)
     timeline.add_ending_object(position+duration, note)
@@ -789,13 +824,13 @@ def handle_note(e, position, timeline, ongoing, prev_note):
 
             ongoing[tie_key] = note
 
-
-    # staccato = e.find('notations/articulations/staccato') is not None
-    # accent = e.find('notations/articulations/accent') is not None
     notations = e.find('notations')
     if notations is not None:
+
         if notations.find('fermata') is not None:
-            timeline.add_starting_object(position, score.Fermata(note))
+            fermata = score.Fermata(note)
+            timeline.add_starting_object(position, fermata)
+            note.fermata = fermata
 
         slurs = notations.findall('slur')
 
@@ -948,3 +983,15 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     else:
         return score
 
+def get_articulations(e):
+    # <!ELEMENT articulations
+    # 	((accent | strong-accent | staccato | tenuto |
+    # 	  detached-legato | staccatissimo | spiccato |
+    # 	  scoop | plop | doit | falloff | breath-mark |
+    # 	  caesura | stress | unstress | soft-accent |
+    # 	  other-articulation)*)>
+    articulations = ('accent', 'strong-accent', 'staccato', 'tenuto',
+                     'detached-legato', 'staccatissimo', 'spiccato',
+                     'scoop', 'plop', 'doit', 'falloff', 'breath-mark',
+                     'caesura', 'stress', 'unstress', 'soft-accent')
+    return [a for a in articulations if e.find(a) is not None]
