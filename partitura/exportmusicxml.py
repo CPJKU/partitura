@@ -27,17 +27,21 @@ def make_note_el(note, dur, counter):
     note_e = etree.Element('note')
 
     if note.id is not None:
+
         note_id = note.id
         # make sure note_id is unique by appending _x to the note_id for the
         # x-th repetition of the id
         counter[note_id] = counter.get(note_id, 0) + 1
+
         if counter[note_id] > 1:
+
             note_id += f'_{counter[note_id]}'
+
         note_e.attrib['id'] = note_id
         
 
     if isinstance(note, score.Note):
-        # if not note.grace_type:
+
         if isinstance(note, score.GraceNote):
     
             if note.grace_type == 'acciaccatura':
@@ -69,22 +73,27 @@ def make_note_el(note, dur, counter):
     notations = []
 
     if note.tie_prev is not None:
+
         etree.SubElement(note_e, 'tie', type='stop')
         notations.append(etree.Element('tied', type='stop'))
 
     if note.tie_next is not None:
+
         etree.SubElement(note_e, 'tie', type='start')
         notations.append(etree.Element('tied', type='start'))
 
     if note.voice not in (None, 0):
+
         etree.SubElement(note_e, 'voice').text = f'{note.voice}'
 
     if note.fermata is not None:
+
         notations.append(etree.Element('fermata'))
     
     sym_dur = note.symbolic_duration
     
     if sym_dur.get('type') is not None:
+
         etree.SubElement(note_e, 'type').text = sym_dur['type']
 
     for i in range(sym_dur['dots']):
@@ -105,22 +114,31 @@ def make_note_el(note, dur, counter):
         etree.SubElement(note_e, 'staff').text = f'{note.staff}'
 
     for slur in note.slur_stops:
+
         number = counter.get(slur, None)
+
         if number is None:
+
             number = 1
             counter[slur] = number
-            pass # LOGGER.warning('unmatched slur')
+
         else:
+
             del counter[slur]
 
         notations.append(etree.Element('slur', number=f'{number}', type='stop'))
 
     for slur in note.slur_starts:
+
         number = counter.get(slur, None)
+
         if number is None:
+
             number = 1 + sum(1 for o in counter.keys() if isinstance(o, score.Slur))
             counter[slur] = number
+
         else:
+
             del counter[slur]
             
         notations.append(etree.Element('slur', number=f'{number}', type='start'))
@@ -134,12 +152,13 @@ def make_note_el(note, dur, counter):
 
             
 def group_notes_by_voice(notes):
-
+    
     if all(hasattr(n, 'voice') for n in notes):
 
         by_voice = defaultdict(list)
 
         for n in notes:
+
             by_voice[n.voice].append(n)
 
         return by_voice
@@ -152,22 +171,12 @@ def do_note(note, measure_end, timeline, counter):
     notes = []
     ongoing_tied = []
 
-    # make_note_el
     if isinstance(note, score.GraceNote):
 
         dur_divs = 0
 
     else:
 
-        # divs = next(iter(note.start.get_prev_of_type(score.Divisions, eq=True)),
-        #             score.Divisions(1)).divs
-        # dur_divs = divs * score._LABEL_DURS[note.symbolic_duration['type']]
-        # dur_divs *= score._DOT_MULTIPLIERS[note.symbolic_duration['dots']]
-        
-        # if dur_divs != note.end.t - note.start.t:
-        #     print(note)
-        #     print(note.id, dur_divs, note.end.t, note.start.t)
-        #     raise
         dur_divs = note.end.t - note.start.t
         
     note_e = make_note_el(note, dur_divs, counter)
@@ -200,12 +209,18 @@ def linearize_measure_contents(part, start, end, counter):
 
     divisions = part.timeline.get_all(score.Divisions, start=start, end=end)
     splits = [start]
+
     for d in divisions:
+
         if d.start != splits[-1]:
+
             splits.append(d.start)
+
     splits.append(end)
     contents = []
+
     for i in range(1, len(splits)):
+
         contents.extend(linearize_segment_contents(part, splits[i-1], splits[i], counter))
     
     return contents
@@ -216,7 +231,9 @@ def linearize_segment_contents(part, start, end, counter):
     Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
     (notes, directions, divisions, time signatures).
     """
-    notes = part.timeline.get_all(score.GenericNote, start=start, end=end, include_subclasses=True)
+    notes = part.timeline.get_all(score.GenericNote,
+                                  start=start, end=end,
+                                  include_subclasses=True)
     notes_by_voice = group_notes_by_voice(notes)
     voices_e = defaultdict(list)
     voices = set(notes_by_voice.keys())
@@ -224,10 +241,8 @@ def linearize_segment_contents(part, start, end, counter):
     for voice in sorted(voices):
 
         voice_notes = notes_by_voice[voice]
-
         # grace notes should precede other notes at the same onset
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
-        # vnotes.sort(key=lambda n: n.duration, reverse)
         voice_notes.sort(key=lambda n: n.start.t)
 
         for n in voice_notes:
@@ -237,31 +252,12 @@ def linearize_segment_contents(part, start, end, counter):
             
         add_chord_tags(voices_e[voice])
         
-    
-    # attributes = (part.timeline.get_all(score.Divisions, start, end)
-    #               +part.timeline.get_all(score.KeySignature, start, end)
-    #               +part.timeline.get_all(score.TimeSignature, start, end)
-    #               +part.timeline.get_all(score.Clef, start, end))
-    
-    # attributes_e = do_attributes(attributes)
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end)
     
-    
-    # # all fermata that are not linked to a note (fermata at time end may be part
-    # # of the current or the next measure, depending on the location attribute
-    # # (which is stored in fermata.ref)).
-    # fermata = ([ferm for ferm in part.timeline.get_all(score.Fermata, start, end)
-    #             if ferm.ref in (None, 'left', 'middle', 'right')] +
-    #            [ferm for ferm in part.timeline.get_all(score.Fermata, end, end.next)
-    #             if ferm.ref in (None, 'right')])
-    # fermata_e = do_fermata(fermata)
-    # all fermata that are not linked to a note (fermata at time end may be part
-    # of the current or the next measure, depending on the location attribute
-    # (which is stored in fermata.ref)).
-    # TODO: Repeat/Ending/Fermata (i.e. everything barline)
     # TODO: Page/System (i.e. everything print)
     # TODO: Tempo (i.e. everything sound)
+
     barline_e = do_barlines(part, start, end)
     other_e = directions_e + barline_e
 
@@ -282,85 +278,117 @@ def do_barlines(part, start, end):
     ending_start = part.timeline.get_all(score.Ending, start, end)
     ending_end = part.timeline.get_all_ending(score.Ending, start.next, end.next)
     by_onset = defaultdict(list)
+
     for obj in fermata:
+
         by_onset[obj.start.t].append(etree.Element('fermata'))
+
     for obj in repeat_start:
+
         if obj.start is not None:
-            by_onset[obj.start.t].append(etree.Element('repeat', direction='forward'))
+
+            by_onset[obj.start.t].append(etree.Element('repeat',
+                                                       direction='forward'))
+
     for obj in ending_start:
+
         if obj.start is not None:
-            by_onset[obj.start.t].append(etree.Element('ending', type='start', number=str(obj.number)))
+
+            by_onset[obj.start.t].append(etree.Element('ending', type='start',
+                                                       number=str(obj.number)))
+
     for obj in repeat_end:
+
         if obj.end is not None:
-            by_onset[obj.end.t].append(etree.Element('repeat', direction='backward'))
+
+            by_onset[obj.end.t].append(etree.Element('repeat',
+                                                     direction='backward'))
+
     for obj in ending_end:
+
         if obj.end is not None:
-            by_onset[obj.end.t].append(etree.Element('ending', type='stop', number=str(obj.number)))
+
+            by_onset[obj.end.t].append(etree.Element('ending', type='stop',
+                                                     number=str(obj.number)))
 
     result = []
+
     for onset in sorted(by_onset.keys()):
+
         attrib = {}
+
         if onset == start.t:
+
             attrib['location'] = 'left'
+
         elif onset == end.t:
+
             attrib['location'] = 'right'
+
         else:
+
             attrib['location'] = 'middle'
+
         barline_e = etree.Element('barline', **attrib)
-        # etree.SubElement(barline_e, 'fermata')
+
         barline_e.extend(by_onset[onset])
         result.append((onset, None, barline_e))
+
     return result
 
-# def do_fermata(fermata):
-#     result = []
-#     for ferm in fermata:
-#         attrib = {}
-#         if ferm.ref in ('right', 'middle', 'left'):
-#             attrib['location'] = ferm.ref
-#         barline_e = etree.Element('barline', **attrib)
-#         etree.SubElement(barline_e, 'fermata')
-#         result.append((ferm.start.t, None, barline_e))
-#     return result
-# return [(ferm.start.t, None, etree.Element('fermata')) for ferm in fermata]
 
 def add_chord_tags(notes):
 
     prev = None
     for onset, _, note in notes:
+
         if onset == prev:
+
             note.insert(0, etree.Element('chord'))
+
         if any(e.tag == 'grace' for e in note):
             # if note is a grace note we don't want to trigger a chord for the
             # next note
             prev = None
+
         else:
+
             prev = onset
 
 def forward_backup_if_needed(t, t_prev):
     result = []
     gap = 0
+
     if t > t_prev:
+
         gap = t - t_prev
         e = etree.Element('forward')
         ee = etree.SubElement(e, 'duration')
         ee.text = f'{int(gap):d}'
         result.append((t_prev, gap, e))
+
     elif t < t_prev:
+
         gap = t_prev - t
         e = etree.Element('backup')
         ee = etree.SubElement(e, 'duration')
         ee.text = f'{int(gap):d}'
         result.append((t_prev, -gap, e))
+
     return result, gap
 
 
 def merge_with_voice(notes, other, measure_start):
     by_onset = defaultdict(list)
+
     for onset, dur, el in notes:
+
         by_onset[onset].append((dur, el))
+
     for onset, dur, el in other:
+
         by_onset[onset].append((dur, el))
+
     result = []
     last_t = measure_start
     fb_cost = 0
@@ -373,9 +401,13 @@ def merge_with_voice(notes, other, measure_start):
         elems.sort(key=lambda x: order.get(x[1].tag, len(order)))
 
         for dur, el in elems:
+
             if el.tag == 'note':
+
                 if el.find('chord') is not None:
+
                     last_t = last_note_onset
+
                 last_note_onset = onset
                 
             els, cost = forward_backup_if_needed(onset, last_t)
@@ -389,10 +421,10 @@ def merge_with_voice(notes, other, measure_start):
 
 def merge_measure_contents(notes, attributes, other, measure_start):
     merged = {}
-    # cost (measured as the total forward/backup jumps needed to merge) all elements in `other` into each voice
+    # cost (measured as the total forward/backup jumps needed to merge) all
+    # elements in `other` into each voice
     cost = {} 
-    # print(notes)
-    # assert 1 in notes
+
     
     for voice in sorted(notes.keys()):
         # merge `other` with each voice, and keep track of the cost
@@ -404,22 +436,33 @@ def merge_measure_contents(notes, attributes, other, measure_start):
     result = []
     pos = measure_start
     for i, voice in enumerate(sorted(notes.keys())):
+
         if voice == merge_voice:
+
             elements = merged[voice]
+
         else:
+
             elements = notes[voice]
+
         if i == 0:
+
             elements, _ =  merge_with_voice(elements, attributes, measure_start)
 
         # backup/forward when switching voices if necessary
         if elements:
+
             gap = elements[0][0] - pos
+
             if gap < 0:
+
                 e = etree.Element('backup')
                 ee = etree.SubElement(e, 'duration')
                 ee.text = f'{-int(gap):d}'
                 result.append(e)
+
             elif gap > 0:
+
                 e = etree.Element('forward')
                 ee = etree.SubElement(e, 'duration')
                 ee.text = f'{gap:d}'
@@ -444,19 +487,25 @@ def do_directions(part, start, end):
         text = direction.raw_text or direction.text
         e0 = etree.Element('direction')
         e1 = etree.SubElement(e0, 'direction-type')
+
         if text in DYN_DIRECTIONS:
+
             e2 = etree.SubElement(e1, 'dynamics')
             etree.SubElement(e2, text)
+
         else:
+
             e2 = etree.SubElement(e1, 'words')
             e2.text = text
             
         if direction.end is not None:
+
             e3 = etree.SubElement(e0, 'direction-type')
             etree.SubElement(e3, 'dashes', type='start')
 
 
         if direction.staff is not None:
+
             e5 = etree.SubElement(e0, 'staff')
             e5.text = str(direction.staff)
 
@@ -464,6 +513,7 @@ def do_directions(part, start, end):
         result.append(elem)
 
         if direction.end is not None:
+
             e6 = etree.Element('direction')
             e7 = etree.SubElement(e6, 'direction-type')
             etree.SubElement(e7, 'dashes', type='stop')
@@ -473,52 +523,6 @@ def do_directions(part, start, end):
 
     return result
     
-# def do_attributes(attributes):
-#     """
-#     Produce xml objects for non-note measure content 
-    
-#     Parameters
-#     ----------
-#     others: type
-#         Description of `others`
-    
-#     Returns
-#     -------
-#     type
-#         Description of return value
-#     """
-
-#     by_start = defaultdict(list)
-#     for o in attributes:
-#         by_start[o.start.t].append(o)
-
-#     # attribute_classes = (score.Divisions, score.KeySignature, score.TimeSignature)
-#     result = []
-#     for t in sorted(by_start.keys()):
-#         # attributes = [o for o in by_start[t] if isinstance(o, attribute_classes)]
-#         # if attributes:
-#         attr_e = etree.Element('attributes')
-#         for o in by_start[t]:
-#             if isinstance(o, score.Divisions):
-#                 etree.SubElement(attr_e, 'divisions').text = f'{o.divs}'
-#             elif isinstance(o, score.KeySignature):
-#                 ks_e = etree.SubElement(attr_e, 'key')
-#                 etree.SubElement(ks_e, 'fifths').text = f'{o.fifths}'
-#                 if o.mode:
-#                     etree.SubElement(ks_e, 'mode').text = f'{o.mode}'
-#             elif isinstance(o, score.TimeSignature):
-#                 ts_e = etree.SubElement(attr_e, 'time')
-#                 etree.SubElement(ts_e, 'beats').text = f'{o.beats}'
-#                 etree.SubElement(ts_e, 'beat-type').text = f'{o.beat_type}'
-#             elif isinstance(o, score.Clef):
-#                 clef_e = etree.SubElement(attr_e, 'clef')
-#                 if o.number:
-#                     clef_e.set('number', f'{o.number}')
-#                 etree.SubElement(clef_e, 'sign').text = f'{o.sign}'
-#                 etree.SubElement(clef_e, 'line').text = f'{o.line}'
-#                 if o.octave_change:
-#                     etree.SubElement(clef_e, 'clef-octave-change').text = f'{o.octave_change}'
-#         result.append((t, None, attr_e))
 
 def do_attributes(part, start, end):
     """
@@ -540,53 +544,74 @@ def do_attributes(part, start, end):
                   +part.timeline.get_all(score.Clef, start, end))
 
     by_start = defaultdict(list)
+
     for o in attributes:
+
         by_start[o.start.t].append(o)
 
-    # attribute_classes = (score.Divisions, score.KeySignature, score.TimeSignature)
     result = []
+
     for t in sorted(by_start.keys()):
-        # attributes = [o for o in by_start[t] if isinstance(o, attribute_classes)]
-        # if attributes:
+
         attr_e = etree.Element('attributes')
+
         for o in by_start[t]:
+
             if isinstance(o, score.Divisions):
+
                 etree.SubElement(attr_e, 'divisions').text = f'{o.divs}'
+
             elif isinstance(o, score.KeySignature):
+
                 ks_e = etree.SubElement(attr_e, 'key')
                 etree.SubElement(ks_e, 'fifths').text = f'{o.fifths}'
+
                 if o.mode:
+
                     etree.SubElement(ks_e, 'mode').text = f'{o.mode}'
+
             elif isinstance(o, score.TimeSignature):
+
                 ts_e = etree.SubElement(attr_e, 'time')
                 etree.SubElement(ts_e, 'beats').text = f'{o.beats}'
                 etree.SubElement(ts_e, 'beat-type').text = f'{o.beat_type}'
+
             elif isinstance(o, score.Clef):
+
                 clef_e = etree.SubElement(attr_e, 'clef')
+
                 if o.number:
+
                     clef_e.set('number', f'{o.number}')
+
                 etree.SubElement(clef_e, 'sign').text = f'{o.sign}'
                 etree.SubElement(clef_e, 'line').text = f'{o.line}'
+
                 if o.octave_change:
+
                     etree.SubElement(clef_e, 'clef-octave-change').text = f'{o.octave_change}'
+
         result.append((t, None, attr_e))
 
-        # directions = [o for o in by_start[t] if isinstance(o, score.Direction)]
-        # TODO: handle directions
     return result
     
 
 def to_musicxml(parts, out=None):
     if isinstance(parts, (score.Part, score.PartGroup)):
+
         parts = [parts]
         
     root = etree.Element('score-partwise')
     
     partlist_e = etree.SubElement(root, 'part-list')
     counter = {}
+
     for part in parts:
+
         scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
+
         if part.part_name:
+
             partname_e = etree.SubElement(scorepart_e, 'part-name')
             partname_e.text = part.part_name
 
@@ -595,27 +620,36 @@ def to_musicxml(parts, out=None):
         quarter_map = part.quarter_map
         beat_map = part.beat_map
         ts = part.list_all(score.TimeSignature)
+
         for measure in part.list_all(score.Measure):
+
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             attrib = {}
+
             if measure.number is not None:
+
                 attrib['number'] = str(measure.number)
+
             measure_e = etree.SubElement(part_e, 'measure', **attrib)
-            # contents, saved_from_prev = linearize_measure_contents(measure, part)
-            # print(measure.number, measure.start, measure.end)
             contents = linearize_measure_contents(part, measure.start, measure.end, counter)
             measure_e.extend(contents)
             
     if out:
+
         if hasattr(out, 'write'):
+
             out.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
                                      pretty_print=True, doctype=DOCTYPE))
+
         else:
+
             with open(out, 'wb') as f:
+
                 f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
                                        pretty_print=True, doctype=DOCTYPE))
+
     else:
-        # print(etree.tostring(root.getroottree(), encoding='unicode', pretty_print=True, doctype=DOCTYPE))
+
         return etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
                               pretty_print=True, doctype=DOCTYPE)
 
