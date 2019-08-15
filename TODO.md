@@ -1,12 +1,14 @@
 TODO
 ====
+  - documentation
+    - worm.py: convert existing docstrings to numpy style
+    - match.py: convert existing docstrings to numpy style
 
   - load MIDI to score.Part
     - compute symbolic_durations from MIDI durations (partly done, see score.estimate_symbolic_duration)
     - pitch spelling (implement PS13?)
     - convert mido keysig names (A#m) to fifths+mode representation
     - [V] voice assignment
-    - test case for voice assignment
     
   - load match/score format to score.Part
 
@@ -30,4 +32,4 @@ TODO
  - test
      - [V] musicxml -> score -> musicxml
      - [V] unfold timeline (need more examples?)
-     
+     - test case for voice assignment
