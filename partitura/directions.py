@@ -13,14 +13,12 @@ The functionality is provided by the function `parse_words`
 
 import logging
 
-LOGGER = logging.getLogger(__name__)
-
 try:
     from lark import Lark
     HAVE_LARK = True
-except ImportError as e:
-    LOGGER.warning('''package "lark" not found; Textual directions will not be 
-parsed to form `score.Direction` objects but included as `score.Words` 
+except ImportError:
+    logging.getLogger(__name__).warning('''package "lark" not found; Textual directions will not be
+parsed to form `score.Direction` objects but included as `score.Words`
 instead; Install using "pip install lark-parser"''')
     HAVE_LARK = False
 
@@ -31,6 +29,8 @@ instead; Install using "pip install lark-parser"''')
 
 import partitura.score as score
 
+LOGGER = logging.getLogger(__name__)
+
 
 def join_items(items):
     """
@@ -40,30 +40,30 @@ def join_items(items):
     case-insensitivity.
     """
     return ' | '.join(f'{item}i' if item.startswith('/') else f'"{item}"i'
-               for item in items)
+                      for item in items)
 
 
 INC_LOUDNESS_ADJ = [
-    '/(crescendo|cresc\.?)/',
-    ]
+    r'/(crescendo|cresc\.?)/',
+]
 
 DEC_LOUDNESS_ADJ = [
     "raddolcendo",
-    '/(smorzando|smorz\.?)/',
+    r'/(smorzando|smorz\.?)/',
     'perdendosi',
     'calando',
-    '/(diminuendo|decrescendo|(decresc|decr|dimin|dim)\.?)/',
-    ]
+    r'/(diminuendo|decrescendo|(decresc|decr|dimin|dim)\.?)/',
+]
 
 INC_TEMPO_ADJ = [
-    '/(accelerando|(acceler|accel|acc)\.?)/',
+    r'/(accelerando|(acceler|accel|acc)\.?)/',
     'rubato',
-    ]
+]
 DEC_TEMPO_ADJ = [
-    '/(ritenuto|ritenente|riten\.?)/',
-    '/(ritardando|(ritard|rit)\.?)/',
-    '/(rallentando|(rallent|rall)\.?)/',
-    ]
+    r'/(ritenuto|ritenente|riten\.?)/',
+    r'/(ritardando|(ritard|rit)\.?)/',
+    r'/(rallentando|(rallent|rall)\.?)/',
+]
 
 DYNAMIC_QUANTIFIER = [
     "poi a poi",
@@ -73,9 +73,9 @@ DYNAMIC_QUANTIFIER = [
 ]
 
 CONSTANT_QUANTIFIER = [
-    '/molt[oa]/',
+    r'/molt[oa]/',
     "di molto",
-    '/poc[oa]/',
+    r'/poc[oa]/',
     "un poco",
     "ben",
     "piu",
@@ -83,7 +83,7 @@ CONSTANT_QUANTIFIER = [
     "pio",
     "meno",
     "gran",
-    '/mezz[oa]/',
+    r'/mezz[oa]/',
     "quasi",
     "assai",
     "/doppi[oa]/",
@@ -98,7 +98,7 @@ CONSTANT_QUANTIFIER = [
 ]
 
 CONSTANT_LOUDNESS_ADJ = [
-    '/(dolcissimo|dolciss\.?|dolce)/',
+    r'/(dolcissimo|dolciss\.?|dolce)/',
     "forte",
     "delicato",
     "energico",
@@ -106,7 +106,7 @@ CONSTANT_LOUDNESS_ADJ = [
     "pp",
     "p",
     "f",
-    '/(sostenuto|(sosten|sost)\.?)/',
+    r'/(sostenuto|(sosten|sost)\.?)/',
 ]
 
 CONSTANT_TEMPO_ADJ = [
@@ -120,7 +120,7 @@ CONSTANT_TEMPO_ADJ = [
     "brillante",
     "cantabile",
     "comodo",
-    '/(delicatissimo|delicatiss\.?)/',
+    r'/(delicatissimo|delicatiss\.?)/',
     "religioso",
     "dolente",
     "funebre",
@@ -129,7 +129,7 @@ CONSTANT_TEMPO_ADJ = [
     "langsamer",
     "larghetto",
     "largo",
-    '/(leggieramente|leggiermente|leggiero|leggierissimo|(leggieriss|legg)\.?)/',
+    r'/(leggieramente|leggiermente|leggiero|leggierissimo|(leggieriss|legg)\.?)/',
     "lento",
     "lusingando",
     "maestoso",
@@ -144,31 +144,31 @@ CONSTANT_TEMPO_ADJ = [
     "presto",
     "risoluto",
     "risvegliato",
-    '/(scherzando|scherz\.?)/',
+    r'/(scherzando|scherz\.?)/',
     "secco",
     "/s[ei]mplice/",
     "slentando",
     "stretto",
     "stringendo",
     "teneramente",
-    '/(tenute|tenuto|ten\.?)/',
+    r'/(tenute|tenuto|ten\.?)/',
     "tranquilamente",
     "tranquilo",
     "recitativo",
-    '/(vivo|vivacissimamente|vivace)/',
-    '/(allegro|allegretto)/',
-    '/(espressivo|espress\.?)/',
+    r'/(vivo|vivacissimamente|vivace)/',
+    r'/(allegro|allegretto)/',
+    r'/(espressivo|espress\.?)/',
 ]
 
 
 CONSTANT_ARTICULATION_ADJ = [
-    '/(staccato|staccatissimo)/',
-    '/(legato|legatissimo|ligato|ligatissimo)/',
+    r'/(staccato|staccatissimo)/',
+    r'/(legato|legatissimo|ligato|ligatissimo)/',
 ]
 
 # adjectives that may express a combination of tempo loudness and articulation directions
 CONSTANT_MIXED_ADJ = [
-    '/(rinforzando|(rinforz|rinf|rfz|rf)\.?)/',
+    r'/(rinforzando|(rinforz|rinf|rfz|rf)\.?)/',
 ]
 
 
@@ -210,14 +210,14 @@ PREP = [
 ]
 
 
-DIRECTION_GRAMMAR = f"""
+DIRECTION_GRAMMAR = rf"""
 start: direction -> do_first
      | direction conj direction -> conj
      | direction "("? tempo_indication ")"?  -> do_both
      | neg direction
 
 direction: ap
-         | pp 
+         | pp
          | np
          | ap pp -> do_first
          | tempo_reset
@@ -234,7 +234,7 @@ np: NOUN
   | _quantifier NOUN
 
 ap: _adj      -> do_first    // allegro
-  | _adj _adj -> do_first    // allegro grazioso | lento sostenuto 
+  | _adj _adj -> do_first    // allegro grazioso | lento sostenuto
   | _quantifier _adj -> do_second
   | _adj _quantifier -> do_first
   | _quantifier pp -> do_second
@@ -295,12 +295,13 @@ NEG: "non"i
 
 """
 
+
 def create_directions(tree, string):
     """
     Recursively walk the parse tree of `string` to create a `score.Direction` or `score.Words` instance.
 
     """
-    
+
     if tree.data == 'conj':
         return (create_directions(tree.children[0], string),
                 create_directions(tree.children[2], string))
@@ -354,10 +355,13 @@ def create_directions(tree, string):
         LOGGER.warning('unhandled: {}'.format(string))
         return score.Words(string)
 
+
 if HAVE_LARK:
-    DEFAULT_PARSER = Lark(DIRECTION_GRAMMAR, start='start', ambiguity='explicit', propagate_positions=True)
+    DEFAULT_PARSER = Lark(DIRECTION_GRAMMAR, start='start',
+                          ambiguity='explicit', propagate_positions=True)
 else:
     DEFAULT_PARSER = None
+
 
 def parse_words(string, parser=DEFAULT_PARSER):
     if DEFAULT_PARSER:
@@ -365,11 +369,9 @@ def parse_words(string, parser=DEFAULT_PARSER):
             parse_result = parser.parse(string)
             direction = create_directions(parse_result, string)
         except Exception as e:
-            LOGGER.warning('error parsing "{}" ({})'.format(string, type(e).__name__))
+            LOGGER.warning('error parsing "{}" ({})'.format(
+                string, type(e).__name__))
             direction = score.Words(string)
     else:
         direction = score.Words(string)
     return direction
-
-
-    
