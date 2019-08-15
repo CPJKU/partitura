@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import logging
-from functools import wraps
 from collections import defaultdict
 
 import numpy as np
 
 LOGGER = logging.getLogger(__name__)
+
 
 def iter_current_next(iterable):
     """
@@ -32,7 +32,7 @@ def iter_current_next(iterable):
     [(0, 1), (1, 2)]
 
     """
-    iterable=iter(iterable)
+    iterable = iter(iterable)
     try:
         cur = next(iterable)
         while True:
@@ -41,6 +41,7 @@ def iter_current_next(iterable):
             cur = nxt
     except StopIteration:
         pass
+
 
 def iter_subclasses(cls, _seen=None):
     """
@@ -56,7 +57,7 @@ def iter_subclasses(cls, _seen=None):
     >>> class C(A): pass
     >>> class D(B,C): pass
     >>> class E(D): pass
-    >>> 
+    >>>
     >>> for cls in iter_subclasses(A):
     ...     print(cls.__name__)
     B
@@ -139,87 +140,10 @@ class ComparableMixin(object):
         return self._compare(other, lambda s, o: s != o)
 
 
-class ReplaceRefMixin(object):
-    """
-    This class is a utility mixin class to replace references to objects with
-    references to other objects. This is useful for example when cloning a
-    timeline with a doubly linked list of timepoints, as it updates the `next`
-    and `prev` references of the new timepoints with their new neighbors.
-
-    To use this functionality, a class should inherit from this class, and keep
-    a list of all attributes that contain references.
-
-    Examples
-    --------
-
-    >>> from copy import copy
-    >>>
-    >>> class MyClass(ReplaceRefMixin):
-    ...     def __init__(self, next=None):
-    ...         super().__init__()
-    ...         self.next = next
-    ...         self._ref_attrs.append('next')
-    >>>
-    >>> a1 = MyClass()
-    >>> a2 = MyClass(a1)
-    >>> object_map = {}
-    >>> b1 = copy(a1)
-    >>> b2 = copy(a2)
-    >>> object_map[a1] = b1
-    >>> object_map[a2] = b2
-    >>> b2.next == b1
-    False
-    >>> b2.next == a1
-    True
-    >>> b2.replace_refs(object_map)
-    >>> b2.next == b1
-    True
-
-    """
-    def __init__(self):
-        self._ref_attrs = []
-        
-    def replace_refs(self, o_map):
-        if hasattr(self, '_ref_attrs'):
-            for attr in self._ref_attrs:
-                o = getattr(self, attr)
-                # if isinstance(o, list):
-                #     setattr(self, attr, [o_map.get(o_el) for o_el in o])
-                # else:
-                #     setattr(self, attr, o_map.get(o))
-                if o is None:
-                    pass
-                elif isinstance(o, list):
-                    o_list_new = []
-
-                    for o_el in o:
-                        if o_el in o_map:
-                            o_list_new.append(o_map[o_el])
-                        else:
-                            LOGGER.warning(f'reference not found in o_map: {o_el} start={o_el.start} end={o_el.end}, substituting None')
-                            # raise
-                            o_list_new.append(None)
-
-                    setattr(self, attr, o_list_new)
-                else:
-                    if o in o_map:
-                        o_new = o_map[o]
-                    else:
-                        print([type(o), o])
-                        import partitura.score as score
-                        if isinstance(o, score.Note):
-                            m =o.start.get_prev_of_type(score.Measure, eq=True)[0]
-                            print(m)
-                        LOGGER.warning(f'reference not found in o_map: {o} start={o.start} end={o.end}, substituting None')
-                        # raise
-                        o_new = None
-                    setattr(self, attr, o_new)
-
-
 def partition(func, iterable):
     """
     Return a dictionary containing the equivalence classes (actually bags)
-    of iterable, partioned according to func. The value of a key k is the 
+    of iterable, partioned according to func. The value of a key k is the
     list of all elements e from iterable such that k = func(e)
 
     Examples
