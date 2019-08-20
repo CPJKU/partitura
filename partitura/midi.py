@@ -36,6 +36,8 @@ def decode_pitch_alternative(note_number):
 
     octave = int(np.floor(note_number / 12 - 1))
 
+    return step, alter, octave
+
 
 def decode_pitch(pitch):
     """
