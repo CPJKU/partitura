@@ -1,12 +1,48 @@
 
+import numpy as np
 from madmom.io.midi import MIDIFile
 
 import partitura.score as score
 
 
+import ipdb
+
+
+STEPS = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B']
+
+
+def decode_pitch(note_number):
+    """
+
+    Will only assign alter of 0 or 1.
+    """
+    # C4 at 261 Hz has step C, alter 0, octave 4.
+
+    note_number = int(note_number)
+
+    step_index = note_number % 12
+    step = STEPS[step_index]
+
+    if (step_index % 2 == 0):
+        if (step_index <= 4):
+            alter = 0
+        else:
+            alter = 1
+    elif (step_index % 2 != 0):
+        if (step_index > 4):
+            alter = 0
+        else:
+            alter = 1
+
+    octave = int(np.floor(note_number / 12 - 1))
+
+    return step, alter, octave
+
+
 def load_midi(fn):
     """
-    Load MIDI file and parse into ScoreParts.
+    Load MIDI file and parse into ScoreParts. (So far puts everything into
+    one score part ??)
 
     Parameters
     ----------
@@ -22,7 +58,7 @@ def load_midi(fn):
     # print(mid.key_signatures.dtype)
     # return
     part_id = 'Part 1'
-    sp = score.ScorePart(part_id)
+    sp = score.Part(part_id)
     divs = score.Divisions(mid.ticks_per_beat)
     sp.timeline.add_starting_object(0, divs)
 
