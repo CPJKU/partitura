@@ -3,11 +3,40 @@ from madmom.io.midi import MIDIFile
 
 import partitura.score as score
 
+def decode_pitch(pitch):
+    """
+    Naive approach to pitch-spelling. This is a place-holder for a proper pitch spelling approach.
+    
+    Parameters
+    ----------
+    pitch: int
+        MIDI note number
+    
+    Returns
+    -------
+    (step, alter, octave): (str, int, int)
+        Triple of step (note name), alter (0 or 1), and octave
+    """
+    
+    octave = int((pitch - 12) // 12)
+    step, alter = [('a', 0), 
+                  ('a', 1), 
+                  ('b', 0), 
+                  ('c', 0), 
+                  ('c', 1), 
+                  ('d', 0), 
+                  ('d', 1), 
+                  ('e', 0), 
+                  ('f', 0), 
+                  ('f', 1), 
+                  ('g', 0),
+                  ('g', 1),
+                  ][int((pitch - 21) % 12)]
+    return step, alter, octave
+
+
 def load_midi(fn):
     mid = MIDIFile(fn, unit='ticks', timing='absolute')
-    # print(mid.key_signatures[0])
-    # print(mid.key_signatures.dtype)
-    # return
     part_id = 'Part 1'
     sp = score.ScorePart(part_id)
     divs = score.Divisions(mid.ticks_per_beat)
@@ -15,6 +44,7 @@ def load_midi(fn):
 
     # add notes
     for i, (onset, pitch, duration, velocity, channel) in enumerate(mid.notes):
+        # TODO: use a pitch spelling approach
         step, alter, octave = decode_pitch(pitch)
         note_id = f's{i:04d}'
         note = score.Note(step, alter, octave, id=note_id)
