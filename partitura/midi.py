@@ -4,8 +4,12 @@ from madmom.io.midi import MIDIFile
 
 import partitura.score as score
 
-
 import ipdb
+
+
+DEFAULT_FORMAT = 0  # MIDI file format
+DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
+DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
 STEPS = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B']
@@ -135,7 +139,7 @@ def load_midi(fn):
     return sp
 
 
-def write_midi():
+def write_midi(fn, part, ppq=DEFAULT_PPQ):
     """
     Write out ScoreParts to a MIDI file
 
@@ -145,7 +149,10 @@ def write_midi():
 
     Parameters
     ----------
+    part : Part() object
 
     """
+
+    mf = MIDIFile(fn, ticks_per_beat=ppq)
 
 
