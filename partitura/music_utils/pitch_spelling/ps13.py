@@ -40,11 +40,6 @@ def ps13s1(note_array, K_pre=10, K_post=40):
     morph_array = compute_morph_array(chroma_array=chroma_array,
                                       chroma_vector_array=chroma_vector_array)
 
-    # ocm_chord_list = compute_ocm_chord_list(sorted_ocp=sorted_ocp,
-    #                                         chroma_array=chroma_array,
-    #                                         morph_array=morph_array)
-    # N_ch = len(ocm_chord_list)
-
     morphetic_pitch = compute_morphetic_pitch(sorted_ocp, morph_array)
 
     step, alter, octave = p2pn(sorted_ocp[:, 1], morphetic_pitch.reshape(-1, ))

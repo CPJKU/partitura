@@ -300,11 +300,8 @@ def estimate_voices(notearray):
 
     Returns
     -------
-    v_notearray : numpy structured array
-        Structured array containing score information.
-        This array contains `pitch`, `onset`, `duration`
-        `voice` and `id`.
-
+    voice : numpy array
+        Voice for each note in the notearray
     References
     ----------
     [1] Elaine Chew and Xiaodan Wu (2006) Separating Voices in
@@ -345,4 +342,4 @@ def estimate_voices(notearray):
     # Sort output according to the note id's
     v_notearray = v_notearray[v_notearray['id'].argsort()]
 
-    return v_notearray[np.argsort(orig_idxs[id_sort_idxs])]
+    return v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice']
