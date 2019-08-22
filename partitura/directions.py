@@ -301,10 +301,12 @@ def create_directions(tree, string):
     Recursively walk the parse tree of `string` to create a `score.Direction` or `score.Words` instance.
 
     """
-
+    start = tree.column - 1
+    end = tree.end_column - 1
+    
     if tree.data == 'conj':
-        return (create_directions(tree.children[0], string),
-                create_directions(tree.children[2], string))
+        return (create_directions(tree.children[0], string)
+                + create_directions(tree.children[2], string))
 
     elif tree.data in ('direction', 'do_first'):
         return create_directions(tree.children[0], string)
@@ -313,47 +315,47 @@ def create_directions(tree, string):
         return create_directions(tree.children[1], string)
 
     elif tree.data == 'do_both':
-        return (create_directions(tree.children[0], string),
-                create_directions(tree.children[1], string))
+        return (create_directions(tree.children[0], string)
+                + create_directions(tree.children[1], string))
 
     elif tree.data == 'constant_tempo_adj':
-        return score.ConstantTempoDirection(" ".join(tree.children), string)
+        return [score.ConstantTempoDirection(" ".join(tree.children), string[start:end])]
 
     elif tree.data == 'constant_loudness_adj':
-        return score.ConstantLoudnessDirection(" ".join(tree.children), string)
+        return [score.ConstantLoudnessDirection(" ".join(tree.children), string[start:end])]
 
     elif tree.data == 'constant_articulation_adj':
-        return score.ConstantArticulationDirection(" ".join(tree.children), string)
+        return [score.ConstantArticulationDirection(" ".join(tree.children), string[start:end])]
 
     elif tree.data == 'constant_mixed_adj':
-        return score.Direction(" ".join(tree.children), string)
+        return [score.Direction(" ".join(tree.children), string[start:end])]
 
     elif tree.data in ('inc_loudness_adj', 'dec_loudness_adj'):
-        return score.DynamicLoudnessDirection(" ".join(tree.children), string)
+        return [score.DynamicLoudnessDirection(" ".join(tree.children), string[start:end])]
 
     elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
-        return score.DynamicTempoDirection(" ".join(tree.children), string)
+        return [score.DynamicTempoDirection(" ".join(tree.children), string[start:end])]
 
     elif tree.data == 'genre':
         if len(tree.children) > 1:
             # this can be something like "scherzo vivace" or "marcia funebre"
             pass
-        return score.ConstantTempoDirection(tree.children[0], string)
+        return [score.ConstantTempoDirection(tree.children[0], string[start:end])]
 
     elif tree.data == 'tempo_indication':
         bpm = int(tree.children[1])
         unit = tree.children[0]
-        return score.Tempo(bpm, unit)
+        return [score.Tempo(bpm, unit)]
 
     elif tree.data == 'tempo_reset':
-        return score.ResetTempoDirection(" ".join(tree.children), string)
+        return [score.ResetTempoDirection(" ".join(tree.children), string[start:end])]
 
     elif tree.data == 'words':
-        return score.Words(string)
+        return [score.Words(string[start:end])]
 
     else:
-        LOGGER.warning('unhandled: {}'.format(string))
-        return score.Words(string)
+        LOGGER.warning('unhandled: {}'.format(string[start:end]))
+        return [score.Words(string[start:end])]
 
 
 if HAVE_LARK:
@@ -364,6 +366,22 @@ else:
 
 
 def parse_words(string, parser=DEFAULT_PARSER):
+    """
+    Description
+    
+    Parameters
+    ----------
+    string: type
+        Description of `string`
+    parser: type, optional
+        Description of `parser`
+    
+    Returns
+    -------
+    type
+        Description of return value
+    """
+    
     if DEFAULT_PARSER:
         try:
             parse_result = parser.parse(string)
@@ -371,7 +389,7 @@ def parse_words(string, parser=DEFAULT_PARSER):
         except Exception as e:
             LOGGER.warning('error parsing "{}" ({})'.format(
                 string, type(e).__name__))
-            direction = score.Words(string)
+            direction = [score.Words(string)]
     else:
-        direction = score.Words(string)
+        direction = [score.Words(string)]
     return direction
