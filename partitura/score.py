@@ -1077,6 +1077,39 @@ class GenericNote(TimedObject):
             return 0
 
     @property
+    def end_tied(self):
+        """
+        The Timepoint corresponding to the end of the note, or---when this note
+        belongs to a group of tied notes---the end of the last note in the
+        group.
+        
+        Returns
+        -------
+        TimePoint
+            End of note
+        """
+        if self.tie_next is None:
+            return self.end
+        else:
+            return self.tie_next.end_tied
+        
+    @property
+    def duration_tied(self):
+        """
+        Time difference of the start of the note to the end of the note, or---when 
+        this note belongs to a group of tied notes---the end of the last note in the group.
+        
+        Returns
+        -------
+        int
+            Duration of note
+        """
+        if self.tie_next is None:
+            return self.duration
+        else:
+            return self.duration + self.tie_next.duration_tied
+
+    @property
     def duration_from_symbolic(self):
         if self.symbolic_duration:
             divs = self.start.get_prev_of_type(Divisions, eq=True)
@@ -1906,15 +1939,31 @@ class Part(object):
     @property
     def notes(self):
         """
-        Return all note objects of the score part.
+        Return a list of all Note objects in the part. This list includes GraceNote
+        objects but not Rest objects.
 
         Returns
         -------
         list
             list of Note objects
-
         """
         return self.list_all(Note, unfolded=False, include_subclasses=True)
+
+    @property
+    def notes_tied(self):
+        """
+        Return a list of all Note objects in the part that are either not tied, or
+        the first note of a group of tied notes. This list includes GraceNote
+        objects but not Rest objects.
+
+        Returns
+        -------
+        list
+            list of Note objects
+        """
+        notes = [note for note in self.list_all(Note, unfolded=False, include_subclasses=True)
+                 if note.tie_prev is None]
+        return notes
 
     @property
     def notes_unfolded(self):
