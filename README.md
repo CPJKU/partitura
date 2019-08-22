@@ -24,6 +24,7 @@ The following elements that are extracted from the MusicXML:
 * Key Signature
 * Transposition
 * Tempo (in `<sound>`)
+* Page and System layout
 * predefined dynamics directions (p, pp, f, wedges, ...)
 * tempo and dynamics directions notated as `<words>` (rallentando, crescendo, ...)
 * Repeats (all types?)
