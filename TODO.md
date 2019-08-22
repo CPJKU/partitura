@@ -1,7 +1,6 @@
 TODO
 ====
   - documentation
-    - worm.py: convert existing docstrings to numpy style
     - match.py: convert existing docstrings to numpy style
 
   - load MIDI to score.Part
@@ -26,8 +25,8 @@ TODO
     - [X] cue notes 
 	- [V] accents
     - da capo/fine
-    - tempo
-    - new page/system
+    - [V] tempo
+    - [V] new page/system
     
  - test
      - [V] musicxml -> score -> musicxml
