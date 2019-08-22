@@ -477,11 +477,27 @@ def merge_measure_contents(notes, attributes, other, measure_start):
     # attributes take effect in score order, not document order, so we add them to the first voice.
     return result
         
+
 def do_directions(part, start, end):
+    tempos = part.timeline.get_all(score.Tempo, start, end)
     directions = part.timeline.get_all(score.Direction, start, end,
                                        include_subclasses=True)
     
     result = []
+    for tempo in tempos:
+        # <sound tempo="qpm">
+        # tempo.bpm, tempo.unit
+        e0 = etree.Element('direction')
+        e1 = etree.SubElement(e0, 'direction-type')
+        e2 = etree.SubElement(e1, 'words')
+        unit = 'q' if tempo.unit is None else tempo.unit
+        e2.text = f'{unit}={tempo.bpm}'
+        # e3 = etree.SubElement(e0, 'staff')
+        # e3.text = "1"
+        result.append((tempo.start.t, None, e0))
+        e3 = etree.Element('sound', tempo=f'{int(score.to_quarter_tempo(unit, tempo.bpm))}')
+        result.append((tempo.start.t, None, e3))
+
     for direction in directions:
 
         text = direction.raw_text or direction.text

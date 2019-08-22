@@ -46,15 +46,18 @@ _LABEL_DURS = {
     'breve': 8,
     'whole': 4,
     'half': 2,
+    'h': 2,
     'quarter': 1,
-    'eighth': 1./2,
-    '16th': 1./4,
-    '32nd': 1./8.,
-    '64th': 1./16,
-    '128th': 1./32,
-    '256th': 1./64
+    'q': 1,
+    'eighth': 1/2,
+    'e': 1/2,
+    '16th': 1/4,
+    '32nd': 1/8.,
+    '64th': 1/16,
+    '128th': 1/32,
+    '256th': 1/64
 }
-_DOT_MULTIPLIERS = (1, 1+1/2., 1+3/4., 1+7/8.)
+_DOT_MULTIPLIERS = (1, 1+1/2, 1+3/4, 1+7/8)
 _MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
@@ -111,6 +114,38 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
                 return dict(type=k, dots=i)
 
     return None
+
+
+def to_quarter_tempo(unit, tempo):
+    """
+    Given a string `unit` (e.g. 'q', 'q.' or 'h') and a number `tempo`, return
+    the corresponding tempo in quarter notes. This is useful to convert textual
+    tempo directions like h=100.
+    
+    Parameters
+    ----------
+    unit: str
+        Tempo unit
+    tempo: number
+        Tempo value
+    
+    Returns
+    -------
+    float
+        Tempo value in quarter units
+
+    Examples
+    --------
+    >>> to_quarter_tempo('q', 100)
+    100.0
+    >>> to_quarter_tempo('h', 100)
+    200.0
+    >>> to_quarter_tempo('h.', 50)
+    150.0
+    """
+    dots = unit.count('.')
+    unit = unit.strip().rstrip('.')
+    return float(tempo * _DOT_MULTIPLIERS[dots] * _LABEL_DURS[unit])
 
 
 def format_symbolic_duration(symbolic_dur):
