@@ -406,7 +406,11 @@ def merge_with_voice(notes, other, measure_start):
     result = []
     last_t = measure_start
     fb_cost = 0
-    order = {'barline': 0, 'attributes': 1, 'note': 2}
+    # order to insert simultaneously starting elements; it is important to put
+    # notes last, since they update the position, and thus would lead to
+    # backup/forward
+    order = {'barline': 0, 'attributes': 1, 'direction':2,
+             'print':3, 'sound':4, 'note': 5}
     last_note_onset = measure_start
 
     for onset in sorted(by_onset.keys()):
