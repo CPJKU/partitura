@@ -19,6 +19,7 @@
           <beat-type>4</beat-type>
         </time>
       </attributes>
+      <print new-page="yes" new-system="yes"/>
       <note>
         <rest/>
         <duration>10</duration>

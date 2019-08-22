@@ -70,8 +70,8 @@ def main():
     # parser.add_argument("--schema", help="an XSD file specifying the MusicXML syntax")
     parser.add_argument("--validate", action='store_true', help="validate MusicXML against the 3.1 XSD specification", default=False)
     args = parser.parse_args()
-    # test_musicxml(args.xml, args.validate)
-    print(xml_to_notearray(args.xml, validate=args.validate))
+    test_musicxml(args.xml, args.validate)
+    # print(xml_to_notearray(args.xml, validate=args.validate))
 
 if __name__ == '__main__':
     main()
