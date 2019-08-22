@@ -254,16 +254,30 @@ def linearize_segment_contents(part, start, end, counter):
         
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end)
-    
+    prints_e = do_prints(part, start, end)
     # TODO: Page/System (i.e. everything print)
     # TODO: Tempo (i.e. everything sound)
 
     barline_e = do_barlines(part, start, end)
-    other_e = directions_e + barline_e
+    other_e = directions_e + barline_e + prints_e
 
     contents = merge_measure_contents(voices_e, attributes_e, other_e, start.t)
     
     return contents
+
+def do_prints(part, start, end):
+    pages = part.timeline.get_all(score.Page, start, end)
+    systems = part.timeline.get_all(score.System, start, end)
+    by_onset = defaultdict(dict)
+    for page in pages:
+        by_onset[page.start.t]['new-page'] = 'yes'
+    for system in systems:
+        by_onset[system.start.t]['new-system'] = 'yes'
+    result = []
+    for onset, attrs in by_onset.items():
+        result.append((onset, None, etree.Element('print', **attrs)))
+    return result
+
 
 def do_barlines(part, start, end):
     # all fermata that are not linked to a note (fermata at time end may be part
@@ -474,7 +488,6 @@ def merge_measure_contents(notes, attributes, other, measure_start):
         if elements:
             pos = elements[-1][0] + (elements[-1][1] or 0)
 
-    # attributes take effect in score order, not document order, so we add them to the first voice.
     return result
         
 
