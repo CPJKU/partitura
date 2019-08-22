@@ -44,6 +44,7 @@ DYN_DIRECTIONS = {
     'sfpp': score.ImpulsiveLoudnessDirection,
     'sfz': score.ImpulsiveLoudnessDirection,
 }
+SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
 
 
 def validate_musicxml(xml, debug=False):
@@ -939,7 +940,19 @@ def get_grace_info(grace):
     return grace_type, steal_proportion
 
 
-SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
+
+def get_articulations(e):
+    # <!ELEMENT articulations
+    # 	((accent | strong-accent | staccato | tenuto |
+    # 	  detached-legato | staccatissimo | spiccato |
+    # 	  scoop | plop | doit | falloff | breath-mark |
+    # 	  caesura | stress | unstress | soft-accent |
+    # 	  other-articulation)*)>
+    articulations = ('accent', 'strong-accent', 'staccato', 'tenuto',
+                     'detached-legato', 'staccatissimo', 'spiccato',
+                     'scoop', 'plop', 'doit', 'falloff', 'breath-mark',
+                     'caesura', 'stress', 'unstress', 'soft-accent')
+    return [a for a in articulations if e.find(a) is not None]
 
 
 def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
@@ -962,7 +975,7 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         Structured array containing the score. The fields are
         'pitch', 'onset' and 'duration'.
     """
-
+    global SCORE_DTYPES
     if not isinstance(expand_grace_notes, (bool, str)):
         raise ValueError('`expand_grace_notes` must be a boolean or '
                          '"delete"')
@@ -992,8 +1005,8 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
 
         # Build score from beat map
         _score = np.array(
-            [(n.midi_pitch, bm(n.start.t), bm(n.end.t) - bm(n.start.t))
-             for n in part.notes],
+            [(n.midi_pitch, bm(n.start.t), bm(n.end_tied.t) - bm(n.start.t))
+             for n in part.notes_tied],
             dtype=SCORE_DTYPES)
 
         # Sort notes according to onset
@@ -1015,16 +1028,3 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     else:
         return score
 
-
-def get_articulations(e):
-    # <!ELEMENT articulations
-    # 	((accent | strong-accent | staccato | tenuto |
-    # 	  detached-legato | staccatissimo | spiccato |
-    # 	  scoop | plop | doit | falloff | breath-mark |
-    # 	  caesura | stress | unstress | soft-accent |
-    # 	  other-articulation)*)>
-    articulations = ('accent', 'strong-accent', 'staccato', 'tenuto',
-                     'detached-legato', 'staccatissimo', 'spiccato',
-                     'scoop', 'plop', 'doit', 'falloff', 'breath-mark',
-                     'caesura', 'stress', 'unstress', 'soft-accent')
-    return [a for a in articulations if e.find(a) is not None]
