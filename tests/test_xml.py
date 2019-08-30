@@ -19,16 +19,20 @@ class TestDirectionParser(unittest.TestCase):
     """
 
     cases = [
-        ('Andante', score.ConstantTempoDirection),
-        ('ligato', score.ConstantArticulationDirection),
-        ('sempre cresc', score.DynamicLoudnessDirection),
-        ('poco a poco rallentando', score.DynamicTempoDirection),
-        ('this is not a direction', score.Words)
+        ('Andante', [score.ConstantTempoDirection]),
+        ('ligato', [score.ConstantArticulationDirection]),
+        ('sempre cresc', [score.DynamicLoudnessDirection]),
+        ('poco a poco rallentando', [score.DynamicTempoDirection]),
+        ('this is not a direction', [score.Words])
         ]
         
     def test_parser(self):
-        for words, cls in self.cases:
-            self.assertEqual(type(parse_words(words)), cls)
+        for words, target in self.cases:
+            result = parse_words(words)
+            self.assertEqual(len(result), len(target), f'"{words}" not parsed correctly into directions')
+            for res, trg in zip(result, target):
+                self.assertEqual(type(res), trg, '')
+
 
 
 class TestMusicXML(unittest.TestCase):
@@ -46,7 +50,7 @@ class TestMusicXML(unittest.TestCase):
                 equal = target == result
                 if not equal:
                     show_diff(result, target)
-                self.assertTrue(equal, "")
+                self.assertTrue(equal, f"Import and export of MusicXML of file {fn} does not yield identical result")
 
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
@@ -59,7 +63,8 @@ class TestMusicXML(unittest.TestCase):
             equal = target == result
             if not equal:
                 show_diff(result, target)
-            self.assertTrue(equal, "")
+            msg = f"Unfolding timeline of MusicXML file {fn} does not yield expected result"
+            self.assertTrue(equal, msg)
                 
 
 def show_diff(a, b):

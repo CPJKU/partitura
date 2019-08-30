@@ -254,16 +254,30 @@ def linearize_segment_contents(part, start, end, counter):
         
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end)
-    
+    prints_e = do_prints(part, start, end)
     # TODO: Page/System (i.e. everything print)
     # TODO: Tempo (i.e. everything sound)
 
     barline_e = do_barlines(part, start, end)
-    other_e = directions_e + barline_e
+    other_e = directions_e + barline_e + prints_e
 
     contents = merge_measure_contents(voices_e, attributes_e, other_e, start.t)
     
     return contents
+
+def do_prints(part, start, end):
+    pages = part.timeline.get_all(score.Page, start, end)
+    systems = part.timeline.get_all(score.System, start, end)
+    by_onset = defaultdict(dict)
+    for page in pages:
+        by_onset[page.start.t]['new-page'] = 'yes'
+    for system in systems:
+        by_onset[system.start.t]['new-system'] = 'yes'
+    result = []
+    for onset, attrs in by_onset.items():
+        result.append((onset, None, etree.Element('print', **attrs)))
+    return result
+
 
 def do_barlines(part, start, end):
     # all fermata that are not linked to a note (fermata at time end may be part
@@ -392,7 +406,11 @@ def merge_with_voice(notes, other, measure_start):
     result = []
     last_t = measure_start
     fb_cost = 0
-    order = {'barline': 0, 'attributes': 1, 'note': 2}
+    # order to insert simultaneously starting elements; it is important to put
+    # notes last, since they update the position, and thus would lead to
+    # backup/forward
+    order = {'barline': 0, 'attributes': 1, 'direction':2,
+             'print':3, 'sound':4, 'note': 5}
     last_note_onset = measure_start
 
     for onset in sorted(by_onset.keys()):
@@ -474,14 +492,29 @@ def merge_measure_contents(notes, attributes, other, measure_start):
         if elements:
             pos = elements[-1][0] + (elements[-1][1] or 0)
 
-    # attributes take effect in score order, not document order, so we add them to the first voice.
     return result
         
+
 def do_directions(part, start, end):
+    tempos = part.timeline.get_all(score.Tempo, start, end)
     directions = part.timeline.get_all(score.Direction, start, end,
                                        include_subclasses=True)
     
     result = []
+    for tempo in tempos:
+        # <sound tempo="qpm">
+        # tempo.bpm, tempo.unit
+        e0 = etree.Element('direction')
+        e1 = etree.SubElement(e0, 'direction-type')
+        e2 = etree.SubElement(e1, 'words')
+        unit = 'q' if tempo.unit is None else tempo.unit
+        e2.text = f'{unit}={tempo.bpm}'
+        # e3 = etree.SubElement(e0, 'staff')
+        # e3.text = "1"
+        result.append((tempo.start.t, None, e0))
+        e3 = etree.Element('sound', tempo=f'{int(score.to_quarter_tempo(unit, tempo.bpm))}')
+        result.append((tempo.start.t, None, e3))
+
     for direction in directions:
 
         text = direction.raw_text or direction.text

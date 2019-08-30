@@ -16,6 +16,7 @@
           <beat-type>4</beat-type>
         </time>
       </attributes>
+      <print new-page="yes" new-system="yes"/>
       <note id="n01">
         <pitch>
           <step>A</step>
