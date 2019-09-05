@@ -33,7 +33,7 @@ from numbers import Number
 import numpy as np
 from scipy.interpolate import interp1d
 
-from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_current_next
+from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_current_next, sorted_dict_items, PrettyPrintTree
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
@@ -62,6 +62,10 @@ _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
 _ALTER_SIGNS = {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
+# def tree_prefix(level, mode=0):
+#     if mode == 0:
+#         0 =  ' │ '
+#     '│ ├ ─ └'
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):
     """
@@ -604,7 +608,60 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         """
         return self.t
 
-    __hash__ = _cmpkey      # shorthand?
+    # __hash__ = _cmpkey # this is related to the ComparableMixin
+
+    def _pp(self, tree):
+        result = ['{}Timepoint {}'.format(tree, self.t)]
+        tree.push()
+
+        if len(self.ending_objects) > 0:
+            result.append('{}'.format(tree))
+            if len(self.starting_objects) > 0:
+                tree.next_item()
+            else:
+                tree.last_item()
+
+            result.append('{}ending objects'.format(tree))
+            tree.push()
+            ending_items = sorted_dict_items(self.ending_objects.items(),
+                                               key=lambda x: x[0].__name__)
+            items = [o for _, oo in ending_items for o in oo]
+            N = len(items)
+            result.append('{}'.format(tree))
+            for i, item in enumerate(items):
+                if i == (N - 1):
+                    tree.last_item()
+                else:
+                    tree.next_item()
+
+                result.append('{}{}'.format(tree, item))
+
+            tree.pop()
+
+        if len(self.starting_objects) > 0:
+            result.append('{}'.format(tree))
+            tree.last_item()
+            result.append('{}starting objects'.format(tree))
+            tree.push()
+    
+            starting_items = sorted_dict_items(self.starting_objects.items(),
+                                               key=lambda x: x[0].__name__)
+            items = [o for _, oo in starting_items for o in oo]
+            N = len(items)
+            result.append('{}'.format(tree))
+            for i, item in enumerate(items):
+
+                if i == (N - 1):
+                    tree.last_item()
+                else:
+                    tree.next_item()
+
+                result.append('{}{}'.format(tree, item))
+
+            tree.pop()
+
+        tree.pop()
+        return result
 
 
 class TimedObject(ReplaceRefMixin):
@@ -632,7 +689,7 @@ class Page(TimedObject):
         self.nr = nr
 
     def __str__(self):
-        return 'page {0}'.format(self.nr)
+        return 'Page: number={0}'.format(self.nr)
 
 
 class System(TimedObject):
@@ -642,7 +699,7 @@ class System(TimedObject):
         self.nr = nr
 
     def __str__(self):
-        return 'system {0}'.format(self.nr)
+        return 'System: number={0}'.format(self.nr)
 
 class Clef(TimedObject):
 
@@ -654,7 +711,7 @@ class Clef(TimedObject):
         self.octave_change = octave_change
 
     def __str__(self):
-        return 'clef {} on line {} (number {})'.format(self.sign, self.line, self.number)
+        return 'Clef: sign={} line={} number={}'.format(self.sign, self.line, self.number)
     
 
 class Slur(TimedObject):
@@ -669,7 +726,7 @@ class Slur(TimedObject):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
         start = '' if self.start_note is None else f'start={self.start_note.id}'
         end = '' if self.end_note is None else f'end={self.end_note.id}'
-        return ' '.join(('slur', start, end)).strip()
+        return ' '.join(('Slur', start, end)).strip()
 
 
 class Repeat(TimedObject):
@@ -741,7 +798,8 @@ class Measure(TimedObject):
 
 
     def __str__(self):
-        return 'measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
+        # return 'Measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
+        return 'Measure: number={0}'.format(self.number)
 
     @property
     def page(self):
@@ -863,7 +921,7 @@ class TimeSignature(TimedObject):
         self.beat_type = beat_type
 
     def __str__(self):
-        return 'time signature: {0}/{1}'.format(self.beats, self.beat_type)
+        return 'Time signature: {0}/{1}'.format(self.beats, self.beat_type)
 
 
 class Divisions(TimedObject):
@@ -880,7 +938,7 @@ class Divisions(TimedObject):
         self.divs = divs
 
     def __str__(self):
-        return 'divisions: quarter={0}'.format(self.divs)
+        return 'Divisions: quarter={0}'.format(self.divs)
 
 
 class Tempo(TimedObject):
@@ -940,7 +998,7 @@ class KeySignature(TimedObject):
         return self.names[(len(self.names) + self.fifths + o) % len(self.names)] + m
     
     def __str__(self):
-        return f'key signature: fifths={self.fifths}, mode={self.mode} ({self.name})'
+        return f'Key signature: fifths={self.fifths}, mode={self.mode} ({self.name})'
 
 
 class Transposition(TimedObject):
@@ -964,7 +1022,7 @@ class Transposition(TimedObject):
         self.chromatic = chromatic
 
     def __str__(self):
-        return 'transposition: diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
+        return 'Transposition: diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
 
 
 class Words(TimedObject):
@@ -1149,7 +1207,7 @@ class GenericNote(TimedObject):
             return []
         
     def __str__(self):
-        s = f'id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        s = f'{type(self).__name__}: id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
         if len(self.articulations) > 0:
             s += f' articulations=({", ".join(self.articulations)})'
         if self.tie_prev or self.tie_next:
@@ -1339,7 +1397,7 @@ class ScoreVariant(object):
         return [(s.t, e.t, o) for (s, e, o) in self.segments]
 
     def __str__(self):
-        return f'segment: {self.segment_times}'
+        return f'Segment: {self.segment_times}'
     
     def clone(self):
         """
@@ -1755,8 +1813,6 @@ class Part(object):
                 n.appoggiatura_idx = i
                 n.appoggiatura_size = N
 
-        # grace_notes = [n for n in self.notes if n.grace_type is not None]
-        # grace_notes = [n for n in self.notes if n.grace_type is not None]
         grace_notes = self.list_all(GraceNote)
         time_grouped_gns = partition(
             operator.attrgetter('start.t'), grace_notes)
@@ -1809,29 +1865,25 @@ class Part(object):
                                 type_group, new_offset, group_counter)
                             group_counter += 1
 
+    def _pp(self, tree):
+        result = ['{}Part: name="{}" id="{}"'
+                  .format(tree, self.part_name, self.part_id)]
+        # stack.append(' │ ')
+        tree.push()               
+        N = len(self.timeline.points)
+        for i, timepoint in enumerate(self.timeline.points):
+            result.append('{}'.format(tree))
+            if i == N - 1:
+                tree.last_item()
+            else:
+                tree.next_item()
+            result.extend(timepoint._pp(tree))
+        tree.pop()
+        return '\n'.join(result)
 
-    def pretty(self, l=1):
-        pre = '    ' * l
-        s = ['{} ({})'.format(self.part_name, self.part_id)]
-        bm = self.beat_map
-
-        for tp in self.timeline.points:
-            s.append('\n{}{} (beat: {})'.format(pre, tp, bm(tp.t)))
-            s.append('{}Start'.format(pre))
-            for cls, objects in list(tp.starting_objects.items()):
-                if len(objects) > 0:
-                    s.append('{}  {}'.format(pre, cls.__name__))
-                    for o in objects:
-                        s.append('{}    {}'.format(pre, o))
-            s.append('{}Stop'.format(pre))
-            for cls, objects in list(tp.ending_objects.items()):
-                if len(objects) > 0:
-                    s.append(u'{}  {}'.format(pre, cls.__name__))
-                    for o in objects:
-                        s.append(u'{}    {}'.format(pre, o))
-        return u'\n'.join(s)
-
-
+    def pretty(self):
+        return self._pp(PrettyPrintTree())
+    
     def _get_beat_map(self, quarter=False, default_div=1, default_den=4):
         """
         This returns an interpolator that will accept as input timestamps
@@ -2107,6 +2159,7 @@ def _repeats_to_start_end(repeats, first, last):
 
 
 def add_measures(part):
+    # WIP
     divs = part.list_all(Divisions)
     ts = part.list_all(TimeSignature)
     sorted(divs + ts, key=lambda o: o.start.t)
@@ -2115,3 +2168,22 @@ def add_measures(part):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
+
+        # for i, (cls, objects) in enumerate(starting_items):
+        #     if len(objects) > 0:
+        #         if i == (M - 1):
+        #             tree.last_item()
+        #         else:
+        #             tree.next_item()
+        #         result.append('{}{}'.format(tree, cls.__name__))
+        #         tree.push()
+        #         N = len(objects)
+        #         for j, o in enumerate(objects):
+        #             if j == (N - 1):
+        #                 tree.last_item()
+        #             else:
+        #                 tree.next_item()
+        #             result.append('{}{}'.format(tree, o))
+        #         tree.pop()
+    

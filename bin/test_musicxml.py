@@ -11,6 +11,8 @@ def test_musicxml(fn, validate=False):
     # part = parts[0]
     part = next(score.iter_parts(parts))
 
+    print(part.pretty())
+    return 
     notes = part.notes
     print(len(notes))
     tnotes = [n for n in notes if n.tie_prev is None]
