@@ -4,19 +4,18 @@
 
 """
 This module contains an ontology to represent musical scores. A score is
- defined at the highest level by a Part object (or a hierarchy of Part objects,
- in a PartGroup object). This object contains a TimeLine object, which as acts
- as a washing line for the elements in a musical score such as measures, notes,
- slurs, words, expressive directions. The TimeLine object contains a sequence of
- TimePoint objects, which are the pegs that fix the score elements in time. Each
- TimePoint object has a time value `t` (an integer). Furthermore, it contains
- dictionaries with the objects starting and ending at `t`, respectively (indexed
- by class).
+defined at the highest level by a `Part` object (or a hierarchy of `Part` objects,
+in a `PartGroup` object). This object contains a `TimeLine` object, which as acts
+as a washing line for the elements in a musical score such as measures, notes,
+slurs, words, expressive directions. The `TimeLine` object contains a sequence of
+`TimePoint` objects, which are the pegs that fix the score elements in time. Each
+`TimePoint` object has a time value `t` (an integer). Furthermore, it contains
+dictionaries with the objects starting and ending at `t`, respectively (indexed
+by class).
 
 TODO: example of Part/Timeline construction from scratch
 
-TODO: explain that ontology roughly follows MusicXML schema (should be mostly
- compatible with MEI as well)
+TODO: explain that ontology roughly follows MusicXML schema (should be mostly compatible with MEI as well)
 
 """
 
@@ -92,14 +91,16 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     >>> estimate_symbolic_duration(24, 16)
     {'type': 'quarter', 'dots': 1}
     
-    The following returns None:
+    The following example returns None:
+
     >>> estimate_symbolic_duration(23, 16)
 
 
     Returns
     -------
-    tuple or None
-        The estimated symbolic duration (type, dots) or None
+    dict or None
+        A dictionary containing keys 'type' and 'dots' expressing the estimated
+        symbolic duration or None
     """
     global _DOT_MULTIPLIERS, _LABEL_DURS
 
@@ -1048,7 +1049,8 @@ class GenericNote(TimedObject):
         self.voice = voice
         self.id = id
         self.staff = staff
-        self.symbolic_duration = symbolic_duration
+        # self.symbolic_duration = symbolic_duration
+        self._sym_dur = symbolic_duration
         self.articulations = articulations
 
         # these attributes are set after the instance is constructed
@@ -1061,9 +1063,20 @@ class GenericNote(TimedObject):
         self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
 
     @property
+    def symbolic_duration(self):
+        if self._sym_dur is None:
+            divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
+            if divs is not None:
+                return estimate_symbolic_duration(self.end.t - self.start.t, divs.divs)
+            else:
+                None
+        else:
+            return self._sym_dur
+    
+    @property
     def duration(self):
         """
-        the duration of the note in divisions
+        The duration of the note in divisions
 
         Returns
         -------
@@ -1079,7 +1092,7 @@ class GenericNote(TimedObject):
     @property
     def end_tied(self):
         """
-        The Timepoint corresponding to the end of the note, or---when this note
+        The `Timepoint` corresponding to the end of the note, or---when this note
         belongs to a group of tied notes---the end of the last note in the
         group.
         
@@ -1136,7 +1149,7 @@ class GenericNote(TimedObject):
             return []
         
     def __str__(self):
-        s = f'{self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        s = f'id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
         if len(self.articulations) > 0:
             s += f' articulations=({", ".join(self.articulations)})'
         if self.tie_prev or self.tie_next:
@@ -1245,29 +1258,32 @@ class GraceNote(Note):
 
 
 class PartGroup(object):
-
     """
-    represents a <part-group ...> </...> where instruments are grouped.
+    Represents a <part-group ...> </...> where instruments are grouped.
     Note that a part grouped is "started" and "stopped" with according
     attributes inside the respective elements.
 
     Parameters
     ----------
-    grouping_symbol : str OR None, optional
+
+    grouping_symbol : str or None, optional
         the symbol used for grouping instruments, a <group-symbol> element,
         possibilites are:
+
         - 'brace' (opening curly brace, should group 2 same instruments,
                    e.g. 2 horns,  or left + right hand on piano)
         - 'square' (opening square bracket, should have same function as
                     the brace.)
         - 'bracket' (opening square bracket, should group instruments
                      of the same category, such as all woodwinds.)
+
         Note that there is supposed to be a hierarchy between these,
         like this: a bracket is supposed to embrace one ore multiple
         braces or squares.
 
     Attributes
     ----------
+
     grouping_symbol : str OR None
 
     children : list of PartGroup objects
@@ -1291,14 +1307,14 @@ class PartGroup(object):
     def parts(self):
         return get_all_parts(self.children)
 
-    def pprint(self, l=0):
+    def pretty(self, l=0):
         if self.name is not None:
             name_str = ' / {0}'.format(self.name)
         else:
             name_str = ''
         s = ['    ' * l + '{0}{1}'.format(self.grouping_symbol, name_str)]
         for ch in self.children:
-            s.append(ch.pprint(l + 1))
+            s.append(ch.pretty(l + 1))
         return '\n'.join(s)
 
 
@@ -1482,6 +1498,30 @@ class Part(object):
                 yield '  '.join(chunks)
             part = part.parent
 
+
+    def add(self, start, obj, end=None):
+        """
+        Add an object to the timeline.
+        
+        Parameters
+        ----------
+        start: int
+            Start time of the object 
+        obj: TimedObject
+            Object to be added to the timeline
+        end: int, optional
+            End time of the object. When end is None no end time is registered
+            for the object. Defaults to None.
+        
+        """
+        
+        self.timeline.add_starting_object(start, obj)
+
+        if end is not None:
+
+            self.timeline.add_ending_object(end, obj)
+
+            
     def make_score_variants(self):
         """
         Create a list of ScoreVariant objects, each representing a
@@ -1510,10 +1550,10 @@ class Part(object):
                             'supported yet'))
 
         repeats = self.timeline.get_all(Repeat)
-        # repeats may not have start or end times. `repeats_to_start_end`
+        # repeats may not have start or end times. `_repeats_to_start_end`
         # returns the start/end paisr for each repeat, making educated guesses
         # when these are missing.
-        repeat_start_ends = repeats_to_start_end(repeats,
+        repeat_start_ends = _repeats_to_start_end(repeats,
                                                  self.timeline.first_point,
                                                  self.timeline.last_point)
 
@@ -1770,13 +1810,13 @@ class Part(object):
                             group_counter += 1
 
 
-    def pprint(self, l=1):
+    def pretty(self, l=1):
         pre = '    ' * l
         s = ['{} ({})'.format(self.part_name, self.part_id)]
         bm = self.beat_map
 
         for tp in self.timeline.points:
-            s.append('\n{}{}(beat: {})'.format(pre, tp, bm(tp.t)))
+            s.append('\n{}{} (beat: {})'.format(pre, tp, bm(tp.t)))
             s.append('{}Start'.format(pre))
             for cls, objects in list(tp.starting_objects.items()):
                 if len(objects) > 0:
@@ -2028,7 +2068,7 @@ def iter_parts(partlist):
                 yield eel
 
 
-def repeats_to_start_end(repeats, first, last):
+def _repeats_to_start_end(repeats, first, last):
     """
     Return pairs of (start, end) TimePoints corresponding to the start and end
     times of each Repeat object. If any of the start or end attributes are None,
@@ -2064,6 +2104,12 @@ def repeats_to_start_end(repeats, first, last):
             t = repeat.start
     ends.reverse()
     return list(zip(starts, ends))
+
+
+def add_measures(part):
+    divs = part.list_all(Divisions)
+    ts = part.list_all(TimeSignature)
+    sorted(divs + ts, key=lambda o: o.start.t)
 
 
 if __name__ == '__main__':

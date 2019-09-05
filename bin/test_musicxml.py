@@ -2,7 +2,7 @@
 
 import argparse
 
-from partitura import load_musicxml, to_musicxml
+from partitura import load_musicxml, save_musicxml
 import partitura.score as score
 from partitura.musicxml import xml_to_notearray
 
@@ -10,7 +10,7 @@ def test_musicxml(fn, validate=False):
     parts = load_musicxml(fn, validate)
     # part = parts[0]
     part = next(score.iter_parts(parts))
-    # print(part.pprint())
+
     notes = part.notes
     print(len(notes))
     tnotes = [n for n in notes if n.tie_prev is None]
@@ -48,7 +48,7 @@ def test_musicxml(fn, validate=False):
         raise
         pass
     
-    # print(part.pprint())
+    # print(part.pretty())
     # part.timeline.test()
 
     # for measure in measures:
@@ -62,7 +62,7 @@ def test_musicxml(fn, validate=False):
     # bm = part.quarter_map
 
     out_fn = '/tmp/out.xml'
-    to_musicxml(part, out_fn)
+    save_musicxml(part, out_fn)
 
 def main():
     parser = argparse.ArgumentParser(description="Load and export a MusicXML file")

@@ -8,6 +8,8 @@ from operator import itemgetter
 
 from partitura.musicxml import DYN_DIRECTIONS
 
+__all__ = ['save_musicxml']
+
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger()
 
@@ -629,7 +631,7 @@ def do_attributes(part, start, end):
     return result
     
 
-def to_musicxml(parts, out=None):
+def save_musicxml(parts, out=None):
     if isinstance(parts, (score.Part, score.PartGroup)):
 
         parts = [parts]

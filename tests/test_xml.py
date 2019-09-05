@@ -9,7 +9,7 @@ import unittest
 from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
 
 from partitura.directions import parse_words
-from partitura import load_musicxml, to_musicxml
+from partitura import load_musicxml, save_musicxml
 import partitura.score as score
 
 
@@ -44,7 +44,7 @@ class TestMusicXML(unittest.TestCase):
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             with open(fn) as f:
                 parts = load_musicxml(f, validate=False)
-                result = to_musicxml(parts).decode('UTF-8')
+                result = save_musicxml(parts).decode('UTF-8')
                 f.seek(0)
                 target = f.read()
                 equal = target == result
@@ -57,7 +57,7 @@ class TestMusicXML(unittest.TestCase):
             parts = load_musicxml(fn, validate=False)
             part = next(score.iter_parts(parts))
             part.timeline = part.unfold_timeline_maximal()
-            result = to_musicxml(part).decode('UTF-8')
+            result = save_musicxml(part).decode('UTF-8')
             with open(fn_target) as f:
                 target = f.read()
             equal = target == result

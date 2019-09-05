@@ -10,10 +10,9 @@ LOGGER = logging.getLogger(__name__)
 
 def iter_current_next(iterable):
     """
-    Make an iterator that yields an (previous, current, next) tuple per element.
-
-    Returns None if the value does not make sense (i.e. previous before
-    first and next after last).
+    Make an iterator that yields a (current, next) tuple per element. If the
+    iterable contains less than two elements a StopIteration exception is
+    raised.
 
     Examples
     --------
@@ -30,7 +29,6 @@ def iter_current_next(iterable):
     >>> l = range(3)
     >>> list(iter_current_next(l))
     [(0, 1), (1, 2)]
-
     """
     iterable = iter(iterable)
     try:
@@ -143,14 +141,16 @@ class ComparableMixin(object):
 def partition(func, iterable):
     """
     Return a dictionary containing the equivalence classes (actually bags)
-    of iterable, partioned according to func. The value of a key k is the
-    list of all elements e from iterable such that k = func(e)
+    of `iterable`, partioned according to `func`. The value of a key `k` is the
+    list of all elements `e` from iterable such that `k = func(e)`.
 
     Examples
     ========
 
-    >>> l = range(10)
-    >>> partition(lambda x: x % 3, l)
+    The following example groups the integers from 0 to 10 by their respective modulo 3 values:
+
+    >>> lst = range(10)
+    >>> partition(lambda x: x % 3, lst)
     {0: [0, 3, 6, 9], 1: [1, 4, 7], 2: [2, 5, 8]}
 
     """

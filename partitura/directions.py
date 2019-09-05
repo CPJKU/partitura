@@ -2,11 +2,11 @@
 
 """
 Parse textual directions that occur in a score (in a MusicXML they are
- encoded as <words></words>), and if possible, convert them to a specific
- score.Direction class or subclass. For example "cresc." will produce a
- `score.DynamicLoudnessDirection` instance, and "Allegro molto" will produce a
- `score.ConstantTempoDirection` instance. If the meaning of the direction cannot
- be inferred, a `score.Words` instance is returned.
+encoded as <words></words>), and if possible, convert them to a specific
+score.Direction class or subclass. For example "cresc." will produce a
+`score.DynamicLoudnessDirection` instance, and "Allegro molto" will produce a
+`score.ConstantTempoDirection` instance. If the meaning of the direction cannot
+be inferred, a `score.Words` instance is returned.
 
 The functionality is provided by the function `parse_words`
 """
@@ -21,6 +21,8 @@ except ImportError:
 parsed to form `score.Direction` objects but included as `score.Words`
 instead; Install using "pip install lark-parser"''')
     HAVE_LARK = False
+
+__all__ = ['parse_words']
 
 # TODO: interpret roman numerals
 # import roman
@@ -393,3 +395,4 @@ def parse_words(string, parser=DEFAULT_PARSER):
     else:
         direction = [score.Words(string)]
     return direction
+

@@ -13,6 +13,8 @@ import pkg_resources
 from partitura.directions import parse_words
 import partitura.score as score
 
+__all__ = ['load_musicxml']
+
 LOGGER = logging.getLogger(__name__)
 _MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'musicxml.xsd')
 _XML_VALIDATOR = None
@@ -995,7 +997,6 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     for part in parts:
         # Unfold timeline to have repetitions
         part.timeline = part.unfold_timeline_maximal()
-        print(part.pprint())
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
             part.expand_grace_notes()
