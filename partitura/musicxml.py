@@ -785,8 +785,8 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
     duration = get_value_from_tag(e, 'duration', int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
-    staff = get_value_from_tag(e, 'staff', int) or 0
-    voice = get_value_from_tag(e, 'voice', int) or 0
+    staff = get_value_from_tag(e, 'staff', int) or None
+    voice = get_value_from_tag(e, 'voice', int) or None
 
     note_id = get_value_from_attribute(e, 'id', str)
 

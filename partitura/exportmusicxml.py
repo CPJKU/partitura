@@ -160,8 +160,10 @@ def group_notes_by_voice(notes):
         by_voice = defaultdict(list)
 
         for n in notes:
-
-            by_voice[n.voice].append(n)
+            if n.voice is None:
+                by_voice[0].append(n)
+            else:
+                by_voice[n.voice].append(n)
 
         return by_voice
 
