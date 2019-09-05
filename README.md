@@ -6,6 +6,18 @@ Paritura is a toolkit for handling
 * MIDI files
 * Match files (in v2.0?)
 
+Installation
+============
+
+Partitura is supported for python 3 only, and can be installed through pip
+
+    pip install partitura
+
+Usage
+=====
+
+    >>> import partitura
+
 MusicXML
 ========
 
