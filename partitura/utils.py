@@ -207,6 +207,73 @@ def add_field(a, descr):
     return b
 
 
+def sorted_dict_items(items, key=None):
+    for item in sorted(items, key=key):
+        yield item
+
+    
+def show_diff(a, b):
+    """
+    Show the difference between two strings, using the difflib package. The
+    difference is printed to stdout.
+    
+    Parameters
+    ----------
+    a: str
+        First string
+    b: str
+        Second string
+    """
+    
+    
+    import difflib
+    differ = difflib.Differ()
+    for l in differ.compare(a.split(), b.split()):
+        print(l)
+    
+
+class PrettyPrintTree(object):
+    def __init__(self):
+        self.stack = []
+
+    def push(self):
+        self.stack.append(TreeSymbol())
+
+    def pop(self):
+        self.stack.pop()
+
+    def next_item(self):
+        assert len(self.stack) > 0
+        self.stack[-1].next_item()
+        
+    def last_item(self):
+        assert len(self.stack) > 0
+        self.stack[-1].last_item()
+
+    def __str__(self):
+        return ''.join(str(sym) for sym in self.stack)
+
+
+class TreeSymbol(object):
+    def __init__(self):
+        self.symbols = [' │  ', ' ├─ ', ' └─ ', '    ']
+        self.state = 0
+
+    def next_item(self):
+        self.state = 1
+
+    def last_item(self):
+        self.state = 2
+
+    def __str__(self):
+        sym = self.symbols[self.state]
+        if self.state == 1:
+            self.state = 0
+        elif self.state == 2:
+            self.state = 3
+        return sym
+
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
