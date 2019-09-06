@@ -1,6 +1,6 @@
 """
 
-This file contains test functions for the partitura.musicxml module.
+This file contains test functions for MusicXML import and export.
 
 """
 

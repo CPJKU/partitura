@@ -6,7 +6,7 @@ import logging
 import partitura.score as score
 from operator import itemgetter
 
-from partitura.musicxml import DYN_DIRECTIONS
+from partitura.importmusicxml import DYN_DIRECTIONS
 
 __all__ = ['save_musicxml']
 
