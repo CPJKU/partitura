@@ -445,7 +445,7 @@ class InstrumentNameMapper(object):
 
         Returns
         -------
-        str OR None
+        str or None
             the canonical instrument name if one was found.
             Else, None is returened.
         """
@@ -484,12 +484,12 @@ class Instrument(object):
     ----------
     name : str
 
-    canonical_name : str OR None
+    canonical_name : str or None
 
-    transposition : integer OR None
+    transposition : integer or None
         the transposition of the instrument in +/- semitones.
 
-    rank : number OR None
+    rank : number or None
         the rank here means e.g. Viola 1 vs Viola 2.
 
     channel : number
@@ -530,7 +530,7 @@ class Instrument(object):
 
         Returns
         -------
-        number OR None
+        number or None
         """
 
         # use the reg ex given above to estimate the rank
@@ -767,7 +767,7 @@ def estimate_transposition(canonical_name, name):
 
     Returns
     -------
-    integer OR None
+    integer or None
         the transposition in +/- semitones.
     """
 
@@ -777,57 +777,3 @@ def estimate_transposition(canonical_name, name):
     else:
         return _est_transp_recursive(instr_transp, name)
 
-# def estimate_transposition_obsolete(canonical_name, name):
-#     try:
-#         if canonical_name == FRENCHHORN:
-#             if 'Fa' or 'F' in name:
-#                 return -7
-#             elif 'Sib' or 'B' in name:
-#                 if 'basso' in name:
-#                     return -14
-#                 elif 'alto' in name:
-#                     return -2
-#                 else:
-#                     raise UnkownTranspositionException()
-#             elif 'Es' or 'Mib' in name:
-#                 return -9
-#             elif 'D' or 'Re' in name:
-#                 return -10
-#             else:
-#                 raise UnkownTranspositionException()
-#         elif canonical_name == CLARINET:
-#             #if 'in Sib' or 'in B' in name:
-#             if b_pat.search(name):
-#                 print('clar b pat matches')
-#                 return -2
-#             # elif 'in A' or 'A' or 'La' in name:
-#             elif a_pat.search(name):
-#                 print('clar a pat matches')
-#                 return -3
-#             elif es_pat.search(name): # 'Es' or 'Mib' in name:
-#                 print('clar es pat matches')
-#                 return +3
-#             else:
-#                 raise UnkownTranspositionException()
-#         elif canonical_name == BASSCLARINET:
-#             if 'Sib' or 'B' in name:
-#                 return - 14
-#             else:
-#                 raise UnkownTranspositionException()
-#         elif canonical_name == ENGLISHHORN:
-#             return -7
-#         elif canonical_name == TRUMPET:
-#             if 'Sib' or 'B' in name:
-#                 return -2
-#             elif 'D' or 'Re' in name:
-#                 return +2
-#             elif 'Es' or 'Mib' in name:
-#                 return +3
-#             elif 'F' or 'Fa' in name:
-#                 return +5
-#             raise UnkownTranspositionException()
-#         else:
-#             return 0
-#     except UnkownTranspositionException as e:
-#         LOGGER.warning(u'{0} with unknown transposition: "{1}", assuming no transposition'.format(canonical_name, name))
-#         return 0

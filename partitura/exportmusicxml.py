@@ -8,6 +8,8 @@ from operator import itemgetter
 
 from partitura.musicxml import DYN_DIRECTIONS
 
+__all__ = ['save_musicxml']
+
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger()
 
@@ -158,8 +160,10 @@ def group_notes_by_voice(notes):
         by_voice = defaultdict(list)
 
         for n in notes:
-
-            by_voice[n.voice].append(n)
+            if n.voice is None:
+                by_voice[0].append(n)
+            else:
+                by_voice[n.voice].append(n)
 
         return by_voice
 
@@ -629,7 +633,7 @@ def do_attributes(part, start, end):
     return result
     
 
-def to_musicxml(parts, out=None):
+def save_musicxml(parts, out=None):
     if isinstance(parts, (score.Part, score.PartGroup)):
 
         parts = [parts]

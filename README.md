@@ -2,12 +2,21 @@
 
 Paritura is a toolkit for handling
 
-* Match files
 * MusicXML files
-* Worm Files
-* MIDI files (coming soon)
+* MIDI files
+* Match files (in v2.0?)
 
-**Disclaimer**: Not all types of files are equally thoroughly supported. Furthermore, there is a utils module which contains miscelaneous utilities. 
+Installation
+============
+
+Partitura is supported for python 3 only, and can be installed through pip
+
+    pip install partitura
+
+Usage
+=====
+
+    >>> import partitura
 
 MusicXML
 ========
@@ -19,17 +28,20 @@ The following elements that are extracted from the MusicXML:
 * Measure
 * Note
   * Slur
-  * Tie (implicit: create one note for all tied notes)
+  * Tie
 * Time Signature
 * Key Signature
 * Transposition
 * Tempo (in `<sound>`)
 * Page and System layout
-* predefined dynamics directions (p, pp, f, wedges, ...)
+* canonical dynamics directions (p, pp, f, wedges, ...)
 * tempo and dynamics directions notated as `<words>` (rallentando, crescendo, ...)
-* Repeats (all types?)
+* tempo specifications in `<sound>` tags
+* Repeat signs (including 1/2 endings, but not da capo/fine/segno)
 
 unsupported (for now):
 
 * unpitched notes
 * visual attributes like placement, x-offset
+* beams
+* note stem directions

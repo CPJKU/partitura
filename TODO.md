@@ -1,5 +1,25 @@
 TODO
 ====
+
+Miscelaneous considerations:
+
+- leave match file support for v2.0 (to be released before the tutorial)?
+
+- `load_musicxml` and `load_midi` return lists of `Part` or `PartGroup` elements. To reliably get the first part requires:
+    `part = next(iter_parts(load_musicxml('score.xml')), None)`
+
+    This is quite verbose for the simple cases where there is only one
+    part. Maybe we should return the part object in case there is only one (not
+    embedded in a list), and add an option `return_list` to facilitate handling
+    the result in a generic way.
+
+- make `alter` argument of `Note` constructor optional (default `None`)?
+
+
+
+TODO
+----
+
   - documentation
     - match.py: convert existing docstrings to numpy style
 
