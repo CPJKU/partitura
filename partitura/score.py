@@ -60,7 +60,7 @@ _DOT_MULTIPLIERS = (1, 1+1/2, 1+3/4, 1+7/8)
 _MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
-_ALTER_SIGNS = {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
+_ALTER_SIGNS = {None: '', 0: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
 # def tree_prefix(level, mode=0):
 #     if mode == 0:
@@ -176,9 +176,10 @@ def format_symbolic_duration(symbolic_dur):
     str
         A string representation of the specified symbolic duration
     """
-    
-    
-    return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
+    if symbolic_dur is None:
+        return 'unknown'
+    else:
+        return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
 
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
@@ -1145,10 +1146,11 @@ class GenericNote(TimedObject):
 
     @property
     def symbolic_duration(self):
+        eps = 10**-3
         if self._sym_dur is None:
             divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
             if divs is not None:
-                return estimate_symbolic_duration(self.end.t - self.start.t, divs.divs)
+                return estimate_symbolic_duration(self.end.t - self.start.t, divs.divs, eps)
             else:
                 None
         else:
@@ -1228,16 +1230,19 @@ class GenericNote(TimedObject):
             return [self.tie_next] + self.tie_next.tie_next_notes
         else:
             return []
-        
+
     def __str__(self):
-        s = f'{type(self).__name__}: id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        # s = f'{type(self).__name__}: id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        s = ('{}: id={} voice={} staff={} type={}'
+             .format(type(self).__name__, self.id, self.voice, self.staff,
+                     format_symbolic_duration(self.symbolic_duration)))
         if len(self.articulations) > 0:
-            s += f' articulations=({", ".join(self.articulations)})'
+            s += ' articulations=({})'.format(", ".join(self.articulations))
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
             tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
             tied_id = '+'.join(n.id or 'None' for n in all_tied)
-            return s + f' tied: {tied_id}'
+            return s + ' tied: {}'.format(tied_id)
         else:
             return s
 
@@ -1983,6 +1988,8 @@ class Part(object):
 
         if len(self.timeline.points) == 0:
             return None
+        elif len(self.timeline.points) == 1:
+            return lambda x: np.zeros(len(x))
 
         try:
             first_measure = self.timeline.points[
@@ -2050,7 +2057,6 @@ class Part(object):
         # and divs[:, 1] is a list of corresponding quarter note times
 
         # interpolation object to map div times to quarter times:
-        # div_intp = my_interp1d(divs[:, 0], divs[:, 1])
         div_intp = interp1d(divs[:, 0], divs[:, 1])
 
         dens = dens.astype(np.float)
