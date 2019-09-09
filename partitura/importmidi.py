@@ -1,6 +1,6 @@
 
 import numpy as np
-from madmom.io.midi import MIDIFile
+import mido
 
 import partitura.score as score
 
@@ -79,7 +79,7 @@ def decode_pitch(pitch):
 
 def load_midi(fn):
     """
-    Load MIDI file and parse into ScoreParts. (So far puts everything into
+    Load MIDI file and parse into Parts. (So far puts everything into
     one score part ??)
 
     Parameters
@@ -137,22 +137,4 @@ def load_midi(fn):
 
     sp.timeline.add_ending_object(sp.timeline.last_point.t, divs)
     return sp
-
-
-def write_midi(fn, part, ppq=DEFAULT_PPQ):
-    """
-    Write out ScoreParts to a MIDI file
-
-     A type 0 file contains the entire performance, merged onto a single track,
-     while type 1 files may contain any number of tracks that are performed
-     in synchrony [https://en.wikipedia.org/wiki/MIDI#MIDI_files].
-
-    Parameters
-    ----------
-    part : Part() object
-
-    """
-
-    mf = MIDIFile(fn, ticks_per_beat=ppq)
-
 

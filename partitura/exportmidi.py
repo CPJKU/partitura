@@ -1,6 +1,6 @@
 
 import numpy as np
-import mido
+from mido import MidiFile, MidiTrack, Message
 
 import partitura.score as score
 
@@ -77,82 +77,35 @@ def decode_pitch(pitch):
     return step, alter, octave
 
 
-def load_midi(fn):
+def save_midi(fn, parts, ppq=DEFAULT_PPQ):
     """
-    Load MIDI file and parse into ScoreParts. (So far puts everything into
-    one score part ??)
-
-    Parameters
-    ----------
-    fn : string
-        the file name
-
-    Returns
-    -------
-    sp : ScorePart object
-    """
-    mid = MIDIFile(fn, unit='ticks', timing='absolute')
-    part_id = 'Part 1'
-    sp = score.Part(part_id)
-    divs = score.Divisions(mid.ticks_per_beat)
-    sp.timeline.add_starting_object(0, divs)
-
-    # add notes
-    for i, (onset, pitch, duration, velocity, channel) in enumerate(mid.notes):
-        # TODO: use a pitch spelling approach
-        # step, alter, octave = decode_pitch(pitch)
-        step, alter, octave = decode_pitch_alternative(pitch)
-        note_id = f's{i:04d}'
-        note = score.Note(step, alter, octave, id=note_id)
-        sp.timeline.add_starting_object(int(onset), note)
-        sp.timeline.add_ending_object(int(onset + duration), note)
-
-    # time signatures and measures
-    time_sigs = mid.time_signatures.astype(np.int)
-    # for convenience we add the end times for each time signature
-    ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(np.int).max]
-    time_sigs = np.column_stack((time_sigs, ts_end_times))
-
-    measure_counter = 0
-    for ts_start, num, den, ts_end in time_sigs:
-
-        time_sig = score.TimeSignature(num, den)
-
-        sp.timeline.add_starting_object(ts_start, time_sig)
-
-        measure_duration = (num * mid.ticks_per_beat * 4) // den
-        measure_start_limit = min(ts_end, sp.timeline.last_point.t)
-
-        for m_start in range(ts_start, measure_start_limit, measure_duration):
-            measure = score.Measure(number=measure_counter)
-            m_end = min(m_start + measure_duration, ts_end)
-            sp.timeline.add_starting_object(m_start, measure)
-            sp.timeline.add_ending_object(m_end, measure)
-            measure_counter += 1
-
-        if np.isinf(ts_end):
-            ts_end = m_end
-
-        sp.timeline.add_ending_object(max(ts_start, min(ts_end, m_end)), time_sig)
-
-    sp.timeline.add_ending_object(sp.timeline.last_point.t, divs)
-    return sp
-
-
-def save_midi(fn, part, ppq=DEFAULT_PPQ):
-    """
-    Write out ScoreParts to a MIDI file
+    Write Parts to a MIDI file
 
      A type 0 file contains the entire performance, merged onto a single track,
      while type 1 files may contain any number of tracks that are performed
      in synchrony [https://en.wikipedia.org/wiki/MIDI#MIDI_files].
 
+
+    NOTE: depending on how part looks like, we need to handle tracks,
+    MIDI channels, etc.
+
     Parameters
     ----------
-    part : Part() object
+    part : score.Part() object
 
     """
 
-    mf = MIDIFile(fn, ticks_per_beat=ppq)
+    mf = MidiFile()  # create new file
+
+    for part in parts:
+        track = MidiTrack()
+        mf.tracks.append(track)
+
+        # set instrument/sound using MIDI program change
+        track.append(Message('program_change', program=x, time=0))
+
+        for note in part.notes:  # iterate over the part's notes
+            track.append(Message('note_on', note=xx, velocity=yy, time=zz))
+            track.append(Message('note_off', note=xx, velocity=yy, time=zz))
 
 
