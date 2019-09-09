@@ -354,6 +354,24 @@ class TimeLine(object):
         """
         self.get_or_add_point(t).add_ending_object(o)
 
+    def remove_starting_object(self, o):
+        """
+        remove object `o` as an object starting at time `t`. This involves:
+          - removing `o` from the timeline
+          - remove the note start timepoint if no starting or ending objects
+            remain at that time
+          - set o.start to None
+        """
+        if o.start:
+            try:
+                o.start.starting_objects[o.__class__].remove(o)
+            except:
+                raise Exception('Not implemented: removing an starting object that is registered by its superclass')
+            if (sum(len(oo) for oo in o.end.starting_objects.values()) +
+                sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
+                self.remove_point(o.start)
+            o.start = None
+
     def remove_ending_object(self, o):
         """
         remove object `o` as an object ending at time `t`. This involves:
@@ -614,22 +632,30 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         result = ['{}Timepoint {}'.format(tree, self.t)]
         tree.push()
 
-        if len(self.ending_objects) > 0:
+        ending_items_lists = sorted_dict_items(self.ending_objects.items(),
+                                               key=lambda x: x[0].__name__)
+        starting_items_lists = sorted_dict_items(self.starting_objects.items(),
+                                                 key=lambda x: x[0].__name__)
+
+        ending_items = [o for _, oo in ending_items_lists for o in oo]
+        starting_items = [o for _, oo in starting_items_lists for o in oo]
+        
+        if ending_items:
+
             result.append('{}'.format(tree))
-            if len(self.starting_objects) > 0:
+
+            if starting_items:
                 tree.next_item()
             else:
                 tree.last_item()
 
             result.append('{}ending objects'.format(tree))
             tree.push()
-            ending_items = sorted_dict_items(self.ending_objects.items(),
-                                               key=lambda x: x[0].__name__)
-            items = [o for _, oo in ending_items for o in oo]
-            N = len(items)
             result.append('{}'.format(tree))
-            for i, item in enumerate(items):
-                if i == (N - 1):
+
+            for i, item in enumerate(ending_items):
+
+                if i == (len(ending_items) - 1):
                     tree.last_item()
                 else:
                     tree.next_item()
@@ -638,20 +664,17 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
 
             tree.pop()
 
-        if len(self.starting_objects) > 0:
+        if starting_items:
+
             result.append('{}'.format(tree))
             tree.last_item()
             result.append('{}starting objects'.format(tree))
             tree.push()
-    
-            starting_items = sorted_dict_items(self.starting_objects.items(),
-                                               key=lambda x: x[0].__name__)
-            items = [o for _, oo in starting_items for o in oo]
-            N = len(items)
             result.append('{}'.format(tree))
-            for i, item in enumerate(items):
 
-                if i == (N - 1):
+            for i, item in enumerate(starting_items):
+
+                if i == (len(starting_items) - 1):
                     tree.last_item()
                 else:
                     tree.next_item()
@@ -659,7 +682,7 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
                 result.append('{}{}'.format(tree, item))
 
             tree.pop()
-
+            
         tree.pop()
         return result
 
@@ -1579,6 +1602,24 @@ class Part(object):
 
             self.timeline.add_ending_object(end, obj)
 
+
+    def remove(self, obj):
+        """
+        Remove an object from the timeline.
+        
+        Parameters
+        ----------
+        obj: TimedObject
+            Object to be added to the timeline
+        
+        """
+        
+        self.timeline.remove_starting_object(obj)
+
+        if obj.end is not None:
+
+            self.timeline.remove_ending_object(obj)
+
             
     def make_score_variants(self):
         """
@@ -1884,6 +1925,37 @@ class Part(object):
     def pretty(self):
         return self._pp(PrettyPrintTree())
     
+    @property
+    def divisions_map(self):
+        divs = np.array([(divs.start.t, divs.divs) for divs in self.list_all(Divisions)])
+        if len(divs) == 0:
+            # warn assumption
+            divs = np.array([(self.timeline.first_point.t, 1),
+                             (self.timeline.last_point.t, 1)])
+        elif divs[0, 0] > self.timeline.first_point.t:
+            divs = np.vstack(((self.timeline.first_point.t, divs[0, 1]),
+                              divs))
+        divs = np.vstack((divs,
+                          (self.timeline.last_point.t, divs[-1, 1])))
+        return interp1d(divs[:, 0], divs[:, 1], kind='previous')
+
+
+    @property
+    def time_signature_map(self):
+        tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
+                        for ts in self.list_all(TimeSignature)])
+        if len(tss) == 0:
+            # warn assumption
+            tss = np.array([(self.timeline.first_point.t, 4, 4),
+                            (self.timeline.last_point.t, 4, 4)])
+        elif tss[0, 0] > self.timeline.first_point.t:
+            tss = np.vstack(((self.timeline.first_point.t, tss[0, 1], tss[0, 2]),
+                             tss))
+        tss = np.vstack((tss,
+                         (self.timeline.last_point.t, tss[-1, 1], tss[-1, 2])))
+        return interp1d(tss[:, 0], tss[:, 1:], kind='previous')
+
+
     def _get_beat_map(self, quarter=False, default_div=1, default_den=4):
         """
         This returns an interpolator that will accept as input timestamps
