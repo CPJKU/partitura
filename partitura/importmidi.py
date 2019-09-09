@@ -13,9 +13,6 @@ from partitura.musicanalysis import estimate_spelling, estimate_key, estimate_vo
 
 __all__ = ['load_midi']
 
-def quantize(v, unit):
-    return int(unit * np.round(v / unit))
-
 
 def load_midi(fn, quantization_unit=None):
     # channels: parts, voices, staffs
@@ -236,8 +233,9 @@ def create_part(ticks, notes, spellings, time_sigs, key_sigs, part_id=None, part
 
     return part
 
+
 def tie_notes(part):
-    # TODO: tie notes within measure boundaries when needed
+    # split and tie notes at measure boundaries
     notes = part.list_all(score.Note)
     for note in notes:
         next_measure = next(iter(note.start.get_next_of_type(score.Measure)), None)
@@ -252,16 +250,170 @@ def tie_notes(part):
             tie_next.tie_prev = note
             note = tie_next
             next_measure = next(iter(note.start.get_next_of_type(score.Measure)), None)
-            print(note, next_measure)
 
 
-# def main():
-#     parser = argparse.ArgumentParser(description="Do something")
-#     parser.add_argument("file", help="some file")
-#     parser.add_argument("-q", '--quantization', type=int, help="Quantize to multiples of specified value")
-#     args = parser.parse_args()
-#     parts = load_midi(args.file, quantization_unit=args.quantization)
+    # then split/tie any notes that do not have a fractional/dot duration
+    divs_map = part.divisions_map
+    notes = part.list_all(score.Note)
 
+    for note in notes:
+
+        if note.symbolic_duration is None:
+
+            splits = find_tie_split(note.start.t, note.end.t, divs_map(note.start.t))
+
+            if splits:
+
+                split_note(part, note, splits)
+
+
+def split_note(part, note, splits):
+    # TODO: we shouldn't do this, but for now it's a good sanity check
+    assert len(splits) > 0
+    # TODO: we shouldn't do this, but for now it's a good sanity check
+    assert note.symbolic_duration is None
+    part.remove(note)
+
+    cur_note = note
+    start, end, sym_dur = splits.pop(0)
+    part.add(start, cur_note, end)
+
+    while splits:
+        next_note = score.Note(note.step, note.alter, note.octave, voice=note.voice, staff=note.staff)
+        cur_note.tie_next = next_note
+        next_note.tie_prev = cur_note
+
+        cur_note = next_note
+        start, end, sym_dur = splits.pop(0)
+        part.add(start, cur_note, end)
+
+
+def find_tie_split(start, end, divs):
+    """
+    Try to split the time interval from `start` to `end` into subintervals such
+    that each subinterval corresponds to a symbolic duration, given a quarter
+    note duration of `divs`. This can be used to split a note with a compound
+    duration into a series of notes with simple duration.
+
+    The result is returned as a list of triplets (sub_start, sub_end, sym_dur),
+    one for each subinterval, where sub_start and sub_end are the start and end
+    times of the subinterval and sym_dur is a dictionary representation of the
+    symbolic duration, as returned by `score.estimate_symbolic_duration`.
+
+    If no split can be found such that all of the subintervals correspond to a
+    symbolic duration, the function returns an empty list.
+
+    Parameters
+    ----------
+    start: int
+        Start of the interval
+    end: int
+        End of the interval
+    divs: int
+        Duration of a quarter note
     
-# if __name__ == '__main__':
-#     main()
+    Returns
+    -------
+    list
+        The list of subintervals and their symbolic durations
+
+    Examples
+    --------
+
+    >>> durs = find_tie_split(0, 13, 4)
+    >>> for dur in durs: print(dur)
+    (0, 4, {'type': 'quarter', 'dots': 0})
+    (4, 8, {'type': 'quarter', 'dots': 0})
+    (8, 10, {'type': 'eighth', 'dots': 0})
+    (10, 13, {'type': 'eighth', 'dots': 1})
+
+    >>> durs = find_tie_split(1, 14, 4)
+    >>> for dur in durs: print(dur)
+    (1, 4, {'type': 'eighth', 'dots': 1})
+    (4, 8, {'type': 'quarter', 'dots': 0})
+    (8, 14, {'type': 'quarter', 'dots': 1})
+
+    Notes
+    -----
+
+    This function performs a depth first search and in case there are multiple
+    solutions it does not prioritize the most musically plausible solution.
+    """
+    
+    
+    # start by trying the largest fractional units
+    unit = divs*2**int(np.log2( (end-start) / divs))
+    return find_tie_split_inner(start, end, divs, unit)
+
+
+def find_tie_split_inner(start, end, divs, unit):
+    # This is a helper function for the `find_tie_split` function
+    dur = score.estimate_symbolic_duration(end - start, divs)
+    if dur is not None:
+        return [(start, end, dur)]
+    else:
+        t1 = unit * (start // unit + 1)
+        t2 = unit * (end // unit)
+        split = t1
+        while split < t2:
+            dur1 = find_tie_split(start, split, divs)
+            dur2 = find_tie_split(split, end, divs)
+
+            if dur1 and dur2:
+                return dur1 + dur2
+            elif dur1:
+                dur2 = find_tie_split(split, end, divs)
+                if dur2:
+                    return dur1 + dur2
+            elif dur2:
+                dur1 = find_tie_split(start, split, divs)
+                if dur1:
+                    return dur1 + dur2
+
+            split += unit
+        if unit % 2 > 0:
+            return []
+        else:
+            return find_tie_split_inner(start, end, divs, unit // 2)
+
+
+def quantize(v, unit):
+    """
+    Quantize value `v` to a multiple of `unit`. When `unit` is an integer, the
+    return value will be integer as well, otherwise the function will return a
+    float.
+    
+    Parameters
+    ----------
+    v: ndarray or number
+        Number to be quantized
+    unit: number
+        The quantization unit
+
+    Returns
+    -------
+    number
+        The quantized number
+
+    Examples
+    --------
+
+    >>> quantize(13.3, 4)
+    12
+
+    >>> quantize(3.3, .5)
+    3.5
+    """
+    
+    r = unit * np.round(v / unit)
+    if isinstance(unit, int):
+        return int(r)
+    else:
+        return r
+
+
+if __name__ == '__main__':
+    # print(find_tie_split(1, 14, 4))
+    import doctest
+    doctest.testmod()
+
