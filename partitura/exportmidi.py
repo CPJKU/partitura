@@ -1,6 +1,6 @@
 
 import numpy as np
-from madmom.io.midi import MIDIFile
+import mido
 
 import partitura.score as score
 
@@ -139,7 +139,7 @@ def load_midi(fn):
     return sp
 
 
-def write_midi(fn, part, ppq=DEFAULT_PPQ):
+def save_midi(fn, part, ppq=DEFAULT_PPQ):
     """
     Write out ScoreParts to a MIDI file
 
