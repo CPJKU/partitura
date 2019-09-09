@@ -11,7 +11,7 @@ Subpackages
 
 .. toctree::
 
-   partitura.music_utils
+   partitura.musicanalysis
 
 Submodules
 ----------
@@ -28,6 +28,14 @@ partitura.exportmusicxml module
 -------------------------------
 
 .. automodule:: partitura.exportmusicxml
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+partitura.importmusicxml module
+-------------------------------
+
+.. automodule:: partitura.importmusicxml
    :members:
    :undoc-members:
    :show-inheritance:
@@ -52,14 +60,6 @@ partitura.midi module
 ---------------------
 
 .. automodule:: partitura.midi
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-partitura.musicxml module
--------------------------
-
-.. automodule:: partitura.musicxml
    :members:
    :undoc-members:
    :show-inheritance:

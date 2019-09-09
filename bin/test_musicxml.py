@@ -4,7 +4,7 @@ import argparse
 
 from partitura import load_musicxml, save_musicxml
 import partitura.score as score
-from partitura.musicxml import xml_to_notearray
+from partitura.importmusicxml import xml_to_notearray
 
 def test_musicxml(fn, validate=False):
     parts = load_musicxml(fn, validate)
