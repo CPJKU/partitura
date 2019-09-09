@@ -260,7 +260,7 @@ def tie_notes(part):
 
         if note.symbolic_duration is None:
 
-            splits = find_tie_split(note.start.t, note.end.t, divs_map(note.start.t))
+            splits = score.find_tie_split(note.start.t, note.end.t, divs_map(note.start.t))
 
             if splits:
 
@@ -286,95 +286,6 @@ def split_note(part, note, splits):
         cur_note = next_note
         start, end, sym_dur = splits.pop(0)
         part.add(start, cur_note, end)
-
-
-def find_tie_split(start, end, divs):
-    """
-    Try to split the time interval from `start` to `end` into subintervals such
-    that each subinterval corresponds to a symbolic duration, given a quarter
-    note duration of `divs`. This can be used to split a note with a compound
-    duration into a series of notes with simple duration.
-
-    The result is returned as a list of triplets (sub_start, sub_end, sym_dur),
-    one for each subinterval, where sub_start and sub_end are the start and end
-    times of the subinterval and sym_dur is a dictionary representation of the
-    symbolic duration, as returned by `score.estimate_symbolic_duration`.
-
-    If no split can be found such that all of the subintervals correspond to a
-    symbolic duration, the function returns an empty list.
-
-    Parameters
-    ----------
-    start: int
-        Start of the interval
-    end: int
-        End of the interval
-    divs: int
-        Duration of a quarter note
-    
-    Returns
-    -------
-    list
-        The list of subintervals and their symbolic durations
-
-    Examples
-    --------
-
-    >>> durs = find_tie_split(0, 13, 4)
-    >>> for dur in durs: print(dur)
-    (0, 4, {'type': 'quarter', 'dots': 0})
-    (4, 8, {'type': 'quarter', 'dots': 0})
-    (8, 10, {'type': 'eighth', 'dots': 0})
-    (10, 13, {'type': 'eighth', 'dots': 1})
-
-    >>> durs = find_tie_split(1, 14, 4)
-    >>> for dur in durs: print(dur)
-    (1, 4, {'type': 'eighth', 'dots': 1})
-    (4, 8, {'type': 'quarter', 'dots': 0})
-    (8, 14, {'type': 'quarter', 'dots': 1})
-
-    Notes
-    -----
-
-    This function performs a depth first search and in case there are multiple
-    solutions it does not prioritize the most musically plausible solution.
-    """
-    
-    
-    # start by trying the largest fractional units
-    unit = divs*2**int(np.log2( (end-start) / divs))
-    return find_tie_split_inner(start, end, divs, unit)
-
-
-def find_tie_split_inner(start, end, divs, unit):
-    # This is a helper function for the `find_tie_split` function
-    dur = score.estimate_symbolic_duration(end - start, divs)
-    if dur is not None:
-        return [(start, end, dur)]
-    else:
-        t1 = unit * (start // unit + 1)
-        t2 = unit * (end // unit)
-        split = t1
-        while split < t2:
-            dur1 = find_tie_split(start, split, divs)
-            dur2 = find_tie_split(split, end, divs)
-
-            if dur1 and dur2:
-                return dur1 + dur2
-            elif dur1:
-                dur2 = find_tie_split(split, end, divs)
-                if dur2:
-                    return dur1 + dur2
-            elif dur2:
-                dur1 = find_tie_split(start, split, divs)
-                if dur1:
-                    return dur1 + dur2
-
-            split += unit
-        if unit % 2 > 0:
-            return []
-        else:
-            return find_tie_split_inner(start, end, divs, unit // 2)
 
 
 def quantize(v, unit):
