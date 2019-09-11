@@ -52,7 +52,8 @@ class TestMusicXML(unittest.TestCase):
                 equal = target == result
                 if not equal:
                     show_diff(result, target)
-                self.assertTrue(equal, f"Import and export of MusicXML of file {fn} does not yield identical result")
+                msg = "Import and export of MusicXML of file {} does not yield identical result".format(fn)
+                self.assertTrue(equal, msg)
 
 
     def test_unfold_timeline(self):
@@ -66,13 +67,11 @@ class TestMusicXML(unittest.TestCase):
             equal = target == result
             if not equal:
                 show_diff(result, target)
-            msg = f"Unfolding timeline of MusicXML file {fn} does not yield expected result"
+            msg = "Unfolding timeline of MusicXML file {} does not yield expected result".format(fn)
             self.assertTrue(equal, msg)
 
                 
     def test_export_import_pprint(self):
-        
-
         # create a part
         part1 = score.Part('My Part')
 
@@ -83,6 +82,7 @@ class TestMusicXML(unittest.TestCase):
         system1 = score.System(1)
         measure1 = score.Measure(number=1)
         note1 = score.Note(step='A', alter=None, octave=4, voice=1, staff=1)
+        rest1 = score.Rest(voice=1, staff=1)
         note2 = score.Note(step='C', alter=-1, octave=5, voice=2, staff=1)
         
         # and add the contents to the part:
@@ -92,6 +92,7 @@ class TestMusicXML(unittest.TestCase):
         part1.add(0, page1)
         part1.add(0, system1)
         part1.add(0, note1, end=15)
+        part1.add(15, rest1, end=30)
         part1.add(0, note2, end=30)
         
         # pretty print the part
