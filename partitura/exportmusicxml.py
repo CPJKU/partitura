@@ -228,19 +228,16 @@ def linearize_measure_contents(part, start, end, counter):
 def fill_gaps_with_rests(notes_by_voice, start, end, part):
     for voice, notes in notes_by_voice.items():
         if len(notes) == 0:
-            print('add rest', start.t, end.t)
             rest = score.Rest(voice=voice or None)
             part.add(start.t, rest, end.t)
         else:
             t = start.t
             for note in notes:
                 if note.start.t > t:
-                    print('add rest', t, note.start.t)
                     rest = score.Rest(voice=voice or None)
                     part.add(t, rest, note.start.t)
                 t = note.end.t
             if note.end.t < end.t:
-                print('add rest', note.end.t, end.t)
                 rest = score.Rest(voice=voice or None)
                 part.add(note.end.t, rest, end.t)
                 
@@ -286,7 +283,7 @@ def linearize_segment_contents(part, start, end, counter):
         voice_notes = notes_by_voice[voice]
         # grace notes should precede other notes at the same onset
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
-        voice_notes.sort(key=lambda n: -n.duration)
+        # voice_notes.sort(key=lambda n: -n.duration)
         voice_notes.sort(key=lambda n: n.start.t)
         
         for n in voice_notes:
@@ -299,11 +296,11 @@ def linearize_segment_contents(part, start, end, counter):
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end)
     prints_e = do_prints(part, start, end)
-
     barline_e = do_barlines(part, start, end)
-    other_e = directions_e + barline_e + prints_e
 
-    contents = merge_measure_contents(voices_e, attributes_e, other_e, start.t)
+    other_e = attributes_e + directions_e + barline_e + prints_e
+
+    contents = merge_measure_contents(voices_e, other_e, start.t)
     
     return contents
 
@@ -394,22 +391,21 @@ def do_barlines(part, start, end):
 
 
 def add_chord_tags(notes):
-
+    prev_dur = None
     prev = None
-    for onset, _, note in notes:
-
+    for onset, dur, note in notes:
         if onset == prev:
-
-            note.insert(0, etree.Element('chord'))
-
+            if dur == prev_dur:
+                note.insert(0, etree.Element('chord'))
+                
         if any(e.tag == 'grace' for e in note):
             # if note is a grace note we don't want to trigger a chord for the
             # next note
             prev = None
-
         else:
-
             prev = onset
+            prev_dur = dur
+
 
 def forward_backup_if_needed(t, t_prev):
     result = []
@@ -479,7 +475,7 @@ def merge_with_voice(notes, other, measure_start):
     return result, fb_cost
             
 
-def merge_measure_contents(notes, attributes, other, measure_start):
+def merge_measure_contents(notes, other, measure_start):
     merged = {}
     # cost (measured as the total forward/backup jumps needed to merge) all
     # elements in `other` into each voice
@@ -492,11 +488,10 @@ def merge_measure_contents(notes, attributes, other, measure_start):
 
     # get the voice for which merging notes and other has lowest cost
     merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
-
     result = []
     pos = measure_start
     for i, voice in enumerate(sorted(notes.keys())):
-
+        
         if voice == merge_voice:
 
             elements = merged[voice]
@@ -504,10 +499,6 @@ def merge_measure_contents(notes, attributes, other, measure_start):
         else:
 
             elements = notes[voice]
-
-        if i == 0:
-
-            elements, _ =  merge_with_voice(elements, attributes, measure_start)
 
         # backup/forward when switching voices if necessary
         if elements:
