@@ -39,7 +39,6 @@ from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_cu
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
 # sys.setrecursionlimit(100000)
-# sys.setrecursionlimit(1000)
 
 LOGGER = logging.getLogger(__name__)
 _LABEL_DURS = {
@@ -2239,190 +2238,6 @@ def _repeats_to_start_end(repeats, first, last):
     ends.reverse()
     return list(zip(starts, ends))
 
-
-# def find_tie_split(start, end, divs):
-#     """
-#     Try to split the time interval from `start` to `end` into subintervals such
-#     that each subinterval corresponds to a symbolic duration, given a quarter
-#     note duration of `divs`. This can be used to split a note with a compound
-#     duration into a series of notes with simple duration.
-
-#     The result is returned as a list of triplets (sub_start, sub_end, sym_dur),
-#     one for each subinterval, where sub_start and sub_end are the start and end
-#     times of the subinterval and sym_dur is a dictionary representation of the
-#     symbolic duration, as returned by `estimate_symbolic_duration`.
-
-#     If no split can be found such that all of the subintervals correspond to a
-#     symbolic duration, the function returns an empty list.
-
-#     Parameters
-#     ----------
-#     start: int
-#         Start of the interval
-#     end: int
-#         End of the interval
-#     divs: int
-#         Duration of a quarter note
-    
-#     Returns
-#     -------
-#     list
-#         The list of subintervals and their symbolic durations
-
-#     Examples
-#     --------
-
-#     >>> durs = find_tie_split(0, 13, 4)
-#     >>> for dur in durs: print(dur)
-#     (0, 4, {'type': 'quarter', 'dots': 0})
-#     (4, 8, {'type': 'quarter', 'dots': 0})
-#     (8, 10, {'type': 'eighth', 'dots': 0})
-#     (10, 13, {'type': 'eighth', 'dots': 1})
-
-#     >>> durs = find_tie_split(1, 14, 4)
-#     >>> for dur in durs: print(dur)
-#     (1, 4, {'type': 'eighth', 'dots': 1})
-#     (4, 8, {'type': 'quarter', 'dots': 0})
-#     (8, 14, {'type': 'quarter', 'dots': 1})
-
-#     Notes
-#     -----
-
-#     This function performs a depth first search and in case there are multiple
-#     solutions it does not prioritize the most musically plausible solution.
-#     """
-#     print('split', start, end, divs)
-    
-#     # start by trying the largest fractional units
-#     unit = int(divs*2**int(np.log2( (end-start) / divs)))
-    
-#     return find_tie_split_inner(start, end, divs, unit)
-
-# REPEATS = set()
-# def find_tie_split_inner(start, end, divs, unit):
-#     global REPEATS
-#     # This is a helper function for the `find_tie_split` function
-#     print('split inner', start, end, divs, unit)
-#     key = (start, end, divs, unit)
-#     if key in REPEATS:
-#         print('repeat', key)
-#         raise
-#     REPEATS.add(key)
-    
-#     dur = estimate_symbolic_duration(end - start, divs)
-#     if dur is not None:
-#         return [(start, end, dur)]
-#     else:
-#         t1 = unit * (start // unit + 1)
-#         t2 = unit * (end // unit)
-#         split = t1
-#         # assert split != end
-#         if split == end:
-#             return []
-#         assert split > start
-#         assert split < end
-#         while split < t2:
-#             c = len(REPEATS) + 1
-#             print('enter a', c)
-#             dur1 = find_tie_split_inner(start, split, divs, unit)
-#             print('exit a', c)
-
-#             c = len(REPEATS) + 1
-#             print('enter b', c)
-#             dur2 = find_tie_split_inner(split, end, divs, unit)
-#             print('exit b', c)
-
-#             if dur1 and dur2:
-#                 #print('a', dur1, dur2)
-#                 return dur1 + dur2
-#             # elif dur1:
-#             #     print('b', dur1)
-#             #     if unit % 2 != 0:
-#             #         return []
-#             #     else:
-#             #         dur2 = find_tie_split_inner(split, end, divs, unit // 2)
-#             #         if dur2:
-#             #             return dur1 + dur2
-#             # elif dur2:
-#             #     print('c', dur2)
-#             #     dur1 = find_tie_split_inner(start, split, divs, unit)
-#             #     if dur1:
-#             #         return dur1 + dur2
-#             print('move split', split, split+unit)
-#             split += unit
-
-#         if unit % 2 > 0:
-#             print('x')
-#             return []
-#         else:
-#             c = len(REPEATS) + 1
-#             print('enter c', c)
-#             ret = find_tie_split_inner(start, end, divs, unit // 2)
-#             print('exit c', c)
-#             return ret
-
-# def find_tie_split_inner(start, end, divs, unit):
-#     global REPEATS
-#     # This is a helper function for the `find_tie_split` function
-#     print('split inner', start, end, divs, unit)
-#     key = (start, end, divs, unit)
-#     if key in REPEATS:
-#         print('repeat', key)
-#         raise
-#     REPEATS.add(key)
-
-    
-#     dur = estimate_symbolic_duration(end - start, divs)
-#     if dur is not None:
-#         return [(start, end, dur)]
-#     else:
-#         while unit % 2 == 0:
-#             t1 = unit * (start // unit + 1)
-#             t2 = unit * ((end - 1) // unit)
-#             split = t1
-#             # assert split != end
-#             # if split == end:
-#             #     return []
-#             assert split > start
-#             assert split < end
-#             while split < t2:
-#                 c = len(REPEATS) + 1
-#                 print('enter a', c)
-#                 dur1 = find_tie_split(start, split, divs)
-#                 print('exit a', c)
-    
-#                 c = len(REPEATS) + 1
-#                 print('enter b', c)
-#                 dur2 = find_tie_split_inner(split, end, divs)
-#                 print('exit b', c)
-    
-#                 if dur1 and dur2:
-#                     #print('a', dur1, dur2)
-#                     return dur1 + dur2
-#                 print('move split', split, split+unit)
-
-#                 split += unit
-
-#         if unit % 2 > 0:
-#             print('x')
-#             return []
-#         else:
-#             c = len(REPEATS) + 1
-#             print('enter c', c)
-#             ret = find_tie_split_inner(start, end, divs, unit // 2)
-#             print('exit c', c)
-#             return ret
-
-
-# start state: 0 splits
-# expand: all instances of 1 split
-# score:
-#   - neg number of splits
-#   - position of splits (neg rank of split order)
-#   - proportion of total duration covered
-# state representation:
-#   split positions
-
 # def largest_covered_beat(start, end, divs):
 #     """
 #     Find the largest number `n` that can be obtained by doubling or halving
@@ -2526,11 +2341,6 @@ def order_splits(start, end, smallest_unit):
     b = smallest_unit
     result = []
 
-    # b2=b*2
-    # sb=b2*(1+(start+b)//b2)
-    # se=(end+b); 
-    # splits = np.arange(sb, se, b2)-b
-
     splits = np.arange((b*2)*(1+(start+b)//(b*2)), end+b, b*2)-b
 
     while b*(1+start//b) < end and b*(end//b) > start:
@@ -2543,8 +2353,6 @@ def order_splits(start, end, smallest_unit):
     else:
         return np.array([])
 
-# def expand(state, start, end):
-#     return
 
 def find_smallest_unit(divs):
     unit = divs
@@ -2553,9 +2361,8 @@ def find_smallest_unit(divs):
     return unit
 
 
-def find_tie_split_search(start, end, divs):
+def find_tie_split_search(start, end, divs, max_splits=3):
     smallest_unit = find_smallest_unit(divs)
-    max_splits = 10
 
     def success(state):
         return all(estimate_symbolic_duration(right-left, divs)
@@ -2574,7 +2381,8 @@ def find_tie_split_search(start, end, divs):
     
     states = [[]]
 
-    splits = search(states, success, expand, combine)
+    # splits = search_recursive(states, success, expand, combine)
+    splits = search_iterative(states, success, expand, combine)
 
     if splits is not None:
         solution = [(left, right, estimate_symbolic_duration(right-left, divs))
@@ -2584,23 +2392,24 @@ def find_tie_split_search(start, end, divs):
     else:
         print('no solution for ', start, end, divs)
 
-search_depth = 0
-def search(states, success, expand, combine):
+def search_iterative(states, success, expand, combine):
+    while len(states) > 0:
+        state = states.pop(0)
+        if success(state):
+            return state
+        else:
+            states = combine(expand(state), states)
+
+
+def search_recursive(states, success, expand, combine):
     try:
-        global search_depth
-        search_depth += 1
-        # print('depth', search_depth, 'n_states', len(states))
         if not states:
-            search_depth -= 1
             return None
         elif success(states[0]):
-            search_depth -= 1
             return states[0]
         else:
             new_states = combine(expand(states[0]), states[1:])
-            result = search(new_states, success, expand, combine)
-            search_depth -= 1
-            return result
+            return search_recursive(new_states, success, expand, combine)
     except RecursionError:
         warnings.warn('search exhausted stack, bailing out')
         return None
@@ -2609,10 +2418,11 @@ if __name__ == '__main__':
     # print(order_splits(1, 8, 1))
     # print(order_splits(11, 17, 3))
     # print(order_splits(11, 17, 1))
-    find_tie_split_search(1, 8, 2)
+    # find_tie_split_search(1, 8, 2)
     # find_tie_split_search(141, 1920, 480)
-    # find_tie_split_search(960, 1920, 480)
-    # find_tie_split_search(1680, 1920, 480)
+    find_tie_split_search(0, 3632-17, 480)
+    o = 30
+    find_tie_split_search(o, 3632-17+o, 480)
     # find_tie_split_search(1, 8, 4)
     # import doctest
     # doctest.testmod()
