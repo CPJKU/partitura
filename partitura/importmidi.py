@@ -147,12 +147,16 @@ def load_midi(fn, quantization_unit=None):
     spelling['alter'] = alter
     spelling['octave'] = octave
 
+    voices = estimate_voices(note_array)
+    voices[voices == 0] = len(np.unique(voices))
     # add the spellings to their corresponding parts
     offset = 0
     spellings_by_track_ch = {}
+    voices_by_track_ch = {}
     for key in part_keys:
         N = len(notes_by_track_ch[key])
         spellings_by_track_ch[key] = spelling[offset:offset+N]
+        voices_by_track_ch[key] = voices[offset:offset+N]
         offset += N
 
     part_keys_by_track = partition(lambda x: x[0], part_keys)
@@ -164,6 +168,7 @@ def load_midi(fn, quantization_unit=None):
             track_parts.append(create_part(divs,
                                            notes_by_track_ch[(track, ch)],
                                            spellings_by_track_ch[(track, ch)],
+                                           voices_by_track_ch[(track,ch)],
                                            time_sigs_by_track[track] or global_time_sigs,
                                            key_sigs_by_track[track] or global_key_sigs,
                                            # tempos_by_track[track] or global_tempos,
@@ -189,13 +194,13 @@ def load_midi(fn, quantization_unit=None):
     return parts
 
 
-def create_part(ticks, notes, spellings, time_sigs, key_sigs, part_id=None, part_name=None):
+def create_part(ticks, notes, spellings, voices, time_sigs, key_sigs, part_id=None, part_name=None):
     part = score.Part(part_id)
     part.add(0, score.Divisions(ticks))
     # for t, name in key_sigs:
     #     part.add(t, score.TimeSignature(num, den))
-    for (onset, pitch, duration), (step, alter, octave) in zip(notes, spellings):
-        note = score.Note(step, alter, octave)
+    for (onset, pitch, duration), (step, alter, octave), voice in zip(notes, spellings, voices):
+        note = score.Note(step, alter, octave) #, voice=int(voice))
                           # symbolic_duration=score.estimate_symbolic_duration(duration, ticks))
         part.add(onset, note, onset+duration)
 

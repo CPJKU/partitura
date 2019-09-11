@@ -13,7 +13,10 @@ Miscelaneous considerations
 
 - make `alter` argument of `Note` constructor optional (default `None`)?
 
-
+- voice problem
+  
+  Synchronicity within a voice (or when no voice attribute is present) by means of backup/forward is not well supported in musicxml viewers. use of chord tag only works when all simultaneous notes have equal duration.
+  Preferred solution: within a set of simultaneous notes make notes of equal duration belong to the same voice (and use chord tag). I.e. in a triad with durations n1:q n2:q n3:h, n1 and n2 would belong to one voice with note n1 including a chord tag, and n3 would be the next voice.
 
 TODO
 ----
