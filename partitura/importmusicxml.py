@@ -823,7 +823,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
         if grace is not None:
             grace_type, steal_proportion = get_grace_info(grace)
             note = score.GraceNote(grace_type, step, alter, octave,
-                                   note_id, voice, staff, symbolic_duration,
+                                   note_id, voice, staff, # symbolic_duration,
                                    articulations, steal_proportion=steal_proportion)
         else:
 
