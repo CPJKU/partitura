@@ -210,31 +210,32 @@ def create_part(ticks, notes, spellings, time_sigs, key_sigs, part_id=None, part
     time_sigs = np.column_stack((time_sigs, ts_end_times))
     
     measure_counter = 1
+    # we call item() on numpy numbers to get the value in the equivalent python type
     for ts_start, num, den, ts_end in time_sigs:
+        time_sig = score.TimeSignature(num.item(), den.item())
 
-        time_sig = score.TimeSignature(num, den)
-
-        part.add(ts_start, time_sig)
+        part.add(ts_start.item(), time_sig)
         
-        measure_duration = (num * ticks * 4) // den
-        measure_start_limit = min(ts_end, part.timeline.last_point.t)
+        measure_duration = (num.item() * ticks * 4) // den.item()
+        measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
 
         for m_start in range(ts_start, measure_start_limit, measure_duration):
             measure = score.Measure(number=measure_counter)
             m_end = min(m_start+measure_duration, ts_end)
+
             part.add(m_start, measure, m_end)
             measure_counter += 1
 
         if np.isinf(ts_end):
             ts_end = m_end
         
-    # tie notes spanning measure boundaries
+    # tie notes where necessary
     tie_notes(part)
 
     return part
 
 
-def tie_notes(part):
+def tie_notes(part, force_duration_analysis=False):
     # split and tie notes at measure boundaries
     notes = part.list_all(score.Note)
     for note in notes:
@@ -251,16 +252,19 @@ def tie_notes(part):
             note = tie_next
             next_measure = next(iter(note.start.get_next_of_type(score.Measure)), None)
 
-
     # then split/tie any notes that do not have a fractional/dot duration
     divs_map = part.divisions_map
     notes = part.list_all(score.Note)
+    n_without_dur = sum(1 for note in notes if note.symbolic_duration is None)
+    if not force_duration_analysis and len(notes) > 10 and n_without_dur/len(notes) > .1:
+        warnings.warn('Many notes have irregular durations. If this is correct then use the option --force-duration-analysis, but beware that analysis may be slow. If this is unexpected you may wish to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value')
+        return None
+    
 
-    for note in notes:
-
+    for i, note in enumerate(notes):
+        print(i, len(notes))
         if note.symbolic_duration is None:
-
-            splits = score.find_tie_split(note.start.t, note.end.t, divs_map(note.start.t))
+            splits = score.find_tie_split_search(note.start.t, note.end.t, int(divs_map(note.start.t)))
 
             if splits:
 
