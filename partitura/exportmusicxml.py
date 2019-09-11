@@ -4,9 +4,10 @@ from collections import defaultdict
 from lxml import etree
 import logging
 import partitura.score as score
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 
 from partitura.importmusicxml import DYN_DIRECTIONS
+from partitura.utils import partition
 
 __all__ = ['save_musicxml']
 
@@ -153,22 +154,17 @@ def make_note_el(note, dur, counter):
     return note_e
 
             
-def group_notes_by_voice(notes):
-    
-    if all(hasattr(n, 'voice') for n in notes):
+# OBSOLETE
+# def group_notes_by_voice(notes):
+#     by_voice = defaultdict(list)
 
-        by_voice = defaultdict(list)
+#     for n in notes:
+#         if n.voice is None:
+#             by_voice[0].append(n)
+#         else:
+#             by_voice[n.voice].append(n)
 
-        for n in notes:
-            if n.voice is None:
-                by_voice[0].append(n)
-            else:
-                by_voice[n.voice].append(n)
-
-        return by_voice
-
-    else:
-        raise NotImplementedError('currently all notes must have a voice attribute for exporting to MusicXML')
+#     return by_voice
     
 
 def do_note(note, measure_end, timeline, counter):
@@ -224,12 +220,30 @@ def linearize_measure_contents(part, start, end, counter):
     contents = []
 
     for i in range(1, len(splits)):
-
         contents.extend(linearize_segment_contents(part, splits[i-1], splits[i], counter))
-    
+
     return contents
 
 
+def fill_gaps_with_rests(notes_by_voice, start, end, part):
+    for voice, notes in notes_by_voice.items():
+        if len(notes) == 0:
+            print('add rest', start.t, end.t)
+            rest = score.Rest(voice=voice or None)
+            part.add(start.t, rest, end.t)
+        else:
+            t = start.t
+            for note in notes:
+                if note.start.t > t:
+                    print('add rest', t, note.start.t)
+                    rest = score.Rest(voice=voice or None)
+                    part.add(t, rest, note.start.t)
+                t = note.end.t
+            if note.end.t < end.t:
+                print('add rest', note.end.t, end.t)
+                rest = score.Rest(voice=voice or None)
+                part.add(note.end.t, rest, end.t)
+                
 def linearize_segment_contents(part, start, end, counter):
     """
     Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
@@ -238,7 +252,32 @@ def linearize_segment_contents(part, start, end, counter):
     notes = part.timeline.get_all(score.GenericNote,
                                   start=start, end=end,
                                   include_subclasses=True)
-    notes_by_voice = group_notes_by_voice(notes)
+    # notes_by_voice = group_notes_by_voice(notes)
+    # notes_by_voice = partition(attrgetter('voice'), notes)
+    # if None in notes_by_voice:
+    #     notes_by_voice[0] = notes_by_voice[None]
+    #     del notes_by_voice[None]
+
+    if len(notes) == 0:
+        # if there are no notes in this segment, we add a rest
+        # NOTE: altering the part instance while exporting is bad!
+        # rest = score.Rest()
+        # part.add(start.t, rest, end.t)
+        # notes_by_voice = {0: [rest]}
+        notes_by_voice = {None: []}
+        pass
+    else:
+        notes_by_voice = partition(lambda n: n.voice or 0, notes)
+        
+    fill_gaps_with_rests(notes_by_voice, start, end, part)
+    
+    # redo
+    notes = part.timeline.get_all(score.GenericNote,
+                                  start=start, end=end,
+                                  include_subclasses=True)
+    notes_by_voice = partition(lambda n: n.voice or 0, notes)
+
+
     voices_e = defaultdict(list)
     voices = set(notes_by_voice.keys())
 
@@ -247,20 +286,19 @@ def linearize_segment_contents(part, start, end, counter):
         voice_notes = notes_by_voice[voice]
         # grace notes should precede other notes at the same onset
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
+        voice_notes.sort(key=lambda n: -n.duration)
         voice_notes.sort(key=lambda n: n.start.t)
-
+        
         for n in voice_notes:
 
             note_e = do_note(n, end.t, part.timeline, counter)
             voices_e[voice].append(note_e)
             
         add_chord_tags(voices_e[voice])
-        
+
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end)
     prints_e = do_prints(part, start, end)
-    # TODO: Page/System (i.e. everything print)
-    # TODO: Tempo (i.e. everything sound)
 
     barline_e = do_barlines(part, start, end)
     other_e = directions_e + barline_e + prints_e
@@ -412,7 +450,7 @@ def merge_with_voice(notes, other, measure_start):
     fb_cost = 0
     # order to insert simultaneously starting elements; it is important to put
     # notes last, since they update the position, and thus would lead to
-    # backup/forward
+    # needless backup/forward insertions
     order = {'barline': 0, 'attributes': 1, 'direction':2,
              'print':3, 'sound':4, 'note': 5}
     last_note_onset = measure_start
