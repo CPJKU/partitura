@@ -99,7 +99,7 @@ def make_note_el(note, dur, counter):
 
         etree.SubElement(note_e, 'type').text = sym_dur['type']
 
-    for i in range(sym_dur['dots']):
+    for i in range(sym_dur.get('dots', 0)):
 
         etree.SubElement(note_e, 'dot')
 
