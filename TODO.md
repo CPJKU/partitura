@@ -1,7 +1,5 @@
-TODO
-====
-
-Miscelaneous considerations:
+Miscelaneous considerations
+===========================
 
 - leave match file support for v2.0 (to be released before the tutorial)?
 
@@ -24,10 +22,13 @@ TODO
     - match.py: convert existing docstrings to numpy style
 
   - load MIDI to score.Part
-    - compute symbolic_durations from MIDI durations (partly done, see score.estimate_symbolic_duration)
-    - pitch spelling (implement PS13?)
+    - [v] compute symbolic_durations from MIDI durations
+    - [v] pitch spelling (implement PS13?)
     - convert mido keysig names (A#m) to fifths+mode representation
     - [V] voice assignment
+    - recognize tuplets
+    - estimate clef
+    - suggest quantization if too many unrecognized durations
     
   - load match/score format to score.Part
 
@@ -47,8 +48,12 @@ TODO
     - da capo/fine
     - [V] tempo
     - [V] new page/system
-    
+    - [V] fill gaps in measure with rests
+    - add measures if they are missing (implemented but needs to be isolated from `import_midi.create_part`)
+
  - test
      - [V] musicxml -> score -> musicxml
      - [V] unfold timeline (need more examples?)
      - test case for voice assignment
+     - test midi import with time sig change
+     
