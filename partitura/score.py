@@ -241,9 +241,9 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            LOGGER.warning(dedent(f'''reference not found in 
-                            o_map: {o_el} start={o_el.start} end={o_el.end},
-                            substituting None'''))
+                            LOGGER.warning(dedent('''reference not found in 
+                            o_map: {} start={} end={}, substituting None
+                            '''.format(o_el, o_el.start, o_el.end)))
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
@@ -253,8 +253,9 @@ class ReplaceRefMixin(object):
                     else:
                         if isinstance(o, Note):
                             m = o.start.get_prev_of_type(Measure, eq=True)[0]
-                        LOGGER.warning(dedent(f'''reference not found in o_map:
-                        {o} start={o.start} end={o.end}, substituting None'''))
+                        LOGGER.warning(dedent('''reference not found in o_map:
+                        {} start={} end={}, substituting None
+                        '''.format(o, o.start, o.end)))
                         o_new = None
                     setattr(self, attr, o_new)
 
@@ -400,7 +401,7 @@ class TimeLine(object):
 
         """
         if not mode in ('starting', 'ending'):
-            LOGGER.warning(f'unknown mode "{mode}", using "starting" instead')
+            LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
             mode = 'starting'
         
         if start is not None:
@@ -535,7 +536,7 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         return new
 
     def __str__(self):
-        return f'Timepoint {self.t}'
+        return 'Timepoint {}'.format(self.t)
 
     def add_starting_object(self, obj):
         """
@@ -745,8 +746,8 @@ class Slur(TimedObject):
 
     def __str__(self):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
-        start = '' if self.start_note is None else f'start={self.start_note.id}'
-        end = '' if self.end_note is None else f'end={self.end_note.id}'
+        start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
+        end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
         return ' '.join(('Slur', start, end)).strip()
 
 
@@ -779,7 +780,7 @@ class Fermata(TimedObject):
         self.ref = ref
 
     def __str__(self):
-        return f'Fermata ref={self.ref}'
+        return 'Fermata ref={}'.format(self.ref)
 
 
 class Ending(TimedObject):
@@ -1019,7 +1020,8 @@ class KeySignature(TimedObject):
         return self.names[(len(self.names) + self.fifths + o) % len(self.names)] + m
     
     def __str__(self):
-        return f'Key signature: fifths={self.fifths}, mode={self.mode} ({self.name})'
+        return ('Key signature: fifths={}, mode={} ({})'
+                .format(self.fifths, self.mode, self.name))
 
 
 class Transposition(TimedObject):
@@ -1154,11 +1156,10 @@ class GenericNote(TimedObject):
         else:
             return self._sym_dur
 
+    @symbolic_duration.setter
+    def symbolic_duration(self, v):
+        self._sym_dur = v
 
-    def hardcode_symbolic_duration(self, symbolic_duration):
-        self._sym_dur = symbolic_duration
-
-        
     @property
     def duration(self):
         """
@@ -1235,7 +1236,6 @@ class GenericNote(TimedObject):
             return []
 
     def __str__(self):
-        # s = f'{type(self).__name__}: id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
         s = ('{}: id={} voice={} staff={} type={}'
              .format(type(self).__name__, self.id, self.voice, self.staff,
                      format_symbolic_duration(self.symbolic_duration)))
@@ -1259,7 +1259,7 @@ class Note(GenericNote):
 
     def __str__(self):
         return ' '.join((super().__str__(),
-                         f'pitch={self.step}{self.alter_sign}{self.octave}'))
+                         'pitch={}{}{}'.format(self.step, self.alter_sign, self.octave)))
 
     @property
     def midi_pitch(self):
@@ -1428,7 +1428,7 @@ class ScoreVariant(object):
         return [(s.t, e.t, o) for (s, e, o) in self.segments]
 
     def __str__(self):
-        return f'Segment: {self.segment_times}'
+        return 'Segment: {}'.format(self.segment_times)
     
     def clone(self):
         """
