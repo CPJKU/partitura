@@ -234,10 +234,73 @@ def create_part(ticks, notes, spellings, voices, time_sigs, key_sigs, part_id=No
         if np.isinf(ts_end):
             ts_end = m_end
         
-    # tie notes where necessary
+    # tie notes where necessary (across measure boundaries, and within measures
+    # notes with compound duration)
     tie_notes(part)
 
+    # apply simplistic tuplet finding heuristic
+    find_tuplets(part)
+    
     return part
+
+
+def find_tuplets(part):
+    # quick shot at finding tuplets intended to cover some common cases.
+
+    # are tuplets always in the same voice?
+
+    # quite arbitrary:
+    search_for_tuplets = [9, 7, 5, 3]
+    # only look for x:2 tuplets
+    normal_notes = 2
+    
+    notes = part.list_all(score.Note)
+    divs_map = part.divisions_map
+
+    candidates = []
+    prev_end = None
+
+    # 1. group consecutive notes without symbolic_duration
+    for note in notes:
+        if note.symbolic_duration is None:
+            if note.start.t == prev_end:
+                candidates[-1].append(note)
+            else:
+                candidates.append([note])
+            prev_end = note.end.t
+
+    # 2. within each group
+    for group in candidates:
+        # 3. search for the predefined list of tuplets
+        for tuplet in search_for_tuplets:
+
+            if tuplet > len(group):
+                # tuplet requires more notes than we have
+                continue
+
+            durs = set(n.duration for n in group[:tuplet-1])
+            if len(durs) > 1:
+                # notes have different durations (possibly valid but not
+                # supported here)
+                continue
+
+            start = group[0].start.t
+            end = group[tuplet-1].end.t
+            total_dur = end - start
+
+            # total duration of tuplet notes must be integer-divisble by normal_notes
+            if total_dur % normal_notes > 0:
+                continue
+
+            # estimate duration type
+            dur_type = score.estimate_symbolic_duration(total_dur//normal_notes, int(divs_map(start)))
+
+            if dur_type and dur_type.get('dots', 0) == 0:
+                # recognized duration without dots
+                dur_type['actual_notes'] = tuplet
+                dur_type['normal_notes'] = normal_notes
+                for note in group[:tuplet]:
+                    note.symbolic_duration = dur_type
 
 
 def tie_notes(part, force_duration_analysis=False):
@@ -333,7 +396,6 @@ def quantize(v, unit):
 
 
 if __name__ == '__main__':
-    # print(find_tie_split(1, 14, 4))
     import doctest
     doctest.testmod()
 
