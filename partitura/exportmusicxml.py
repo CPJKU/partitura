@@ -59,7 +59,7 @@ def make_note_el(note, dur, counter):
     
         etree.SubElement(pitch_e, 'step').text = f'{note.step}'
     
-        if note.alter is not None:
+        if note.alter not in (None, 0):
             etree.SubElement(pitch_e, 'alter').text = f'{note.alter}'
     
         etree.SubElement(pitch_e, 'octave').text = f'{note.octave}'
@@ -93,7 +93,7 @@ def make_note_el(note, dur, counter):
 
         notations.append(etree.Element('fermata'))
     
-    sym_dur = note.symbolic_duration
+    sym_dur = note.symbolic_duration or {}
     
     if sym_dur.get('type') is not None:
 
@@ -481,10 +481,13 @@ def merge_measure_contents(notes, other, measure_start):
     # elements in `other` into each voice
     cost = {} 
 
-    
     for voice in sorted(notes.keys()):
         # merge `other` with each voice, and keep track of the cost
         merged[voice], cost[voice] = merge_with_voice(notes[voice], other, measure_start)
+
+    if not merged:
+        merged[0] = []
+        cost[0] = 0
 
     # get the voice for which merging notes and other has lowest cost
     merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
@@ -535,16 +538,12 @@ def do_directions(part, start, end):
     
     result = []
     for tempo in tempos:
-        # <sound tempo="qpm">
-        # tempo.bpm, tempo.unit
-        e0 = etree.Element('direction')
-        e1 = etree.SubElement(e0, 'direction-type')
-        e2 = etree.SubElement(e1, 'words')
+        # e0 = etree.Element('direction')
+        # e1 = etree.SubElement(e0, 'direction-type')
+        # e2 = etree.SubElement(e1, 'words')
         unit = 'q' if tempo.unit is None else tempo.unit
-        e2.text = f'{unit}={tempo.bpm}'
-        # e3 = etree.SubElement(e0, 'staff')
-        # e3.text = "1"
-        result.append((tempo.start.t, None, e0))
+        # e2.text = '{}={}'.format(unit, tempo.bpm)
+        # result.append((tempo.start.t, None, e0))
         e3 = etree.Element('sound', tempo=f'{int(score.to_quarter_tempo(unit, tempo.bpm))}')
         result.append((tempo.start.t, None, e3))
 
@@ -676,9 +675,8 @@ def save_musicxml(parts, out=None):
 
         scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
 
+        partname_e = etree.SubElement(scorepart_e, 'part-name')
         if part.part_name:
-
-            partname_e = etree.SubElement(scorepart_e, 'part-name')
             partname_e.text = part.part_name
 
         part_e = etree.SubElement(root, 'part', id=part.part_id)

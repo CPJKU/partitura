@@ -25,6 +25,7 @@ import re
 from copy import copy
 from textwrap import dedent
 from collections import defaultdict
+import warnings
 import logging
 import operator
 import itertools
@@ -37,7 +38,7 @@ from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_cu
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
-sys.setrecursionlimit(100000)
+# sys.setrecursionlimit(100000)
 
 LOGGER = logging.getLogger(__name__)
 _LABEL_DURS = {
@@ -60,12 +61,8 @@ _DOT_MULTIPLIERS = (1, 1+1/2, 1+3/4, 1+7/8)
 _MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
-_ALTER_SIGNS = {None: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
+_ALTER_SIGNS = {None: '', 0: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
-# def tree_prefix(level, mode=0):
-#     if mode == 0:
-#         0 =  ' │ '
-#     '│ ├ ─ └'
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):
     """
@@ -176,9 +173,10 @@ def format_symbolic_duration(symbolic_dur):
     str
         A string representation of the specified symbolic duration
     """
-    
-    
-    return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
+    if symbolic_dur is None:
+        return 'unknown'
+    else:
+        return (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
 
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
@@ -243,9 +241,9 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            LOGGER.warning(dedent(f'''reference not found in 
-                            o_map: {o_el} start={o_el.start} end={o_el.end},
-                            substituting None'''))
+                            LOGGER.warning(dedent('''reference not found in 
+                            o_map: {} start={} end={}, substituting None
+                            '''.format(o_el, o_el.start, o_el.end)))
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
@@ -254,10 +252,10 @@ class ReplaceRefMixin(object):
                         o_new = o_map[o]
                     else:
                         if isinstance(o, Note):
-                            m = o.start.get_prev_of_type(
-                                score.Measure, eq=True)[0]
-                        LOGGER.warning(dedent(f'''reference not found in o_map:
-                        {o} start={o.start} end={o.end}, substituting None'''))
+                            m = o.start.get_prev_of_type(Measure, eq=True)[0]
+                        LOGGER.warning(dedent('''reference not found in o_map:
+                        {} start={} end={}, substituting None
+                        '''.format(o, o.start, o.end)))
                         o_new = None
                     setattr(self, attr, o_new)
 
@@ -403,7 +401,7 @@ class TimeLine(object):
 
         """
         if not mode in ('starting', 'ending'):
-            LOGGER.warning(f'unknown mode "{mode}", using "starting" instead')
+            LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
             mode = 'starting'
         
         if start is not None:
@@ -538,7 +536,7 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         return new
 
     def __str__(self):
-        return f'Timepoint {self.t}'
+        return 'Timepoint {}'.format(self.t)
 
     def add_starting_object(self, obj):
         """
@@ -743,12 +741,13 @@ class Slur(TimedObject):
         super().__init__()
         self.start_note = start_note
         self.end_note = end_note
+        # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(['start_note', 'end_note'])
 
     def __str__(self):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
-        start = '' if self.start_note is None else f'start={self.start_note.id}'
-        end = '' if self.end_note is None else f'end={self.end_note.id}'
+        start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
+        end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
         return ' '.join(('Slur', start, end)).strip()
 
 
@@ -781,7 +780,7 @@ class Fermata(TimedObject):
         self.ref = ref
 
     def __str__(self):
-        return f'Fermata ref={self.ref}'
+        return 'Fermata ref={}'.format(self.ref)
 
 
 class Ending(TimedObject):
@@ -1021,7 +1020,8 @@ class KeySignature(TimedObject):
         return self.names[(len(self.names) + self.fifths + o) % len(self.names)] + m
     
     def __str__(self):
-        return f'Key signature: fifths={self.fifths}, mode={self.mode} ({self.name})'
+        return ('Key signature: fifths={}, mode={} ({})'
+                .format(self.fifths, self.mode, self.name))
 
 
 class Transposition(TimedObject):
@@ -1141,6 +1141,7 @@ class GenericNote(TimedObject):
         self.slur_stops = []
         self.slur_starts = []
         
+        # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
 
     @property
@@ -1148,12 +1149,17 @@ class GenericNote(TimedObject):
         if self._sym_dur is None:
             divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
             if divs is not None:
-                return estimate_symbolic_duration(self.end.t - self.start.t, divs.divs)
+                eps = 10**-3
+                return estimate_symbolic_duration(self.end.t - self.start.t, divs.divs, eps)
             else:
                 None
         else:
             return self._sym_dur
-    
+
+    @symbolic_duration.setter
+    def symbolic_duration(self, v):
+        self._sym_dur = v
+
     @property
     def duration(self):
         """
@@ -1228,16 +1234,18 @@ class GenericNote(TimedObject):
             return [self.tie_next] + self.tie_next.tie_next_notes
         else:
             return []
-        
+
     def __str__(self):
-        s = f'{type(self).__name__}: id={self.id} voice={self.voice} staff={self.staff} type="{format_symbolic_duration(self.symbolic_duration)}"'
+        s = ('{}: id={} voice={} staff={} type={}'
+             .format(type(self).__name__, self.id, self.voice, self.staff,
+                     format_symbolic_duration(self.symbolic_duration)))
         if len(self.articulations) > 0:
-            s += f' articulations=({", ".join(self.articulations)})'
+            s += ' articulations=({})'.format(", ".join(self.articulations))
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
             tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
             tied_id = '+'.join(n.id or 'None' for n in all_tied)
-            return s + f' tied: {tied_id}'
+            return s + ' tied: {}'.format(tied_id)
         else:
             return s
 
@@ -1251,7 +1259,7 @@ class Note(GenericNote):
 
     def __str__(self):
         return ' '.join((super().__str__(),
-                         f'pitch={self.step}{self.alter_sign}{self.octave}'))
+                         'pitch={}{}{}'.format(self.step, self.alter_sign, self.octave)))
 
     @property
     def midi_pitch(self):
@@ -1299,13 +1307,13 @@ class Note(GenericNote):
         n = self
         while True:
             nn = n.start.get_prev_of_type(Note)
-            if nn == []:
-                return nn
-            else:
+            if nn:
                 voice_notes = [m for m in nn if m.voice == self.voice]
                 if len(voice_notes) > 0:
                     return voice_notes
                 n = nn[0]
+            else:
+                return []
 
     @property
     def simultaneous_notes_in_voice(self):
@@ -1317,13 +1325,13 @@ class Note(GenericNote):
         n = self
         while True:
             nn = n.start.get_next_of_type(Note)
-            if nn == []:
-                return nn
-            else:
+            if nn:
                 voice_notes = [m for m in nn if m.voice == self.voice]
                 if len(voice_notes) > 0:
                     return voice_notes
                 n = nn[0]
+            else:
+                return []
 
 
 class Rest(GenericNote):
@@ -1420,7 +1428,7 @@ class ScoreVariant(object):
         return [(s.t, e.t, o) for (s, e, o) in self.segments]
 
     def __str__(self):
-        return f'Segment: {self.segment_times}'
+        return 'Segment: {}'.format(self.segment_times)
     
     def clone(self):
         """
@@ -1983,6 +1991,8 @@ class Part(object):
 
         if len(self.timeline.points) == 0:
             return None
+        elif len(self.timeline.points) == 1:
+            return lambda x: np.zeros(len(x))
 
         try:
             first_measure = self.timeline.points[
@@ -2050,7 +2060,6 @@ class Part(object):
         # and divs[:, 1] is a list of corresponding quarter note times
 
         # interpolation object to map div times to quarter times:
-        # div_intp = my_interp1d(divs[:, 0], divs[:, 1])
         div_intp = interp1d(divs[:, 0], divs[:, 1])
 
         dens = dens.astype(np.float)
@@ -2229,33 +2238,194 @@ def _repeats_to_start_end(repeats, first, last):
     ends.reverse()
     return list(zip(starts, ends))
 
+# def largest_covered_beat(start, end, divs):
+#     """
+#     Find the largest number `n` that can be obtained by doubling or halving
+#     `divs` such that `start` < `k`*`n` < `end`, for some integer `k`.
+    
+#     In musical terms, it amounts to finding the largest beat unit (relative to
+#     divs) that occurs in the interval (start, end).
 
-def add_measures(part):
-    # WIP
-    divs = part.list_all(Divisions)
-    ts = part.list_all(TimeSignature)
-    sorted(divs + ts, key=lambda o: o.start.t)
+#     Parameters
+#     ----------
+#     start: type
+#         Description of `start`
+#     end: type
+#         Description of `end`
+#     divs: type
+#         Description of `divs`
+    
+#     Returns
+#     -------
+#     int
+#         The largest beat period such 
 
+#     Examples
+#     --------
+
+#     >>> largest_covered_beat(7, 9, 4)
+#     8
+#     >>> largest_covered_beat(10, 11, 3)
+#     >>> largest_covered_beat(8, 12, 3)
+#     3
+#     >>> largest_covered_beat(13, 31, 4)
+#     16
+#     >>> largest_covered_beat(13, 31, 13)
+#     26
+#     >>> largest_covered_beat(30, 31, 33)
+#     >>> largest_covered_beat(30, 31, 32)
+#     >>> largest_covered_beat(30, 38, 32)
+#     32
+#     >>> largest_covered_beat(30, 38, 3)
+#     12
+#     """
+#     assert start < end
+#     beat = divs
+#     def too_high(b):
+#         return b*(1+start//b) > b*((end-1)//b)
+
+#     if too_high(beat):
+#         new_beat = beat
+#         while too_high(new_beat):
+#             beat = new_beat
+#             new_beat = beat // 2
+#             if beat % 2 != 0:
+#                 break
+#         if too_high(beat):
+#             return None
+#         else:
+#             return beat
+#     else:
+#         new_beat = beat
+#         while not too_high(new_beat):
+#             beat = new_beat
+#             new_beat = beat * 2
+#         return beat
+
+
+def order_splits(start, end, smallest_unit):
+    """
+    Description
+    
+    Parameters
+    ----------
+    start: int
+        Description of `start`
+    end: int
+        Description of `end`
+    smallest_divs: int
+        Description of `smallest_divs`
+    
+    Returns
+    -------
+    ndarray
+        Description of return value
+
+    Examples
+    --------
+
+    >>> order_splits(1, 8, 1)
+    array([4, 2, 6, 3, 5, 7])
+    >>> order_splits(11, 17, 3)
+    array([12, 15])
+    >>> order_splits(11, 17, 1)
+    array([16, 12, 14, 13, 15])
+    >>> order_splits(11, 17, 4)
+    array([16, 12])
+
+    """
+
+    # gegeven b, kies alle veelvouden van 2*b, verschoven om b, die tussen start en end liggen
+    # gegeven b, kies alle veelvouden van 2*b die tussen start-b en end-b liggen en tel er b bij op
+    
+    b = smallest_unit
+    result = []
+
+    splits = np.arange((b*2)*(1+(start+b)//(b*2)), end+b, b*2)-b
+
+    while b*(1+start//b) < end and b*(end//b) > start:
+        result.insert(0, splits)
+        b = b * 2
+        splits = np.arange((b*2)*(1+(start+b)//(b*2)), end+b, b*2)-b
+
+    if result:
+        return np.concatenate(result)
+    else:
+        return np.array([])
+
+
+def find_smallest_unit(divs):
+    unit = divs
+    while unit % 2 == 0:
+        unit = unit // 2
+    return unit
+
+
+def find_tie_split_search(start, end, divs, max_splits=3):
+    smallest_unit = find_smallest_unit(divs)
+
+    def success(state):
+        return all(estimate_symbolic_duration(right-left, divs)
+                   for left, right in iter_current_next([start]+state+[end]))
+
+    def expand(state):
+        if len(state) >= max_splits:
+            return []
+        else:
+            split_start = ([start]+state)[-1]
+            ordered_splits = order_splits(split_start, end, smallest_unit)
+            return [state+[s.item()] for s in ordered_splits]
+
+    def combine(new_states, old_states):
+        return new_states + old_states
+    
+    states = [[]]
+
+    # splits = search_recursive(states, success, expand, combine)
+    splits = search_iterative(states, success, expand, combine)
+
+    if splits is not None:
+        solution = [(left, right, estimate_symbolic_duration(right-left, divs))
+                     for left, right in iter_current_next([start]+splits+[end])]
+        print(solution)
+        return solution
+    else:
+        print('no solution for ', start, end, divs)
+
+def search_iterative(states, success, expand, combine):
+    while len(states) > 0:
+        state = states.pop(0)
+        if success(state):
+            return state
+        else:
+            states = combine(expand(state), states)
+
+
+def search_recursive(states, success, expand, combine):
+    try:
+        if not states:
+            return None
+        elif success(states[0]):
+            return states[0]
+        else:
+            new_states = combine(expand(states[0]), states[1:])
+            return search_recursive(new_states, success, expand, combine)
+    except RecursionError:
+        warnings.warn('search exhausted stack, bailing out')
+        return None
 
 if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
+    # print(order_splits(1, 8, 1))
+    # print(order_splits(11, 17, 3))
+    # print(order_splits(11, 17, 1))
+    # find_tie_split_search(1, 8, 2)
+    # find_tie_split_search(141, 1920, 480)
+    find_tie_split_search(0, 3632-17, 480)
+    o = 30
+    find_tie_split_search(o, 3632-17+o, 480)
+    # find_tie_split_search(1, 8, 4)
+    # import doctest
+    # doctest.testmod()
 
 
-        # for i, (cls, objects) in enumerate(starting_items):
-        #     if len(objects) > 0:
-        #         if i == (M - 1):
-        #             tree.last_item()
-        #         else:
-        #             tree.next_item()
-        #         result.append('{}{}'.format(tree, cls.__name__))
-        #         tree.push()
-        #         N = len(objects)
-        #         for j, o in enumerate(objects):
-        #             if j == (N - 1):
-        #                 tree.last_item()
-        #             else:
-        #                 tree.next_item()
-        #             result.append('{}{}'.format(tree, o))
-        #         tree.pop()
     
