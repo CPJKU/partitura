@@ -77,7 +77,7 @@ def decode_pitch(pitch):
     return step, alter, octave
 
 
-def save_midi(fn, parts, ppq=DEFAULT_PPQ):
+def save_midi(fn, parts, file_type=0, default_vel=64):
     """
     Write Parts to a MIDI file
 
@@ -91,21 +91,30 @@ def save_midi(fn, parts, ppq=DEFAULT_PPQ):
 
     Parameters
     ----------
-    part : score.Part() object
+    fn : str
+        can this also be a file like object? Check
+
+    parts : single or list of mulitple score.Part objects
 
     """
 
-    mf = MidiFile()  # create new file
+    mf = MidiFile(fn, type=file_type)  # create new file
 
-    for part in parts:
+    for part in parts:  # iterate over the parts
         track = MidiTrack()
         mf.tracks.append(track)
 
         # set instrument/sound using MIDI program change
-        track.append(Message('program_change', program=x, time=0))
+        track.append(Message('program_change', program=0, time=0))
 
-        for note in part.notes:  # iterate over the part's notes
-            track.append(Message('note_on', note=xx, velocity=yy, time=zz))
-            track.append(Message('note_off', note=xx, velocity=yy, time=zz))
+        for note in part.notes_tied:  # iterate over the part's notes
+            track.append(Message('note_on',
+                                 note=note.midi_pitch,
+                                 velocity=default_vel,
+                                 time=note.start.t))
+            track.append(Message('note_off',
+                                 note=note.midi_pitch,
+                                 velocity=default_vel,
+                                 time=note.end.t))
 
 
