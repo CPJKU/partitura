@@ -295,8 +295,8 @@ class TimeLine(object):
                 self.points[i + 1].prev = self.points[i]
 
     def remove_point(self, tp):
-        """
-        remove `TimePoint` object `tp` from the time line
+        """Remove `TimePoint` object `tp` from the time line
+        
         """
         i = np.searchsorted(self.points, tp)
         if self.points[i] == tp:
@@ -309,10 +309,9 @@ class TimeLine(object):
                 self.points[i + 1].prev = self.points[i]
 
     def get_point(self, t):
-        """
-        return the `TimePoint` object with time `t`, or None if there
-        is no such object
-
+        """Return the `TimePoint` object with time `t`, or None if there is no
+        such object.
+        
         """
         i = np.searchsorted(self.points, TimePoint(t))
         if i < len(self.points) and self.points[i].t == t:
@@ -321,15 +320,20 @@ class TimeLine(object):
             return None
 
     def get_or_add_point(self, t):
-        """
-        return the `TimePoint` object with time `t`; if there is no
+        """Return the `TimePoint` object with time `t`; if there is no
         such object, create it, add it to the time line, and return
-        it
+        it.
 
-        :param t: time value `t` (float)
+        Parameters
+        ----------
+        t : int
+            time value `t`
 
-        :returns: a TimePoint object with time `t`
-
+        Returns
+        -------
+        TimePoint
+            a TimePoint object with time `t`
+        
         """
 
         tp = self.get_point(t)
@@ -339,22 +343,19 @@ class TimeLine(object):
         return tp
 
     def add_starting_object(self, t, o):
-        """
-        add object `o` as an object starting at time `t`
-
+        """Add object `o` as an object starting at time `t`
+        
         """
         self.get_or_add_point(t).add_starting_object(o)
 
     def add_ending_object(self, t, o):
-        """
-        add object `o` as an object ending at time `t`
-
+        """Add object `o` as an object ending at time `t`
+        
         """
         self.get_or_add_point(t).add_ending_object(o)
 
     def remove_starting_object(self, o):
-        """
-        remove object `o` as an object starting at time `t`. This involves:
+        """Remove object `o` as an object starting at time `t`. This involves:
           - removing `o` from the timeline
           - remove the note start timepoint if no starting or ending objects
             remain at that time
@@ -371,8 +372,7 @@ class TimeLine(object):
             o.start = None
 
     def remove_ending_object(self, o):
-        """
-        remove object `o` as an object ending at time `t`. This involves:
+        """Remove object `o` as an object ending at time `t`. This involves:
           - removing `o` from the timeline
           - remove the note ending timepoint if no starting or ending objects
             remain at that time
@@ -396,9 +396,8 @@ class TimeLine(object):
         return self.get_all(cls, start, end, include_subclasses, mode='ending')
     
     def get_all(self, cls, start=None, end=None, include_subclasses=False, mode='starting'):
-        """
-        return all objects of type `cls`
-
+        """Return all objects of type `cls`
+        
         """
         if not mode in ('starting', 'ending'):
             LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
@@ -466,43 +465,39 @@ class TimeLine(object):
     
 class TimePoint(ComparableMixin, ReplaceRefMixin):
 
-    """
-    A TimePoint represents an instant in Time.
+    """A TimePoint represents an instant in Time.
+
+    The `TimeLine` class stores sorted TimePoint objects in an array under
+    TimeLine.points, as well as doubly linked (through the `prev` and
+    `next` attributes). The `TimeLine` class also has functionality to add,
+    and remove TimePoints.
 
     Parameters
     ----------
     t : number
-        Time point of some event in/element of the score, where the unit
-        of a time point is the <divisions> as defined in the musicxml file,
-        more precisely in the corresponding score part.
-        Represents the absolute time of the time point, also used
-        for ordering TimePoint objects w.r.t. each other.
-
-    label : str, optional. Default: ''
+        Time point of some event in/element of the score, where the unit of
+        a time point is the <divisions> as defined in the musicxml file,
+        more precisely in the corresponding score part. Represents the
+        absolute time of the time point, also used for ordering TimePoint
+        objects w.r.t. each other.
+    label : str, optional
+        Default: ''
 
     Attributes
     ----------
     t : number
-
     label : str
-
     starting_objects : dictionary
-        a dictionary where the musical objects starting at this
-        time are grouped by class.
-
+        a dictionary where the musical objects starting at this time are
+        grouped by class.
     ending_objects : dictionary
-        a dictionary where the musical objects ending at this
-        time are grouped by class.
-
-    * `prev`: the preceding time instant (or None if there is none)
-
-    * `next`: the succeding time instant (or None if there is none)
-
-    The `TimeLine` class stores sorted TimePoint objects in an array
-    under TimeLine.points, as well as doubly linked (through the
-    `prev` and `next` attributes). The `TimeLine` class also has
-    functionality to add, and remove TimePoints.
-
+        a dictionary where the musical objects ending at this time are
+        grouped by class.
+    prev
+        the preceding time instant (or None if there is none)
+    next
+        The succeding time instant (or None if there is none)
+    
     """
 
     def __init__(self, t):
@@ -539,22 +534,22 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         return 'Timepoint {}'.format(self.t)
 
     def add_starting_object(self, obj):
-        """
-        add object `obj` to the list of starting objects
+        """Add object `obj` to the list of starting objects
+        
         """
         obj.start = self
         self.starting_objects[type(obj)].append(obj)
 
     def add_ending_object(self, obj):
-        """
-        add object `obj` to the list of ending objects
+        """Add object `obj` to the list of ending objects
+        
         """
         obj.end = self
         self.ending_objects[type(obj)].append(obj)
 
     def get_starting_objects_of_type(self, otype, include_subclasses=False):
-        """
-        return all objects of type `otype` that start at this time point
+        """Return all objects of type `otype` that start at this time point
+        
         """
         if include_subclasses:
             return self.starting_objects[otype] + \
@@ -564,8 +559,8 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
             return self.starting_objects[otype]
 
     def get_ending_objects_of_type(self, otype, include_subclasses=False):
-        """
-        return all objects of type `otype` that end at this time point
+        """Return all objects of type `otype` that end at this time point
+        
         """
         if include_subclasses:
             return self.ending_objects[otype] + \
@@ -575,9 +570,9 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
             return self.ending_objects[otype]
 
     def get_prev_of_type(self, otype, eq=False):
-        """
-        return the object(s) of type `otype` that start at the latest
-        time before this time point (or at this time point, if `eq` is True)
+        """Return the object(s) of type `otype` that start at the latest time
+        before this time point (or at this time point, if `eq` is True)
+        
         """
         if eq:
             value = self.get_starting_objects_of_type(otype)
@@ -596,9 +591,9 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
                 return self.prev._get_prev_of_type(otype)
 
     def get_next_of_type(self, otype, eq=False):
-        """
-        return the object(s) of type `otype` that start at the earliest
+        """Return the object(s) of type `otype` that start at the earliest
         time after this time point (or at this time point, if `eq` is True)
+        
         """
         if eq:
             value = self.get_starting_objects_of_type(otype)
@@ -617,10 +612,9 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
                 return self.next._get_next_of_type(otype)
 
     def _cmpkey(self):
-        """
-        This method returns the value to be compared
-        (code for that is in the ComparableMixin class)
-
+        """This method returns the value to be compared (code for that is in
+        the ComparableMixin class)
+        
         """
         return self.t
 
@@ -687,11 +681,10 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
 
 class TimedObject(ReplaceRefMixin):
 
-    """
-    class that represents objects that (may?) have a start and ending
-    point.
-    Used as super-class for classes representing different types of
+    """Class that represents objects that (may?) have a start and ending
+    point. Used as super-class for classes representing different types of
     objects in a (printed) score.
+    
     """
 
     def __init__(self):
@@ -785,9 +778,9 @@ class Fermata(TimedObject):
 
 class Ending(TimedObject):
 
-    """
-    Class that represents one part of a 1---2--- type ending of a
-    musical passage (a.k.a Volta brackets).
+    """Class that represents one part of a 1---2--- type ending of a musical
+    passage (a.k.a Volta brackets).
+    
     """
 
     def __init__(self, number):
@@ -800,18 +793,16 @@ class Ending(TimedObject):
 
 class Measure(TimedObject):
 
-    """
+    """Measure.
 
     Attributes
     ----------
-    number : number
+    number : int
         the number of the measure. (directly taken from musicxml file?)
-
-    page :
-
-    system :
-
+    page : int
+    system : int
     incomplete : boolean
+    
     """
 
     def __init__(self, number=None):
@@ -840,18 +831,20 @@ class Measure(TimedObject):
             return None
 
     def get_measure_duration(self, quarter=False):
-        """
-        Return the measure duration, either in beats or in quarter note units.
+        """Return the measure duration, either in beats or in quarter note
+        units.
 
         Parameters
         ----------
-        quarter: bool (optional, default: False)
-            If True, return the measure duration in quarter note units, otherwise in beat units
+        quarter : bool (optional)
+            If True, return the measure duration in quarter note units,
+            otherwise in beat units. Defaults to False
 
         Returns
         -------
         float
             The measure duration
+        
         """
 
         # TODO: support mid-measure time sig and division changes
@@ -871,23 +864,24 @@ class Measure(TimedObject):
 
     @property
     def incomplete(self):
-        """
-        Returns True if the duration of the measure is less than the expected
-        duration (as computed based on the current divisions and time
-        signature), and False otherwise.
+        """Returns True if the duration of the measure is less than the
+        expected duration (as computed based on the current divisions and
+        time signature), and False otherwise.
 
-        WARNING: this property does not work reliably to detect
-        incomplete measures in the middle of the piece
+        WARNING: this property does not work reliably to detect incomplete
+        measures in the middle of the piece
 
-        NOTE: this is probably because of the way incomplete measures are dealt
-        with in the musicxml parser. When a score part has an incomplete measure
-        where the corresponding measure in some other part is complete, the
-        duration of the incomplete measure is adjusted to that it is complete
-        (otherwise the times would be misaligned after the incomplete measure).
+        NOTE: this is probably because of the way incomplete measures are
+        dealt with in the musicxml parser. When a score part has an
+        incomplete measure where the corresponding measure in some other
+        part is complete, the duration of the incomplete measure is
+        adjusted to that it is complete (otherwise the times would be
+        misaligned after the incomplete measure).
 
         Returns
         -------
         bool
+        
         """
 
         assert self.start.next is not None, LOGGER.error(
@@ -948,11 +942,11 @@ class TimeSignature(TimedObject):
 
 class Divisions(TimedObject):
 
-    """
-    represents <divisions>xxx</divisions> that are used inside a measure
-    to set the length of a quarter note (xxx here is the value for a quarter
-    note, e.g. 256). This element usually is present in the first measure
-    of each score part.
+    """Represents <divisions>xxx</divisions> that are used inside a measure
+    to set the length of a quarter note (xxx here is the value for a
+    quarter note, e.g. 256). This element usually is present in the first
+    measure of each score part.
+    
     """
 
     def __init__(self, divs):
@@ -999,15 +993,15 @@ class KeySignature(TimedObject):
         
     @property
     def name(self):
-        """
-        A human-readable representation of the key, such as "C#" for C sharp major,
-        or "Ebm" for E flat minor. Compatible with the key signature names used
-        by mido.
+        """A human-readable representation of the key, such as "C#" for C
+        sharp major, or "Ebm" for E flat minor. Compatible with the key
+        signature names used by mido.
 
         Returns
         -------
         str
             Human-readable representation of the key
+        
         """
         
         if self.mode == 'minor':
@@ -1026,17 +1020,16 @@ class KeySignature(TimedObject):
 
 class Transposition(TimedObject):
 
-    """
-    represents a <transpose> tag that tells how to change all (following)
+    """Represents a <transpose> tag that tells how to change all (following)
     pitches of that part to put it to concert pitch (i.e. sounding pitch).
 
     Parameters
     ----------
-    diatonic : number
-
-    chromatic : number
-        the number of semi-tone steps to add or subtract to the pitch to
+    diatonic : int
+    chromatic : int
+        The number of semi-tone steps to add or subtract to the pitch to
         get to the (sounding) concert pitch.
+    
     """
 
     def __init__(self, diatonic, chromatic):
@@ -1115,15 +1108,14 @@ class ImpulsiveLoudnessDirection(LoudnessDirection): pass
 
 
 class GenericNote(TimedObject):
-    """
-    Represents the common aspects of notes and rests (and in the future unpitched notes)
+    """Represents the common aspects of notes and rests (and in the future
+    unpitched notes)
 
     Parameters
     ----------
     voice : integer, optional (default: None)
-
     id : integer, optional (default: None)
-
+    
     """
     def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations={}):
         super().__init__()
@@ -1162,12 +1154,12 @@ class GenericNote(TimedObject):
 
     @property
     def duration(self):
-        """
-        The duration of the note in divisions
+        """The duration of the note in divisions
 
         Returns
         -------
-        number
+        int
+        
         """
 
         try:
@@ -1178,15 +1170,15 @@ class GenericNote(TimedObject):
 
     @property
     def end_tied(self):
-        """
-        The `Timepoint` corresponding to the end of the note, or---when this note
-        belongs to a group of tied notes---the end of the last note in the
-        group.
-        
+        """The `Timepoint` corresponding to the end of the note, or---when
+        this note belongs to a group of tied notes---the end of the last
+        note in the group.
+
         Returns
         -------
         TimePoint
             End of note
+        
         """
         if self.tie_next is None:
             return self.end
@@ -1195,14 +1187,15 @@ class GenericNote(TimedObject):
         
     @property
     def duration_tied(self):
-        """
-        Time difference of the start of the note to the end of the note, or---when 
-        this note belongs to a group of tied notes---the end of the last note in the group.
-        
+        """Time difference of the start of the note to the end of the note,
+        or---when  this note belongs to a group of tied notes---the end of
+        the last note in the group.
+
         Returns
         -------
         int
             Duration of note
+        
         """
         if self.tie_next is None:
             return self.duration
@@ -1263,14 +1256,14 @@ class Note(GenericNote):
 
     @property
     def midi_pitch(self):
-        """
-        the midi pitch value of the note (MIDI note number).
-        C4 (middle C, in german: c') is note number 60.
+        """The midi pitch value of the note (MIDI note number). C4 (middle C,
+        in german: c') is note number 60.
 
         Returns
         -------
         integer
-            the note's pitch as MIDI note number.
+            The note's pitch as MIDI note number.
+        
         """
         return ((self.octave + 1) * 12
                 + _MIDI_BASE_CLASS[self.step.lower()]
@@ -1278,26 +1271,26 @@ class Note(GenericNote):
 
     @property
     def morphetic_pitch(self):
-        """
-        the morphetic value of the note, i.e. a single integer.
-        It corresponds to the (vertical) position of the note in
-        the barline system.
+        """The morphetic value of the note, i.e. a single integer. It
+        corresponds to the (vertical) position of the note in the barline
+        system.
 
         Returns
         -------
         integer
+        
         """
         return (_MORPHETIC_OCTAVE[self.octave] +
                 _MORPHETIC_BASE_CLASS[self.step.lower()])
 
     @property
     def alter_sign(self):
-        """
-        the alteration of the note
+        """The alteration of the note
 
         Returns
         -------
         str
+        
         """
         return _ALTER_SIGNS[self.alter]
 
@@ -1377,9 +1370,9 @@ class PartGroup(object):
 
     children : list of PartGroup objects
 
-    parent :
+    parent : PartGroup
 
-    number :
+    number : int
 
     parts : list of Part objects
         a list of all Part objects in this PartGroup
@@ -1521,47 +1514,37 @@ class ScoreVariant(object):
 
 class Part(object):
 
-    """
-    Represents a whole score part, e.g. all notes of one single instrument
-    or 2 instruments written in the same staff.
-    Note that there may be more than one staff per score part; vice versa,
-    in the printed score, there may be more than one score part's notes
-    in the same staff (such as two flutes in one staff, etc).
+    """Represents a whole score part, e.g. all notes of one single instrument
+    or 2 instruments written in the same staff. Note that there may be more
+    than one staff per score part; vice versa, in the printed score, there
+    may be more than one score part's notes in the same staff (such as two
+    flutes in one staff, etc).
 
     Parameters
     ----------
     part_id : str
-        the id of the part (<score-part id="P1">), will look
-        like 'P1' for part 1, etc.
-
-    tl : TimeLine object OR None, optional
+        The id of the part (<score-part id="P1">), will look         like
+        'P1' for part 1, etc.      tl : TimeLine object OR None, optional
 
     Attributes
     ----------
     part_id : str
-
     timeline : TimeLine object
-
     part_name : str
         as taken from the musicxml file
-
     part_abbreviation : str
         as taken from the musicxml file
-
-    notes :
-
-    notes_unfolded :
-
+    notes
+    notes_unfolded
     beat_map : scipy interpolate interp1d object
-        the timeline on a beat basis, i.e. defined on the currently
-        present time signature's denominator (may vary throughout the score).
-        Each timepoint of the timeline is expressed as a (fraction) of
-        a beat number.
-
+        the timeline on a beat basis, i.e. defined on the currently present
+        time signature's denominator (may vary throughout the score). Each
+        timepoint of the timeline is expressed as a (fraction) of a beat
+        number.
     quarter_map : scipy interpolate interp1d object
-        the timeline on a quarter note basis. Each timepoint of
-        the timeline is be expressed as a (fraction of) a quarter
-        note.
+        The timeline on a quarter note basis. Each timepoint of         the
+        timeline is be expressed as a (fraction of) a quarter         note.
+    
     """
 
     def __init__(self, part_id, timeline=None):
@@ -1589,18 +1572,18 @@ class Part(object):
 
 
     def add(self, start, obj, end=None):
-        """
-        Add an object to the timeline.
-        
+        """Add an object to the timeline.
+
         Parameters
         ----------
-        start: int
-            Start time of the object 
-        obj: TimedObject
+        start : int
+            Start time of the object
+        obj : TimedObject
             Object to be added to the timeline
-        end: int, optional
-            End time of the object. When end is None no end time is registered
-            for the object. Defaults to None.
+        test
+        end : int, optional
+            end time of the object. When end is None no end time is
+            registered for the object. Defaults to None.
         
         """
         
@@ -1630,24 +1613,19 @@ class Part(object):
 
             
     def make_score_variants(self):
-        """
-        Create a list of ScoreVariant objects, each representing a
-        distinct way to unfold the score, based on the repeat
-        structure.
-
-        Parameters
-        ----------
-
+        """Create a list of ScoreVariant objects, each representing a
+        distinct way to unfold the score, based on the repeat structure.
 
         Returns
         -------
+        list
+            List of ScoreVariant objects
 
-        Note
-        ----
-
-        This function does not currently support nested repeats, such as in case
-        45d of the MusicXML Test Suite.
-
+        Notes
+        -----
+        This function does not currently support nested repeats, such as in
+        case 45d of the MusicXML Test Suite.
+        
         """
 
         if len(self.timeline.get_all(DaCapo) +
@@ -1746,9 +1724,9 @@ class Part(object):
         return svs
 
     def test_timeline(self):
-        """
-        Test if all ending objects have occurred as starting object as
+        """Test if all ending objects have occurred as starting object as
         well.
+        
         """
         return self.timeline.test()
 
@@ -1757,14 +1735,15 @@ class Part(object):
             yield sv.create_variant_timeline()
 
     def unfold_timeline_maximal(self):
-        """
-        Return the "maximally" unfolded timeline, that is, a copy of the timeline
-        where all segments marked with repeat signs are included twice.
-        
+        """Return the "maximally" unfolded timeline, that is, a copy of the
+        timeline where all segments marked with repeat signs are included
+        twice.
+
         Returns
         -------
         TimeLine
             The unfolded TimeLine
+        
         """
         
         sv = self.make_score_variants()[-1]
@@ -1778,28 +1757,27 @@ class Part(object):
                                           if n.grace_type is None]
 
     def expand_grace_notes(self, default_type='appoggiatura', min_steal=.05, max_steal=.7):
-        """
-        Expand durations of grace notes according to their
-        specifications, or according to the default settings specified
-        using the keywords. The onsets/offsets of the grace notes and
-        surrounding notes are set accordingly. Multiple contiguous
-        grace notes inside a voice are expanded sequentially.
+        """Expand durations of grace notes according to their specifications,
+        or according to the default settings specified using the keywords.
+        The onsets/offsets of the grace notes and surrounding notes are set
+        accordingly. Multiple contiguous grace notes inside a voice are
+        expanded sequentially.
 
         This function modifies the `points` attribute.
 
         Parameters
         ----------
         default_type : str, optional. Default: 'appoggiatura'
-            The type of grace note, if no type is specified in the grace note
-            itself. Possibilites are: {'appoggiatura', 'acciaccatura'}.
-
+            The type of grace note, if no type is specified in the grace
+            note itself. Possibilites are: {'appoggiatura',
+            'acciaccatura'}.
         min_steal : float, optional
-            The minimal proportion of the note to steal wherever no proportion
-            is speficied in the grace notes themselves.
-
+            The minimal proportion of the note to steal wherever no
+            proportion is speficied in the grace notes themselves.
         max_steal : float, optional
-            The maximal proportion of the note to steal wherever no proportion
-            is speficied in the grace notes themselves.
+            The maximal proportion of the note to steal wherever no
+            proportion is speficied in the grace notes themselves.
+        
         """
 
         assert default_type in (u'appoggiatura', u'acciaccatura')
@@ -1965,28 +1943,27 @@ class Part(object):
 
 
     def _get_beat_map(self, quarter=False, default_div=1, default_den=4):
-        """
-        This returns an interpolator that will accept as input timestamps
+        """This returns an interpolator that will accept as input timestamps
         in divisions and returns these timestamps' beatnumbers. If the flag
-        `quarter` is used, these beatnumbers will refer to quarter note steps.
+        `quarter` is used, these beatnumbers will refer to quarter note
+        steps.
 
         Parameters
         ----------
-        quarter : boolean, optional (default: False)
+        quarter : boolean, optional
             If True return a function that outputs times in quarter units,
             otherwise return a function that outputs times in beat units.
-        
-        default_div : int, optional (default: 1)
-            Divisions to use wherever there are none specified in the timeline
-            itself.
-
-        default_den : int, optional (default: 4)
-            Denominator to use wherever there is no time signature specified in
-            the timeline itself.
+            Defaults to False.
+        default_div : int, optional
+            Divisions to use wherever there are none specified in the
+            timeline itself. Defaults to 1.
+        default_den : int, optional
+            Denominator to use wherever there is no time signature
+            specified in the timeline itself. Defaults to 4.
 
         Returns
         -------
-        scipy interpolate interp1d object
+        
         """
 
         if len(self.timeline.points) == 0:
@@ -2089,16 +2066,14 @@ class Part(object):
             return f
 
     def get_loudness_directions(self):
-        """
-        Return all loudness directions
-
+        """Return all loudness directions
+        
         """
         return self.list_all(LoudnessDirection, unfolded=unfolded, include_subclasses=True)
 
     def get_tempo_directions(self, unfolded=False):
-        """
-        Return all tempo directions
-
+        """Return all tempo directions
+        
         """
         return self.list_all(TempoDirection, unfolded=unfolded, include_subclasses=True)
 
@@ -2111,28 +2086,28 @@ class Part(object):
 
     @property
     def notes(self):
-        """
-        Return a list of all Note objects in the part. This list includes GraceNote
-        objects but not Rest objects.
+        """Return a list of all Note objects in the part. This list includes
+        GraceNote objects but not Rest objects.
 
         Returns
         -------
         list
             list of Note objects
+        
         """
         return self.list_all(Note, unfolded=False, include_subclasses=True)
 
     @property
     def notes_tied(self):
-        """
-        Return a list of all Note objects in the part that are either not tied, or
-        the first note of a group of tied notes. This list includes GraceNote
-        objects but not Rest objects.
+        """Return a list of all Note objects in the part that are either not
+        tied, or the first note of a group of tied notes. This list
+        includes GraceNote objects but not Rest objects.
 
         Returns
         -------
         list
             list of Note objects
+        
         """
         notes = [note for note in self.list_all(Note, unfolded=False, include_subclasses=True)
                  if note.tie_prev is None]
@@ -2140,58 +2115,56 @@ class Part(object):
 
     @property
     def notes_unfolded(self):
-        """
-        return all note objects of the score part, after unfolding the timeline
+        """Return all note objects of the score part, after unfolding the
+        timeline
 
         Returns
         -------
         list
             list of Note objects
-
+        
         """
         return self.list_all(Note, unfolded=True)
 
     @property
     def beat_map(self):
-        """
-        A function that maps timeline times to beat units
+        """A function that maps timeline times to beat units
 
         Returns
         -------
         function
             The mapping function
-
+        
         """
         return self._get_beat_map()
 
     @property
     def quarter_map(self):
-        """
-        A function that maps timeline times to quarter note units
+        """A function that maps timeline times to quarter note units
 
         Returns
         -------
         function
             The mapping function
-
+        
         """
         return self._get_beat_map(quarter=True)
 
 def iter_parts(partlist):
-    """
-    Iterate over all Part instances in partlist, which is a list of either Part
-    or PartGroup instances. PartGroup instances contain one or more parts or
-    further partgroups.
-    
+    """Iterate over all Part instances in partlist, which is a list of either
+    Part or PartGroup instances. PartGroup instances contain one or more
+    parts or further partgroups.
+
     Parameters
     ----------
-    partlist: list
+    partlist : list
         Description of `partlist`
-    
+
     Returns
     -------
     iterator
         Iterator over Part instances
+    
     """
     for el in partlist:
         if isinstance(el, Part):
@@ -2202,25 +2175,27 @@ def iter_parts(partlist):
 
 
 def _repeats_to_start_end(repeats, first, last):
-    """
-    Return pairs of (start, end) TimePoints corresponding to the start and end
-    times of each Repeat object. If any of the start or end attributes are None,
-    replace it with the end/start of the preceding/succeeding Repeat,
-    respectively, or `first` or `last`.
-    
+    """Return pairs of (start, end) TimePoints corresponding to the start and
+    end times of each Repeat object. If any of the start or end attributes
+    are None, replace it with the end/start of the preceding/succeeding
+    Repeat, respectively, or `first` or `last`.
+
     Parameters
     ----------
-    repeats: list
-        list of Repeat instances, possibly with None-valued start/end attributes
-    first: TimePoint
+    repeats : list
+        list of Repeat instances, possibly with None-valued start/end
+        attributes
+    first : TimePoint
         The first TimePoint in the timeline
-    last: TimePoint
+    last : TimePoint
         The last TimePoint in the timeline
-    
+
     Returns
     -------
     list
-        list of (start, end) TimePoints corresponding to each Repeat in `repeats`
+        list of (start, end) TimePoints corresponding to each Repeat in
+        `repeats`
+    
     """
     t = first
     starts = []
@@ -2304,18 +2279,17 @@ def _repeats_to_start_end(repeats, first, last):
 
 
 def order_splits(start, end, smallest_unit):
-    """
-    Description
-    
+    """Description
+
     Parameters
     ----------
-    start: int
+    start : int
         Description of `start`
-    end: int
+    end : int
         Description of `end`
-    smallest_divs: int
+    smallest_divs : int
         Description of `smallest_divs`
-    
+
     Returns
     -------
     ndarray
@@ -2323,7 +2297,6 @@ def order_splits(start, end, smallest_unit):
 
     Examples
     --------
-
     >>> order_splits(1, 8, 1)
     array([4, 2, 6, 3, 5, 7])
     >>> order_splits(11, 17, 3)
@@ -2332,7 +2305,7 @@ def order_splits(start, end, smallest_unit):
     array([16, 12, 14, 13, 15])
     >>> order_splits(11, 17, 4)
     array([16, 12])
-
+    
     """
 
     # gegeven b, kies alle veelvouden van 2*b, verschoven om b, die tussen start en end liggen
