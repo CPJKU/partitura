@@ -14,25 +14,40 @@ from partitura.musicanalysis import estimate_spelling, estimate_key, estimate_vo
 __all__ = ['load_midi']
 
 
-def load_midi(fn, quantization_unit=None):
-    # channels: parts, voices, staffs
-    # tracks: parts, voices, staffs
-    """
-    Description
-    
+def load_midi(fn, channels='voices', tracks='parts', ensure_list=False, quantization_unit=None):
+
+    """Load a musical score from a MIDI file.
+
     Parameters
     ----------
-    fn: type
-        Description of `fn`
-    quantization_unit: integer or None, optional
-        If not None, quantize MIDI times to multiples of this unit.  . Defaults
-        to None.
-    
+    fn : type
+         Description of `fn`
+    channels : str, optional
+        Target of channel information. Possible values: {'parts', 'voices',
+        None}. When channels='parts' each voice in a track will be assigned
+        to a separate Part. The notes on the same channel occuring in
+        different tracks will be assigned to different Part objects, not a
+        single one. Defaults to 'voices'
+    tracks : {'parts', 'voices', None}, optional
+         Description of `tracks`. Possible values: {'parts', 'voices',
+        None}, Defaults to 'parts'
+    ensure_list : bool, optional
+         Description of `tracks`. Defaults to False
+    quantization_unit : integer or None, optional
+         If not None, quantize MIDI times to multiples of this unit.  .
+        Defaults to None.
+
     Returns
     -------
     type
         Description of return value
+    
     """
+
+    # channels: parts, voices
+    # tracks: parts, voices
+    
+
     
     mid = mido.MidiFile(fn)
     divs = mid.ticks_per_beat
@@ -361,16 +376,15 @@ def split_note(part, note, splits):
 
 
 def quantize(v, unit):
-    """
-    Quantize value `v` to a multiple of `unit`. When `unit` is an integer, the
-    return value will be integer as well, otherwise the function will return a
-    float.
-    
+    """Quantize value `v` to a multiple of `unit`. When `unit` is an integer,
+    the return value will be integer as well, otherwise the function will
+    return a float.
+
     Parameters
     ----------
-    v: ndarray or number
+    v : ndarray or number
         Number to be quantized
-    unit: number
+    unit : number
         The quantization unit
 
     Returns
@@ -380,12 +394,11 @@ def quantize(v, unit):
 
     Examples
     --------
-
     >>> quantize(13.3, 4)
     12
-
     >>> quantize(3.3, .5)
     3.5
+    
     """
     
     r = unit * np.round(v / unit)
