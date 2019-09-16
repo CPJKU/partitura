@@ -38,9 +38,13 @@ from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_cu
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
-# sys.setrecursionlimit(100000)
+# sys.setrecursionlimit(10000)
 
 LOGGER = logging.getLogger(__name__)
+_MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
+_MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
+_MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
+_ALTER_SIGNS = {None: '', 0: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 _LABEL_DURS = {
     'long': 16,
     'breve': 8,
@@ -58,10 +62,89 @@ _LABEL_DURS = {
     '256th': 1/64
 }
 _DOT_MULTIPLIERS = (1, 1+1/2, 1+3/4, 1+7/8)
-_MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
-_MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
-_MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
-_ALTER_SIGNS = {None: '', 0: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
+# DURS and SYM_DURS encode the same information as _LABEL_DURS and
+# _DOT_MULTIPLIERS, but they allow for faster estimation of symbolic duration
+# (estimate_symbolic duration)
+DURS = np.array([
+    1.5625000e-02, 2.3437500e-02, 2.7343750e-02, 2.9296875e-02, 3.1250000e-02,
+    4.6875000e-02, 5.4687500e-02, 5.8593750e-02, 6.2500000e-02, 9.3750000e-02,
+    1.0937500e-01, 1.1718750e-01, 1.2500000e-01, 1.8750000e-01, 2.1875000e-01,
+    2.3437500e-01, 2.5000000e-01, 3.7500000e-01, 4.3750000e-01, 4.6875000e-01,
+    5.0000000e-01, 5.0000000e-01, 7.5000000e-01, 7.5000000e-01, 8.7500000e-01,
+    8.7500000e-01, 9.3750000e-01, 9.3750000e-01, 1.0000000e+00, 1.0000000e+00,
+    1.5000000e+00, 1.5000000e+00, 1.7500000e+00, 1.7500000e+00, 1.8750000e+00,
+    1.8750000e+00, 2.0000000e+00, 2.0000000e+00, 3.0000000e+00, 3.0000000e+00,
+    3.5000000e+00, 3.5000000e+00, 3.7500000e+00, 3.7500000e+00, 4.0000000e+00,
+    6.0000000e+00, 7.0000000e+00, 7.5000000e+00, 8.0000000e+00, 1.2000000e+01,
+    1.4000000e+01, 1.5000000e+01, 1.6000000e+01, 2.4000000e+01, 2.8000000e+01,
+    3.0000000e+01])
+                
+SYM_DURS = [
+  {"type": "256th", "dots": 0},
+  {"type": "256th", "dots": 1},
+  {"type": "256th", "dots": 2},
+  {"type": "256th", "dots": 3},
+  {"type": "128th", "dots": 0},
+  {"type": "128th", "dots": 1},
+  {"type": "128th", "dots": 2},
+  {"type": "128th", "dots": 3},
+  {"type": "64th", "dots": 0},
+  {"type": "64th", "dots": 1},
+  {"type": "64th", "dots": 2},
+  {"type": "64th", "dots": 3},
+  {"type": "32nd", "dots": 0},
+  {"type": "32nd", "dots": 1},
+  {"type": "32nd", "dots": 2},
+  {"type": "32nd", "dots": 3},
+  {"type": "16th", "dots": 0},
+  {"type": "16th", "dots": 1},
+  {"type": "16th", "dots": 2},
+  {"type": "16th", "dots": 3},
+  {"type": "eighth", "dots": 0},
+  {"type": "e", "dots": 0},
+  {"type": "eighth", "dots": 1},
+  {"type": "e", "dots": 1},
+  {"type": "eighth", "dots": 2},
+  {"type": "e", "dots": 2},
+  {"type": "eighth", "dots": 3},
+  {"type": "e", "dots": 3},
+  {"type": "quarter", "dots": 0},
+  {"type": "q", "dots": 0},
+  {"type": "quarter", "dots": 1},
+  {"type": "q", "dots": 1},
+  {"type": "quarter", "dots": 2},
+  {"type": "q", "dots": 2},
+  {"type": "quarter", "dots": 3},
+  {"type": "q", "dots": 3},
+  {"type": "half", "dots": 0},
+  {"type": "h", "dots": 0},
+  {"type": "half", "dots": 1},
+  {"type": "h", "dots": 1},
+  {"type": "half", "dots": 2},
+  {"type": "h", "dots": 2},
+  {"type": "half", "dots": 3},
+  {"type": "h", "dots": 3},
+  {"type": "whole", "dots": 0},
+  {"type": "whole", "dots": 1},
+  {"type": "whole", "dots": 2},
+  {"type": "whole", "dots": 3},
+  {"type": "breve", "dots": 0},
+  {"type": "breve", "dots": 1},
+  {"type": "breve", "dots": 2},
+  {"type": "breve", "dots": 3},
+  {"type": "long", "dots": 0},
+  {"type": "long", "dots": 1},
+  {"type": "long", "dots": 2},
+  {"type": "long", "dots": 3}
+]
+
+
+def find_nearest(array, value):
+    idx = np.searchsorted(array, value, side="left")
+    if idx > 0 and (idx == len(array) or np.abs(value - array[idx-1]) <= np.abs(value - array[idx])):
+        return idx-1
+    else:
+        return idx
 
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):
@@ -91,6 +174,8 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
 
     >>> estimate_symbolic_duration(24, 16)
     {'type': 'quarter', 'dots': 1}
+    >>> estimate_symbolic_duration(15, 10)
+    {'type': 'quarter', 'dots': 1}
     
     The following example returns None:
 
@@ -103,19 +188,13 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
         A dictionary containing keys 'type' and 'dots' expressing the estimated
         symbolic duration or None
     """
-    global _DOT_MULTIPLIERS, _LABEL_DURS
-
-    for i, dotm in enumerate(_DOT_MULTIPLIERS):
-
-        ddur = (dur/div)/dotm
-
-        for k, v in _LABEL_DURS.items():
-
-            if np.abs(ddur-v) < eps:
-
-                return dict(type=k, dots=i)
-
-    return None
+    global DURS, SYM_DURS
+    qdur = dur/div
+    i = find_nearest(DURS, qdur)
+    if np.abs(qdur-DURS[i]) < eps:
+        return SYM_DURS[i]
+    else:
+        return None
 
 
 def to_quarter_tempo(unit, tempo):
@@ -180,13 +259,11 @@ def format_symbolic_duration(symbolic_dur):
 
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
-    # TODO: can symbolic_dur be None?
     numdur = divs * _LABEL_DURS[symbolic_dur.get('type', None)]
     numdur *= _DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
     numdur *= ((symbolic_dur.get('normal_notes') or 1) / 
                (symbolic_dur.get('actual_notes') or 1))
     return numdur
-
 
 
 class ReplaceRefMixin(object):
@@ -462,8 +539,9 @@ class TimeLine(object):
                     s.remove(o)
         LOGGER.info('Timeline is OK')
         return True
-    
-class TimePoint(ComparableMixin, ReplaceRefMixin):
+
+
+class TimePoint(ComparableMixin):
 
     """A TimePoint represents an instant in Time.
 
@@ -575,20 +653,17 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         
         """
         if eq:
-            value = self.get_starting_objects_of_type(otype)
-            if len(value) > 0:
-                return value[:]
-        return self._get_prev_of_type(otype)
-
-    def _get_prev_of_type(self, otype, eq=False):
-        if self.prev is None:
-            return []
+            tp = self
         else:
-            r = self.prev.get_starting_objects_of_type(otype)
-            if r != []:
-                return r[:]
-            else:
-                return self.prev._get_prev_of_type(otype)
+            tp = self.prev
+
+        while tp:
+            value = tp.get_starting_objects_of_type(otype)
+            if value:
+                return value[:]
+            tp = tp.prev
+        return []
+
 
     def get_next_of_type(self, otype, eq=False):
         """Return the object(s) of type `otype` that start at the earliest
@@ -596,20 +671,16 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         
         """
         if eq:
-            value = self.get_starting_objects_of_type(otype)
-            if len(value) > 0:
-                return value[:]
-        return self._get_next_of_type(otype)
-
-    def _get_next_of_type(self, otype, eq=False):
-        if self.next is None:
-            return []
+            tp = self
         else:
-            r = self.next.get_starting_objects_of_type(otype)
-            if r != []:
-                return r[:]
-            else:
-                return self.next._get_next_of_type(otype)
+            tp = self.next
+
+        while tp:
+            value = tp.get_starting_objects_of_type(otype)
+            if value:
+                return value[:]
+            tp = tp.next
+        return []
 
     def _cmpkey(self):
         """This method returns the value to be compared (code for that is in
@@ -617,8 +688,6 @@ class TimePoint(ComparableMixin, ReplaceRefMixin):
         
         """
         return self.t
-
-    # __hash__ = _cmpkey # this is related to the ComparableMixin
 
     def _pp(self, tree):
         result = ['{}Timepoint {}'.format(tree, self.t)]
@@ -691,9 +760,6 @@ class TimedObject(ReplaceRefMixin):
         super().__init__()
         self.start = None
         self.end = None
-        # intermediate time points
-        # self.intermediate = []
-        # self._ref_attrs = ['start', 'end']
         
 
 class Page(TimedObject):
@@ -884,7 +950,7 @@ class Measure(TimedObject):
         
         """
 
-        assert self.start.next is not None, LOGGER.error(
+        assert self.start.next is not None, LOGGER.warning(
             'Part is empty')
         divs = self.start.next.get_prev_of_type(Divisions)
         ts = self.start.next.get_prev_of_type(TimeSignature)
@@ -1118,12 +1184,14 @@ class GenericNote(TimedObject):
     
     """
     def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations={}):
+        self._start = None
+        self._end = None
+        self._sym_dur = None
         super().__init__()
         self.voice = voice
         self.id = id
         self.staff = staff
-        # self.symbolic_duration = symbolic_duration
-        self._sym_dur = symbolic_duration
+        self.symbolic_duration = symbolic_duration
         self.articulations = articulations
 
         # these attributes are set after the instance is constructed
@@ -1137,16 +1205,45 @@ class GenericNote(TimedObject):
         self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
 
     @property
-    def symbolic_duration(self):
-        if self._sym_dur is None:
+    def start(self):
+        return self._start
+
+    @start.setter
+    def start(self, t):
+        # the first time note is added
+        recompute_dur = self._start is not None
+        self._start = t
+        if recompute_dur and self.start and self.end:
             divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
             if divs is not None:
                 eps = 10**-3
-                return estimate_symbolic_duration(self.end.t - self.start.t, divs.divs, eps)
+                self.symbolic_duration = estimate_symbolic_duration(self.end.t-self.start.t, divs.divs, eps)
             else:
-                None
+                self.symbolic_duration = None
         else:
-            return self._sym_dur
+            self.symbolic_duration = None
+
+    @property
+    def end(self):
+        return self._end
+
+    @end.setter
+    def end(self, t):
+        recompute_dur = self._end is not None
+        self._end = t
+        if recompute_dur and self.start and self.end:
+            divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
+            if divs is not None:
+                eps = 10**-3
+                self.symbolic_duration = estimate_symbolic_duration(self.end.t-self.start.t, divs.divs, eps)
+            else:
+                self.symbolic_duration = None
+        else:
+            self.symbolic_duration = None
+            
+    @property
+    def symbolic_duration(self):
+        return self._sym_dur
 
     @symbolic_duration.setter
     def symbolic_duration(self, v):
@@ -1299,7 +1396,7 @@ class Note(GenericNote):
     def previous_notes_in_voice(self):
         n = self
         while True:
-            nn = n.start.get_prev_of_type(Note)
+            nn = n.start.get_prev_of_type(GenericNote)
             if nn:
                 voice_notes = [m for m in nn if m.voice == self.voice]
                 if len(voice_notes) > 0:
@@ -1310,14 +1407,14 @@ class Note(GenericNote):
 
     @property
     def simultaneous_notes_in_voice(self):
-        return [m for m in self.start.starting_objects[Note]
+        return [m for m in self.start.starting_objects[GenericNote]
                 if m.voice == self.voice and m != self]
 
     @property
     def next_notes_in_voice(self):
         n = self
         while True:
-            nn = n.start.get_next_of_type(Note)
+            nn = n.start.get_next_of_type(GenericNote)
             if nn:
                 voice_notes = [m for m in nn if m.voice == self.voice]
                 if len(voice_notes) > 0:
@@ -2213,70 +2310,6 @@ def _repeats_to_start_end(repeats, first, last):
     ends.reverse()
     return list(zip(starts, ends))
 
-# def largest_covered_beat(start, end, divs):
-#     """
-#     Find the largest number `n` that can be obtained by doubling or halving
-#     `divs` such that `start` < `k`*`n` < `end`, for some integer `k`.
-    
-#     In musical terms, it amounts to finding the largest beat unit (relative to
-#     divs) that occurs in the interval (start, end).
-
-#     Parameters
-#     ----------
-#     start: type
-#         Description of `start`
-#     end: type
-#         Description of `end`
-#     divs: type
-#         Description of `divs`
-    
-#     Returns
-#     -------
-#     int
-#         The largest beat period such 
-
-#     Examples
-#     --------
-
-#     >>> largest_covered_beat(7, 9, 4)
-#     8
-#     >>> largest_covered_beat(10, 11, 3)
-#     >>> largest_covered_beat(8, 12, 3)
-#     3
-#     >>> largest_covered_beat(13, 31, 4)
-#     16
-#     >>> largest_covered_beat(13, 31, 13)
-#     26
-#     >>> largest_covered_beat(30, 31, 33)
-#     >>> largest_covered_beat(30, 31, 32)
-#     >>> largest_covered_beat(30, 38, 32)
-#     32
-#     >>> largest_covered_beat(30, 38, 3)
-#     12
-#     """
-#     assert start < end
-#     beat = divs
-#     def too_high(b):
-#         return b*(1+start//b) > b*((end-1)//b)
-
-#     if too_high(beat):
-#         new_beat = beat
-#         while too_high(new_beat):
-#             beat = new_beat
-#             new_beat = beat // 2
-#             if beat % 2 != 0:
-#                 break
-#         if too_high(beat):
-#             return None
-#         else:
-#             return beat
-#     else:
-#         new_beat = beat
-#         while not too_high(new_beat):
-#             beat = new_beat
-#             new_beat = beat * 2
-#         return beat
-
 
 def order_splits(start, end, smallest_unit):
     """Description
@@ -2335,6 +2368,18 @@ def find_smallest_unit(divs):
 
 
 def find_tie_split_search(start, end, divs, max_splits=3):
+    """
+    Examples
+    --------
+
+    >>> find_tie_split_search(1, 8, 2)
+    [(1, 8, {'type': 'half', 'dots': 2})]
+
+    >>> find_tie_split_search(0, 3615, 480)
+    [(0, 3600, {'type': 'whole', 'dots': 3}), (3600, 3615, {'type': '128th', 'dots': 0})]
+
+    """
+
     smallest_unit = find_smallest_unit(divs)
 
     def success(state):
@@ -2347,10 +2392,15 @@ def find_tie_split_search(start, end, divs, max_splits=3):
         else:
             split_start = ([start]+state)[-1]
             ordered_splits = order_splits(split_start, end, smallest_unit)
-            return [state+[s.item()] for s in ordered_splits]
+            new_states = [state+[s.item()] for s in ordered_splits]
+            # start and end must be "in sync" with splits for states to succeed
+            new_states = [s for s in new_states if
+                          (s[0]-start) % smallest_unit == 0 and
+                          (end-s[-1]) % smallest_unit == 0]
+            return new_states
 
     def combine(new_states, old_states):
-        return new_states + old_states
+        return old_states + new_states
     
     states = [[]]
 
@@ -2360,10 +2410,11 @@ def find_tie_split_search(start, end, divs, max_splits=3):
     if splits is not None:
         solution = [(left, right, estimate_symbolic_duration(right-left, divs))
                      for left, right in iter_current_next([start]+splits+[end])]
-        print(solution)
+        # print(solution)
         return solution
     else:
-        print('no solution for ', start, end, divs)
+        pass # print('no solution for ', start, end, divs)
+
 
 def search_iterative(states, success, expand, combine):
     while len(states) > 0:
@@ -2391,14 +2442,15 @@ if __name__ == '__main__':
     # print(order_splits(1, 8, 1))
     # print(order_splits(11, 17, 3))
     # print(order_splits(11, 17, 1))
-    # find_tie_split_search(1, 8, 2)
+    # print(find_tie_split_search(1, 8, 2))
     # find_tie_split_search(141, 1920, 480)
-    find_tie_split_search(0, 3632-17, 480)
-    o = 30
-    find_tie_split_search(o, 3632-17+o, 480)
+    # print(find_tie_split_search(0, 3632-17, 480))
+    # [(0, 3600, {'type': 'whole', 'dots': 3}), (3600, 3615, {'type': '128th', 'dots': 0})]
+    # o = 30
+    # find_tie_split_search(o, 3632-17+o, 480)
     # find_tie_split_search(1, 8, 4)
-    # import doctest
-    # doctest.testmod()
+    import doctest
+    doctest.testmod()
 
 
     
