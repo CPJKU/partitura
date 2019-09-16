@@ -8,4 +8,10 @@ def estimate_spelling(note_array, method='ps13s1', *args, **kwargs):
 
     step, alter, octave = ps(note_array, *args, **kwargs)
 
-    return step, alter, octave
+    spelling = np.empty(len(step), dtype=[('step', 'U1'), ('alter', np.int), ('octave', np.int)])
+
+    spelling['step'] = step
+    spelling['alter'] = alter
+    spelling['octave'] = octave
+
+    return spelling

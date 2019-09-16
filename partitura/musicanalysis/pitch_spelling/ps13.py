@@ -122,8 +122,8 @@ def compute_morph_array(chroma_array, chroma_vector_array):
     for j in range(n):
         # Lines 13-15 (skipped line 9, since we do not need to
         # initialize morph_for_tonic_chroma)
-        morph_for_tonic_chroma = np.mod(morph_int[np.mod(chroma_array[j]
-                                                         - np.arange(12), 12)] +
+        morph_for_tonic_chroma = np.mod(morph_int[np.mod(chroma_array[j] -
+                                                         np.arange(12), 12)] +
                                         tonic_morph_for_tonic_chroma, 7)
         # Lines 16-17
         tonic_chroma_set_for_morph = [[] for i in range(7)]
@@ -161,36 +161,6 @@ def compute_ocm_chord_list(sorted_ocp, chroma_array, morph_array):
 
     return ocm_chord_list
 
-
-# def compute_morphetic_pitch(sorted_ocp, morph_array):
-#     n = len(sorted_ocp)
-#     morphetic_pitch = np.empty(n, dtype=np.int)
-
-#     for i in range(n):
-#         chromatic_pitch = sorted_ocp[i, 1]
-#         morph = morph_array[i]
-
-#         morph_oct_1 = int(np.floor(chromatic_pitch / 12.0))
-#         morph_oct_2 = morph_oct_1 + 1
-#         morph_oct_3 = morph_oct_1 - 1
-
-#         mp_1 = morph_oct_1 + (morph / 7)
-#         mp_2 = morph_oct_2 + (morph / 7)
-#         mp_3 = morph_oct_3 + (morph / 7)
-
-#         chroma = np.mod(chromatic_pitch, 12)
-
-#         cp = morph_oct_1 + (chroma / 12)
-
-#         diff_list = [abs(cp - mp) for mp in (mp_1, mp_2, mp_3)]
-#         morph_oct_list = [morph_oct_1, morph_oct_2, morph_oct_3]
-
-#         best_morph_oct = morph_oct_list[np.argmin(diff_list)]
-#         best_morphetic_pitch = morph + (7 * best_morph_oct)
-
-#         morphetic_pitch[i] = best_morphetic_pitch
-
-#     return morphetic_pitch
 
 def compute_morphetic_pitch(sorted_ocp, morph_array):
     """
