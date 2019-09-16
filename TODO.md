@@ -16,7 +16,7 @@ Miscelaneous considerations
 - voice problem
   
   Synchronicity within a voice (or when no voice attribute is present) by means of backup/forward is not well supported in musicxml viewers. use of chord tag only works when all simultaneous notes have equal duration.
-  Preferred solution: within a set of simultaneous notes make notes of equal duration belong to the same voice (and use chord tag). I.e. in a triad with durations n1:q n2:q n3:h, n1 and n2 would belong to one voice with note n1 including a chord tag, and n3 would be the next voice.
+  Preferred solution: within a set of simultaneous notes make notes of equal duration belong to the same voice (and use chord tag). I.e. in a triad with durations n1:q n2:q n3:h, n1 and n2 would belong to one voice with note n1 including a chord tag, and n3 would be the next voice. Possible post-processing fix to Chew's algorithm: change voice of notes that have same-length vertical neighbor and not adjoint horizontal neighbor to be the same of same-length vertical neighbors.
 
 TODO
 ----
