@@ -1184,8 +1184,6 @@ class GenericNote(TimedObject):
     
     """
     def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations={}):
-        self._start = None
-        self._end = None
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -1204,43 +1202,6 @@ class GenericNote(TimedObject):
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
 
-    @property
-    def start(self):
-        return self._start
-
-    @start.setter
-    def start(self, t):
-        # the first time note is added
-        recompute_dur = self._start is not None
-        self._start = t
-        if recompute_dur and self.start and self.end:
-            divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
-            if divs is not None:
-                eps = 10**-3
-                self.symbolic_duration = estimate_symbolic_duration(self.end.t-self.start.t, divs.divs, eps)
-            else:
-                self.symbolic_duration = None
-        else:
-            self.symbolic_duration = None
-
-    @property
-    def end(self):
-        return self._end
-
-    @end.setter
-    def end(self, t):
-        recompute_dur = self._end is not None
-        self._end = t
-        if recompute_dur and self.start and self.end:
-            divs = next(iter(self.start.get_prev_of_type(Divisions, eq=True)), None)
-            if divs is not None:
-                eps = 10**-3
-                self.symbolic_duration = estimate_symbolic_duration(self.end.t-self.start.t, divs.divs, eps)
-            else:
-                self.symbolic_duration = None
-        else:
-            self.symbolic_duration = None
-            
     @property
     def symbolic_duration(self):
         return self._sym_dur
