@@ -114,9 +114,9 @@ class TestMusicXML(unittest.TestCase):
 
         if not equal:
             show_diff(pstring1, pstring2)
-
         msg = 'Exported and imported score does not yield identical pretty printed representations'
         self.assertTrue(equal, msg)
+
 
 if __name__ == '__main__':
     unittest.main()
