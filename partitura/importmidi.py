@@ -17,18 +17,19 @@ __all__ = ['load_midi']
 LOGGER = logging.getLogger(__name__)
 
 
-def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit=None):
+def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit=None, estimate_voice_info=True):
 
-    """Load a musical score from a MIDI file.
+    """Load a musical score from a MIDI file. Pitch names are estimated 
+    using Meredith's PS13 algorithm [1].
 
     Available options for part and voice assignment:
 
     0: return one Part per track, with voices assigned by channel
-    1. return one PartGroup per track, with Parts assigned by channel (no voices)
-    2. return single Part with voices assigned by track (tracks are combined, channel info is ignored)
-    3. return one Part per track, without voices (channel info is ignored)
-    4. return single Part without voices (channel and track info is ignored)
-    5. return one Part per <track, channel> combination, without voices
+    1: return one PartGroup per track, with Parts assigned by channel (no voices)
+    2: return single Part with voices assigned by track (tracks are combined, channel info is ignored)
+    3: return one Part per track, without voices (channel info is ignored)
+    4: return single Part without voices (channel and track info is ignored)
+    5: return one Part per <track, channel> combination, without voices
 
     Parameters
     ----------
@@ -46,14 +47,28 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
     ensure_list : bool, optional
          Description of `tracks`. Defaults to False
     quantization_unit : integer or None, optional
-         If not None, quantize MIDI times to multiples of this unit.  .
+        If not None, quantize MIDI times to multiples of this unit.  .
         Defaults to None.
+    estimate_voice_info : bool, optional
+        When True use Chew and Wu's voice separation algorithm [2] to
+        estimate voice information. This option is ignored for
+        part/voice assignment modes that infer voice information from
+        the track/channel info (i.e. `part_voice_assign_mode` equals
+        1, 3, 4, or 5). Defaults to True.
 
+    References
+    ----------
+
+    .. [1] Dave Meredith, "The ps13 Pitch Spelling Algorithm", Journal of 
+           New Music Research 35(2), 2006.
+    .. [2] Elaine Chew and Xiaodan Wu, "Separating Voices in Polyphonic 
+           Music: A Contig Mapping Approach". Computer Music Modeling and 
+           Retrieval (CMMR), pp. 1–20, 2005.
+       
     Returns
     -------
     type
         Description of return value
-    
     """
     mid = mido.MidiFile(fn)
     divs = mid.ticks_per_beat
@@ -155,7 +170,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
     group_part_voice_keys = assign_group_part_voice(part_voice_assign_mode, tr_ch_keys)
 
     # pairs of (part, voice) for each note
-    part_voice_list = [(part, voice) for tr_ch, (_, part, voice)
+    part_voice_list = [[part, voice] for tr_ch, (_, part, voice)
                        in zip(tr_ch_keys, group_part_voice_keys)
                        for i in range(len(notes_by_track_ch[tr_ch]))]
 
@@ -178,6 +193,13 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
     spelling_global['alter'] = alter
     spelling_global['octave'] = octave
 
+    if estimate_voice_info:
+        estimated_voices = estimate_voices(note_array)
+        estimated_voices += 1
+        for part_voice, voice_est in zip(part_voice_list, estimated_voices):
+            if part_voice[1] is None:
+                part_voice[1] = voice
+        
     by_part = defaultdict(list)
     for (part, voice), note, spelling in zip(part_voice_list, note_list, spelling_global):
         by_part[part].append((note, voice, spelling))
