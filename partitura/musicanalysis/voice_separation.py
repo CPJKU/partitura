@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Voice Separation Algorithm
-
-Elaine Chew and Xiaodan Wu (2006) Separating Voices in Polyphonic Music:
-A Contig Mapping Approach. In Uffe Kock, editor, Computer Music Modeling and Retrieval. Springer Berlin Heidelberg.
+Voice Separation using Chew and Wu's algorithm
 """
 import numpy as np
 
@@ -20,10 +17,11 @@ __all__ = ['estimate_voices']
 MAX_COST = 1000
 
 
-def estimate_voices(notearray, strictly_monophonic_voices=False):
+def estimate_voices(notearray, strictly_monophonic_voices=False,
+                    musicxml_format=True):
     """
     Voice estimation using the voice separation algorithm
-    proposed in [1]
+    proposed in [1].
 
     Parameters
     ----------
@@ -37,6 +35,9 @@ def estimate_voices(notearray, strictly_monophonic_voices=False):
         in the array, ID's will be created for the notes.
     strictly_monophonic_voices : bool (default False)
         Make chords
+    musicxml_format : bool (default True)
+        Return voices ready to be used in MusicXML (where indices start at 1
+        instead of 0).
 
     Returns
     -------
@@ -84,7 +85,12 @@ def estimate_voices(notearray, strictly_monophonic_voices=False):
     # Sort output according to the note id's
     v_notearray = v_notearray[v_notearray['id'].argsort()]
 
-    return v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice'] + 1
+    voices = v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice']
+
+    if musicxml_format:
+        return voices + 1
+    else:
+        return voices
 
 
 def pairwise_cost(prev, nxt):
@@ -778,7 +784,7 @@ class VoSA(VSBaseScore):
         self.make_contigs()
         self.estimate_voices()
 
-        # create a NoteStream for each voice
+    def _build_streams(self):
         self.voices = []
         for vn in range(self.num_voices):
             notes_per_voice = [note for note in self.notes if note.voice == vn]

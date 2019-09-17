@@ -14,10 +14,10 @@ class TestVoSA(unittest.TestCase):
     Test VoSA
     """
 
-    def test_vosa(self):
-
-        for fn in VOSA_TESTFILES:
-            notearray = xml_to_notearray(fn)
-            voices = estimate_voices(notearray)
-            print(list(zip(notearray['pitch'], voices)))
-        self.assertEqual(1, 1, f'jsjs')
+    def test_vosa_chew(self):
+        # Example from Chew and Wu.
+        notearray = xml_to_notearray(VOSA_TESTFILES[0])
+        voices = estimate_voices(notearray, strictly_monophonic_voices=True)
+        ground_truth_voices = np.array([3, 2, 1, 3, 3, 2, 3, 3, 2, 3,
+                                        3, 1, 1, 2, 1, 1, 3, 2, 1, 1])
+        self.assertTrue(np.all(voices == ground_truth_voices), 'Incorrect voice assignment.')
