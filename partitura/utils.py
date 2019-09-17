@@ -162,7 +162,10 @@ def partition(func, iterable):
 
 def add_field(a, descr):
     """
-    Return a new array that is like "a", but has additional fields.
+    Return a new array that is like `a`, but has additional fields.
+    The contents of `a` are copied over to the appropriate fields in
+    the new array, whereas the new fields are uninitialized.  The
+    arguments are not modified.
 
     Source: https://stackoverflow.com/questions/1201817/adding-a-field-to-a-structured-numpy-array
 
@@ -172,10 +175,6 @@ def add_field(a, descr):
         A structured numpy array
     descr: np.dtype
         A numpy type description of the new fields
-
-    The contents of "a" are copied over to the appropriate fields in
-    the new array, whereas the new fields are uninitialized.  The
-    arguments are not modified.
 
     Returns
     -------
@@ -211,12 +210,12 @@ def sorted_dict_items(items, key=None):
     for item in sorted(items, key=key):
         yield item
 
-    
+
 def show_diff(a, b):
     """
     Show the difference between two strings, using the difflib package. The
     difference is printed to stdout.
-    
+
     Parameters
     ----------
     a: str
@@ -224,13 +223,12 @@ def show_diff(a, b):
     b: str
         Second string
     """
-    
-    
+
     import difflib
     differ = difflib.Differ()
     for l in differ.compare(a.split(), b.split()):
         print(l)
-    
+
 
 class PrettyPrintTree(object):
     def __init__(self):
@@ -245,7 +243,7 @@ class PrettyPrintTree(object):
     def next_item(self):
         assert len(self.stack) > 0
         self.stack[-1].next_item()
-        
+
     def last_item(self):
         assert len(self.stack) > 0
         self.stack[-1].last_item()

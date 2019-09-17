@@ -1,11 +1,23 @@
 import numpy as np
 
-fn = './data_examples/Three-Part_Invention_No_13_(fragment).xml'
+import unittest
+from tempfile import TemporaryFile
+
+from . import VOSA_TESTFILES
+
+from partitura.importmusicxml import xml_to_notearray
+from partitura.musicanalysis import estimate_voices
 
 
-# from partitura.musicxml import xml_to_notearray
-# from partitura.music_utils import voice_estimation
+class TestVoSA(unittest.TestCase):
+    """
+    Test VoSA
+    """
 
-# if __name__ == '__main__':
-#     notearray = xml_to_notearray(fn)
-#     v_notearray = voice_estimation(notearray)
+    def test_vosa(self):
+
+        for fn in VOSA_TESTFILES:
+            notearray = xml_to_notearray(fn)
+            voices = estimate_voices(notearray)
+            print(list(zip(notearray['pitch'], voices)))
+        self.assertEqual(1, 1, f'jsjs')
