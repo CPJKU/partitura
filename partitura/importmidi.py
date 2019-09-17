@@ -185,13 +185,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
         return []
 
     LOGGER.info('pitch_spelling')
-    # do pitch spelling
-    step, alter, octave = estimate_spelling(note_array)
-    # convert spelling to struct array, this should be inside estimate_spelling
-    spelling_global = np.empty(len(step), dtype=[('step', 'U1'), ('alter', np.int), ('octave', np.int)])
-    spelling_global['step'] = step
-    spelling_global['alter'] = alter
-    spelling_global['octave'] = octave
+    spelling_global = estimate_spelling(note_array)
 
     if estimate_voice_info:
         estimated_voices = estimate_voices(note_array)
