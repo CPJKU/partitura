@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from mido import MidiFile, MidiTrack, Message
 
-import partitura.score as score
+from partitura.score import Divisions
 
 import ipdb
 
@@ -82,7 +82,7 @@ def decode_pitch(pitch):
     return step, alter, octave
 
 
-def save_midi(fn, parts, file_type=0, default_vel=64):
+def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
     """
     Write data from Part objects to a MIDI file
 
@@ -102,15 +102,41 @@ def save_midi(fn, parts, file_type=0, default_vel=64):
     parts : single or list of mulitple score.Part objects
 
     """
-    mf = MidiFile(fn, type=file_type)  # create new file
+    mf = MidiFile(type=file_type, ticks_per_beat=ppq)  # create new file
 
+    # get from all parts their Divisions values and find a value that works
+    # for all parts.
     divs_list = []  # check which part has which divison setting
     for part in parts:  # iterate over the parts
         # get an array of the current part's divs
         divs = np.array([(divs.start.t, divs.divs) for divs in part.list_all(Divisions)])
-        divs_list.append(divs)
+        divs_list.append(divs[:, 1])  # keep only the div values
 
-        ipdb.set_trace()
+    all_divs = set(np.array(divs_list).flatten())
+    lcm_all_divs = np.lcm.reduce(list(all_divs))
+    assert np.issubdtype(lcm_all_divs, np.integer)
+
+    divs_factors = {}
+    for div_val in all_divs:
+        # Note: is there anywhere in score, etc., a check whether the div
+        # values are actually integers? Then the whole testing here
+        # would be unnecessary
+        assert np.issubdtype(div_val, np.integer)  # check if best way
+        divs_factors[div_val] = lcm_all_divs // div_val
+
+        print(divs_factors[div_val])
+
+    for part in parts:  # iterate over the parts
+        # get array of all div values in current part
+        divs = np.array([(divs.start.t, divs.divs) for divs in part.list_all(Divisions)])
+
+        if len(divs) == 1:  # most likely case?
+            part_divs = divs[0][1]
+            part_divs_factor = divs_factors[divs[0][1]]
+
+            divs_ppq_fact = ppq // (part_divs * part_divs_factor)
+
+        # ipdb.set_trace()
 
         # basically: get the PPQ and scale all div values accordingly
         # so that the divisons per quarter are equal to PPQ. The note onset
@@ -122,14 +148,24 @@ def save_midi(fn, parts, file_type=0, default_vel=64):
         # set instrument/sound using MIDI program change
         track.append(Message('program_change', program=0, time=0))
 
+        cursor_position = 0
         for note in part.notes_tied:  # iterate over the part's notes
+            note_start = int(note.start.t * divs_ppq_fact - cursor_position)
+            note_end = int((note.end.t - note.start.t) * divs_ppq_fact)
+
+            cursor_position = int(note.end.t * divs_ppq_fact)
+
+            # ipdb.set_trace()
+
             track.append(Message('note_on',
                                  note=note.midi_pitch,
                                  velocity=default_vel,
-                                 time=note.start.t))
+                                 time=note_start))
             track.append(Message('note_off',
                                  note=note.midi_pitch,
                                  velocity=default_vel,
-                                 time=note.end.t))
+                                 time=note_end))
+
+    mf.save(fn)  # save the midi file
 
 
