@@ -1,10 +1,15 @@
+#!/usr/bin/env python
 
+import logging
 import numpy as np
 from mido import MidiFile, MidiTrack, Message
 
 import partitura.score as score
 
 import ipdb
+
+__all__ = ['save_midi']
+LOGGER = logging.getLogger(__name__)
 
 
 DEFAULT_FORMAT = 0  # MIDI file format
@@ -79,7 +84,7 @@ def decode_pitch(pitch):
 
 def save_midi(fn, parts, file_type=0, default_vel=64):
     """
-    Write Parts to a MIDI file
+    Write data from Part objects to a MIDI file
 
      A type 0 file contains the entire performance, merged onto a single track,
      while type 1 files may contain any number of tracks that are performed
@@ -97,10 +102,20 @@ def save_midi(fn, parts, file_type=0, default_vel=64):
     parts : single or list of mulitple score.Part objects
 
     """
-
     mf = MidiFile(fn, type=file_type)  # create new file
 
+    divs_list = []  # check which part has which divison setting
     for part in parts:  # iterate over the parts
+        # get an array of the current part's divs
+        divs = np.array([(divs.start.t, divs.divs) for divs in part.list_all(Divisions)])
+        divs_list.append(divs)
+
+        ipdb.set_trace()
+
+        # basically: get the PPQ and scale all div values accordingly
+        # so that the divisons per quarter are equal to PPQ. The note onset
+        # times are given in delta PPQ since the last event always?
+
         track = MidiTrack()
         mf.tracks.append(track)
 
