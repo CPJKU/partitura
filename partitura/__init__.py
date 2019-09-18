@@ -7,5 +7,6 @@ from .exportmusicxml import save_musicxml
 from .importmidi import load_midi
 from .exportmidi import save_midi
 from .directions import parse_words
+from . import musicanalysis
 
 # __all__ = ['load_musicxml', 'parse_words']

@@ -1,8 +1,14 @@
 """
-Key Profiles and utilities for key identification algorithms
+Krumhansl and Shepard key estimation
+
+TODO
+----
+* Documentation
 """
 import numpy as np
 from scipy.linalg import circulant
+
+__all__ = ['estimate_key']
 
 # List of labels for each key (Use enharmonics as needed).
 # Each tuple is (key root name, mode, fifths)
@@ -34,7 +40,7 @@ KEYS = [('C', 'major', 0),
         ('B' 'minor', 2)]
 
 
-# Krumhansl Kessler Key Profiles
+################ Krumhansl--Kessler Key Profiles ########################
 
 # From Krumhansl's "Cognitive Foundations of Musical Pitch" pp.30
 key_prof_maj_kk = np.array(
@@ -43,7 +49,7 @@ key_prof_maj_kk = np.array(
 key_prof_min_kk = np.array(
     [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 
-# Temperley Key Profiles
+############### Temperley Key Profiles ###########################
 
 # CBMS (from "Music and Probability" Table 6.1, pp. 86)
 key_prof_maj_cbms = np.array(
@@ -80,3 +86,73 @@ def build_key_profile_matrix(key_prof_maj, key_prof_min):
 KRUMHANSL_KESSLER = build_key_profile_matrix(key_prof_maj_kk, key_prof_min_kk)
 CMBS = build_key_profile_matrix(key_prof_maj_cbms, key_prof_min_cbms)
 KOSTKA_PAYNE = build_key_profile_matrix(key_prof_maj_kp, key_prof_min_kp)
+
+
+def estimate_key(note_array, method='krumhansl', *args, **kwargs):
+    """
+    Estimate key of a piece
+
+    Parameters
+    ----------
+    note_array : structured array
+        Array containing the score
+    method : ('krumhansl', 'temperley')
+        Method for estimating the key. Default is 'krumhansl'.
+        More options will be added in the future.
+    *args, *kwargs
+        Positional and Keyword arguments for the key estimation method
+
+    Returns
+    -------
+    root : str
+        Root of the key (key name)
+    mode : str
+        Mode of the key ('major' or 'minor')
+    fifths: int
+        Position in the circle of fifths
+    """
+    if method not in ('krumhansl', ):
+        raise ValueError('For now the only valid method is "krumhansl"')
+
+    if method == 'krumhansl':
+        kid = ks_kid
+    if method == 'temperley':
+        kid = ks_kid
+        if 'key_profiles' not in kwargs:
+            kwargs['key_profiles'] = 'temperley'
+
+    root, mode, fifths = kid(note_array, *args, **kwargs)
+
+    return root, mode, fifths
+
+
+def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER):
+    """
+    Estimate key of a piece
+    """
+    if isinstance(key_profiles, str):
+        if key_profiles in ('ks', 'krumhansl_kessler'):
+            key_profiles = KRUMHANSL_KESSLER
+        elif key_profiles in ('temperley', 'cmbs'):
+            key_profiles = CMBS
+        elif key_profiles in ('kp', 'kostka_payne'):
+            key_profiles = KOSTKA_PAYNE
+
+        else:
+            raise ValueError('Invalid key_profiles. '
+                             'Valid options are "ks", "cmbs" or "kp"')
+
+    # Get pitch classes
+    pitch_classes = np.mod(note_array['pitch'], 12)
+
+    # Compute weighted key distribution
+    pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
+                                   for pc in range(12)])
+
+    pitch_distribution /= pitch_distribution.sum()
+
+    # Compute correlation with key profiles
+    corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]
+                      for kp in key_profiles])
+
+    return KEYS[corrs.argmax()]

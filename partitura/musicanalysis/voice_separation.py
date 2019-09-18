@@ -1,19 +1,222 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Base classes to represent score elements for voice separation
-
-TODO
-----
-* Reduce overlap between the main Note and Score classes in partitura
-* Finish documentation.
+Voice Separation using Chew and Wu's algorithm
 """
 import numpy as np
 
 from collections import defaultdict
+from numpy import ma
 from statistics import mode
 
-from ...utils import add_field
+from partitura.utils import add_field
+
+__all__ = ['estimate_voices']
+
+# Maximal cost of a jump (in Chew  and Wu (2006) is 2 ** 31)
+MAX_COST = 1000
+
+
+def estimate_voices(notearray, strictly_monophonic_voices=False,
+                    musicxml_format=True):
+    """
+    Voice estimation using the voice separation algorithm
+    proposed in [1].
+
+    Parameters
+    ----------
+    notearray : numpy structured array
+        Structured array containing score information.
+        Required fields are `pitch` (MIDI pitch),
+        `onset` (starting time of the notes) and
+        `duration` (duration of the notes). Additionally,
+        It might be useful to have an `id` field containing
+        the ID's of the notes. If this field is not contained
+        in the array, ID's will be created for the notes.
+    strictly_monophonic_voices : bool (default False)
+        Make chords
+    musicxml_format : bool (default True)
+        Return voices ready to be used in MusicXML (where indices start at 1
+        instead of 0).
+
+    Returns
+    -------
+    voice : numpy array
+        Voice for each note in the notearray
+    References
+    ----------
+    [1] Elaine Chew and Xiaodan Wu (2006) Separating Voices in
+        Polyphonic Music: A Contig Mapping Approach. In Uffe Kock, 
+        editor, Computer Music Modeling and Retrieval. Springer 
+        Berlin Heidelberg.
+
+    TODO
+    ----
+    * Handle grace notes correctly. The current version simply
+      deletes all grace notes.
+    """
+
+    if notearray.dtype.fields is None:
+        raise ValueError('`notearray` must be a structured numpy array')
+
+    for field in ('pitch', 'onset', 'duration'):
+        if field not in notearray.dtype.names:
+            raise ValueError('Input array does not contain the field {0}'.format(field))
+
+    if 'id' not in notearray.dtype.names:
+        print("The input score does not contain note ID's. They will be created")
+
+        input_array = add_field(notearray, [('id', int)])
+        input_array['id'] = np.arange(len(notearray), dtype=int)
+
+    else:
+        input_array = notearray
+
+    # Indices for sorting the output such that it matches
+    # the original input (VoSA reorders the notes by onset and
+    # by pitch)
+    orig_idxs = np.arange(len(notearray))
+
+    id_sort_idxs = np.sort(input_array['id'])
+
+    # Perform voice separation
+    v_notearray = VoSA(input_array[id_sort_idxs]).note_array
+
+    # Sort output according to the note id's
+    v_notearray = v_notearray[v_notearray['id'].argsort()]
+
+    voices = v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice']
+
+    if musicxml_format:
+        return voices + 1
+    else:
+        return voices
+
+
+def pairwise_cost(prev, nxt):
+    """
+    Compute pairwise cost between two contigs
+
+    Parameters
+    ----------
+    prev : Contig, VoiceManager or iterable
+        VSNotes in the left side of the connection.
+
+    nxt : Contig, VoiceManager or iterable
+        VSNotes in the right side of the connection.
+
+    Returns
+    -------
+    cost : np.ndarray
+        Cost of connecting each note in the last onset of the
+        previous of the contig to each note in the first onset
+        of the next contig. (index [i, j] represents the cost
+        from connecting i in `prev` to  j in `nxt`.
+    """
+    # Get previous notes according to the type of `prev`
+    if isinstance(prev, Contig):
+        n_prev_voices = len(prev.last)
+        prev_notes = prev.last
+    elif isinstance(prev, VoiceManager):
+        n_prev_voices = prev.num_voices
+        prev_notes = [v.last for v in prev]
+    elif isinstance(prev, (list, tuple, np.ndarray)):
+        n_prev_voices = len(prev)
+        prev_notes = prev
+
+    # Get the next notes according to the type of `nxt`
+    if isinstance(nxt, Contig):
+        n_nxt_voices = len(nxt.first)
+        next_notes = nxt.first
+    elif isinstance(nxt, VoiceManager):
+        n_nxt_voices = nxt.num_voices
+        next_notes = [v.first for v in nxt]
+    elif isinstance(nxt, (list, tuple, np.ndarray)):
+        n_nxt_voices = len(nxt)
+        next_notes = nxt
+
+    # Initialize cost array
+    cost = np.zeros((n_prev_voices, n_nxt_voices))
+
+    # Compute cost
+    for i, c_note in enumerate(prev_notes):
+        for j, n_note in enumerate(next_notes):
+            if c_note == n_note:
+                cost[i, j] = - MAX_COST
+            elif c_note.skip_contig != 0 or n_note.skip_contig != 0:
+                cost[i, j] = MAX_COST
+            else:
+                cost[i, j] = abs(c_note.pitch - n_note.pitch)
+
+    return cost
+
+
+def est_best_connections(cost, mode='prev'):
+    """
+    Get the connections with minimal cost
+
+    Parameters
+    ----------
+    cost : np.ndarray
+        Cost of connecting two contigs. See `pairwise_cost`.
+    mode : 'prev' or 'next'
+        Whether the connection is from the previous to the next
+        or from the next to the previous.
+
+    Returns
+    -------
+    best_assignment : np.ndarray
+        2D array where the first column are the streams in the
+        first contig (previous if mode is 'prev' or next if the
+        mode is 'next') and the second column are the corresponding
+        stream in the second contig (next if mode is 'prev' and previous
+        if mode is 'next').
+    unassigned_streams : list
+        Unassigned streams in the previous contig.
+    """
+
+    # number of streams in the first and second contigs
+    n_streams_p, n_streams_n = cost.shape
+
+    # determine sizes according to the mode
+    if mode == 'prev':
+        con_cost = cost
+        n_streams = n_streams_p
+        n_assignments = n_streams_n
+    elif mode == 'next':
+        con_cost = cost.T
+        n_streams = n_streams_n
+        n_assignments = n_streams_p
+
+    # initialize mask for the cost
+    mask = np.zeros_like(con_cost)
+    mcost = ma.masked_array(con_cost, mask=mask)
+
+    # Initialize list of best assignments
+    best_assignment = []
+
+    # while there are fewer than n_assignments
+    while len(best_assignment) < n_assignments:
+
+        # Get the remaining minimal cost
+        next_best = mcost.min(1).argmin()
+        next_assig = mcost.argmin(1)[next_best]
+
+        # append minimal assignment to the list
+        best_assignment.append((next_best, next_assig))
+
+        # Mask this assignment so that it cannot be considered
+        # in the next step of the loop
+        mask[:, next_assig] = 1
+        mask[next_best, :] = 1
+        mcost.mask = mask
+
+    best_assignment = np.array(best_assignment).astype(np.int)
+
+    # Get unassigned streams
+    unassigned_streams = list(set(range(n_streams)).difference(best_assignment[:, 0]))
+
+    return best_assignment, unassigned_streams
 
 
 def sort_by_pitch(sounding_notes):
@@ -90,7 +293,8 @@ class VSNote(object):
         MIDI velocity of the note
     """
 
-    def __init__(self, pitch, onset, duration, note_id, velocity=None, voice=None):
+    def __init__(self, pitch, onset, duration, note_id, velocity=None,
+                 voice=None):
 
         # ID of the note
         self.id = note_id
@@ -143,7 +347,7 @@ class VSChord(object):
     Base class to hold chords
     """
 
-    def __init__(self, notes, rep_pitch='max'):
+    def __init__(self, notes, rep_note='highest'):
 
         if any([n.onset != notes[0].onset for n in notes]):
             raise ValueError('All notes in the chord must have the same onset')
@@ -151,11 +355,25 @@ class VSChord(object):
             raise ValueError('All notes in the chord must have the same offset')
         self.notes = notes
 
+        self.pitches = np.array([n.pitch for n in self.notes])
         self.onset = self.notes[0].onset
         self.offset = self.notes[0].offset
         self.duration = self.notes[0].duration
 
         self.velocity = [n.velocity for n in self.notes]
+
+        self.rep_note = rep_note
+
+    @property
+    def pitch(self):
+        if self.rep_note == 'highest':
+            return self.pitches.max()
+
+        elif self.rep_note == 'lowest':
+            return self.pitches.min()
+
+        elif isinstance(self.rep_note, int):
+            return self.pitches[self.rep_note]
 
     @property
     def voice(self):
@@ -360,7 +578,18 @@ class VSBaseScore(object):
         return res
 
     def sounding_notes(self, tp):
+        """
+        Get all sounding notes at a specific timepoint
 
+        Parameters
+        ----------
+        tp : float
+            Timepoint at which we want to get all sounding notes.
+
+        Returns:
+        notes : list
+            List of sounding notes at timepoint `tp` sorted by pitch.
+        """
         s_ix = np.max(np.where(self.unique_timepoints <= tp)[0])
 
         return sort_by_pitch(self._sounding_notes[self.unique_timepoints[s_ix]])
@@ -491,7 +720,7 @@ class Contig(VSBaseScore):
         return all([stream.voice is not None for stream in self.streams])
 
 
-class VSScore(VSBaseScore):
+class VoSA(VSBaseScore):
     """Class to represent a score for voice separation
 
     TODO:
@@ -548,26 +777,18 @@ class VSScore(VSBaseScore):
 
         self.notes = np.array(sort_by_onset(self.notes))
 
-        super(VSScore, self).__init__(self.notes)
+        super(VoSA, self).__init__(self.notes)
 
         self.contigs = None
 
-    def write_txt(self, outfile, skip_notes_wo_voice=False):
+        self.make_contigs()
+        self.estimate_voices()
 
-        if skip_notes_wo_voice:
-            out_notes = [n for n in self.notes if n.voice is not None]
-
-        else:
-            out_notes = self.notes
-
-        out_array = []
-        for n in out_notes:
-            out_note = (n.pitch, n.onset, n.duration, n.voice if n.voice is not None else -1)
-            out_array.append(out_note)
-
-        np.savetxt(outfile, np.array(out_array), delimiter='\t',
-                   header='\t'.join(['pitch', 'onset', 'duration', 'voice']),
-                   fmt='%.4f')
+    def _build_streams(self):
+        self.voices = []
+        for vn in range(self.num_voices):
+            notes_per_voice = [note for note in self.notes if note.voice == vn]
+            self.voices.append(NoteStream(notes_per_voice, voice=vn))
 
     @property
     def note_array(self):
@@ -673,3 +894,124 @@ class VSScore(VSBaseScore):
             # Create `Contig` instances for each list of notes in a contig
             self.contig_dict[tp] = Contig(self.contig_dict[tp])
             self.contigs.append(self.contig_dict[tp])
+
+    def estimate_voices(self):
+        """
+        Estimate voices using global minimum connections
+        """
+        # indices of the maximal contigs
+        maximal_contigs_idxs = np.where(self._voices_per_contig == self.num_voices)[0]
+
+        # indices of the non maximal contigs
+        non_maximal_contigs_idx = np.where(self._voices_per_contig != self.num_voices)[0]
+
+        # initialize maximal contigs and voice managers
+        voice_managers_dict = dict()
+        for mci in maximal_contigs_idxs:
+            voice_managers_dict[mci] = VoiceManager(self.num_voices)
+            # Initialize the maximal contigs
+            self.contigs[mci].is_maxcontig = True
+
+            # append the maximal contigs to the voice managers
+            for s_i, stream in enumerate(self.contigs[mci].streams):
+                voice_managers_dict[mci].voices[s_i].append(stream)
+
+        # index of the neighbor contig (start with immediate contigs)
+        nix = 1
+        keep_loop = True
+        # Initialize list for unassigned connections (forward and backward)
+        f_unassigned = []
+        b_unassigned = []
+
+        # The loop iterates until all notes have been assigned a voice,
+        # or there is no more score left
+        while keep_loop:
+            # Cristalization process around the maximal contigs
+            for mci in maximal_contigs_idxs:
+
+                # Get voice manager corresponding to the current
+                # maximal contig
+                vm = voice_managers_dict[mci]
+                try:
+                    # forward contig
+                    f_contig = self.contigs[mci + (nix - 1)]
+                except IndexError:
+                    # if there are no more contigs (i.e. the end of the piece)
+                    f_contig = None
+
+                try:
+                    # backward contig
+                    b_contig = self.contigs[mci - (nix - 1)]
+                except IndexError:
+                    # if there are no more contigs (i.e. the beginning of the piece)
+                    b_contig = None
+
+                try:
+                    # next neighbor contig
+                    next_contig = self.contigs[mci + nix]
+                except IndexError:
+                    next_contig = None
+                try:
+                    # previous neighbor contig
+                    prev_contig = self.contigs[mci - nix]
+                except IndexError:
+                    prev_contig = None
+
+                # If we have not reached the end of the piece
+                if f_contig is not None:
+                    # If there is still a next contig
+                    if next_contig is not None:
+                        # If the next neighbor contig has not yet
+                        # been assigned (assigne voice wrt the closest
+                        # maximal contig)
+                        if not next_contig.has_voice_info:
+
+                            # flag voices without a connection in
+                            # the previous step in the loop
+                            for es in f_unassigned:
+                                vm[es].last.skip_contig += 1
+
+                            # Compute connection cost
+                            cost = pairwise_cost(vm, next_contig)
+                            # Estimate best connections (global minimum policy)
+                            best_connections, f_unassigned = est_best_connections(cost, mode='prev')
+                            # for s in vm:
+                            #     s.last.skip_contig = 0
+
+                            # Extend voices with corresponding stream
+                            for es, ns in best_connections:
+                                vm[es].append(next_contig.streams[ns])
+
+                            # for es in f_unassigned:
+                            #     vm[es].last.skip_contig += 1
+
+                # If we have not reached the beginning of the piece
+                if b_contig is not None:
+                    # If there is still a previous contig
+                    if prev_contig is not None:
+                        # If the voices in the previous neighbor contig have
+                        # not yet been assigned (assigne voces wrt to the
+                        # closest maximal contig)
+                        if not prev_contig.has_voice_info:
+                            # flag voices without a connection in the
+                            # previous step in the loop
+                            for es in b_unassigned:
+                                vm[es].first.skip_contig += 1
+
+                            # Compute connection cost
+                            cost = pairwise_cost(prev_contig, vm)
+                            # Estimate best connections
+                            best_connections, b_unassigned = est_best_connections(cost, mode='next')
+                            # for s in vm:
+                            #     s.first.skip_contig = 0
+
+                            # Extend voice with corresponding stream
+                            for es, ns in best_connections:
+                                vm[es].append(prev_contig.streams[ns])
+
+            nix += 1
+
+            # If we have already assigned a voice to all notes in the score,
+            # break the loop (or if there are no more neighboring contigs to process)
+            if all([note.voice is not None for note in self.notes]) or (nix > len(self) + 1):
+                keep_loop = False

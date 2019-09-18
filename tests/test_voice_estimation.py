@@ -1,11 +1,23 @@
 import numpy as np
 
-fn = './data_examples/Three-Part_Invention_No_13_(fragment).xml'
+import unittest
+from tempfile import TemporaryFile
+
+from . import VOSA_TESTFILES
+
+from partitura.importmusicxml import xml_to_notearray
+from partitura.musicanalysis import estimate_voices
 
 
-# from partitura.musicxml import xml_to_notearray
-# from partitura.music_utils import voice_estimation
+class TestVoSA(unittest.TestCase):
+    """
+    Test VoSA
+    """
 
-# if __name__ == '__main__':
-#     notearray = xml_to_notearray(fn)
-#     v_notearray = voice_estimation(notearray)
+    def test_vosa_chew(self):
+        # Example from Chew and Wu.
+        notearray = xml_to_notearray(VOSA_TESTFILES[0])
+        voices = estimate_voices(notearray, strictly_monophonic_voices=True)
+        ground_truth_voices = np.array([3, 2, 1, 3, 3, 2, 3, 3, 2, 3,
+                                        3, 1, 1, 2, 1, 1, 3, 2, 1, 1])
+        self.assertTrue(np.all(voices == ground_truth_voices), 'Incorrect voice assignment.')
