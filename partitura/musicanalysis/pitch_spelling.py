@@ -14,6 +14,40 @@ UND_CHROMA = np.array([0, 2, 3, 5, 7, 8, 10], dtype=np.int)
 ALTER = np.array(['n', '#', 'b'])
 
 
+def estimate_spelling(note_array, method='ps13s1', *args, **kwargs):
+    """
+    Estimate pitch spelling
+
+    Parameters
+    ----------
+    note_array : structured array
+         Array with score information
+    method : str (default 'ps13s1')
+         Pitch spelling algorithm. More methods will be added.
+    *args
+        positional arguments for the algorithm specified in  `method`.
+    **kwargs
+        Keyword arguments for the algorithm specified in `method`.
+
+    Returns
+    -------
+    spelling : structured array
+        Array with pitch spellings. The fields are 'step', 'alter' and 'octave'
+    """
+    if method == 'ps13s1':
+        ps = ps13s1
+
+    step, alter, octave = ps(note_array, *args, **kwargs)
+
+    spelling = np.empty(len(step), dtype=[('step', 'U1'), ('alter', np.int), ('octave', np.int)])
+
+    spelling['step'] = step
+    spelling['alter'] = alter
+    spelling['octave'] = octave
+
+    return spelling
+
+
 def ps13s1(note_array, K_pre=10, K_post=40):
     """
     ps13s1 Pitch Spelling Algorithm
@@ -122,8 +156,8 @@ def compute_morph_array(chroma_array, chroma_vector_array):
     for j in range(n):
         # Lines 13-15 (skipped line 9, since we do not need to
         # initialize morph_for_tonic_chroma)
-        morph_for_tonic_chroma = np.mod(morph_int[np.mod(chroma_array[j] -
-                                                         np.arange(12), 12)] +
+        morph_for_tonic_chroma = np.mod(morph_int[np.mod(chroma_array[j]
+                                                         - np.arange(12), 12)] +
                                         tonic_morph_for_tonic_chroma, 7)
         # Lines 16-17
         tonic_chroma_set_for_morph = [[] for i in range(7)]
