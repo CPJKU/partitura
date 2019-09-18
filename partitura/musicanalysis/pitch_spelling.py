@@ -7,6 +7,8 @@ TODO
 import numpy as np
 from collections import namedtuple
 
+__all__ = ['estimate_spelling']
+
 ChromamorpheticPitch = namedtuple('ChromamorpheticPitch', 'chromatic_pitch morphetic_pitch')
 
 STEPS = np.array(['A', 'B', 'C', 'D', 'E', 'F', 'G'])

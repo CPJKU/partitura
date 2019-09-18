@@ -8,6 +8,8 @@ TODO
 import numpy as np
 from scipy.linalg import circulant
 
+__all__ = ['estimate_key']
+
 # List of labels for each key (Use enharmonics as needed).
 # Each tuple is (key root name, mode, fifths)
 # The key root name is equal to that with the smallest fifths in
