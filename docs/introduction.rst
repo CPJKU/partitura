@@ -28,6 +28,10 @@ Supported file types
 Musical data can be loaded from and saved to MusicXML files, as well as MIDI
 files. 
 
+Conceptual Overview
+-------------------
+
+
 Relation to `music21 <https://web.mit.edu/music21/>`_
 -----------------------------------------------------
 

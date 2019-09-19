@@ -7,6 +7,7 @@ import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
+__all__ = ['iter_current_next', 'partition', 'iter_subclasses']
 
 def iter_current_next(iterable):
     """

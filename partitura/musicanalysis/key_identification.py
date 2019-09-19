@@ -89,17 +89,16 @@ KOSTKA_PAYNE = build_key_profile_matrix(key_prof_maj_kp, key_prof_min_kp)
 
 
 def estimate_key(note_array, method='krumhansl', *args, **kwargs):
-    """
-    Estimate key of a piece
+    """Estimate key of a piece
 
     Parameters
     ----------
     note_array : structured array
         Array containing the score
-    method : ('krumhansl', 'temperley')
+    method : {'krumhansl', 'temperley'}
         Method for estimating the key. Default is 'krumhansl'.
-        More options will be added in the future.
-    *args, *kwargs
+        More options will be added in the future. 
+    args, kwargs
         Positional and Keyword arguments for the key estimation method
 
     Returns
@@ -108,8 +107,9 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
         Root of the key (key name)
     mode : str
         Mode of the key ('major' or 'minor')
-    fifths: int
+    fifths : int
         Position in the circle of fifths
+    
     """
     if method not in ('krumhansl', ):
         raise ValueError('For now the only valid method is "krumhansl"')

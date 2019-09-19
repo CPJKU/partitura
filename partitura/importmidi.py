@@ -20,41 +20,55 @@ LOGGER = logging.getLogger(__name__)
 def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit=None, estimate_voice_info=True):
 
     """Load a musical score from a MIDI file. Pitch names are estimated 
-    using Meredith's PS13 algorithm [1].
+    using Meredith's PS13 algorithm [1]_.
 
-    Available options for part and voice assignment:
-
-    0: return one Part per track, with voices assigned by channel
-    1: return one PartGroup per track, with Parts assigned by channel (no voices)
-    2: return single Part with voices assigned by track (tracks are combined, channel info is ignored)
-    3: return one Part per track, without voices (channel info is ignored)
-    4: return single Part without voices (channel and track info is ignored)
-    5: return one Part per <track, channel> combination, without voices
 
     Parameters
     ----------
     fn : type
-         Description of `fn`
-    channels : str, optional
-        Target of channel information. Possible values: {'parts', 'voices',
-        None}. When channels='parts' each voice in a track will be assigned
-        to a separate Part. The notes on the same channel occuring in
-        different tracks will be assigned to different Part objects, not a
-        single one. Defaults to 'voices'
-    tracks : {'parts', 'voices', None}, optional
-         Description of `tracks`. Possible values: {'parts', 'voices',
-        None}, Defaults to 'parts'
+        Description of `fn`
+    part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
+        This keyword controls how part and voice information is associated 
+        to track and channel information in the MIDI file. The semantics of
+        the modes is as follows:
+
+        0
+            Return one Part per track, with voices assigned by channel
+        1
+            Return one PartGroup per track, with Parts assigned by channel (no 
+            voices)
+        2
+            Return single Part with voices assigned by track (tracks are 
+            combined, channel info is ignored)
+        3
+            Return one Part per track, without voices (channel info is ignored)
+        4
+            Return single Part without voices (channel and track info is 
+            ignored)
+        5
+            Return one Part per <track, channel> combination, without voices
+
+        Defaults to 0.
     ensure_list : bool, optional
-         Description of `tracks`. Defaults to False
+        When True, return a list independent of how many part or partgroup
+        elements were created from the MIDI file. By default, when the
+        return value of `load_midi` produces a single part or `partgroup
+        element, the element itself is returned instead of a list
+        containing the element. Defaults to False.
     quantization_unit : integer or None, optional
         If not None, quantize MIDI times to multiples of this unit.  .
         Defaults to None.
     estimate_voice_info : bool, optional
-        When True use Chew and Wu's voice separation algorithm [2] to
+        When True use Chew and Wu's voice separation algorithm [2]_ to
         estimate voice information. This option is ignored for
         part/voice assignment modes that infer voice information from
         the track/channel info (i.e. `part_voice_assign_mode` equals
         1, 3, 4, or 5). Defaults to True.
+
+    Returns
+    -------
+    :class:`partitura.score.Part`, :class:`partitura.score.PartGroup`, or a list of these
+        One or more part or partgroup objects
 
     References
     ----------
@@ -65,10 +79,6 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
            Music: A Contig Mapping Approach". Computer Music Modeling and 
            Retrieval (CMMR), pp. 1–20, 2005.
        
-    Returns
-    -------
-    type
-        Description of return value
     """
     mid = mido.MidiFile(fn)
     divs = mid.ticks_per_beat
@@ -212,7 +222,10 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
     for t, qpm in global_tempos:
         part.add(t, score.Tempo(qpm, unit='q'))
         
-    return parts
+    if not ensure_list and len(parts) == 1:
+        return parts[0]
+    else:
+        return parts
 
 
 def timings_ok(durations, divs, threshold=.1):
