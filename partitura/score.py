@@ -433,10 +433,31 @@ class TimeLine(object):
 
     def remove_starting_object(self, o):
         """Remove object `o` as an object starting at time `t`. This involves:
+
         - removing `o` from the timeline
-        - remove the note start timepoint if no starting or ending objects remain at that time
+        - remove the note start timepoint if no starting or ending objects
+          remain at that time
         - set o.start to None
-        
+
+        """
+        if o.start:
+            try:
+                o.start.starting_objects[o.__class__].remove(o)
+            except:
+                raise Exception('Not implemented: removing an starting object that is registered by its superclass')
+            if (sum(len(oo) for oo in o.end.starting_objects.values()) +
+                sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
+                self.remove_point(o.start)
+            o.start = None
+
+    def remove_ending_object(self, o):
+        """Remove object `o` as an object ending at time `t`. This involves:
+
+        - removing `o` from the timeline
+        - remove the note ending timepoint if no starting or ending objects
+          remain at that time
+        - set o.end to None
+
         """
         if o.end:
             try:
@@ -447,7 +468,6 @@ class TimeLine(object):
                 sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
                 self.remove_point(o.end)
             o.end = None
-        # self.get_or_add_point(t).add_ending_object(o)
         
     def get_all_starting(self, cls, start=None, end=None, include_subclasses=False):
         return self.get_all(cls, start, end, include_subclasses, mode='starting')
