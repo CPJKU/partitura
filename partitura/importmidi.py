@@ -20,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit=None, estimate_voice_info=True):
 
     """Load a musical score from a MIDI file. Pitch names are estimated 
-    using Meredith's PS13 algorithm [1].
+    using Meredith's PS13 algorithm [1]_.
 
     Available options for part and voice assignment:
 
@@ -50,7 +50,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False, quantization_unit
         If not None, quantize MIDI times to multiples of this unit.  .
         Defaults to None.
     estimate_voice_info : bool, optional
-        When True use Chew and Wu's voice separation algorithm [2] to
+        When True use Chew and Wu's voice separation algorithm [2]_ to
         estimate voice information. This option is ignored for
         part/voice assignment modes that infer voice information from
         the track/channel info (i.e. `part_voice_assign_mode` equals

@@ -12,12 +12,16 @@ Partitura documentation
    introduction
    usage
 
+
 .. _api_reference:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :caption: API Reference
 
    modules/partitura
+   modules/partitura.musicanalysis
+
 
 Indices and tables
 ==================
