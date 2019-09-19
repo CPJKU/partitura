@@ -13,8 +13,8 @@ output_fn = '/home/thassilo/gitrep/partitura/tests/data_examples/test_midi_outpu
 # sp = midi.load_midi('./tests/data_examples/test_basic_midi.mid')
 
 # load up musicxml file
-# part_list = pa.load_musicxml('/home/thassilo/gitrep/partitura/tests/data_examples/test_basic_midi_2_manipulated_divs.musicxml')
-part_list = pa.load_musicxml('/home/thassilo/gitrep/partitura/tests/data_examples/test_basic_midi_2.musicxml')
+part_list = pa.load_musicxml('/home/thassilo/gitrep/partitura/tests/data_examples/test_basic_midi_2_manipulated_divs.musicxml')
+# part_list = pa.load_musicxml('/home/thassilo/gitrep/partitura/tests/data_examples/test_basic_midi_2.musicxml')
 
 
 p1 = part_list[0]  # get score part from list
