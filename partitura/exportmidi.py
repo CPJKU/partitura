@@ -134,9 +134,15 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
             part_divs = divs[0][1]
             part_divs_factor = divs_factors[divs[0][1]]
 
-            divs_ppq_fact = ppq // (part_divs * part_divs_factor)
+            print(f"lcm: {lcm_all_divs}")
+            print(f"part_divs: {part_divs}")
+            print(f"part_divs_factor: {part_divs_factor}")
 
-        # ipdb.set_trace()
+            # divs_ppq_fact = ppq // (part_divs * part_divs_factor)
+            divs_ppq_fact = ppq // part_divs
+
+            print(f"divs_ppq_fact {divs_ppq_fact}")
+
 
         # basically: get the PPQ and scale all div values accordingly
         # so that the divisons per quarter are equal to PPQ. The note onset
