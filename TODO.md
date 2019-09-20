@@ -21,7 +21,9 @@ Things to do before merging develop into master for v1.0.0
 
 - (all) Check that all items in the public API (i.e. that appear in the HTML docs) are properly documented.
 
-- (cc) Add reference to Dave's paper at top of pitch_spelling module
+- (cc) Add reference to Dave's paper at top of pitch_spelling module. Perhaps also reference "Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany."
+
+- (mg, cc) test key estimation
 
 - *add your stuff here*
 
