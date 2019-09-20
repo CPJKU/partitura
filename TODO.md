@@ -19,6 +19,10 @@ Things to do before merging develop into master for v1.0.0
   not strictly necessary for the intended functionality (use __all__ to select
   which module contents are exposed) -
 
+- (all) Check that all items in the public API (i.e. that appear in the HTML docs) are properly documented.
+
+- (cc) Add reference to Dave's paper at top of pitch_spelling module
+
 - *add your stuff here*
 
 Todo beyond v1.0.0
