@@ -124,7 +124,7 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         assert np.issubdtype(div_val, np.integer)  # check if best way
         divs_factors[div_val] = lcm_all_divs // div_val
 
-        print(divs_factors[div_val])
+        # print(divs_factors[div_val])
 
     for part in parts:  # iterate over the parts
         # get array of all div values in current part
@@ -156,10 +156,17 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
 
         cursor_position = 0
         for note in part.notes_tied:  # iterate over the part's notes
-            note_start = int(note.start.t * divs_ppq_fact - cursor_position)
-            note_end = int((note.end.t - note.start.t) * divs_ppq_fact)
+            LOGGER.debug(f"cursor at: {cursor_position}")
 
-            cursor_position = int(note.end.t * divs_ppq_fact)
+            note_start = int(note.start.t * divs_ppq_fact - cursor_position)
+            note_end = int((note.end.t - note.start.t) * divs_ppq_fact - 1)
+
+            LOGGER.debug(f"note start: {note_start}")
+            LOGGER.debug(f"note end: {note_end}")
+
+            cursor_position = int(note.end.t * divs_ppq_fact - 1)
+
+            LOGGER.debug(f"cursor updated to: {cursor_position}")
 
             # ipdb.set_trace()
 
