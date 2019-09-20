@@ -11,7 +11,7 @@ import mido
 import partitura.score as score
 from partitura import save_musicxml
 from partitura.utils import partition
-from partitura.musicanalysis import estimate_spelling, estimate_key, estimate_voices
+import partitura.musicanalysis as analysis
 
 __all__ = ['load_midi']
 LOGGER = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 
 def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
               quantization_unit=None, estimate_voice_info=True,
-              assign_note_ids=True):
+              estimate_key=False, assign_note_ids=True):
 
     """Load a musical score from a MIDI file. Pitch names are estimated 
     using Meredith's PS13 algorithm [1]_.
@@ -63,6 +63,10 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         quantization unit is chosen automatically as the smallest division
         of the parts per quarter (MIDI "ticks") that can be represented as
         a symbolic duration. Defaults to None.
+    estimate_key : bool, optional
+        When True use Krumhansl's 1990 key profiles [3]_ to determine the
+        most likely global key, discarding any key information in the MIDI 
+        file.
     estimate_voice_info : bool, optional
         When True use Chew and Wu's voice separation algorithm [2]_ to
         estimate voice information. This option is ignored for
@@ -83,6 +87,8 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     .. [2] Elaine Chew and Xiaodan Wu, "Separating Voices in Polyphonic 
            Music: A Contig Mapping Approach". Computer Music Modeling and 
            Retrieval (CMMR), pp. 1–20, 2005.
+    .. [3] Carol L. Krumhansl, "Cognitive foundations of musical pitch", 
+           Oxford University Press, New York, 1990.
        
     """
     mid = mido.MidiFile(fn)
@@ -196,21 +202,22 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     note_array = np.array(note_list, dtype=[('onset', np.int), ('pitch', np.int), ('duration', np.int)])
 
     LOGGER.info('pitch spelling')
-    spelling_global = estimate_spelling(note_array)
+    spelling_global = analysis.estimate_spelling(note_array)
 
     if estimate_voice_info:
         LOGGER.info('voice estimation')
-        estimated_voices = estimate_voices(note_array)
+        estimated_voices = analysis.estimate_voices(note_array)
         # TODO: don't do +1 as soon as this is done in estimate_voices
         estimated_voices += 1
         for part_voice, voice_est in zip(part_voice_list, estimated_voices):
             if part_voice[1] is None:
                 part_voice[1] = voice
 
-    LOGGER.info('key estimation')
-    key = estimate_key(note_array)
-    print(key)
-    
+    if estimate_key:
+        LOGGER.info('key estimation')
+        _, mode, fifths = analysis.estimate_key(note_array)
+        key_sigs_by_track = {}
+        global_key_sigs = [(0, score.fifths_mode_to_key_name(fifths, mode))]
 
     if assign_note_ids:
         note_ids = ['n{}'.format(i) for i in range(len(note_array))]
