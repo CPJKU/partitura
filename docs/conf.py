@@ -12,7 +12,7 @@
 #
 import os
 import sys
-import pkg_resources
+# import pkg_resources
 
 sys.path.insert(0, os.path.abspath('../partitura'))
 
@@ -23,7 +23,8 @@ project = 'partitura'
 author = 'Maarten Grachten, Carlos Eduardo Cancino Chacón, Thassilo Gadermaier'
 
 # The full version, including alpha/beta/rc tags
-release = pkg_resources.get_distribution("partitura").version
+# release = pkg_resources.get_distribution("partitura").version
+release = '0.1.0-pre'
 
 
 # -- General configuration ---------------------------------------------------
