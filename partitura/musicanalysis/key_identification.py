@@ -150,7 +150,8 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER):
     pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
                                    for pc in range(12)])
 
-    pitch_distribution /= pitch_distribution.sum()
+    # normalizing is unnecessary for computing the corrcoef with the profiles:
+    # pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
 
     # Compute correlation with key profiles
     corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]

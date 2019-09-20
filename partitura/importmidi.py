@@ -207,6 +207,11 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             if part_voice[1] is None:
                 part_voice[1] = voice
 
+    LOGGER.info('key estimation')
+    key = estimate_key(note_array)
+    print(key)
+    
+
     if assign_note_ids:
         note_ids = ['n{}'.format(i) for i in range(len(note_array))]
     else:

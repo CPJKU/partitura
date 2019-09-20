@@ -13,7 +13,7 @@ Things to do before merging develop into master for v1.0.0
 
 - (?) update/expand README.rst; use madmom README.rst as a guideline (it can be less elaborate) 
 
-- (mg) Ensure_list keyword in `load_musicxml`
+- [done] (mg) Ensure_list keyword in `load_musicxml`
 
 - (mg) Remove this TODO.md (save the future todo items somewhere else)
 
