@@ -14,7 +14,7 @@ import os
 import sys
 import pkg_resources
 
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../partitura'))
 
 # -- Project information -----------------------------------------------------
 
