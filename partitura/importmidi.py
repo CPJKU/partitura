@@ -54,7 +54,8 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     ensure_list : bool, optional
         When True, return a list independent of how many part or partgroup
         elements were created from the MIDI file. By default, when the
-        return value of `load_midi` produces a single part or `partgroup
+        return value of `load_midi` produces a single 
+        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
         element, the element itself is returned instead of a list
         containing the element. Defaults to False.
     quantization_unit : integer or None, optional
@@ -236,25 +237,25 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                                                       note_ids):
         notes_by_part[part].append((note, voice, spelling, note_id))
 
-    parts = []
+    partlist = []
     # for i, (part, note_info) in enumerate(notes_by_part.items()):
     for part, note_info in notes_by_part.items():
         notes, voices, spellings, note_ids = zip(*note_info)
-        parts.append(create_part(divs, notes, spellings, voices, note_ids,
+        partlist.append(create_part(divs, notes, spellings, voices, note_ids,
                                  sorted(time_sigs_by_part[part]), # time_sigs_by_track[track] or global_time_sigs,
                                  sorted(key_sigs_by_part[part]), # key_sigs_by_track[track] or global_key_sigs,
                                  part_id='P{}'.format(part+1),
                                  part_name='P{}'.format(part+1)))
 
     # add tempos to first part
-    part = next(score.iter_parts(parts))
+    part = next(score.iter_parts(partlist))
     for t, qpm in global_tempos:
         part.add(t, score.Tempo(qpm, unit='q'))
         
-    if not ensure_list and len(parts) == 1:
-        return parts[0]
+    if not ensure_list and len(partlist) == 1:
+        return partlist[0]
     else:
-        return parts
+        return partlist
 
 
 def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):

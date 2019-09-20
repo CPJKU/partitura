@@ -3,18 +3,16 @@ Usage
 
 A musical score can be loaded from a MusicXML file `score.xml` as follows:
 
->>> from partitura import load_musicxml
->>> scr = load_musicxml('score.xml')
+>>> import partitura
+>>> part = partitura.load_musicxml('score.xml')
 
 Loading from a MIDI file `score.mid` works in the same way:
 
->>> from partitura import load_midi
->>> scr = load_mid('score.mid')
+>>> part = partitura.load_midi('score.mid')
 
 The result stored in `score` is a list of `Part` or `PartGroup` objects, depending on the contents of the file.
 
 >>> import partitura.score as score
->>> part = next(iter_parts(scr))
 
 >>> notes = part.list_all(score.Note)
 
@@ -39,4 +37,4 @@ and adding them to the part:
 >>> part.add(0, note2, end=20)
 
 >>> print(part.pretty())
->>> save_musicxml(part, 'out.xml')
+>>> partitura.save_musicxml(part, 'out.xml')
