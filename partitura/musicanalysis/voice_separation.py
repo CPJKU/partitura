@@ -17,8 +17,7 @@ __all__ = ['estimate_voices']
 MAX_COST = 1000
 
 
-def estimate_voices(notearray, strictly_monophonic_voices=False,
-                    musicxml_format=True):
+def estimate_voices(notearray, strictly_monophonic_voices=False):
     """
     Voice estimation using the voice separation algorithm
     proposed in [1].
@@ -35,14 +34,12 @@ def estimate_voices(notearray, strictly_monophonic_voices=False,
         in the array, ID's will be created for the notes.
     strictly_monophonic_voices : bool (default False)
         Make chords
-    musicxml_format : bool (default True)
-        Return voices ready to be used in MusicXML (where indices start at 1
-        instead of 0).
 
     Returns
     -------
     voice : numpy array
-        Voice for each note in the notearray
+        Voice for each note in the notearray. (The voices start with 1, as
+        is the MusicXML convention).
     References
     ----------
     [1] Elaine Chew and Xiaodan Wu (2006) Separating Voices in
@@ -64,8 +61,6 @@ def estimate_voices(notearray, strictly_monophonic_voices=False,
             raise ValueError('Input array does not contain the field {0}'.format(field))
 
     if 'id' not in notearray.dtype.names:
-        print("The input score does not contain note ID's. They will be created")
-
         input_array = add_field(notearray, [('id', int)])
         input_array['id'] = np.arange(len(notearray), dtype=int)
 
@@ -85,12 +80,9 @@ def estimate_voices(notearray, strictly_monophonic_voices=False,
     # Sort output according to the note id's
     v_notearray = v_notearray[v_notearray['id'].argsort()]
 
-    voices = v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice']
+    voices = v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice'] + 1
 
-    if musicxml_format:
-        return voices + 1
-    else:
-        return voices
+    return voices
 
 
 def pairwise_cost(prev, nxt):
