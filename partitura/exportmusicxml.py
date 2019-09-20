@@ -37,7 +37,7 @@ def make_note_el(note, dur, counter):
 
         if counter[note_id] > 1:
 
-            note_id += f'_{counter[note_id]}'
+            note_id += '_{}'.format(counter[note_id])
 
         note_e.attrib['id'] = note_id
         
@@ -56,12 +56,12 @@ def make_note_el(note, dur, counter):
     
         pitch_e = etree.SubElement(note_e, 'pitch')
     
-        etree.SubElement(pitch_e, 'step').text = f'{note.step}'
+        etree.SubElement(pitch_e, 'step').text = '{}'.format(note.step)
     
         if note.alter not in (None, 0):
-            etree.SubElement(pitch_e, 'alter').text = f'{note.alter}'
+            etree.SubElement(pitch_e, 'alter').text = '{}'.format(note.alter)
     
-        etree.SubElement(pitch_e, 'octave').text = f'{note.octave}'
+        etree.SubElement(pitch_e, 'octave').text = '{}'.format(note.octave)
     
     elif isinstance(note, score.Rest):
         
@@ -70,7 +70,7 @@ def make_note_el(note, dur, counter):
     if not isinstance(note, score.GraceNote):
 
         duration_e = etree.SubElement(note_e, 'duration')
-        duration_e.text = f'{int(dur):d}'
+        duration_e.text = '{:d}'.format(int(dur))
     
     notations = []
 
@@ -86,7 +86,7 @@ def make_note_el(note, dur, counter):
 
     if note.voice not in (None, 0):
 
-        etree.SubElement(note_e, 'voice').text = f'{note.voice}'
+        etree.SubElement(note_e, 'voice').text = '{}'.format(note.voice)
 
     if note.fermata is not None:
 
@@ -113,7 +113,7 @@ def make_note_el(note, dur, counter):
 
     if note.staff:
         
-        etree.SubElement(note_e, 'staff').text = f'{note.staff}'
+        etree.SubElement(note_e, 'staff').text = '{}'.format(note.staff)
 
     for slur in note.slur_stops:
 
@@ -128,7 +128,7 @@ def make_note_el(note, dur, counter):
 
             del counter[slur]
 
-        notations.append(etree.Element('slur', number=f'{number}', type='stop'))
+        notations.append(etree.Element('slur', number='{}'.format(number), type='stop'))
 
     for slur in note.slur_starts:
 
@@ -143,7 +143,7 @@ def make_note_el(note, dur, counter):
 
             del counter[slur]
             
-        notations.append(etree.Element('slur', number=f'{number}', type='start'))
+        notations.append(etree.Element('slur', number='{}'.format(number), type='start'))
 
     if notations:
 
@@ -415,7 +415,7 @@ def forward_backup_if_needed(t, t_prev):
         gap = t - t_prev
         e = etree.Element('forward')
         ee = etree.SubElement(e, 'duration')
-        ee.text = f'{int(gap):d}'
+        ee.text = '{:d}'.format(int(gap))
         result.append((t_prev, gap, e))
 
     elif t < t_prev:
@@ -423,7 +423,7 @@ def forward_backup_if_needed(t, t_prev):
         gap = t_prev - t
         e = etree.Element('backup')
         ee = etree.SubElement(e, 'duration')
-        ee.text = f'{int(gap):d}'
+        ee.text = '{:d}'.format(int(gap))
         result.append((t_prev, -gap, e))
 
     return result, gap
@@ -511,14 +511,14 @@ def merge_measure_contents(notes, other, measure_start):
 
                 e = etree.Element('backup')
                 ee = etree.SubElement(e, 'duration')
-                ee.text = f'{-int(gap):d}'
+                ee.text = '{:d}'.format(-int(gap))
                 result.append(e)
 
             elif gap > 0:
 
                 e = etree.Element('forward')
                 ee = etree.SubElement(e, 'duration')
-                ee.text = f'{gap:d}'
+                ee.text = '{:d}'.format(gap)
                 result.append(e)
 
         result.extend([e for _, _, e in elements])
@@ -543,7 +543,7 @@ def do_directions(part, start, end):
         unit = 'q' if tempo.unit is None else tempo.unit
         # e2.text = '{}={}'.format(unit, tempo.bpm)
         # result.append((tempo.start.t, None, e0))
-        e3 = etree.Element('sound', tempo=f'{int(score.to_quarter_tempo(unit, tempo.bpm))}')
+        e3 = etree.Element('sound', tempo='{}'.format(int(score.to_quarter_tempo(unit, tempo.bpm))))
         result.append((tempo.start.t, None, e3))
 
     for direction in directions:
@@ -623,22 +623,22 @@ def do_attributes(part, start, end):
 
             if isinstance(o, score.Divisions):
 
-                etree.SubElement(attr_e, 'divisions').text = f'{o.divs}'
+                etree.SubElement(attr_e, 'divisions').text = '{}'.format(o.divs)
 
             elif isinstance(o, score.KeySignature):
 
                 ks_e = etree.SubElement(attr_e, 'key')
-                etree.SubElement(ks_e, 'fifths').text = f'{o.fifths}'
+                etree.SubElement(ks_e, 'fifths').text = '{}'.format(o.fifths)
 
                 if o.mode:
 
-                    etree.SubElement(ks_e, 'mode').text = f'{o.mode}'
+                    etree.SubElement(ks_e, 'mode').text = '{}'.format(o.mode)
 
             elif isinstance(o, score.TimeSignature):
 
                 ts_e = etree.SubElement(attr_e, 'time')
-                etree.SubElement(ts_e, 'beats').text = f'{o.beats}'
-                etree.SubElement(ts_e, 'beat-type').text = f'{o.beat_type}'
+                etree.SubElement(ts_e, 'beats').text = '{}'.format(o.beats)
+                etree.SubElement(ts_e, 'beat-type').text = '{}'.format(o.beat_type)
 
             elif isinstance(o, score.Clef):
 
@@ -646,14 +646,14 @@ def do_attributes(part, start, end):
 
                 if o.number:
 
-                    clef_e.set('number', f'{o.number}')
+                    clef_e.set('number', '{}'.format(o.number))
 
-                etree.SubElement(clef_e, 'sign').text = f'{o.sign}'
-                etree.SubElement(clef_e, 'line').text = f'{o.line}'
+                etree.SubElement(clef_e, 'sign').text = '{}'.format(o.sign)
+                etree.SubElement(clef_e, 'line').text = '{}'.format(o.line)
 
                 if o.octave_change:
 
-                    etree.SubElement(clef_e, 'clef-octave-change').text = f'{o.octave_change}'
+                    etree.SubElement(clef_e, 'clef-octave-change').text = '{}'.format(o.octave_change)
 
         result.append((t, None, attr_e))
 
