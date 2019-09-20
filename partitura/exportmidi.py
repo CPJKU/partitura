@@ -10,76 +10,13 @@ import ipdb
 
 __all__ = ['save_midi']
 LOGGER = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+
 
 
 DEFAULT_FORMAT = 0  # MIDI file format
 DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
-
-
-STEPS = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B']
-
-
-def decode_pitch_alternative(note_number):
-    """
-
-    Will only assign alter of 0 or 1.
-    """
-    # C4 at 261 Hz has step C, alter 0, octave 4.
-
-    note_number = int(note_number)
-
-    step_index = note_number % 12
-    step = STEPS[step_index]
-
-    if (step_index % 2 == 0):
-        if (step_index <= 4):
-            alter = 0
-        else:
-            alter = 1
-    elif (step_index % 2 != 0):
-        if (step_index > 4):
-            alter = 0
-        else:
-            alter = 1
-
-    octave = int(np.floor(note_number / 12 - 1))
-
-    return step, alter, octave
-
-
-def decode_pitch(pitch):
-    """
-    Naive approach to pitch-spelling. This is a place-holder
-    for a proper pitch spelling approach.
-
-    Parameters
-    ----------
-    pitch: int
-        MIDI note number
-
-    Returns
-    -------
-    (step, alter, octave): (str, int, int)
-        Triple of step (note name), alter (0 or 1), and octave
-    """
-
-    octave = int((pitch - 12) // 12)
-    step, alter = [('a', 0),
-                   ('a', 1),
-                   ('b', 0),
-                   ('c', 0),
-                   ('c', 1),
-                   ('d', 0),
-                   ('d', 1),
-                   ('e', 0),
-                   ('f', 0),
-                   ('f', 1),
-                   ('g', 0),
-                   ('g', 1),
-                   ][int((pitch - 21) % 12)]
-
-    return step, alter, octave
 
 
 def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
@@ -113,6 +50,7 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         divs_list.append(divs[:, 1])  # keep only the div values
 
     all_divs = set(np.array(divs_list).flatten())
+    # get the least common multiple of all involved div values used in the 
     lcm_all_divs = np.lcm.reduce(list(all_divs))
     assert np.issubdtype(lcm_all_divs, np.integer)
 
@@ -139,9 +77,12 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
             print(f"part_divs_factor: {part_divs_factor}")
 
             # divs_ppq_fact = ppq // (part_divs * part_divs_factor)
+            assert ppq >= part_divs
             divs_ppq_fact = ppq // part_divs
 
             print(f"divs_ppq_fact {divs_ppq_fact}")
+        else:
+            raise NotImplementedError()
 
 
         # basically: get the PPQ and scale all div values accordingly
@@ -154,7 +95,7 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         # set instrument/sound using MIDI program change
         track.append(Message('program_change', program=0, time=0))
 
-        cursor_position = 0
+        cursor_position = 0  # what if we have pickup measure? Should also work
         for note in part.notes_tied:  # iterate over the part's notes
             LOGGER.debug(f"cursor at: {cursor_position}")
 
