@@ -11,9 +11,11 @@ Things to do before merging develop into master for v1.0.0
 
 - (mg) Remove instrument_assignment.py (and references to it)
 
+- (?) update/expand README.rst; use madmom README.rst as a guideline (it can be less elaborate) 
+
 - (mg) Ensure_list keyword in `load_musicxml`
 
-- (mg) Remove this TODO.md
+- (mg) Remove this TODO.md (save the future todo items somewhere else)
 
 - (all) Check that there are no things in the public API (i.e. in the docs) that are
   not strictly necessary for the intended functionality (use __all__ to select
@@ -22,6 +24,10 @@ Things to do before merging develop into master for v1.0.0
 - (all) Check that all items in the public API (i.e. that appear in the HTML docs) are properly documented.
 
 - (cc) Add reference to Dave's paper at top of pitch_spelling module. Perhaps also reference "Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany."
+
+- (all) remove all print statements (only use logging)
+
+- (all) get rid of f-strings to relax python >=3.6 version requirement
 
 - (mg, cc) test key estimation
 

@@ -11,15 +11,20 @@ from setuptools import find_packages, setup, Command
 # Package meta-data.
 NAME = 'partitura'
 DESCRIPTION = 'A package to handle musicXML, match, worm and MIDI files'
-URL = 'https://github.com/me/myproject'
-EMAIL = 'carlos.cancino@ofai.at'
-AUTHOR = 'Maarten Grachten, Thassilo Gadermaier and Carlos Cancino-Chacón'
+URL = 'https://github.com/mgrachten/partitura'
+EMAIL = 'maarten.grachten@gmail.com'
+AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
 REQUIRES_PYTHON = '>=3.6.0'
 VERSION = '0.0.1'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'numpy', 'scipy', 'lxml', 'ply', 'roman',
+    'numpy',
+    'scipy',
+    'lxml',
+    'lark-parser',
+    'xmlschema',
+    'mido'
 ]
 
 # What packages are optional?
