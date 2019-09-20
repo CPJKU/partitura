@@ -123,12 +123,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
         for msg in track:
 
-            # print(msg)
-
-            t += msg.time
-
-            if quantization_unit is not None:
-                t = quantize(t, quantization_unit)
+            t = quantize(t + msg.time, quantization_unit)
             
             if msg.is_meta:
                 if msg.type == 'time_signature':
@@ -198,10 +193,6 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     # note_list = sorted(note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
     note_list = [note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes]
     note_array = np.array(note_list, dtype=[('onset', np.int), ('pitch', np.int), ('duration', np.int)])
-
-    if not timings_ok(note_array['duration'], divs, threshold=.1):
-        return []
-
 
     LOGGER.info('pitch spelling')
     spelling_global = estimate_spelling(note_array)
@@ -335,16 +326,6 @@ def estimate_clef(pitches):
     f = interp1d([0, 49, 70, 127], [0, 0, 1, 1], kind='nearest')
     return clefs[int(f(center))]
 
-def interpret_key_name():
-    # valid names:
-    # "A", "A#m", "Ab", "Abm", "Am",
-    # "B", "Bb", "Bbm", "Bm",
-    # "C", "C#", "C#m", "Cb", "Cm",
-    # "D", "D#m", "Db", "Dm",
-    # "E", "Eb", "Ebm", "Em",
-    # "F", "F#", "F#m", "Fm",
-    # "G", "G#m", "Gb", "Gm"
-    pass
 
 def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
     LOGGER.info('create_part')
@@ -354,16 +335,20 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     part.add(0, score.Divisions(ticks))
     part.add(0, clef)
 
-    # # TODO: insert key sigs
-    # for t, name in key_sigs:
-    #     fifths, mode = interpret_key_name(name)
-    #     part.add(t, score.KeySignature(...))
+    for t, name in key_sigs:
+        fifths, mode = score.key_name_to_fifths_mode(name)
+        part.add(t, score.KeySignature(fifths, mode))
 
     LOGGER.info('add notes')
 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
-        note = score.Note(step, alter, octave, voice=int(voice or 0), id=note_id,
-                          symbolic_duration=score.estimate_symbolic_duration(duration, ticks))
+        if duration > 0:
+            note = score.Note(step, alter, octave, voice=int(voice or 0), id=note_id,
+                              symbolic_duration=score.estimate_symbolic_duration(duration, ticks))
+        else:
+            note = score.GraceNote('appoggiatura', step, alter, octave, voice=int(voice or 0), id=note_id,
+                                   symbolic_duration=dict(type='quarter'))
+            
         part.add(onset, note, onset+duration)
 
     if not time_sigs:
