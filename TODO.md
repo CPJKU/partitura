@@ -5,9 +5,9 @@ Things to do before merging develop into master for v1.0.0
 
 - (tg) Add MIDI export
 
-- (cc) Add option to handle simultaneous/same duration notes in `estimate_voices`
+- [done] (cc) Add option to handle simultaneous/same duration notes in `estimate_voices`
 
-- (cc) Remove match.py (and references to it)
+- [done] (cc) Remove match.py (and references to it)
 
 - (mg) Remove instrument_assignment.py (and references to it)
 
@@ -25,9 +25,9 @@ Things to do before merging develop into master for v1.0.0
 
 - (cc) Add reference to Dave's paper at top of pitch_spelling module. Perhaps also reference "Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany."
 
-- (all) remove all print statements (only use logging)
+- [done] (all) remove all print statements (only use logging)
 
-- (all) get rid of f-strings to relax python >=3.6 version requirement
+- [done] (all) get rid of f-strings to relax python >=3.6 version requirement
 
 - (mg, cc) test key estimation
 

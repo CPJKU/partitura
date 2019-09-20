@@ -41,7 +41,7 @@ def join_items(items):
     regular expressions. Furthermore, each item is flagged with "i" for
     case-insensitivity.
     """
-    return ' | '.join(f'{item}i' if item.startswith('/') else f'"{item}"i'
+    return ' | '.join('{}i'.format(item) if item.startswith('/') else '"{}"i'.format(item)
                       for item in items)
 
 
@@ -212,7 +212,7 @@ PREP = [
 ]
 
 
-DIRECTION_GRAMMAR = rf"""
+DIRECTION_GRAMMAR = r"""
 start: direction -> do_first
      | direction conj direction -> conj
      | direction "("? tempo_indication ")"?  -> do_both
@@ -276,26 +276,40 @@ TEMPO_RESET: /((in|a) )?tempo (i|1|primo)/i | /(in|a) tempo/i | "doppio moviment
 NOTE: /[qhe]\.*/i
 BPM: /[0-9]+/
 
-NOUN: {join_items(NOUN)}
-PREP: {join_items(PREP)}
-CONSTANT_TEMPO_ADJ: {join_items(CONSTANT_TEMPO_ADJ)}
-CONSTANT_LOUDNESS_ADJ: {join_items(CONSTANT_LOUDNESS_ADJ)}
-CONSTANT_ARTICULATION_ADJ: {join_items(CONSTANT_ARTICULATION_ADJ)}
-CONSTANT_MIXED_ADJ: {join_items(CONSTANT_MIXED_ADJ)}
-INC_LOUDNESS_ADJ: {join_items(INC_LOUDNESS_ADJ)}
-DEC_LOUDNESS_ADJ: {join_items(DEC_LOUDNESS_ADJ)}
-INC_TEMPO_ADJ: {join_items(INC_TEMPO_ADJ)}
-DEC_TEMPO_ADJ: {join_items(DEC_TEMPO_ADJ)}
-CONSTANT_QUANTIFIER: {join_items(CONSTANT_QUANTIFIER)}
-DYNAMIC_QUANTIFIER: {join_items(DYNAMIC_QUANTIFIER)}
-GENRE: {join_items(GENRE)}
+NOUN: {noun}
+PREP: {prep}
+CONSTANT_TEMPO_ADJ: {constant_tempo_adj}
+CONSTANT_LOUDNESS_ADJ: {constant_loudness_adj}
+CONSTANT_ARTICULATION_ADJ: {constant_articulation_adj}
+CONSTANT_MIXED_ADJ: {constant_mixed_adj}
+INC_LOUDNESS_ADJ: {inc_loudness_adj}
+DEC_LOUDNESS_ADJ: {dec_loudness_adj}
+INC_TEMPO_ADJ: {inc_tempo_adj}
+DEC_TEMPO_ADJ: {dec_tempo_adj}
+CONSTANT_QUANTIFIER: {constant_quantifier}
+DYNAMIC_QUANTIFIER: {dynamic_quantifier}
+GENRE: {genre}
 CONJ: "ed"i | "e"i | "und"i | ","i
 NEG: "non"i
 
 %import common.WS
 %ignore WS
 
-"""
+""".format(
+    noun=join_items(NOUN),
+    prep=join_items(PREP),
+    constant_tempo_adj=join_items(CONSTANT_TEMPO_ADJ),
+    constant_loudness_adj=join_items(CONSTANT_LOUDNESS_ADJ),
+    constant_articulation_adj=join_items(CONSTANT_ARTICULATION_ADJ),
+    constant_mixed_adj=join_items(CONSTANT_MIXED_ADJ),
+    inc_loudness_adj=join_items(INC_LOUDNESS_ADJ),
+    dec_loudness_adj=join_items(DEC_LOUDNESS_ADJ),
+    inc_tempo_adj=join_items(INC_TEMPO_ADJ),
+    dec_tempo_adj=join_items(DEC_TEMPO_ADJ),
+    constant_quantifier=join_items(CONSTANT_QUANTIFIER),
+    dynamic_quantifier=join_items(DYNAMIC_QUANTIFIER),
+    genre=join_items(GENRE)
+)
 
 
 def create_directions(tree, string):
