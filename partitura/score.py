@@ -34,7 +34,7 @@ from numbers import Number
 import numpy as np
 from scipy.interpolate import interp1d
 
-from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_current_next, sorted_dict_items, PrettyPrintTree
+from partitura.utils import ComparableMixin, partition, iter_subclasses, iter_current_next, sorted_dict_items, PrettyPrintTree, find_nearest
 
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
@@ -45,6 +45,7 @@ _MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
 _ALTER_SIGNS = {None: '', 0: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
+
 _LABEL_DURS = {
     'long': 16,
     'breve': 8,
@@ -64,7 +65,8 @@ _LABEL_DURS = {
 _DOT_MULTIPLIERS = (1, 1+1/2, 1+3/4, 1+7/8)
 # DURS and SYM_DURS encode the same information as _LABEL_DURS and
 # _DOT_MULTIPLIERS, but they allow for faster estimation of symbolic duration
-# (estimate_symbolic duration)
+# (estimate_symbolic duration). At some point we will probably do away with
+# _LABEL_DURS and _DOT_MULTIPLIERS.
 DURS = np.array([
     1.5625000e-02, 2.3437500e-02, 2.7343750e-02, 2.9296875e-02, 3.1250000e-02,
     4.6875000e-02, 5.4687500e-02, 5.8593750e-02, 6.2500000e-02, 9.3750000e-02,
@@ -138,13 +140,100 @@ SYM_DURS = [
   {"type": "long", "dots": 3}
 ]
 
+MAJOR_KEYS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#']
+MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#']
 
-def find_nearest(array, value):
-    idx = np.searchsorted(array, value, side="left")
-    if idx > 0 and (idx == len(array) or np.abs(value - array[idx-1]) <= np.abs(value - array[idx])):
-        return idx-1
+
+def fifths_mode_to_key_name(fifths, mode):
+    """Return the key signature name corresponding to a number of sharps
+    or flats and a mode. A negative value for `fifths` denotes the
+    number of flats (i.e. -3 means three flats), and a positive
+    number the number of sharps. The mode is specified as 'major'
+    or 'minor'.
+
+    Parameters
+    ----------
+    fifths : int
+        Number of fifths
+    mode : {'major', 'minor'}
+        Mode of the key signature
+
+    Returns
+    -------
+    str
+        The name of the key signature, e.g. 'Am'
+
+    Examples
+    --------
+    >>> fifths_mode_to_key_name(0, 'minor')
+    'Am'
+    >>> fifths_mode_to_key_name(0, 'major')
+    'C'
+    >>> fifths_mode_to_key_name(3, 'major')
+    'A'
+    
+    """
+    global MAJOR_KEYS, MINOR_KEYS
+    
+    if mode == 'minor':
+        keylist = MINOR_KEYS
+        suffix = 'm'
+    elif mode == 'major':
+        keylist = MAJOR_KEYS
+        suffix = ''
     else:
-        return idx
+        raise Exception('Unknown mode {}'.format(mode))
+
+    try:
+        name = keylist[fifths + 7]
+    except IndexError:
+        raise Exception('Unknown number of fifths {}'.format(fifths))
+
+    return name + suffix
+
+
+def key_name_to_fifths_mode(name):
+    """Return the number of sharps or flats and the mode of a key
+    signature name. A negative number denotes the number of flats
+    (i.e. -3 means three flats), and a positive number the number of
+    sharps. The mode is specified as 'major' or 'minor'.
+
+    Parameters
+    ----------
+    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C", "C#",
+        "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb", "Ebm",
+        "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"} Name of
+        the key signature
+
+    Returns
+    -------
+    
+
+    Examples
+    --------
+    >>> key_name_to_fifths_mode('Am')
+    (0, 'minor')
+    >>> key_name_to_fifths_mode('C')
+    (0, 'major')
+    >>> key_name_to_fifths_mode('A')
+    (3, 'major')
+    
+    """
+    global MAJOR_KEYS, MINOR_KEYS
+    
+    if name.endswith('m'):
+        mode = 'minor'
+        keylist = MINOR_KEYS
+    else:
+        mode = 'major'
+        keylist = MAJOR_KEYS
+
+    try:
+        fifths = keylist.index(name.strip('m')) - 7
+    except ValueError:
+        raise Exception('Unknown key signature {}'.format(name))
+
+    return fifths, mode
 
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):
@@ -1041,19 +1130,20 @@ class Tempo(TimedObject):
 
 
 class KeySignature(TimedObject):
-    """
+    """Key signature.
 
     Parameters
     ----------
     fifths : number
         Number of sharps (positive) or flats (negative)
-
     mode : str
         Mode of the key, either 'major' or 'minor'
 
+    Attributes
+    ----------
+    name
+    
     """
-
-    names = ['C','G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F']
     
     def __init__(self, fifths, mode):
         super().__init__()
@@ -1062,25 +1152,16 @@ class KeySignature(TimedObject):
         
     @property
     def name(self):
-        """A human-readable representation of the key, such as "C#" for C
-        sharp major, or "Ebm" for E flat minor. Compatible with the key
-        signature names used by mido.
+        """The key signature name, where the root is uppercase, and an
+        trailing 'm' indicates minor modes (e.g. 'Am', 'G#').
 
         Returns
         -------
         str
-            Human-readable representation of the key
+            The key signature name
         
         """
-        
-        if self.mode == 'minor':
-            o = 3
-            m = 'm'
-        else:
-            o = 0
-            m = ''
-
-        return self.names[(len(self.names) + self.fifths + o) % len(self.names)] + m
+        return fifths_mode_to_key_name(self.fifths, self.mode)
     
     def __str__(self):
         return ('Key signature: fifths={}, mode={} ({})'
