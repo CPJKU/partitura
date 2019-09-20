@@ -1,9 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 Krumhansl and Shepard key estimation
 
-TODO
+References
 ----
-* Documentation
+[1] Krumhansl, C. L. (1990) Cognitive foundations of musical pitch Oxford University Press, New York
 """
 import numpy as np
 from scipy.linalg import circulant
@@ -109,7 +110,7 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
         Mode of the key ('major' or 'minor')
     fifths : int
         Position in the circle of fifths
-    
+
     """
     if method not in ('krumhansl', ):
         raise ValueError('For now the only valid method is "krumhansl"')
