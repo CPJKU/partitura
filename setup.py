@@ -12,10 +12,10 @@ from setuptools import find_packages, setup, Command
 NAME = 'partitura'
 DESCRIPTION = 'A package to handle musicXML, match, worm and MIDI files'
 URL = 'https://github.com/mgrachten/partitura'
-EMAIL = 'maarten.grachten@gmail.com'
+EMAIL = 'partitura-users@googlegroups.com'
 AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
 REQUIRES_PYTHON = '>=3.3'
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -68,10 +68,11 @@ setup(
     python_requires=REQUIRES_PYTHON,
     url=URL,
     packages=find_packages(exclude=('tests',)),
+    package_data={'partitura': ['musicxml.xsd']},
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,
-    license='MIT',
+    license='Apache 2.0',
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
