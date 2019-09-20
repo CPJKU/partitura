@@ -29,7 +29,7 @@ Things to do before merging develop into master for v1.0.0
 
 - [done] (all) get rid of f-strings to relax python >=3.6 version requirement
 
-- (mg, cc) test key estimation
+- [done] (mg, cc) test key estimation
 
 - (cc) Use morphetic pitch conventions from pitch_spelling.py in score.py
 
