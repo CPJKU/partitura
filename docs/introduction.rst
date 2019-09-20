@@ -2,7 +2,7 @@ Introduction
 ============
 
 The principal aim of the `partitura` package is to handle richly structured
-musical information as conveyed by common Western music notation. It provides a
+musical information as conveyed by modern staff music notation. It provides a
 much wider range of possibilities to deal with music than the more reductive
 (but very common) pianoroll-oriented approach inspired by the MIDI standard.
 

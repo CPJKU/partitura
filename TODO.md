@@ -27,11 +27,12 @@ TODO
   - load MIDI to score.Part
     - [v] compute symbolic_durations from MIDI durations
     - [v] pitch spelling (implement PS13?)
-    - convert mido keysig names (A#m) to fifths+mode representation
+    - [V] convert mido keysig names (A#m) to fifths+mode representation
     - [V] voice assignment
-    - recognize tuplets
-    - estimate clef
-    - suggest quantization if too many unrecognized durations
+    - [V] recognize tuplets
+    - [V] estimate clef
+    - estimate staffs
+    - adaptive quantization
     
   - load match/score format to score.Part
 
@@ -53,10 +54,11 @@ TODO
     - [V] new page/system
     - [V] fill gaps in measure with rests
     - add measures if they are missing (implemented but needs to be isolated from `import_midi.create_part`)
-
+    - avoid polyphony inside voices
+    
  - test
      - [V] musicxml -> score -> musicxml
      - [V] unfold timeline (need more examples?)
-     - test case for voice assignment
+     - [V] test case for voice assignment
      - test midi import with time sig change
      
