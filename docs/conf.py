@@ -40,7 +40,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon',
+    # 'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
 ]
 
 
