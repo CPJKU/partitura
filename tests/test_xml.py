@@ -25,13 +25,12 @@ class TestDirectionParser(unittest.TestCase):
         ('ligato', [score.ConstantArticulationDirection]),
         ('sempre cresc', [score.DynamicLoudnessDirection]),
         ('poco a poco rallentando', [score.DynamicTempoDirection]),
-        ('this is not a direction', [score.Words])
         ]
         
     def test_parser(self):
         for words, target in self.cases:
             result = parse_words(words)
-            self.assertEqual(len(result), len(target), f'"{words}" not parsed correctly into directions')
+            self.assertEqual(len(result), len(target), '"{}" not parsed correctly into directions'.format(words))
             for res, trg in zip(result, target):
                 self.assertEqual(type(res), trg, '')
 
