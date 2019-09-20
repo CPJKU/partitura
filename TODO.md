@@ -7,10 +7,6 @@ Things to do before merging develop into master for v1.0.0
 
 - (cc) Add option to handle simultaneous/same duration notes in `estimate_voices`
 
-- (cc) Remove match.py (and references to it)
-
-- (mg) Remove instrument_assignment.py (and references to it)
-
 - (?) update/expand README.rst; use madmom README.rst as a guideline (it can be less elaborate) 
 
 - (mg) Ensure_list keyword in `load_musicxml`
