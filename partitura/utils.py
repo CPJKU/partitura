@@ -7,7 +7,32 @@ import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ['iter_current_next', 'partition', 'iter_subclasses']
+__all__ = ['find_nearest', 'iter_current_next', 'partition', 'iter_subclasses']
+
+
+def find_nearest(array, value):
+    """
+    Return the index of the value in `array` that is closest to `value`.
+    
+    Parameters
+    ----------
+    array: ndarray
+        Array of numbers
+    value: float
+        The query value
+    
+    Returns
+    -------
+    int
+        Index of closest value
+    """
+    
+    idx = np.searchsorted(array, value, side="left")
+    if idx > 0 and (idx == len(array) or np.abs(value - array[idx-1]) <= np.abs(value - array[idx])):
+        return idx-1
+    else:
+        return idx
+
 
 def iter_current_next(iterable):
     """

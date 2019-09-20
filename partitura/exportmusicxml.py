@@ -11,8 +11,7 @@ from partitura.utils import partition
 
 __all__ = ['save_musicxml']
 
-logging.basicConfig(level=logging.DEBUG)
-LOGGER = logging.getLogger()
+LOGGER = logging.getLogger(__name__)
 
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
