@@ -8,12 +8,21 @@ supports loading from and exporting to *MusicXML* and *MIDI* files.
 Quickstart
 ==========
 
-
-    >>> import partitura
-    >>> parts = partitura.load_musicxml("score.musicxml")
-    >>> for part in partitura.iter_parts(parts):
-    >>>     print(part.pretty())
+The following code loads one or more parts from a MusicXML file `score.musicxml`
+and shows their contents:
+  
+  >>> import partitura
+  >>> import partitura.score as score
+  
+  >>> parts = partitura.load_musicxml("score.musicxml")
+  >>> for part in score.iter_parts(parts):
+  >>>     print(part.pretty())
     
+For a given *Part* object `part`, the following code extracts the note onsets,
+offsets, and MIDI pitches:
+
+  >>> notes = part.get_all(score.Note)
+  >>> pianoroll = [(n.start.t, n.end.t, n.midi_pitch) for n in notes]
 
 Documentation
 =============
@@ -31,9 +40,9 @@ Installation
 ============
 
 The easiest way to install the package is via ``pip`` from the `PyPI (Python
-Package Index) <https://pypi.python.org/pypi>`_:
+Package Index) <https://pypi.python.org/pypi>`_::
 
-    pip install partitura
+  pip install partitura
 
 This will install the latest release of the package and will install all
 dependencies automatically.
