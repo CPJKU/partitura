@@ -144,18 +144,18 @@ MAJOR_KEYS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 
 MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#']
 
 
-def fifths_mode_to_key_name(fifths, mode):
+def fifths_mode_to_key_name(fifths, mode=None):
     """Return the key signature name corresponding to a number of sharps
     or flats and a mode. A negative value for `fifths` denotes the
     number of flats (i.e. -3 means three flats), and a positive
     number the number of sharps. The mode is specified as 'major'
-    or 'minor'.
+    or 'minor'. If `mode` is None, the key is assumed to be major.
 
     Parameters
     ----------
     fifths : int
         Number of fifths
-    mode : {'major', 'minor'}
+    mode : {'major', 'minor', None}
         Mode of the key signature
 
     Returns
@@ -178,7 +178,7 @@ def fifths_mode_to_key_name(fifths, mode):
     if mode == 'minor':
         keylist = MINOR_KEYS
         suffix = 'm'
-    elif mode == 'major':
+    elif mode in ('major', None):
         keylist = MAJOR_KEYS
         suffix = ''
     else:
