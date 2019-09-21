@@ -30,7 +30,7 @@ author = 'Maarten Grachten, Carlos Eduardo Cancino Chacón, Thassilo Gadermaier'
 # built documents.
 #
 # The short X.Y version.
-version = pkg_resources.get_distribution("madmom").version
+version = pkg_resources.get_distribution("partitura").version
 # The full version, including alpha/beta/rc tags.
 release = version
 
