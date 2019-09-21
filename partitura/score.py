@@ -13,9 +13,8 @@ slurs, words, expressive directions. The `TimeLine` object contains a sequence o
 dictionaries with the objects starting and ending at `t`, respectively (indexed
 by class).
 
-TODO: example of Part/Timeline construction from scratch
+TODO: Refer to documentation
 
-TODO: explain that ontology roughly follows MusicXML schema (should be mostly compatible with MEI as well)
 
 """
 
@@ -1669,37 +1668,37 @@ class ScoreVariant(object):
 
 class Part(object):
 
-    """Represents a whole score part, e.g. all notes of one single instrument
-    or 2 instruments written in the same staff. Note that there may be more
-    than one staff per score part; vice versa, in the printed score, there
-    may be more than one score part's notes in the same staff (such as two
-    flutes in one staff, etc).
+    """Represents a score part, e.g. all notes of one single instrument
+    (or multiple instruments written in the same staff). Note that
+    there may be more than one staff per score part.
 
     Parameters
     ----------
     part_id : str
-        The id of the part (<score-part id="P1">), will look         like
-        'P1' for part 1, etc.      tl : TimeLine object OR None, optional
+        The identifier of the part. To be compatible with MusicXML the
+        identifier should not start with a number
+    timeline : TimeLine or None, optional
+        If not None, use the provided timeline as timeline for the
+        Part. Otherwise a new empty Timeline will be created.
 
     Attributes
     ----------
     part_id : str
-    timeline : TimeLine object
+        The identifier of the part. (see Parameters Section).
+    timeline : TimeLine
     part_name : str
-        as taken from the musicxml file
+        Name for the part
     part_abbreviation : str
-        as taken from the musicxml file
+        Abbreviated name for part
     notes
-    notes_unfolded
-    beat_map : scipy interpolate interp1d object
-        the timeline on a beat basis, i.e. defined on the currently present
-        time signature's denominator (may vary throughout the score). Each
-        timepoint of the timeline is expressed as a (fraction) of a beat
-        number.
-    quarter_map : scipy interpolate interp1d object
-        The timeline on a quarter note basis. Each timepoint of         the
-        timeline is be expressed as a (fraction of) a quarter         note.
-
+    notes_tied
+    beat_map : function
+        A function mapping timeline times to beat times. The function
+        can take scalar values or lists/arrays of values.
+    quarter_map : function
+        A function mapping timeline times to quarter times. The
+        function can take scalar values or lists/arrays of values.
+    
     """
 
     def __init__(self, part_id, timeline=None):
@@ -2267,18 +2266,6 @@ class Part(object):
         return [note for note in self.list_all(Note, unfolded=False, include_subclasses=True)
                 if note.tie_prev is None]
 
-    @property
-    def notes_unfolded(self):
-        """Return all note objects of the score part, after unfolding the
-        timeline
-
-        Returns
-        -------
-        list
-            list of Note objects
-
-        """
-        return self.list_all(Note, unfolded=True)
 
     @property
     def beat_map(self):
