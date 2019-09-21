@@ -874,7 +874,10 @@ class System(TimedObject):
         return 'System: number={0}'.format(self.nr)
 
 class Clef(TimedObject):
-
+    """
+    TODO: explain the connection between the number of the clef and the number
+    in the staff attribute of Notes etc.
+    """
     def __init__(self, number, sign, line, octave_change):
         super().__init__()
         self.number = number
@@ -2293,21 +2296,31 @@ class Part(object):
         return self._get_beat_map(quarter=True)
 
 def iter_parts(partlist):
-    """Iterate over all Part instances in partlist, which is a list of either
-    Part or PartGroup instances. PartGroup instances contain one or more
-    parts or further partgroups.
+    """Iterate over all Part instances in partlist, which is a list of
+    either Part or PartGroup instances. PartGroup instances contain
+    one or more parts or further partgroups, and are traversed in a
+    depth-first fashion.
+
+    This function is designed to take the result of
+    :func:`partitura.load_midi` and :func:`partitura.load_musicxml` as
+    input.
 
     Parameters
     ----------
-    partlist : list
-        Description of `partlist`
+    partlist : list, Part, or PartGroup
+        A :class:`partitura.score.Part` object,
+        :class:`partitura.score.PartGroup` or a list of these
 
     Returns
     -------
     iterator
-        Iterator over Part instances
+        Iterator over Part instances in `partlist`
     
     """
+
+    if not isinstance(partlist, (list, tuple, set)):
+        partlist = [partlist]
+        
     for el in partlist:
         if isinstance(el, Part):
             yield el
