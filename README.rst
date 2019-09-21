@@ -28,7 +28,7 @@ Documentation
 =============
 
 The documentation for `partitura` is available online at `readthedocs.org
-<https://partitura.readthedocs.io/en/latest/index.html>`_>.
+<https://partitura.readthedocs.io/en/latest/index.html>`_.
 
 License
 =======
