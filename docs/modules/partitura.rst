@@ -1,3 +1,12 @@
+partitura
+---------
+
+.. automodule:: partitura
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 partitura.score
 ---------------
 
@@ -6,37 +15,38 @@ partitura.score
    :undoc-members:
    :show-inheritance:
 
-partitura.importmusicxml
-------------------------
+..
+   partitura.importmusicxml
+   ------------------------
 
-.. automodule:: partitura.importmusicxml
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   .. automodule:: partitura.importmusicxml
+      :members:
+      :undoc-members:
+      :show-inheritance:
 
-partitura.importmidi
---------------------
+   partitura.importmidi
+   --------------------
 
-.. automodule:: partitura.importmidi
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   .. automodule:: partitura.importmidi
+      :members:
+      :undoc-members:
+      :show-inheritance:
 
-partitura.exportmusicxml
-------------------------
+   partitura.exportmusicxml
+   ------------------------
 
-.. automodule:: partitura.exportmusicxml
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   .. automodule:: partitura.exportmusicxml
+      :members:
+      :undoc-members:
+      :show-inheritance:
 
-partitura.directions
---------------------
-
-.. automodule:: partitura.directions
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   partitura.directions
+   --------------------
+   
+   .. automodule:: partitura.directions
+      :members:
+      :undoc-members:
+      :show-inheritance:
 
 partitura.utils
 ---------------

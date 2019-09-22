@@ -14,3 +14,4 @@ from . import musicanalysis
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version
 
+__all__ = ['load_musicxml', 'save_musicxml', 'load_midi', 'parse_words']

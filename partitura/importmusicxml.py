@@ -801,12 +801,21 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
     note_id = get_value_from_attribute(e, 'id', str)
 
     symbolic_duration = {}
-    symbolic_duration['type'] = get_value_from_tag(e, 'type', str)
-    symbolic_duration['dots'] = len(e.findall('dot'))
-    symbolic_duration['actual_notes'] = get_value_from_tag(
-        e, 'time-modification/actual-notes', int)
-    symbolic_duration['normal_notes'] = get_value_from_tag(
-        e, 'time-modification/normal-notes', int)
+    dur_type = get_value_from_tag(e, 'type', str)
+    if dur_type:
+        symbolic_duration['type'] = dur_type
+
+    dots = len(e.findall('dot'))
+    if dots:
+        symbolic_duration['dots'] = dots
+
+    actual_notes = get_value_from_tag(e, 'time-modification/actual-notes', int)
+    if actual_notes:
+        symbolic_duration['actual_notes'] = actual_notes
+
+    normal_notes = get_value_from_tag(e, 'time-modification/normal-notes', int)
+    if normal_notes:
+        symbolic_duration['normal_notes'] = normal_notes
 
     chord = e.find('chord')
     if chord is not None:

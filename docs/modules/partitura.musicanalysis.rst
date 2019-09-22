@@ -6,29 +6,30 @@ partitura.musicanalysis package
    :undoc-members:
    :show-inheritance:
 
-partitura.musicanalysis.voice\_separation
------------------------------------------
+..
+   partitura.musicanalysis.voice\_separation
+   -----------------------------------------
 
-.. toctree::
-   
-.. automodule:: partitura.musicanalysis.voice_separation
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   .. toctree::
 
-partitura.musicanalysis.key\_identification
--------------------------------------------
+   .. automodule:: partitura.musicanalysis.voice_separation
+      :members:
+      :undoc-members:
+      :show-inheritance:
 
-.. automodule:: partitura.musicanalysis.key_identification
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   partitura.musicanalysis.key\_identification
+   -------------------------------------------
 
-partitura.musicanalysis.pitch\_spelling
----------------------------------------
+   .. automodule:: partitura.musicanalysis.key_identification
+      :members:
+      :undoc-members:
+      :show-inheritance:
 
-.. automodule:: partitura.musicanalysis.pitch_spelling
-   :members:
-   :undoc-members:
-   :show-inheritance:
-   
+   partitura.musicanalysis.pitch\_spelling
+   ---------------------------------------
+
+   .. automodule:: partitura.musicanalysis.pitch_spelling
+      :members:
+      :undoc-members:
+      :show-inheritance:
+

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import math
 from collections import defaultdict
 from lxml import etree
 import logging
@@ -7,7 +8,7 @@ import partitura.score as score
 from operator import itemgetter, attrgetter
 
 from partitura.importmusicxml import DYN_DIRECTIONS
-from partitura.utils import partition
+from partitura.utils import partition, iter_current_next
 
 __all__ = ['save_musicxml']
 
@@ -16,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
 
-def make_note_el(note, dur, counter):
+def make_note_el(note, dur, voice, counter):
     # child order
     # <grace> | <chord> | <cue>
     # <pitch>
@@ -84,9 +85,9 @@ def make_note_el(note, dur, counter):
         etree.SubElement(note_e, 'tie', type='start')
         notations.append(etree.Element('tied', type='start'))
 
-    if note.voice not in (None, 0):
+    if voice not in (None, 0):
 
-        etree.SubElement(note_e, 'voice').text = '{}'.format(note.voice)
+        etree.SubElement(note_e, 'voice').text = '{}'.format(voice)
 
     if note.fermata is not None:
 
@@ -166,7 +167,7 @@ def make_note_el(note, dur, counter):
 #     return by_voice
     
 
-def do_note(note, measure_end, timeline, counter):
+def do_note(note, measure_end, timeline, voice, counter):
     notes = []
     ongoing_tied = []
 
@@ -178,7 +179,7 @@ def do_note(note, measure_end, timeline, counter):
 
         dur_divs = note.end.t - note.start.t
         
-    note_e = make_note_el(note, dur_divs, counter)
+    note_e = make_note_el(note, dur_divs, voice, counter)
 
     return (note.start.t, dur_divs, note_e)
 
@@ -224,6 +225,96 @@ def linearize_measure_contents(part, start, end, counter):
     return contents
 
 
+def remove_voice_polyphony_single(notes, voice_spans):
+    """
+    Test wether a list of notes satisfies the MusicXML constraints on voices that:
+    - all notes starting at the same time have the same duration
+    - no <backup> is required to specify the voice in document order
+    whenever a note violates the constraints change its voice (choosing a new voice that is not currently in use)
+
+    Parameters
+    ----------
+    notes: list
+        List of notes in a voice
+    
+    Returns
+    -------
+    type
+        Description of return value
+    """
+
+    extraneous = defaultdict(list)
+
+    by_onset = defaultdict(list)
+    for note in notes:
+        by_onset[note.start.t].append(note)
+    onsets = sorted(by_onset.keys())
+
+    for o in onsets:
+
+        chord_dur = min(n.duration for n in by_onset[o])
+
+        for n in by_onset[o]:
+
+            if n.duration > chord_dur:
+
+                voice = find_free_voice(voice_spans, n.start.t, n.end.t)
+                voice_spans.append((n.start.t, n.end.t, voice))
+                extraneous[voice].append(n)
+                notes.remove(n)
+
+    # now remove any notes that exceed next onset
+    by_onset = defaultdict(list)
+    for note in notes:
+        by_onset[note.start.t].append(note)
+    onsets = sorted(by_onset.keys())
+
+    for o1, o2 in iter_current_next(onsets):
+
+        for n in by_onset[o1]:
+
+            if o1 + n.duration > o2:
+
+                voice = find_free_voice(voice_spans, n.start.t, n.end.t)
+                voice_spans.append((n.start.t, n.end.t, voice))
+                extraneous[voice].append(n)
+                notes.remove(n)
+
+    return extraneous
+
+
+def find_free_voice(voice_spans, start, end):
+    free_voice = min(voice for _, _, voice in voice_spans) + 1
+
+    for vstart, vend, voice in voice_spans:
+
+        if ((end > vstart) and (start < vend)):
+
+            free_voice = max(free_voice, voice+1)
+
+    return free_voice
+    
+def remove_voice_polyphony(notes_by_voice):
+    voice_spans = [(-math.inf, math.inf, max(notes_by_voice.keys()))]
+    extraneous = defaultdict(list)
+    # n_orig = sum(len(nn) for nn in notes_by_voice.values())
+
+    for voice, vnotes in notes_by_voice.items():
+
+        v_extr = remove_voice_polyphony_single(vnotes, voice_spans)
+
+        for new_voice, new_vnotes in v_extr.items():
+            extraneous[new_voice].extend(new_vnotes)
+            
+    # n_1 = sum(len(nn) for nn in notes_by_voice.values())
+    # n_2 = sum(len(nn) for nn in extraneous.values())
+    # n_new = n_1 + n_2
+    # assert n_orig == n_new
+    # assert len(set(notes_by_voice.keys()).intersection(set(extraneous.keys()))) == 0
+    for v, vnotes in extraneous.items():
+        notes_by_voice[v] = vnotes
+        
+
 def fill_gaps_with_rests(notes_by_voice, start, end, part):
     for voice, notes in notes_by_voice.items():
         if len(notes) == 0:
@@ -240,6 +331,7 @@ def fill_gaps_with_rests(notes_by_voice, start, end, part):
                 rest = score.Rest(voice=voice or None)
                 part.add(note.end.t, rest, end.t)
                 
+
 def linearize_segment_contents(part, start, end, counter):
     """
     Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
@@ -248,11 +340,6 @@ def linearize_segment_contents(part, start, end, counter):
     notes = part.timeline.get_all(score.GenericNote,
                                   start=start, end=end,
                                   include_subclasses=True)
-    # notes_by_voice = group_notes_by_voice(notes)
-    # notes_by_voice = partition(attrgetter('voice'), notes)
-    # if None in notes_by_voice:
-    #     notes_by_voice[0] = notes_by_voice[None]
-    #     del notes_by_voice[None]
 
     if len(notes) == 0:
         # if there are no notes in this segment, we add a rest
@@ -265,19 +352,21 @@ def linearize_segment_contents(part, start, end, counter):
     else:
         notes_by_voice = partition(lambda n: n.voice or 0, notes)
         
-    fill_gaps_with_rests(notes_by_voice, start, end, part)
-    
-    # redo
-    notes = part.timeline.get_all(score.GenericNote,
-                                  start=start, end=end,
-                                  include_subclasses=True)
-    notes_by_voice = partition(lambda n: n.voice or 0, notes)
+    # make sure there is no polyphony within voices by assigning any violating
+    # notes to a new (free) voice.
+    remove_voice_polyphony(notes_by_voice)
 
+    # fill_gaps_with_rests(notes_by_voice, start, end, part)
+
+    # # redo
+    # notes = part.timeline.get_all(score.GenericNote,
+    #                               start=start, end=end,
+    #                               include_subclasses=True)
+    # notes_by_voice = partition(lambda n: n.voice or 0, notes)
 
     voices_e = defaultdict(list)
-    voices = set(notes_by_voice.keys())
 
-    for voice in sorted(voices):
+    for voice in sorted(notes_by_voice.keys()):
 
         voice_notes = notes_by_voice[voice]
         # grace notes should precede other notes at the same onset
@@ -286,8 +375,8 @@ def linearize_segment_contents(part, start, end, counter):
         voice_notes.sort(key=lambda n: n.start.t)
         
         for n in voice_notes:
-
-            note_e = do_note(n, end.t, part.timeline, counter)
+            # make rest: duration, voice, type
+            note_e = do_note(n, end.t, part.timeline, voice, counter)
             voices_e[voice].append(note_e)
             
         add_chord_tags(voices_e[voice])
