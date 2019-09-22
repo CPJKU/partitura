@@ -1,8 +1,14 @@
+# -*- coding: utf-8 -*-
 """
-Implementation of ps13
+Pitch Spelling using the ps13 algorithm.
 
-TODO
-* Add documentation
+References
+----------
+
+[1] Meredith, D (2006) The ps13 Pitch Spelling Algorithm. Journal  of New Music Research, 35(2):121
+
+[2] Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany.
+
 """
 import numpy as np
 from collections import namedtuple

@@ -1,9 +1,10 @@
+# -*- coding: utf-8 -*-
 """
 Krumhansl and Shepard key estimation
 
-TODO
+References
 ----
-* Documentation
+[1] Krumhansl, C. L. (1990) Cognitive foundations of musical pitch Oxford University Press, New York
 """
 import numpy as np
 from scipy.linalg import circulant
@@ -109,7 +110,7 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
         Mode of the key ('major' or 'minor')
     fifths : int
         Position in the circle of fifths
-    
+
     """
     if method not in ('krumhansl', ):
         raise ValueError('For now the only valid method is "krumhansl"')
@@ -149,7 +150,8 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER):
     pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
                                    for pc in range(12)])
 
-    pitch_distribution /= pitch_distribution.sum()
+    # normalizing is unnecessary for computing the corrcoef with the profiles:
+    # pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
 
     # Compute correlation with key profiles
     corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]

@@ -57,8 +57,7 @@ class TestMusicXML(unittest.TestCase):
 
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
-            parts = load_musicxml(fn, validate=False)
-            part = next(score.iter_parts(parts))
+            part = load_musicxml(fn, validate=False)
             part.timeline = part.unfold_timeline_maximal()
             result = save_musicxml(part).decode('UTF-8')
             with open(fn_target) as f:
@@ -108,7 +107,7 @@ class TestMusicXML(unittest.TestCase):
             f.flush()
             f.seek(0)
             # load part from musicxml
-            part2 = next(score.iter_parts(load_musicxml(f)))
+            part2 = load_musicxml(f)
 
         # pretty print saved/loaded part:
         pstring2 = part2.pretty()

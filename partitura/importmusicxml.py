@@ -152,7 +152,7 @@ def _parse_partlist(partlist):
     return structure, part_dict
 
 
-def load_musicxml(xml, validate=False):
+def load_musicxml(xml, ensure_list=False, validate=False):
     """
     Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
@@ -161,10 +161,17 @@ def load_musicxml(xml, validate=False):
     ----------
     xml : str or file-like  object
         Path to the MusicXML file to be parsed, or a file-like object
-    validate : bool (optional, default=False)
+    ensure_list : bool, optional
+        When True, return a list independent of how many part or partgroup
+        elements were created from the MIDI file. By default, when the
+        return value of `load_midi` produces a single 
+        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
+        element, the element itself is returned instead of a list
+        containing the element. Defaults to False.
+    validate : bool, optional.
         When True, the validity of the MusicXML is checked against the MusicXML
         3.1 specification before loading the file. An exception will be raised
-        when the MusicXML is invalid.
+        when the MusicXML is invalid. Defaults to False.
 
     Returns
     -------
@@ -197,7 +204,10 @@ def load_musicxml(xml, validate=False):
     else:
         partlist = []
 
-    return partlist
+    if not ensure_list and len(partlist) == 1:
+        return partlist[0]
+    else:
+        return partlist
 
 
 def _parse_parts(document, part_dict):
@@ -992,7 +1002,7 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
                              '"delete"')
 
     # Parse MusicXML
-    parts = load_musicxml(fn, validate)
+    parts = load_musicxml(fn, ensure_list=True, validate=validate)
     score = []
     for part in parts:
         # Unfold timeline to have repetitions

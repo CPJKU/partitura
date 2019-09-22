@@ -5,7 +5,7 @@ Things to do before merging develop into master for v1.0.0
 
 - (tg) Add MIDI export
 
-- [done] (cc) Add option to handle simultaneous/same duration notes in `estimate_voices`
+- (cc) Add option to handle simultaneous/same duration notes in `estimate_voices`
 
 - [done] (cc) Remove match.py (and references to it)
 
@@ -13,7 +13,7 @@ Things to do before merging develop into master for v1.0.0
 
 - (?) update/expand README.rst; use madmom README.rst as a guideline (it can be less elaborate) 
 
-- (mg) Ensure_list keyword in `load_musicxml`
+- [done] (mg) Ensure_list keyword in `load_musicxml`
 
 - (mg) Remove this TODO.md (save the future todo items somewhere else)
 
@@ -23,13 +23,15 @@ Things to do before merging develop into master for v1.0.0
 
 - (all) Check that all items in the public API (i.e. that appear in the HTML docs) are properly documented.
 
-- (cc) Add reference to Dave's paper at top of pitch_spelling module. Perhaps also reference "Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany."
+- [done] (cc) Add reference to Dave's paper at top of pitch_spelling module. Perhaps also reference "Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany."
 
 - [done] (all) remove all print statements (only use logging)
 
 - [done] (all) get rid of f-strings to relax python >=3.6 version requirement
 
-- (mg, cc) test key estimation
+- [done] (mg, cc) test key estimation
+
+- (cc) Use morphetic pitch conventions from pitch_spelling.py in score.py
 
 - *add your stuff here*
 
@@ -45,4 +47,5 @@ Todo beyond v1.0.0
 - exportmusicxml: support da capo/fine
 - exportmusicxml: warn that musical content outside measures will not be exported (if any)
 - exportmusicxml: avoid polyphony inside voices (is this only a musescore problem? should it be optional?)
+- add MEI support?
 
