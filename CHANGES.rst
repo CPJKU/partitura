@@ -1,8 +1,8 @@
 Release Notes
 =============
 
-Version 0.1.2 (prerelease; release date: )
-------------------------------------------
+Version 0.1.2 (prerelease; unreleased)
+--------------------------------------
 
 API changes:
 
