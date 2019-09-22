@@ -16,6 +16,7 @@ Bug fixes:
 * Rework MIDI loading: do not accumulate quantization errors
 * Make sure last tied note actually gets tied
 * Do not populate symbolic_duration with None when values are missing
+* When exporting to musicxml, avoid polyphony within voices by reassigning notes to new voices where necessary
 
 Other changes:
   

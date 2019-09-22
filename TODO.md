@@ -33,7 +33,8 @@ Things to do before merging develop into master for v1.0.0
 
 - (cc) Use morphetic pitch conventions from pitch_spelling.py in score.py
 
-- *add your stuff here*
+- [done] (mg) avoid polyphony within voices when exporting to musicxml
+
 
 Todo beyond v1.0.0
 ------------------
