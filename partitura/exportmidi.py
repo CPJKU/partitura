@@ -20,8 +20,7 @@ DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
 def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
-    """
-    Write data from Part objects to a MIDI file
+    """Write data from Part objects to a MIDI file
 
      A type 0 file contains the entire performance, merged onto a single track,
      while type 1 files may contain any number of tracks that are performed
@@ -38,8 +37,21 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
 
     parts : single or list of mulitple score.Part objects
 
+    file_type : int
+
+    default_vel : int
+        default velocity for all MIDI notes
+
+    ppq : int
+        parts per quarter (ppq) for the MIDI file, i.e. amount of ticks
+        per quarter note.
+
+    Returns
+    -------
+
     """
-    mf = MidiFile(type=file_type, ticks_per_beat=ppq)  # create new file
+    # create object, spefify some basic parameters here
+    mf = MidiFile(type=file_type, ticks_per_beat=ppq)
 
     # get from all parts their Divisions values and find a value that works
     # for all parts.
@@ -50,9 +62,9 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         divs_list.append(divs[:, 1])  # keep only the div values
 
     all_divs = set(np.array(divs_list).flatten())
-    # get the least common multiple of all involved div values used in the 
+    # get the least common multiple of all involved div values used in all parts
     lcm_all_divs = np.lcm.reduce(list(all_divs))
-    assert np.issubdtype(lcm_all_divs, np.integer)
+    assert np.issubdtype(lcm_all_divs, np.integer)  # must be integer
 
     divs_factors = {}
     for div_val in all_divs:
@@ -62,7 +74,7 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         assert np.issubdtype(div_val, np.integer)  # check if best way
         divs_factors[div_val] = lcm_all_divs // div_val
 
-        # print(divs_factors[div_val])
+    ipdb.set_trace()
 
     for part in parts:  # iterate over the parts
         # get array of all div values in current part
@@ -72,18 +84,16 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
             part_divs = divs[0][1]
             part_divs_factor = divs_factors[divs[0][1]]
 
-            print(f"lcm: {lcm_all_divs}")
-            print(f"part_divs: {part_divs}")
-            print(f"part_divs_factor: {part_divs_factor}")
+            LOGGER.debug(f"lcm: {lcm_all_divs}")
+            LOGGER.debug(f"part_divs: {part_divs}")
+            LOGGER.debug(f"part_divs_factor: {part_divs_factor}")
 
-            # divs_ppq_fact = ppq // (part_divs * part_divs_factor)
             assert ppq >= part_divs
             divs_ppq_fact = ppq // part_divs
 
-            print(f"divs_ppq_fact {divs_ppq_fact}")
+            LOGGER.debug(f"divs_ppq_fact {divs_ppq_fact}")
         else:
             raise NotImplementedError()
-
 
         # basically: get the PPQ and scale all div values accordingly
         # so that the divisons per quarter are equal to PPQ. The note onset
@@ -119,6 +129,10 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
                                  note=note.midi_pitch,
                                  velocity=default_vel,
                                  time=note_end))
+            # track.append(Message('note_on',
+            #                      note=note.midi_pitch,
+            #                      velocity=0,
+            #                      time=note_end))
 
     mf.save(fn)  # save the midi file
 
