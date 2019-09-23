@@ -8,7 +8,7 @@ import partitura.score as score
 from operator import itemgetter, attrgetter
 
 from partitura.importmusicxml import DYN_DIRECTIONS
-from partitura.utils import partition, iter_current_next
+from partitura.utils import partition, iter_current_next, to_quarter_tempo
 
 __all__ = ['save_musicxml']
 
@@ -634,7 +634,7 @@ def do_directions(part, start, end):
         unit = 'q' if tempo.unit is None else tempo.unit
         # e2.text = '{}={}'.format(unit, tempo.bpm)
         # result.append((tempo.start.t, None, e0))
-        e3 = etree.Element('sound', tempo='{}'.format(int(score.to_quarter_tempo(unit, tempo.bpm))))
+        e3 = etree.Element('sound', tempo='{}'.format(int(to_quarter_tempo(unit, tempo.bpm))))
         result.append((tempo.start.t, None, e3))
 
     for direction in directions:

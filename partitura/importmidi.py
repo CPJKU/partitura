@@ -10,7 +10,7 @@ import mido
 
 import partitura.score as score
 from partitura import save_musicxml
-from partitura.utils import partition
+from partitura.utils import partition, estimate_symbolic_duration, find_tie_split, key_name_to_fifths_mode, fifths_mode_to_key_name
 import partitura.musicanalysis as analysis
 
 __all__ = ['load_midi']
@@ -225,7 +225,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         LOGGER.info('key estimation')
         _, mode, fifths = analysis.estimate_key(note_array)
         key_sigs_by_track = {}
-        global_key_sigs = [(0, score.fifths_mode_to_key_name(fifths, mode))]
+        global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
 
     if assign_note_ids:
         note_ids = ['n{}'.format(i) for i in range(len(note_array))]
@@ -288,7 +288,7 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
     return track_to_part_keys
 
 def timings_ok(durations, divs, threshold=.1):
-    n_without_dur = sum(1 for dur in durations if not score.estimate_symbolic_duration(dur, divs))
+    n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
     prop_without_dur = n_without_dur/max(1, len(durations))
     if prop_without_dur > threshold:
         LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
@@ -357,7 +357,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     part.add(0, clef)
 
     for t, name in key_sigs:
-        fifths, mode = score.key_name_to_fifths_mode(name)
+        fifths, mode = key_name_to_fifths_mode(name)
         part.add(t, score.KeySignature(fifths, mode))
 
     LOGGER.info('add notes')
@@ -365,7 +365,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
         if duration > 0:
             note = score.Note(step, alter, octave, voice=int(voice or 0), id=note_id,
-                              symbolic_duration=score.estimate_symbolic_duration(duration, ticks))
+                              symbolic_duration=estimate_symbolic_duration(duration, ticks))
         else:
             note = score.GraceNote('appoggiatura', step, alter, octave, voice=int(voice or 0), id=note_id,
                                    symbolic_duration=dict(type='quarter'))
@@ -426,7 +426,7 @@ def find_tuplets(part):
     # only look for x:2 tuplets
     normal_notes = 2
 
-    notes = part.list_all(score.Note)
+    notes = part.timeline.get_all(score.Note)
     divs_map = part.divisions_map
 
     candidates = []
@@ -470,7 +470,7 @@ def find_tuplets(part):
                 continue
 
             # estimate duration type
-            dur_type = score.estimate_symbolic_duration(total_dur//normal_notes, int(divs_map(start)))
+            dur_type = estimate_symbolic_duration(total_dur//normal_notes, int(divs_map(start)))
 
             if dur_type and dur_type.get('dots', 0) == 0:
                 # recognized duration without dots
@@ -516,7 +516,7 @@ def make_tied_note_id(prev_id):
 
 def tie_notes(part, force_duration_analysis=False):
     # split and tie notes at measure boundaries
-    notes = part.list_all(score.Note)
+    notes = part.timeline.get_all(score.Note)
     divs = next(iter(part.timeline.first_point.get_next_of_type(score.Divisions, eq=True)), None)
     if divs:
         divs = divs.divs
@@ -527,8 +527,8 @@ def tie_notes(part, force_duration_analysis=False):
         while next_measure and cur_note.end > next_measure.start:
             part.timeline.remove_ending_object(cur_note)
             part.timeline.add_ending_object(next_measure.start.t, cur_note)
-            cur_note.symbolic_duration = score.estimate_symbolic_duration(next_measure.start.t-cur_note.start.t, divs)
-            sym_dur = score.estimate_symbolic_duration(note_end.t-next_measure.start.t, divs)
+            cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t-cur_note.start.t, divs)
+            sym_dur = estimate_symbolic_duration(note_end.t-next_measure.start.t, divs)
             if cur_note.id is not None:
                 note_id = make_tied_note_id(cur_note.id)
             else:
@@ -546,7 +546,7 @@ def tie_notes(part, force_duration_analysis=False):
             next_measure = next(iter(cur_note.start.get_next_of_type(score.Measure)), None)
     # then split/tie any notes that do not have a fractional/dot duration
     divs_map = part.divisions_map
-    notes = part.list_all(score.Note)
+    notes = part.timeline.get_all(score.Note)
     # n_without_dur = sum(1 for note in notes if note.symbolic_duration is None)
     # prop_without_dur = n_without_dur/max(0, len(notes))
     # no_dur_max = .5
@@ -562,7 +562,7 @@ def tie_notes(part, force_duration_analysis=False):
     for i, note in enumerate(notes):
         if note.symbolic_duration is None:
 
-            splits = score.find_tie_split_search(note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits)
+            splits = find_tie_split(note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits)
 
             if splits:
                 succeeded +=1
