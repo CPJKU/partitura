@@ -151,8 +151,70 @@ class TimeLine(object):
 
     def __init__(self):
         self.points = np.array([], dtype=TimePoint)
+        self._quarter_times = [0]
+        self._quarter_durations = [1]
+        self._make_quarter_map()
 
-    def add_point(self, tp):
+    def _get_interpolation_maps(self):
+        # todo: anacrusis
+        first_measure = next(self.first_point.get_starting_objects_of_type(Measure), None)
+        print(first_measure)
+        offset = 0
+
+        divs = np.column_stack((self._quarter_times,
+                                self._quarter_durations),
+                               dtype=np.int)
+        dens = np.array([(x.start.t, np.log2(x.beat_type))
+                         for x in self.get_all(TimeSignature)],
+                        dtype=np.int)
+        # check divs is not empty
+        # check dens is not empty
+        
+        # remove lines unnecessary for linear interpolation
+        didx = np.r_[0, np.where(np.diff(divs[:, 1]) != 0)[0] + 1]
+        divs = divs[didx]
+
+        # remove lines unnecessary for linear interpolation
+        didx = np.r_[0, np.where(np.diff(dens[:, 1]) != 0)[0] + 1]
+        dens = dens[didx]
+
+        start = self.first_point.t
+        end = self.last_point.t
+
+
+    def _make_quarter_map(self):
+        x = self._quarter_times
+        y = self._quarter_durations
+        if len(x) == 1:
+            x = x + x
+            y = y + y
+        self._quarter_map = interp1d(x, y,
+                                     kind='previous',
+                                     bounds_error=False,
+                                     fill_value=(y[0], y[-1]))
+
+    def set_quarter_duration(self, t, quarter):
+        # add quarter duration to list. If another quarter duration is at t, replace it.
+        i = np.searchsorted(self._quarter_times, t)
+        if i == len(self._quarter_times) or self._quarter_times[i] != t:
+            self._quarter_times.insert(i, t)
+            self._quarter_durations.insert(i, quarter)
+        else:
+            self._quarter_durations[i] = quarter
+        self._make_quarter_map()
+        
+        if i + 1 == len(self._quarter_times):
+            t_next = np.inf
+        else:
+            t_next = self._quarter_times[i+1]
+
+        # update quarter attribute of all timepoints in the range [t, t_next]
+        start_idx = np.searchsorted(self.points, TimePoint(t))
+        end_idx = np.searchsorted(self.points, TimePoint(t_next))
+        for tp in self.points[start_idx:end_idx]:
+            tp.quarter = quarter
+
+    def _add_point(self, tp):
         """
         add `TimePoint` object `tp` to the time line, unless there is already a timepoint at the same time
         """
@@ -166,7 +228,7 @@ class TimeLine(object):
                 self.points[i].next = self.points[i + 1]
                 self.points[i + 1].prev = self.points[i]
 
-    def remove_point(self, tp):
+    def _remove_point(self, tp):
         """Remove `TimePoint` object `tp` from the time line
 
         """
@@ -210,117 +272,51 @@ class TimeLine(object):
 
         tp = self.get_point(t)
         if tp is None:
-            tp = TimePoint(t)
-            self.add_point(tp)
+            tp = TimePoint(t, self._quarter_map(t))
+            self._add_point(tp)
         return tp
 
-    def add_starting_object(self, t, o):
-        """Add object `o` as an object starting at time `t`
+    def add(self, o, start=None, end=None):
+        if start is not None:
+            self.get_or_add_point(start).add_starting_object(o)
+        if end is not None:
+            self.get_or_add_point(end).add_ending_object(o)
+            
+        
+    def remove(self, o, which='both'):
+        """Remove `o` from the timeline
 
+        Parameters
+        ----------
+        o : TimedObject
+            Object to be removed
+        which : {'start', 'end', 'both'}, optional
+            Whether to remove o as a starting object, an ending
+            object, or both
+        
         """
-        self.get_or_add_point(t).add_starting_object(o)
-
-    def add_ending_object(self, t, o):
-        """Add object `o` as an object ending at time `t`
-
-        """
-        self.get_or_add_point(t).add_ending_object(o)
-
-    def remove_starting_object(self, o):
-        """Remove object `o` as an object starting at time `t`. This involves:
-
-        - removing `o` from the timeline
-        - remove the note start timepoint if no starting or ending objects
-          remain at that time
-        - set o.start to None
-
-        """
-        if o.start:
+        if which in ('start', 'both') and o.start:
             try:
                 o.start.starting_objects[o.__class__].remove(o)
             except:
-                raise Exception('Not implemented: removing an starting object that is registered by its superclass')
-            if (sum(len(oo) for oo in o.end.starting_objects.values()) +
-                sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
+                raise Exception('Not implemented: removing an object that is registered by its superclass')
+            # cleanup timepoint if no starting/ending objects are left
+            if (sum(len(oo) for oo in o.start.starting_objects.values()) +
+                sum(len(oo) for oo in o.start.ending_objects.values())) == 0:
                 self.remove_point(o.start)
             o.start = None
 
-    def remove_ending_object(self, o):
-        """Remove object `o` as an object ending at time `t`. This involves:
-
-        - removing `o` from the timeline
-        - remove the note ending timepoint if no starting or ending objects
-          remain at that time
-        - set o.end to None
-
-        """
-        if o.end:
+        if which in ('end', 'both') and o.end:
             try:
                 o.end.ending_objects[o.__class__].remove(o)
             except:
-                raise Exception('Not implemented: removing an ending object that is registered by its superclass')
+                raise Exception('Not implemented: removing an object that is registered by its superclass')
+            # cleanup timepoint if no starting/ending objects are left
             if (sum(len(oo) for oo in o.end.starting_objects.values()) +
                 sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
                 self.remove_point(o.end)
             o.end = None
-
-    # def get_all_starting(self, cls, start=None, end=None, include_subclasses=False):
-    #     """Return a list of all instances of `cls` that start between
-    #     `start` and `end`. When `start` and `end` are omitted, the
-    #     whole timeline is searched.
-
-    #     Parameters
-    #     ----------
-    #     cls : class
-    #         The class to search for
-    #     start : TimePoint, optional
-    #         The start of the interval to search. If omitted or None,
-    #         the search starts at the start of the timeline. Defaults
-    #         to None.
-    #     end : TimePoint, optional
-    #         The end of the interval to search. If omitted or None, the
-    #         search ends at the end of the timeline. Defaults to None.
-    #     include_subclasses : bool, optional
-    #         If True also return instances that are subclasses of
-    #         `cls`. Defaults to False.
-
-    #     Returns
-    #     -------
-    #     list
-    #         List of instances of `cls`
         
-    #     """
-        
-    #     return self.get_all(cls, start, end, include_subclasses, mode='starting')
-
-    # def get_all_ending(self, cls, start=None, end=None, include_subclasses=False):
-    #     """Return a list of all instances of `cls` that end between
-    #     `start` and `end`. When `start` and `end` are omitted, the
-    #     whole timeline is searched.
-
-    #     Parameters
-    #     ----------
-    #     cls : class
-    #         The class to search for
-    #     start : TimePoint, optional
-    #         The start of the interval to search. If omitted or None,
-    #         the search starts at the start of the timeline. Defaults
-    #         to None.
-    #     end : TimePoint, optional
-    #         The end of the interval to search. If omitted or None, the
-    #         search ends at the end of the timeline. Defaults to None.
-    #     include_subclasses : bool, optional
-    #         If True also return instances that are subclasses of
-    #         `cls`. Defaults to False.
-
-    #     Returns
-    #     -------
-    #     list
-    #         List of instances of `cls`
-        
-    #     """
-    #     return self.get_all(cls, start, end, include_subclasses, mode='ending')
-
     def get_all(self, cls, start=None, end=None, include_subclasses=False, mode='starting'):
         """Return a list of all instances of `cls` that either start or
         end (depending on `mode`) in the interval `start` to `end`.
@@ -396,48 +392,6 @@ class TimeLine(object):
         """
         return self.points[0] if len(self.points) > 0 else None
 
-    # def get_ongoing_objects(self, t):
-    #     """Return a list of all objects that have started but not ended
-    #     before time `t`.
-
-    #     Parameters
-    #     ----------
-    #     t : int
-    #         The position of the timeline
-
-    #     Returns
-    #     -------
-    #     list
-    #         List of ongoing objects
-        
-    #     """
-        
-    #     if not isinstance(t, TimePoint):
-    #         t = TimePoint(t)
-    #     t_idx = np.searchsorted(self.points, t, side='left')
-    #     ongoing = set()
-    #     for tp in self.points[: t_idx]:
-    #         for starting in tp.starting_objects.values():
-    #             for o in starting:
-    #                 ongoing.add(o)
-    #         for ending in tp.ending_objects.values():
-    #             for o in ending:
-    #                 ongoing.remove(o)
-    #     return list(ongoing)
-
-    def test(self):
-        s = set()
-        for tp in self.points:
-            for k, oo in tp.starting_objects.items():
-                for o in oo:
-                    s.add(o)
-            for k, oo in tp.ending_objects.items():
-                for o in oo:
-                    assert o in s
-                    s.remove(o)
-        LOGGER.debug('Timeline is OK')
-        return True
-
 
 class TimePoint(ComparableMixin):
 
@@ -475,8 +429,9 @@ class TimePoint(ComparableMixin):
 
     """
 
-    def __init__(self, t):
+    def __init__(self, t, quarter=None):
         self.t = t
+        self.quarter = quarter
         self.starting_objects = defaultdict(list)
         self.ending_objects = defaultdict(list)
         # prev and next are dynamically updated once the timepoint is part of a timeline
@@ -526,23 +481,31 @@ class TimePoint(ComparableMixin):
         """Return all objects of type `otype` that start at this time point
 
         """
+        # if include_subclasses:
+        #     return self.starting_objects[otype] + \
+        #         list(itertools.chain(*(self.starting_objects[subcls]
+        #                                for subcls in iter_subclasses(otype))))
+        # else:
+        #     return self.starting_objects[otype]
+        yield from self.starting_objects[otype]
         if include_subclasses:
-            return self.starting_objects[otype] + \
-                list(itertools.chain(*(self.starting_objects[subcls]
-                                       for subcls in iter_subclasses(otype))))
-        else:
-            return self.starting_objects[otype]
+            for subcls in iter_subclasses(otype):
+                yield from self.starting_objects[subcls]
 
     def get_ending_objects_of_type(self, otype, include_subclasses=False):
         """Return all objects of type `otype` that end at this time point
 
         """
+        # if include_subclasses:
+        #     return self.ending_objects[otype] + \
+        #         list(itertools.chain(*(self.ending_objects[subcls]
+        #                                for subcls in iter_subclasses(otype))))
+        # else:
+        #     return self.ending_objects[otype]
+        yield from self.ending_objects[otype]
         if include_subclasses:
-            return self.ending_objects[otype] + \
-                list(itertools.chain(*(self.ending_objects[subcls]
-                                       for subcls in iter_subclasses(otype))))
-        else:
-            return self.ending_objects[otype]
+            for subcls in iter_subclasses(otype):
+                yield from self.ending_objects[subcls]
 
     def get_prev_of_type(self, otype, eq=False):
         """Return the object(s) of type `otype` that start at the latest time
@@ -555,12 +518,8 @@ class TimePoint(ComparableMixin):
             tp = self.prev
 
         while tp:
-            value = tp.get_starting_objects_of_type(otype)
-            if value:
-                return value[:]
+            yield from tp.get_starting_objects_of_type(otype)
             tp = tp.prev
-        return []
-
 
     def get_next_of_type(self, otype, eq=False):
         """Return the object(s) of type `otype` that start at the earliest
@@ -573,11 +532,9 @@ class TimePoint(ComparableMixin):
             tp = self.next
 
         while tp:
-            value = tp.get_starting_objects_of_type(otype)
-            if value:
-                return value[:]
+            yield from tp.get_starting_objects_of_type(otype)
             tp = tp.next
-        return []
+
 
     def _cmpkey(self):
         """This method returns the value to be compared (code for that is in
@@ -1075,7 +1032,15 @@ class GenericNote(TimedObject):
 
     @property
     def symbolic_duration(self):
-        return self._sym_dur
+        if self._sym_dur is None:
+            # compute value
+            assert self.start is not None
+            assert self.end is not None
+            assert self.start.quarter is not None
+            return estimate_symbolic_duration(self.duration, self.start.quarter)
+        else:
+            # return set value
+            return self._sym_dur
 
     @symbolic_duration.setter
     def symbolic_duration(self, v):
@@ -1615,7 +1580,7 @@ class Part(object):
         return interp1d(tss[:, 0], tss[:, 1:], kind='previous')
 
 
-    def _get_interpolation_maps(self, quarter=False, default_div=1, default_den=4):
+    def _get_interpolation_maps_old(self, quarter=False, default_div=1, default_den=4):
         """This returns an interpolator that will accept as input timestamps
         in divisions and returns these timestamps' beatnumbers. If the flag
         `quarter` is used, these beatnumbers will refer to quarter note
@@ -2215,7 +2180,7 @@ def add_measures(part):
             measure_start = inv_beat_map(bpos)
             measure_end = min(inv_beat_map(bpos+measure_dur), ts_end)
             # print('add measure {}--{}'.format(measure_start, measure_end))
-            part.add(int(measure_start), Measure(number=mcounter), int(measure_end))
+            part.timeline.add(Measure(number=mcounter), int(measure_start), int(measure_end))
             pos = measure_end
             mcounter += 1
 
