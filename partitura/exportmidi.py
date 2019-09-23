@@ -19,7 +19,8 @@ DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
-def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
+def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
+              ppq=DEFAULT_PPQ):
     """Write data from Part objects to a MIDI file
 
      A type 0 file contains the entire performance, merged onto a single track,
@@ -37,6 +38,31 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
 
     parts : single or list of mulitple score.Part objects
 
+    part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
+        This keyword controls how part and voice information is associated
+        to track and channel information in the MIDI file. The semantics of
+        the modes is as follows:
+
+        0
+            Write each Part's notes to a dedicated track, with voices mapped
+            to MIDI channels
+        1
+            Each PartGroup's Parts are written to a single track,
+            with Parts mapped to MIDI channels (possibly present voices
+            are discarded)
+        2
+            Write single Part to tracks, where the Part'S voices are
+            mapped to tracks.
+        3
+            Write each Part to a track, possibly present voices are ignored
+        4
+            
+            Return single Part without voices (channel and track info is
+            ignored)
+        5
+            Write each Part to a single track
+            Return one Part per <track, channel> combination, without voices
+
     file_type : int
 
     default_vel : int
@@ -52,6 +78,11 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
     """
     # create object, spefify some basic parameters here
     mf = MidiFile(type=file_type, ticks_per_beat=ppq)
+
+    try:
+        len(parts)
+    except TypeError:
+        parts = [parts]  # wrap into list, makes things easier
 
     # get from all parts their Divisions values and find a value that works
     # for all parts.
@@ -74,7 +105,9 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         assert np.issubdtype(div_val, np.integer)  # check if best way
         divs_factors[div_val] = lcm_all_divs // div_val
 
-    ipdb.set_trace()
+    # ipdb.set_trace()
+
+    channel_cursor = 0
 
     for part in parts:  # iterate over the parts
         # get array of all div values in current part
@@ -106,7 +139,21 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
         track.append(Message('program_change', program=0, time=0))
 
         cursor_position = 0  # what if we have pickup measure? Should also work
+
+        LOGGER.debug("\n")
+        # note that the timeline should be manually unfolded first, if
+        # necessary! Should this be done here, or where?
         for note in part.notes_tied:  # iterate over the part's notes
+
+            if note.voice is not None:
+                # mxml: 1, 2, ...; MIDI: 0, 1, ...;
+                channel_cursor = note.voice - 1
+            LOGGER.debug(f"channel: {channel_cursor}")
+
+            LOGGER.debug(f"note voice: {note.voice}")
+            LOGGER.debug(f"note start div: {note.start.t}")
+            LOGGER.debug(f"note end div: {note.end.t}")
+
             LOGGER.debug(f"cursor at: {cursor_position}")
 
             note_start = int(note.start.t * divs_ppq_fact - cursor_position)
@@ -122,10 +169,12 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
             # ipdb.set_trace()
 
             track.append(Message('note_on',
+                                 channel=channel_cursor,
                                  note=note.midi_pitch,
                                  velocity=default_vel,
                                  time=note_start))
             track.append(Message('note_off',
+                                 channel=channel_cursor,
                                  note=note.midi_pitch,
                                  velocity=default_vel,
                                  time=note_end))
@@ -133,7 +182,9 @@ def save_midi(fn, parts, file_type=1, default_vel=64, ppq=DEFAULT_PPQ):
             #                      note=note.midi_pitch,
             #                      velocity=0,
             #                      time=note_end))
+            LOGGER.debug("note done \n")
 
+    ipdb.set_trace()
     mf.save(fn)  # save the midi file
 
 
