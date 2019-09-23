@@ -152,17 +152,17 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
 
             LOGGER.debug(f"note voice: {note.voice}")
             LOGGER.debug(f"note start div: {note.start.t}")
-            LOGGER.debug(f"note end div: {note.end.t}")
+            LOGGER.debug(f"note end div: {note.end_tied.t}")
 
             LOGGER.debug(f"cursor at: {cursor_position}")
 
             note_start = int(note.start.t * divs_ppq_fact - cursor_position)
-            note_end = int((note.end.t - note.start.t) * divs_ppq_fact - 1)
+            note_end = int((note.end_tied.t - note.start.t) * divs_ppq_fact - 1)
 
             LOGGER.debug(f"note start: {note_start}")
             LOGGER.debug(f"note end: {note_end}")
 
-            cursor_position = int(note.end.t * divs_ppq_fact - 1)
+            cursor_position = int(note.end_tied.t * divs_ppq_fact - 1)
 
             LOGGER.debug(f"cursor updated to: {cursor_position}")
 
