@@ -2,6 +2,8 @@
 
 import logging
 import numpy as np
+
+from collections import defaultdict
 from mido import MidiFile, MidiTrack, Message
 
 from partitura.score import Divisions
@@ -140,26 +142,35 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
 
         cursor_position = 0  # what if we have pickup measure? Should also work
 
+        last_start = 0
         LOGGER.debug("\n")
         # note that the timeline should be manually unfolded first, if
         # necessary! Should this be done here, or where?
-        for note in part.notes_tied:  # iterate over the part's notes
 
+        notes_assigned = defaultdict(list)
+        for note in part.notes_tied:
+            notes_assigned[note.start.t].append(note)
+
+        # ipdb.set_trace()
+
+        for note in part.notes_tied:  # iterate over the part's notes
             if note.voice is not None:
                 # mxml: 1, 2, ...; MIDI: 0, 1, ...;
                 channel_cursor = note.voice - 1
             LOGGER.debug(f"channel: {channel_cursor}")
+            LOGGER.debug(f"voice: {note.voice}")
 
-            LOGGER.debug(f"note voice: {note.voice}")
-            LOGGER.debug(f"note start div: {note.start.t}")
-            LOGGER.debug(f"note end div: {note.end_tied.t}")
+            # check the absoulute start and end times of notes, given in PPQ
+            LOGGER.debug(f"note start TL: {note.start.t * divs_ppq_fact}")
+            LOGGER.debug(f"note end TL: {note.end_tied.t * divs_ppq_fact}")
 
             LOGGER.debug(f"cursor at: {cursor_position}")
 
             note_start = int(note.start.t * divs_ppq_fact - cursor_position)
+            # delta to note start
             note_end = int((note.end_tied.t - note.start.t) * divs_ppq_fact - 1)
 
-            LOGGER.debug(f"note start: {note_start}")
+            LOGGER.debug(f"note start rel to cursor: {note_start}")
             LOGGER.debug(f"note end: {note_end}")
 
             cursor_position = int(note.end_tied.t * divs_ppq_fact - 1)
