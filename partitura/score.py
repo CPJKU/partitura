@@ -365,39 +365,52 @@ def symbolic_to_numeric_duration(symbolic_dur, divs):
 
 
 class ReplaceRefMixin(object):
-    """
-    This class is a utility mixin class to replace references to objects with
-    references to other objects. This is useful for example when cloning a
-    timeline with a doubly linked list of timepoints, as it updates the `next`
-    and `prev` references of the new timepoints with their new neighbors.
+    """This class is a utility mixin class to replace references to
+    objects with references to other objects. This is functionality is
+    used when unfolding timelines.
 
-    To use this functionality, a class should inherit from this class, and keep
-    a list of all attributes that contain references.
+    To use this functionality, a class should inherit from this class,
+    and keep a list of all attributes that contain references.
 
     Examples
     --------
+    The following class defines `prev` as a referential attribute, to
+    be replaced when a class instance is copied:
 
     >>> class MyClass(ReplaceRefMixin):
-    ...     def __init__(self, next=None):
+    ...     def __init__(self, prev=None):
     ...         super().__init__()
-    ...         self.next = next
-    ...         self._ref_attrs.append('next')
-    >>>
+    ...         self.prev = prev
+    ...         self._ref_attrs.append('prev')
+
+    Create two instance `a1` and `a2`, where `a1` is the `prev` of
+    `a2``
+
     >>> a1 = MyClass()
     >>> a2 = MyClass(a1)
-    >>> object_map = {}
+
+    Copy `a1` and `a2` to `b1` and `b2`, respectively:
+
     >>> b1 = copy(a1)
     >>> b2 = copy(a2)
-    >>> object_map[a1] = b1
-    >>> object_map[a2] = b2
-    >>> b2.next == b1
+
+    After copying the prev of `b2` is `a1`, not `b1`:
+
+    >>> b2.prev == b1
     False
-    >>> b2.next == a1
-    True
-    >>> b2.replace_refs(object_map)
-    >>> b2.next == b1
+    >>> b2.prev == a1
     True
 
+    To fix that we define an object map:
+
+    >>> object_map = {a1: b1, a2: b2}
+
+    and replace the references according to the map:
+
+    >>> b2.replace_refs(object_map)
+    >>> b2.prev == b1
+    True
+    
     """
 
     def __init__(self):
@@ -441,14 +454,10 @@ class TimeLine(object):
     The `TimeLine` class collects `TimePoint` objects in a doubly
     linked list fashion (as well as in an array).
 
-    Parameters
-    ----------
-    No parameters
-
     Attributes
     ----------
-    points : numpy array of TimePoint objects
-        a numpy array of TimePoint objects.
+    points : ndarray of TimePoint objects
+        an array of TimePoint objects.
 
     """
 
@@ -567,15 +576,92 @@ class TimeLine(object):
                 self.remove_point(o.end)
             o.end = None
 
-    def get_all_starting(self, cls, start=None, end=None, include_subclasses=False):
-        return self.get_all(cls, start, end, include_subclasses, mode='starting')
+    # def get_all_starting(self, cls, start=None, end=None, include_subclasses=False):
+    #     """Return a list of all instances of `cls` that start between
+    #     `start` and `end`. When `start` and `end` are omitted, the
+    #     whole timeline is searched.
 
-    def get_all_ending(self, cls, start=None, end=None, include_subclasses=False):
-        return self.get_all(cls, start, end, include_subclasses, mode='ending')
+    #     Parameters
+    #     ----------
+    #     cls : class
+    #         The class to search for
+    #     start : TimePoint, optional
+    #         The start of the interval to search. If omitted or None,
+    #         the search starts at the start of the timeline. Defaults
+    #         to None.
+    #     end : TimePoint, optional
+    #         The end of the interval to search. If omitted or None, the
+    #         search ends at the end of the timeline. Defaults to None.
+    #     include_subclasses : bool, optional
+    #         If True also return instances that are subclasses of
+    #         `cls`. Defaults to False.
+
+    #     Returns
+    #     -------
+    #     list
+    #         List of instances of `cls`
+        
+    #     """
+        
+    #     return self.get_all(cls, start, end, include_subclasses, mode='starting')
+
+    # def get_all_ending(self, cls, start=None, end=None, include_subclasses=False):
+    #     """Return a list of all instances of `cls` that end between
+    #     `start` and `end`. When `start` and `end` are omitted, the
+    #     whole timeline is searched.
+
+    #     Parameters
+    #     ----------
+    #     cls : class
+    #         The class to search for
+    #     start : TimePoint, optional
+    #         The start of the interval to search. If omitted or None,
+    #         the search starts at the start of the timeline. Defaults
+    #         to None.
+    #     end : TimePoint, optional
+    #         The end of the interval to search. If omitted or None, the
+    #         search ends at the end of the timeline. Defaults to None.
+    #     include_subclasses : bool, optional
+    #         If True also return instances that are subclasses of
+    #         `cls`. Defaults to False.
+
+    #     Returns
+    #     -------
+    #     list
+    #         List of instances of `cls`
+        
+    #     """
+    #     return self.get_all(cls, start, end, include_subclasses, mode='ending')
 
     def get_all(self, cls, start=None, end=None, include_subclasses=False, mode='starting'):
-        """Return all objects of type `cls`
+        """Return a list of all instances of `cls` that either start or
+        end (depending on `mode`) in the interval `start` to `end`.
+        When `start` and `end` are omitted, the whole timeline is
+        searched.
 
+        Parameters
+        ----------
+        cls : class
+            The class to search for
+        start : TimePoint, optional
+            The start of the interval to search. If omitted or None,
+            the search starts at the start of the timeline. Defaults
+            to None.
+        end : TimePoint, optional
+            The end of the interval to search. If omitted or None, the
+            search ends at the end of the timeline. Defaults to None.
+        include_subclasses : bool, optional
+            If True also return instances that are subclasses of
+            `cls`. Defaults to False.
+        mode : {'starting', 'ending'}
+            Flag indicating whether to search for starting or ending
+            objects. Defaults to 'starting'.
+
+        Returns
+        -------
+        list
+            List of instances of `cls`
+        
         """
         if not mode in ('starting', 'ending'):
             LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
@@ -608,25 +694,48 @@ class TimeLine(object):
 
     @property
     def last_point(self):
+        """The last TimePoint on the timeline, or None if the timeline is
+        empty.
+        
+        """
         return self.points[-1] if len(self.points) > 0 else None
 
     @property
     def first_point(self):
+        """The first TimePoint on the timeline, or None if the timeline
+        is empty.
+        
+        """
         return self.points[0] if len(self.points) > 0 else None
 
-    def get_all_ongoing_objects(self, t):
-        if not isinstance(t, TimePoint):
-            t = TimePoint(t)
-        t_idx = np.searchsorted(self.points, t, side='left')
-        ongoing = set()
-        for tp in self.points[: t_idx]:
-            for starting in tp.starting_objects.values():
-                for o in starting:
-                    ongoing.add(o)
-            for ending in tp.ending_objects.values():
-                for o in ending:
-                    ongoing.remove(o)
-        return ongoing
+    # def get_ongoing_objects(self, t):
+    #     """Return a list of all objects that have started but not ended
+    #     before time `t`.
+
+    #     Parameters
+    #     ----------
+    #     t : int
+    #         The position of the timeline
+
+    #     Returns
+    #     -------
+    #     list
+    #         List of ongoing objects
+        
+    #     """
+        
+    #     if not isinstance(t, TimePoint):
+    #         t = TimePoint(t)
+    #     t_idx = np.searchsorted(self.points, t, side='left')
+    #     ongoing = set()
+    #     for tp in self.points[: t_idx]:
+    #         for starting in tp.starting_objects.values():
+    #             for o in starting:
+    #                 ongoing.add(o)
+    #         for ending in tp.ending_objects.values():
+    #             for o in ending:
+    #                 ongoing.remove(o)
+    #     return list(ongoing)
 
     def test(self):
         s = set()
@@ -638,13 +747,13 @@ class TimeLine(object):
                 for o in oo:
                     assert o in s
                     s.remove(o)
-        LOGGER.info('Timeline is OK')
+        LOGGER.debug('Timeline is OK')
         return True
 
 
 class TimePoint(ComparableMixin):
 
-    """A TimePoint represents an instant in Time.
+    """A TimePoint represents an position on a TimeLine.
 
     The `TimeLine` class stores sorted TimePoint objects in an array under
     TimeLine.points, as well as doubly linked (through the `prev` and
@@ -653,7 +762,7 @@ class TimePoint(ComparableMixin):
 
     Parameters
     ----------
-    t : number
+    t : int
         Time point of some event in/element of the score, where the unit of
         a time point is the <divisions> as defined in the musicxml file,
         more precisely in the corresponding score part. Represents the
@@ -664,8 +773,7 @@ class TimePoint(ComparableMixin):
 
     Attributes
     ----------
-    t : number
-    label : str
+    t : int
     starting_objects : dictionary
         a dictionary where the musical objects starting at this time are
         grouped by class.
@@ -1038,27 +1146,14 @@ class Measure(TimedObject):
         expected duration (as computed based on the current divisions and
         time signature), and False otherwise.
 
-        WARNING: this property does not work reliably to detect incomplete
-        measures in the middle of the piece
-
-        NOTE: this is probably because of the way incomplete measures are
-        dealt with in the musicxml parser. When a score part has an
-        incomplete measure where the corresponding measure in some other
-        part is complete, the duration of the incomplete measure is
-        adjusted to that it is complete (otherwise the times would be
-        misaligned after the incomplete measure).
-
         Returns
         -------
         bool
 
         """
 
-        assert self.start.next is not None, LOGGER.warning(
-            'Part is empty')
-        divs = self.start.next.get_prev_of_type(Divisions)
-        ts = self.start.next.get_prev_of_type(TimeSignature)
-        # nextm = self.start.get_next_of_type(Measure)
+        divs = self.start.get_prev_of_type(Divisions, eq=True)
+        ts = self.start.get_prev_of_type(TimeSignature, eq=True)
 
         invalid = False
         if len(divs) == 0:
@@ -1067,9 +1162,6 @@ class Measure(TimedObject):
         if len(ts) == 0:
             LOGGER.warning('Part specifies no time signatures')
             invalid = True
-        # if len(nextm) == 0:
-        #     LOGGER.warning('Part has just one measure')
-        #     # invalid = True
 
         if invalid:
             LOGGER.warning(
@@ -1085,11 +1177,6 @@ class Measure(TimedObject):
         # this will return a boolean, so either True or False
         # return beat_type * measure_dur / (4 * div * beats) % 1 > 0
         return beat_type*measure_dur < 4*div*beats
-
-    # upbeat is deprecated in favor of incomplete
-    @property
-    def upbeat(self):
-        return self.incomplete
 
 
 class TimeSignature(TimedObject):
@@ -1494,64 +1581,74 @@ class GraceNote(Note):
 
 
 class PartGroup(object):
-    """
-    Represents a <part-group ...> </...> where instruments are grouped.
-    Note that a part grouped is "started" and "stopped" with according
-    attributes inside the respective elements.
+    """Represents a grouping of several instruments, usually named, and
+    expressed in the score with a group symbol such as a brace or a
+    bracket. In symphonic scores, bracketed part groups usually group
+    families of instruments, such as woodwinds or brass, whereas
+    braces are often used to group multiple instances of the same
+    instrument. See the `MusicXML documentation
+    <https://usermanuals.musicxml.com/MusicXML/Content/ST-MusicXML-
+    group-symbol-value.htm>`_ for further information.
 
     Parameters
     ----------
-
-    grouping_symbol : str or None, optional
-        the symbol used for grouping instruments, a <group-symbol> element,
-        possibilites are:
-
-        - 'brace' (opening curly brace, should group 2 same instruments,
-                   e.g. 2 horns,  or left + right hand on piano)
-        - 'square' (opening square bracket, should have same function as
-                    the brace.)
-        - 'bracket' (opening square bracket, should group instruments
-                     of the same category, such as all woodwinds.)
-
-        Note that there is supposed to be a hierarchy between these,
-        like this: a bracket is supposed to embrace one ore multiple
-        braces or squares.
+    group_symbol : str or None, optional
+        The symbol used for grouping instruments.
 
     Attributes
     ----------
+    group_symbol : str or None
 
-    grouping_symbol : str OR None
-
-    children : list of PartGroup objects
+    children : list of Part or PartGroup objects
 
     parent : PartGroup
 
     number : int
-
-    parts : list of Part objects
-        a list of all Part objects in this PartGroup
+    
     """
 
-    def __init__(self, grouping_symbol=None, name=None):
-        self.grouping_symbol = grouping_symbol
+    def __init__(self, group_symbol=None, name=None):
+        self.group_symbol = group_symbol
         self.children = []
         self.name = name
         self.parent = None
         self.number = None
 
-    @property
-    def parts(self):
-        return get_all_parts(self.children)
+    def _pp(self, tree):
+        result = ['{}PartGroup: name="{}" group_symbol="{}"'
+                  .format(tree, self.name, self.group_symbol)]
+        tree.push()
+        N = len(self.children)
+        for i, child in enumerate(self.children):
+            result.append('{}'.format(tree))
+            if i == N - 1:
+                tree.last_item()
+            else:
+                tree.next_item()
+            result.extend(child._pp(tree))
+        tree.pop()
+        return '\n'.join(result)
 
-    def pretty(self, l=0):
-        if self.name is not None:
-            name_str = ' / {0}'.format(self.name)
-        else:
-            name_str = ''
-        s = ['    ' * l + '{0}{1}'.format(self.grouping_symbol, name_str)]
-        for ch in self.children:
-            s.append(ch.pretty(l + 1))
-        return '\n'.join(s)
+    def pretty(self):
+        """Return a pretty representation of this object.
+
+        Returns
+        -------
+        str
+            A pretty representation
+        
+        """
+        return self._pp(PrettyPrintTree())
+
+    # def pretty(self, l=0):
+    #     if self.name is not None:
+    #         name_str = ' / {0}'.format(self.name)
+    #     else:
+    #         name_str = ''
+    #     s = ['    ' * l + '{0}{1}'.format(self.grouping_symbol, name_str)]
+    #     for ch in self.children:
+    #         s.append(ch.pretty(l + 1))
+    #     return '\n'.join(s)
 
 
 class ScoreVariant(object):
@@ -1685,19 +1782,15 @@ class Part(object):
     ----------
     part_id : str
         The identifier of the part. (see Parameters Section).
-    timeline : TimeLine
     part_name : str
         Name for the part
     part_abbreviation : str
         Abbreviated name for part
+    timeline : TimeLine
     notes
     notes_tied
-    beat_map : function
-        A function mapping timeline times to beat times. The function
-        can take scalar values or lists/arrays of values.
-    quarter_map : function
-        A function mapping timeline times to quarter times. The
-        function can take scalar values or lists/arrays of values.
+    beat_map
+    quarter_map
     
     """
 
@@ -1766,290 +1859,18 @@ class Part(object):
             self.timeline.remove_ending_object(obj)
 
 
-    def make_score_variants(self):
-        """Create a list of ScoreVariant objects, each representing a
-        distinct way to unfold the score, based on the repeat structure.
 
-        Returns
-        -------
-        list
-            List of ScoreVariant objects
+    # def test_timeline(self):
+    #     """Test if all ending objects have occurred as starting object as
+    #     well.
 
-        Notes
-        -----
-        This function does not currently support nested repeats, such as in
-        case 45d of the MusicXML Test Suite.
+    #     """
+    #     return self.timeline.test()
 
-        """
-
-        if len(self.timeline.get_all(DaCapo) +
-               self.timeline.get_all(Fine)) > 0:
-            LOGGER.warning(('Generation of repeat structures involving da '
-                            'capo/fine/coda/segno directions is not '
-                            'supported yet'))
-
-        repeats = self.timeline.get_all(Repeat)
-        # repeats may not have start or end times. `_repeats_to_start_end`
-        # returns the start/end paisr for each repeat, making educated guesses
-        # when these are missing.
-        repeat_start_ends = _repeats_to_start_end(repeats,
-                                                 self.timeline.first_point,
-                                                 self.timeline.last_point)
-
-        # check for nestings and raise if necessary
-        if any(n < c for c, n in iter_current_next(repeat_start_ends)):
-            raise NotImplementedError('Nested endings are currently not supported')
-
-        # t_score is used to keep the time in the score
-        t_score = self.timeline.first_point
-        svs = [ScoreVariant()]
-        # each repeat holds start and end time of a score interval to
-        # be repeated
-        for i, (rep_start, rep_end) in enumerate(repeat_start_ends):
-            new_svs = []
-            for sv in svs:
-                # is the start of the repeat after our current score
-                # position?
-                if rep_start > t_score:
-                    # yes: add the tuple (t_score, rep_start) to the
-                    # result this is the span before the interval that is
-                    # to be repeated
-                    sv.add_segment(t_score, rep_start)
-
-                # create a new ScoreVariant for the repetition (sv will be the
-                # score variant where this repeat is played only once)
-                new_sv = sv.clone()
-
-                # get any "endings" (e.g. 1 / 2 volta) of the repeat
-                # (there are not supposed to be more than one)
-                endings1 = rep_end.get_ending_objects_of_type(Ending)
-                # is there an ending?
-                if len(endings1) > 0:
-                    # yes
-                    ending1 = endings1[0]
-
-                    # add the first occurrence of the repeat
-                    sv.add_segment(rep_start, ending1.start)
-
-                    endings2 = rep_end.get_starting_objects_of_type(Ending)
-                    if len(endings2) > 0:
-                        ending2 = endings2[0]
-                        # add the first occurrence of the repeat
-                        sv.add_segment(ending2.start, ending2.end)
-                    else:
-                        # ending 1 without ending 2, should not happen normally
-                        pass
-
-                    # new_sv includes the 1/2 ending repeat, which means:
-                    # 1. from repeat start to repeat end (which includes ending 1)
-                    new_sv.add_segment(rep_start, rep_end)
-                    # 2. from repeat start to ending 1 start
-                    new_sv.add_segment(rep_start, ending1.start)
-                    # 3. ending 2 start to ending 2 end
-                    new_sv.add_segment(ending2.start, ending2.end)
-
-                    # update the score time
-                    t_score = ending2.end
-
-                else:
-                    # add the first occurrence of the repeat
-                    sv.add_segment(rep_start, rep_end)
-
-                    # no: add the full interval of the repeat (the second time)
-                    new_sv.add_segment(rep_start, rep_end)
-                    new_sv.add_segment(rep_start, rep_end)
-
-                    # update the score time
-                    t_score = rep_end
-
-                # add both score variants
-                new_svs.append(sv)
-                new_svs.append(new_sv)
-
-            svs = new_svs
-
-        # are we at the end of the piece already?
-        if t_score < self.timeline.last_point:
-            # no, append the interval from the current score
-            # position to the end of the piece
-            for sv in svs:
-                sv.add_segment(t_score, self.timeline.last_point)
-
-        return svs
-
-    def test_timeline(self):
-        """Test if all ending objects have occurred as starting object as
-        well.
-
-        """
-        return self.timeline.test()
-
-    def iter_unfolded_timelines(self):
-        for sv in self.make_score_variants():
-            yield sv.create_variant_timeline()
-
-    def unfold_timeline_maximal(self):
-        """Return the "maximally" unfolded timeline, that is, a copy of the
-        timeline where all segments marked with repeat signs are included
-        twice.
-
-        Returns
-        -------
-        TimeLine
-            The unfolded TimeLine
-
-        """
-
-        sv = self.make_score_variants()[-1]
-        return sv.create_variant_timeline()
-
-    def remove_grace_notes(self):
-        for point in self.timeline.points:
-            point.starting_objects[Note] = [n for n in point.starting_objects[Note]
-                                            if n.grace_type is None]
-            point.ending_objects[Note] = [n for n in point.ending_objects[Note]
-                                          if n.grace_type is None]
-
-    def expand_grace_notes(self, default_type='appoggiatura', min_steal=.05, max_steal=.7):
-        """Expand durations of grace notes according to their specifications,
-        or according to the default settings specified using the keywords.
-        The onsets/offsets of the grace notes and surrounding notes are set
-        accordingly. Multiple contiguous grace notes inside a voice are
-        expanded sequentially.
-
-        This function modifies the `points` attribute.
-
-        Parameters
-        ----------
-        default_type : str, optional. Default: 'appoggiatura'
-            The type of grace note, if no type is specified in the grace
-            note itself. Possibilites are: {'appoggiatura',
-            'acciaccatura'}.
-        min_steal : float, optional
-            The minimal proportion of the note to steal wherever no
-            proportion is speficied in the grace notes themselves.
-        max_steal : float, optional
-            The maximal proportion of the note to steal wherever no
-            proportion is speficied in the grace notes themselves.
-
-        """
-
-        assert default_type in (u'appoggiatura', u'acciaccatura')
-        assert 0 < min_steal <= max_steal
-        assert min_steal <= max_steal < 1.0
-
-        def n_notes_to_steal(n_notes):
-            return min_steal + (max_steal - min_steal) * 2 * (1 / (1 + np.exp(- n_notes + 1)) - .5)
-
-        def shorten_main_notes_by(offset, notes, group_id):
-            # start and duration of the main note
-            old_start = notes[0].start
-            n_dur = np.min([n.duration for n in notes])
-            offset = min(n_dur * .5, offset)
-            new_start_t = old_start.t + offset
-            for i, n in enumerate(notes):
-                old_start.starting_objects[Note].remove(n)
-                self.timeline.add_starting_object(new_start_t, n)
-                n.appoggiatura_group_id = group_id
-                n.appoggiatura_duration = offset / float(n_dur)
-            return new_start_t
-
-        def shorten_prev_notes_by(offset, notes, group_id):
-            old_end = notes[0].end
-            n_dur = notes[0].duration
-            offset = min(n_dur * .5, offset)
-            new_end_t = old_end.t - offset
-
-            for n in notes:
-                old_end.ending_objects[Note].remove(n)
-                self.timeline.add_ending_object(new_end_t, n)
-                n.acciaccatura_group_id = group_id
-                n.acciaccatura_duration = offset / float(n_dur)
-
-            return new_end_t
-
-        def set_acciaccatura_times(notes, start_t, group_id):
-            N = len(notes)
-            end_t = notes[0].start.t
-            times = np.linspace(start_t, end_t, N + 1, endpoint=True)
-            for i, n in enumerate(notes):
-                n.start.starting_objects[Note].remove(n)
-                self.timeline.add_starting_object(times[i], n)
-                n.end.ending_objects[Note].remove(n)
-                self.timeline.add_ending_object(times[i + 1], n)
-                n.acciaccatura_group_id = group_id
-                n.acciaccatura_idx = i
-                n.acciaccatura_size = N
-
-        def set_appoggiatura_times(notes, end_t, group_id):
-            N = len(notes)
-            start_t = notes[0].start.t
-            times = np.linspace(start_t, end_t, N + 1, endpoint=True)
-            for i, n in enumerate(notes):
-                n.start.starting_objects[type(n)].remove(n)
-                self.timeline.add_starting_object(times[i], n)
-                n.end.ending_objects[type(n)].remove(n)
-                self.timeline.add_ending_object(times[i + 1], n)
-                n.appoggiatura_group_id = group_id
-                n.appoggiatura_idx = i
-                n.appoggiatura_size = N
-
-        grace_notes = self.list_all(GraceNote)
-        time_grouped_gns = partition(
-            operator.attrgetter('start.t'), grace_notes)
-        times = sorted(time_grouped_gns.keys())
-
-        group_counter = 0
-        for t in times:
-
-            voice_grouped_gns = partition(operator.attrgetter('voice'),
-                                          time_grouped_gns[t])
-
-            for voice, gn_group in voice_grouped_gns.items():
-
-                for n in gn_group:
-                    if n.grace_type == 'grace':
-                        n.grace_type = default_type
-
-                type_grouped_gns = partition(operator.attrgetter('grace_type'),
-                                             gn_group)
-
-                for gtype, type_group in type_grouped_gns.items():
-                    total_steal_old = n_notes_to_steal(len(type_group))
-                    total_steal = np.sum([n.duration_from_symbolic for n
-                                          in type_group])
-                    main_notes = [m for m in type_group[0].simultaneous_notes_in_voice
-                                  if not isinstance(m, GraceNote)]
-
-                    if len(main_notes) > 0:
-                        total_steal = min(
-                            main_notes[0].duration / 2., total_steal)
-
-                    if gtype == 'appoggiatura':
-                        total_steal = np.sum([n.duration_from_symbolic for n
-                                              in type_group])
-                        if len(main_notes) > 0:
-                            new_onset = shorten_main_notes_by(
-                                total_steal, main_notes, group_counter)
-                            set_appoggiatura_times(
-                                type_group, new_onset, group_counter)
-                            group_counter += 1
-
-                    elif gtype == 'acciaccatura':
-                        prev_notes = [m for m in type_group[0].previous_notes_in_voice
-                                      if m.grace_type is None]
-                        # print('    prev: {}'.format(len(prev_notes)))
-                        if len(prev_notes) > 0:
-                            new_offset = shorten_prev_notes_by(
-                                total_steal, prev_notes, group_counter)
-                            set_acciaccatura_times(
-                                type_group, new_offset, group_counter)
-                            group_counter += 1
 
     def _pp(self, tree):
         result = ['{}Part: name="{}" id="{}"'
                   .format(tree, self.part_name, self.part_id)]
-        # stack.append(' │ ')
         tree.push()
         N = len(self.timeline.points)
         for i, timepoint in enumerate(self.timeline.points):
@@ -2063,11 +1884,19 @@ class Part(object):
         return '\n'.join(result)
 
     def pretty(self):
+        """Return a pretty representation of this object.
+
+        Returns
+        -------
+        str
+            A pretty representation
+        
+        """
         return self._pp(PrettyPrintTree())
 
     @property
     def divisions_map(self):
-        divs = np.array([(divs.start.t, divs.divs) for divs in self.list_all(Divisions)])
+        divs = np.array([(divs.start.t, divs.divs) for divs in self.timeline.get_all(Divisions)])
         if len(divs) == 0:
             # warn assumption
             divs = np.array([(self.timeline.first_point.t, 1),
@@ -2083,7 +1912,7 @@ class Part(object):
     @property
     def time_signature_map(self):
         tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
-                        for ts in self.list_all(TimeSignature)])
+                        for ts in self.timeline.get_all(TimeSignature)])
         if len(tss) == 0:
             # warn assumption
             tss = np.array([(self.timeline.first_point.t, 4, 4),
@@ -2219,24 +2048,28 @@ class Part(object):
                     raise
             return f
 
-    def get_loudness_directions(self):
-        """Return all loudness directions
+    # The methods below are not necessary. Instead, a howto should explain:
+    # - how to get an unfolded timeline
+    # - how to get all objects from a timeline
+    
+    # def get_loudness_directions(self,  unfolded=False):
+    #     """Return all loudness directions
 
-        """
-        return self.list_all(LoudnessDirection, unfolded=unfolded, include_subclasses=True)
+    #     """
+    #     return self.list_all(LoudnessDirection, unfolded=unfolded, include_subclasses=True)
 
-    def get_tempo_directions(self, unfolded=False):
-        """Return all tempo directions
+    # def get_tempo_directions(self, unfolded=False):
+    #     """Return all tempo directions
 
-        """
-        return self.list_all(TempoDirection, unfolded=unfolded, include_subclasses=True)
+    #     """
+    #     return self.list_all(TempoDirection, unfolded=unfolded, include_subclasses=True)
 
-    def list_all(self, cls, unfolded=False, include_subclasses=False):
-        if unfolded:
-            tl = self.unfold_timeline_maximal()
-        else:
-            tl = self.timeline
-        return tl.get_all(cls, include_subclasses=include_subclasses)
+    # def list_all(self, cls, unfolded=False, include_subclasses=False):
+    #     if unfolded:
+    #         tl = self.unfold_timeline_maximal()
+    #     else:
+    #         tl = self.timeline
+    #     return tl.get_all(cls, include_subclasses=include_subclasses)
 
     @property
     def notes(self):
@@ -2249,7 +2082,7 @@ class Part(object):
             list of Note objects
 
         """
-        return self.list_all(Note, unfolded=False, include_subclasses=True)
+        return self.timeline.get_all(Note, include_subclasses=True)
 
     @property
     def notes_tied(self):
@@ -2263,33 +2096,346 @@ class Part(object):
             list of Note objects
 
         """
-        return [note for note in self.list_all(Note, unfolded=False, include_subclasses=True)
+        return [note for note in self.timeline.get_all(Note, include_subclasses=True)
                 if note.tie_prev is None]
 
 
     @property
     def beat_map(self):
-        """A function that maps timeline times to beat units
+        """A function mapping timeline times to beat times. The function
+        can take scalar values or lists/arrays of values.
 
         Returns
         -------
         function
             The mapping function
-
+        
         """
         return self._get_beat_map()
 
     @property
     def quarter_map(self):
-        """A function that maps timeline times to quarter note units
+        """A function mapping timeline times to quarter times. The
+        function can take scalar values or lists/arrays of values.
 
         Returns
         -------
         function
             The mapping function
-
+        
         """
         return self._get_beat_map(quarter=True)
+
+
+def iter_unfolded_timelines(timeline):
+    """
+    Description
+    
+    Parameters
+    ----------
+    timeline: type
+        Description of `timeline`
+    
+    Returns
+    -------
+    type
+        Description of return value
+    """
+    
+    for sv in make_score_variants(timeline):
+        yield sv.create_variant_timeline()
+
+
+def unfold_timeline_maximal(timeline):
+    """Return the "maximally" unfolded timeline, that is, a copy of the
+    timeline where all segments marked with repeat signs are included
+    twice.
+
+    Returns
+    -------
+    TimeLine
+        The unfolded TimeLine
+
+    """
+
+    sv = make_score_variants(timeline)[-1]
+    return sv.create_variant_timeline()
+
+def make_score_variants(timeline):
+    """Create a list of ScoreVariant objects, each representing a
+    distinct way to unfold the score, based on the repeat structure.
+
+    Parameters
+    ----------
+    timeline: TimeLine
+        A timeline for which to make the score variants
+
+    Returns
+    -------
+    list
+        List of ScoreVariant objects
+
+    Notes
+    -----
+    This function does not currently support nested repeats, such as in
+    case 45d of the MusicXML Test Suite.
+
+    """
+
+    if len(timeline.get_all(DaCapo) +
+           timeline.get_all(Fine)) > 0:
+        LOGGER.warning(('Generation of repeat structures involving da '
+                        'capo/fine/coda/segno directions is not '
+                        'supported yet'))
+
+    repeats = timeline.get_all(Repeat)
+    # repeats may not have start or end times. `_repeats_to_start_end`
+    # returns the start/end paisr for each repeat, making educated guesses
+    # when these are missing.
+    repeat_start_ends = _repeats_to_start_end(repeats,
+                                             timeline.first_point,
+                                             timeline.last_point)
+
+    # check for nestings and raise if necessary
+    if any(n < c for c, n in iter_current_next(repeat_start_ends)):
+        raise NotImplementedError('Nested endings are currently not supported')
+
+    # t_score is used to keep the time in the score
+    t_score = timeline.first_point
+    svs = [ScoreVariant()]
+    # each repeat holds start and end time of a score interval to
+    # be repeated
+    for i, (rep_start, rep_end) in enumerate(repeat_start_ends):
+        new_svs = []
+        for sv in svs:
+            # is the start of the repeat after our current score
+            # position?
+            if rep_start > t_score:
+                # yes: add the tuple (t_score, rep_start) to the
+                # result this is the span before the interval that is
+                # to be repeated
+                sv.add_segment(t_score, rep_start)
+
+            # create a new ScoreVariant for the repetition (sv will be the
+            # score variant where this repeat is played only once)
+            new_sv = sv.clone()
+
+            # get any "endings" (e.g. 1 / 2 volta) of the repeat
+            # (there are not supposed to be more than one)
+            endings1 = rep_end.get_ending_objects_of_type(Ending)
+            # is there an ending?
+            if len(endings1) > 0:
+                # yes
+                ending1 = endings1[0]
+
+                # add the first occurrence of the repeat
+                sv.add_segment(rep_start, ending1.start)
+
+                endings2 = rep_end.get_starting_objects_of_type(Ending)
+                if len(endings2) > 0:
+                    ending2 = endings2[0]
+                    # add the first occurrence of the repeat
+                    sv.add_segment(ending2.start, ending2.end)
+                else:
+                    # ending 1 without ending 2, should not happen normally
+                    pass
+
+                # new_sv includes the 1/2 ending repeat, which means:
+                # 1. from repeat start to repeat end (which includes ending 1)
+                new_sv.add_segment(rep_start, rep_end)
+                # 2. from repeat start to ending 1 start
+                new_sv.add_segment(rep_start, ending1.start)
+                # 3. ending 2 start to ending 2 end
+                new_sv.add_segment(ending2.start, ending2.end)
+
+                # update the score time
+                t_score = ending2.end
+
+            else:
+                # add the first occurrence of the repeat
+                sv.add_segment(rep_start, rep_end)
+
+                # no: add the full interval of the repeat (the second time)
+                new_sv.add_segment(rep_start, rep_end)
+                new_sv.add_segment(rep_start, rep_end)
+
+                # update the score time
+                t_score = rep_end
+
+            # add both score variants
+            new_svs.append(sv)
+            new_svs.append(new_sv)
+
+        svs = new_svs
+
+    # are we at the end of the piece already?
+    if t_score < timeline.last_point:
+        # no, append the interval from the current score
+        # position to the end of the piece
+        for sv in svs:
+            sv.add_segment(t_score, timeline.last_point)
+
+    return svs
+
+
+def remove_grace_notes(timeline):
+    """Remove all grace notes from a timeline.
+
+    The specified timeline object will be modified in place.
+
+    Parameters
+    ----------
+    timeline : Timeline
+        The timeline from which to remove the grace notes
+    
+    """
+    for point in timeline.points:
+        point.starting_objects[Note] = [n for n in point.starting_objects[Note]
+                                        if n.grace_type is None]
+        point.ending_objects[Note] = [n for n in point.ending_objects[Note]
+                                      if n.grace_type is None]
+
+
+def expand_grace_notes(timeline, default_type='appoggiatura', min_steal=.05, max_steal=.7):
+    """Expand grace notes on a timeline.
+
+    Expand durations of grace notes according to their specifications,
+    or according to the default settings specified using the keywords.
+    The onsets/offsets of the grace notes and surrounding notes are
+    set accordingly. Multiple contiguous grace notes inside a voice
+    are expanded sequentially.
+
+    The specified timeline object will be modified in place.
+
+    Parameters
+    ----------
+    timeline : Timeline
+        The timeline on which to expand the grace notes
+    default_type : str, optional. Default: 'appoggiatura'
+        The type of grace note, if no type is specified in the grace
+        note itself. Possibilites are: {'appoggiatura',
+        'acciaccatura'}.
+    min_steal : float, optional
+        The minimal proportion of the note to steal wherever no
+        proportion is speficied in the grace notes themselves.
+    max_steal : float, optional
+        The maximal proportion of the note to steal wherever no
+        proportion is speficied in the grace notes themselves.
+    
+    """
+
+    assert default_type in (u'appoggiatura', u'acciaccatura')
+    assert 0 < min_steal <= max_steal
+    assert min_steal <= max_steal < 1.0
+
+    def n_notes_to_steal(n_notes):
+        return min_steal + (max_steal - min_steal) * 2 * (1 / (1 + np.exp(- n_notes + 1)) - .5)
+
+    def shorten_main_notes_by(offset, notes, group_id):
+        # start and duration of the main note
+        old_start = notes[0].start
+        n_dur = np.min([n.duration for n in notes])
+        offset = min(n_dur * .5, offset)
+        new_start_t = old_start.t + offset
+        for i, n in enumerate(notes):
+            old_start.starting_objects[Note].remove(n)
+            timeline.add_starting_object(new_start_t, n)
+            n.appoggiatura_group_id = group_id
+            n.appoggiatura_duration = offset / float(n_dur)
+        return new_start_t
+
+    def shorten_prev_notes_by(offset, notes, group_id):
+        old_end = notes[0].end
+        n_dur = notes[0].duration
+        offset = min(n_dur * .5, offset)
+        new_end_t = old_end.t - offset
+
+        for n in notes:
+            old_end.ending_objects[Note].remove(n)
+            timeline.add_ending_object(new_end_t, n)
+            n.acciaccatura_group_id = group_id
+            n.acciaccatura_duration = offset / float(n_dur)
+
+        return new_end_t
+
+    def set_acciaccatura_times(notes, start_t, group_id):
+        N = len(notes)
+        end_t = notes[0].start.t
+        times = np.linspace(start_t, end_t, N + 1, endpoint=True)
+        for i, n in enumerate(notes):
+            n.start.starting_objects[Note].remove(n)
+            timeline.add_starting_object(times[i], n)
+            n.end.ending_objects[Note].remove(n)
+            timeline.add_ending_object(times[i + 1], n)
+            n.acciaccatura_group_id = group_id
+            n.acciaccatura_idx = i
+            n.acciaccatura_size = N
+
+    def set_appoggiatura_times(notes, end_t, group_id):
+        N = len(notes)
+        start_t = notes[0].start.t
+        times = np.linspace(start_t, end_t, N + 1, endpoint=True)
+        for i, n in enumerate(notes):
+            n.start.starting_objects[type(n)].remove(n)
+            timeline.add_starting_object(times[i], n)
+            n.end.ending_objects[type(n)].remove(n)
+            timeline.add_ending_object(times[i + 1], n)
+            n.appoggiatura_group_id = group_id
+            n.appoggiatura_idx = i
+            n.appoggiatura_size = N
+
+    grace_notes = timeline.get_all(GraceNote)
+    time_grouped_gns = partition(
+        operator.attrgetter('start.t'), grace_notes)
+    times = sorted(time_grouped_gns.keys())
+
+    group_counter = 0
+    for t in times:
+
+        voice_grouped_gns = partition(operator.attrgetter('voice'),
+                                      time_grouped_gns[t])
+
+        for voice, gn_group in voice_grouped_gns.items():
+
+            for n in gn_group:
+                if n.grace_type == 'grace':
+                    n.grace_type = default_type
+
+            type_grouped_gns = partition(operator.attrgetter('grace_type'),
+                                         gn_group)
+
+            for gtype, type_group in type_grouped_gns.items():
+                total_steal_old = n_notes_to_steal(len(type_group))
+                total_steal = np.sum([n.duration_from_symbolic for n
+                                      in type_group])
+                main_notes = [m for m in type_group[0].simultaneous_notes_in_voice
+                              if not isinstance(m, GraceNote)]
+
+                if len(main_notes) > 0:
+                    total_steal = min(
+                        main_notes[0].duration / 2., total_steal)
+
+                if gtype == 'appoggiatura':
+                    total_steal = np.sum([n.duration_from_symbolic for n
+                                          in type_group])
+                    if len(main_notes) > 0:
+                        new_onset = shorten_main_notes_by(
+                            total_steal, main_notes, group_counter)
+                        set_appoggiatura_times(
+                            type_group, new_onset, group_counter)
+                        group_counter += 1
+
+                elif gtype == 'acciaccatura':
+                    prev_notes = [m for m in type_group[0].previous_notes_in_voice
+                                  if m.grace_type is None]
+                    # print('    prev: {}'.format(len(prev_notes)))
+                    if len(prev_notes) > 0:
+                        new_offset = shorten_prev_notes_by(
+                            total_steal, prev_notes, group_counter)
+                        set_acciaccatura_times(
+                            type_group, new_offset, group_counter)
+                        group_counter += 1
+
 
 def iter_parts(partlist):
     """Iterate over all Part instances in partlist, which is a list of
@@ -2493,15 +2639,5 @@ def search_recursive(states, success, expand, combine):
         return None
 
 if __name__ == '__main__':
-    # print(order_splits(1, 8, 1))
-    # print(order_splits(11, 17, 3))
-    # print(order_splits(11, 17, 1))
-    # print(find_tie_split_search(1, 8, 2))
-    # find_tie_split_search(141, 1920, 480)
-    # print(find_tie_split_search(0, 3632-17, 480))
-    # [(0, 3600, {'type': 'whole', 'dots': 3}), (3600, 3615, {'type': '128th', 'dots': 0})]
-    # o = 30
-    # find_tie_split_search(o, 3632-17+o, 480)
-    # find_tie_split_search(1, 8, 4)
     import doctest
     doctest.testmod()

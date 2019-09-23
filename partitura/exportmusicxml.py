@@ -415,9 +415,11 @@ def do_barlines(part, start, end):
                [ferm for ferm in part.timeline.get_all(score.Fermata, end, end.next)
                 if ferm.ref in (None, 'right')])
     repeat_start = part.timeline.get_all(score.Repeat, start, end)
-    repeat_end = part.timeline.get_all_ending(score.Repeat, start.next, end.next)
+    repeat_end = part.timeline.get_all(score.Repeat, start.next, end.next,
+                                       mode='ending')
     ending_start = part.timeline.get_all(score.Ending, start, end)
-    ending_end = part.timeline.get_all_ending(score.Ending, start.next, end.next)
+    ending_end = part.timeline.get_all(score.Ending, start.next, end.next,
+                                       mode='ending')
     by_onset = defaultdict(list)
 
     for obj in fermata:
@@ -771,9 +773,9 @@ def save_musicxml(parts, out=None):
         # store quarter_map in a variable to avoid re-creating it for each call
         quarter_map = part.quarter_map
         beat_map = part.beat_map
-        ts = part.list_all(score.TimeSignature)
+        ts = part.timeline.get_all(score.TimeSignature)
 
-        for measure in part.list_all(score.Measure):
+        for measure in part.timeline.get_all(score.Measure):
 
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             attrib = {}

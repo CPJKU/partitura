@@ -10,7 +10,7 @@ from tempfile import TemporaryFile
 from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
 
 from partitura import load_musicxml, save_musicxml
-from partitura.directions import parse_words
+from partitura.directions import parse_direction
 from partitura.utils import show_diff
 import partitura.score as score
 
@@ -29,7 +29,7 @@ class TestDirectionParser(unittest.TestCase):
         
     def test_parser(self):
         for words, target in self.cases:
-            result = parse_words(words)
+            result = parse_direction(words)
             self.assertEqual(len(result), len(target), '"{}" not parsed correctly into directions'.format(words))
             for res, trg in zip(result, target):
                 self.assertEqual(type(res), trg, '')
@@ -58,7 +58,7 @@ class TestMusicXML(unittest.TestCase):
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
             part = load_musicxml(fn, validate=False)
-            part.timeline = part.unfold_timeline_maximal()
+            part.timeline = score.unfold_timeline_maximal(part.timeline)
             result = save_musicxml(part).decode('UTF-8')
             with open(fn_target) as f:
                 target = f.read()

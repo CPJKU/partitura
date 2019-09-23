@@ -10,7 +10,7 @@ from lxml import etree
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
 import pkg_resources
-from partitura.directions import parse_words
+from partitura.directions import parse_direction
 import partitura.score as score
 
 __all__ = ['load_musicxml']
@@ -106,9 +106,9 @@ def _parse_partlist(partlist):
             if e.get('type') == 'start':
 
                 gr_name = get_value_from_tag(e, 'group-name', str)
-                gr_type = get_value_from_tag(e, 'group-symbol', str)
+                gr_symbol = get_value_from_tag(e, 'group-symbol', str)
 
-                new_group = score.PartGroup(gr_type, gr_name)
+                new_group = score.PartGroup(gr_symbol, gr_name)
 
                 if 'number' in e.attrib:
                     new_group.number = int(e.attrib['number'])
@@ -558,7 +558,7 @@ def _handle_direction(e, position, timeline, ongoing):
             for child in direction_type:
 
                 # try to make a direction out of words
-                parse_result = parse_words(child.text)
+                parse_result = parse_direction(child.text)
                 starting_directions.extend(parse_result)                
 
                 # if parse_result is not None:
@@ -1012,13 +1012,13 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
 
     # Parse MusicXML
     parts = load_musicxml(fn, ensure_list=True, validate=validate)
-    score = []
+    scr = []
     for part in parts:
         # Unfold timeline to have repetitions
-        part.timeline = part.unfold_timeline_maximal()
+        part.timeline = score.unfold_timeline_maximal(part.timeline)
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
-            part.expand_grace_notes()
+            score.expand_grace_notes(part.timeline)
 
         # get beat map
         bm = part.beat_map
@@ -1036,15 +1036,15 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         if delete_grace_notes:
             LOGGER.debug('Deleting grace notes...')
             _score = _score[_score['duration'] != 0]
-        score.append(_score)
+        scr.append(_score)
 
     # Return a structured array if the score has only one part
-    if len(score) == 1:
-        return score[0]
-    elif len(score) > 1 and flatten_parts:
-        score = np.vstack(score)
+    if len(scr) == 1:
+        return scr[0]
+    elif len(scr) > 1 and flatten_parts:
+        scr = np.vstack(scr)
         if sort_onsets:
-            return score[score['onset'].argsort()]
+            return scr[scr['onset'].argsort()]
     else:
-        return score
+        return scr
 

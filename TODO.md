@@ -35,6 +35,8 @@ Things to do before merging develop into master for v1.0.0
 
 - [done] (mg) avoid polyphony within voices when exporting to musicxml
 
+- (mg) support PartGroup in exportmusicxml
+
 
 Todo beyond v1.0.0
 ------------------

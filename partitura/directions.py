@@ -22,7 +22,7 @@ parsed to form `score.Direction` objects but included as `score.Words`
 instead; Install using "pip install lark-parser"''')
     HAVE_LARK = False
 
-__all__ = ['parse_words']
+__all__ = ['parse_direction']
 
 # TODO: interpret roman numerals
 # import roman
@@ -312,51 +312,53 @@ NEG: "non"i
 )
 
 
-def create_directions(tree, string):
+def create_directions(tree, string, start=None, end=None):
     """
     Recursively walk the parse tree of `string` to create a `score.Direction` or `score.Words` instance.
 
     """
-    start = tree.column - 1
-    end = tree.end_column - 1
+    if start is None:
+        start = tree.column - 1
+    if end is None:
+        end = tree.end_column - 1
     
     if tree.data == 'conj':
         return (create_directions(tree.children[0], string)
                 + create_directions(tree.children[2], string))
 
     elif tree.data in ('direction', 'do_first'):
-        return create_directions(tree.children[0], string)
+        return create_directions(tree.children[0], string, start, end)
 
     elif tree.data == 'do_second':
-        return create_directions(tree.children[1], string)
+        return create_directions(tree.children[1], string, start, end)
 
     elif tree.data == 'do_both':
         return (create_directions(tree.children[0], string)
                 + create_directions(tree.children[1], string))
 
     elif tree.data == 'constant_tempo_adj':
-        return [score.ConstantTempoDirection(" ".join(tree.children), string[start:end])]
+        return [score.ConstantTempoDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data == 'constant_loudness_adj':
-        return [score.ConstantLoudnessDirection(" ".join(tree.children), string[start:end])]
+        return [score.ConstantLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data == 'constant_articulation_adj':
-        return [score.ConstantArticulationDirection(" ".join(tree.children), string[start:end])]
+        return [score.ConstantArticulationDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data == 'constant_mixed_adj':
-        return [score.Direction(" ".join(tree.children), string[start:end])]
+        return [score.Direction(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data in ('inc_loudness_adj', 'dec_loudness_adj'):
-        return [score.DynamicLoudnessDirection(" ".join(tree.children), string[start:end])]
+        return [score.DynamicLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
-        return [score.DynamicTempoDirection(" ".join(tree.children), string[start:end])]
+        return [score.DynamicTempoDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data == 'genre':
         if len(tree.children) > 1:
             # this can be something like "scherzo vivace" or "marcia funebre"
             pass
-        return [score.ConstantTempoDirection(tree.children[0], string[start:end])]
+        return [score.ConstantTempoDirection(tree.children[0].lower(), string[start:end])]
 
     elif tree.data == 'tempo_indication':
         bpm = int(tree.children[1])
@@ -364,7 +366,7 @@ def create_directions(tree, string):
         return [score.Tempo(bpm, unit)]
 
     elif tree.data == 'tempo_reset':
-        return [score.ResetTempoDirection(" ".join(tree.children), string[start:end])]
+        return [score.ResetTempoDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data == 'words':
         return [score.Words(string[start:end])]
@@ -381,26 +383,73 @@ else:
     DEFAULT_PARSER = None
 
 
-def parse_words(string, parser=DEFAULT_PARSER):
-    """
-    Description
-    
+def parse_direction(string):
+    """Parse a string into one or more performance directions if
+    possible. For example, for 'adagio' this function will return
+    :class:`partitura.score.ConstantTempoDirection`, and for
+    'crescendo' this function will return
+    :class:`partitura.score.DynamicLoudnessDirection`. For any string
+    that is not recognized as a performance direction a
+    :class:`partitura.score.Words` instance will be returned.
+
     Parameters
     ----------
-    string: type
+    string : type
         Description of `string`
-    parser: type, optional
+    parser : type, optional
         Description of `parser`
-    
+
     Returns
     -------
     type
         Description of return value
-    """
     
+    Examples
+    --------
+
+    >>> directions = parse_direction('adagio')
+    >>> for direction in directions:
+    ...    print(direction)
+    ConstantTempoDirection: adagio (adagio)
+
+    >>> directions = parse_direction('Allegro molto')
+    >>> for direction in directions:
+    ...    print(direction)
+    ConstantTempoDirection: allegro (Allegro molto)
+
+    >>> directions = parse_direction('leggiero e molto stretto')
+    >>> for direction in directions:
+    ...    print(direction)
+    ConstantTempoDirection: leggiero (leggiero)
+    ConstantTempoDirection: stretto (molto stretto)
+
+    >>> directions = parse_direction('spaghetti')
+    >>> for direction in directions:
+    ...    print(direction)
+    Words: spaghetti
+
+    >>> directions = parse_direction('Allegro (q=120)')
+    >>> for direction in directions:
+    ...    print(direction)
+    ConstantTempoDirection: allegro (Allegro)
+    Tempo: q=120
+
+    >>> directions = parse_direction('a tempo')
+    >>> for direction in directions:
+    ...    print(direction)
+    ResetTempoDirection: a tempo (a tempo)
+
+    >>> directions = parse_direction('tempo primo')
+    >>> for direction in directions:
+    ...    print(direction)
+    ResetTempoDirection: tempo primo (tempo primo)
+
+
+    """
+    global DEFAULT_PARSER
     if DEFAULT_PARSER:
         try:
-            parse_result = parser.parse(string)
+            parse_result = DEFAULT_PARSER.parse(string)
             direction = create_directions(parse_result, string)
         except Exception as e:
             LOGGER.warning('error parsing "{}" ({})'.format(
@@ -410,3 +459,7 @@ def parse_words(string, parser=DEFAULT_PARSER):
         direction = [score.Words(string)]
     return direction
 
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
