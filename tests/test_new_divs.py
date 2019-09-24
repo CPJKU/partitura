@@ -28,21 +28,21 @@ def create_part_from_spec(spec):
     
     part = score.Part('beatmaptest')
     tl = part.timeline
+    # for t, divs in spec['divs']:
+    #     tl.add(score.Divisions(divs), t)
     for t, divs in spec['divs']:
-        tl.add(score.Divisions(divs), t)
+        tl.set_quarter_duration(t, divs)
 
     for t, num, den in spec['ts']:
         tl.add(score.TimeSignature(num, den), t)
 
-    divs_map = part.divisions_map
+    # divs_map = part.divisions_map
 
     for t, dur in spec['notes']:
+        # sd = score.estimate_symbolic_duration(dur, int(divs_map(t)))
+        tl.add(score.Note(step='A', alter=None, octave=4), t, t+dur)
 
-        sd = score.estimate_symbolic_duration(dur, int(divs_map(t)))
-        tl.add(score.Note(step='A', alter=None, octave=4, symbolic_duration=sd), t, t+dur)
-
-    # not strictly necessary
-    # score.add_measures(part)
+    score.add_measures(part)
 
     return part
 
@@ -114,6 +114,21 @@ class TestBeatMap(unittest.TestCase):
                  'eighth',
                  'quarter.'),
              'onset_beats': (0, 1, 2, 3, 4, 5, 6, 7) }},
+        {'part_spec': {
+            'divs': ((0, 10),),
+            'ts': ((0, 4, 4), # at time=0, ts=4/4
+                   (10, 3, 4)), # at time=10, ts=3/4
+            'notes': ((0, 10), # at time=0, dur=10
+                      (10, 10),
+                      (20, 10),
+                      (30, 10))},
+         'target': {
+             'sym_durs': (
+                 'quarter',
+                 'quarter',
+                 'quarter',
+                 'quarter'),
+             'onset_beats': (-1, 0, 1, 2) }},
     ]
     def test_beat_map_cases(self):
         for test_case in self.test_cases:
@@ -123,7 +138,7 @@ class TestBeatMap(unittest.TestCase):
             self._test_beat_map(part)
     
     def _test_symbolic_durations(self, part, target_durations):
-        notes = part.timeline.get_all(score.Note)
+        notes = list(part.timeline.iter_all(score.Note))
         if len(notes) != len(target_durations):
             LOGGER.warning('Skipping incorrect test case (input and targets do not match)')
             return
@@ -134,13 +149,10 @@ class TestBeatMap(unittest.TestCase):
             self.assertEqual(target_sd, est_sd, msg)
     
     def _test_note_onsets(self, part, target_onsets):
-        notes = part.timeline.get_all(score.Note)
+        notes = list(part.timeline.iter_all(score.Note))
         if len(notes) != len(target_onsets):
             LOGGER.warning('Skipping incorrect test case (input and targets do not match)')
             return
-        print('jo')
-        tl = part.timeline
-        tl._get_interpolation_maps()
         beat_map = part.beat_map
         for target_onset, note in zip(target_onsets, notes):
             self.assertAlmostEqual(float(target_onset), beat_map(note.start.t))

@@ -353,7 +353,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
 
     clef = estimate_clef([pitch for _, pitch, _ in notes])
     part = score.Part(part_id)
-    part.add(0, score.Divisions(ticks))
+    part.timeline.set_quarter_duration(0, ticks)
     part.add(0, clef)
 
     for t, name in key_sigs:
@@ -517,18 +517,16 @@ def make_tied_note_id(prev_id):
 def tie_notes(part, force_duration_analysis=False):
     # split and tie notes at measure boundaries
     notes = part.timeline.get_all(score.Note)
-    divs = next(iter(part.timeline.first_point.get_next_of_type(score.Divisions, eq=True)), None)
-    if divs:
-        divs = divs.divs
+
     for note in notes:
         next_measure = next(iter(note.start.get_next_of_type(score.Measure)), None)
         cur_note = note
         note_end = cur_note.end
         while next_measure and cur_note.end > next_measure.start:
-            part.timeline.remove_ending_object(cur_note)
-            part.timeline.add_ending_object(next_measure.start.t, cur_note)
-            cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t-cur_note.start.t, divs)
-            sym_dur = estimate_symbolic_duration(note_end.t-next_measure.start.t, divs)
+            part.timeline.remove(cur_note, 'end')
+            part.timeline.add(cur_note, None, next_measure.start.t)
+            cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t-cur_note.start.t, cur_note.start.quarter)
+            sym_dur = estimate_symbolic_duration(note_end.t-next_measure.start.t, next_measure.start.quarter)
             if cur_note.id is not None:
                 note_id = make_tied_note_id(cur_note.id)
             else:
@@ -536,17 +534,17 @@ def tie_notes(part, force_duration_analysis=False):
             next_note = score.Note(note.step, note.alter, note.octave, id=note_id,
                                   voice=note.voice, staff=note.staff,
                                   symbolic_duration=sym_dur)
-            part.add(next_measure.start.t, next_note, note_end.t)
+            part.timeline.add(next_note, next_measure.start.t, note_end.t)
             # part.timeline.add_ending_object(note_end.t, next_note)
             cur_note.tie_next = next_note
             next_note.tie_prev = cur_note
 
             cur_note = next_note
 
-            next_measure = next(iter(cur_note.start.get_next_of_type(score.Measure)), None)
+            next_measure = next(cur_note.start.get_next_of_type(score.Measure), None)
     # then split/tie any notes that do not have a fractional/dot duration
     divs_map = part.divisions_map
-    notes = part.timeline.get_all(score.Note)
+    notes = part.timeline.iter_all(score.Note)
     # n_without_dur = sum(1 for note in notes if note.symbolic_duration is None)
     # prop_without_dur = n_without_dur/max(0, len(notes))
     # no_dur_max = .5
@@ -576,13 +574,13 @@ def split_note(part, note, splits):
     assert len(splits) > 0
     # TODO: we shouldn't do this, but for now it's a good sanity check
     assert note.symbolic_duration is None
-    part.remove(note)
+    part.timeline.remove(note)
     divs_map = part.divisions_map
     orig_tie_next = note.tie_next
     cur_note = note
     start, end, sym_dur = splits.pop(0)
     cur_note.symbolic_duration = sym_dur
-    part.add(start, cur_note, end)
+    part.add(cur_note, start, end)
 
     while splits:
         if cur_note.id is not None:
@@ -598,7 +596,7 @@ def split_note(part, note, splits):
         cur_note = next_note
         start, end, sym_dur = splits.pop(0)
         cur_note.symbolic_duration = sym_dur
-        part.add(start, cur_note, end)
+        part.timeline.add(cur_note, start, end)
 
     cur_note.tie_next = orig_tie_next
 
