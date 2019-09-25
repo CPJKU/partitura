@@ -59,7 +59,6 @@ class TestMusicXML(unittest.TestCase):
 
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
-            print(fn, fn_target)
             part = load_musicxml(fn, validate=False)
             part.timeline = score.unfold_timeline_maximal(part.timeline)
             result = save_musicxml(part).decode('UTF-8')
