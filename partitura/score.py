@@ -302,7 +302,7 @@ class TimeLine(object):
             # cleanup timepoint if no starting/ending objects are left
             if (sum(len(oo) for oo in o.start.starting_objects.values()) +
                 sum(len(oo) for oo in o.start.ending_objects.values())) == 0:
-                self.remove_point(o.start)
+                self._remove_point(o.start)
             o.start = None
 
         if which in ('end', 'both') and o.end:
@@ -313,7 +313,7 @@ class TimeLine(object):
             # cleanup timepoint if no starting/ending objects are left
             if (sum(len(oo) for oo in o.end.starting_objects.values()) +
                 sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
-                self.remove_point(o.end)
+                self._remove_point(o.end)
             o.end = None
         
     # def get_all(self, cls, start=None, end=None, include_subclasses=False, mode='starting'):
@@ -1494,7 +1494,7 @@ class Part(object):
 
     Parameters
     ----------
-    part_id : str
+    id : str
         The identifier of the part. To be compatible with MusicXML the
         identifier should not start with a number
     timeline : TimeLine or None, optional
@@ -1503,7 +1503,7 @@ class Part(object):
 
     Attributes
     ----------
-    part_id : str
+    id : str
         The identifier of the part. (see Parameters Section).
     part_name : str
         Name for the part
@@ -1517,8 +1517,8 @@ class Part(object):
     
     """
 
-    def __init__(self, part_id, timeline=None, part_name=None):
-        self.part_id = part_id
+    def __init__(self, id, timeline=None, part_name=None):
+        self.id = id
         self.timeline = timeline or TimeLine()
         self.parent = None
         self.part_name = part_name
@@ -1569,7 +1569,7 @@ class Part(object):
 
     def _pp(self, tree):
         result = ['{}Part: name="{}" id="{}"'
-                  .format(tree, self.part_name, self.part_id)]
+                  .format(tree, self.part_name, self.id)]
         tree.push()
         N = len(self.timeline.points)
         for i, timepoint in enumerate(self.timeline.points):

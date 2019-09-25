@@ -14,6 +14,7 @@ import partitura.score as score
 LOGGER = logging.getLogger(__name__)
 
 def fill_track(track, notes, divs, vel=64):
+    # add on/off events for note specification (`notes`) to `track`
     onoffs = defaultdict(list)
     for on, off, pitch, ch in notes:
         on = int(divs*on)
@@ -33,23 +34,24 @@ def fill_track(track, notes, divs, vel=64):
         prev = t
 
 def make_assignment_mode_example():
+    # create a midi file on which to test the assignment modes in load_midi
     divs = 10
     mid = mido.MidiFile(ticks_per_beat=divs)
     track_1 = mido.MidiTrack()
     mid.tracks.append(track_1)
     tempo = int(.5*10**6)
     track_1.append(mido.MetaMessage('track_name', name='Track 1'))
-    track_1.append(mido.MetaMessage('instrument_name', name='Instrument 1'))
-    track_1.append(mido.Message('program_change', channel=0, program=1))
-    track_1.append(mido.MetaMessage('set_tempo', tempo=tempo))
+    # track_1.append(mido.MetaMessage('instrument_name', name='Instrument 1'))
+    # track_1.append(mido.Message('program_change', channel=0, program=1))
+    # track_1.append(mido.MetaMessage('set_tempo', tempo=tempo))
     track_1.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
 
     track_2 = mido.MidiTrack()
     mid.tracks.append(track_2)
     track_2.append(mido.MetaMessage('track_name', name='Track 2'))
-    track_2.append(mido.MetaMessage('instrument_name', name='Instrument 2'))
-    track_2.append(mido.Message('program_change', channel=1, program=57))
-    track_2.append(mido.MetaMessage('set_tempo', tempo=tempo))
+    # track_2.append(mido.MetaMessage('instrument_name', name='Instrument 2'))
+    # track_2.append(mido.Message('program_change', channel=1, program=57))
+    # track_2.append(mido.MetaMessage('set_tempo', tempo=tempo))
     track_2.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
 
 
@@ -75,6 +77,78 @@ def get_track_voice_numbers(mid):
                 tc_counter.update(((i, msg.channel),))
     return tc_counter
     
+
+def make_triplets_example_1():
+    divs = 120
+    mid = mido.MidiFile(ticks_per_beat=divs)
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
+    track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+
+    # define two consecutive quarter triplets
+    # on off pitch ch, (times in quarter)
+    notes = [(   0,  2/3, 76, 0),
+             ( 2/3,  4/3, 76, 0),
+             ( 4/3,    2, 76, 0),
+             (   2,  8/3, 76, 0),
+             ( 8/3, 10/3, 76, 0),
+             (10/3,    4, 76, 0),
+             ]
+    fill_track(track, notes, divs)
+    # target:
+    actual_notes = [3]*6
+    normal_notes = [2]*6
+    return mid, actual_notes, normal_notes
+
+def make_triplets_example_2():
+    divs = 120
+    mid = mido.MidiFile(ticks_per_beat=divs)
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
+    track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+
+    # define two consecutive quarter triplets
+    # on off pitch ch, (times in quarter)
+    notes = [(   0,  2/5, 76, 0),
+             ( 2/5,  4/5, 76, 0),
+             ( 4/5,  6/5, 76, 0),
+             ( 6/5,  8/5, 76, 0),
+             ( 8/5,    2, 76, 0),
+             (   2,  8/3, 76, 0),
+             ( 8/3, 10/3, 76, 0),
+             (10/3,    4, 76, 0),
+             ]
+    fill_track(track, notes, divs)
+    # target:
+    actual_notes = [5]*5 + [3]*3
+    normal_notes = [2]*5 + [2]*3
+    return mid, actual_notes, normal_notes
+
+
+class TestMIDITuplets(unittest.TestCase):
+
+    example_gen_funcs = (make_triplets_example_1, make_triplets_example_2)
+        
+    def test_tuplets(self):
+        for example_gen_func in self.example_gen_funcs:
+            mid, actual, normal = example_gen_func()
+            with NamedTemporaryFile(suffix='.mid') as fh:
+                mid.save(fh.name)
+                part = load_midi(fh.name, part_voice_assign_mode=0)
+                notes = part.notes
+    
+                if len(actual) != len(normal):
+                    LOGGER.warning('Error in example case, skipping test')
+                    return
+                msg = ('Example Part has an unexpected number of notes (expected {}, got {})'
+                       .format(len(actual), len(notes)))
+                self.assertEqual(len(notes), len(actual), msg)
+                sym_durs = [n.symbolic_duration for n in notes]
+                msg = 'Incorrectly detected tuplets'
+                self.assertEqual(actual, [sd.get('actual_notes') for sd in sym_durs], msg)
+                self.assertEqual(normal, [sd.get('normal_notes') for sd in sym_durs], msg)
+
+        
 class TestMIDIImportModes(unittest.TestCase):
 
     def setUp(self):

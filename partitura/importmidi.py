@@ -211,11 +211,11 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     note_list = [note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes]
     note_array = np.array(note_list, dtype=[('onset', np.int), ('pitch', np.int), ('duration', np.int)])
 
-    LOGGER.info('pitch spelling')
+    LOGGER.debug('pitch spelling')
     spelling_global = analysis.estimate_spelling(note_array)
 
     if estimate_voice_info:
-        LOGGER.info('voice estimation')
+        LOGGER.debug('voice estimation')
         estimated_voices = analysis.estimate_voices(note_array)
         # TODO: don't do +1 as soon as this is done in estimate_voices
         estimated_voices += 1
@@ -224,7 +224,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 part_voice[1] = voice_est
 
     if estimate_key:
-        LOGGER.info('key estimation')
+        LOGGER.debug('key estimation')
         _, mode, fifths = analysis.estimate_key(note_array)
         key_sigs_by_track = {}
         global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
@@ -381,7 +381,7 @@ def estimate_clef(pitches):
 
 
 def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
-    LOGGER.info('create_part')
+    LOGGER.debug('create_part')
 
     part = score.Part(part_id, part_name=part_name)
     part.timeline.set_quarter_duration(0, ticks)
@@ -392,7 +392,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
         fifths, mode = key_name_to_fifths_mode(name)
         part.timeline.add(score.KeySignature(fifths, mode), t)
 
-    LOGGER.info('add notes')
+    LOGGER.debug('add notes')
 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
         if duration > 0:
@@ -464,7 +464,7 @@ def find_tuplets(part):
     # only look for x:2 tuplets
     normal_notes = 2
 
-    divs_map = part.divisions_map
+    # divs_map = part.divisions_map
 
     candidates = []
     prev_end = None
@@ -481,40 +481,54 @@ def find_tuplets(part):
 
 
     # 2. within each group
-    for group in candidates:
-        
-        # 3. search for the predefined list of tuplets
-        for tuplet in search_for_tuplets:
 
-            if tuplet > len(group):
+    for group in candidates:
+
+        # 3. search for the predefined list of tuplets
+        for actual_notes in search_for_tuplets:
+            
+            if actual_notes > len(group):
                 # tuplet requires more notes than we have
                 continue
+            
+            tup_start = 0
 
-            # durs = set(n.duration for n in group[:tuplet-1])
-            durs = set(n.duration for n in group[:tuplet])
+            while tup_start <= (len(group) - actual_notes):
+                tuplet = group[tup_start:tup_start+actual_notes]
+                # durs = set(n.duration for n in group[:tuplet-1])
+                durs = set(n.duration for n in tuplet)
+                
+                if len(durs) > 1:
+                    # notes have different durations (possibly valid but not
+                    # supported here)
+                    # continue
+                    tup_start += 1
+                else:
+   
+                    start = tuplet[0].start.t
+                    end = tuplet[-1].end.t
+                    total_dur = end - start
+       
+                    # total duration of tuplet notes must be integer-divisble by
+                    # normal_notes
+                    if total_dur % normal_notes > 0:
+                        # continue
+                        tup_start += 1
+                    else:
+                        # estimate duration type
+                        dur_type = estimate_symbolic_duration(total_dur//normal_notes,
+                                                              tuplet[0].start.quarter)
+                                                              # int(divs_map(start)))
 
-            if len(durs) > 1:
-                # notes have different durations (possibly valid but not
-                # supported here)
-                continue
-
-            start = group[0].start.t
-            end = group[tuplet-1].end.t
-            total_dur = end - start
-
-            # total duration of tuplet notes must be integer-divisble by normal_notes
-            if total_dur % normal_notes > 0:
-                continue
-
-            # estimate duration type
-            dur_type = estimate_symbolic_duration(total_dur//normal_notes, int(divs_map(start)))
-
-            if dur_type and dur_type.get('dots', 0) == 0:
-                # recognized duration without dots
-                dur_type['actual_notes'] = tuplet
-                dur_type['normal_notes'] = normal_notes
-                for note in group[:tuplet]:
-                    note.symbolic_duration = dur_type.copy()
+                        if dur_type and dur_type.get('dots', 0) == 0:
+                            # recognized duration without dots
+                            dur_type['actual_notes'] = actual_notes
+                            dur_type['normal_notes'] = normal_notes
+                            for note in tuplet:
+                                note.symbolic_duration = dur_type.copy()
+                            tup_start += actual_notes
+                        else:
+                            tup_start += 1
 
 
 def make_tied_note_id(prev_id):
@@ -616,7 +630,7 @@ def split_note(part, note, splits):
     cur_note = note
     start, end, sym_dur = splits.pop(0)
     cur_note.symbolic_duration = sym_dur
-    part.add(cur_note, start, end)
+    part.timeline.add(cur_note, start, end)
 
     while splits:
         if cur_note.id is not None:

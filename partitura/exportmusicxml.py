@@ -17,6 +17,13 @@ LOGGER = logging.getLogger(__name__)
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
 
+def filter_string(s):
+    """
+    Make (unicode) string fit for passing it to lxml, which means (at least)
+    removing null characters.
+    """
+    return s.replace('\x00', '')
+
 def make_note_el(note, dur, voice, counter):
     # child order
     # <grace> | <chord> | <cue>
@@ -40,7 +47,7 @@ def make_note_el(note, dur, voice, counter):
 
             note_id += '_{}'.format(counter[note_id])
 
-        note_e.attrib['id'] = note_id
+        note_e.attrib['id'] = filter_string(note_id)
         
 
     if isinstance(note, score.Note):
@@ -636,7 +643,7 @@ def do_directions(part, start, end):
         else:
 
             e2 = etree.SubElement(e1, 'words')
-            e2.text = text
+            e2.text = filter_string(text)
             
         if direction.end is not None:
 
@@ -751,13 +758,15 @@ def save_musicxml(parts, out=None):
 
     for part in parts:
 
-        scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.part_id)
+        scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.id)
 
         partname_e = etree.SubElement(scorepart_e, 'part-name')
         if part.part_name:
-            partname_e.text = part.part_name
+            # lxml does not like NULL characters (even if they are valid unicode
+            # characters), so we remove them
+            partname_e.text = filter_string(part.part_name)
 
-        part_e = etree.SubElement(root, 'part', id=part.part_id)
+        part_e = etree.SubElement(root, 'part', id=part.id)
         # store quarter_map in a variable to avoid re-creating it for each call
         quarter_map = part.quarter_map
         beat_map = part.beat_map
