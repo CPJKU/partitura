@@ -7,17 +7,15 @@ import partitura.score as score
 from partitura.importmusicxml import xml_to_notearray
 
 def test_musicxml(fn, validate=False):
-    parts = load_musicxml(fn, validate)
-    # part = parts[0]
-    part = next(score.iter_parts(parts))
+    part = load_musicxml(fn, validate)
 
     print(part.pretty())
-    return 
-    notes = part.notes
-    print(len(notes))
-    tnotes = [n for n in notes if n.tie_prev is None]
-    for note in tnotes:
-        print(note.id, note.duration, note.duration_tied)
+    # return 
+    # notes = part.notes
+    # print(len(notes))
+    # tnotes = [n for n in notes if n.tie_prev is None]
+    # for note in tnotes:
+    #     print(note.id, note.duration, note.duration_tied)
 
         
     # measures = part.list_all(score.Measure)
@@ -41,15 +39,18 @@ def test_musicxml(fn, validate=False):
     # return
     # part.timeline.test()
     
-    timeline = part.unfold_timeline_maximal()
-    print(timeline.last_point)
 
-    try:
-        part.timeline = part.unfold_timeline_maximal()
-    except NotImplementedError:
-        raise
-        pass
+
+    # timeline = part.unfold_timeline_maximal()
+    # print(timeline.last_point)
+
+    # try:
+    #     part.timeline = part.unfold_timeline_maximal()
+    # except NotImplementedError:
+    #     raise
+    #     pass
     
+
     # print(part.pretty())
     # part.timeline.test()
 
@@ -64,6 +65,7 @@ def test_musicxml(fn, validate=False):
     # bm = part.quarter_map
 
     out_fn = '/tmp/out.xml'
+    print(part.timeline.quarter_durations)
     save_musicxml(part, out_fn)
 
 def main():

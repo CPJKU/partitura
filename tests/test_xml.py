@@ -4,16 +4,18 @@ This file contains test functions for MusicXML import and export.
 
 """
 
+import logging
 import unittest
 from tempfile import TemporaryFile
 
 from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
 
 from partitura import load_musicxml, save_musicxml
-from partitura.directions import parse_words
+from partitura.directions import parse_direction
 from partitura.utils import show_diff
 import partitura.score as score
 
+LOGGER = logging.getLogger(__name__)
 
 class TestDirectionParser(unittest.TestCase):
     """
@@ -29,7 +31,7 @@ class TestDirectionParser(unittest.TestCase):
         
     def test_parser(self):
         for words, target in self.cases:
-            result = parse_words(words)
+            result = parse_direction(words)
             self.assertEqual(len(result), len(target), '"{}" not parsed correctly into directions'.format(words))
             for res, trg in zip(result, target):
                 self.assertEqual(type(res), trg, '')
@@ -57,8 +59,9 @@ class TestMusicXML(unittest.TestCase):
 
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
+            print(fn, fn_target)
             part = load_musicxml(fn, validate=False)
-            part.timeline = part.unfold_timeline_maximal()
+            part.timeline = score.unfold_timeline_maximal(part.timeline)
             result = save_musicxml(part).decode('UTF-8')
             with open(fn_target) as f:
                 target = f.read()
@@ -74,29 +77,24 @@ class TestMusicXML(unittest.TestCase):
         part1 = score.Part('My Part')
 
         # create contents
-        divs = score.Divisions(10)
+        divs = 10
         ts = score.TimeSignature(3, 4)
         page1 = score.Page(1)
         system1 = score.System(1)
         measure1 = score.Measure(number=1)
-        note1 = score.Note(step='A', alter=None, octave=4,
-                           symbolic_duration=dict(type='quarter', dots=1),
-                           voice=1, staff=1)
-        rest1 = score.Rest(voice=1, staff=1,
-                           symbolic_duration=dict(type='quarter', dots=1))
-        note2 = score.Note(step='C', alter=-1, octave=5,
-                           symbolic_duration=dict(type='half', dots=0),
-                           voice=2, staff=1)
+        note1 = score.Note(step='A', alter=None, octave=4, voice=1, staff=1)
+        rest1 = score.Rest(voice=1, staff=1)
+        note2 = score.Note(step='C', alter=-1, octave=5, voice=2, staff=1)
         
         # and add the contents to the part:
-        part1.add(0, divs)
-        part1.add(0, ts)
-        part1.add(0, measure1, end=30)
-        part1.add(0, page1)
-        part1.add(0, system1)
-        part1.add(0, note1, end=15)
-        part1.add(15, rest1, end=30)
-        part1.add(0, note2, end=30)
+        part1.timeline.set_quarter_duration(0, divs)
+        part1.timeline.add(ts, 0)
+        part1.timeline.add(measure1, 0, 30)
+        part1.timeline.add(page1, 0)
+        part1.timeline.add(system1, 0)
+        part1.timeline.add(note1, 0, 15)
+        part1.timeline.add(rest1, 15, 30)
+        part1.timeline.add(note2, 0, 30)
         
         # pretty print the part
         pstring1 = part1.pretty()

@@ -298,6 +298,29 @@ class TreeSymbol(object):
         return sym
 
 
+def search(states, success, expand, combine):
+    while len(states) > 0:
+        state = states.pop(0)
+        if success(state):
+            return state
+        else:
+            states = combine(expand(state), states)
+
+
+# def search_recursive(states, success, expand, combine):
+#     try:
+#         if not states:
+#             return None
+#         elif success(states[0]):
+#             return states[0]
+#         else:
+#             new_states = combine(expand(states[0]), states[1:])
+#             return search_recursive(new_states, success, expand, combine)
+#     except RecursionError:
+#         warnings.warn('search exhausted stack, bailing out')
+#         return None
+
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()

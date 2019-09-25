@@ -10,7 +10,7 @@ from lxml import etree
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
 import pkg_resources
-from partitura.directions import parse_words
+from partitura.directions import parse_direction
 import partitura.score as score
 
 __all__ = ['load_musicxml']
@@ -106,9 +106,9 @@ def _parse_partlist(partlist):
             if e.get('type') == 'start':
 
                 gr_name = get_value_from_tag(e, 'group-name', str)
-                gr_type = get_value_from_tag(e, 'group-symbol', str)
+                gr_symbol = get_value_from_tag(e, 'group-symbol', str)
 
-                new_group = score.PartGroup(gr_type, gr_name)
+                new_group = score.PartGroup(gr_symbol, gr_name)
 
                 if 'number' in e.attrib:
                     new_group.number = int(e.attrib['number'])
@@ -250,7 +250,7 @@ def _handle_measure(measure_el, position, timeline, ongoing):
     measure = make_measure(measure_el)
 
     # add the start of the measure to the time line
-    timeline.add_starting_object(position, measure)
+    timeline.add(measure, position)
 
     # keep track of the position within the measure
     # measure_pos = 0
@@ -332,7 +332,7 @@ def _handle_measure(measure_el, position, timeline, ongoing):
                     # element in the measure
                     trailing_children.append(fermata)
                 else:
-                    timeline.add_starting_object(position, fermata)
+                    timeline.add(fermata, position)
 
             # TODO: handle segno/fine/dacapo
 
@@ -341,9 +341,10 @@ def _handle_measure(measure_el, position, timeline, ongoing):
 
 
     for obj in trailing_children:
-        timeline.add_starting_object(measure_maxtime, obj)
+        timeline.add(obj, measure_maxtime)
 
-    timeline.add_ending_object(measure_maxtime, measure)
+    # add end time of measure
+    timeline.add(measure, None, measure_maxtime)
 
     return measure_maxtime
 
@@ -355,7 +356,7 @@ def _handle_repeat(e, position, timeline, ongoing):
 
         o = score.Repeat()
         ongoing[key] = o
-        timeline.add_starting_object(position, o)
+        timeline.add(o, position)
 
     elif e.get('direction') == 'backward':
 
@@ -366,9 +367,9 @@ def _handle_repeat(e, position, timeline, ongoing):
             # object and add it at the beginning of
             # the self.timeline retroactively
             o = score.Repeat()
-            timeline.add_starting_object(0, o)
+            timeline.add(o, 0)
 
-        timeline.add_ending_object(position, o)
+        timeline.add(o, None, position)
 
 
 def _handle_ending(e, position, timeline, ongoing):
@@ -378,7 +379,7 @@ def _handle_ending(e, position, timeline, ongoing):
 
         o = score.Ending(e.get('number'))
         ongoing[key] = o
-        timeline.add_starting_object(position, o)
+        timeline.add(o, position)
 
     elif e.get('type') in ('stop', 'discontinue'):
 
@@ -391,7 +392,7 @@ def _handle_ending(e, position, timeline, ongoing):
 
         else:
 
-            timeline.add_ending_object(position, o)
+            timeline.add(o, None, position)
 
 
 def _handle_new_page(position, timeline, ongoing):
@@ -400,14 +401,13 @@ def _handle_new_page(position, timeline, ongoing):
             # ignore non-informative new-page at start of score
             return
 
-        timeline.add_ending_object(position,
-                                   ongoing['page'])
+        timeline.add(ongoing['page'], None, position)
         page_nr = ongoing['page'].nr + 1
     else:
         page_nr = 1
 
     page = score.Page(page_nr)
-    timeline.add_starting_object(position, page)
+    timeline.add(page, position)
     ongoing['page'] = page
 
 
@@ -419,13 +419,13 @@ def _handle_new_system(position, timeline, ongoing):
             return
 
         # end current page
-        timeline.add_ending_object(position, ongoing['system'])
+        timeline.add(ongoing['system'], None, position)
         system_nr = ongoing['system'].nr + 1
     else:
         system_nr = 1
 
     system = score.System(system_nr)
-    timeline.add_starting_object(position, system)
+    timeline.add(system, position)
     ongoing['system'] = system
 
 
@@ -447,28 +447,26 @@ def _handle_attributes(e, position, timeline):
     ts_num = get_value_from_tag(e, 'time/beats', int)
     ts_den = get_value_from_tag(e, 'time/beat-type', int)
     if ts_num and ts_den:
-        timeline.add_starting_object(
-            position, score.TimeSignature(ts_num, ts_den))
+        timeline.add(score.TimeSignature(ts_num, ts_den), position)
 
     fifths = get_value_from_tag(e, 'key/fifths', int)
     mode = get_value_from_tag(e, 'key/mode', str)
     if fifths is not None or mode is not None:
-        timeline.add_starting_object(
-            position, score.KeySignature(fifths, mode))
+        timeline.add(score.KeySignature(fifths, mode), position)
 
     diat = get_value_from_tag(e, 'transpose/diatonic', int)
     chrom = get_value_from_tag(e, 'transpose/chromatic', int)
     if diat is not None or chrom is not None:
-        timeline.add_starting_object(
-            position, score.Transposition(diat, chrom))
+        timeline.add(score.Transposition(diat, chrom), position)
 
     divs = get_value_from_tag(e, 'divisions', int)
     if divs:
-        timeline.add_starting_object(position, score.Divisions(divs))
+        # timeline.add(score.Divisions(divs), position)
+        timeline.set_quarter_duration(position, divs)
 
     clefs = get_clefs(e)
     for clef in clefs:
-        timeline.add_starting_object(position, score.Clef(**clef))
+        timeline.add(score.Clef(**clef), position)
 
 
 def get_offset(e):
@@ -508,9 +506,9 @@ def _handle_direction(e, position, timeline, ongoing):
     staff = get_value_from_tag(e, 'staff', int) or 1
 
     if get_value_from_attribute(e, 'sound/fine', str) == 'yes':
-        timeline.add_starting_object(position, score.Fine())
+        timeline.add(score.Fine(), position)
     if get_value_from_attribute(e, 'sound/dacapo', str) == 'yes':
-        timeline.add_starting_object(position, score.DaCapo())
+        timeline.add(score.DaCapo(), position)
 
     # <direction-type> ... </...>
     direction_types = e.findall('direction-type')
@@ -558,7 +556,7 @@ def _handle_direction(e, position, timeline, ongoing):
             for child in direction_type:
 
                 # try to make a direction out of words
-                parse_result = parse_words(child.text)
+                parse_result = parse_direction(child.text)
                 starting_directions.extend(parse_result)                
 
                 # if parse_result is not None:
@@ -625,10 +623,10 @@ def _handle_direction(e, position, timeline, ongoing):
         if isinstance(o, score.Tempo):
             _add_tempo_if_unique(position, timeline, o)
         else:
-            timeline.add_starting_object(position, o)
+            timeline.add(o, position)
 
     for o in ending_directions:
-        timeline.add_ending_object(position, o)
+        timeline.add(o, None, position)
 
 
 def get_clefs(e):
@@ -777,7 +775,7 @@ def _add_tempo_if_unique(position, timeline, tempo):
     if point is not None:
         tempos = point.starting_objects.get(score.Tempo, [])
         if tempos == []:
-            timeline.add_starting_object(position, tempo)
+            timeline.add(tempo, position)
         else:
             LOGGER.warning('not adding duplicate or conflicting tempo indication')
 
@@ -854,8 +852,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
         note = score.Rest(note_id, voice, staff,
                           symbolic_duration, articulations)
 
-    timeline.add_starting_object(position, note)
-    timeline.add_ending_object(position+duration, note)
+    timeline.add(note, position, position+duration)
 
     ties = e.findall('tie')
     if len(ties) > 0:
@@ -883,7 +880,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
 
         if notations.find('fermata') is not None:
             fermata = score.Fermata(note)
-            timeline.add_starting_object(position, fermata)
+            timeline.add(fermata, position)
             note.fermata = fermata
 
         slurs = notations.findall('slur')
@@ -918,7 +915,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
                     ongoing[start_slur_key] = slur
 
                 note.slur_starts.append(slur)
-                timeline.add_starting_object(position, slur)
+                timeline.add(slur, position)
 
             elif slur_type == 'stop':
 
@@ -932,7 +929,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
                     slur.end_note = note
 
                 note.slur_stops.append(slur)
-                timeline.add_ending_object(position, slur)
+                timeline.add(slur, None, position)
 
     new_position = position + duration
 
@@ -1012,13 +1009,13 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
 
     # Parse MusicXML
     parts = load_musicxml(fn, ensure_list=True, validate=validate)
-    score = []
+    scr = []
     for part in parts:
         # Unfold timeline to have repetitions
-        part.timeline = part.unfold_timeline_maximal()
+        part.timeline = score.unfold_timeline_maximal(part.timeline)
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
-            part.expand_grace_notes()
+            score.expand_grace_notes(part.timeline)
 
         # get beat map
         bm = part.beat_map
@@ -1036,15 +1033,15 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         if delete_grace_notes:
             LOGGER.debug('Deleting grace notes...')
             _score = _score[_score['duration'] != 0]
-        score.append(_score)
+        scr.append(_score)
 
     # Return a structured array if the score has only one part
-    if len(score) == 1:
-        return score[0]
-    elif len(score) > 1 and flatten_parts:
-        score = np.vstack(score)
+    if len(scr) == 1:
+        return scr[0]
+    elif len(scr) > 1 and flatten_parts:
+        scr = np.vstack(scr)
         if sort_onsets:
-            return score[score['onset'].argsort()]
+            return scr[scr['onset'].argsort()]
     else:
-        return score
+        return scr
 
