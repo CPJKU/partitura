@@ -1596,12 +1596,19 @@ class Part(object):
     @property
     def divisions_map(self):
         qd = self.timeline.quarter_durations()
-        start = self.timeline.first_point.t
-        end = self.timeline.last_point.t
-        if len(qd) == 0 or qd[0, 0] > start:
-            qd = np.hstack(([start, 1], qd))
-        if qd[-1, 0] < end:
-            qd = np.hstack(([end, qd[-1, 1]], qd))
+
+        start = self.timeline.first_point
+        if len(qd) == 0 or (start and qd[0, 0] > start.t):
+            qd = np.vstack(([start.t, 1], qd))
+
+        end = self.timeline.last_point
+        if end and qd[-1, 0] < end.t:
+            qd = np.vstack(([end.t, qd[-1, 1]], qd))
+
+        if len(qd) < 2:
+            qd = np.vstack((qd, qd))
+            qd[1, 0] += 1
+
         # return interp1d(qd[:, 0], qd[:, 1], kind='previous',
         #                 bounds_error=False, fill_value=(qd[0, 1], qd[-1, 1]))
         return interp1d(qd[:, 0], qd[:, 1], kind='previous')

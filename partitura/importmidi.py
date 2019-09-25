@@ -219,7 +219,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         estimated_voices += 1
         for part_voice, voice_est in zip(part_voice_list, estimated_voices):
             if part_voice[1] is None:
-                part_voice[1] = voice
+                part_voice[1] = voice_est
 
     if estimate_key:
         LOGGER.info('key estimation')
@@ -259,18 +259,32 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
     partlist = []
     # for i, (part, note_info) in enumerate(notes_by_part.items()):
-    for part, note_info in notes_by_part.items():
+    part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
+    part_groups = {} # defaultdict(lambda x: score.PartGroup())
+    for part_nr, note_info in notes_by_part.items():
         notes, voices, spellings, note_ids = zip(*note_info)
-        partlist.append(create_part(divs, notes, spellings, voices, note_ids,
-                                    sorted(time_sigs_by_part[part]),
-                                    sorted(key_sigs_by_part[part]),
-                                    part_id='P{}'.format(part+1),
-                                    part_name='P{}'.format(part+1)))
+        part = create_part(divs, notes, spellings, voices, note_ids,
+                           sorted(time_sigs_by_part[part]),
+                           sorted(key_sigs_by_part[part]),
+                           part_id='P{}'.format(part_nr+1),
+                           part_name='P{}'.format(part_nr+1))
+
+        # if this part has an associated part_group number we create a PartGroup
+        # if necessary, and add the part to that. The newly created PartGroup is
+        # then added to the partlist.
+        pg_nr = part_to_part_group[part_nr]
+        if pg_nr is None:
+            partlist.append(part)
+        else:
+            if pg_nr not in part_groups:
+                part_groups[pg_nr] = score.PartGroup(track_names_by_track[pg_nr])
+                partlist.append(part_groups[pg_nr])
+            part_groups[pg_nr].children.append(part)
 
     # add tempos to first part
     part = next(score.iter_parts(partlist))
     for t, qpm in global_tempos:
-        part.add(t, score.Tempo(qpm, unit='q'))
+        part.timeline.add(score.Tempo(qpm, unit='q'), t)
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -351,14 +365,14 @@ def estimate_clef(pitches):
 def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
     LOGGER.info('create_part')
 
-    clef = estimate_clef([pitch for _, pitch, _ in notes])
     part = score.Part(part_id)
     part.timeline.set_quarter_duration(0, ticks)
-    part.add(0, clef)
 
+    clef = estimate_clef([pitch for _, pitch, _ in notes])
+    part.timeline.add(clef, 0)
     for t, name in key_sigs:
         fifths, mode = key_name_to_fifths_mode(name)
-        part.add(t, score.KeySignature(fifths, mode))
+        part.timeline.add(score.KeySignature(fifths, mode), t)
 
     LOGGER.info('add notes')
 
@@ -370,7 +384,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
             note = score.GraceNote('appoggiatura', step, alter, octave, voice=int(voice or 0), id=note_id,
                                    symbolic_duration=dict(type='quarter'))
 
-        part.add(onset, note, onset+duration)
+        part.timeline.add(note, onset, onset+duration)
 
     if not time_sigs:
         warnings.warn('No time signatures found, assuming 4/4')
@@ -388,7 +402,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     for ts_start, num, den, ts_end in time_sigs:
         time_sig = score.TimeSignature(num.item(), den.item())
 
-        part.add(ts_start.item(), time_sig)
+        part.timeline.add(time_sig, ts_start.item())
 
         measure_duration = (num.item() * ticks * 4) // den.item()
         measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
@@ -397,7 +411,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
             measure = score.Measure(number=measure_counter)
             m_end = min(m_start+measure_duration, ts_end)
 
-            part.add(m_start, measure, m_end)
+            part.timeline.add(measure, m_start, m_end)
             measure_counter += 1
 
         if np.isinf(ts_end):
@@ -426,14 +440,13 @@ def find_tuplets(part):
     # only look for x:2 tuplets
     normal_notes = 2
 
-    notes = part.timeline.get_all(score.Note)
     divs_map = part.divisions_map
 
     candidates = []
     prev_end = None
 
     # 1. group consecutive notes without symbolic_duration
-    for note in notes:
+    for note in part.timeline.iter_all(score.Note):
 
         if note.symbolic_duration is None:
             if note.start.t == prev_end:
@@ -516,9 +529,8 @@ def make_tied_note_id(prev_id):
 
 def tie_notes(part, force_duration_analysis=False):
     # split and tie notes at measure boundaries
-    notes = part.timeline.get_all(score.Note)
 
-    for note in notes:
+    for note in part.timeline.iter_all(score.Note):
         next_measure = next(iter(note.start.get_next_of_type(score.Measure)), None)
         cur_note = note
         note_end = cur_note.end
