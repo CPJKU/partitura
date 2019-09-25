@@ -414,37 +414,43 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(np.int).max]
     time_sigs = np.column_stack((time_sigs, ts_end_times))
 
-    LOGGER.info('add measures + time sigs')
-    measure_counter = 1
-    # we call item() on numpy numbers to get the value in the equivalent python type
+    LOGGER.debug('add time sigs and measures')
+
     for ts_start, num, den, ts_end in time_sigs:
         time_sig = score.TimeSignature(num.item(), den.item())
-
         part.timeline.add(time_sig, ts_start.item())
 
-        measure_duration = (num.item() * ticks * 4) // den.item()
-        measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
+    score.add_measures(part)
 
-        for m_start in range(ts_start, measure_start_limit, measure_duration):
-            measure = score.Measure(number=measure_counter)
-            m_end = min(m_start+measure_duration, ts_end)
+    # this is the old way to add measures. Since part comes from MIDI we
+    # only have a single global divs value, which makes add it easier to compute
+    # measure durations:
+    
+    # measure_counter = 1
+    # # we call item() on numpy numbers to get the value in the equivalent python type
+    # for ts_start, num, den, ts_end in time_sigs:
+    #     time_sig = score.TimeSignature(num.item(), den.item())
+    #     part.timeline.add(time_sig, ts_start.item())
+    #     measure_duration = (num.item() * ticks * 4) // den.item()
+    #     measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
+    #     for m_start in range(ts_start, measure_start_limit, measure_duration):
+    #         measure = score.Measure(number=measure_counter)
+    #         m_end = min(m_start+measure_duration, ts_end)
+    #         part.timeline.add(measure, m_start, m_end)
+    #         measure_counter += 1
+    #     if np.isinf(ts_end):
+    #         ts_end = m_end
 
-            part.timeline.add(measure, m_start, m_end)
-            measure_counter += 1
-
-        if np.isinf(ts_end):
-            ts_end = m_end
-
-    LOGGER.info('tie notes')
+    LOGGER.debug('tie notes')
     # tie notes where necessary (across measure boundaries, and within measures
     # notes with compound duration)
     tie_notes(part)
 
-    LOGGER.info('find tuplets')
+    LOGGER.debug('find tuplets')
     # apply simplistic tuplet finding heuristic
     find_tuplets(part)
 
-    LOGGER.info('done create_part')
+    LOGGER.debug('done create_part')
     return part
 
 
@@ -476,7 +482,7 @@ def find_tuplets(part):
 
     # 2. within each group
     for group in candidates:
-
+        
         # 3. search for the predefined list of tuplets
         for tuplet in search_for_tuplets:
 

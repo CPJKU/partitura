@@ -1953,27 +1953,27 @@ def add_measures(part):
         Part instance
     
     """
-    
-    timesigs = np.array([(ts.start.t, ts.beats) for ts in part.timeline.iter_all(TimeSignature)],
+    tl = part.timeline
+    timesigs = np.array([(ts.start.t, ts.beats)
+                         for ts in tl.iter_all(TimeSignature)],
                         dtype=np.int)
-    start = part.timeline.first_point.t
-    end = part.timeline.last_point.t
+    start = tl.first_point.t
+    end = tl.last_point.t
+
+    
+    # make sure we cover time from the start of the timeline
+    if len(timesigs) == 0 or timesigs[0, 0] > start:
+        timesigs = np.vstack([[start, 4]], timesigs)
+
+    # in unlikely case of timesig at last point, remove it
+    if timesigs[-1, 0] >= end:
+        timesigs = timesigs[:-1]
 
     ts_start_times = timesigs[:, 0]
     beats_per_measure = timesigs[:, 1]
-    
-    # make sure we cover time from the start of the timeline
-    if len(ts_start_times) == 0 or ts_start_times[0] > start:
-        ts_start_times = np.r_[start, ts_start_times]
-        beats_per_measure = np.r_[4, beats_per_measure]
-
-    # in unlikely case of timesig at last point, remove it
-    if ts_start_times[-1] >= end:
-        ts_start_times = ts_start_times[:-1]
-        beats_per_measure = beats_per_measure[:-1]
+    ts_end_times = ts_start_times[1:]
 
     # make sure we cover time until the end of the timeline
-    ts_end_times = ts_start_times[1:]
     if len(ts_end_times) == 0 or ts_end_times[-1] < end:
         ts_end_times = np.r_[ts_end_times, end]
 
@@ -1982,13 +1982,16 @@ def add_measures(part):
     beat_map = part.beat_map
     inv_beat_map = part.inv_beat_map
     mcounter = 1
+
     for ts_start, ts_end, measure_dur in zip(ts_start_times, ts_end_times, beats_per_measure):
         pos = ts_start
+    
         while pos < ts_end:
-            bpos = beat_map(pos)
-            measure_start = inv_beat_map(bpos)
-            measure_end = min(inv_beat_map(bpos+measure_dur), ts_end)
-            part.timeline.add(Measure(number=mcounter), int(measure_start), int(measure_end))
+    
+            measure_start = pos
+            measure_end_beats = min(beat_map(pos)+measure_dur, beat_map(end))
+            measure_end = min(ts_end, inv_beat_map(measure_end_beats))
+            tl.add(Measure(number=mcounter), int(measure_start), int(measure_end))
             pos = measure_end
             mcounter += 1
 
