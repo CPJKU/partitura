@@ -193,7 +193,9 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 notes_by_track_ch[(track_nr, ch)] = ch_notes
 
     tr_ch_keys = sorted(notes_by_track_ch.keys())
-    group_part_voice_keys = assign_group_part_voice(part_voice_assign_mode, tr_ch_keys)
+    group_part_voice_keys, part_names, group_names = assign_group_part_voice(part_voice_assign_mode,
+                                                                             tr_ch_keys,
+                                                                             track_names_by_track)
     # for key and time sigs:
     track_to_part_mapping = make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys)
 
@@ -242,13 +244,21 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             time_sigs_by_part[part].add(ts)
 
     key_sigs_by_part = defaultdict(set)
-    for tr, ts_list in key_sigs_by_track.items():
-        for ts in ts_list:
+    for tr, ks_list in key_sigs_by_track.items():
+        for ks in ks_list:
             for part in track_to_part_mapping[tr]:
-                key_sigs_by_part[part].add(ts)
-    for ts in global_key_sigs:
+                key_sigs_by_part[part].add(ks)
+    for ks in global_key_sigs:
         for part in set(part for _, part, _ in group_part_voice_keys):
-            key_sigs_by_part[part].add(ts)
+            key_sigs_by_part[part].add(ks)
+
+    # names_by_part = defaultdict(set)
+    # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
+    #     print(tr_ch, pg_p_v)
+    # for tr, name in track_names_by_track.items():
+    #     print(tr, track_to_part_mapping, name)
+    #     for part in track_to_part_mapping[tr]:
+    #         names_by_part[part] = name
 
     notes_by_part = defaultdict(list)
     for (part, voice), note, spelling, note_id in zip(part_voice_list,
@@ -258,17 +268,17 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         notes_by_part[part].append((note, voice, spelling, note_id))
 
     partlist = []
-    # for i, (part, note_info) in enumerate(notes_by_part.items()):
     part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
-    part_groups = {} # defaultdict(lambda x: score.PartGroup())
+    part_groups = {} 
     for part_nr, note_info in notes_by_part.items():
         notes, voices, spellings, note_ids = zip(*note_info)
         part = create_part(divs, notes, spellings, voices, note_ids,
-                           sorted(time_sigs_by_part[part]),
-                           sorted(key_sigs_by_part[part]),
+                           sorted(time_sigs_by_part[part_nr]),
+                           sorted(key_sigs_by_part[part_nr]),
                            part_id='P{}'.format(part_nr+1),
-                           part_name='P{}'.format(part_nr+1))
+                           part_name=part_names.get(part_nr, None))
 
+        # print(part.pretty())
         # if this part has an associated part_group number we create a PartGroup
         # if necessary, and add the part to that. The newly created PartGroup is
         # then added to the partlist.
@@ -277,7 +287,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             partlist.append(part)
         else:
             if pg_nr not in part_groups:
-                part_groups[pg_nr] = score.PartGroup(track_names_by_track[pg_nr])
+                part_groups[pg_nr] = score.PartGroup(name=group_names.get(pg_nr, None))
                 partlist.append(part_groups[pg_nr])
             part_groups[pg_nr].children.append(part)
 
@@ -301,15 +311,15 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
         track_to_part_keys[tr].add(part)
     return track_to_part_keys
 
-def timings_ok(durations, divs, threshold=.1):
-    n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
-    prop_without_dur = n_without_dur/max(1, len(durations))
-    if prop_without_dur > threshold:
-        LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
-    return prop_without_dur < threshold
+# def timings_ok(durations, divs, threshold=.1):
+#     n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
+#     prop_without_dur = n_without_dur/max(1, len(durations))
+#     if prop_without_dur > threshold:
+#         LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
+#     return prop_without_dur < threshold
 
 
-def assign_group_part_voice(mode, track_ch_combis):
+def assign_group_part_voice(mode, track_ch_combis, track_names):
     """
     0: return one Part per track, with voices assigned by channel
     1. return one PartGroup per track, with Parts assigned by channel (no voices)
@@ -325,17 +335,23 @@ def assign_group_part_voice(mode, track_ch_combis):
     voice_helper = {}
     part_group_helper = {}
 
+    part_names = {}
+    group_names = {}
     for tr, ch in track_ch_combis:
         if mode == 0:
             prt = part_helper.setdefault(tr, len(part_helper))
             vc1 = voice_helper.setdefault(tr, {})
             vc2 = vc1.setdefault(ch, len(vc1) + 1)
+            part_names[prt] = '{} ch={}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
             part[(tr, ch)] = prt
             voice[(tr, ch)] = vc2
         elif mode == 1:
             pg = part_group_helper.setdefault(tr, len(part_group_helper))
             prt = part_helper.setdefault(ch, len(part_helper))
             part_group.setdefault((tr, ch), pg)
+            # group_names[pg] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
+            group_names[pg] = track_names.get(tr, 'Track {}'.format(tr+1))
+            part_names[prt] = 'ch={}'.format(ch)
             part[(tr, ch)] = prt
         elif mode == 2:
             vc = voice_helper.setdefault(tr, len(voice_helper) + 1)
@@ -350,7 +366,7 @@ def assign_group_part_voice(mode, track_ch_combis):
             part.setdefault((tr, ch), len(part))
 
     return [(part_group.get(tr_ch), part.get(tr_ch), voice.get(tr_ch))
-            for tr_ch in track_ch_combis]
+            for tr_ch in track_ch_combis], part_names, group_names
 
 
 def estimate_clef(pitches):
@@ -365,7 +381,7 @@ def estimate_clef(pitches):
 def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
     LOGGER.info('create_part')
 
-    part = score.Part(part_id)
+    part = score.Part(part_id, part_name=part_name)
     part.timeline.set_quarter_duration(0, ticks)
 
     clef = estimate_clef([pitch for _, pitch, _ in notes])

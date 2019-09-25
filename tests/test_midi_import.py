@@ -93,7 +93,8 @@ class TestMIDIImportModes(unittest.TestCase):
         self.assertEqual(len(parts), len(by_track), msg)
 
         for part, tr in zip(parts, by_track):
-            msg = '{} should be a Part instance but it is not'
+
+            msg = '{} should be a Part instance but it is not'.format(part)
             self.assertTrue(isinstance(part, score.Part), msg)
 
             n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
@@ -118,14 +119,21 @@ class TestMIDIImportModes(unittest.TestCase):
         self.assertEqual(len(parts), len(by_track), msg)
 
         for part_group, tr in zip(parts, by_track):
+
             msg = '{} should be a PartGroup instance but it is not'
             self.assertTrue(isinstance(part_group, score.PartGroup), msg)
+            n_parts = len(part_group.children)
+            n_channels = len(by_track[tr])
             msg = ('PartGroup should have as many parts as there are '
                    'channels in the corresponding track {}, but it has {}'
-                   .format(len(by_track[tr]), len(part_group.children)))
-            self.assertEqual(len(part_group.children), len(by_track[tr]), msg)
+                   .format(n_channels, n_parts))
+            self.assertEqual(n_parts, n_channels, msg)
 
-            zip(part_group.children, by_track[tr])
+            for part, tr_ch in zip(part_group.children, by_track[tr]):
+                notes_in_track = self.notes_per_tr_ch[tr_ch]
+                notes_in_part = len(part.notes)
+                msg = 'Part should have {} notes but it has {}'.format(notes_in_track, notes_in_part)
+                self.assertEqual(notes_in_part, notes_in_track)
         #     n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
         #     part_notes = part.notes
         #     n_part_notes = len(part_notes)

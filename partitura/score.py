@@ -1517,11 +1517,11 @@ class Part(object):
     
     """
 
-    def __init__(self, part_id, timeline=None):
+    def __init__(self, part_id, timeline=None, part_name=None):
         self.part_id = part_id
         self.timeline = timeline or TimeLine()
         self.parent = None
-        self.part_name = None
+        self.part_name = part_name
         self.part_abbreviation = None
 
     @property
