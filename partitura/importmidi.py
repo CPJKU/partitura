@@ -342,7 +342,7 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             prt = part_helper.setdefault(tr, len(part_helper))
             vc1 = voice_helper.setdefault(tr, {})
             vc2 = vc1.setdefault(ch, len(vc1) + 1)
-            part_names[prt] = '{} ch={}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
+            part_names[prt] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)))
             part[(tr, ch)] = prt
             voice[(tr, ch)] = vc2
         elif mode == 1:
@@ -359,10 +359,12 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             voice[(tr, ch)] = vc
         elif mode == 3:
             prt = part_helper.setdefault(tr, len(part_helper))
+            part_names[prt] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)))
             part[(tr, ch)] = prt
         elif mode == 4:
             part.setdefault((tr, ch), 0)
         elif mode == 5:
+            part_names[(tr, ch)] = '{} ch={}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
             part.setdefault((tr, ch), len(part))
 
     return [(part_group.get(tr_ch), part.get(tr_ch), voice.get(tr_ch))

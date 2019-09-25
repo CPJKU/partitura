@@ -134,19 +134,60 @@ class TestMIDIImportModes(unittest.TestCase):
                 notes_in_part = len(part.notes)
                 msg = 'Part should have {} notes but it has {}'.format(notes_in_track, notes_in_part)
                 self.assertEqual(notes_in_part, notes_in_track)
-        #     n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
-        #     part_notes = part.notes
-        #     n_part_notes = len(part_notes)
-        #     msg = 'Part should have {} notes but it has'.format(n_track_notes, n_part_notes)
-        #     self.assertEqual(n_track_notes, n_part_notes, msg)
 
-        #     n_ch_notes = [self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr]]
-        #     n_voice_notes = [len(vn) for v, vn in
-        #                      partition(lambda x: x, [n.voice for n in part_notes]).items()]
-        #     msg = ('Part voices should have {} respectively, but they have {}'
-        #            .format(n_ch_notes, n_voice_notes))
-        #     self.assertEqual(n_ch_notes, n_voice_notes, msg)
+    def test_midi_import_mode_2(self):
+        part = load_midi(self.tmpfile.name, part_voice_assign_mode=2)
+        msg = '{} should be a Part instance but it is not'.format(part)
+        self.assertTrue(isinstance(part, score.Part), msg)
+        by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
+        by_voice = partition(lambda x: x.voice, part.notes)
+        n_track_notes = [sum(self.notes_per_tr_ch[tr_ch] for tr_ch in tr_chs)
+                         for tr_chs in by_track.values()]
+        n_voice_notes = ([len(notes) for notes in by_voice.values()])
+        msg = ('Number of notes per voice {} does not match number of '
+               'notes per track {}'
+               .format(n_voice_notes, n_track_notes))
+        self.assertEqual(n_voice_notes, n_track_notes, msg)
 
+    def test_midi_import_mode_3(self):
+        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=3)
+        by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
+
+        msg = ('Number of parts {} does not equal number of tracks {}'
+               .format(len(parts), len(by_track)))
+        self.assertEqual(len(parts), len(by_track), msg)
+
+        for part, tr in zip(parts, by_track):
+
+            msg = '{} should be a Part instance but it is not'.format(part)
+            self.assertTrue(isinstance(part, score.Part), msg)
+
+            n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
+            part_notes = part.notes
+            n_part_notes = len(part_notes)
+            msg = 'Part should have {} notes but it has'.format(n_track_notes, n_part_notes)
+            self.assertEqual(n_track_notes, n_part_notes, msg)
+
+    def test_midi_import_mode_4(self):
+        part = load_midi(self.tmpfile.name, part_voice_assign_mode=4)
+        msg = '{} should be a Part instance but it is not'.format(part)
+        self.assertTrue(isinstance(part, score.Part), msg)
+        midi_notes = sum(self.notes_per_tr_ch.values())
+        part_notes = len(part.notes)
+        msg = 'Part should have {} notes but it has'.format(midi_notes, part_notes)
+        self.assertEqual(midi_notes, part_notes, msg)
+
+    def test_midi_import_mode_5(self):
+        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=5)
+        msg = ('Number of parts should be {} but it is {}'
+               .format(len(self.notes_per_tr_ch), len(parts)))
+        self.assertEqual(len(parts), len(self.notes_per_tr_ch), msg)
+        for part, trch_notes in zip(parts, self.notes_per_tr_ch.values()):
+            part_notes = len(part.notes)
+            msg = ('Part should have {} notes but it has'
+                   .format(trch_notes, part_notes))
+            self.assertEqual(part_notes, trch_notes, msg)
+            
     def tearDown(self):
         # remove tmp file
         self.tmpfile = None
