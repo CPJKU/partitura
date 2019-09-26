@@ -107,11 +107,8 @@ def _parse_partlist(partlist):
 
                 gr_name = get_value_from_tag(e, 'group-name', str)
                 gr_symbol = get_value_from_tag(e, 'group-symbol', str)
-
-                new_group = score.PartGroup(gr_symbol, gr_name)
-
-                if 'number' in e.attrib:
-                    new_group.number = int(e.attrib['number'])
+                gr_number = get_value_from_attribute(e, 'number', int)
+                new_group = score.PartGroup(gr_symbol, gr_name, gr_number)
 
                 if current_group is None:
                     current_group = new_group

@@ -193,7 +193,9 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 notes_by_track_ch[(track_nr, ch)] = ch_notes
 
     tr_ch_keys = sorted(notes_by_track_ch.keys())
-    group_part_voice_keys = assign_group_part_voice(part_voice_assign_mode, tr_ch_keys)
+    group_part_voice_keys, part_names, group_names = assign_group_part_voice(part_voice_assign_mode,
+                                                                             tr_ch_keys,
+                                                                             track_names_by_track)
     # for key and time sigs:
     track_to_part_mapping = make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys)
 
@@ -209,11 +211,11 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     note_list = [note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes]
     note_array = np.array(note_list, dtype=[('onset', np.int), ('pitch', np.int), ('duration', np.int)])
 
-    LOGGER.info('pitch spelling')
+    LOGGER.debug('pitch spelling')
     spelling_global = analysis.estimate_spelling(note_array)
 
     if estimate_voice_info:
-        LOGGER.info('voice estimation')
+        LOGGER.debug('voice estimation')
         estimated_voices = analysis.estimate_voices(note_array)
         # TODO: don't do +1 as soon as this is done in estimate_voices
         estimated_voices += 1
@@ -222,7 +224,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 part_voice[1] = voice_est
 
     if estimate_key:
-        LOGGER.info('key estimation')
+        LOGGER.debug('key estimation')
         _, mode, fifths = analysis.estimate_key(note_array)
         key_sigs_by_track = {}
         global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
@@ -242,13 +244,21 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             time_sigs_by_part[part].add(ts)
 
     key_sigs_by_part = defaultdict(set)
-    for tr, ts_list in key_sigs_by_track.items():
-        for ts in ts_list:
+    for tr, ks_list in key_sigs_by_track.items():
+        for ks in ks_list:
             for part in track_to_part_mapping[tr]:
-                key_sigs_by_part[part].add(ts)
-    for ts in global_key_sigs:
+                key_sigs_by_part[part].add(ks)
+    for ks in global_key_sigs:
         for part in set(part for _, part, _ in group_part_voice_keys):
-            key_sigs_by_part[part].add(ts)
+            key_sigs_by_part[part].add(ks)
+
+    # names_by_part = defaultdict(set)
+    # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
+    #     print(tr_ch, pg_p_v)
+    # for tr, name in track_names_by_track.items():
+    #     print(tr, track_to_part_mapping, name)
+    #     for part in track_to_part_mapping[tr]:
+    #         names_by_part[part] = name
 
     notes_by_part = defaultdict(list)
     for (part, voice), note, spelling, note_id in zip(part_voice_list,
@@ -258,17 +268,17 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         notes_by_part[part].append((note, voice, spelling, note_id))
 
     partlist = []
-    # for i, (part, note_info) in enumerate(notes_by_part.items()):
     part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
-    part_groups = {} # defaultdict(lambda x: score.PartGroup())
+    part_groups = {} 
     for part_nr, note_info in notes_by_part.items():
         notes, voices, spellings, note_ids = zip(*note_info)
         part = create_part(divs, notes, spellings, voices, note_ids,
-                           sorted(time_sigs_by_part[part]),
-                           sorted(key_sigs_by_part[part]),
+                           sorted(time_sigs_by_part[part_nr]),
+                           sorted(key_sigs_by_part[part_nr]),
                            part_id='P{}'.format(part_nr+1),
-                           part_name='P{}'.format(part_nr+1))
+                           part_name=part_names.get(part_nr, None))
 
+        # print(part.pretty())
         # if this part has an associated part_group number we create a PartGroup
         # if necessary, and add the part to that. The newly created PartGroup is
         # then added to the partlist.
@@ -277,7 +287,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             partlist.append(part)
         else:
             if pg_nr not in part_groups:
-                part_groups[pg_nr] = score.PartGroup(track_names_by_track[pg_nr])
+                part_groups[pg_nr] = score.PartGroup(group_name=group_names.get(pg_nr, None))
                 partlist.append(part_groups[pg_nr])
             part_groups[pg_nr].children.append(part)
 
@@ -301,15 +311,15 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
         track_to_part_keys[tr].add(part)
     return track_to_part_keys
 
-def timings_ok(durations, divs, threshold=.1):
-    n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
-    prop_without_dur = n_without_dur/max(1, len(durations))
-    if prop_without_dur > threshold:
-        LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
-    return prop_without_dur < threshold
+# def timings_ok(durations, divs, threshold=.1):
+#     n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
+#     prop_without_dur = n_without_dur/max(1, len(durations))
+#     if prop_without_dur > threshold:
+#         LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
+#     return prop_without_dur < threshold
 
 
-def assign_group_part_voice(mode, track_ch_combis):
+def assign_group_part_voice(mode, track_ch_combis, track_names):
     """
     0: return one Part per track, with voices assigned by channel
     1. return one PartGroup per track, with Parts assigned by channel (no voices)
@@ -325,17 +335,23 @@ def assign_group_part_voice(mode, track_ch_combis):
     voice_helper = {}
     part_group_helper = {}
 
+    part_names = {}
+    group_names = {}
     for tr, ch in track_ch_combis:
         if mode == 0:
             prt = part_helper.setdefault(tr, len(part_helper))
             vc1 = voice_helper.setdefault(tr, {})
             vc2 = vc1.setdefault(ch, len(vc1) + 1)
+            part_names[prt] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)))
             part[(tr, ch)] = prt
             voice[(tr, ch)] = vc2
         elif mode == 1:
             pg = part_group_helper.setdefault(tr, len(part_group_helper))
             prt = part_helper.setdefault(ch, len(part_helper))
             part_group.setdefault((tr, ch), pg)
+            # group_names[pg] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
+            group_names[pg] = track_names.get(tr, 'Track {}'.format(tr+1))
+            part_names[prt] = 'ch={}'.format(ch)
             part[(tr, ch)] = prt
         elif mode == 2:
             vc = voice_helper.setdefault(tr, len(voice_helper) + 1)
@@ -343,14 +359,16 @@ def assign_group_part_voice(mode, track_ch_combis):
             voice[(tr, ch)] = vc
         elif mode == 3:
             prt = part_helper.setdefault(tr, len(part_helper))
+            part_names[prt] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)))
             part[(tr, ch)] = prt
         elif mode == 4:
             part.setdefault((tr, ch), 0)
         elif mode == 5:
+            part_names[(tr, ch)] = '{} ch={}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
             part.setdefault((tr, ch), len(part))
 
     return [(part_group.get(tr_ch), part.get(tr_ch), voice.get(tr_ch))
-            for tr_ch in track_ch_combis]
+            for tr_ch in track_ch_combis], part_names, group_names
 
 
 def estimate_clef(pitches):
@@ -363,9 +381,9 @@ def estimate_clef(pitches):
 
 
 def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
-    LOGGER.info('create_part')
+    LOGGER.debug('create_part')
 
-    part = score.Part(part_id)
+    part = score.Part(part_id, part_name=part_name)
     part.timeline.set_quarter_duration(0, ticks)
 
     clef = estimate_clef([pitch for _, pitch, _ in notes])
@@ -374,7 +392,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
         fifths, mode = key_name_to_fifths_mode(name)
         part.timeline.add(score.KeySignature(fifths, mode), t)
 
-    LOGGER.info('add notes')
+    LOGGER.debug('add notes')
 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
         if duration > 0:
@@ -396,37 +414,43 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(np.int).max]
     time_sigs = np.column_stack((time_sigs, ts_end_times))
 
-    LOGGER.info('add measures + time sigs')
-    measure_counter = 1
-    # we call item() on numpy numbers to get the value in the equivalent python type
+    LOGGER.debug('add time sigs and measures')
+
     for ts_start, num, den, ts_end in time_sigs:
         time_sig = score.TimeSignature(num.item(), den.item())
-
         part.timeline.add(time_sig, ts_start.item())
 
-        measure_duration = (num.item() * ticks * 4) // den.item()
-        measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
+    score.add_measures(part)
 
-        for m_start in range(ts_start, measure_start_limit, measure_duration):
-            measure = score.Measure(number=measure_counter)
-            m_end = min(m_start+measure_duration, ts_end)
+    # this is the old way to add measures. Since part comes from MIDI we
+    # only have a single global divs value, which makes add it easier to compute
+    # measure durations:
+    
+    # measure_counter = 1
+    # # we call item() on numpy numbers to get the value in the equivalent python type
+    # for ts_start, num, den, ts_end in time_sigs:
+    #     time_sig = score.TimeSignature(num.item(), den.item())
+    #     part.timeline.add(time_sig, ts_start.item())
+    #     measure_duration = (num.item() * ticks * 4) // den.item()
+    #     measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
+    #     for m_start in range(ts_start, measure_start_limit, measure_duration):
+    #         measure = score.Measure(number=measure_counter)
+    #         m_end = min(m_start+measure_duration, ts_end)
+    #         part.timeline.add(measure, m_start, m_end)
+    #         measure_counter += 1
+    #     if np.isinf(ts_end):
+    #         ts_end = m_end
 
-            part.timeline.add(measure, m_start, m_end)
-            measure_counter += 1
-
-        if np.isinf(ts_end):
-            ts_end = m_end
-
-    LOGGER.info('tie notes')
+    LOGGER.debug('tie notes')
     # tie notes where necessary (across measure boundaries, and within measures
     # notes with compound duration)
     tie_notes(part)
 
-    LOGGER.info('find tuplets')
+    LOGGER.debug('find tuplets')
     # apply simplistic tuplet finding heuristic
     find_tuplets(part)
 
-    LOGGER.info('done create_part')
+    LOGGER.debug('done create_part')
     return part
 
 
@@ -440,7 +464,7 @@ def find_tuplets(part):
     # only look for x:2 tuplets
     normal_notes = 2
 
-    divs_map = part.divisions_map
+    # divs_map = part.divisions_map
 
     candidates = []
     prev_end = None
@@ -457,40 +481,54 @@ def find_tuplets(part):
 
 
     # 2. within each group
+
     for group in candidates:
 
         # 3. search for the predefined list of tuplets
-        for tuplet in search_for_tuplets:
-
-            if tuplet > len(group):
+        for actual_notes in search_for_tuplets:
+            
+            if actual_notes > len(group):
                 # tuplet requires more notes than we have
                 continue
+            
+            tup_start = 0
 
-            # durs = set(n.duration for n in group[:tuplet-1])
-            durs = set(n.duration for n in group[:tuplet])
+            while tup_start <= (len(group) - actual_notes):
+                tuplet = group[tup_start:tup_start+actual_notes]
+                # durs = set(n.duration for n in group[:tuplet-1])
+                durs = set(n.duration for n in tuplet)
+                
+                if len(durs) > 1:
+                    # notes have different durations (possibly valid but not
+                    # supported here)
+                    # continue
+                    tup_start += 1
+                else:
+   
+                    start = tuplet[0].start.t
+                    end = tuplet[-1].end.t
+                    total_dur = end - start
+       
+                    # total duration of tuplet notes must be integer-divisble by
+                    # normal_notes
+                    if total_dur % normal_notes > 0:
+                        # continue
+                        tup_start += 1
+                    else:
+                        # estimate duration type
+                        dur_type = estimate_symbolic_duration(total_dur//normal_notes,
+                                                              tuplet[0].start.quarter)
+                                                              # int(divs_map(start)))
 
-            if len(durs) > 1:
-                # notes have different durations (possibly valid but not
-                # supported here)
-                continue
-
-            start = group[0].start.t
-            end = group[tuplet-1].end.t
-            total_dur = end - start
-
-            # total duration of tuplet notes must be integer-divisble by normal_notes
-            if total_dur % normal_notes > 0:
-                continue
-
-            # estimate duration type
-            dur_type = estimate_symbolic_duration(total_dur//normal_notes, int(divs_map(start)))
-
-            if dur_type and dur_type.get('dots', 0) == 0:
-                # recognized duration without dots
-                dur_type['actual_notes'] = tuplet
-                dur_type['normal_notes'] = normal_notes
-                for note in group[:tuplet]:
-                    note.symbolic_duration = dur_type.copy()
+                        if dur_type and dur_type.get('dots', 0) == 0:
+                            # recognized duration without dots
+                            dur_type['actual_notes'] = actual_notes
+                            dur_type['normal_notes'] = normal_notes
+                            for note in tuplet:
+                                note.symbolic_duration = dur_type.copy()
+                            tup_start += actual_notes
+                        else:
+                            tup_start += 1
 
 
 def make_tied_note_id(prev_id):
@@ -592,7 +630,7 @@ def split_note(part, note, splits):
     cur_note = note
     start, end, sym_dur = splits.pop(0)
     cur_note.symbolic_duration = sym_dur
-    part.add(cur_note, start, end)
+    part.timeline.add(cur_note, start, end)
 
     while splits:
         if cur_note.id is not None:

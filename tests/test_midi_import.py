@@ -14,6 +14,7 @@ import partitura.score as score
 LOGGER = logging.getLogger(__name__)
 
 def fill_track(track, notes, divs, vel=64):
+    # add on/off events for note specification (`notes`) to `track`
     onoffs = defaultdict(list)
     for on, off, pitch, ch in notes:
         on = int(divs*on)
@@ -33,23 +34,24 @@ def fill_track(track, notes, divs, vel=64):
         prev = t
 
 def make_assignment_mode_example():
+    # create a midi file on which to test the assignment modes in load_midi
     divs = 10
     mid = mido.MidiFile(ticks_per_beat=divs)
     track_1 = mido.MidiTrack()
     mid.tracks.append(track_1)
     tempo = int(.5*10**6)
     track_1.append(mido.MetaMessage('track_name', name='Track 1'))
-    track_1.append(mido.MetaMessage('instrument_name', name='Instrument 1'))
-    track_1.append(mido.Message('program_change', channel=0, program=1))
-    track_1.append(mido.MetaMessage('set_tempo', tempo=tempo))
+    # track_1.append(mido.MetaMessage('instrument_name', name='Instrument 1'))
+    # track_1.append(mido.Message('program_change', channel=0, program=1))
+    # track_1.append(mido.MetaMessage('set_tempo', tempo=tempo))
     track_1.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
 
     track_2 = mido.MidiTrack()
     mid.tracks.append(track_2)
     track_2.append(mido.MetaMessage('track_name', name='Track 2'))
-    track_2.append(mido.MetaMessage('instrument_name', name='Instrument 2'))
-    track_2.append(mido.Message('program_change', channel=1, program=57))
-    track_2.append(mido.MetaMessage('set_tempo', tempo=tempo))
+    # track_2.append(mido.MetaMessage('instrument_name', name='Instrument 2'))
+    # track_2.append(mido.Message('program_change', channel=1, program=57))
+    # track_2.append(mido.MetaMessage('set_tempo', tempo=tempo))
     track_2.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
 
 
@@ -75,6 +77,78 @@ def get_track_voice_numbers(mid):
                 tc_counter.update(((i, msg.channel),))
     return tc_counter
     
+
+def make_triplets_example_1():
+    divs = 120
+    mid = mido.MidiFile(ticks_per_beat=divs)
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
+    track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+
+    # define two consecutive quarter triplets
+    # on off pitch ch, (times in quarter)
+    notes = [(   0,  2/3, 76, 0),
+             ( 2/3,  4/3, 76, 0),
+             ( 4/3,    2, 76, 0),
+             (   2,  8/3, 76, 0),
+             ( 8/3, 10/3, 76, 0),
+             (10/3,    4, 76, 0),
+             ]
+    fill_track(track, notes, divs)
+    # target:
+    actual_notes = [3]*6
+    normal_notes = [2]*6
+    return mid, actual_notes, normal_notes
+
+def make_triplets_example_2():
+    divs = 120
+    mid = mido.MidiFile(ticks_per_beat=divs)
+    track = mido.MidiTrack()
+    mid.tracks.append(track)
+    track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+
+    # define two consecutive quarter triplets
+    # on off pitch ch, (times in quarter)
+    notes = [(   0,  2/5, 76, 0),
+             ( 2/5,  4/5, 76, 0),
+             ( 4/5,  6/5, 76, 0),
+             ( 6/5,  8/5, 76, 0),
+             ( 8/5,    2, 76, 0),
+             (   2,  8/3, 76, 0),
+             ( 8/3, 10/3, 76, 0),
+             (10/3,    4, 76, 0),
+             ]
+    fill_track(track, notes, divs)
+    # target:
+    actual_notes = [5]*5 + [3]*3
+    normal_notes = [2]*5 + [2]*3
+    return mid, actual_notes, normal_notes
+
+
+class TestMIDITuplets(unittest.TestCase):
+
+    example_gen_funcs = (make_triplets_example_1, make_triplets_example_2)
+        
+    def test_tuplets(self):
+        for example_gen_func in self.example_gen_funcs:
+            mid, actual, normal = example_gen_func()
+            with NamedTemporaryFile(suffix='.mid') as fh:
+                mid.save(fh.name)
+                part = load_midi(fh.name, part_voice_assign_mode=0)
+                notes = part.notes
+    
+                if len(actual) != len(normal):
+                    LOGGER.warning('Error in example case, skipping test')
+                    return
+                msg = ('Example Part has an unexpected number of notes (expected {}, got {})'
+                       .format(len(actual), len(notes)))
+                self.assertEqual(len(notes), len(actual), msg)
+                sym_durs = [n.symbolic_duration for n in notes]
+                msg = 'Incorrectly detected tuplets'
+                self.assertEqual(actual, [sd.get('actual_notes') for sd in sym_durs], msg)
+                self.assertEqual(normal, [sd.get('normal_notes') for sd in sym_durs], msg)
+
+        
 class TestMIDIImportModes(unittest.TestCase):
 
     def setUp(self):
@@ -93,7 +167,8 @@ class TestMIDIImportModes(unittest.TestCase):
         self.assertEqual(len(parts), len(by_track), msg)
 
         for part, tr in zip(parts, by_track):
-            msg = '{} should be a Part instance but it is not'
+
+            msg = '{} should be a Part instance but it is not'.format(part)
             self.assertTrue(isinstance(part, score.Part), msg)
 
             n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
@@ -118,27 +193,75 @@ class TestMIDIImportModes(unittest.TestCase):
         self.assertEqual(len(parts), len(by_track), msg)
 
         for part_group, tr in zip(parts, by_track):
+
             msg = '{} should be a PartGroup instance but it is not'
             self.assertTrue(isinstance(part_group, score.PartGroup), msg)
+            n_parts = len(part_group.children)
+            n_channels = len(by_track[tr])
             msg = ('PartGroup should have as many parts as there are '
                    'channels in the corresponding track {}, but it has {}'
-                   .format(len(by_track[tr]), len(part_group.children)))
-            self.assertEqual(len(part_group.children), len(by_track[tr]), msg)
+                   .format(n_channels, n_parts))
+            self.assertEqual(n_parts, n_channels, msg)
 
-            zip(part_group.children, by_track[tr])
-        #     n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
-        #     part_notes = part.notes
-        #     n_part_notes = len(part_notes)
-        #     msg = 'Part should have {} notes but it has'.format(n_track_notes, n_part_notes)
-        #     self.assertEqual(n_track_notes, n_part_notes, msg)
+            for part, tr_ch in zip(part_group.children, by_track[tr]):
+                notes_in_track = self.notes_per_tr_ch[tr_ch]
+                notes_in_part = len(part.notes)
+                msg = 'Part should have {} notes but it has {}'.format(notes_in_track, notes_in_part)
+                self.assertEqual(notes_in_part, notes_in_track)
 
-        #     n_ch_notes = [self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr]]
-        #     n_voice_notes = [len(vn) for v, vn in
-        #                      partition(lambda x: x, [n.voice for n in part_notes]).items()]
-        #     msg = ('Part voices should have {} respectively, but they have {}'
-        #            .format(n_ch_notes, n_voice_notes))
-        #     self.assertEqual(n_ch_notes, n_voice_notes, msg)
+    def test_midi_import_mode_2(self):
+        part = load_midi(self.tmpfile.name, part_voice_assign_mode=2)
+        msg = '{} should be a Part instance but it is not'.format(part)
+        self.assertTrue(isinstance(part, score.Part), msg)
+        by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
+        by_voice = partition(lambda x: x.voice, part.notes)
+        n_track_notes = [sum(self.notes_per_tr_ch[tr_ch] for tr_ch in tr_chs)
+                         for tr_chs in by_track.values()]
+        n_voice_notes = ([len(notes) for notes in by_voice.values()])
+        msg = ('Number of notes per voice {} does not match number of '
+               'notes per track {}'
+               .format(n_voice_notes, n_track_notes))
+        self.assertEqual(n_voice_notes, n_track_notes, msg)
 
+    def test_midi_import_mode_3(self):
+        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=3)
+        by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
+
+        msg = ('Number of parts {} does not equal number of tracks {}'
+               .format(len(parts), len(by_track)))
+        self.assertEqual(len(parts), len(by_track), msg)
+
+        for part, tr in zip(parts, by_track):
+
+            msg = '{} should be a Part instance but it is not'.format(part)
+            self.assertTrue(isinstance(part, score.Part), msg)
+
+            n_track_notes = sum(self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr])
+            part_notes = part.notes
+            n_part_notes = len(part_notes)
+            msg = 'Part should have {} notes but it has'.format(n_track_notes, n_part_notes)
+            self.assertEqual(n_track_notes, n_part_notes, msg)
+
+    def test_midi_import_mode_4(self):
+        part = load_midi(self.tmpfile.name, part_voice_assign_mode=4)
+        msg = '{} should be a Part instance but it is not'.format(part)
+        self.assertTrue(isinstance(part, score.Part), msg)
+        midi_notes = sum(self.notes_per_tr_ch.values())
+        part_notes = len(part.notes)
+        msg = 'Part should have {} notes but it has'.format(midi_notes, part_notes)
+        self.assertEqual(midi_notes, part_notes, msg)
+
+    def test_midi_import_mode_5(self):
+        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=5)
+        msg = ('Number of parts should be {} but it is {}'
+               .format(len(self.notes_per_tr_ch), len(parts)))
+        self.assertEqual(len(parts), len(self.notes_per_tr_ch), msg)
+        for part, trch_notes in zip(parts, self.notes_per_tr_ch.values()):
+            part_notes = len(part.notes)
+            msg = ('Part should have {} notes but it has'
+                   .format(trch_notes, part_notes))
+            self.assertEqual(part_notes, trch_notes, msg)
+            
     def tearDown(self):
         # remove tmp file
         self.tmpfile = None
