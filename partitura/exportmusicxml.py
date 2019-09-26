@@ -747,25 +747,81 @@ def do_attributes(part, start, end):
     
 
 def save_musicxml(parts, out=None):
-    if isinstance(parts, (score.Part, score.PartGroup)):
-
-        parts = [parts]
         
     root = etree.Element('score-partwise')
     
     partlist_e = etree.SubElement(root, 'part-list')
     counter = {}
 
-    for part in parts:
+    group_stack = []
 
+    def close_group_stack():
+        while group_stack:
+            # close group
+            etree.SubElement(partlist_e, 'part-group',
+                             number='{}'.format(group_stack[-1].number),
+                             type='stop')
+            # remove from stack
+            group_stack.pop()
+        
+    def handle_parents(part):
+        # 1. get deepest parent that is in group_stack (keep track of parents to
+        # add)
+        pg = part.parent
+        to_add = []
+        while pg:
+            if pg in group_stack:
+                break
+            to_add.append(pg)
+            pg = pg.parent
+
+        
+        # close groups while not equal to pg
+        while group_stack:
+            if pg == group_stack[-1]:
+                break
+            else:
+                # close group
+                etree.SubElement(partlist_e, 'part-group',
+                                 number='{}'.format(group_stack[-1].number),
+                                 type='stop')
+                # remove from stack
+                group_stack.pop()
+
+        # start all parents in to_add
+        for pg in reversed(to_add):
+            # start group
+            pg_e = etree.SubElement(partlist_e, 'part-group',
+                                    number='{}'.format(pg.number),
+                                    type='start')
+            if pg.group_symbol is not None:
+                symb_e = etree.SubElement(pg_e, 'group-symbol')
+                symb_e.text = pg.group_symbol
+            if pg.group_name is not None:
+                name_e = etree.SubElement(pg_e, 'group-name')
+                name_e.text = pg.group_name
+
+            group_stack.append(pg)
+
+
+    for part in score.iter_parts(parts):
+
+        handle_parents(part)
+        
+        # handle part list entry
         scorepart_e = etree.SubElement(partlist_e, 'score-part', id=part.id)
 
         partname_e = etree.SubElement(scorepart_e, 'part-name')
         if part.part_name:
-            # lxml does not like NULL characters (even if they are valid unicode
-            # characters), so we remove them
             partname_e.text = filter_string(part.part_name)
 
+        if part.part_abbreviation:
+            partabbrev_e = etree.SubElement(scorepart_e, 'part-abbreviation')
+            partabbrev_e.text = filter_string(part.part_abbreviation)
+
+
+        # write the part itself
+        
         part_e = etree.SubElement(root, 'part', id=part.id)
         # store quarter_map in a variable to avoid re-creating it for each call
         quarter_map = part.quarter_map
@@ -785,6 +841,8 @@ def save_musicxml(parts, out=None):
             contents = linearize_measure_contents(part, measure.start, measure.end, counter)
             measure_e.extend(contents)
             
+    close_group_stack()
+
     if out:
 
         if hasattr(out, 'write'):
@@ -803,4 +861,3 @@ def save_musicxml(parts, out=None):
 
         return etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
                               pretty_print=True, doctype=DOCTYPE)
-

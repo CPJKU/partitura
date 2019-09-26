@@ -287,7 +287,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             partlist.append(part)
         else:
             if pg_nr not in part_groups:
-                part_groups[pg_nr] = score.PartGroup(name=group_names.get(pg_nr, None))
+                part_groups[pg_nr] = score.PartGroup(group_name=group_names.get(pg_nr, None))
                 partlist.append(part_groups[pg_nr])
             part_groups[pg_nr].children.append(part)
 

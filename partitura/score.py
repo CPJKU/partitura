@@ -1317,24 +1317,27 @@ class PartGroup(object):
     ----------
     group_symbol : str or None
 
-    children : list of Part or PartGroup objects
-
-    parent : PartGroup
+    name : str or None
 
     number : int
+
+    parent : PartGroup or None
+
+    children : list of Part or PartGroup objects
+
     
     """
 
-    def __init__(self, group_symbol=None, name=None):
+    def __init__(self, group_symbol=None, group_name=None, number=None):
         self.group_symbol = group_symbol
-        self.children = []
-        self.name = name
+        self.group_name = group_name
+        self.number = number
         self.parent = None
-        self.number = None
+        self.children = []
 
     def _pp(self, tree):
-        result = ['{}PartGroup: name="{}" group_symbol="{}"'
-                  .format(tree, self.name, self.group_symbol)]
+        result = ['{}PartGroup: group_name="{}" group_symbol="{}"'
+                  .format(tree, self.group_name, self.group_symbol)]
         tree.push()
         N = len(self.children)
         for i, child in enumerate(self.children):
@@ -1345,7 +1348,7 @@ class PartGroup(object):
                 tree.next_item()
             result.extend(child._pp(tree))
         tree.pop()
-        return '\n'.join(result)
+        return result
 
     def pretty(self):
         """Return a pretty representation of this object.
@@ -1356,17 +1359,7 @@ class PartGroup(object):
             A pretty representation
         
         """
-        return self._pp(PrettyPrintTree())
-
-    # def pretty(self, l=0):
-    #     if self.name is not None:
-    #         name_str = ' / {0}'.format(self.name)
-    #     else:
-    #         name_str = ''
-    #     s = ['    ' * l + '{0}{1}'.format(self.grouping_symbol, name_str)]
-    #     for ch in self.children:
-    #         s.append(ch.pretty(l + 1))
-    #     return '\n'.join(s)
+        return '\n'.join(self._pp(PrettyPrintTree()))
 
 
 class ScoreVariant(object):
@@ -1533,12 +1526,12 @@ class Part(object):
             chunks.append(self.part_name)
             yield self.part_name
 
-        part = self.parent
-        while part is not None:
-            if part.name is not None:
-                chunks.insert(0, part.name)
+        pg = self.parent
+        while pg is not None:
+            if pg.group_name is not None:
+                chunks.insert(0, pg.group_name)
                 yield '  '.join(chunks)
-            part = part.parent
+            pg = pg.parent
 
     def remove(self, obj):
         """
@@ -1580,7 +1573,7 @@ class Part(object):
                 tree.next_item()
             result.extend(timepoint._pp(tree))
         tree.pop()
-        return '\n'.join(result)
+        return result
 
     def pretty(self):
         """Return a pretty representation of this object.
@@ -1591,7 +1584,7 @@ class Part(object):
             A pretty representation
         
         """
-        return self._pp(PrettyPrintTree())
+        return '\n'.join(self._pp(PrettyPrintTree()))
 
     @property
     def divisions_map(self):
