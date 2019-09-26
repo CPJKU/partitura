@@ -6,7 +6,7 @@ import numpy as np
 from collections import defaultdict
 from mido import MidiFile, MidiTrack, Message
 
-from partitura.score import Divisions
+from partitura.score import Part, PartGroup
 
 import ipdb
 
@@ -19,6 +19,23 @@ logging.basicConfig(level=logging.DEBUG)
 DEFAULT_FORMAT = 0  # MIDI file format
 DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
+
+
+def get_quarter_durations(part_list, divs):
+    """
+
+    """
+    # divs = []
+    for elem in part_list:
+        if hasattr(elem, 'timeline'):
+            # ipdb.set_trace()
+            divs.append(elem.timeline.quarter_durations())
+            print(elem.part_name)
+            print(elem.timeline.quarter_durations())
+        else:
+            divs = get_quarter_durations(elem.children, divs)
+
+    return divs
 
 
 def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
@@ -82,12 +99,33 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
             Write each Part to a track, possibly present voices are ignored,
             one single MIDI channel
         4
-            
+
             Return single Part without voices (channel and track info is
             ignored)
         5
             Write each Part to a single track
             Return one Part per <track, channel> combination, without voices
+
+        # Maarten's suggestions:
+
+        0
+            Write one track for each Part, with channels assigned by voices
+        1
+            Write one track for each PartGroup, with channels assigned by Parts
+            (There can be multiple levels of partgroups, I suggest using
+            the highest level of partgroup/part)
+        2
+            Write a single track with channels assigned by Part
+            (voice info is lost)
+        3
+            Write one track per Part, and a single channel for all voices
+            (voice info is lost)
+        4
+            Write a single track with a single channel
+            (Part and voice info is lost)
+        5
+            Return one track per <Part, voice> combination,
+            each track having a single channel.
 
     file_type : int
 
@@ -105,33 +143,52 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     # create object, spefify some basic parameters here
     mf = MidiFile(type=file_type, ticks_per_beat=ppq)
 
-    # # make this better, with iter()?
-    # try:
-    #     len(parts)
-    # except TypeError:
-    #     parts = [parts]  # wrap into list, makes things easier
+    try:
+        len(parts)
+    except TypeError:
+        parts = [parts]  # wrap into list, makes things easier
 
-    # get from all parts their Divisions values and find a value that works
-    # for all parts.
+    # ipdb.set_trace()
+
+    # note that partgroups can be nested
+
+    # get common div value for all involved parts
     all_divs = set()
-    for part in iter(parts):  # iterate over the parts
-        # get an array of the current part's divs
-        divs = part.timeline.quarter_durations()  # gives quarter durations per part
-        # divs = np.array([(divs.start.t, divs.divs) for divs in part.timeline.iter_all])
-        all_divs.update(divs[:, 1])  # keep only the div values
+    # for elem in parts:  # iterate over the parts
+    #     try:
+    #         # get an array of the current part's divs
+    #         divs = elem.timeline.quarter_durations()  # gives quarter durations per part
+    #     except AttributeError:  # PartGroup
+    #         while hasattr(elem, 'children'):
 
-    # all_divs = set(np.array(divs_list).flatten())
+    # current = parts
+    # for elem in current:  # parts:  # iterate over the parts
+    #     # if hasattr(elem, 'timeline'):
+    #     #     divs = elem.timeline.quarter_durations()  # gives quarter durations per part
+    #     while hasattr(elem, 'children'):
+    #         print(elem.children)
+    #         current = elem.children
+    #     continue
+
+    divs = []
+    divs = get_quarter_durations(parts, divs)
+
+        # all_divs.update(divs[:, 1])  # keep only the div values
+
+    ipdb.set_trace()
+
+
     # get the least common multiple of all involved div values used in all parts
     lcm_all_divs = np.lcm.reduce(list(all_divs))
     assert np.issubdtype(lcm_all_divs, np.integer)  # must be integer
 
-    divs_factors = {}
-    for div_val in all_divs:
-        # Note: is there anywhere in score, etc., a check whether the div
-        # values are actually integers? Then the whole testing here
-        # would be unnecessary
-        assert np.issubdtype(div_val, np.integer)  # check if best way
-        divs_factors[div_val] = lcm_all_divs // div_val
+    # divs_factors = {}
+    # for div_val in all_divs:
+    #     # Note: is there anywhere in score, etc., a check whether the div
+    #     # values are actually integers? Then the whole testing here
+    #     # would be unnecessary
+    #     assert np.issubdtype(div_val, np.integer)  # check if best way
+    #     divs_factors[div_val] = lcm_all_divs // div_val
 
     # with quarter map, it is not necessary to fix divs within a part.
     # get list with all notes of all parts, get onset and offset times per note (make struct for note)
@@ -142,6 +199,9 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
 
     # TODO: fct that does the mode assignment, returns per (prtgrp, part, voice)
     # a mapping to (track, chan), according to mode.
+
+
+    ipdb.set_trace()
 
     onoff_list = []
     prt_grp_part_voice_list = []
@@ -168,121 +228,121 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     # Then fill tracks
 
 
-    channel_cursor = 0
+    # channel_cursor = 0
 
-    for part in parts:  # iterate over the parts
-        # get array of all div values in current part
-        divs = np.array([(divs.start.t, divs.divs) for divs in part.list_all(Divisions)])
+    # for part in parts:  # iterate over the parts
+    #     # get array of all div values in current part
+    #     divs = np.array([(divs.start.t, divs.divs) for divs in part.list_all(Divisions)])
 
-        if len(divs) == 1:  # most likely case?
-            part_divs = divs[0][1]
-            part_divs_factor = divs_factors[divs[0][1]]
+    #     if len(divs) == 1:  # most likely case?
+    #         part_divs = divs[0][1]
+    #         part_divs_factor = divs_factors[divs[0][1]]
 
-            LOGGER.debug(f"lcm: {lcm_all_divs}")
-            LOGGER.debug(f"part_divs: {part_divs}")
-            LOGGER.debug(f"part_divs_factor: {part_divs_factor}")
+    #         LOGGER.debug(f"lcm: {lcm_all_divs}")
+    #         LOGGER.debug(f"part_divs: {part_divs}")
+    #         LOGGER.debug(f"part_divs_factor: {part_divs_factor}")
 
-            assert ppq >= part_divs
-            divs_ppq_fact = ppq // part_divs
+    #         assert ppq >= part_divs
+    #         divs_ppq_fact = ppq // part_divs
 
-            LOGGER.debug(f"divs_ppq_fact {divs_ppq_fact}")
-        else:
-            raise NotImplementedError()
+    #         LOGGER.debug(f"divs_ppq_fact {divs_ppq_fact}")
+    #     else:
+    #         raise NotImplementedError()
 
-        # basically: get the PPQ and scale all div values accordingly
-        # so that the divisons per quarter are equal to PPQ. The note onset
-        # times are given in delta PPQ since the last event always?
+    #     # basically: get the PPQ and scale all div values accordingly
+    #     # so that the divisons per quarter are equal to PPQ. The note onset
+    #     # times are given in delta PPQ since the last event always?
 
-        track = MidiTrack()
-        mf.tracks.append(track)
+    #     track = MidiTrack()
+    #     mf.tracks.append(track)
 
-        # set instrument/sound using MIDI program change
-        track.append(Message('program_change', program=0, time=0))
+    #     # set instrument/sound using MIDI program change
+    #     track.append(Message('program_change', program=0, time=0))
 
-        notes_assigned = defaultdict(list)
-        for note in part.notes_tied:  # this should incorporate the PPQ?
-            notes_assigned[note.start.t].append(note)
+    #     notes_assigned = defaultdict(list)
+    #     for note in part.notes_tied:  # this should incorporate the PPQ?
+    #         notes_assigned[note.start.t].append(note)
 
-        cursor_position = 0  # what if we have pickup measure? Should also work
+    #     cursor_position = 0  # what if we have pickup measure? Should also work
 
-        LOGGER.debug("\n")
-        # note that the timeline should be manually unfolded first, if
-        # necessary! Should this be done here, or where?
+    #     LOGGER.debug("\n")
+    #     # note that the timeline should be manually unfolded first, if
+    #     # necessary! Should this be done here, or where?
 
-        # for note in part.notes_tied:  # iterate over the part's notes
-        for key in notes_assigned:  # keys are timepoints
-            LOGGER.debug(f"key: {key}")
-            # for note in notes_assigned[key]:
+    #     # for note in part.notes_tied:  # iterate over the part's notes
+    #     for key in notes_assigned:  # keys are timepoints
+    #         LOGGER.debug(f"key: {key}")
+    #         # for note in notes_assigned[key]:
 
-            # take first note of possibly simultaneous notes
-            note = notes_assigned[key][0]
-            # common note start for all notes of same key
-            note_start = int(note.start.t * divs_ppq_fact - cursor_position)
+    #         # take first note of possibly simultaneous notes
+    #         note = notes_assigned[key][0]
+    #         # common note start for all notes of same key
+    #         note_start = int(note.start.t * divs_ppq_fact - cursor_position)
 
-            longest_note_end = 0
-            for note in notes_assigned[key]:
-                LOGGER.debug(f"note: {note}")
+    #         longest_note_end = 0
+    #         for note in notes_assigned[key]:
+    #             LOGGER.debug(f"note: {note}")
 
-                if note.voice is not None:
-                    # mxml: 1, 2, ...; MIDI: 0, 1, ...;
-                    channel_cursor = note.voice - 1
-                LOGGER.debug(f"channel: {channel_cursor}")
-                LOGGER.debug(f"voice: {note.voice}")
+    #             if note.voice is not None:
+    #                 # mxml: 1, 2, ...; MIDI: 0, 1, ...;
+    #                 channel_cursor = note.voice - 1
+    #             LOGGER.debug(f"channel: {channel_cursor}")
+    #             LOGGER.debug(f"voice: {note.voice}")
 
-                # check the absoulute start and end times of notes, given in PPQ
-                LOGGER.debug(f"note start TL: {note.start.t * divs_ppq_fact}")
-                LOGGER.debug(f"note end TL: {note.end_tied.t * divs_ppq_fact}")
+    #             # check the absoulute start and end times of notes, given in PPQ
+    #             LOGGER.debug(f"note start TL: {note.start.t * divs_ppq_fact}")
+    #             LOGGER.debug(f"note end TL: {note.end_tied.t * divs_ppq_fact}")
 
-                LOGGER.debug(f"cursor at: {cursor_position}")
+    #             LOGGER.debug(f"cursor at: {cursor_position}")
 
-                # note_start = int(note.start.t * divs_ppq_fact - cursor_position)
-                # delta to note start
-                note_end = int((note.end_tied.t - note.start.t) * divs_ppq_fact - 1)
+    #             # note_start = int(note.start.t * divs_ppq_fact - cursor_position)
+    #             # delta to note start
+    #             note_end = int((note.end_tied.t - note.start.t) * divs_ppq_fact - 1)
 
-                if note_end > longest_note_end:  # longest duration is also latest endpoint
-                # if int(note.end_tied.t * divs_ppq_fact) > longest_note_end:
-                    longest_note_end = int(note.end_tied.t * divs_ppq_fact)
+    #             if note_end > longest_note_end:  # longest duration is also latest endpoint
+    #             # if int(note.end_tied.t * divs_ppq_fact) > longest_note_end:
+    #                 longest_note_end = int(note.end_tied.t * divs_ppq_fact)
 
-                LOGGER.debug(f"note start rel to cursor: {note_start}")
-                LOGGER.debug(f"note end: {note_end}")
+    #             LOGGER.debug(f"note start rel to cursor: {note_start}")
+    #             LOGGER.debug(f"note end: {note_end}")
 
-                # cursor_position = int(note.end_tied.t * divs_ppq_fact - 1)
+    #             # cursor_position = int(note.end_tied.t * divs_ppq_fact - 1)
 
-                # add the note to the current track
-                # add_note_to_track(track, channel_cursor, note.midi_pitch,
-                #                   default_vel, note_start, note_end)
+    #             # add the note to the current track
+    #             # add_note_to_track(track, channel_cursor, note.midi_pitch,
+    #             #                   default_vel, note_start, note_end)
 
-                # track.append(Message('note_on',
-                #                      channel=channel_cursor,
-                #                      note=note.midi_pitch,
-                #                      velocity=default_vel,
-                #                      time=note_start))
-                # track.append(Message('note_off',
-                #                      channel=channel_cursor,
-                #                      note=note.midi_pitch,
-                #                      velocity=default_vel,
-                #                      time=note_end))
+    #             # track.append(Message('note_on',
+    #             #                      channel=channel_cursor,
+    #             #                      note=note.midi_pitch,
+    #             #                      velocity=default_vel,
+    #             #                      time=note_start))
+    #             # track.append(Message('note_off',
+    #             #                      channel=channel_cursor,
+    #             #                      note=note.midi_pitch,
+    #             #                      velocity=default_vel,
+    #             #                      time=note_end))
 
-            # update cursor to duration of longest note
-            cursor_position = int(longest_note_end - 1)
-            LOGGER.debug(f"cursor updated to: {cursor_position}")
+    #         # update cursor to duration of longest note
+    #         cursor_position = int(longest_note_end - 1)
+    #         LOGGER.debug(f"cursor updated to: {cursor_position}")
 
 
-            # track.append(Message('note_on',
-            #                      channel=channel_cursor,
-            #                      note=note.midi_pitch,
-            #                      velocity=default_vel,
-            #                      time=note_start))
-            # track.append(Message('note_off',
-            #                      channel=channel_cursor,
-            #                      note=note.midi_pitch,
-            #                      velocity=default_vel,
-            #                      time=note_end))
-            # # track.append(Message('note_on',
-            # #                      note=note.midi_pitch,
-            # #                      velocity=0,
-            # #                      time=note_end))
-            LOGGER.debug("note done \n")
+    #         # track.append(Message('note_on',
+    #         #                      channel=channel_cursor,
+    #         #                      note=note.midi_pitch,
+    #         #                      velocity=default_vel,
+    #         #                      time=note_start))
+    #         # track.append(Message('note_off',
+    #         #                      channel=channel_cursor,
+    #         #                      note=note.midi_pitch,
+    #         #                      velocity=default_vel,
+    #         #                      time=note_end))
+    #         # # track.append(Message('note_on',
+    #         # #                      note=note.midi_pitch,
+    #         # #                      velocity=0,
+    #         # #                      time=note_end))
+    #         LOGGER.debug("note done \n")
 
     ipdb.set_trace()
     mf.save(fn)  # save the midi file
