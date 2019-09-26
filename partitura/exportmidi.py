@@ -21,21 +21,61 @@ DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
-def get_quarter_durations(part_list, divs):
+def get_quarter_durations(part_list, divs=[]):
     """
 
     """
-    # divs = []
     for elem in part_list:
         if hasattr(elem, 'timeline'):
             # ipdb.set_trace()
             divs.append(elem.timeline.quarter_durations())
-            print(elem.part_name)
-            print(elem.timeline.quarter_durations())
+            # print(elem.part_name)
+            # print(elem.timeline.quarter_durations())
         else:
             divs = get_quarter_durations(elem.children, divs)
 
     return divs
+
+
+def get_parts_from_parts_partgroups(parts_partgroups, parts=[]):
+    """
+    From list of Part and/or PartGroup objects, get the Parts
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+    parts : list of tuples (Part, int or None)
+        (Part object, number of PartGroup or None)
+
+    """
+    pg = None
+    for elem in parts_partgroups:
+        if isinstance(elem, Part):
+            parent = get_parent(elem)
+            if parent is not None:
+                pg = parent.number
+            parts.append((elem, pg))
+        else:
+            parts = get_parts_from_parts_partgroups(elem.children, parts)
+
+    return parts
+
+
+def get_parent(part):
+    """
+
+    """
+    parent = None
+    print(part)
+    print(part.parent)
+    if part.parent is not None:
+        parent = get_parent(part.parent)
+
+    return parent
+
 
 
 def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
@@ -61,8 +101,8 @@ def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end
                          time=note_end))
 
 
-def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
-              ppq=DEFAULT_PPQ):
+def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
+              default_vel=64, ppq=DEFAULT_PPQ):
     """Write data from Part objects to a MIDI file
 
      A type 0 file contains the entire performance, merged onto a single track,
@@ -78,7 +118,7 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     fn : str
         can this also be a file like object? Check
 
-    parts : single or list of mulitple score.Part objects
+    parts_partgroups : single or list of mulitple score.Part objects
 
     part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
         This keyword controls how part and voice information is associated
@@ -144,9 +184,9 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     mf = MidiFile(type=file_type, ticks_per_beat=ppq)
 
     try:
-        len(parts)
+        len(parts_partgroups)
     except TypeError:
-        parts = [parts]  # wrap into list, makes things easier
+        parts_partgroups = [parts_partgroups]  # wrap into list, makes things easier
 
     # ipdb.set_trace()
 
@@ -170,17 +210,22 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     #         current = elem.children
     #     continue
 
-    divs = []
-    divs = get_quarter_durations(parts, divs)
+
+    # ipdb.set_trace()
+
+    # divs = get_quarter_durations(parts_partgroups)
 
         # all_divs.update(divs[:, 1])  # keep only the div values
 
+    # parts_only = []
+    parts_only = get_parts_from_parts_partgroups(parts_partgroups)
+
+
     ipdb.set_trace()
 
-
     # get the least common multiple of all involved div values used in all parts
-    lcm_all_divs = np.lcm.reduce(list(all_divs))
-    assert np.issubdtype(lcm_all_divs, np.integer)  # must be integer
+    # lcm_all_divs = np.lcm.reduce(list(all_divs))
+    # assert np.issubdtype(lcm_all_divs, np.integer)  # must be integer
 
     # divs_factors = {}
     # for div_val in all_divs:
@@ -201,25 +246,29 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     # a mapping to (track, chan), according to mode.
 
 
-    ipdb.set_trace()
+    # ipdb.set_trace()
 
     onoff_list = []
     prt_grp_part_voice_list = []
     prt_grp_part_voice = set()  # all occurring different combinations
     for kk, part in enumerate(parts):
-        notes = part.notes
-        qm = part.quarter_map
+        notes = part.notes_tied
+        qm = part.quarter_map  # quarter map of the current path
+
+        pg = None
+
+
 
         for note in notes:
             # check ints
-            onoff_list.append(['note_on', int(qm(note.start.t) * lcm_all_divs), note.midi_pitch])
-            onoff_list.append(['note_off', int(qm(note.end.t) * lcm_all_divs), note.midi_pitch])
+            onoff_list.append(['note_on', int(qm(note.start.t) * ppq), note.midi_pitch])
+            onoff_list.append(['note_off', int(qm(note.end_tied.t) * ppq), note.midi_pitch])
 
             # TO DO: get part's root
-            prt_grp_part_voice_list.append([_, kk, note.voice])
-            prt_grp_part_voice_list.append([_, kk, note.voice])
+            prt_grp_part_voice_list.append([pg, kk, note.voice])
+            prt_grp_part_voice_list.append([pg, kk, note.voice])
 
-            prt_grp_part_voice.add((_, kk, note.voice))
+            prt_grp_part_voice.add((pg, kk, note.voice))
 
     # get mappings from prt_grp_part_voice (using a dict for lookup),
     # then partition onoff_list according to (trk). All notes of one track
@@ -227,6 +276,7 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     # is part of note message -> mix into info from onoff_list.
     # Then fill tracks
 
+    ipdb.set_trace()
 
     # channel_cursor = 0
 
@@ -327,22 +377,6 @@ def save_midi(fn, parts, part_voice_assign_mode=0, file_type=1, default_vel=64,
     #         cursor_position = int(longest_note_end - 1)
     #         LOGGER.debug(f"cursor updated to: {cursor_position}")
 
-
-    #         # track.append(Message('note_on',
-    #         #                      channel=channel_cursor,
-    #         #                      note=note.midi_pitch,
-    #         #                      velocity=default_vel,
-    #         #                      time=note_start))
-    #         # track.append(Message('note_off',
-    #         #                      channel=channel_cursor,
-    #         #                      note=note.midi_pitch,
-    #         #                      velocity=default_vel,
-    #         #                      time=note_end))
-    #         # # track.append(Message('note_on',
-    #         # #                      note=note.midi_pitch,
-    #         # #                      velocity=0,
-    #         # #                      time=note_end))
-    #         LOGGER.debug("note done \n")
 
     ipdb.set_trace()
     mf.save(fn)  # save the midi file
