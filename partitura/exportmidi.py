@@ -21,22 +21,6 @@ DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
-def get_quarter_durations(part_list, divs=[]):
-    """
-
-    """
-    for elem in part_list:
-        if hasattr(elem, 'timeline'):
-            # ipdb.set_trace()
-            divs.append(elem.timeline.quarter_durations())
-            # print(elem.part_name)
-            # print(elem.timeline.quarter_durations())
-        else:
-            divs = get_quarter_durations(elem.children, divs)
-
-    return divs
-
-
 def get_parts_from_parts_partgroups(parts_partgroups, parts=[]):
     """
     From list of Part and/or PartGroup objects, get the Parts
@@ -59,38 +43,26 @@ def get_parts_from_parts_partgroups(parts_partgroups, parts=[]):
         if isinstance(elem, Part):
             # get last PartGroup that contains current Part
             pg_number = get_root(elem)
-            print(f"pg_number: {pg_number}")
-            # pg_number = parent.number
-
             parts.append((elem, pg_number))
         else:
             parts = get_parts_from_parts_partgroups(elem.children, parts)
 
     return parts
 
-
-def get_parent(part):
+def get_root(part_partgroup):
     """
-
-    """
-    print(part)
-    print(part.parent)
-    if part.parent is not None:
-        parent = get_parent(part.parent)
-    else:
-        parent = part.parent
-
-    return parent
-
-def get_root(part):
-    """
+    Get a part's root PartGroup's number, if there is one.
 
     Parameters
     ----------
-    part :
+    part_partgroup : Part or PartGroup
 
+
+    Returns
+    -------
+    number : int
     """
-    p = part
+    p = part_partgroup
     number = None
     while isinstance(p.parent, PartGroup):
         p = p.parent
@@ -209,58 +181,7 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     except TypeError:
         parts_partgroups = [parts_partgroups]  # wrap into list, makes things easier
 
-    # ipdb.set_trace()
-
-    # note that partgroups can be nested
-
-    # get common div value for all involved parts
-    all_divs = set()
-    # for elem in parts:  # iterate over the parts
-    #     try:
-    #         # get an array of the current part's divs
-    #         divs = elem.timeline.quarter_durations()  # gives quarter durations per part
-    #     except AttributeError:  # PartGroup
-    #         while hasattr(elem, 'children'):
-
-    # current = parts
-    # for elem in current:  # parts:  # iterate over the parts
-    #     # if hasattr(elem, 'timeline'):
-    #     #     divs = elem.timeline.quarter_durations()  # gives quarter durations per part
-    #     while hasattr(elem, 'children'):
-    #         print(elem.children)
-    #         current = elem.children
-    #     continue
-
-    # divs = get_quarter_durations(parts_partgroups)
-
-        # all_divs.update(divs[:, 1])  # keep only the div values
-
-    # parts_only = []
     parts_only = get_parts_from_parts_partgroups(parts_partgroups)
-
-    ipdb.set_trace()
-
-    # get the least common multiple of all involved div values used in all parts
-    # lcm_all_divs = np.lcm.reduce(list(all_divs))
-    # assert np.issubdtype(lcm_all_divs, np.integer)  # must be integer
-
-    # divs_factors = {}
-    # for div_val in all_divs:
-    #     # Note: is there anywhere in score, etc., a check whether the div
-    #     # values are actually integers? Then the whole testing here
-    #     # would be unnecessary
-    #     assert np.issubdtype(div_val, np.integer)  # check if best way
-    #     divs_factors[div_val] = lcm_all_divs // div_val
-
-    # with quarter map, it is not necessary to fix divs within a part.
-    # get list with all notes of all parts, get onset and offset times per note (make struct for note)
-    # create per list entry a triplet [part group, part, voice] (1:1 mapping to the notes)
-    # notes = part.notes
-    # [msg for note in notes for msg in [note.on, note.off]]
-    # get li
-
-    # TODO: fct that does the mode assignment, returns per (prtgrp, part, voice)
-    # a mapping to (track, chan), according to mode.
 
     onoff_list = []
     prt_grp_part_voice_list = []
@@ -277,12 +198,11 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
             onoff_list.append(['note_on', int(qm(note.start.t) * ppq), note.midi_pitch])
             onoff_list.append(['note_off', int(qm(note.end_tied.t) * ppq), note.midi_pitch])
 
-            # TO DO: get part's root
             # enumerate parts starting from 1
             prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
             prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
 
-            prt_grp_part_voice.add((pg, kk, note.voice))
+            prt_grp_part_voice.add((pg_number, kk, note.voice))
 
     # get mappings from prt_grp_part_voice (using a dict for lookup),
     # then partition onoff_list according to (trk). All notes of one track
