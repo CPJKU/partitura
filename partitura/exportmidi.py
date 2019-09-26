@@ -71,6 +71,21 @@ def get_root(part_partgroup):
     return number
 
 
+def assign_parts_voices_tracks_channels(mode):
+    """
+    Assign given parts and their voices' notes to MIDI tracks and channels.
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+
+
+    """
+
+
 def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
     """Helper function for adding notes to a track
 
@@ -190,8 +205,8 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
         part = elem[0]
         pg_number = elem[1]
 
-        notes = part.notes_tied
-        qm = part.quarter_map  # quarter map of the current part
+        notes = part.notes_tied  # current part's notes
+        qm = part.quarter_map    # quarter map of the current part
 
         for note in notes:
             # check ints
