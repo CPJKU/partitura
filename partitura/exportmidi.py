@@ -43,21 +43,26 @@ def get_parts_from_parts_partgroups(parts_partgroups, parts=[]):
 
     Parameters
     ----------
+    parts_partgroups : list
+
+
+    parts : list, optional
 
 
     Returns
     -------
     parts : list of tuples (Part, int or None)
         (Part object, number of PartGroup or None)
-
     """
-    pg = None
+    # pg = None
     for elem in parts_partgroups:
         if isinstance(elem, Part):
-            parent = get_parent(elem)
-            if parent is not None:
-                pg = parent.number
-            parts.append((elem, pg))
+            # get last PartGroup that contains current Part
+            pg_number = get_root(elem)
+            print(f"pg_number: {pg_number}")
+            # pg_number = parent.number
+
+            parts.append((elem, pg_number))
         else:
             parts = get_parts_from_parts_partgroups(elem.children, parts)
 
@@ -68,14 +73,30 @@ def get_parent(part):
     """
 
     """
-    parent = None
     print(part)
     print(part.parent)
     if part.parent is not None:
         parent = get_parent(part.parent)
+    else:
+        parent = part.parent
 
     return parent
 
+def get_root(part):
+    """
+
+    Parameters
+    ----------
+    part :
+
+    """
+    p = part
+    number = None
+    while isinstance(p.parent, PartGroup):
+        p = p.parent
+        number = p.number  # number of root PG
+
+    return number
 
 
 def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
@@ -210,16 +231,12 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     #         current = elem.children
     #     continue
 
-
-    # ipdb.set_trace()
-
     # divs = get_quarter_durations(parts_partgroups)
 
         # all_divs.update(divs[:, 1])  # keep only the div values
 
     # parts_only = []
     parts_only = get_parts_from_parts_partgroups(parts_partgroups)
-
 
     ipdb.set_trace()
 
@@ -245,19 +262,15 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     # TODO: fct that does the mode assignment, returns per (prtgrp, part, voice)
     # a mapping to (track, chan), according to mode.
 
-
-    # ipdb.set_trace()
-
     onoff_list = []
     prt_grp_part_voice_list = []
     prt_grp_part_voice = set()  # all occurring different combinations
-    for kk, part in enumerate(parts):
+    for kk, elem in enumerate(parts_only):
+        part = elem[0]
+        pg_number = elem[1]
+
         notes = part.notes_tied
-        qm = part.quarter_map  # quarter map of the current path
-
-        pg = None
-
-
+        qm = part.quarter_map  # quarter map of the current part
 
         for note in notes:
             # check ints
@@ -265,8 +278,9 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
             onoff_list.append(['note_off', int(qm(note.end_tied.t) * ppq), note.midi_pitch])
 
             # TO DO: get part's root
-            prt_grp_part_voice_list.append([pg, kk, note.voice])
-            prt_grp_part_voice_list.append([pg, kk, note.voice])
+            # enumerate parts starting from 1
+            prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
+            prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
 
             prt_grp_part_voice.add((pg, kk, note.voice))
 
