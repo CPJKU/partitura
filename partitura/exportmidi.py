@@ -15,7 +15,6 @@ LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
-
 DEFAULT_FORMAT = 0  # MIDI file format
 DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
@@ -49,6 +48,7 @@ def get_parts_from_parts_partgroups(parts_partgroups, parts=[]):
 
     return parts
 
+
 def get_root(part_partgroup):
     """
     Get a part's root PartGroup's number, if there is one.
@@ -71,19 +71,57 @@ def get_root(part_partgroup):
     return number
 
 
-def assign_parts_voices_tracks_channels(mode):
+def assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list, onoff_list):
     """
     Assign given parts and their voices' notes to MIDI tracks and channels.
 
     Parameters
     ----------
+    mode : int
+
+
+    prt_grp_part_voice_list : list of tuples
 
 
     Returns
     -------
-
+    assigned_notes : dictionary of lists
+        each list has [[note_on/note_off, time-stamp, midi_pitch], midi_channel]
 
     """
+
+    chn_nr = 0  # check whether starts at zero or one
+
+    assigned_notes = defaultdict(list)  # keys are track numbers
+
+    if mode == 0:
+        for kk, elem in enumerate(prt_grp_part_voice_list):
+            assigned_notes[elem[1]].append([*onoff_list[kk], elem[2]])
+    if mode == 1:
+        pass
+    if mode == 2:
+        for kk, elem in enumerate(prt_grp_part_voice_list):
+            # only one track, number starting at 1
+            assigned_notes[1].append([*[onoff_list[kk]], elem[1]])
+    if mode == 3:
+        pass
+    if mode == 4:
+        pass
+    if mode == 5:
+        pass
+
+
+    for key in assigned_notes.keys():
+        print(key)
+        # is it enough to sort the notes by their time-stamp? Or should
+        # there be some logic to make sure that the note_off always come
+        # before a new note on of e.g. same pitch?
+        assigned_notes[key].sort(key=lambda x: x[0][1])
+
+    ipdb.set_trace()
+
+    return assigned_notes
+
 
 
 def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
@@ -196,6 +234,7 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     except TypeError:
         parts_partgroups = [parts_partgroups]  # wrap into list, makes things easier
 
+    # get list of only Part objects
     parts_only = get_parts_from_parts_partgroups(parts_partgroups)
 
     onoff_list = []
@@ -205,7 +244,8 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
         part = elem[0]
         pg_number = elem[1]
 
-        notes = part.notes_tied  # current part's notes
+        # current part's notes, we use `notes_tied`!
+        notes = part.notes_tied
         qm = part.quarter_map    # quarter map of the current part
 
         for note in notes:
@@ -214,6 +254,8 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
             onoff_list.append(['note_off', int(qm(note.end_tied.t) * ppq), note.midi_pitch])
 
             # enumerate parts starting from 1
+            # note that we do this 2 times to have equally many as note_on,
+            # note_off messages.
             prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
             prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
 
@@ -224,6 +266,9 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     # combined, sorted by time stamp (per track) written to track. The channel
     # is part of note message -> mix into info from onoff_list.
     # Then fill tracks
+
+    mode = 0
+    assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list, onoff_list)
 
     ipdb.set_trace()
 
