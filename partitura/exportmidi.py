@@ -102,6 +102,7 @@ def assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list, onoff_lis
     if mode == 2:
         for kk, elem in enumerate(prt_grp_part_voice_list):
             # only one track, number starting at 1
+            # midi channels assigned by part number (they start at 1)
             assigned_notes[1].append([*[onoff_list[kk]], elem[1]])
     if mode == 3:
         pass
@@ -110,18 +111,13 @@ def assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list, onoff_lis
     if mode == 5:
         pass
 
-
     for key in assigned_notes.keys():
-        print(key)
         # is it enough to sort the notes by their time-stamp? Or should
         # there be some logic to make sure that the note_off always come
         # before a new note on of e.g. same pitch?
         assigned_notes[key].sort(key=lambda x: x[0][1])
 
-    ipdb.set_trace()
-
     return assigned_notes
-
 
 
 def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
@@ -226,9 +222,6 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     -------
 
     """
-    # create object, spefify some basic parameters here
-    mf = MidiFile(type=file_type, ticks_per_beat=ppq)
-
     try:
         len(parts_partgroups)
     except TypeError:
@@ -267,10 +260,26 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     # is part of note message -> mix into info from onoff_list.
     # Then fill tracks
 
-    mode = 0
-    assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list, onoff_list)
+    part_voice_assign_mode = 0  # remove this after testing!
+    assigned_notes = assign_parts_voices_tracks_channels(part_voice_assign_mode,
+                                                         prt_grp_part_voice_list,
+                                                         onoff_list)
+
+    # create object, spefify some basic parameters here
+    mf = MidiFile(type=file_type, ticks_per_beat=ppq)
+
+    for key in assigned_notes.keys():  # keys are MIDI tracks
+        print(key)
+        # create track and append to file object
+        track = MidiTrack()
+        mf.tracks.append(track)
+
+        for elem in assigned_notes[key]:
+            print(elem)
+
 
     ipdb.set_trace()
+
 
     # channel_cursor = 0
 
