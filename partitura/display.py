@@ -68,7 +68,7 @@ def show(part, out_fmt='png'):
         img_stem = img_fh.name[:-len(prvw_sfx)]
 
         # convert musicxml to lilypond format (use stdout pipe)
-        cmd1 = ['musicxml2lys', '-o-', '-']
+        cmd1 = ['musicxml2ly', '-o-', '-']
         try:
             ps1 = subprocess.run(cmd1, stdin=xml_fh, stdout=subprocess.PIPE)
             if ps1.returncode != 0:
