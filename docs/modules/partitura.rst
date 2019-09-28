@@ -48,10 +48,10 @@ partitura.score
       :undoc-members:
       :show-inheritance:
 
-partitura.utils
----------------
-
-.. automodule:: partitura.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   partitura.utils
+   ---------------
+   
+   .. automodule:: partitura.utils
+      :members:
+      :undoc-members:
+      :show-inheritance:

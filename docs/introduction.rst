@@ -1,3 +1,4 @@
+============
 Introduction
 ============
 
@@ -23,17 +24,17 @@ Moreover, it supports musical notions that are not note-related, like:
 * and time/key signatures.
 
 Supported file types
---------------------
+====================
 
 Musical data can be loaded from and saved to MusicXML files, as well as MIDI
 files. 
 
 Conceptual Overview
--------------------
+===================
 
 
 Relation to `music21 <https://web.mit.edu/music21/>`_
------------------------------------------------------
+=====================================================
 
 The aims of `partitura` are much more modest than those of `music21`, which aims
 to provide toolkit for computer-aided musicology. Instead, `partitura` provides

@@ -16,7 +16,7 @@ import partitura.score as score
 __all__ = ['load_musicxml']
 
 LOGGER = logging.getLogger(__name__)
-_MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'musicxml.xsd')
+_MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'assets/musicxml.xsd')
 _XML_VALIDATOR = None
 DYN_DIRECTIONS = {
     'f': score.ConstantLoudnessDirection,
@@ -836,12 +836,12 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
 
         if grace is not None:
             grace_type, steal_proportion = get_grace_info(grace)
-            note = score.GraceNote(grace_type, step, alter, octave,
+            note = score.GraceNote(grace_type, step, octave, alter,
                                    note_id, voice, staff, symbolic_duration,
                                    articulations, steal_proportion=steal_proportion)
         else:
 
-            note = score.Note(step, alter, octave, note_id, voice, staff,
+            note = score.Note(step, octave, alter, note_id, voice, staff,
                               symbolic_duration, articulations)
 
     else:

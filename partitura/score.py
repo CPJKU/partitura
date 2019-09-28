@@ -52,7 +52,7 @@ from partitura.utils import (
 
 LOGGER = logging.getLogger(__name__)
 
-class ReplaceRefMixin(object):
+class _ReplaceRefMixin(object):
     """This class is a utility mixin class to replace references to
     objects with references to other objects. This is functionality is
     used when unfolding timelines.
@@ -65,7 +65,7 @@ class ReplaceRefMixin(object):
     The following class defines `prev` as a referential attribute, to
     be replaced when a class instance is copied:
 
-    >>> class MyClass(ReplaceRefMixin):
+    >>> class MyClass(_ReplaceRefMixin):
     ...     def __init__(self, prev=None):
     ...         super().__init__()
     ...         self.prev = prev
@@ -520,7 +520,8 @@ class TimePoint(ComparableMixin):
         return new
 
     def __str__(self):
-        return 'Timepoint {}'.format(self.t)
+        return ('TimePoint t={} quarter={}'
+                .format(self.t, self.quarter))
 
     def add_starting_object(self, obj):
         """Add object `obj` to the list of starting objects
@@ -625,7 +626,7 @@ class TimePoint(ComparableMixin):
         return self.t
 
     def _pp(self, tree):
-        result = ['{}Timepoint {}'.format(tree, self.t)]
+        result = ['{}{}'.format(tree, self.__str__())]
         tree.push()
 
         ending_items_lists = sorted_dict_items(self.ending_objects.items(),
@@ -638,7 +639,7 @@ class TimePoint(ComparableMixin):
 
         if ending_items:
 
-            result.append('{}'.format(tree))
+            result.append('{}'.format(tree).rstrip())
 
             if starting_items:
                 tree.next_item()
@@ -647,7 +648,7 @@ class TimePoint(ComparableMixin):
 
             result.append('{}ending objects'.format(tree))
             tree.push()
-            result.append('{}'.format(tree))
+            result.append('{}'.format(tree).rstrip())
 
             for i, item in enumerate(ending_items):
 
@@ -662,11 +663,11 @@ class TimePoint(ComparableMixin):
 
         if starting_items:
 
-            result.append('{}'.format(tree))
+            result.append('{}'.format(tree).rstrip())
             tree.last_item()
             result.append('{}starting objects'.format(tree))
             tree.push()
-            result.append('{}'.format(tree))
+            result.append('{}'.format(tree).rstrip())
 
             for i, item in enumerate(starting_items):
 
@@ -683,11 +684,11 @@ class TimePoint(ComparableMixin):
         return result
 
 
-class TimedObject(ReplaceRefMixin):
+class TimedObject(_ReplaceRefMixin):
 
     """Class that represents objects that (may?) have a start and ending
     point. Used as super-class for classes representing different types of
-    objects in a (printed) score.
+    objects in a musical score.
 
     """
 
@@ -704,7 +705,7 @@ class Page(TimedObject):
         self.nr = nr
 
     def __str__(self):
-        return 'Page: number={0}'.format(self.nr)
+        return 'Page number={0}'.format(self.nr)
 
 
 class System(TimedObject):
@@ -714,7 +715,7 @@ class System(TimedObject):
         self.nr = nr
 
     def __str__(self):
-        return 'System: number={0}'.format(self.nr)
+        return 'System number={0}'.format(self.nr)
 
 class Clef(TimedObject):
     """
@@ -729,7 +730,7 @@ class Clef(TimedObject):
         self.octave_change = octave_change
 
     def __str__(self):
-        return 'Clef: sign={} line={} number={}'.format(self.sign, self.line, self.number)
+        return 'Clef sign={} line={} number={}'.format(self.sign, self.line, self.number)
 
 
 class Slur(TimedObject):
@@ -816,7 +817,7 @@ class Measure(TimedObject):
 
     def __str__(self):
         # return 'Measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
-        return 'Measure: number={0}'.format(self.number)
+        return 'Measure number={0}'.format(self.number)
 
     @property
     def page(self):
@@ -920,7 +921,7 @@ class TimeSignature(TimedObject):
         self.beat_type = beat_type
 
     def __str__(self):
-        return 'Time signature: {0}/{1}'.format(self.beats, self.beat_type)
+        return 'TimeSignature {0}/{1}'.format(self.beats, self.beat_type)
 
 
 class Tempo(TimedObject):
@@ -932,9 +933,9 @@ class Tempo(TimedObject):
 
     def __str__(self):
         if self.unit:
-            return 'Tempo: {}={}'.format(self.unit, self.bpm)
+            return 'Tempo {}={}'.format(self.unit, self.bpm)
         else:
-            return 'Tempo: bpm={0}'.format(self.bpm)
+            return 'Tempo bpm={0}'.format(self.bpm)
 
 
 class KeySignature(TimedObject):
@@ -972,7 +973,7 @@ class KeySignature(TimedObject):
         return fifths_mode_to_key_name(self.fifths, self.mode)
 
     def __str__(self):
-        return ('Key signature: fifths={}, mode={} ({})'
+        return ('Key signature fifths={}, mode={} ({})'
                 .format(self.fifths, self.mode, self.name))
 
 
@@ -996,7 +997,7 @@ class Transposition(TimedObject):
         self.chromatic = chromatic
 
     def __str__(self):
-        return 'Transposition: diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
+        return 'Transposition diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
 
 
 class Words(TimedObject):
@@ -1013,7 +1014,7 @@ class Words(TimedObject):
         self.staff = staff
 
     def __str__(self):
-        return '{}: {}'.format(type(self).__name__, self.text)
+        return '{} "{}"'.format(type(self).__name__, self.text)
 
 
 class Direction(TimedObject):
@@ -1030,9 +1031,9 @@ class Direction(TimedObject):
 
     def __str__(self):
         if self.raw_text is not None:
-            return '{}: {} ({})'.format(type(self).__name__, self.text, self.raw_text)
+            return '{} "{}" ({})'.format(type(self).__name__, self.text, self.raw_text)
         else:
-            return '{}: {}'.format(type(self).__name__, self.text)
+            return '{} "{}"'.format(type(self).__name__, self.text)
 
 
 class TempoDirection(Direction): pass
@@ -1187,7 +1188,7 @@ class GenericNote(TimedObject):
             return []
 
     def __str__(self):
-        s = ('{}: id={} voice={} staff={} type={}'
+        s = ('{} id={} voice={} staff={} type={}'
              .format(type(self).__name__, self.id, self.voice, self.staff,
                      format_symbolic_duration(self.symbolic_duration)))
         if len(self.articulations) > 0:
@@ -1202,11 +1203,11 @@ class GenericNote(TimedObject):
 
 
 class Note(GenericNote):
-    def __init__(self, step, alter, octave, *args, **kwargs):
+    def __init__(self, step, octave, alter=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.step = step
-        self.alter = alter
         self.octave = octave
+        self.alter = alter
 
     def __str__(self):
         return ' '.join((super().__str__(),
@@ -1341,7 +1342,7 @@ class PartGroup(object):
         tree.push()
         N = len(self.children)
         for i, child in enumerate(self.children):
-            result.append('{}'.format(tree))
+            result.append('{}'.format(tree).rstrip())
             if i == N - 1:
                 tree.last_item()
             else:
@@ -1384,7 +1385,7 @@ class ScoreVariant(object):
         return [(s.t, e.t, o) for (s, e, o) in self.segments]
 
     def __str__(self):
-        return 'Segment: {}'.format(self.segment_times)
+        return 'Segment {}'.format(self.segment_times)
 
     def clone(self):
         """
@@ -1560,13 +1561,15 @@ class Part(object):
     #     return self.timeline.test()
 
 
+    def __str__(self):
+        return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
+
     def _pp(self, tree):
-        result = ['{}Part: name="{}" id="{}"'
-                  .format(tree, self.part_name, self.id)]
+        result = [self.__str__()]
         tree.push()
         N = len(self.timeline.points)
         for i, timepoint in enumerate(self.timeline.points):
-            result.append('{}'.format(tree))
+            result.append('{}'.format(tree).rstrip())
             if i == N - 1:
                 tree.last_item()
             else:
@@ -1637,9 +1640,14 @@ class Part(object):
 
 
     def _time_interpolator(self, quarter=False, inv=False):
+
+        tl = self.timeline
+
+        if len(tl.points) < 2:
+            return lambda x: np.zeros(len(x))
+
         offset = 0
         keypoints = defaultdict(lambda: [None, None])
-        tl = self.timeline
         _ = keypoints[tl.first_point.t]
         _ = keypoints[tl.last_point.t]
         for t, q in zip(tl._quarter_times, tl._quarter_durations):
@@ -1690,13 +1698,10 @@ class Part(object):
                 # warn
                 pass
 
-        if len(tl.points) < 2:
-            return lambda x: np.zeros(len(x))
+        if inv:
+            return interp1d(y, x)
         else:
-            if inv:
-                return interp1d(y, x)
-            else:
-                return interp1d(x, y)
+            return interp1d(x, y)
 
     @property
     def beat_map(self):
