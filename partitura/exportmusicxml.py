@@ -16,6 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
+TUPLET_STATE = None
 
 def filter_string(s):
     """
@@ -24,7 +25,9 @@ def filter_string(s):
     """
     return s.replace('\x00', '')
 
+
 def make_note_el(note, dur, voice, counter):
+    global TUPLET_STATE
     # child order
     # <grace> | <chord> | <cue>
     # <pitch>
@@ -112,13 +115,29 @@ def make_note_el(note, dur, voice, counter):
 
     if (sym_dur.get('actual_notes') is not None
         and sym_dur.get('normal_notes') is not None):
-
         time_mod_e = etree.SubElement(note_e, 'time-modification')
         actual_e = etree.SubElement(time_mod_e, 'actual-notes')
         actual_e.text = str(sym_dur['actual_notes'])
         normal_e = etree.SubElement(time_mod_e, 'normal-notes')
         normal_e.text = str(sym_dur['normal_notes'])
-
+        print('TUPLET', TUPLET_STATE)
+        if TUPLET_STATE is None:
+            # TUPLET_STATE = {'current': 1, 'total': sym_dur['actual_notes']}
+            notations.append(etree.Element('tuplet', number='1', type='start'))
+            TUPLET_STATE = 2
+        elif TUPLET_STATE == sym_dur['actual_notes']:
+            # TUPLET_STATE = {'current': 1, 'total': sym_dur['actual_notes']}
+            notations.append(etree.Element('tuplet', number='1', type='stop'))
+            print('stop')
+            TUPLET_STATE = None
+        else:
+            TUPLET_STATE += 1
+    else:
+        TUPLET_STATE = None
+    print(note)
+    print(TUPLET_STATE)
+    print()
+    
     if note.staff:
         
         etree.SubElement(note_e, 'staff').text = '{}'.format(note.staff)
@@ -159,6 +178,7 @@ def make_note_el(note, dur, voice, counter):
         notations_e.extend(notations)
 
     return note_e
+
 
 def do_note(note, measure_end, timeline, voice, counter):
     notes = []
@@ -351,7 +371,7 @@ def linearize_segment_contents(part, start, end, counter):
     # fill_gaps_with_rests(notes_by_voice, start, end, part)
 
     # # redo
-    # notes = part.timeline.get_all(score.GenericNote,
+    # notes = part.timeline.iter_all(score.GenericNote,
     #                               start=start, end=end,
     #                               include_subclasses=True)
     # notes_by_voice = partition(lambda n: n.voice or 0, notes)
@@ -383,6 +403,7 @@ def linearize_segment_contents(part, start, end, counter):
     contents = merge_measure_contents(voices_e, other_e, start.t)
     
     return contents
+
 
 def do_prints(part, start, end):
     pages = part.timeline.iter_all(score.Page, start, end)

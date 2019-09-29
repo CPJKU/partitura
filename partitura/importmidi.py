@@ -524,6 +524,7 @@ def find_tuplets(part):
                             # recognized duration without dots
                             dur_type['actual_notes'] = actual_notes
                             dur_type['normal_notes'] = normal_notes
+                            dur_type['tuplet_nr'] = 1
                             for note in tuplet:
                                 note.symbolic_duration = dur_type.copy()
                             tup_start += actual_notes

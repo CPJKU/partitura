@@ -819,6 +819,11 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
         assert prev_note is not None
         position = prev_note.start.t
 
+    tuplet_e = e.find('notations/tuplet')
+    if tuplet_e is not None:
+        # keep track of tuplet start/end/number in some way or another
+        pass
+
     articulations_e = e.find('notations/articulations')
     if articulations_e is not None:
         articulations = get_articulations(articulations_e)
