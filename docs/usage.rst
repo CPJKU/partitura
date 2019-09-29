@@ -111,7 +111,7 @@ duration of a quarter note. The `divisions` value can vary within an
 MusicXML file, so it is generally better to work with musical time in
 beats.
 
-The part object has a property :attr:`part.notes
+The part object has a property :attr:`part.beat_map
 <partitura.score.Part.beat_map>` that converts timeline times into beat
 times:
 
@@ -124,7 +124,8 @@ times:
 Iterating over arbitrary musical objects
 ========================================
 
-[[ part.notes is just a shortcut for:]]
+In the previous Section we used :attr:`part.notes <partitura.score.Part.notes>` to obtain the notes in the part as a list.
+This property is a short cut for the following statement:
 
 .. doctest::
 
@@ -132,13 +133,18 @@ Iterating over arbitrary musical objects
   [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
   <partitura.score.Note object at 0x...>]
 
-[[ we can use iter_all for any class of musical objects:]]
+Here we access the :meth:`~partitura.score.TimeLine.iter_all` method
+of the :attr:`~partitura.score.Part.timeline` attribute. Given a class, it
+iterates over all instances of that class that occur in the part:
 
 >>> for m in part.timeline.iter_all(partitura.score.Measure):
 ...     print(m)
 Measure number=1
 
-[[ We can choose to include subclasses of the specified class ]]
+The :meth:`~partitura.score.TimeLine.iter_all` method has a keyword
+`include_subclasses` that indicates that we are also interested in any
+subclasses of the specified class. For example, the following statement
+iterates over all objects in the part:
 
 >>> for m in part.timeline.iter_all(object, include_subclasses=True):
 ...     print(m)
@@ -151,11 +157,24 @@ Rest id=r01 voice=2 staff=1 type=half
 Note id=n02 voice=2 staff=1 type=half pitch=C5
 Note id=n03 voice=2 staff=1 type=half pitch=E5
 
-Importing data from MIDI
-========================
+This approach is useful for example when we want to retrieve rests in
+addition to notes. Since rests and notes are both subclassess of
+:class:`GenericNote <partitura.score.GenericNote>`, the following works:
+
+>>> for m in part.timeline.iter_all(partitura.score.GenericNote, include_subclasses=True):
+...     print(m)
+Note id=n01 voice=1 staff=2 type=whole pitch=A4
+Rest id=r01 voice=2 staff=1 type=half
+Note id=n02 voice=2 staff=1 type=half pitch=C5
+Note id=n03 voice=2 staff=1 type=half pitch=E5
+
+By default, `include_subclasses` is False.
 
 ..
-   >>> part = partitura.load_midi('My Part')
+   Importing data from MIDI
+   ========================
+
+   >>> part = partitura.load_midi()
 
 
 Creating a score by hand
@@ -180,6 +199,9 @@ and adding them to the part:
 
 Exporting a score to MusicXML
 =============================
+
+The :func:`partitura.save_musicxml` function exports score information to
+MusicXML. The following statement saves `part` to a file `mypart.musicxml`:
 
 >>> partitura.save_musicxml(part, 'mypart.musicxml')
 

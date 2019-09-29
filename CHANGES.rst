@@ -1,13 +1,12 @@
 Release Notes
 =============
 
-Version 0.1.2 (prerelease; unreleased)
---------------------------------------
-
-TODO: list changes from 9898e2f8c4b7cb87df650993e57fe3ab28a6a889 (inclusive) upward
+Version 0.1.2 (prerelease; Released on 2019-09-29)
+--------------------------------------------------
 
 API changes:
 
+* New approach to handling divisions
 * Treat missing key signature mode as major
 * Function `iter_parts` accepts non-list arg
 * Don't do quantization by default
@@ -18,6 +17,12 @@ API changes:
 * Rename PartGroup.name -> PartGroup.group_name (for consistency)
 * Rename Part.part_id -> Part.id
 * `iter_parts` accepts non-list arg
+* Remove `Measure.upbeat` property (use `Measure.incomplete`)
+
+New features:
+
+* New add_measures function to automatically add measures to a Part
+* Add inverted quarter/beat map
 
 Bug fixes:
 
@@ -37,15 +42,18 @@ Bug fixes:
   
 Other changes:
   
+* Add test case for beat maps and symbolic durations
+* Improve direction parsing
 * Remove polyphony within voices when exporting to musicxml
 * Add show function to show typeset score (using lilypondn)
 * Add/improve documentation
-* improve pretty printing
+* Improve pretty printing
 * Remove trailing whitespace
 * More exhaustive tuplet search
 * Write tests for tuplet detection
 * Write tests for importmidi assignment modes
-
+* Rewrite quarter/beat map construction
+* Create (non-public API) utils sub package
 
 Version 0.1.1 (prerelease)
 --------------------------
