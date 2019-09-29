@@ -8,12 +8,15 @@ supports loading from and exporting to *MusicXML* and *MIDI* files.
 Quickstart
 ==========
 
-The following code loads the contents of an example MusicXML file included in the package
-and shows its contents:
-  
+The following code loads the contents of an example MusicXML file included in
+the package:
+
 >>> import partitura
->>> mxml_file = partitura.EXAMPLE_MUSICXML
->>> part = partitura.load_musicxml(mxml_file)
+>>> my_xml_file = partitura.EXAMPLE_MUSICXML
+>>> part = partitura.load_musicxml(my_xml_file)
+
+The following shows the contents of the part:
+
 >>> print(part.pretty())
 Part id="P1" name="Piano"
  │
@@ -51,11 +54,9 @@ Part id="P1" name="Piano"
 The notes in this part can be accessed through the property
 :attr:`part.notes <partitura.score.Part.notes>`:
 
-.. doctest::
-
-  >>> part.notes # doctest: +NORMALIZE_WHITESPACE
-  [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
-  <partitura.score.Note object at 0x...>]
+>>> part.notes
+[<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
+ <partitura.score.Note object at 0x...>]
 
 To create a piano roll extract from the part as a numpy array you would do
 the following:
