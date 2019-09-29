@@ -10,12 +10,13 @@ from setuptools import find_packages, setup, Command
 
 # Package meta-data.
 NAME = 'partitura'
-DESCRIPTION = 'A package to handle musicXML, match, worm and MIDI files'
+DESCRIPTION = 'A package for handling symbolic musical information'
+KEYWORDS = 'music notation musicxml midi'
 URL = 'https://github.com/mgrachten/partitura'
 EMAIL = 'partitura-users@googlegroups.com'
 AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
 REQUIRES_PYTHON = '>=3.5'
-VERSION = '0.1.2'
+VERSION = '0.1.3'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -42,7 +43,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 # Import the README and use it as the long-description.
 # Note: this will only work if 'README.md' is present in your MANIFEST.in file!
 try:
-    with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    with io.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
         long_description = '\n' + f.read()
 except FileNotFoundError:
     long_description = DESCRIPTION
@@ -63,6 +64,7 @@ setup(
     description=DESCRIPTION,
     long_description=long_description,
     long_description_content_type='text/markdown',
+    keywords=KEYWORDS,
     author=AUTHOR,
     author_email=EMAIL,
     python_requires=REQUIRES_PYTHON,

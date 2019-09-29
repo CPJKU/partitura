@@ -768,6 +768,23 @@ def do_attributes(part, start, end):
     
 
 def save_musicxml(parts, out=None):
+    """Save a one or more Part or PartGroup instances in MusicXML format.
+    
+    Parameters
+    ----------
+    parts : list, Part, or PartGroup
+        A :class:`partitura.score.Part` object,
+        :class:`partitura.score.PartGroup` or a list of these
+    out: str, file-like object, or None, optional
+        Output file
+    
+    Returns
+    -------
+    None or str
+        If no output file is specified using `out` the function returns the
+        MusicXML data as a string. Otherwise the function returns None.
+
+    """
         
     root = etree.Element('score-partwise')
     
@@ -868,17 +885,20 @@ def save_musicxml(parts, out=None):
 
         if hasattr(out, 'write'):
 
-            out.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+            out.write(etree.tostring(root.getroottree(), encoding='UTF-8',
+                                     xml_declaration=True,
                                      pretty_print=True, doctype=DOCTYPE))
 
         else:
 
             with open(out, 'wb') as f:
 
-                f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+                f.write(etree.tostring(root.getroottree(), encoding='UTF-8',
+                                       xml_declaration=True,
                                        pretty_print=True, doctype=DOCTYPE))
 
     else:
 
-        return etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+        return etree.tostring(root.getroottree(), encoding='UTF-8',
+                              xml_declaration=True,
                               pretty_print=True, doctype=DOCTYPE)
