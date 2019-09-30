@@ -396,10 +396,10 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
         if duration > 0:
-            note = score.Note(step, alter, octave, voice=int(voice or 0), id=note_id,
+            note = score.Note(step, octave, alter, voice=int(voice or 0), id=note_id,
                               symbolic_duration=estimate_symbolic_duration(duration, ticks))
         else:
-            note = score.GraceNote('appoggiatura', step, alter, octave, voice=int(voice or 0), id=note_id,
+            note = score.GraceNote('appoggiatura', step, octave, alter, voice=int(voice or 0), id=note_id,
                                    symbolic_duration=dict(type='quarter'))
 
         part.timeline.add(note, onset, onset+duration)
@@ -581,7 +581,7 @@ def tie_notes(part, force_duration_analysis=False):
                 note_id = make_tied_note_id(cur_note.id)
             else:
                 note_id = None
-            next_note = score.Note(note.step, note.alter, note.octave, id=note_id,
+            next_note = score.Note(note.step, note.octave, note.alter, id=note_id,
                                   voice=note.voice, staff=note.staff,
                                   symbolic_duration=sym_dur)
             part.timeline.add(next_note, next_measure.start.t, note_end.t)
@@ -638,7 +638,7 @@ def split_note(part, note, splits):
         else:
             note_id = None
 
-        next_note = score.Note(note.step, note.alter, note.octave, voice=note.voice,
+        next_note = score.Note(note.step, note.octave, note.alter, voice=note.voice,
                                id=note_id, staff=note.staff)
         cur_note.tie_next = next_note
         next_note.tie_prev = cur_note

@@ -1,5 +1,5 @@
-partitura.musicanalysis package
-===============================
+partitura.musicanalysis
+=======================
 
 .. automodule:: partitura.musicanalysis
    :members:

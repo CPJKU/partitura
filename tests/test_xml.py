@@ -81,9 +81,9 @@ class TestMusicXML(unittest.TestCase):
         page1 = score.Page(1)
         system1 = score.System(1)
         measure1 = score.Measure(number=1)
-        note1 = score.Note(step='A', alter=None, octave=4, voice=1, staff=1)
+        note1 = score.Note(step='A', octave=4, voice=1, staff=1)
         rest1 = score.Rest(voice=1, staff=1)
-        note2 = score.Note(step='C', alter=-1, octave=5, voice=2, staff=1)
+        note2 = score.Note(step='C', octave=5, alter=-1, voice=2, staff=1)
         
         # and add the contents to the part:
         part1.timeline.set_quarter_duration(0, divs)
