@@ -16,7 +16,6 @@ LOGGER = logging.getLogger(__name__)
 
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
-TUPLET_STATE = None
 
 def filter_string(s):
     """
@@ -27,7 +26,6 @@ def filter_string(s):
 
 
 def make_note_el(note, dur, voice, counter):
-    global TUPLET_STATE
     # child order
     # <grace> | <chord> | <cue>
     # <pitch>
@@ -120,57 +118,70 @@ def make_note_el(note, dur, voice, counter):
         actual_e.text = str(sym_dur['actual_notes'])
         normal_e = etree.SubElement(time_mod_e, 'normal-notes')
         normal_e.text = str(sym_dur['normal_notes'])
-        print('TUPLET', TUPLET_STATE)
-        if TUPLET_STATE is None:
-            # TUPLET_STATE = {'current': 1, 'total': sym_dur['actual_notes']}
-            notations.append(etree.Element('tuplet', number='1', type='start'))
-            TUPLET_STATE = 2
-        elif TUPLET_STATE == sym_dur['actual_notes']:
-            # TUPLET_STATE = {'current': 1, 'total': sym_dur['actual_notes']}
-            notations.append(etree.Element('tuplet', number='1', type='stop'))
-            print('stop')
-            TUPLET_STATE = None
-        else:
-            TUPLET_STATE += 1
-    else:
-        TUPLET_STATE = None
-    print(note)
-    print(TUPLET_STATE)
-    print()
-    
+
     if note.staff:
         
         etree.SubElement(note_e, 'staff').text = '{}'.format(note.staff)
 
     for slur in note.slur_stops:
-
-        number = counter.get(slur, None)
+        slur_key = ('slur', slur)
+        number = counter.get(slur_key, None)
 
         if number is None:
 
             number = 1
-            counter[slur] = number
+            counter[slur_key] = number
 
         else:
 
-            del counter[slur]
+            del counter[slur_key]
 
         notations.append(etree.Element('slur', number='{}'.format(number), type='stop'))
 
     for slur in note.slur_starts:
-
-        number = counter.get(slur, None)
+        slur_key = ('slur', slur)
+        number = counter.get(slur_key, None)
 
         if number is None:
 
-            number = 1 + sum(1 for o in counter.keys() if isinstance(o, score.Slur))
-            counter[slur] = number
+            number = 1 + sum(1 for o in counter.keys() if o[0] == 'slur')
+            counter[slur_key] = number
 
         else:
 
-            del counter[slur]
+            del counter[slur_key]
             
         notations.append(etree.Element('slur', number='{}'.format(number), type='start'))
+
+    for tuplet in note.tuplet_stops:
+        tuplet_key = ('tuplet', tuplet)
+        number = counter.get(tuplet_key, None)
+
+        if number is None:
+
+            number = 1
+            counter[tuplet_key] = number
+
+        else:
+
+            del counter[tuplet_key]
+
+        notations.append(etree.Element('tuplet', number='{}'.format(number), type='stop'))
+
+    for tuplet in note.tuplet_starts:
+        tuplet_key = ('tuplet', tuplet)
+        number = counter.get(tuplet_key, None)
+
+        if number is None:
+
+            number = 1 + sum(1 for o in counter.keys() if o[0] == 'tuplet')
+            counter[tuplet_key] = number
+
+        else:
+
+            del counter[tuplet_key]
+            
+        notations.append(etree.Element('tuplet', number='{}'.format(number), type='start'))
 
     if notations:
 

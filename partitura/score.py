@@ -42,6 +42,7 @@ from partitura.utils import (
     PrettyPrintTree,
     MIDI_BASE_CLASS,
     ALTER_SIGNS,
+    find_tie_split,
     format_symbolic_duration,
     estimate_symbolic_duration,
     fifths_mode_to_key_name
@@ -530,6 +531,32 @@ class TimePoint(ComparableMixin):
         obj.start = self
         self.starting_objects[type(obj)].append(obj)
 
+    def remove_starting_object(self, obj):
+        """Remove object `obj` from the list of starting objects
+
+        """
+        # TODO: check if object is stored under a superclass
+        obj.start = None
+        if type(obj) in self.starting_objects:
+            try:
+                self.starting_objects[type(obj)].remove(obj)
+            except ValueError:
+                # don't complain if the object isn't in starting_objects
+                pass
+
+    def remove_ending_object(self, obj):
+        """Remove object `obj` from the list of ending objects
+
+        """
+        # TODO: check if object is stored under a superclass
+        obj.end = None
+        if type(obj) in self.ending_objects:
+            try:
+                self.ending_objects[type(obj)].remove(obj)
+            except ValueError:
+                # don't complain if the object isn't in ending_objects
+                pass
+
     def add_ending_object(self, obj):
         """Add object `obj` to the list of ending objects
 
@@ -557,37 +584,6 @@ class TimePoint(ComparableMixin):
             for subcls in iter_subclasses(otype):
                 yield from self.ending_objects[subcls]
 
-    # OBSOLETE
-    def get_starting_objects_of_type(self, otype, include_subclasses=False):
-        """Return all objects of type `otype` that start at this time point
-
-        """
-        # if include_subclasses:
-        #     return self.starting_objects[otype] + \
-        #         list(itertools.chain(*(self.starting_objects[subcls]
-        #                                for subcls in iter_subclasses(otype))))
-        # else:
-        #     return self.starting_objects[otype]
-        yield from self.starting_objects[otype]
-        if include_subclasses:
-            for subcls in iter_subclasses(otype):
-                yield from self.starting_objects[subcls]
-
-    # OBSOLETE
-    def get_ending_objects_of_type(self, otype, include_subclasses=False):
-        """Return all objects of type `otype` that end at this time point
-
-        """
-        # if include_subclasses:
-        #     return self.ending_objects[otype] + \
-        #         list(itertools.chain(*(self.ending_objects[subcls]
-        #                                for subcls in iter_subclasses(otype))))
-        # else:
-        #     return self.ending_objects[otype]
-        yield from self.ending_objects[otype]
-        if include_subclasses:
-            for subcls in iter_subclasses(otype):
-                yield from self.ending_objects[subcls]
 
     def get_prev_of_type(self, otype, eq=False):
         """Return the object(s) of type `otype` that start at the latest time
@@ -600,7 +596,7 @@ class TimePoint(ComparableMixin):
             tp = self.prev
 
         while tp:
-            yield from tp.get_starting_objects_of_type(otype)
+            yield from tp.iter_starting(otype)
             tp = tp.prev
 
     def get_next_of_type(self, otype, eq=False):
@@ -614,7 +610,7 @@ class TimePoint(ComparableMixin):
             tp = self.next
 
         while tp:
-            yield from tp.get_starting_objects_of_type(otype)
+            yield from tp.iter_starting(otype)
             tp = tp.next
 
 
@@ -737,16 +733,84 @@ class Slur(TimedObject):
 
     def __init__(self, start_note=None, end_note=None):
         super().__init__()
-        self.start_note = start_note
-        self.end_note = end_note
+        self.start_note = None
+        self.end_note = None
+        self.set_start_note(start_note)
+        self.set_end_note(end_note)
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(['start_note', 'end_note'])
+
+    def set_start_note(self, note):
+        # make sure we received a note
+        if note:
+            if note.start:
+                #  remove the slur from the current start time
+                if self.start_note and self.start_note.start:
+                    self.start_note.start.remove_starting_object(self)
+            # else:
+            #     LOGGER.warning('Note has no start time')
+            note.slur_starts.append(self)
+        self.start_note = note
+        
+    def set_end_note(self, note):
+        # make sure we received a note
+        if note:
+            if note.end:
+                if self.end_note and self.end_note.end:
+                    #  remove the slur from the currentend time
+                    self.end_note.end.remove_ending_object(self)
+            # else:
+            #     LOGGER.warning('Note has no end time')
+            note.slur_stops.append(self)
+        self.end_note = note
 
     def __str__(self):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
         start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
         end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
         return ' '.join(('Slur', start, end)).strip()
+
+
+class Tuplet(TimedObject):
+
+    def __init__(self, start_note=None, end_note=None):
+        super().__init__()
+        self.start_note = None
+        self.end_note = None
+        self.set_start_note(start_note)
+        self.set_end_note(end_note)
+        # maintain a list of attributes to update when cloning this instance
+        self._ref_attrs.extend(['start_note', 'end_note'])
+
+    def set_start_note(self, note):
+        # make sure we received a note
+        if note:
+            if note.start:
+                # remove the tuplet from the current start time
+                if self.start_note and self.start_note.start:
+                    self.start_note.start.remove_starting_object(self)
+            # else:
+            #     LOGGER.warning('Note has no start time')
+            note.tuplet_starts.append(self)
+        self.start_note = note
+        
+    def set_end_note(self, note):
+        # make sure we received a note
+        if note:
+            if note.end:
+                if self.end_note and self.end_note.end:
+                    # remove the tuplet from the current end time
+                    self.end_note.end.remove_ending_object(self)
+            # else:
+            #     LOGGER.warning('Note has no end time')
+            note.tuplet_stops.append(self)
+        self.end_note = note
+
+    def __str__(self):
+        # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
+        start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
+        end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
+        return ' '.join(('Tuplet', start, end)).strip()
 
 
 class Repeat(TimedObject):
@@ -1091,9 +1155,13 @@ class GenericNote(TimedObject):
         self.tie_next = None
         self.slur_stops = []
         self.slur_starts = []
+        self.tuplet_stops = []
+        self.tuplet_starts = []
 
         # maintain a list of attributes to update when cloning this instance
-        self._ref_attrs.extend(['tie_prev', 'tie_next', 'slur_stops', 'slur_starts'])
+        self._ref_attrs.extend(['tie_prev', 'tie_next',
+                                'slur_stops', 'slur_starts',
+                                'tuplet_stops', 'tuplet_starts'])
 
     @property
     def symbolic_duration(self):
@@ -1646,7 +1714,6 @@ class Part(object):
         if len(tl.points) < 2:
             return lambda x: np.zeros(len(x))
 
-        offset = 0
         keypoints = defaultdict(lambda: [None, None])
         _ = keypoints[tl.first_point.t]
         _ = keypoints[tl.last_point.t]
@@ -1989,6 +2056,7 @@ def add_measures(part):
             measure_start = pos
             measure_end_beats = min(beat_map(pos)+measure_dur, beat_map(end))
             measure_end = min(ts_end, inv_beat_map(measure_end_beats))
+            # print('measure', measure_start, measure_end)
             tl.add(Measure(number=mcounter), int(measure_start), int(measure_end))
             pos = measure_end
             mcounter += 1
@@ -2223,6 +2291,217 @@ def _repeats_to_start_end(repeats, first, last):
             t = repeat.start
     ends.reverse()
     return list(zip(starts, ends))
+
+
+def make_tied_note_id(prev_id):
+    """
+    Create a derived note ID for newly created notes
+
+    Parameters
+    ----------
+    prev_id: str
+        Original note ID
+
+    Returns
+    -------
+    str
+        Derived note ID
+
+    Examples
+    --------
+
+    >>> make_tied_note_id('n0')
+    'n0a'
+    >>> make_tied_note_id('n0a')
+    'n0b'
+    """
+
+
+    if len(prev_id) > 0:
+        if ord(prev_id[-1]) < ord('a')-1:
+            return prev_id + 'a'
+        else:
+            return prev_id[:-1] + chr(ord(prev_id[-1])+1)
+
+    else:
+        return None
+
+
+def tie_notes(part, force_duration_analysis=False):
+
+    # split and tie notes at measure boundaries
+    for note in part.timeline.iter_all(Note):
+        next_measure = next(iter(note.start.get_next_of_type(Measure)), None)
+        cur_note = note
+        note_end = cur_note.end
+
+        # keep the list of stopping slurs, we need to transfer them to the last
+        # tied note
+        slur_stops = cur_note.slur_stops
+
+        while next_measure and cur_note.end > next_measure.start:
+            part.timeline.remove(cur_note, 'end')
+            cur_note.slur_stops = []
+            part.timeline.add(cur_note, None, next_measure.start.t)
+            cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t-cur_note.start.t, cur_note.start.quarter)
+            sym_dur = estimate_symbolic_duration(note_end.t-next_measure.start.t, next_measure.start.quarter)
+            if cur_note.id is not None:
+                note_id = make_tied_note_id(cur_note.id)
+            else:
+                note_id = None
+            next_note = Note(note.step, note.octave, note.alter, id=note_id,
+                                  voice=note.voice, staff=note.staff,
+                                  symbolic_duration=sym_dur)
+            part.timeline.add(next_note, next_measure.start.t, note_end.t)
+
+            cur_note.tie_next = next_note
+            next_note.tie_prev = cur_note
+
+            cur_note = next_note
+
+            next_measure = next(cur_note.start.get_next_of_type(Measure), None)
+
+        if cur_note != note:
+            for slur in slur_stops:
+                slur.set_end_note(cur_note)
+
+    # then split/tie any notes that do not have a fractional/dot duration
+    divs_map = part.divisions_map
+    notes = part.timeline.iter_all(Note)
+
+    max_splits = 3
+    failed = 0
+    succeeded = 0
+    for i, note in enumerate(notes):
+        if note.symbolic_duration is None:
+
+            splits = find_tie_split(note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits)
+
+            if splits:
+                succeeded +=1
+                split_note(part, note, splits)
+            else:
+                failed += 1
+    # print(failed, succeeded, failed/succeeded)
+
+def split_note(part, note, splits):
+    # TODO: we shouldn't do this, but for now it's a good sanity check
+    assert len(splits) > 0
+    # TODO: we shouldn't do this, but for now it's a good sanity check
+    assert note.symbolic_duration is None
+    part.timeline.remove(note)
+    divs_map = part.divisions_map
+    orig_tie_next = note.tie_next
+    slur_stops = note.slur_stops
+    cur_note = note
+    start, end, sym_dur = splits.pop(0)
+    cur_note.symbolic_duration = sym_dur
+    part.timeline.add(cur_note, start, end)
+
+    while splits:
+        note.slur_stops = []
+        
+        if cur_note.id is not None:
+            note_id = make_tied_note_id(cur_note.id)
+        else:
+            note_id = None
+
+        next_note = Note(note.step, note.octave, note.alter, voice=note.voice,
+                         id=note_id, staff=note.staff)
+        cur_note.tie_next = next_note
+        next_note.tie_prev = cur_note
+
+        cur_note = next_note
+        start, end, sym_dur = splits.pop(0)
+        cur_note.symbolic_duration = sym_dur
+
+        part.timeline.add(cur_note, start, end)
+
+    cur_note.tie_next = orig_tie_next
+
+    if cur_note != note:
+        # cur_note.slur_stops = slur_stops
+        for slur in slur_stops:
+            slur.set_end_note(cur_note)
+
+def find_tuplets(part):
+    # quick shot at finding tuplets intended to cover some common cases.
+
+    # are tuplets always in the same voice?
+
+    # quite arbitrary:
+    search_for_tuplets = [9, 7, 5, 3]
+    # only look for x:2 tuplets
+    normal_notes = 2
+
+    # divs_map = part.divisions_map
+
+    candidates = []
+    prev_end = None
+
+    # 1. group consecutive notes without symbolic_duration
+    for note in part.timeline.iter_all(GenericNote, include_subclasses=True):
+
+        if note.symbolic_duration is None:
+            if note.start.t == prev_end:
+                candidates[-1].append(note)
+            else:
+                candidates.append([note])
+            prev_end = note.end.t
+
+    # 2. within each group
+    for group in candidates:
+
+        # 3. search for the predefined list of tuplets
+        for actual_notes in search_for_tuplets:
+            
+            if actual_notes > len(group):
+                # tuplet requires more notes than we have
+                continue
+            
+            tup_start = 0
+
+            while tup_start <= (len(group) - actual_notes):
+                note_tuplet = group[tup_start:tup_start+actual_notes]
+                # durs = set(n.duration for n in group[:tuplet-1])
+                durs = set(n.duration for n in note_tuplet)
+                
+                if len(durs) > 1:
+                    # notes have different durations (possibly valid but not
+                    # supported here)
+                    # continue
+                    tup_start += 1
+                else:
+   
+                    start = note_tuplet[0].start.t
+                    end = note_tuplet[-1].end.t
+                    total_dur = end - start
+       
+                    # total duration of tuplet notes must be integer-divisble by
+                    # normal_notes
+                    if total_dur % normal_notes > 0:
+                        # continue
+                        tup_start += 1
+                    else:
+                        # estimate duration type
+                        dur_type = estimate_symbolic_duration(total_dur//normal_notes,
+                                                              note_tuplet[0].start.quarter)
+                                                              # int(divs_map(start)))
+
+                        if dur_type and dur_type.get('dots', 0) == 0:
+                            # recognized duration without dots
+                            dur_type['actual_notes'] = actual_notes
+                            dur_type['normal_notes'] = normal_notes
+                            for note in note_tuplet:
+                                note.symbolic_duration = dur_type.copy()
+                            start_note = note_tuplet[0]
+                            stop_note = note_tuplet[-1]
+                            tuplet = Tuplet(start_note, stop_note)
+                            part.timeline.add(tuplet, start_note.start.t, stop_note.end.t)
+                            tup_start += actual_notes
+                            
+                        else:
+                            tup_start += 1
 
 
 if __name__ == '__main__':

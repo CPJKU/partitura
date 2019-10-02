@@ -117,6 +117,116 @@ class TestMusicXML(unittest.TestCase):
         msg = 'Exported and imported score does not yield identical pretty printed representations'
         self.assertTrue(equal, msg)
 
+    def test_export_import_tuplet(self):
+        part1 = make_part_tuplet()
+        self._pretty_export_import_pretty_test(part1)
+
+    def test_export_import_slur(self):
+        part1 = make_part_slur()
+        self._pretty_export_import_pretty_test(part1)
+
+    def _pretty_export_import_pretty_test(self, part1):
+        # pretty print the part
+        pstring1 = part1.pretty()
+
+        with TemporaryFile() as f:
+            # save part to musicxml
+            save_musicxml(part1, f)
+            f.flush()
+            f.seek(0)
+            _tmp = f.read().decode('utf8')
+            f.seek(0)
+            # load part from musicxml
+            part2 = load_musicxml(f)
+
+        # pretty print saved/loaded part:
+        pstring2 = part2.pretty()
+
+        # test pretty printed strings for equality
+        equal = pstring1 == pstring2
+
+        if not equal:
+            print(pstring1)
+            print(pstring2)
+            print(_tmp)
+            show_diff(pstring1, pstring2)
+        msg = 'Exported and imported score does not yield identical pretty printed representations'
+        self.assertTrue(equal, msg)
+
+
+def make_part_slur():
+    # create a part
+    part = score.Part('My Part')
+    # create contents
+    divs = 12
+    ts = score.TimeSignature(3, 4)
+    page1 = score.Page(1)
+    system1 = score.System(1)
+
+    note0 = score.Note(id='n0', step='A', octave=4, voice=1, staff=1)
+    note1 = score.Note(id='n1', step='A', octave=4, voice=1, staff=1)
+    note2 = score.Note(id='n2', step='A', octave=4, voice=1, staff=1)
+    note3 = score.Note(id='n3', step='A', octave=4, voice=1, staff=1)
+
+    note4 = score.Note(id='n4', step='A', octave=3, voice=2, staff=1)
+    note5 = score.Note(id='n5', step='A', octave=3, voice=2, staff=1)
+
+    slur1 = score.Slur(start_note=note0, end_note=note5)
+    slur2 = score.Slur(start_note=note4, end_note=note3)
+    
+    # and add the contents to the part:
+    part.timeline.set_quarter_duration(0, divs)
+    part.timeline.add(ts, 0)
+    part.timeline.add(page1, 0)
+    part.timeline.add(system1, 0)
+    part.timeline.add(note0, 0, 12)
+    part.timeline.add(note1, 12, 24)
+    part.timeline.add(note2, 24, 36)
+    part.timeline.add(note3, 36, 48)
+    part.timeline.add(note4, 0, 6)
+    part.timeline.add(note5, 6, 33)
+    part.timeline.add(slur1, 
+                      slur1.start_note.start.t,
+                      slur1.end_note.end.t)
+    part.timeline.add(slur2, 
+                      slur2.start_note.start.t,
+                      slur2.end_note.end.t)
+
+    score.add_measures(part)
+    score.tie_notes(part)
+
+    return part
+    
+
+def make_part_tuplet():
+    # create a part
+    part = score.Part('My Part')
+
+    # create contents
+    divs = 12
+    ts = score.TimeSignature(3, 4)
+    page1 = score.Page(1)
+    system1 = score.System(1)
+
+    note1 = score.Note(id='n0', step='A', octave=4, voice=1, staff=1)
+    rest1 = score.Rest(voice=1, staff=1)
+    note2 = score.Note(id='n2', step='C', octave=4, voice=1, staff=1)
+    rest2 = score.Rest(id='r0', voice=1, staff=1)
+    
+    # and add the contents to the part:
+    part.timeline.set_quarter_duration(0, divs)
+    part.timeline.add(ts, 0)
+    part.timeline.add(page1, 0)
+    part.timeline.add(system1, 0)
+    part.timeline.add(note1, 0, 8)
+    part.timeline.add(rest1, 8, 16)
+    part.timeline.add(note2, 16, 24)
+    part.timeline.add(rest2, 24, 36)
+
+    score.add_measures(part)
+    score.find_tuplets(part)
+
+    return part
 
 if __name__ == '__main__':
     unittest.main()

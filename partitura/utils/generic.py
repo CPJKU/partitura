@@ -252,7 +252,7 @@ def show_diff(a, b):
 
     import difflib
     differ = difflib.Differ()
-    for l in differ.compare(a.split(), b.split()):
+    for l in differ.compare(a.split('\n'), b.split('\n')):
         print(l)
 
 

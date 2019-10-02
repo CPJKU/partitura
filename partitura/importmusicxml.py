@@ -819,11 +819,6 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
         assert prev_note is not None
         position = prev_note.start.t
 
-    tuplet_e = e.find('notations/tuplet')
-    if tuplet_e is not None:
-        # keep track of tuplet start/end/number in some way or another
-        pass
-
     articulations_e = e.find('notations/articulations')
     if articulations_e is not None:
         articulations = get_articulations(articulations_e)
@@ -878,6 +873,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
             ongoing[tie_key] = note
 
     notations = e.find('notations')
+
     if notations is not None:
 
         if notations.find('fermata') is not None:
@@ -885,57 +881,135 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
             timeline.add(fermata, position)
             note.fermata = fermata
 
-        slurs = notations.findall('slur')
+        starting_slurs, stopping_slurs = handle_slurs(notations, ongoing, note)
+        for slur in starting_slurs:
+            timeline.add(slur, position)
+        for slur in stopping_slurs:
+            timeline.add(slur, None, position+duration)
 
-        # this sorts all found slurs by type (either 'start' or 'stop')
-        # in reverse order, so all with type 'stop' will be before
-        # the ones with 'start'?!.
-        slurs.sort(key=lambda x: x.attrib['type'], reverse=True)
+        starting_tups, stopping_tups = handle_tuplets(notations, ongoing, note)
 
-        # Now that the slurs are sorted by their type, sort them
-        # by their numbers; First note that slurs do not always
-        # have a number attribute, then 1 is implied.
-        slurs.sort(key=lambda x: get_value_from_attribute(
-            x, 'number', int) or 1)
-
-        for slur_e in slurs:
-
-            slur_number = get_value_from_attribute(slur_e, 'number', int)
-            slur_type = get_value_from_attribute(slur_e, 'type', str)
-            start_slur_key = ('start_slur', slur_number)
-            stop_slur_key = ('stop_slur', slur_number)
-
-            if slur_type == 'start':
-
-                # check if we have a stopped_slur in ongoing that corresponds to
-                # this stop
-                slur = ongoing.pop(stop_slur_key, None)
-
-                if slur is None:
-
-                    slur = score.Slur(note)
-                    ongoing[start_slur_key] = slur
-
-                note.slur_starts.append(slur)
-                timeline.add(slur, position)
-
-            elif slur_type == 'stop':
-
-                slur = ongoing.pop(start_slur_key, None)
-                if slur is None:
-                    # slur stop occurs before slur start in document order, that
-                    # is a valid scenario
-                    slur = score.Slur(None, note)
-                    ongoing[stop_slur_key] = slur
-                else:
-                    slur.end_note = note
-
-                note.slur_stops.append(slur)
-                timeline.add(slur, None, position)
+        for tup in starting_tups:
+            timeline.add(tup, position)
+        for tup in stopping_tups:
+            timeline.add(tup, None, position+duration)
 
     new_position = position + duration
 
     return new_position, note
+
+
+def handle_tuplets(notations, ongoing, note):
+    starting_tuplets = []
+    stopping_tuplets = []
+    tuplets = notations.findall('tuplet')
+
+    # this sorts all found tuplets by type (either 'start' or 'stop')
+    # in reverse order, so all with type 'stop' will be before
+    # the ones with 'start'?!.
+    tuplets.sort(key=lambda x: x.attrib['type'], reverse=True)
+
+    # Now that the tuplets are sorted by their type, sort them
+    # by their numbers; First note that tuplets do not always
+    # have a number attribute, then 1 is implied.
+    tuplets.sort(key=lambda x: get_value_from_attribute(
+        x, 'number', int) or 1)
+
+    for tuplet_e in tuplets:
+
+        tuplet_number = get_value_from_attribute(tuplet_e, 'number', int)
+        tuplet_type = get_value_from_attribute(tuplet_e, 'type', str)
+        start_tuplet_key = ('start_tuplet', tuplet_number)
+        stop_tuplet_key = ('stop_tuplet', tuplet_number)
+
+        if tuplet_type == 'start':
+
+            # check if we have a stopped_tuplet in ongoing that corresponds to
+            # this start
+            tuplet = ongoing.pop(stop_tuplet_key, None)
+
+            if tuplet is None:
+
+                tuplet = score.Tuplet(note)
+                ongoing[start_tuplet_key] = tuplet
+
+            else:
+
+                tuplet.set_start_note(note)
+
+            starting_tuplets.append(tuplet)
+
+        elif tuplet_type == 'stop':
+
+            tuplet = ongoing.pop(start_tuplet_key, None)
+            if tuplet is None:
+                # tuplet stop occurs before tuplet start in document order, that
+                # is a valid scenario
+                tuplet = score.Tuplet(None, note)
+                ongoing[stop_tuplet_key] = tuplet
+            else:
+                tuplet.set_end_note(note)
+
+            stopping_tuplets.append(tuplet)
+
+    return starting_tuplets, stopping_tuplets
+
+
+def handle_slurs(notations, ongoing, note):
+    starting_slurs = []
+    stopping_slurs = []
+    slurs = notations.findall('slur')
+
+    # this sorts all found slurs by type (either 'start' or 'stop')
+    # in reverse order, so all with type 'stop' will be before
+    # the ones with 'start'?!.
+    slurs.sort(key=lambda x: x.attrib['type'], reverse=True)
+
+    # Now that the slurs are sorted by their type, sort them
+    # by their numbers; First note that slurs do not always
+    # have a number attribute, then 1 is implied.
+    slurs.sort(key=lambda x: get_value_from_attribute(
+        x, 'number', int) or 1)
+
+    for slur_e in slurs:
+
+        slur_number = get_value_from_attribute(slur_e, 'number', int)
+        slur_type = get_value_from_attribute(slur_e, 'type', str)
+        start_slur_key = ('start_slur', slur_number)
+        stop_slur_key = ('stop_slur', slur_number)
+
+        if slur_type == 'start':
+
+            # check if we have a stopped_slur in ongoing that corresponds to
+            # this stop
+            slur = ongoing.pop(stop_slur_key, None)
+
+            if slur is None:
+
+                slur = score.Slur(note)
+                ongoing[start_slur_key] = slur
+
+            else:
+
+                slur.set_start_note(note)
+
+            starting_slurs.append(slur)
+
+        elif slur_type == 'stop':
+
+            slur = ongoing.pop(start_slur_key, None)
+            if slur is None:
+                # slur stop occurs before slur start in document order, that
+                # is a valid scenario
+                slur = score.Slur(None, note)
+                ongoing[stop_slur_key] = slur
+            else:
+
+                slur.set_end_note(note)
+
+            stopping_slurs.append(slur)
+    
+    return starting_slurs, stopping_slurs
 
 
 def get_grace_info(grace):
