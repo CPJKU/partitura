@@ -110,6 +110,88 @@ def iter_subclasses(cls, _seen=None):
                 yield sub
 
 
+class ReplaceRefMixin(object):
+    """This class is a utility mixin class to replace references to
+    objects with references to other objects. This is functionality is
+    used when unfolding timelines.
+
+    To use this functionality, a class should inherit from this class,
+    and keep a list of all attributes that contain references.
+
+    Examples
+    --------
+    The following class defines `prev` as a referential attribute, to
+    be replaced when a class instance is copied:
+
+    >>> class MyClass(ReplaceRefMixin):
+    ...     def __init__(self, prev=None):
+    ...         super().__init__()
+    ...         self.prev = prev
+    ...         self._ref_attrs.append('prev')
+
+    Create two instance `a1` and `a2`, where `a1` is the `prev` of
+    `a2``
+
+    >>> a1 = MyClass()
+    >>> a2 = MyClass(a1)
+
+    Copy `a1` and `a2` to `b1` and `b2`, respectively:
+
+    >>> b1 = copy(a1)
+    >>> b2 = copy(a2)
+
+    After copying the prev of `b2` is `a1`, not `b1`:
+
+    >>> b2.prev == b1
+    False
+    >>> b2.prev == a1
+    True
+
+    To fix that we define an object map:
+
+    >>> object_map = {a1: b1, a2: b2}
+
+    and replace the references according to the map:
+
+    >>> b2.replace_refs(object_map)
+    >>> b2.prev == b1
+    True
+    
+    """
+
+    def __init__(self):
+        self._ref_attrs = []
+
+    def replace_refs(self, o_map):
+        if hasattr(self, '_ref_attrs'):
+            for attr in self._ref_attrs:
+                o = getattr(self, attr)
+                if o is None:
+                    pass
+                elif isinstance(o, list):
+                    o_list_new = []
+
+                    for o_el in o:
+                        if o_el in o_map:
+                            o_list_new.append(o_map[o_el])
+                        else:
+                            LOGGER.warning(dedent('''reference not found in
+                            o_map: {} start={} end={}, substituting None
+                            '''.format(o_el, o_el.start, o_el.end)))
+                            o_list_new.append(None)
+
+                    setattr(self, attr, o_list_new)
+                else:
+                    if o in o_map:
+                        o_new = o_map[o]
+                    else:
+                        LOGGER.warning(dedent('''reference not found in o_map:
+                        {} start={} end={}, substituting None
+                        '''.format(o, o.start, o.end)))
+                        o_new = None
+                    setattr(self, attr, o_new)
+
+
 class ComparableMixin(object):
     """
     Mixin class that makes instances comparable in a rich way (i.e. in !=, <, <=

@@ -76,10 +76,8 @@ Part id="P1" name="Piano"
          ├─ Note id=n02 voice=2 staff=1 type=half pitch=C5
          └─ Note id=n03 voice=2 staff=1 type=half pitch=E5
 
-This reveals that the timeline of the part (accessible as
-:attr:`part.timeline <partitura.score.Part.timeline>`) has three time
-points at which one or more musical objects start or end. At `t=0`
-there are several starting objects, including a
+This reveals that the part has three time points at which one or more musical
+objects start or end. At `t=0` there are several starting objects, including a
 :class:`~partitura.score.TimeSignature`, :class:`~partitura.score.Measure`,
 :class:`~partitura.score.Page`, and :class:`~partitura.score.System`.
 
@@ -129,24 +127,23 @@ This property is a short cut for the following statement:
 
 .. doctest::
 
-  >>> list(part.timeline.iter_all(partitura.score.Note)) # doctest: +NORMALIZE_WHITESPACE
+  >>> list(part.iter_all(partitura.score.Note)) # doctest: +NORMALIZE_WHITESPACE
   [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
   <partitura.score.Note object at 0x...>]
 
-Here we access the :meth:`~partitura.score.TimeLine.iter_all` method
-of the :attr:`~partitura.score.Part.timeline` attribute. Given a class, it
-iterates over all instances of that class that occur in the part:
+Here we access the :meth:`~partitura.score.Part.iter_all` method. Given a class,
+it iterates over all instances of that class that occur in the part:
 
->>> for m in part.timeline.iter_all(partitura.score.Measure):
+>>> for m in part.iter_all(partitura.score.Measure):
 ...     print(m)
 Measure number=1
 
-The :meth:`~partitura.score.TimeLine.iter_all` method has a keyword
+The :meth:`~partitura.score.Part.iter_all` method has a keyword
 `include_subclasses` that indicates that we are also interested in any
 subclasses of the specified class. For example, the following statement
 iterates over all objects in the part:
 
->>> for m in part.timeline.iter_all(object, include_subclasses=True):
+>>> for m in part.iter_all(object, include_subclasses=True):
 ...     print(m)
 Page number=1
 System number=1
@@ -161,7 +158,7 @@ This approach is useful for example when we want to retrieve rests in
 addition to notes. Since rests and notes are both subclassess of
 :class:`GenericNote <partitura.score.GenericNote>`, the following works:
 
->>> for m in part.timeline.iter_all(partitura.score.GenericNote, include_subclasses=True):
+>>> for m in part.iter_all(partitura.score.GenericNote, include_subclasses=True):
 ...     print(m)
 Note id=n01 voice=1 staff=2 type=whole pitch=A4
 Rest id=r01 voice=2 staff=1 type=half
@@ -185,16 +182,16 @@ You can build a score from scratch, by creating a `Part` object:
 >>> import partitura.score as score
 
 >>> part = score.Part('My Part')
->>> part.timeline.set_quarter_duration(0, 10)
+>>> part.set_quarter_duration(0, 10)
 >>> ts = score.TimeSignature(3, 4)
 >>> note1 = score.Note(step='A', octave=4) # A4
 >>> note2 = score.Note(step='C', octave=5, alter=1) # C#5
 
 and adding them to the part:
 
->>> part.timeline.add(ts, 0)
->>> part.timeline.add(note1, 0, 15)
->>> part.timeline.add(note2, 0, 20)
+>>> part.add(ts, 0)
+>>> part.add(note1, 0, 15)
+>>> part.add(note2, 0, 20)
 >>> score.add_measures(part)
 
 Exporting a score to MusicXML

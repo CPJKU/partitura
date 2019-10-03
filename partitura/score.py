@@ -27,6 +27,7 @@ from scipy.interpolate import interp1d
 
 from partitura.utils import (
     ComparableMixin,
+    ReplaceRefMixin,
     partition,
     iter_subclasses,
     iter_current_next,
@@ -44,89 +45,6 @@ from partitura.utils import (
 # sys.setrecursionlimit(10000)
 
 LOGGER = logging.getLogger(__name__)
-
-class _ReplaceRefMixin(object):
-    """This class is a utility mixin class to replace references to
-    objects with references to other objects. This is functionality is
-    used when unfolding timelines.
-
-    To use this functionality, a class should inherit from this class,
-    and keep a list of all attributes that contain references.
-
-    Examples
-    --------
-    The following class defines `prev` as a referential attribute, to
-    be replaced when a class instance is copied:
-
-    >>> class MyClass(_ReplaceRefMixin):
-    ...     def __init__(self, prev=None):
-    ...         super().__init__()
-    ...         self.prev = prev
-    ...         self._ref_attrs.append('prev')
-
-    Create two instance `a1` and `a2`, where `a1` is the `prev` of
-    `a2``
-
-    >>> a1 = MyClass()
-    >>> a2 = MyClass(a1)
-
-    Copy `a1` and `a2` to `b1` and `b2`, respectively:
-
-    >>> b1 = copy(a1)
-    >>> b2 = copy(a2)
-
-    After copying the prev of `b2` is `a1`, not `b1`:
-
-    >>> b2.prev == b1
-    False
-    >>> b2.prev == a1
-    True
-
-    To fix that we define an object map:
-
-    >>> object_map = {a1: b1, a2: b2}
-
-    and replace the references according to the map:
-
-    >>> b2.replace_refs(object_map)
-    >>> b2.prev == b1
-    True
-    
-    """
-
-    def __init__(self):
-        self._ref_attrs = []
-
-    def replace_refs(self, o_map):
-        if hasattr(self, '_ref_attrs'):
-            for attr in self._ref_attrs:
-                o = getattr(self, attr)
-                if o is None:
-                    pass
-                elif isinstance(o, list):
-                    o_list_new = []
-
-                    for o_el in o:
-                        if o_el in o_map:
-                            o_list_new.append(o_map[o_el])
-                        else:
-                            LOGGER.warning(dedent('''reference not found in
-                            o_map: {} start={} end={}, substituting None
-                            '''.format(o_el, o_el.start, o_el.end)))
-                            o_list_new.append(None)
-
-                    setattr(self, attr, o_list_new)
-                else:
-                    if o in o_map:
-                        o_new = o_map[o]
-                    else:
-                        if isinstance(o, Note):
-                            m = o.start.get_prev_of_type(Measure, eq=True)[0]
-                        LOGGER.warning(dedent('''reference not found in o_map:
-                        {} start={} end={}, substituting None
-                        '''.format(o, o.start, o.end)))
-                        o_new = None
-                    setattr(self, attr, o_new)
 
 
 class Part(object):
@@ -174,6 +92,7 @@ class Part(object):
         self._quarter_times = [0]
         self._quarter_durations = [1]
         self._make_quarter_map()
+
     @property
     def part_names(self):
         # get instrument name parts recursively
@@ -858,9 +777,9 @@ class TimePoint(ComparableMixin):
         return result
 
 
-class TimedObject(_ReplaceRefMixin):
+class TimedObject(ReplaceRefMixin):
 
-    """Class that represents objects that (may?) have a start and ending
+    """Class that represents objects that have a start and ending
     point. Used as super-class for classes representing different types of
     objects in a musical score.
 
@@ -1646,17 +1565,16 @@ class ScoreVariant(object):
 
 
 def iter_unfolded_timelines(timeline):
-    """
-    Description
+    """TODO: Description
     
     Parameters
     ----------
     timeline: type
         Description of `timeline`
     
-    Returns
-    -------
-    type
+    Yields
+    ------
+    ScoreVariant
         Description of return value
     """
     
@@ -1681,6 +1599,8 @@ def unfold_timeline_maximal(timeline):
 
 
 def make_score_variants(timeline):
+    # non-public (use unfold_timeline_maximal, or iter_unfolded_timelines)
+    
     """Create a list of ScoreVariant objects, each representing a
     distinct way to unfold the score, based on the repeat structure.
 
@@ -1709,10 +1629,10 @@ def make_score_variants(timeline):
 
     # TODO: check if we need to wrap in list
     repeats = list(timeline.iter_all(Repeat))
-    # repeats may not have start or end times. `_repeats_to_start_end`
+    # repeats may not have start or end times. `repeats_to_start_end`
     # returns the start/end paisr for each repeat, making educated guesses
     # when these are missing.
-    repeat_start_ends = _repeats_to_start_end(repeats,
+    repeat_start_ends = repeats_to_start_end(repeats,
                                              timeline.first_point,
                                              timeline.last_point)
 
@@ -2026,10 +1946,9 @@ def iter_parts(partlist):
         A :class:`partitura.score.Part` object,
         :class:`partitura.score.PartGroup` or a list of these
 
-    Returns
+    Yields
     -------
-    iterator
-        Iterator over Part instances in `partlist`
+        `Part` instances in `partlist`
 
     """
 
@@ -2044,7 +1963,9 @@ def iter_parts(partlist):
                 yield eel
 
 
-def _repeats_to_start_end(repeats, first, last):
+def repeats_to_start_end(repeats, first, last):
+    # non-public
+
     """Return pairs of (start, end) TimePoints corresponding to the start and
     end times of each Repeat object. If any of the start or end attributes
     are None, replace it with the end/start of the preceding/succeeding
@@ -2085,6 +2006,7 @@ def _repeats_to_start_end(repeats, first, last):
 
 
 def make_tied_note_id(prev_id):
+    # non-public
     """
     Create a derived note ID for newly created notes
 
@@ -2100,11 +2022,11 @@ def make_tied_note_id(prev_id):
 
     Examples
     --------
-
     >>> make_tied_note_id('n0')
     'n0a'
     >>> make_tied_note_id('n0a')
     'n0b'
+    
     """
 
 
@@ -2118,7 +2040,16 @@ def make_tied_note_id(prev_id):
         return None
 
 
-def tie_notes(part, force_duration_analysis=False):
+def tie_notes(part):
+    """TODO: Description
+    
+    Parameters
+    ----------
+    part: type
+        Description of `part`
+    
+    """
+    
 
     # split and tie notes at measure boundaries
     for note in part.iter_all(Note):
@@ -2176,6 +2107,8 @@ def tie_notes(part, force_duration_analysis=False):
     # print(failed, succeeded, failed/succeeded)
 
 def split_note(part, note, splits):
+    # non-public
+    
     # TODO: we shouldn't do this, but for now it's a good sanity check
     assert len(splits) > 0
     # TODO: we shouldn't do this, but for now it's a good sanity check
@@ -2216,6 +2149,15 @@ def split_note(part, note, splits):
             slur.set_end_note(cur_note)
 
 def find_tuplets(part):
+    """TODO: Description
+    
+    Parameters
+    ----------
+    part: type
+        Description of `part`
+    
+    """
+    
     # quick shot at finding tuplets intended to cover some common cases.
 
     # are tuplets always in the same voice?
