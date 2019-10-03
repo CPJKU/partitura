@@ -115,32 +115,46 @@ def assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list, onoff_lis
         # is it enough to sort the notes by their time-stamp? Or should
         # there be some logic to make sure that the note_off always come
         # before a new note on of e.g. same pitch?
+        # NOTE: as the note_off messages were added after each note_on
+        # message into the list, I guess the sorting should keep that order
+        # intact anyway?
         assigned_notes[key].sort(key=lambda x: x[0][1])
 
     return assigned_notes
 
 
-def add_note_to_track(track, channel, midi_pitch, velocity, note_start, note_end):
+def add_notes_to_track(assigned_notes_current_track, track, velocity):
     """Helper function for adding notes to a track
 
     Parameters
     ----------
+    assigned_notes_current_track : list
+
+    track : Mido MIDI track object (CHECK)
 
 
     Returns
     -------
 
     """
-    track.append(Message('note_on',
-                         channel=channel,
-                         note=midi_pitch,
-                         velocity=velocity,
-                         time=note_start))
-    track.append(Message('note_off',
-                         channel=channel,
-                         note=midi_pitch,
-                         velocity=velocity,
-                         time=note_end))
+    notes_by_ppq = defaultdict(list)
+    for elem in assigned_notes_current_track:
+        notes_by_ppq[elem[1]].append(elem)
+
+    ts_sorted = sorted(notes_by_ppq.keys())  # somehow necessary
+    last_ts = 0
+    for ts in ts_sorted:  # notes_by_ppq.keys():
+        delta_t = ts - last_ts
+        for msg, divs, pitch, chn in notes_by_ppq[ts]:
+            print(f"delta_t: {delta_t}")
+            print(f"msg: {msg}")
+            track.append(Message(msg,
+                                 channel=chn,
+                                 note=pitch,
+                                 velocity=velocity,
+                                 time=delta_t))
+            delta_t = 0
+        last_ts = ts
 
 
 def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
@@ -260,7 +274,7 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     # is part of note message -> mix into info from onoff_list.
     # Then fill tracks
 
-    part_voice_assign_mode = 0  # remove this after testing!
+    part_voice_assign_mode = 1  # 0  # remove this after testing!
     assigned_notes = assign_parts_voices_tracks_channels(part_voice_assign_mode,
                                                          prt_grp_part_voice_list,
                                                          onoff_list)
@@ -268,14 +282,17 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     # create object, spefify some basic parameters here
     mf = MidiFile(type=file_type, ticks_per_beat=ppq)
 
-    for key in assigned_notes.keys():  # keys are MIDI tracks
+    for key in assigned_notes.keys():  # keys are MIDI track numbers
         print(key)
         # create track and append to file object
         track = MidiTrack()
         mf.tracks.append(track)
 
-        for elem in assigned_notes[key]:
-            print(elem)
+        # for elem in assigned_notes[key]:
+        #     ipdb.set_trace()
+        #     print(elem)
+
+        add_notes_to_track(assigned_notes[key], track, default_vel)
 
 
     ipdb.set_trace()
