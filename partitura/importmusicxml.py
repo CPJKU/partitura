@@ -230,12 +230,12 @@ def _parse_parts(document, part_dict):
         ongoing = {}
 
         # add new page and system at start of part
-        _handle_new_page(position, part.timeline, ongoing)
-        _handle_new_system(position, part.timeline, ongoing)
+        _handle_new_page(position, part, ongoing)
+        _handle_new_system(position, part, ongoing)
 
         for measure_el in part_el.xpath('measure'):
             position = _handle_measure(
-                measure_el, position, part.timeline, ongoing)
+                measure_el, position, part, ongoing)
 
 
 def _handle_measure(measure_el, position, timeline, ongoing):
@@ -362,7 +362,7 @@ def _handle_repeat(e, position, timeline, ongoing):
         if o is None:
             # implicit repeat start: create Repeat
             # object and add it at the beginning of
-            # the self.timeline retroactively
+            # the self retroactively
             o = score.Repeat()
             timeline.add(o, 0)
 
@@ -1088,10 +1088,10 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     scr = []
     for part in parts:
         # Unfold timeline to have repetitions
-        part.timeline = score.unfold_timeline_maximal(part.timeline)
+        part = score.unfold_timeline_maximal(part)
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
-            score.expand_grace_notes(part.timeline)
+            score.expand_grace_notes(part)
 
         # get beat map
         bm = part.beat_map

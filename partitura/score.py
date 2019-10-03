@@ -177,6 +177,27 @@ class TimeLine(object):
                                      bounds_error=False,
                                      fill_value=(y[0], y[-1]))
 
+    # TODO: streamline naming
+    @property
+    def divisions_map(self):
+        qd = self.quarter_durations()
+
+        start = self.first_point
+        if len(qd) == 0 or (start and qd[0, 0] > start.t):
+            qd = np.vstack(([start.t, 1], qd))
+
+        end = self.last_point
+        if end and qd[-1, 0] < end.t:
+            qd = np.vstack(([end.t, qd[-1, 1]], qd))
+
+        if len(qd) < 2:
+            qd = np.vstack((qd, qd))
+            qd[1, 0] += 1
+
+        # return interp1d(qd[:, 0], qd[:, 1], kind='previous',
+        #                 bounds_error=False, fill_value=(qd[0, 1], qd[-1, 1]))
+        return interp1d(qd[:, 0], qd[:, 1], kind='previous')
+
     def set_quarter_duration(self, t, quarter):
         # add quarter duration at time t, unless it is redundant. If another
         # quarter duration is at t, replace it.
@@ -282,7 +303,6 @@ class TimeLine(object):
         if end is not None:
             self.get_or_add_point(end).add_ending_object(o)
             
-        
     def remove(self, o, which='both'):
         """Remove `o` from the timeline
 
@@ -1464,7 +1484,7 @@ class ScoreVariant(object):
         return clone
 
     def create_variant_timeline(self):
-        timeline = TimeLine()
+        timeline = Part(self.timeline.id, part_name=self.timeline.part_name)
 
 
         for start, end, offset in self.segments:
@@ -1548,7 +1568,7 @@ class ScoreVariant(object):
         return timeline
 
 
-class Part(object):
+class Part(TimeLine):
 
     """Represents a score part, e.g. all notes of one single instrument
     (or multiple instruments written in the same staff). Note that
@@ -1579,9 +1599,9 @@ class Part(object):
     
     """
 
-    def __init__(self, id, timeline=None, part_name=None):
+    def __init__(self, id, part_name=None):
+        super().__init__()
         self.id = id
-        self.timeline = timeline or TimeLine()
         self.parent = None
         self.part_name = part_name
         self.part_abbreviation = None
@@ -1602,24 +1622,6 @@ class Part(object):
                 yield '  '.join(chunks)
             pg = pg.parent
 
-    def remove(self, obj):
-        """
-        Remove an object from the timeline.
-
-        Parameters
-        ----------
-        obj: TimedObject
-            Object to be added to the timeline
-
-        """
-
-        self.timeline.remove_starting_object(obj)
-
-        if obj.end is not None:
-
-            self.timeline.remove_ending_object(obj)
-
-
 
     # def test_timeline(self):
     #     """Test if all ending objects have occurred as starting object as
@@ -1635,8 +1637,8 @@ class Part(object):
     def _pp(self, tree):
         result = [self.__str__()]
         tree.push()
-        N = len(self.timeline.points)
-        for i, timepoint in enumerate(self.timeline.points):
+        N = len(self.points)
+        for i, timepoint in enumerate(self.points):
             result.append('{}'.format(tree).rstrip())
             if i == N - 1:
                 tree.last_item()
@@ -1657,25 +1659,6 @@ class Part(object):
         """
         return '\n'.join(self._pp(PrettyPrintTree()))
 
-    @property
-    def divisions_map(self):
-        qd = self.timeline.quarter_durations()
-
-        start = self.timeline.first_point
-        if len(qd) == 0 or (start and qd[0, 0] > start.t):
-            qd = np.vstack(([start.t, 1], qd))
-
-        end = self.timeline.last_point
-        if end and qd[-1, 0] < end.t:
-            qd = np.vstack(([end.t, qd[-1, 1]], qd))
-
-        if len(qd) < 2:
-            qd = np.vstack((qd, qd))
-            qd[1, 0] += 1
-
-        # return interp1d(qd[:, 0], qd[:, 1], kind='previous',
-        #                 bounds_error=False, fill_value=(qd[0, 1], qd[-1, 1]))
-        return interp1d(qd[:, 0], qd[:, 1], kind='previous')
         
         # divs = np.array([(divs.start.t, divs.divs) for divs in self.timeline.iter_all(Divisions)])
         # if len(divs) == 0:
@@ -1694,33 +1677,31 @@ class Part(object):
     @property
     def time_signature_map(self):
         tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
-                        for ts in self.timeline.iter_all(TimeSignature)])
+                        for ts in self.iter_all(TimeSignature)])
         if len(tss) == 0:
             # warn assumption
-            tss = np.array([(self.timeline.first_point.t, 4, 4),
-                            (self.timeline.last_point.t, 4, 4)])
-        elif tss[0, 0] > self.timeline.first_point.t:
-            tss = np.vstack(((self.timeline.first_point.t, tss[0, 1], tss[0, 2]),
+            tss = np.array([(self.first_point.t, 4, 4),
+                            (self.last_point.t, 4, 4)])
+        elif tss[0, 0] > self.first_point.t:
+            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
                              tss))
         tss = np.vstack((tss,
-                         (self.timeline.last_point.t, tss[-1, 1], tss[-1, 2])))
+                         (self.last_point.t, tss[-1, 1], tss[-1, 2])))
         return interp1d(tss[:, 0], tss[:, 1:], kind='previous')
 
 
     def _time_interpolator(self, quarter=False, inv=False):
 
-        tl = self.timeline
-
-        if len(tl.points) < 2:
+        if len(self.points) < 2:
             return lambda x: np.zeros(len(x))
 
         keypoints = defaultdict(lambda: [None, None])
-        _ = keypoints[tl.first_point.t]
-        _ = keypoints[tl.last_point.t]
-        for t, q in zip(tl._quarter_times, tl._quarter_durations):
+        _ = keypoints[self.first_point.t]
+        _ = keypoints[self.last_point.t]
+        for t, q in zip(self._quarter_times, self._quarter_durations):
             keypoints[t][0] = q
         if not quarter:
-            for ts in tl.iter_all(TimeSignature):
+            for ts in self.iter_all(TimeSignature):
                 # keypoints[ts.start.t][1] = int(np.log2(ts.beat_type))
                 keypoints[ts.start.t][1] = ts.beat_type/4
         cur_div = 1
@@ -1746,7 +1727,7 @@ class Part(object):
                                 * np.diff(keypoints[:, 0]))
                                / keypoints[:-1, 1])]
         
-        m1 = next(tl.first_point.iter_starting(Measure), None)
+        m1 = next(self.first_point.iter_starting(Measure), None)
 
         if (m1 and m1.start is not None and m1.end is not None):
 
@@ -1834,7 +1815,7 @@ class Part(object):
             list of Note objects
 
         """
-        return list(self.timeline.iter_all(Note, include_subclasses=True))
+        return list(self.iter_all(Note, include_subclasses=True))
 
     @property
     def notes_tied(self):
@@ -1848,7 +1829,7 @@ class Part(object):
             list of Note objects
 
         """
-        return [note for note in self.timeline.iter_all(Note, include_subclasses=True)
+        return [note for note in self.iter_all(Note, include_subclasses=True)
                 if note.tie_prev is None]
 
 
@@ -1872,7 +1853,7 @@ def iter_unfolded_timelines(timeline):
         yield sv.create_variant_timeline()
 
 
-def unfold_timeline_maximal(timeline):
+def unfold_timeline_maximal(timeline): 
     """Return the "maximally" unfolded timeline, that is, a copy of the
     timeline where all segments marked with repeat signs are included
     twice.
@@ -2018,12 +1999,11 @@ def add_measures(part):
         Part instance
     
     """
-    tl = part.timeline
     timesigs = np.array([(ts.start.t, ts.beats)
-                         for ts in tl.iter_all(TimeSignature)],
+                         for ts in part.iter_all(TimeSignature)],
                         dtype=np.int)
-    start = tl.first_point.t
-    end = tl.last_point.t
+    start = part.first_point.t
+    end = part.last_point.t
 
     
     # make sure we cover time from the start of the timeline
@@ -2057,12 +2037,12 @@ def add_measures(part):
             measure_end_beats = min(beat_map(pos)+measure_dur, beat_map(end))
             measure_end = min(ts_end, inv_beat_map(measure_end_beats))
             # print('measure', measure_start, measure_end)
-            tl.add(Measure(number=mcounter), int(measure_start), int(measure_end))
+            part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
             pos = measure_end
             mcounter += 1
 
 
-def remove_grace_notes(timeline):
+def remove_grace_notes(part):
     """Remove all grace notes from a timeline.
 
     The specified timeline object will be modified in place.
@@ -2073,7 +2053,7 @@ def remove_grace_notes(timeline):
         The timeline from which to remove the grace notes
     
     """
-    for point in timeline.points:
+    for point in part.points:
         point.starting_objects[Note] = [n for n in point.starting_objects[Note]
                                         if n.grace_type is None]
         point.ending_objects[Note] = [n for n in point.ending_objects[Note]
@@ -2330,7 +2310,7 @@ def make_tied_note_id(prev_id):
 def tie_notes(part, force_duration_analysis=False):
 
     # split and tie notes at measure boundaries
-    for note in part.timeline.iter_all(Note):
+    for note in part.iter_all(Note):
         next_measure = next(iter(note.start.get_next_of_type(Measure)), None)
         cur_note = note
         note_end = cur_note.end
@@ -2340,9 +2320,9 @@ def tie_notes(part, force_duration_analysis=False):
         slur_stops = cur_note.slur_stops
 
         while next_measure and cur_note.end > next_measure.start:
-            part.timeline.remove(cur_note, 'end')
+            part.remove(cur_note, 'end')
             cur_note.slur_stops = []
-            part.timeline.add(cur_note, None, next_measure.start.t)
+            part.add(cur_note, None, next_measure.start.t)
             cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t-cur_note.start.t, cur_note.start.quarter)
             sym_dur = estimate_symbolic_duration(note_end.t-next_measure.start.t, next_measure.start.quarter)
             if cur_note.id is not None:
@@ -2352,7 +2332,7 @@ def tie_notes(part, force_duration_analysis=False):
             next_note = Note(note.step, note.octave, note.alter, id=note_id,
                                   voice=note.voice, staff=note.staff,
                                   symbolic_duration=sym_dur)
-            part.timeline.add(next_note, next_measure.start.t, note_end.t)
+            part.add(next_note, next_measure.start.t, note_end.t)
 
             cur_note.tie_next = next_note
             next_note.tie_prev = cur_note
@@ -2367,7 +2347,7 @@ def tie_notes(part, force_duration_analysis=False):
 
     # then split/tie any notes that do not have a fractional/dot duration
     divs_map = part.divisions_map
-    notes = part.timeline.iter_all(Note)
+    notes = part.iter_all(Note)
 
     max_splits = 3
     failed = 0
@@ -2389,14 +2369,14 @@ def split_note(part, note, splits):
     assert len(splits) > 0
     # TODO: we shouldn't do this, but for now it's a good sanity check
     assert note.symbolic_duration is None
-    part.timeline.remove(note)
+    part.remove(note)
     divs_map = part.divisions_map
     orig_tie_next = note.tie_next
     slur_stops = note.slur_stops
     cur_note = note
     start, end, sym_dur = splits.pop(0)
     cur_note.symbolic_duration = sym_dur
-    part.timeline.add(cur_note, start, end)
+    part.add(cur_note, start, end)
 
     while splits:
         note.slur_stops = []
@@ -2415,7 +2395,7 @@ def split_note(part, note, splits):
         start, end, sym_dur = splits.pop(0)
         cur_note.symbolic_duration = sym_dur
 
-        part.timeline.add(cur_note, start, end)
+        part.add(cur_note, start, end)
 
     cur_note.tie_next = orig_tie_next
 
@@ -2440,7 +2420,7 @@ def find_tuplets(part):
     prev_end = None
 
     # 1. group consecutive notes without symbolic_duration
-    for note in part.timeline.iter_all(GenericNote, include_subclasses=True):
+    for note in part.iter_all(GenericNote, include_subclasses=True):
 
         if note.symbolic_duration is None:
             if note.start.t == prev_end:
@@ -2497,7 +2477,7 @@ def find_tuplets(part):
                             start_note = note_tuplet[0]
                             stop_note = note_tuplet[-1]
                             tuplet = Tuplet(start_note, stop_note)
-                            part.timeline.add(tuplet, start_note.start.t, stop_note.end.t)
+                            part.add(tuplet, start_note.start.t, stop_note.end.t)
                             tup_start += actual_notes
                             
                         else:

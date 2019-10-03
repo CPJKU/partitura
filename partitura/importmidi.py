@@ -294,7 +294,7 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     # add tempos to first part
     part = next(score.iter_parts(partlist))
     for t, qpm in global_tempos:
-        part.timeline.add(score.Tempo(qpm, unit='q'), t)
+        part.add(score.Tempo(qpm, unit='q'), t)
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -384,13 +384,13 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     LOGGER.debug('create_part')
 
     part = score.Part(part_id, part_name=part_name)
-    part.timeline.set_quarter_duration(0, ticks)
+    part.set_quarter_duration(0, ticks)
 
     clef = estimate_clef([pitch for _, pitch, _ in notes])
-    part.timeline.add(clef, 0)
+    part.add(clef, 0)
     for t, name in key_sigs:
         fifths, mode = key_name_to_fifths_mode(name)
-        part.timeline.add(score.KeySignature(fifths, mode), t)
+        part.add(score.KeySignature(fifths, mode), t)
 
     LOGGER.debug('add notes')
 
@@ -402,7 +402,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
             note = score.GraceNote('appoggiatura', step, octave, alter, voice=int(voice or 0), id=note_id,
                                    symbolic_duration=dict(type='quarter'))
 
-        part.timeline.add(note, onset, onset+duration)
+        part.add(note, onset, onset+duration)
 
     if not time_sigs:
         warnings.warn('No time signatures found, assuming 4/4')
@@ -418,7 +418,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
 
     for ts_start, num, den, ts_end in time_sigs:
         time_sig = score.TimeSignature(num.item(), den.item())
-        part.timeline.add(time_sig, ts_start.item())
+        part.add(time_sig, ts_start.item())
 
     score.add_measures(part)
 
@@ -430,13 +430,13 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     # # we call item() on numpy numbers to get the value in the equivalent python type
     # for ts_start, num, den, ts_end in time_sigs:
     #     time_sig = score.TimeSignature(num.item(), den.item())
-    #     part.timeline.add(time_sig, ts_start.item())
+    #     part.add(time_sig, ts_start.item())
     #     measure_duration = (num.item() * ticks * 4) // den.item()
-    #     measure_start_limit = min(ts_end.item(), part.timeline.last_point.t)
+    #     measure_start_limit = min(ts_end.item(), part.last_point.t)
     #     for m_start in range(ts_start, measure_start_limit, measure_duration):
     #         measure = score.Measure(number=measure_counter)
     #         m_end = min(m_start+measure_duration, ts_end)
-    #         part.timeline.add(measure, m_start, m_end)
+    #         part.add(measure, m_start, m_end)
     #         measure_counter += 1
     #     if np.isinf(ts_end):
     #         ts_end = m_end

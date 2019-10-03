@@ -60,7 +60,7 @@ class TestMusicXML(unittest.TestCase):
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
             part = load_musicxml(fn, validate=False)
-            part.timeline = score.unfold_timeline_maximal(part.timeline)
+            part = score.unfold_timeline_maximal(part)
             result = save_musicxml(part).decode('UTF-8')
             with open(fn_target) as f:
                 target = f.read()
@@ -86,14 +86,14 @@ class TestMusicXML(unittest.TestCase):
         note2 = score.Note(step='C', octave=5, alter=-1, voice=2, staff=1)
         
         # and add the contents to the part:
-        part1.timeline.set_quarter_duration(0, divs)
-        part1.timeline.add(ts, 0)
-        part1.timeline.add(measure1, 0, 30)
-        part1.timeline.add(page1, 0)
-        part1.timeline.add(system1, 0)
-        part1.timeline.add(note1, 0, 15)
-        part1.timeline.add(rest1, 15, 30)
-        part1.timeline.add(note2, 0, 30)
+        part1.set_quarter_duration(0, divs)
+        part1.add(ts, 0)
+        part1.add(measure1, 0, 30)
+        part1.add(page1, 0)
+        part1.add(system1, 0)
+        part1.add(note1, 0, 15)
+        part1.add(rest1, 15, 30)
+        part1.add(note2, 0, 30)
         
         # pretty print the part
         pstring1 = part1.pretty()
@@ -175,20 +175,20 @@ def make_part_slur():
     slur2 = score.Slur(start_note=note4, end_note=note3)
     
     # and add the contents to the part:
-    part.timeline.set_quarter_duration(0, divs)
-    part.timeline.add(ts, 0)
-    part.timeline.add(page1, 0)
-    part.timeline.add(system1, 0)
-    part.timeline.add(note0, 0, 12)
-    part.timeline.add(note1, 12, 24)
-    part.timeline.add(note2, 24, 36)
-    part.timeline.add(note3, 36, 48)
-    part.timeline.add(note4, 0, 6)
-    part.timeline.add(note5, 6, 33)
-    part.timeline.add(slur1, 
+    part.set_quarter_duration(0, divs)
+    part.add(ts, 0)
+    part.add(page1, 0)
+    part.add(system1, 0)
+    part.add(note0, 0, 12)
+    part.add(note1, 12, 24)
+    part.add(note2, 24, 36)
+    part.add(note3, 36, 48)
+    part.add(note4, 0, 6)
+    part.add(note5, 6, 33)
+    part.add(slur1, 
                       slur1.start_note.start.t,
                       slur1.end_note.end.t)
-    part.timeline.add(slur2, 
+    part.add(slur2, 
                       slur2.start_note.start.t,
                       slur2.end_note.end.t)
 
@@ -214,14 +214,14 @@ def make_part_tuplet():
     rest2 = score.Rest(id='r0', voice=1, staff=1)
     
     # and add the contents to the part:
-    part.timeline.set_quarter_duration(0, divs)
-    part.timeline.add(ts, 0)
-    part.timeline.add(page1, 0)
-    part.timeline.add(system1, 0)
-    part.timeline.add(note1, 0, 8)
-    part.timeline.add(rest1, 8, 16)
-    part.timeline.add(note2, 16, 24)
-    part.timeline.add(rest2, 24, 36)
+    part.set_quarter_duration(0, divs)
+    part.add(ts, 0)
+    part.add(page1, 0)
+    part.add(system1, 0)
+    part.add(note1, 0, 8)
+    part.add(rest1, 8, 16)
+    part.add(note2, 16, 24)
+    part.add(rest2, 24, 36)
 
     score.add_measures(part)
     score.find_tuplets(part)
