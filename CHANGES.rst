@@ -6,10 +6,12 @@ Version 0.1.3 (prerelease; unreleased)
 
 API changes:
 
+* The TimeLine class has been merged into the Part class
+  
 New features:
 
 * Add `find_tuplets` and `tie_notes` to public API
-* new Tuplet class analog to Slur, allows for better musicxml tuplet
+* New Tuplet class analog to Slur, allows for better musicxml tuplet
   support
 * Remove deprecated get_starting_objects_of_type/get_ending_objects_of_type (use
   iter_starting/iter_ending)
@@ -18,13 +20,13 @@ Bug fixes:
 
 * Multiple fixes in tuplet and slur handling 
 
-  
 Other changes:
 
 * Update package description/long description
 * More documentation
 * Add separate tuplet and slur test cases
 * Improve show_diff
+
 
 Version 0.1.2 (prerelease; Released on 2019-09-29)
 --------------------------------------------------

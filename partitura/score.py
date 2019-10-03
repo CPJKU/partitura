@@ -4,18 +4,10 @@
 
 """
 This module contains an ontology to represent musical scores. A score is
-defined at the highest level by a `Part` object (or a hierarchy of `Part` objects,
-in a `PartGroup` object). This object contains a `TimeLine` object, which as acts
-as a washing line for the elements in a musical score such as measures, notes,
-slurs, words, expressive directions. The `TimeLine` object contains a sequence of
-`TimePoint` objects, which are the pegs that fix the score elements in time. Each
-`TimePoint` object has a time value `t` (an integer). Furthermore, it contains
-dictionaries with the objects starting and ending at `t`, respectively (indexed
-by class).
-
-TODO: Refer to documentation
-
-
+defined at the highest level by a `Part` object (or a hierarchy of `Part`
+objects, in a `PartGroup` object). This object serves as a timeline, on which
+as the elements in a musical score such as measures, notes, slurs, words,
+expressive directions are temporally located.
 """
 
 import sys
@@ -137,24 +129,254 @@ class _ReplaceRefMixin(object):
                     setattr(self, attr, o_new)
 
 
-class TimeLine(object):
+class Part(object):
+    """Represents a score part, e.g. all notes of one single instrument
+    (or multiple instruments written in the same staff). Note that
+    there may be more than one staff per score part.
 
-    """
-    The `TimeLine` class collects `TimePoint` objects in a doubly
-    linked list fashion (as well as in an array).
+    The `Part` class collects `TimePoint` objects in a doubly
+    linked list (as well as in an array).
+
+    Parameters
+    ----------
+    id : str
+        The identifier of the part. To be compatible with MusicXML the
+        identifier should not start with a number
+    timeline : TimeLine or None, optional
+        If not None, use the provided timeline as timeline for the
+        Part. Otherwise a new empty Timeline will be created.
 
     Attributes
     ----------
-    points : ndarray of TimePoint objects
-        an array of TimePoint objects.
-
+    id : str
+        The identifier of the part. (see Parameters Section).
+    part_name : str
+        Name for the part
+    part_abbreviation : str
+        Abbreviated name for part
+    timeline : TimeLine
+    notes
+    notes_tied
+    beat_map
+    quarter_map
+    
     """
 
-    def __init__(self):
+    def __init__(self, id, part_name=None):
+        super().__init__()
+        self.id = id
+        self.parent = None
+        self.part_name = part_name
+        self.part_abbreviation = None
+
+        # timeline init
         self.points = np.array([], dtype=TimePoint)
         self._quarter_times = [0]
         self._quarter_durations = [1]
         self._make_quarter_map()
+    @property
+    def part_names(self):
+        # get instrument name parts recursively
+        chunks = []
+
+        if self.part_name is not None:
+            chunks.append(self.part_name)
+            yield self.part_name
+
+        pg = self.parent
+        while pg is not None:
+            if pg.group_name is not None:
+                chunks.insert(0, pg.group_name)
+                yield '  '.join(chunks)
+            pg = pg.parent
+
+    def __str__(self):
+        return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
+
+    def _pp(self, tree):
+        result = [self.__str__()]
+        tree.push()
+        N = len(self.points)
+        for i, timepoint in enumerate(self.points):
+            result.append('{}'.format(tree).rstrip())
+            if i == N - 1:
+                tree.last_item()
+            else:
+                tree.next_item()
+            result.extend(timepoint._pp(tree))
+        tree.pop()
+        return result
+
+    def pretty(self):
+        """Return a pretty representation of this object.
+
+        Returns
+        -------
+        str
+            A pretty representation
+        
+        """
+        return '\n'.join(self._pp(PrettyPrintTree()))
+
+    @property
+    def time_signature_map(self):
+        tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
+                        for ts in self.iter_all(TimeSignature)])
+        if len(tss) == 0:
+            # warn assumption
+            tss = np.array([(self.first_point.t, 4, 4),
+                            (self.last_point.t, 4, 4)])
+        elif tss[0, 0] > self.first_point.t:
+            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
+                             tss))
+        tss = np.vstack((tss,
+                         (self.last_point.t, tss[-1, 1], tss[-1, 2])))
+        return interp1d(tss[:, 0], tss[:, 1:], kind='previous')
+
+    def _time_interpolator(self, quarter=False, inv=False):
+
+        if len(self.points) < 2:
+            return lambda x: np.zeros(len(x))
+
+        keypoints = defaultdict(lambda: [None, None])
+        _ = keypoints[self.first_point.t]
+        _ = keypoints[self.last_point.t]
+        for t, q in zip(self._quarter_times, self._quarter_durations):
+            keypoints[t][0] = q
+        if not quarter:
+            for ts in self.iter_all(TimeSignature):
+                # keypoints[ts.start.t][1] = int(np.log2(ts.beat_type))
+                keypoints[ts.start.t][1] = ts.beat_type/4
+        cur_div = 1
+        cur_bt = 1
+        keypoints_list = []
+
+        for t in sorted(keypoints.keys()):
+            kp = keypoints[t]
+            if kp[0] is None:
+                kp[0] = cur_div
+            else:
+                cur_div = kp[0]
+            if kp[1] is None:
+                kp[1] = cur_bt
+            else:
+                cur_bt = kp[1]
+            if not keypoints_list or kp != keypoints_list[-1]:
+                keypoints_list.append([t]+kp)
+        keypoints = np.array(keypoints_list, dtype=np.float)
+
+        x = keypoints[:, 0]
+        y = np.r_[0, np.cumsum((keypoints[:-1, 2]
+                                * np.diff(keypoints[:, 0]))
+                               / keypoints[:-1, 1])]
+        
+        m1 = next(self.first_point.iter_starting(Measure), None)
+
+        if (m1 and m1.start is not None and m1.end is not None):
+
+            f = interp1d(x, y)
+            actual_dur = np.diff(f((m1.start.t, m1.end.t)))[0]
+            ts = next(m1.start.iter_starting(TimeSignature), None)
+
+            if ts:
+
+                normal_dur = ts.beats
+                if quarter:
+                    normal_dur *= ts.beat_type/4
+                if actual_dur < normal_dur:
+                    y -= actual_dur
+            else:
+                # warn
+                pass
+
+        if inv:
+            return interp1d(y, x)
+        else:
+            return interp1d(x, y)
+
+    @property
+    def beat_map(self):
+        """A function mapping timeline times to beat times. The function
+        can take scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+        
+        """
+        return self._time_interpolator()
+
+    @property
+    def inv_beat_map(self):
+        """A function mapping beat times to timeline times. The function
+        can take scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+        
+        """
+        return self._time_interpolator(inv=True)
+
+
+    @property
+    def quarter_map(self):
+        """A function mapping timeline times to quarter times. The
+        function can take scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+        
+        """
+        return self._time_interpolator(quarter=True)
+
+    @property
+    def inv_quarter_map(self):
+        """A function mapping quarter times to timeline times. The
+        function can take scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+        
+        """
+        return self._time_interpolator(quarter=True, inv=True)
+
+    @property
+    def notes(self):
+        """Return a list of all Note objects in the part. This list includes
+        GraceNote objects but not Rest objects.
+
+        Returns
+        -------
+        list
+            list of Note objects
+
+        """
+        return list(self.iter_all(Note, include_subclasses=True))
+
+    @property
+    def notes_tied(self):
+        """Return a list of all Note objects in the part that are either not
+        tied, or the first note of a group of tied notes. This list
+        includes GraceNote objects but not Rest objects.
+
+        Returns
+        -------
+        list
+            list of Note objects
+
+        """
+        return [note for note in self.iter_all(Note, include_subclasses=True)
+                if note.tie_prev is None]
+
+
+    # timeline methods
 
     def quarter_durations(self, start=-np.inf, end=np.inf):
         qd = np.column_stack((self._quarter_times, self._quarter_durations))
@@ -162,10 +384,6 @@ class TimeLine(object):
         qd = qd[qd[:, 0]<end, :]
         return qd
 
-    # @property
-    # def quarter_durations(self):
-    #     return np.column_stack((self._quarter_times, self._quarter_durations))
-    
     def _make_quarter_map(self):
         x = self._quarter_times
         y = self._quarter_durations
@@ -337,65 +555,6 @@ class TimeLine(object):
                 self._remove_point(o.end)
             o.end = None
         
-    # def get_all(self, cls, start=None, end=None, include_subclasses=False, mode='starting'):
-    #     """Return a list of all instances of `cls` that either start or
-    #     end (depending on `mode`) in the interval `start` to `end`.
-    #     When `start` and `end` are omitted, the whole timeline is
-    #     searched.
-
-    #     Parameters
-    #     ----------
-    #     cls : class
-    #         The class to search for
-    #     start : TimePoint, optional
-    #         The start of the interval to search. If omitted or None,
-    #         the search starts at the start of the timeline. Defaults
-    #         to None.
-    #     end : TimePoint, optional
-    #         The end of the interval to search. If omitted or None, the
-    #         search ends at the end of the timeline. Defaults to None.
-    #     include_subclasses : bool, optional
-    #         If True also return instances that are subclasses of
-    #         `cls`. Defaults to False.
-    #     mode : {'starting', 'ending'}
-    #         Flag indicating whether to search for starting or ending
-    #         objects. Defaults to 'starting'.
-
-    #     Returns
-    #     -------
-    #     list
-    #         List of instances of `cls`
-        
-    #     """
-    #     if not mode in ('starting', 'ending'):
-    #         LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
-    #         mode = 'starting'
-
-    #     if start is not None:
-    #         if not isinstance(start, TimePoint):
-    #             start = TimePoint(start)
-
-    #         start_idx = np.searchsorted(
-    #             self.points, start, side='left')
-    #     else:
-    #         start_idx = 0
-
-    #     if end is not None:
-    #         if not isinstance(end, TimePoint):
-    #             end = TimePoint(end)
-    #         end_idx = np.searchsorted(self.points, end, side='left')
-    #     else:
-    #         end_idx = len(self.points)
-
-    #     r = []
-    #     if mode == 'ending':
-    #         for tp in self.points[start_idx: end_idx]:
-    #             r.extend(tp.get_ending_objects_of_type(cls, include_subclasses))
-    #     else:
-    #         for tp in self.points[start_idx: end_idx]:
-    #             r.extend(tp.get_starting_objects_of_type(cls, include_subclasses))
-    #     return r
-
     def iter_all(self, cls, start=None, end=None,
                  include_subclasses=False, mode='starting'):
         """Iterate (in direction of increasing time) over all instances
@@ -454,7 +613,6 @@ class TimeLine(object):
             for tp in self.points[start_idx: end_idx]:
                 yield from tp.iter_starting(cls, include_subclasses)
         return r
-
 
     @property
     def last_point(self):
@@ -919,75 +1077,7 @@ class Measure(TimedObject):
         else:
             return None
 
-    # def get_measure_duration(self, quarter=False):
-    #     """Return the measure duration, either in beats or in quarter note
-    #     units.
-
-    #     Parameters
-    #     ----------
-    #     quarter : bool (optional)
-    #         If True, return the measure duration in quarter note units,
-    #         otherwise in beat units. Defaults to False
-
-    #     Returns
-    #     -------
-    #     float
-    #         The measure duration
-
-    #     """
-
-    #     # TODO: support mid-measure time sig and division changes
-    #     divs = self.start.get_prev_of_type(Divisions, eq=True)
-    #     ts = self.start.get_prev_of_type(TimeSignature, eq=True)
-    #     assert len(divs) > 0
-    #     assert len(ts) > 0
-    #     measure_dur = self.end.t - self.start.t
-    #     beats = ts[0].beats
-    #     beat_type = ts[0].beat_type
-    #     div = float(divs[0].divs)
-
-    #     if quarter:
-    #         return measure_dur / div
-    #     else:
-    #         return beat_type * measure_dur / (4. * div)
-
-    # @property
-    # def incomplete(self):
-    #     """Returns True if the duration of the measure is less than the
-    #     expected duration (as computed based on the current divisions and
-    #     time signature), and False otherwise.
-
-    #     Returns
-    #     -------
-    #     bool
-
-    #     """
-
-    #     # divs = self.start.get_prev_of_type(Divisions, eq=True)
-    #     ts = self.start.get_prev_of_type(TimeSignature, eq=True)
-
-    #     invalid = False
-    #     if len(divs) == 0:
-    #         LOGGER.warning('Part specifies no divisions')
-    #         invalid = True
-    #     if len(ts) == 0:
-    #         LOGGER.warning('Part specifies no time signatures')
-    #         invalid = True
-
-    #     if invalid:
-    #         LOGGER.warning(
-    #             'could not be determine if meaure is incomplete, assuming complete')
-    #         return False
-
-    #     # measure_dur = nextm[0].start.t - self.start.t
-    #     measure_dur = self.end.t - self.start.t
-    #     beats = ts[0].beats
-    #     beat_type = ts[0].beat_type
-    #     div = float(divs[0].divs)
-
-    #     # this will return a boolean, so either True or False
-    #     # return beat_type * measure_dur / (4 * div * beats) % 1 > 0
-    #     return beat_type*measure_dur < 4*div*beats
+    # TODO: add `incomplete` or `anacrusis` property
 
 
 class TimeSignature(TimedObject):
@@ -1316,20 +1406,7 @@ class Note(GenericNote):
                 + MIDI_BASE_CLASS[self.step.lower()]
                 + (self.alter or 0))
 
-    # this will be replaced by carlos
-    # @property
-    # def morphetic_pitch(self):
-    #     """The morphetic value of the note, i.e. a single integer. It
-    #     corresponds to the (vertical) position of the note in the barline
-    #     system.
-
-    #     Returns
-    #     -------
-    #     integer
-
-    #     """
-    #     return (_MORPHETIC_OCTAVE[self.octave] +
-    #             _MORPHETIC_BASE_CLASS[self.step.lower()])
+    # TODO: include morphetic pitch method based in code in musicanalysis package
 
     @property
     def alter_sign(self):
@@ -1566,272 +1643,6 @@ class ScoreVariant(object):
             tp_next.prev = tp
 
         return timeline
-
-
-class Part(TimeLine):
-
-    """Represents a score part, e.g. all notes of one single instrument
-    (or multiple instruments written in the same staff). Note that
-    there may be more than one staff per score part.
-
-    Parameters
-    ----------
-    id : str
-        The identifier of the part. To be compatible with MusicXML the
-        identifier should not start with a number
-    timeline : TimeLine or None, optional
-        If not None, use the provided timeline as timeline for the
-        Part. Otherwise a new empty Timeline will be created.
-
-    Attributes
-    ----------
-    id : str
-        The identifier of the part. (see Parameters Section).
-    part_name : str
-        Name for the part
-    part_abbreviation : str
-        Abbreviated name for part
-    timeline : TimeLine
-    notes
-    notes_tied
-    beat_map
-    quarter_map
-    
-    """
-
-    def __init__(self, id, part_name=None):
-        super().__init__()
-        self.id = id
-        self.parent = None
-        self.part_name = part_name
-        self.part_abbreviation = None
-
-    @property
-    def part_names(self):
-        # get instrument name parts recursively
-        chunks = []
-
-        if self.part_name is not None:
-            chunks.append(self.part_name)
-            yield self.part_name
-
-        pg = self.parent
-        while pg is not None:
-            if pg.group_name is not None:
-                chunks.insert(0, pg.group_name)
-                yield '  '.join(chunks)
-            pg = pg.parent
-
-
-    # def test_timeline(self):
-    #     """Test if all ending objects have occurred as starting object as
-    #     well.
-
-    #     """
-    #     return self.timeline.test()
-
-
-    def __str__(self):
-        return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
-
-    def _pp(self, tree):
-        result = [self.__str__()]
-        tree.push()
-        N = len(self.points)
-        for i, timepoint in enumerate(self.points):
-            result.append('{}'.format(tree).rstrip())
-            if i == N - 1:
-                tree.last_item()
-            else:
-                tree.next_item()
-            result.extend(timepoint._pp(tree))
-        tree.pop()
-        return result
-
-    def pretty(self):
-        """Return a pretty representation of this object.
-
-        Returns
-        -------
-        str
-            A pretty representation
-        
-        """
-        return '\n'.join(self._pp(PrettyPrintTree()))
-
-        
-        # divs = np.array([(divs.start.t, divs.divs) for divs in self.timeline.iter_all(Divisions)])
-        # if len(divs) == 0:
-        #     # warn assumption
-        #     divs = np.array([(self.timeline.first_point.t, 1),
-        #                      (self.timeline.last_point.t, 1)])
-        # elif divs[0, 0] > self.timeline.first_point.t:
-        #     divs = np.vstack(((self.timeline.first_point.t, divs[0, 1]),
-        #                       divs))
-        # divs = np.vstack((divs,
-        #                   (self.timeline.last_point.t, divs[-1, 1])))
-        # return interp1d(divs[:, 0], divs[:, 1], kind='previous',
-        #                 bounds_error=False, fill_value=(divs[0, 1], divs[-1, 1]))
-
-
-    @property
-    def time_signature_map(self):
-        tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
-                        for ts in self.iter_all(TimeSignature)])
-        if len(tss) == 0:
-            # warn assumption
-            tss = np.array([(self.first_point.t, 4, 4),
-                            (self.last_point.t, 4, 4)])
-        elif tss[0, 0] > self.first_point.t:
-            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
-                             tss))
-        tss = np.vstack((tss,
-                         (self.last_point.t, tss[-1, 1], tss[-1, 2])))
-        return interp1d(tss[:, 0], tss[:, 1:], kind='previous')
-
-
-    def _time_interpolator(self, quarter=False, inv=False):
-
-        if len(self.points) < 2:
-            return lambda x: np.zeros(len(x))
-
-        keypoints = defaultdict(lambda: [None, None])
-        _ = keypoints[self.first_point.t]
-        _ = keypoints[self.last_point.t]
-        for t, q in zip(self._quarter_times, self._quarter_durations):
-            keypoints[t][0] = q
-        if not quarter:
-            for ts in self.iter_all(TimeSignature):
-                # keypoints[ts.start.t][1] = int(np.log2(ts.beat_type))
-                keypoints[ts.start.t][1] = ts.beat_type/4
-        cur_div = 1
-        cur_bt = 1
-        keypoints_list = []
-
-        for t in sorted(keypoints.keys()):
-            kp = keypoints[t]
-            if kp[0] is None:
-                kp[0] = cur_div
-            else:
-                cur_div = kp[0]
-            if kp[1] is None:
-                kp[1] = cur_bt
-            else:
-                cur_bt = kp[1]
-            if not keypoints_list or kp != keypoints_list[-1]:
-                keypoints_list.append([t]+kp)
-        keypoints = np.array(keypoints_list, dtype=np.float)
-
-        x = keypoints[:, 0]
-        y = np.r_[0, np.cumsum((keypoints[:-1, 2]
-                                * np.diff(keypoints[:, 0]))
-                               / keypoints[:-1, 1])]
-        
-        m1 = next(self.first_point.iter_starting(Measure), None)
-
-        if (m1 and m1.start is not None and m1.end is not None):
-
-            f = interp1d(x, y)
-            actual_dur = np.diff(f((m1.start.t, m1.end.t)))[0]
-            ts = next(m1.start.iter_starting(TimeSignature), None)
-
-            if ts:
-
-                normal_dur = ts.beats
-                if quarter:
-                    normal_dur *= ts.beat_type/4
-                if actual_dur < normal_dur:
-                    y -= actual_dur
-            else:
-                # warn
-                pass
-
-        if inv:
-            return interp1d(y, x)
-        else:
-            return interp1d(x, y)
-
-    @property
-    def beat_map(self):
-        """A function mapping timeline times to beat times. The function
-        can take scalar values or lists/arrays of values.
-
-        Returns
-        -------
-        function
-            The mapping function
-        
-        """
-        return self._time_interpolator()
-
-    @property
-    def inv_beat_map(self):
-        """A function mapping beat times to timeline times. The function
-        can take scalar values or lists/arrays of values.
-
-        Returns
-        -------
-        function
-            The mapping function
-        
-        """
-        return self._time_interpolator(inv=True)
-
-
-    @property
-    def quarter_map(self):
-        """A function mapping timeline times to quarter times. The
-        function can take scalar values or lists/arrays of values.
-
-        Returns
-        -------
-        function
-            The mapping function
-        
-        """
-        return self._time_interpolator(quarter=True)
-
-    @property
-    def inv_quarter_map(self):
-        """A function mapping quarter times to timeline times. The
-        function can take scalar values or lists/arrays of values.
-
-        Returns
-        -------
-        function
-            The mapping function
-        
-        """
-        return self._time_interpolator(quarter=True, inv=True)
-
-    @property
-    def notes(self):
-        """Return a list of all Note objects in the part. This list includes
-        GraceNote objects but not Rest objects.
-
-        Returns
-        -------
-        list
-            list of Note objects
-
-        """
-        return list(self.iter_all(Note, include_subclasses=True))
-
-    @property
-    def notes_tied(self):
-        """Return a list of all Note objects in the part that are either not
-        tied, or the first note of a group of tied notes. This list
-        includes GraceNote objects but not Rest objects.
-
-        Returns
-        -------
-        list
-            list of Note objects
-
-        """
-        return [note for note in self.iter_all(Note, include_subclasses=True)
-                if note.tie_prev is None]
-
 
 
 def iter_unfolded_timelines(timeline):
