@@ -60,14 +60,14 @@ class TestMusicXML(unittest.TestCase):
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
             part = load_musicxml(fn, validate=False)
-            part = score.unfold_timeline_maximal(part)
+            part = score.unfold_part_maximal(part)
             result = save_musicxml(part).decode('UTF-8')
             with open(fn_target) as f:
                 target = f.read()
             equal = target == result
             if not equal:
                 show_diff(result, target)
-            msg = "Unfolding timeline of MusicXML file {} does not yield expected result".format(fn)
+            msg = "Unfolding part of MusicXML file {} does not yield expected result".format(fn)
             self.assertTrue(equal, msg)
 
                 

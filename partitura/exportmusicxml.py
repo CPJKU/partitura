@@ -14,7 +14,7 @@ __all__ = ['save_musicxml']
 
 LOGGER = logging.getLogger(__name__)
 
-DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
+DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
 
 def filter_string(s):
