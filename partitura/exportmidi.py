@@ -293,13 +293,8 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
 
             prt_grp_part_voice.add((pg_number, kk + 1, note.voice))
 
-    # get mappings from prt_grp_part_voice (using a dict for lookup),
-    # then partition onoff_list according to (trk). All notes of one track
-    # combined, sorted by time stamp (per track) written to track. The channel
-    # is part of note message -> mix into info from onoff_list.
-    # Then fill tracks
-
-    part_voice_assign_mode = 1  # remove this after testing!
+    # part_voice_assign_mode = 1  # remove this after testing!
+    # get dict of notes assigned to each MIDI track, keys are MIDI channel numbers
     assigned_notes = assign_parts_voices_tracks_channels(part_voice_assign_mode,
                                                          prt_grp_part_voice_list,
                                                          onoff_list,
@@ -308,6 +303,7 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     # create object, spefify some basic parameters here
     mf = MidiFile(type=file_type, ticks_per_beat=ppq)
 
+    # for each track, add the assigned notes and append to file object
     for key in sorted(assigned_notes.keys()):  # keys are MIDI track numbers
         # print(key)
         # create track and append to file object
