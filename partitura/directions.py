@@ -410,39 +410,39 @@ def parse_direction(string):
     >>> directions = parse_direction('adagio')
     >>> for direction in directions:
     ...    print(direction)
-    ConstantTempoDirection: adagio (adagio)
+    ConstantTempoDirection "adagio" (adagio)
 
     >>> directions = parse_direction('Allegro molto')
     >>> for direction in directions:
     ...    print(direction)
-    ConstantTempoDirection: allegro (Allegro molto)
+    ConstantTempoDirection "allegro" (Allegro molto)
 
     >>> directions = parse_direction('leggiero e molto stretto')
     >>> for direction in directions:
     ...    print(direction)
-    ConstantTempoDirection: leggiero (leggiero)
-    ConstantTempoDirection: stretto (molto stretto)
+    ConstantTempoDirection "leggiero" (leggiero)
+    ConstantTempoDirection "stretto" (molto stretto)
 
     >>> directions = parse_direction('spaghetti')
     >>> for direction in directions:
     ...    print(direction)
-    Words: spaghetti
+    Words "spaghetti"
 
     >>> directions = parse_direction('Allegro (q=120)')
     >>> for direction in directions:
     ...    print(direction)
-    ConstantTempoDirection: allegro (Allegro)
-    Tempo: q=120
+    ConstantTempoDirection "allegro" (Allegro)
+    Tempo q=120
 
     >>> directions = parse_direction('a tempo')
     >>> for direction in directions:
     ...    print(direction)
-    ResetTempoDirection: a tempo (a tempo)
+    ResetTempoDirection "a tempo" (a tempo)
 
     >>> directions = parse_direction('tempo primo')
     >>> for direction in directions:
     ...    print(direction)
-    ResetTempoDirection: tempo primo (tempo primo)
+    ResetTempoDirection "tempo primo" (tempo primo)
 
 
     """

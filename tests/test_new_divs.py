@@ -27,20 +27,19 @@ def create_part_from_spec(spec):
     
     
     part = score.Part('beatmaptest')
-    tl = part.timeline
     # for t, divs in spec['divs']:
-    #     tl.add(score.Divisions(divs), t)
+    #     part.add(score.Divisions(divs), t)
     for t, divs in spec['divs']:
-        tl.set_quarter_duration(t, divs)
+        part.set_quarter_duration(t, divs)
 
     for t, num, den in spec['ts']:
-        tl.add(score.TimeSignature(num, den), t)
+        part.add(score.TimeSignature(num, den), t)
 
     # divs_map = part.divisions_map
 
     for t, dur in spec['notes']:
         # sd = score.estimate_symbolic_duration(dur, int(divs_map(t)))
-        tl.add(score.Note(step='A', alter=None, octave=4), t, t+dur)
+        part.add(score.Note(step='A', alter=None, octave=4), t, t+dur)
 
     score.add_measures(part)
 
@@ -138,7 +137,7 @@ class TestBeatMap(unittest.TestCase):
             self._test_beat_map(part)
     
     def _test_symbolic_durations(self, part, target_durations):
-        notes = list(part.timeline.iter_all(score.Note))
+        notes = list(part.iter_all(score.Note))
         if len(notes) != len(target_durations):
             LOGGER.warning('Skipping incorrect test case (input and targets do not match)')
             return
@@ -149,7 +148,7 @@ class TestBeatMap(unittest.TestCase):
             self.assertEqual(target_sd, est_sd, msg)
     
     def _test_note_onsets(self, part, target_onsets):
-        notes = list(part.timeline.iter_all(score.Note))
+        notes = list(part.iter_all(score.Note))
         if len(notes) != len(target_onsets):
             LOGGER.warning('Skipping incorrect test case (input and targets do not match)')
             return
@@ -160,7 +159,7 @@ class TestBeatMap(unittest.TestCase):
     def _test_beat_map(self, part):
         beat_map = part.beat_map
         inv_beat_map = part.inv_beat_map
-        test_times = range(part.timeline.first_point.t, part.timeline.last_point.t)
+        test_times = range(part.first_point.t, part.last_point.t)
         for t in test_times:
             self.assertAlmostEqual(t, inv_beat_map(beat_map(t)))
 

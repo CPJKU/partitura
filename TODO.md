@@ -35,7 +35,7 @@ Things to do before merging develop into master for v1.0.0
 
 - [done] (mg) avoid polyphony within voices when exporting to musicxml
 
-- (mg) support PartGroup in exportmusicxml
+- [done] (mg) support PartGroup in exportmusicxml
 
 - (mg) include supported/unsupported features of MusicXML:
        The following elements that are extracted from the MusicXML:
