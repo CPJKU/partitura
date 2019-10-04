@@ -6,7 +6,7 @@ import numpy as np
 from collections import defaultdict
 from mido import MidiFile, MidiTrack, Message
 
-from partitura.score import Part, PartGroup
+from partitura.score import Part, PartGroup, iter_parts
 
 import ipdb
 
@@ -20,57 +20,11 @@ DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
 DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
-def get_parts_from_parts_partgroups(parts_partgroups, parts=[]):
-    """
-    From list of Part and/or PartGroup objects, get the Parts
-
-    Parameters
-    ----------
-    parts_partgroups : list
-        list of Part or PartGroup objects, the latter may containg
-        further Part objects (CHECK this)
-
-    parts : list, optional
-
-    Returns
-    -------
-    parts : list of tuples (Part, int or None)
-        (Part object, number of PartGroup or None)
-        These are all parts present in `parts_partgroups`, extracted from
-        their PartGroups and put into a list.
-    """
-    # pg = None
-    for elem in parts_partgroups:
-        if isinstance(elem, Part):
-            # get last PartGroup that contains current Part
-            pg_number = get_root(elem)
-            parts.append((elem, pg_number))
-        else:
-            parts = get_parts_from_parts_partgroups(elem.children, parts)
-
-    return parts
-
-
-def get_root(part_partgroup):
-    """
-    Get a part's root PartGroup's number, if there is one.
-
-    Parameters
-    ----------
-    part_partgroup : Part or PartGroup
-
-
-    Returns
-    -------
-    number : int
-    """
-    p = part_partgroup
-    number = None
-    while isinstance(p.parent, PartGroup):
-        p = p.parent
-        number = p.number  # number of root PG
-
-    return number
+def get_partgroup(part):
+    parent = part.parent
+    while parent and parent.parent:
+        parent = parent.parent
+    return parent
 
 
 def assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list,
@@ -261,20 +215,14 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
     -------
     no returns
     """
-    try:
-        len(parts_partgroups)
-    except TypeError:
-        parts_partgroups = [parts_partgroups]  # wrap into list, makes things easier
-
-    # get list of only Part objects
-    parts_only = get_parts_from_parts_partgroups(parts_partgroups)
 
     onoff_list = []
     prt_grp_part_voice_list = []
     prt_grp_part_voice = set()  # all occurring different combinations
-    for kk, elem in enumerate(parts_only):
-        part = elem[0]
-        pg_number = elem[1]
+
+    for kk, part in enumerate(iter_parts(parts_partgroups)):
+
+        pg = get_partgroup(part)
 
         # current part's notes, we use `notes_tied`!
         notes = part.notes_tied
@@ -288,10 +236,10 @@ def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
             # enumerate parts starting from 1
             # note that we do this 2 times to have equally many as note_on,
             # note_off messages.
-            prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
-            prt_grp_part_voice_list.append([pg_number, kk + 1, note.voice])
+            prt_grp_part_voice_list.append([pg, kk + 1, note.voice])
+            prt_grp_part_voice_list.append([pg, kk + 1, note.voice])
 
-            prt_grp_part_voice.add((pg_number, kk + 1, note.voice))
+            prt_grp_part_voice.add((pg, kk + 1, note.voice))
 
     # part_voice_assign_mode = 1  # remove this after testing!
     # get dict of notes assigned to each MIDI track, keys are MIDI channel numbers
