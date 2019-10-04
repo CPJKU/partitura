@@ -1294,7 +1294,7 @@ class GenericNote(TimedObject):
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
             tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
             tied_id = '+'.join(n.id or 'None' for n in all_tied)
-            return s + ' tied: {}'.format(tied_id)
+            return s + ' tie_group={}'.format(tied_id)
         else:
             return s
 
@@ -1451,10 +1451,10 @@ class ScoreVariant(object):
     """
     """
 
-    def __init__(self, timeline, start_time=0):
+    def __init__(self, part, start_time=0):
         self.t_unfold = start_time
         self.segments = []
-        self.timeline = timeline
+        self.part = part
 
     def add_segment(self, start, end):
         self.segments.append((start, end, self.t_unfold))
@@ -1475,21 +1475,21 @@ class ScoreVariant(object):
         """
         Return a clone of the ScoreVariant
         """
-        clone = ScoreVariant(self.timeline, self.t_unfold)
+        clone = ScoreVariant(self.part, self.t_unfold)
         clone.segments = self.segments[:]
         return clone
 
-    def create_variant_timeline(self):
-        timeline = Part(self.timeline.id, part_name=self.timeline.part_name)
+    def create_variant_part(self):
+        part = Part(self.part.id, part_name=self.part.part_name)
 
 
         for start, end, offset in self.segments:
             delta = offset - start.t
-            qd = self.timeline.quarter_durations(start.t, end.t)
+            qd = self.part.quarter_durations(start.t, end.t)
             for t, quarter in qd:
-                timeline.set_quarter_duration(t+delta, quarter)
-            # After creating the new timeline we need to replace references to
-            # objects in the old timeline to references in the new timeline
+                part.set_quarter_duration(t+delta, quarter)
+            # After creating the new part we need to replace references to
+            # objects in the old part to references in the new part
             # (e.g. t.next, t.prev, note.tie_next). For this we keep track of
             # correspondences between objects (timepoints, notes, measures,
             # etc), in o_map
@@ -1498,13 +1498,13 @@ class ScoreVariant(object):
             tp = start
             while tp != end:
                 # make a new timepoint, corresponding to tp
-                tp_new = timeline.get_or_add_point(tp.t+delta)
+                tp_new = part.get_or_add_point(tp.t+delta)
                 o_gen = (o for oo in tp.starting_objects.values() for o in oo)
                 for o in o_gen:
 
                     # special cases:
 
-                    # don't include repeats/endings in the unfolded timeline
+                    # don't include repeats/endings in the unfolded part
                     if isinstance(o, (Repeat, Ending)):
                         continue
                     # # don't repeat divisions if it hasn't changed
@@ -1531,11 +1531,11 @@ class ScoreVariant(object):
                     o_new.add(o_copy)
                     # keep track of the correspondence between o and o_copy
                     o_map[o] = o_copy
-                    # add the start of the new object to the timeline
+                    # add the start of the new object to the part
                     tp_new.add_starting_object(o_copy)
                     if o.end is not None:
-                        # add the end of the object to the timeline
-                        tp_end = timeline.get_or_add_point(o.end.t+delta)
+                        # add the end of the object to the part
+                        tp_end = part.get_or_add_point(o.end.t+delta)
                         tp_end.add_ending_object(o_copy)
 
                 tp = tp.next
@@ -1548,7 +1548,7 @@ class ScoreVariant(object):
             for o in end.starting_objects[Fermata]:
                 if o.ref in (None, 'right'):
                     o_copy = copy(o)
-                    tp_new = timeline.get_or_add_point(end.t+delta)
+                    tp_new = part.get_or_add_point(end.t+delta)
                     tp_new.add_starting_object(o_copy)
 
             # for each of the new objects, replace the references to the old
@@ -1557,20 +1557,20 @@ class ScoreVariant(object):
                 o.replace_refs(o_map)
 
         # replace prev/next references in timepoints
-        for tp, tp_next in iter_current_next(timeline.points):
+        for tp, tp_next in iter_current_next(part.points):
             tp.next = tp_next
             tp_next.prev = tp
 
-        return timeline
+        return part
 
 
-def iter_unfolded_timelines(timeline):
+def iter_unfolded_parts(part):
     """TODO: Description
     
     Parameters
     ----------
-    timeline: type
-        Description of `timeline`
+    part: type
+        Description of `part`
     
     Yields
     ------
@@ -1578,36 +1578,36 @@ def iter_unfolded_timelines(timeline):
         Description of return value
     """
     
-    for sv in make_score_variants(timeline):
-        yield sv.create_variant_timeline()
+    for sv in make_score_variants(part):
+        yield sv.create_variant_part()
 
 
-def unfold_timeline_maximal(timeline): 
-    """Return the "maximally" unfolded timeline, that is, a copy of the
-    timeline where all segments marked with repeat signs are included
+def unfold_part_maximal(part): 
+    """Return the "maximally" unfolded part, that is, a copy of the
+    part where all segments marked with repeat signs are included
     twice.
 
     Returns
     -------
-    TimeLine
-        The unfolded TimeLine
+    Part
+        The unfolded Part
 
     """
 
-    sv = make_score_variants(timeline)[-1]
-    return sv.create_variant_timeline()
+    sv = make_score_variants(part)[-1]
+    return sv.create_variant_part()
 
 
-def make_score_variants(timeline):
-    # non-public (use unfold_timeline_maximal, or iter_unfolded_timelines)
+def make_score_variants(part):
+    # non-public (use unfold_part_maximal, or iter_unfolded_parts)
     
     """Create a list of ScoreVariant objects, each representing a
     distinct way to unfold the score, based on the repeat structure.
 
     Parameters
     ----------
-    timeline: TimeLine
-        A timeline for which to make the score variants
+    part: Part
+        A part for which to make the score variants
 
     Returns
     -------
@@ -1621,28 +1621,28 @@ def make_score_variants(timeline):
 
     """
 
-    if len(list(timeline.iter_all(DaCapo)) +
-           list(timeline.iter_all(Fine))) > 0:
+    if len(list(part.iter_all(DaCapo)) +
+           list(part.iter_all(Fine))) > 0:
         LOGGER.warning(('Generation of repeat structures involving da '
                         'capo/fine/coda/segno directions is not '
                         'supported yet'))
 
     # TODO: check if we need to wrap in list
-    repeats = list(timeline.iter_all(Repeat))
+    repeats = list(part.iter_all(Repeat))
     # repeats may not have start or end times. `repeats_to_start_end`
     # returns the start/end paisr for each repeat, making educated guesses
     # when these are missing.
     repeat_start_ends = repeats_to_start_end(repeats,
-                                             timeline.first_point,
-                                             timeline.last_point)
+                                             part.first_point,
+                                             part.last_point)
 
     # check for nestings and raise if necessary
     if any(n < c for c, n in iter_current_next(repeat_start_ends)):
         raise NotImplementedError('Nested endings are currently not supported')
 
     # t_score is used to keep the time in the score
-    t_score = timeline.first_point
-    svs = [ScoreVariant(timeline)]
+    t_score = part.first_point
+    svs = [ScoreVariant(part)]
     # each repeat holds start and end time of a score interval to
     # be repeated
     for i, (rep_start, rep_end) in enumerate(repeat_start_ends):
@@ -1706,11 +1706,11 @@ def make_score_variants(timeline):
         svs = new_svs
 
     # are we at the end of the piece already?
-    if t_score < timeline.last_point:
+    if t_score < part.last_point:
         # no, append the interval from the current score
         # position to the end of the piece
         for sv in svs:
-            sv.add_segment(t_score, timeline.last_point)
+            sv.add_segment(t_score, part.last_point)
 
     return svs
 
