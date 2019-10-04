@@ -16,7 +16,7 @@ URL = 'https://github.com/mgrachten/partitura'
 EMAIL = 'partitura-users@googlegroups.com'
 AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
 REQUIRES_PYTHON = '>=3.5'
-VERSION = '0.1.3'
+VERSION = '0.2.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [

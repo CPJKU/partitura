@@ -1,8 +1,8 @@
 Release Notes
 =============
 
-Version 0.1.3 (prerelease; unreleased)
---------------------------------------
+Version 0.2.0 (prerelease; Released on 2019-10-04)
+--------------------------------------------------
 
 API changes:
 
