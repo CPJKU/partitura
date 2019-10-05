@@ -124,11 +124,8 @@ def interpret_field_rational(data, allow_additions=False):
 class MatchLine(object):
 
     out_pattern = ''
-
     field_names = []
-
     re_obj = re.compile('')
-
     field_interpreter = interpret_field_rational
 
     def __str__(self):
@@ -284,7 +281,7 @@ class MatchNote(MatchLine):
         else:
             # infer the pitch information from the MIDI pitch
             # Note that this is just a dummy method, and does not correspond to
-            # a pitch spelling that is tonally accurate.
+            # musically correct pitch spelling.
             self.NoteName, self.Modifier = PC_DICT[int(np.mod(MidiPitch, 12))]
             self.Octave = int(MidiPitch // 12 - 1)
 
@@ -443,6 +440,9 @@ class MatchSnoteNote(MatchLine):
 
 class MatchSnoteDeletion(MatchLine):
     out_pattern = '{SnoteLine}-deletion.'
+    pattern = MatchSnote.pattern + '-deletion.'
+    re_obj = re.compile(pattern)
+    field_names = MatchSnote.field_names
 
     def __init__(self, snote):
         self.snote = snote
@@ -452,9 +452,29 @@ class MatchSnoteDeletion(MatchLine):
         return self.out_pattern.format(
             SnoteLine=self.snote.matchline)
 
+    @classmethod
+    def from_matchline(cls, matchline, pos=0):
+        match_pattern = cls.re_obj.search(matchline, pos=0)
+
+        if match_pattern is not None:
+            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
+            snote_kwargs = dict(zip(MatchSnote.field_names, groups))
+            snote = MatchSnote(**snote_kwargs)
+            match_line = cls(snote=snote)
+            return match_line
+
+        else:
+            raise ValueError('Input matchline does not fit expected pattern')
+
+    def __str__(self):
+        return str(self.snote) + '\nDeletion'
+
 
 class MatchInsertionNote(MatchLine):
     out_pattern = 'insertion-{NoteLine}.'
+    pattern = 'insertion-' + MatchNote.pattern + '.'
+    re_obj = re.compile(pattern)
+    field_names = MatchNote.field_names
 
     def __init__(self, note):
         self.note = note
@@ -533,9 +553,11 @@ if __name__ == '__main__':
     old_note_line = 'note(0,[E,n],4,471720,472397,49)'
 
     snote_note_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])-note(0,[E,n],4,471720,472397,472397,49).'
+    snote_deletion_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])-deletion.'
 
     note = MatchNote.from_matchline(note_line)
 
     o_note = MatchNote.from_matchline(old_note_line)
 
     snote_note_line = MatchSnoteNote.from_matchline(snote_note_line)
+    snote_deletion_line = MatchSnoteDeletion.from_matchline(snote_deletion_line)
