@@ -230,24 +230,24 @@ def _parse_parts(document, part_dict):
         ongoing = {}
 
         # add new page and system at start of part
-        _handle_new_page(position, part.timeline, ongoing)
-        _handle_new_system(position, part.timeline, ongoing)
+        _handle_new_page(position, part, ongoing)
+        _handle_new_system(position, part, ongoing)
 
         for measure_el in part_el.xpath('measure'):
             position = _handle_measure(
-                measure_el, position, part.timeline, ongoing)
+                measure_el, position, part, ongoing)
 
 
-def _handle_measure(measure_el, position, timeline, ongoing):
+def _handle_measure(measure_el, position, part, ongoing):
     """
     Parse a <measure>...</measure> element, adding it and its contents to the
-    timeline.
+    part.
     """
     # make a measure object
     measure = make_measure(measure_el)
 
     # add the start of the measure to the time line
-    timeline.add(measure, position)
+    part.add(measure, position)
 
     # keep track of the position within the measure
     # measure_pos = 0
@@ -283,33 +283,33 @@ def _handle_measure(measure_el, position, timeline, ongoing):
             measure_maxtime = max(measure_maxtime, position)
 
         elif e.tag == 'attributes':
-            _handle_attributes(e, position, timeline)
+            _handle_attributes(e, position, part)
 
         elif e.tag == 'direction':
-            _handle_direction(e, position, timeline, ongoing)
+            _handle_direction(e, position, part, ongoing)
 
         elif e.tag == 'print':
             # new-page/new-system occurring anywhere in the measure take effect
             # at the start of the measure, so we pass measure_start rather than
             # position
-            _handle_print(e, measure_start, timeline, ongoing)
+            _handle_print(e, measure_start, part, ongoing)
 
         elif e.tag == 'sound':
-            _handle_sound(e, position, timeline)
+            _handle_sound(e, position, part)
 
         elif e.tag == 'note':
             (position, prev_note) = _handle_note(
-                e, position, timeline, ongoing, prev_note)
+                e, position, part, ongoing, prev_note)
             measure_maxtime = max(measure_maxtime, position)
 
         elif e.tag == 'barline':
             repeat = e.find('repeat')
             if repeat is not None:
-                _handle_repeat(repeat, position, timeline, ongoing)
+                _handle_repeat(repeat, position, part, ongoing)
 
             ending = e.find('ending')
             if ending is not None:
-                _handle_ending(ending, position, timeline, ongoing)
+                _handle_ending(ending, position, part, ongoing)
 
             # <!ELEMENT barline (bar-style?, %editorial;, wavy-line?,
             #     segno?, coda?, (fermata, fermata?)?, ending?, repeat?)>
@@ -329,7 +329,7 @@ def _handle_measure(measure_el, position, timeline, ongoing):
                     # element in the measure
                     trailing_children.append(fermata)
                 else:
-                    timeline.add(fermata, position)
+                    part.add(fermata, position)
 
             # TODO: handle segno/fine/dacapo
 
@@ -338,22 +338,22 @@ def _handle_measure(measure_el, position, timeline, ongoing):
 
 
     for obj in trailing_children:
-        timeline.add(obj, measure_maxtime)
+        part.add(obj, measure_maxtime)
 
     # add end time of measure
-    timeline.add(measure, None, measure_maxtime)
+    part.add(measure, None, measure_maxtime)
 
     return measure_maxtime
 
 
-def _handle_repeat(e, position, timeline, ongoing):
+def _handle_repeat(e, position, part, ongoing):
     key = 'repeat'
 
     if e.get('direction') == 'forward':
 
         o = score.Repeat()
         ongoing[key] = o
-        timeline.add(o, position)
+        part.add(o, position)
 
     elif e.get('direction') == 'backward':
 
@@ -362,21 +362,21 @@ def _handle_repeat(e, position, timeline, ongoing):
         if o is None:
             # implicit repeat start: create Repeat
             # object and add it at the beginning of
-            # the self.timeline retroactively
+            # the self retroactively
             o = score.Repeat()
-            timeline.add(o, 0)
+            part.add(o, 0)
 
-        timeline.add(o, None, position)
+        part.add(o, None, position)
 
 
-def _handle_ending(e, position, timeline, ongoing):
+def _handle_ending(e, position, part, ongoing):
     key = 'ending'
 
     if e.get('type') == 'start':
 
         o = score.Ending(e.get('number'))
         ongoing[key] = o
-        timeline.add(o, position)
+        part.add(o, position)
 
     elif e.get('type') in ('stop', 'discontinue'):
 
@@ -389,26 +389,26 @@ def _handle_ending(e, position, timeline, ongoing):
 
         else:
 
-            timeline.add(o, None, position)
+            part.add(o, None, position)
 
 
-def _handle_new_page(position, timeline, ongoing):
+def _handle_new_page(position, part, ongoing):
     if 'page' in ongoing:
         if position == 0:
             # ignore non-informative new-page at start of score
             return
 
-        timeline.add(ongoing['page'], None, position)
+        part.add(ongoing['page'], None, position)
         page_nr = ongoing['page'].nr + 1
     else:
         page_nr = 1
 
     page = score.Page(page_nr)
-    timeline.add(page, position)
+    part.add(page, position)
     ongoing['page'] = page
 
 
-def _handle_new_system(position, timeline, ongoing):
+def _handle_new_system(position, part, ongoing):
     if 'system' in ongoing:
 
         if position == 0:
@@ -416,13 +416,13 @@ def _handle_new_system(position, timeline, ongoing):
             return
 
         # end current page
-        timeline.add(ongoing['system'], None, position)
+        part.add(ongoing['system'], None, position)
         system_nr = ongoing['system'].nr + 1
     else:
         system_nr = 1
 
     system = score.System(system_nr)
-    timeline.add(system, position)
+    part.add(system, position)
     ongoing['system'] = system
 
 
@@ -436,7 +436,7 @@ def make_measure(xml_measure):
     return measure
 
 
-def _handle_attributes(e, position, timeline):
+def _handle_attributes(e, position, part):
     """
 
     """
@@ -444,26 +444,26 @@ def _handle_attributes(e, position, timeline):
     ts_num = get_value_from_tag(e, 'time/beats', int)
     ts_den = get_value_from_tag(e, 'time/beat-type', int)
     if ts_num and ts_den:
-        timeline.add(score.TimeSignature(ts_num, ts_den), position)
+        part.add(score.TimeSignature(ts_num, ts_den), position)
 
     fifths = get_value_from_tag(e, 'key/fifths', int)
     mode = get_value_from_tag(e, 'key/mode', str)
     if fifths is not None or mode is not None:
-        timeline.add(score.KeySignature(fifths, mode), position)
+        part.add(score.KeySignature(fifths, mode), position)
 
     diat = get_value_from_tag(e, 'transpose/diatonic', int)
     chrom = get_value_from_tag(e, 'transpose/chromatic', int)
     if diat is not None or chrom is not None:
-        timeline.add(score.Transposition(diat, chrom), position)
+        part.add(score.Transposition(diat, chrom), position)
 
     divs = get_value_from_tag(e, 'divisions', int)
     if divs:
-        # timeline.add(score.Divisions(divs), position)
-        timeline.set_quarter_duration(position, divs)
+        # part.add(score.Divisions(divs), position)
+        part.set_quarter_duration(position, divs)
 
     clefs = get_clefs(e)
     for clef in clefs:
-        timeline.add(score.Clef(**clef), position)
+        part.add(score.Clef(**clef), position)
 
 
 def get_offset(e):
@@ -479,7 +479,7 @@ def get_offset(e):
         return int(offset.text) if sounding == 'yes' else 0
 
 
-def _handle_direction(e, position, timeline, ongoing):
+def _handle_direction(e, position, part, ongoing):
 
     # <!--
     #     A direction is a musical indication that is not attached
@@ -503,9 +503,9 @@ def _handle_direction(e, position, timeline, ongoing):
     staff = get_value_from_tag(e, 'staff', int) or 1
 
     if get_value_from_attribute(e, 'sound/fine', str) == 'yes':
-        timeline.add(score.Fine(), position)
+        part.add(score.Fine(), position)
     if get_value_from_attribute(e, 'sound/dacapo', str) == 'yes':
-        timeline.add(score.DaCapo(), position)
+        part.add(score.DaCapo(), position)
 
     # <direction-type> ... </...>
     direction_types = e.findall('direction-type')
@@ -525,7 +525,7 @@ def _handle_direction(e, position, timeline, ongoing):
     # * TODO: pedal
     # * TODO: damp
 
-    # here we gather all starting and ending directions, to be added to the timeline afterwards
+    # here we gather all starting and ending directions, to be added to the part afterwards
     starting_directions = []
     ending_directions = []
 
@@ -618,12 +618,12 @@ def _handle_direction(e, position, timeline, ongoing):
 
     for o in starting_directions:
         if isinstance(o, score.Tempo):
-            _add_tempo_if_unique(position, timeline, o)
+            _add_tempo_if_unique(position, part, o)
         else:
-            timeline.add(o, position)
+            part.add(o, position)
 
     for o in ending_directions:
-        timeline.add(o, None, position)
+        part.add(o, None, position)
 
 
 def get_clefs(e):
@@ -752,37 +752,37 @@ def get_pitch(e):
         return None
 
 
-def _handle_print(e, position, timeline, ongoing):
+def _handle_print(e, position, part, ongoing):
     if "new-page" in e.attrib:
-        _handle_new_page(position, timeline, ongoing)
-        _handle_new_system(position, timeline, ongoing)
+        _handle_new_page(position, part, ongoing)
+        _handle_new_system(position, part, ongoing)
     if "new-system" in e.attrib:
-        _handle_new_system(position, timeline, ongoing)
+        _handle_new_system(position, part, ongoing)
 
 
-def _add_tempo_if_unique(position, timeline, tempo):
+def _add_tempo_if_unique(position, part, tempo):
     """
-    Add score.Tempo object `tempo` at `position` on `timeline` if and only if
+    Add score.Tempo object `tempo` at `position` on `part` if and only if
     there are no starting score.Tempo objects at that position. score.Tempo
     objects are generated by <sound tempo=...> as well as textual directions
     (e.g. "q=100"). This function avoids multiple synchronous tempo indications
     (whether redundant or conflicting)
     """
-    point = timeline.get_point(position)
+    point = part.get_point(position)
     if point is not None:
         tempos = point.starting_objects.get(score.Tempo, [])
         if tempos == []:
-            timeline.add(tempo, position)
+            part.add(tempo, position)
         else:
             LOGGER.warning('not adding duplicate or conflicting tempo indication')
 
-def _handle_sound(e, position, timeline):
+def _handle_sound(e, position, part):
     if "tempo" in e.attrib:
         tempo = score.Tempo(int(e.attrib['tempo']), 'q')
-        # timeline.add_starting_object(position, tempo)
-        _add_tempo_if_unique(position, timeline, tempo)
+        # part.add_starting_object(position, tempo)
+        _add_tempo_if_unique(position, part, tempo)
 
-def _handle_note(e, position, timeline, ongoing, prev_note):
+def _handle_note(e, position, part, ongoing, prev_note):
 
     # prev_note is used when the current note has a <chord/> tag
 
@@ -849,7 +849,7 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
         note = score.Rest(note_id, voice, staff,
                           symbolic_duration, articulations)
 
-    timeline.add(note, position, position+duration)
+    part.add(note, position, position+duration)
 
     ties = e.findall('tie')
     if len(ties) > 0:
@@ -873,64 +873,143 @@ def _handle_note(e, position, timeline, ongoing, prev_note):
             ongoing[tie_key] = note
 
     notations = e.find('notations')
+
     if notations is not None:
 
         if notations.find('fermata') is not None:
             fermata = score.Fermata(note)
-            timeline.add(fermata, position)
+            part.add(fermata, position)
             note.fermata = fermata
 
-        slurs = notations.findall('slur')
+        starting_slurs, stopping_slurs = handle_slurs(notations, ongoing, note)
+        for slur in starting_slurs:
+            part.add(slur, position)
+        for slur in stopping_slurs:
+            part.add(slur, None, position+duration)
 
-        # this sorts all found slurs by type (either 'start' or 'stop')
-        # in reverse order, so all with type 'stop' will be before
-        # the ones with 'start'?!.
-        slurs.sort(key=lambda x: x.attrib['type'], reverse=True)
+        starting_tups, stopping_tups = handle_tuplets(notations, ongoing, note)
 
-        # Now that the slurs are sorted by their type, sort them
-        # by their numbers; First note that slurs do not always
-        # have a number attribute, then 1 is implied.
-        slurs.sort(key=lambda x: get_value_from_attribute(
-            x, 'number', int) or 1)
-
-        for slur_e in slurs:
-
-            slur_number = get_value_from_attribute(slur_e, 'number', int)
-            slur_type = get_value_from_attribute(slur_e, 'type', str)
-            start_slur_key = ('start_slur', slur_number)
-            stop_slur_key = ('stop_slur', slur_number)
-
-            if slur_type == 'start':
-
-                # check if we have a stopped_slur in ongoing that corresponds to
-                # this stop
-                slur = ongoing.pop(stop_slur_key, None)
-
-                if slur is None:
-
-                    slur = score.Slur(note)
-                    ongoing[start_slur_key] = slur
-
-                note.slur_starts.append(slur)
-                timeline.add(slur, position)
-
-            elif slur_type == 'stop':
-
-                slur = ongoing.pop(start_slur_key, None)
-                if slur is None:
-                    # slur stop occurs before slur start in document order, that
-                    # is a valid scenario
-                    slur = score.Slur(None, note)
-                    ongoing[stop_slur_key] = slur
-                else:
-                    slur.end_note = note
-
-                note.slur_stops.append(slur)
-                timeline.add(slur, None, position)
+        for tup in starting_tups:
+            part.add(tup, position)
+        for tup in stopping_tups:
+            part.add(tup, None, position+duration)
 
     new_position = position + duration
 
     return new_position, note
+
+
+def handle_tuplets(notations, ongoing, note):
+    starting_tuplets = []
+    stopping_tuplets = []
+    tuplets = notations.findall('tuplet')
+
+    # this sorts all found tuplets by type (either 'start' or 'stop')
+    # in reverse order, so all with type 'stop' will be before
+    # the ones with 'start'?!.
+    tuplets.sort(key=lambda x: x.attrib['type'], reverse=True)
+
+    # Now that the tuplets are sorted by their type, sort them
+    # by their numbers; First note that tuplets do not always
+    # have a number attribute, then 1 is implied.
+    tuplets.sort(key=lambda x: get_value_from_attribute(
+        x, 'number', int) or 1)
+
+    for tuplet_e in tuplets:
+
+        tuplet_number = get_value_from_attribute(tuplet_e, 'number', int)
+        tuplet_type = get_value_from_attribute(tuplet_e, 'type', str)
+        start_tuplet_key = ('start_tuplet', tuplet_number)
+        stop_tuplet_key = ('stop_tuplet', tuplet_number)
+
+        if tuplet_type == 'start':
+
+            # check if we have a stopped_tuplet in ongoing that corresponds to
+            # this start
+            tuplet = ongoing.pop(stop_tuplet_key, None)
+
+            if tuplet is None:
+
+                tuplet = score.Tuplet(note)
+                ongoing[start_tuplet_key] = tuplet
+
+            else:
+
+                tuplet.set_start_note(note)
+
+            starting_tuplets.append(tuplet)
+
+        elif tuplet_type == 'stop':
+
+            tuplet = ongoing.pop(start_tuplet_key, None)
+            if tuplet is None:
+                # tuplet stop occurs before tuplet start in document order, that
+                # is a valid scenario
+                tuplet = score.Tuplet(None, note)
+                ongoing[stop_tuplet_key] = tuplet
+            else:
+                tuplet.set_end_note(note)
+
+            stopping_tuplets.append(tuplet)
+
+    return starting_tuplets, stopping_tuplets
+
+
+def handle_slurs(notations, ongoing, note):
+    starting_slurs = []
+    stopping_slurs = []
+    slurs = notations.findall('slur')
+
+    # this sorts all found slurs by type (either 'start' or 'stop')
+    # in reverse order, so all with type 'stop' will be before
+    # the ones with 'start'?!.
+    slurs.sort(key=lambda x: x.attrib['type'], reverse=True)
+
+    # Now that the slurs are sorted by their type, sort them
+    # by their numbers; First note that slurs do not always
+    # have a number attribute, then 1 is implied.
+    slurs.sort(key=lambda x: get_value_from_attribute(
+        x, 'number', int) or 1)
+
+    for slur_e in slurs:
+
+        slur_number = get_value_from_attribute(slur_e, 'number', int)
+        slur_type = get_value_from_attribute(slur_e, 'type', str)
+        start_slur_key = ('start_slur', slur_number)
+        stop_slur_key = ('stop_slur', slur_number)
+
+        if slur_type == 'start':
+
+            # check if we have a stopped_slur in ongoing that corresponds to
+            # this stop
+            slur = ongoing.pop(stop_slur_key, None)
+
+            if slur is None:
+
+                slur = score.Slur(note)
+                ongoing[start_slur_key] = slur
+
+            else:
+
+                slur.set_start_note(note)
+
+            starting_slurs.append(slur)
+
+        elif slur_type == 'stop':
+
+            slur = ongoing.pop(start_slur_key, None)
+            if slur is None:
+                # slur stop occurs before slur start in document order, that
+                # is a valid scenario
+                slur = score.Slur(None, note)
+                ongoing[stop_slur_key] = slur
+            else:
+
+                slur.set_end_note(note)
+
+            stopping_slurs.append(slur)
+    
+    return starting_slurs, stopping_slurs
 
 
 def get_grace_info(grace):
@@ -1008,11 +1087,11 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     parts = load_musicxml(fn, ensure_list=True, validate=validate)
     scr = []
     for part in parts:
-        # Unfold timeline to have repetitions
-        part.timeline = score.unfold_timeline_maximal(part.timeline)
+        # Unfold part to have repetitions
+        part = score.unfold_part_maximal(part)
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')
-            score.expand_grace_notes(part.timeline)
+            score.expand_grace_notes(part)
 
         # get beat map
         bm = part.beat_map

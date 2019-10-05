@@ -2,6 +2,7 @@
 
 from .generic import (
     ComparableMixin,
+    ReplaceRefMixin,
     partition,
     iter_subclasses,
     iter_current_next,

@@ -14,7 +14,7 @@ __all__ = ['save_musicxml']
 
 LOGGER = logging.getLogger(__name__)
 
-DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">'''
+DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
 
 def filter_string(s):
@@ -23,6 +23,7 @@ def filter_string(s):
     removing null characters.
     """
     return s.replace('\x00', '')
+
 
 def make_note_el(note, dur, voice, counter):
     # child order
@@ -112,7 +113,6 @@ def make_note_el(note, dur, voice, counter):
 
     if (sym_dur.get('actual_notes') is not None
         and sym_dur.get('normal_notes') is not None):
-
         time_mod_e = etree.SubElement(note_e, 'time-modification')
         actual_e = etree.SubElement(time_mod_e, 'actual-notes')
         actual_e.text = str(sym_dur['actual_notes'])
@@ -124,34 +124,64 @@ def make_note_el(note, dur, voice, counter):
         etree.SubElement(note_e, 'staff').text = '{}'.format(note.staff)
 
     for slur in note.slur_stops:
-
-        number = counter.get(slur, None)
+        slur_key = ('slur', slur)
+        number = counter.get(slur_key, None)
 
         if number is None:
 
             number = 1
-            counter[slur] = number
+            counter[slur_key] = number
 
         else:
 
-            del counter[slur]
+            del counter[slur_key]
 
         notations.append(etree.Element('slur', number='{}'.format(number), type='stop'))
 
     for slur in note.slur_starts:
-
-        number = counter.get(slur, None)
+        slur_key = ('slur', slur)
+        number = counter.get(slur_key, None)
 
         if number is None:
 
-            number = 1 + sum(1 for o in counter.keys() if isinstance(o, score.Slur))
-            counter[slur] = number
+            number = 1 + sum(1 for o in counter.keys() if o[0] == 'slur')
+            counter[slur_key] = number
 
         else:
 
-            del counter[slur]
+            del counter[slur_key]
             
         notations.append(etree.Element('slur', number='{}'.format(number), type='start'))
+
+    for tuplet in note.tuplet_stops:
+        tuplet_key = ('tuplet', tuplet)
+        number = counter.get(tuplet_key, None)
+
+        if number is None:
+
+            number = 1
+            counter[tuplet_key] = number
+
+        else:
+
+            del counter[tuplet_key]
+
+        notations.append(etree.Element('tuplet', number='{}'.format(number), type='stop'))
+
+    for tuplet in note.tuplet_starts:
+        tuplet_key = ('tuplet', tuplet)
+        number = counter.get(tuplet_key, None)
+
+        if number is None:
+
+            number = 1 + sum(1 for o in counter.keys() if o[0] == 'tuplet')
+            counter[tuplet_key] = number
+
+        else:
+
+            del counter[tuplet_key]
+            
+        notations.append(etree.Element('tuplet', number='{}'.format(number), type='start'))
 
     if notations:
 
@@ -159,6 +189,7 @@ def make_note_el(note, dur, voice, counter):
         notations_e.extend(notations)
 
     return note_e
+
 
 def do_note(note, measure_end, timeline, voice, counter):
     notes = []
@@ -200,7 +231,7 @@ def linearize_measure_contents(part, start, end, counter):
         The contents of measure in document order
     """
     splits = [start]
-    q_times = part.timeline.quarter_durations(start.t, end.t)
+    q_times = part.quarter_durations(start.t, end.t)
     if len(q_times) > 0:
         quarter = start.quarter
         tp = start.next
@@ -313,17 +344,17 @@ def fill_gaps_with_rests(notes_by_voice, start, end, part):
     for voice, notes in notes_by_voice.items():
         if len(notes) == 0:
             rest = score.Rest(voice=voice or None)
-            part.timeline.add(rest, start.t, end.t)
+            part.add(rest, start.t, end.t)
         else:
             t = start.t
             for note in notes:
                 if note.start.t > t:
                     rest = score.Rest(voice=voice or None)
-                    part.timeline.add(rest, t, note.start.t)
+                    part.add(rest, t, note.start.t)
                 t = note.end.t
             if note.end.t < end.t:
                 rest = score.Rest(voice=voice or None)
-                part.timeline.add(rest, note.end.t, end.t)
+                part.add(rest, note.end.t, end.t)
                 
 
 def linearize_segment_contents(part, start, end, counter):
@@ -331,7 +362,7 @@ def linearize_segment_contents(part, start, end, counter):
     Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
     (notes, directions, divisions, time signatures).
     """
-    notes = part.timeline.iter_all(score.GenericNote,
+    notes = part.iter_all(score.GenericNote,
                                   start=start, end=end,
                                   include_subclasses=True)
 
@@ -351,7 +382,7 @@ def linearize_segment_contents(part, start, end, counter):
     # fill_gaps_with_rests(notes_by_voice, start, end, part)
 
     # # redo
-    # notes = part.timeline.get_all(score.GenericNote,
+    # notes = part.iter_all(score.GenericNote,
     #                               start=start, end=end,
     #                               include_subclasses=True)
     # notes_by_voice = partition(lambda n: n.voice or 0, notes)
@@ -368,7 +399,7 @@ def linearize_segment_contents(part, start, end, counter):
         
         for n in voice_notes:
             # make rest: duration, voice, type
-            note_e = do_note(n, end.t, part.timeline, voice, counter)
+            note_e = do_note(n, end.t, part, voice, counter)
             voices_e[voice].append(note_e)
             
         add_chord_tags(voices_e[voice])
@@ -384,9 +415,10 @@ def linearize_segment_contents(part, start, end, counter):
     
     return contents
 
+
 def do_prints(part, start, end):
-    pages = part.timeline.iter_all(score.Page, start, end)
-    systems = part.timeline.iter_all(score.System, start, end)
+    pages = part.iter_all(score.Page, start, end)
+    systems = part.iter_all(score.System, start, end)
     by_onset = defaultdict(dict)
     for page in pages:
         by_onset[page.start.t]['new-page'] = 'yes'
@@ -402,15 +434,15 @@ def do_barlines(part, start, end):
     # all fermata that are not linked to a note (fermata at time end may be part
     # of the current or the next measure, depending on the location attribute
     # (which is stored in fermata.ref)).
-    fermata = ([ferm for ferm in part.timeline.iter_all(score.Fermata, start, end)
+    fermata = ([ferm for ferm in part.iter_all(score.Fermata, start, end)
                 if ferm.ref in (None, 'left', 'middle', 'right')] +
-               [ferm for ferm in part.timeline.iter_all(score.Fermata, end, end.next)
+               [ferm for ferm in part.iter_all(score.Fermata, end, end.next)
                 if ferm.ref in (None, 'right')])
-    repeat_start = part.timeline.iter_all(score.Repeat, start, end)
-    repeat_end = part.timeline.iter_all(score.Repeat, start.next, end.next,
+    repeat_start = part.iter_all(score.Repeat, start, end)
+    repeat_end = part.iter_all(score.Repeat, start.next, end.next,
                                        mode='ending')
-    ending_start = part.timeline.iter_all(score.Ending, start, end)
-    ending_end = part.timeline.iter_all(score.Ending, start.next, end.next,
+    ending_start = part.iter_all(score.Ending, start, end)
+    ending_end = part.iter_all(score.Ending, start.next, end.next,
                                        mode='ending')
     by_onset = defaultdict(list)
 
@@ -614,8 +646,8 @@ def merge_measure_contents(notes, other, measure_start):
         
 
 def do_directions(part, start, end):
-    tempos = part.timeline.iter_all(score.Tempo, start, end)
-    directions = part.timeline.iter_all(score.Direction, start, end,
+    tempos = part.iter_all(score.Tempo, start, end)
+    directions = part.iter_all(score.Direction, start, end,
                                        include_subclasses=True)
     
     result = []
@@ -688,15 +720,15 @@ def do_attributes(part, start, end):
 
     by_start = defaultdict(list)
 
-    # for o in part.timeline.iter_all(score.Divisions, start, end):
+    # for o in part.iter_all(score.Divisions, start, end):
     #     by_start[o.start.t].append(o)
-    for t, quarter in part.timeline.quarter_durations(start.t, end.t):
+    for t, quarter in part.quarter_durations(start.t, end.t):
         by_start[t].append(int(quarter))
-    for o in part.timeline.iter_all(score.KeySignature, start, end):
+    for o in part.iter_all(score.KeySignature, start, end):
         by_start[o.start.t].append(o)
-    for o in part.timeline.iter_all(score.TimeSignature, start, end):
+    for o in part.iter_all(score.TimeSignature, start, end):
         by_start[o.start.t].append(o)
-    for o in part.timeline.iter_all(score.Clef, start, end):
+    for o in part.iter_all(score.Clef, start, end):
         by_start[o.start.t].append(o)
                   
     result = []
@@ -747,6 +779,23 @@ def do_attributes(part, start, end):
     
 
 def save_musicxml(parts, out=None):
+    """Save a one or more Part or PartGroup instances in MusicXML format.
+    
+    Parameters
+    ----------
+    parts : list, Part, or PartGroup
+        A :class:`partitura.score.Part` object,
+        :class:`partitura.score.PartGroup` or a list of these
+    out: str, file-like object, or None, optional
+        Output file
+    
+    Returns
+    -------
+    None or str
+        If no output file is specified using `out` the function returns the
+        MusicXML data as a string. Otherwise the function returns None.
+
+    """
         
     root = etree.Element('score-partwise')
     
@@ -826,9 +875,9 @@ def save_musicxml(parts, out=None):
         # store quarter_map in a variable to avoid re-creating it for each call
         quarter_map = part.quarter_map
         beat_map = part.beat_map
-        # ts = part.timeline.get_all(score.TimeSignature)
+        # ts = part.get_all(score.TimeSignature)
 
-        for measure in part.timeline.iter_all(score.Measure):
+        for measure in part.iter_all(score.Measure):
 
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             attrib = {}
@@ -847,17 +896,20 @@ def save_musicxml(parts, out=None):
 
         if hasattr(out, 'write'):
 
-            out.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+            out.write(etree.tostring(root.getroottree(), encoding='UTF-8',
+                                     xml_declaration=True,
                                      pretty_print=True, doctype=DOCTYPE))
 
         else:
 
             with open(out, 'wb') as f:
 
-                f.write(etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+                f.write(etree.tostring(root.getroottree(), encoding='UTF-8',
+                                       xml_declaration=True,
                                        pretty_print=True, doctype=DOCTYPE))
 
     else:
 
-        return etree.tostring(root.getroottree(), encoding='UTF-8', xml_declaration=True,
+        return etree.tostring(root.getroottree(), encoding='UTF-8',
+                              xml_declaration=True,
                               pretty_print=True, doctype=DOCTYPE)

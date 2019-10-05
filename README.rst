@@ -5,6 +5,10 @@ Partitura
 Partitura is a Python 3 package for handling symbolic musical information. It
 supports loading from and exporting to *MusicXML* and *MIDI* files.
 
+The full documentation for `partitura` is available online at `readthedocs.org
+<https://partitura.readthedocs.io/en/latest/index.html>`_.
+
+
 Quickstart
 ==========
 
@@ -52,7 +56,7 @@ Part id="P1" name="Piano"
          └─ Note id=n03 voice=2 staff=1 type=half pitch=E5
   
 The notes in this part can be accessed through the property
-:attr:`part.notes <partitura.score.Part.notes>`:
+`part.notes`:
 
 >>> part.notes
 [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
@@ -74,9 +78,8 @@ duration of a quarter note. The `divisions` value can vary within an
 MusicXML file, so it is generally better to work with musical time in
 beats.
 
-The part object has a property :attr:`part.beat_map
-<partitura.score.Part.beat_map>` that converts timeline times into beat
-times:
+The part object has a property :`part.beat_map` that converts timeline
+times into beat times:
 
 >>> beat_map = part.beat_map
 >>> print(beat_map(pianoroll[:, 0]))
@@ -85,12 +88,6 @@ times:
 [4. 4. 4.]
 
 More elaborate examples can be found in the documentation.
-
-Documentation
-=============
-
-The full documentation for `partitura` is available online at `readthedocs.org
-<https://partitura.readthedocs.io/en/latest/index.html>`_.
 
 License
 =======
