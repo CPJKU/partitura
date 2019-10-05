@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Create MatchFiles
+This module contains methods for parsing matchfiles
 
 TODO
 ----
@@ -10,6 +11,13 @@ TODO
 import re
 import numpy as np
 from fractions import Fraction
+
+import logging
+import warnings
+
+
+__all__ = ['load_match']
+LOGGER = logging.getLogger(__name__)
 
 rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')
 LATEST_VERSION = 5.0
@@ -31,14 +39,18 @@ KEY_SIGNATURES = {0: ('C', 'A'), 1: ('G', 'E'), 2: ('D', 'B'), 3: ('A', 'F#'),
                   -5: ('Db', 'Bb'), -6: ('Gb', 'Eb'), -7: ('Cb', 'Ab')}
 
 
+class MatchError(Exception):
+    pass
+
+
 def pitch_name_2_midi_PC(modifier, name, octave):
     """
     To be replaced!
     """
     if name == 'r':
         return (0, 0)
-    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()] +
-                  {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
+    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()]
+                  + {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
     mid = (octave + 1) * 12 + base_class
     # for mozartmatch files (in which the octave numbers are off by one)
     # mid = octave*12 + base_class
@@ -139,8 +151,8 @@ class MatchLine(object):
         raise NotImplementedError
 
     @classmethod
-    def match_pattern(self, s, pos=0):
-        return self.re_obj.search(s, pos=pos)
+    def match_pattern(cls, s, pos=0):
+        return cls.re_obj.search(s, pos=pos)
 
     @classmethod
     def from_matchline(cls, matchline, pos=0):
@@ -156,7 +168,46 @@ class MatchLine(object):
             return match_line
 
         else:
-            raise ValueError('Input match line does not fit the expected pattern.')
+            raise MatchError('Input match line does not fit the expected pattern.')
+
+
+class MatchInfo(MatchLine):
+    out_pattern = 'info({Attribute},{Value}).'
+    field_names = ['Attribute', 'Value']
+    pattern = 'info\(\s*([^,]+)\s*,\s*(.+)\s*\)\.'
+    re_obj = re.compile(pattern)
+
+    def __init__(self, Attribute, Value):
+        self.Attribute = Attribute
+        self.Value = Value
+
+    @property
+    def matchline(self):
+        return self.out_pattern.format(
+            Attribute=self.Attribute,
+            Value=self.Value)
+
+
+class MatchMeta(MatchLine):
+
+    out_pattern = 'meta({Attribute},{Value},{Bar},{TimeInBeats}).'
+    field_names = ['Attribute', 'Value', 'Bar', 'TimeInBeats']
+    pattern = 'meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\.'
+    re_obj = re.compile(pattern)
+
+    def __init__(self, Attribute, Value, Bar, TimeInBeats):
+        self.Attribute = Attribute
+        self.Value = Value
+        self.Bar = Bar
+        self.TimeInBeats = TimeInBeats
+
+    @property
+    def matchline(self):
+        return self.out_pattern.format(
+            Attribute=self.Attribute,
+            Value=self.Value,
+            Bar=self.Bar,
+            TimeInBeats=self.TimeInBeats)
 
 
 class MatchSnote(MatchLine):
@@ -164,10 +215,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
-               + '{Bar}:{Beat},{Offset},{Duration},'
-               + '{OnsetInBeats},{OffsetInBeats},'
-                   + '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
+               '{Bar}:{Beat},{Offset},{Duration},' +
+               '{OnsetInBeats},{OffsetInBeats},' +
+                   '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -230,12 +281,12 @@ class MatchSnote(MatchLine):
             ScoreAttributesList=','.join(self.ScoreAttributesList))
 
 
-class MatchNote(MatchLine):
+class MatchPnote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
-                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
+                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -332,7 +383,7 @@ class MatchNote(MatchLine):
 
     @classmethod
     def from_matchline(cls, matchline, pos=0):
-        """Create a MatchNote from a line
+        """Create a MatchPnote from a line
 
         """
         match_pattern = cls.re_obj.search(matchline, pos)
@@ -349,7 +400,7 @@ class MatchNote(MatchLine):
 
                 return match_line
             else:
-                raise ValueError('Input matchline does not fit expected pattern')
+                raise MatchError('Input matchline does not fit expected pattern')
 
         else:
             groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
@@ -368,14 +419,14 @@ class MatchSnoteNote(MatchLine):
     """
 
     out_pattern = '{SnoteLine}-{NoteLine}.'
-    pattern = MatchSnote.pattern + '-' + MatchNote.pattern
+    pattern = MatchSnote.pattern + '-' + MatchPnote.pattern
     re_obj = re.compile(pattern)
-    field_names = MatchSnote.field_names + MatchNote.field_names
+    field_names = MatchSnote.field_names + MatchPnote.field_names
 
     # for version 1
-    pattern_v1 = MatchNote.pattern + '-' + MatchNote.pattern_v1
+    pattern_v1 = MatchPnote.pattern + '-' + MatchPnote.pattern_v1
     re_obj_v1 = re.compile(pattern_v1)
-    field_names_v1 = MatchSnote.field_names + MatchNote.field_names_v1
+    field_names_v1 = MatchSnote.field_names + MatchPnote.field_names_v1
 
     def __init__(self, snote, note, same_pitch_spelling=True):
         self.snote = snote
@@ -407,27 +458,27 @@ class MatchSnoteNote(MatchLine):
 
                 snote_kwargs = dict(zip(MatchSnote.field_names,
                                         groups[:len(MatchSnote.field_names)]))
-                note_kwargs = dict(zip(MatchNote.field_names_v1,
+                note_kwargs = dict(zip(MatchPnote.field_names_v1,
                                        groups[len(MatchSnote.field_names):]))
                 note_kwargs['version'] = 1.0
                 note_kwargs['AdjOffset'] = None
                 snote = MatchSnote(**snote_kwargs)
-                note = MatchNote(**note_kwargs)
+                note = MatchPnote(**note_kwargs)
                 match_line = cls(snote=snote,
                                  note=note)
 
                 return match_line
             else:
-                raise ValueError('Input matchline does not fit expected pattern')
+                raise MatchError('Input matchline does not fit expected pattern')
 
         else:
             groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
             snote_kwargs = dict(zip(MatchSnote.field_names,
                                     groups[:len(MatchSnote.field_names)]))
-            note_kwargs = dict(zip(MatchNote.field_names,
+            note_kwargs = dict(zip(MatchPnote.field_names,
                                    groups[len(MatchSnote.field_names):]))
             snote = MatchSnote(**snote_kwargs)
-            note = MatchNote(**note_kwargs)
+            note = MatchPnote(**note_kwargs)
             match_line = cls(snote=snote,
                              note=note)
             return match_line
@@ -440,7 +491,7 @@ class MatchSnoteNote(MatchLine):
 
 class MatchSnoteDeletion(MatchLine):
     out_pattern = '{SnoteLine}-deletion.'
-    pattern = MatchSnote.pattern + '-deletion.'
+    pattern = MatchSnote.pattern + '-deletion\.'
     re_obj = re.compile(pattern)
     field_names = MatchSnote.field_names
 
@@ -464,7 +515,7 @@ class MatchSnoteDeletion(MatchLine):
             return match_line
 
         else:
-            raise ValueError('Input matchline does not fit expected pattern')
+            raise MatchError('Input matchline does not fit expected pattern')
 
     def __str__(self):
         return str(self.snote) + '\nDeletion'
@@ -472,22 +523,41 @@ class MatchSnoteDeletion(MatchLine):
 
 class MatchInsertionNote(MatchLine):
     out_pattern = 'insertion-{NoteLine}.'
-    pattern = 'insertion-' + MatchNote.pattern + '.'
+    pattern = 'insertion-' + MatchPnote.pattern + '.'
     re_obj = re.compile(pattern)
-    field_names = MatchNote.field_names
+    field_names = MatchPnote.field_names
 
     def __init__(self, note):
         self.note = note
+        for fn in self.field_names:
+            setattr(self, fn, getattr(self.note, fn, None))
 
     @property
     def matchline(self):
         return self.out_pattern.format(
             NoteLine=self.note.matchline)
 
+    @classmethod
+    def from_matchline(cls, matchline, pos=0):
+        match_pattern = cls.match_pattern(matchline, pos=0)
+
+        if match_pattern is not None:
+            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
+            note_kwargs = dict(zip(MatchPnote.field_names, groups))
+            note = MatchPnote(**note_kwargs)
+            return cls(note=note)
+        else:
+            raise MatchError('Input matchline does not fit expected pattern')
+
 
 class MatchSustainPedal(MatchLine):
-
+    """
+    Class for representing a sustain pedal line
+    """
     out_pattern = 'sustain({Time},{Value}).'
+    field_names = ['Time', 'Value']
+    pattern = 'sustain\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\.'
+    re_obj = re.compile(pattern)
 
     def __init__(self, Time, Value):
         self.Time = Time
@@ -500,64 +570,128 @@ class MatchSustainPedal(MatchLine):
             Time=self.Time,
             Value=self.Value)
 
-    @classmethod
-    def from_matchline(cls, matchline):
-        raise NotImplementedError()
 
+class MatchSoftPedal(MatchLine):
+    """
+    Class for representing a soft pedal line
+    """
+    out_pattern = 'soft({Time},{Value}).'
+    field_names = ['Time', 'Value']
+    pattern = 'soft\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\.'
+    re_obj = re.compile(pattern)
 
-class MatchInfo(MatchLine):
-    out_pattern = 'info({Attribute},{Value}).'
-
-    def __init__(self, Attribute, Value):
-        self.Attribute = Attribute
+    def __init__(self, Time, Value):
+        self.Time = Time
         self.Value = Value
 
     @property
     def matchline(self):
+
         return self.out_pattern.format(
-            Attribute=self.Attribute,
+            Time=self.Time,
             Value=self.Value)
 
-    @classmethod
-    def from_matchline(cls, matchline):
-        raise NotImplementedError()
 
+class MatchOrnamentNote(MatchLine):
+    out_pattern = 'ornament({Anchor})-{PnoteLine}'
+    field_names = ['Anchor'] + MatchPnote.field_names
+    pattern = 'ornament\([^\)]*\)-' + MatchPnote.pattern
+    re_obj = re.compile(pattern)
 
-class MatchMeta(MatchLine):
-
-    out_pattern = 'meta({Attribute},{Value},{Bar},{TimeInBeats}).'
-
-    def __init__(self, Attribute, Value, Bar, TimeInBeats):
-        self.Attribute = Attribute
-        self.Value = Value
-        self.Bar = Bar
-        self.TimeInBeats = TimeInBeats
+    def __init__(self, anchor, pnote):
+        self.Anchor = anchor
+        self.pnote = pnote
 
     @property
     def matchline(self):
         return self.out_pattern.format(
-            Attribute=self.Attribute,
-            Value=self.Value,
-            Bar=self.Bar,
-            TimeInBeats=self.TimeInBeats)
+            Anchor=self.Anchor,
+            PnoteLine=self.pnote.matchline)
+
+    @classmethod
+    def from_matchline(cls, matchline, pos=0):
+        match_pattern = cls.match_pattern(matchline, pos=0)
+
+        if match_pattern is not None:
+            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
+            pnote_kwargs = groups[1:]
+            anchor = groups[0]
+            pnote = MatchPnote(**pnote_kwargs)
+            return cls(Anchor=anchor,
+                       pnote=pnote)
+
+        else:
+            raise MatchError('Input matchline does not fit expected pattern')
+
+
+def parse_matchline(l):
+    """
+    Return objects representing the line as one of:
+
+    * hammer_bounce-PlayedNote.
+    * info(Attribute, Value).
+    * insertion-PlayedNote.
+    * ornament(Anchor)-PlayedNote.
+    * ScoreNote-deletion.
+    * ScoreNote-PlayedNote.
+    * ScoreNote-trailing_score_note.
+    * trailing_played_note-PlayedNote.
+    * trill(Anchor)-PlayedNote.
+    * meta(Attribute, Value, Bar, Beat).
+
+    or False if none can be matched
+
+    Parameters
+    ----------
+    l : str
+        Line of the match file
+
+    Returns
+    -------
+    matchline : subclass of `MatchLine`
+       Object representing the line. 
+    """
+
+    from_matchline_methods = [MatchSnoteNote.from_matchline,
+                              MatchSnoteDeletion.from_matchline,
+                              MatchInsertionNote.from_matchline,
+                              MatchSustainPedal.from_matchline,
+                              MatchSoftPedal.from_matchline,
+                              MatchInfo.from_matchline,
+                              MatchMeta.from_matchline
+                              ]
+    matchline = False
+    for from_matchline in from_matchline_methods:
+        try:
+            matchline = from_matchline(l)
+            break
+        except MatchError:
+            continue
+
+    return matchline
 
 
 if __name__ == '__main__':
 
     snote_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])'
-
-    snote = MatchSnote.from_matchline(snote_line)
-
     note_line = 'note(0,[E,n],4,471720,472397,472397,49)'
-
     old_note_line = 'note(0,[E,n],4,471720,472397,49)'
-
     snote_note_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])-note(0,[E,n],4,471720,472397,472397,49).'
+    # snote_oldnote_line = snote_line + '-' + old_note_line + '.'
     snote_deletion_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])-deletion.'
+    note_insertion_line = 'insertion-' + note_line + '.'
+    info_line = 'info(matchFileVersion,4.0).'
+    meta_line = 'meta(keySignature,C Maj/A min,0,-1.0).'
+    sustain_line = 'sustain(779,59).'
 
-    note = MatchNote.from_matchline(note_line)
+    matchlines = [snote_note_line,
+                  snote_deletion_line,
+                  note_insertion_line,
+                  info_line,
+                  meta_line,
+                  sustain_line]
 
-    o_note = MatchNote.from_matchline(old_note_line)
-
-    snote_note_line = MatchSnoteNote.from_matchline(snote_note_line)
-    snote_deletion_line = MatchSnoteDeletion.from_matchline(snote_deletion_line)
+    for ml in matchlines:
+        mo = parse_matchline(ml)
+        assert mo.matchline == ml
+        print(mo.matchline)
