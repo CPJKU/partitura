@@ -4,6 +4,13 @@ Release Notes
 Version 0.2.1 (prerelease)
 --------------------------
 
+Other changes:
+
+* Rename strictly_monophonic_voices keyword arg to monophonic_voices in
+  estimate_voices, and implement (previously unimplemented) functionality: With
+  monophonic_voice=False, notes with same onset and duration as treated as
+  chords and assigned to the same voice
+
 
 Version 0.2.0 (prerelease; Released on 2019-10-04)
 --------------------------------------------------
