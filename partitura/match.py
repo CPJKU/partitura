@@ -20,6 +20,7 @@ __all__ = ['load_match']
 LOGGER = logging.getLogger(__name__)
 
 rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')
+double_rational_pattern = re.compile('^([0-9]+)/([0-9]+)/([0-9]+)$')
 LATEST_VERSION = 5.0
 
 PITCH_CLASSES = [('C', 'n'), ('C', '#'), ('D', 'n'), ('D', '#'), ('E', 'n'), ('F', 'n'),
@@ -41,6 +42,34 @@ KEY_SIGNATURES = {0: ('C', 'A'), 1: ('G', 'E'), 2: ('D', 'B'), 3: ('A', 'F#'),
 
 class MatchError(Exception):
     pass
+
+
+class Foo(int):
+    def __new__(cls, some_argument=None, value=0):
+        i = int.__new__(cls, value)
+        i._some_argument = some_argument
+        return i
+
+    def print_some_argument(self):
+        print(self._some_argument)
+
+
+class FractionalSymbolicDuration(object):
+
+    def __init__(self, numerator, denominator, tuple_div=None):
+
+        self.numerator = numerator
+        self.denominator = denominator
+        self.tuple_div = tuple_div
+
+    def __str__(self):
+        if self.tuple_div is None:
+            return '{0}/{1}'.format(self.numerator,
+                                    self.denominator)
+        else:
+            return '{0}/{1}/{2}'.format(self.numerator,
+                                        self.denominator,
+                                        self.tuple_div)
 
 
 def pitch_name_2_midi_PC(modifier, name, octave):
@@ -109,9 +138,14 @@ def interpret_field_rational(data, allow_additions=False):
     v = interpret_field(data)
     if type(v) == str:
         m = rational_pattern.match(v)
+        m2 = double_rational_pattern.match(v)
         if m:
             groups = m.groups()
-            return float(groups[0]) / float(groups[1])
+            # return float(groups[0]) / float(groups[1])
+            return FractionalSymbolicDuration(int(groups[0]), int(groups[1]))
+        elif m2:
+            groups = m2.groups()
+            return FractionalSymbolicDuration(int(groups[0]), int(groups[1]), int(groups[2]))
         else:
             if allow_additions:
                 parts = v.split('+')
@@ -216,7 +250,7 @@ class MatchSnote(MatchLine):
     """
 
     out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
-               '{Bar}:{Beat},{Offset},{Duration},' +
+                   '{Bar}:{Beat},{Offset},{Duration},' +
                '{OnsetInBeats},{OffsetInBeats},' +
                    '[{ScoreAttributesList}])')
 
@@ -234,7 +268,7 @@ class MatchSnote(MatchLine):
         self.Anchor = Anchor
         self.NoteName = NoteName
         self.Modifier = Modifier
-        self.Octave = int(Octave)
+        self.Octave = Octave
         self.Bar = Bar
         self.Beat = Beat
         self.Offset = Offset
@@ -247,7 +281,13 @@ class MatchSnote(MatchLine):
             self.ScoreAttributesList = list(ScoreAttributesList)
         elif isinstance(ScoreAttributesList, str):
             self.ScoreAttributesList = ScoreAttributesList.split(',')
+        elif isinstance(ScoreAttributesList, (int, float)):
+            self.ScoreAttributesList = [ScoreAttributesList]
         else:
+
+            print(ScoreAttributesList)
+            import pdb
+            pdb.set_trace()
             raise ValueError('`ScoreAttributesList` must be a list or a string')
 
     @property
@@ -256,14 +296,19 @@ class MatchSnote(MatchLine):
 
     @property
     def DurationSymbolic(self):
-        if isinstance(self.Duration, (float, int)):
+        if isinstance(self.Duration, FractionalSymbolicDuration):
+            return str(self.Duration)
+        elif isinstance(self.Duration, (float, int)):
             return str(Fraction.from_float(self.Duration))
         elif isinstance(self.Duration, str):
             return self.Duration
 
     @property
     def MidiPitch(self):
-        return pitch_name_2_midi_PC(self.Modifier, self.NoteName, self.Octave)
+        if isinstance(self.Octave, int):
+            return pitch_name_2_midi_PC(self.Modifier, self.NoteName, self.Octave)
+        else:
+            return None
 
     @property
     def matchline(self):
@@ -274,7 +319,8 @@ class MatchSnote(MatchLine):
             Octave=self.Octave,
             Bar=self.Bar,
             Beat=self.Beat,
-            Offset=str(Fraction.from_float(self.Offset)),
+            # Offset=str(Fraction.from_float(self.Offset)),
+            Offset=str(self.Offset),
             Duration=self.DurationSymbolic,
             OnsetInBeats=self.OnsetInBeats,
             OffsetInBeats=self.OffsetInBeats,
@@ -285,8 +331,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
-                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
+                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -510,7 +556,11 @@ class MatchSnoteDeletion(MatchLine):
         if match_pattern is not None:
             groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
             snote_kwargs = dict(zip(MatchSnote.field_names, groups))
-            snote = MatchSnote(**snote_kwargs)
+            try:
+                snote = MatchSnote(**snote_kwargs)
+            except:
+                import pdb
+                pdb.set_trace()
             match_line = cls(snote=snote)
             return match_line
 
@@ -649,7 +699,7 @@ def parse_matchline(l):
     Returns
     -------
     matchline : subclass of `MatchLine`
-       Object representing the line. 
+       Object representing the line.
     """
 
     from_matchline_methods = [MatchSnoteNote.from_matchline,
@@ -676,13 +726,15 @@ class MatchFile(object):
     Class for representing MatchFiles
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, pedal_threshold=64):
 
         fileData = [l.decode('utf8').strip() for l in open(filename, 'rb')]
 
         self.name = filename
 
         self.lines = np.array([parse_matchline(l) for l in fileData])
+
+        self.pedal_threshold = 64
 
     @property
     def note_pairs(self):
@@ -706,28 +758,47 @@ class MatchFile(object):
         """
         return [x.snote for x in self.lines if hasattr(x, 'snote')]
 
+    @property
+    def pedal_threshold(self):
+        return self._pedal_threshold
+
+    @pedal_threshold.setter
+    def pedal_threshold(self, value):
+        self._pedal_threshold = value
+        # adjust sound off (AdjOffset) here...
+
 
 if __name__ == '__main__':
 
-    snote_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])'
-    note_line = 'note(0,[E,n],4,471720,472397,472397,49)'
-    old_note_line = 'note(0,[E,n],4,471720,472397,49)'
-    snote_note_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])-note(0,[E,n],4,471720,472397,472397,49).'
-    # snote_oldnote_line = snote_line + '-' + old_note_line + '.'
-    snote_deletion_line = 'snote(1-1,[E,n],4,0:1,0,1/4,-1.0,0.0,[staff1])-deletion.'
-    note_insertion_line = 'insertion-' + note_line + '.'
-    info_line = 'info(matchFileVersion,4.0).'
-    meta_line = 'meta(keySignature,C Maj/A min,0,-1.0).'
-    sustain_line = 'sustain(779,59).'
+    import os
+    import glob
 
-    matchlines = [snote_note_line,
-                  snote_deletion_line,
-                  note_insertion_line,
-                  info_line,
-                  meta_line,
-                  sustain_line]
+    all_match_files = glob.glob(os.path.join('../vienna4x22_rematched', '*.match'))
 
-    for ml in matchlines:
-        mo = parse_matchline(ml)
-        assert mo.matchline == ml
-        print(mo.matchline)
+    for fn in all_match_files[:1]:
+        mf = MatchFile(fn)
+
+    # all_match_files = glob.glob(os.path.join('/Users/aae/iCloud/Repos/pianodata/match', '*.match'))
+
+    # if not os.path.exists('/tmp/parsed_match.txt'):
+
+    #     with open('/tmp/parsed_match.txt', 'w') as f:
+    #         f.write('# Matched files\n')
+
+    # for fn in all_match_files:
+
+    #     already_matched = np.loadtxt('/tmp/parsed_match.txt',
+    #                                  dtype=str,
+    #                                  delimiter=';')
+
+    #     if fn in already_matched:
+    #         pass
+    #     else:
+    #         try:
+    #             mf = MatchFile(fn)
+    #             with open('/tmp/parsed_match.txt', 'a') as f:
+    #                 f.write(fn + '\n')
+    #             print(len(mf.notes), len(mf.snotes))
+    #         except:
+    #             print(fn)
+    #             mf = MatchFile(fn)
