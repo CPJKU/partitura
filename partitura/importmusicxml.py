@@ -46,8 +46,6 @@ DYN_DIRECTIONS = {
     'sfpp': score.ImpulsiveLoudnessDirection,
     'sfz': score.ImpulsiveLoudnessDirection,
 }
-SCORE_DTYPES = [('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')]
-
 
 def validate_musicxml(xml, debug=False):
     """
@@ -1050,9 +1048,9 @@ def get_articulations(e):
 
 
 def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
-                     expand_grace_notes=True, validate=False):
-    """
-    Get a note array from a MusicXML file
+                     expand_grace_notes=True, validate=False,
+                     beat_times=True):
+    """Get a note array from a MusicXML file
 
     Parameters
     ----------
@@ -1062,14 +1060,18 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         If `True`, returns a single array containing all notes.
         Otherwise, returns a list of arrays for each part.
     expand_grace_notes : bool or 'delete'
+    beat_times : bool
+        When True (default) return onset and duration in beats.
+        Otherwise, return the onset and duration in divisions.
 
     Returns
     -------
     score : structured array or list of structured arrays
-        Structured array containing the score. The fields are
-        'pitch', 'onset' and 'duration'.
+        Structured array containing the score. The fields are 'pitch',
+        'onset' and 'duration'.
+    
     """
-    global SCORE_DTYPES
+
     if not isinstance(expand_grace_notes, (bool, str)):
         raise ValueError('`expand_grace_notes` must be a boolean or '
                          '"delete"')
@@ -1093,14 +1095,20 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
             LOGGER.debug('Expanding grace notes...')
             score.expand_grace_notes(part)
 
-        # get beat map
-        bm = part.beat_map
+        if beat_times:
+            # get beat map
+            bm = part.beat_map
+            # Build score from beat map
+            _score = np.array(
+                [(n.midi_pitch, bm(n.start.t), bm(n.end_tied.t) - bm(n.start.t))
+                 for n in part.notes_tied],
+                dtype=[('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')])
+        else:
+            _score = np.array(
+                [(n.midi_pitch, n.start.t, n.end_tied.t - n.start.t)
+                 for n in part.notes_tied],
+                dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
 
-        # Build score from beat map
-        _score = np.array(
-            [(n.midi_pitch, bm(n.start.t), bm(n.end_tied.t) - bm(n.start.t))
-             for n in part.notes_tied],
-            dtype=SCORE_DTYPES)
 
         # Sort notes according to onset
         if sort_onsets:
