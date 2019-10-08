@@ -63,13 +63,17 @@ class FractionalSymbolicDuration(object):
         self.tuple_div = tuple_div
 
     def __str__(self):
-        if self.tuple_div is None:
-            return '{0}/{1}'.format(self.numerator,
-                                    self.denominator)
+
+        if self.denominator == 1 and self.tuple_div is None:
+            return str(self.numerator)
         else:
-            return '{0}/{1}/{2}'.format(self.numerator,
-                                        self.denominator,
-                                        self.tuple_div)
+            if self.tuple_div is None:
+                return '{0}/{1}'.format(self.numerator,
+                                        self.denominator)
+            else:
+                return '{0}/{1}/{2}'.format(self.numerator,
+                                            self.denominator,
+                                            self.tuple_div)
 
 
 def pitch_name_2_midi_PC(modifier, name, octave):
@@ -78,8 +82,8 @@ def pitch_name_2_midi_PC(modifier, name, octave):
     """
     if name == 'r':
         return (0, 0)
-    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()]
-                  + {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
+    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()] +
+                  {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
     mid = (octave + 1) * 12 + base_class
     # for mozartmatch files (in which the octave numbers are off by one)
     # mid = octave*12 + base_class
@@ -141,11 +145,13 @@ def interpret_field_rational(data, allow_additions=False):
         m2 = double_rational_pattern.match(v)
         if m:
             groups = m.groups()
+            return [int(g) for g in groups]
             # return float(groups[0]) / float(groups[1])
-            return FractionalSymbolicDuration(int(groups[0]), int(groups[1]))
+            # return FractionalSymbolicDuration(int(groups[0]), int(groups[1]))
         elif m2:
             groups = m2.groups()
-            return FractionalSymbolicDuration(int(groups[0]), int(groups[1]), int(groups[2]))
+            # return FractionalSymbolicDuration(int(groups[0]), int(groups[1]), int(groups[2]))
+            return [int(g) for g in groups]
         else:
             if allow_additions:
                 parts = v.split('+')
@@ -249,10 +255,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
-                   '{Bar}:{Beat},{Offset},{Duration},' +
-               '{OnsetInBeats},{OffsetInBeats},' +
-                   '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
+                   + '{Bar}:{Beat},{Offset},{Duration},'
+               + '{OnsetInBeats},{OffsetInBeats},'
+                   + '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -271,8 +277,18 @@ class MatchSnote(MatchLine):
         self.Octave = Octave
         self.Bar = Bar
         self.Beat = Beat
-        self.Offset = Offset
-        self.Duration = Duration
+
+        if isinstance(Offset, int):
+            self.Offset = FractionalSymbolicDuration(Offset, 1)
+        else:
+            self.Offset = FractionalSymbolicDuration(*Offset)
+
+        if isinstance(Duration, int):
+            self.Duration = FractionalSymbolicDuration(Duration, 1)
+        else:
+            self.Duration = FractionalSymbolicDuration(*Duration)
+
+        # self.Duration = Duration
         self.OnsetInBeats = OnsetInBeats
         self.OffsetInBeats = OffsetInBeats
 
@@ -331,8 +347,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
-                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
+                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -767,6 +783,82 @@ class MatchFile(object):
         self._pedal_threshold = value
         # adjust sound off (AdjOffset) here...
 
+    @property
+    def _info(self):
+        """
+        Return all InfoLine objects
+
+        """
+        return [i for i in self.lines if isinstance(i, MatchInfo)]
+
+    def info(self, attribute=None):
+        """
+        Return the value of the MatchInfo object corresponding to
+        attribute, or None if there is no such object
+
+        : param attribute: the name of the attribute to return the value for
+
+        """
+        if attribute:
+            try:
+                idx = [i.Attribute for i in self._info].index(attribute)
+                return self._info[idx].Value
+            except:
+                return None
+        else:
+            return self._info
+
+    @property
+    def first_onset(self):
+        return min([n.OnsetInBeats for n in self.snotes])
+
+    @property
+    def time_signatures(self):
+        """
+        A list of tuples(t, (a, b)), indicating a time signature of a over b, starting at t
+
+        """
+        tspat = re.compile('([0-9]+)/([0-9]*)')
+        # m = [(int(x[0]), int(x[1])) for x in
+        #      tspat.findall(self.info('timeSignature'))]
+        import pdb
+        pdb.set_trace()
+        m = [(int(x) for x in tspat.search(self.info('timeSignature')).groups())]
+        _timeSigs = []
+        if len(m) > 0:
+            _timeSigs.append((self.first_onset, m[0]))
+        for l in self.time_sig_lines:
+            _timeSigs.append((float(l.TimeInBeats), [
+                            (int(x[0]), int(x[1])) for x in tspat.search(str(l.Value))][0]))
+        _timeSigs = list(set(_timeSigs))
+        _timeSigs.sort(key=lambda x: x[0])
+
+        # ensure that all consecutive time signatures are different
+        timeSigs = [_timeSigs[0]]
+
+        for ts in _timeSigs:
+            ts_on, (ts_num, ts_den) = ts
+            ts_on_prev, (ts_num_prev, ts_den_prev) = timeSigs[-1]
+            if ts_num != ts_num_prev or ts_den != ts_den_prev:
+                timeSigs.append(ts)
+
+        return timeSigs
+
+    def _time_sig_lines(self):
+        return [i for i in self.lines if
+                isinstance(i, MatchMeta)
+                and hasattr(i, 'Attribute')
+                and i.Attribute == 'timeSignature']
+
+    @property
+    def time_sig_lines(self):
+        ml = self._time_sig_lines()
+        if len(ml) == 0:
+            ts = self.info('timeSignature')
+            ml = [parse_matchline(
+                'meta(timeSignature,{0},1,{1}).'.format(ts, self.first_onset))]
+        return ml
+
 
 if __name__ == '__main__':
 
@@ -776,29 +868,8 @@ if __name__ == '__main__':
     all_match_files = glob.glob(os.path.join('../vienna4x22_rematched', '*.match'))
 
     for fn in all_match_files[:1]:
+        # fn = all_match_files[0]
         mf = MatchFile(fn)
 
-    # all_match_files = glob.glob(os.path.join('/Users/aae/iCloud/Repos/pianodata/match', '*.match'))
-
-    # if not os.path.exists('/tmp/parsed_match.txt'):
-
-    #     with open('/tmp/parsed_match.txt', 'w') as f:
-    #         f.write('# Matched files\n')
-
-    # for fn in all_match_files:
-
-    #     already_matched = np.loadtxt('/tmp/parsed_match.txt',
-    #                                  dtype=str,
-    #                                  delimiter=';')
-
-    #     if fn in already_matched:
-    #         pass
-    #     else:
-    #         try:
-    #             mf = MatchFile(fn)
-    #             with open('/tmp/parsed_match.txt', 'a') as f:
-    #                 f.write(fn + '\n')
-    #             print(len(mf.notes), len(mf.snotes))
-    #         except:
-    #             print(fn)
-    #             mf = MatchFile(fn)
+    # for snote in mf.snotes:
+    #     print(snote.Bar, snote.Beat, snote.Offset)
