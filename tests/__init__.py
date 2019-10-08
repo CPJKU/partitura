@@ -9,6 +9,7 @@ import os
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, 'data')
 MUSICXML_PATH = os.path.join(DATA_PATH, 'musicxml')
+MATCH_PATH = os.path.join(DATA_PATH, 'match')
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -22,3 +23,6 @@ MUSICXML_UNFOLD_TESTPAIRS = [(os.path.join(MUSICXML_PATH, fn1), os.path.join(MUS
 # This is a list of files for testing Chew and Wu's VOSA. (More files to come?)
 VOSA_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
                   ['test_chew_vosa_example.xml']]
+
+
+MATCH_IMPORT_EXPORT_TESTFILES = [os.path.join(MATCH_PATH, fn) for fn in ['test_fuer_elise.match']]

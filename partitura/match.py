@@ -676,6 +676,22 @@ class MatchFile(object):
     Class for representing MatchFiles
     """
 
+    def __init__(self, filename):
+
+        fileData = [l.decode('utf8').strip() for l in open(filename, 'rb')]
+
+        self.name = filename
+
+        self.lines = np.array([parse_matchline(l) for l in fileData])
+
+    @property
+    def note_pairs(self):
+        """
+        Return all(snote, note) tuples
+
+        """
+        return [(x.snote, x.note) for x in self.lines if isinstance(x, SnoteNoteLine)]
+
 
 if __name__ == '__main__':
 
