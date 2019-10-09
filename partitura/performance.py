@@ -70,7 +70,9 @@ class PerformedPart(object):
 
     def __init__(self, id, part_name=None, notes=None,
                  pedal=None,
-                 pedal_threshold=64):
+                 pedal_threshold=64,
+                 midi_clock_units=4000,
+                 midi_clock_rate=500000):
         super().__init__()
         self.id = id
         self.parent = None
@@ -84,6 +86,9 @@ class PerformedPart(object):
         self.pedal = np.array(pedal, dtype=SustainPedal)
 
         self.pedal_threshold = pedal_threshold
+
+        self.midi_clock_rate = midi_clock_rate
+        self.midi_clock_units = midi_clock_units
 
     @property
     def pedal_threshold(self):

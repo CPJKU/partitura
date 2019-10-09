@@ -20,7 +20,12 @@ from partitura.utils import (
 from partitura.performance import (
     PerformedNote,
     SustainPedal,
-    PerformedPart)
+    PerformedPart
+)
+
+from partitura.score import (
+    Part
+)
 
 import logging
 import warnings
@@ -262,10 +267,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
-                   '{Bar}:{Beat},{Offset},{Duration},' +
-               '{OnsetInBeats},{OffsetInBeats},' +
-                   '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
+                   + '{Bar}:{Beat},{Offset},{Duration},'
+               + '{OnsetInBeats},{OffsetInBeats},'
+                   + '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -362,8 +367,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
-                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
+                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -784,7 +789,7 @@ class MatchFile(object):
         Return all(snote, note) tuples
 
         """
-        return [(x.snote, x.note) for x in self.lines if isinstance(x, SnoteNoteLine)]
+        return [(x.snote, x.note) for x in self.lines if isinstance(x, MatchSnoteNote)]
 
     @property
     def notes(self):
@@ -864,9 +869,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta) and
-                hasattr(i, 'Attribute') and
-                i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta)
+                and hasattr(i, 'Attribute')
+                and i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):
@@ -880,12 +885,18 @@ class MatchFile(object):
 
 def load_match(fn):
 
+    # Parse Matchfile
     mf = MatchFile(fn)
+
+    ######## Generate PerformedPart #########
+    midi_clock_rate = mf.info('midiClockRate')
+
+    midi_clock_units = mf.info('midiClockUnits')
 
     pnotes = []
     for note in mf.notes:
-        pnote = PerformedNote(id=note.id,
-                              midi_pitch=note.midi_pitch,
+        pnote = PerformedNote(id=note.Number,
+                              midi_pitch=note.MidiPitch,
                               note_on=note.Onset,
                               note_off=note.Offset,
                               velocity=note.Velocity,
@@ -893,3 +904,25 @@ def load_match(fn):
                               step=note.NoteName,
                               octave=note.Octave,
                               alter=note.Modifier)
+
+        pnotes.append(pnote)
+
+    sustain_pedal = []
+    for ped in mf.sustain_pedal:
+        pedal = SustainPedal(time=ped.Time,
+                             value=ped.Value)
+
+        sustain_pedal.append(pedal)
+
+    ppart = PerformedPart(id=mf.info('piece'), notes=pnotes,
+                          pedal=sustain_pedal,
+                          midi_clock_rate=midi_clock_rate,
+                          midi_clock_units=midi_clock_units)
+
+    ####### Generate Part ######
+    spart = Part(id=mf.info('piece'))
+
+    ###### Alignment ########
+    alignment = dict([(snote.Anchor, note.Number) for snote, note in mf.note_pairs])
+
+    return spart, ppart, alignment
