@@ -34,37 +34,83 @@ def find_nearest(array, value):
         return idx
 
 
-def iter_current_next(iterable):
-    """
-    Make an iterator that yields a (current, next) tuple per element. If the
+# we need a globally unique value to detect whether a keyword argument was
+# passed to iter_current_next
+_sentinel = object()
+
+def iter_current_next(iterable, start=_sentinel, end=_sentinel):
+    """Iterate over pairs of consecutive values in an iterable.
+
+    This creates generator that yields a (current, next) tuple per element. If the
     iterable contains less than two elements a StopIteration exception is
     raised.
+
+    Parameters
+    ----------
+    iterable: iterable
+        Iterable to take values from
+    start: object, optional
+        If specified, this value will be treated as if it were the first element
+        of the iterator
+    end: object, optional
+        If specified, this value will be treated as if it were the last element
+        of the iterator
+    
+    Yields
+    ------
+    (object, object)
+        Pairs of items
 
     Examples
     --------
 
-    >>> l = []
-    >>> list(iter_current_next(l))
-    []
-    >>> l = range(1)
-    >>> list(iter_current_next(l))
-    []
-    >>> l = range(2)
-    >>> list(iter_current_next(l))
-    [(0, 1)]
-    >>> l = range(3)
-    >>> list(iter_current_next(l))
-    [(0, 1), (1, 2)]
+    >>> for pair in iter_current_next([]):
+    ...     print(pair)
+
+    >>> for pair in iter_current_next([0]):
+    ...     print(pair)
+
+    >>> for pair in iter_current_next([0, 1, 2]):
+    ...     print(pair)
+    (0, 1)
+    (1, 2)
+
+    >>> for pair in iter_current_next([0, 1, 2], start=None):
+    ...     print(pair)
+    (None, 0)
+    (0, 1)
+    (1, 2)
+
+    >>> for pair in iter_current_next([0, 1, 2], end='end_value'):
+    ...     print(pair)
+    (0, 1)
+    (1, 2)
+    (2, 'end_value')
+
+    >>> for pair in iter_current_next([], start='start', end='end'):
+    ...     print(pair)
+    ('start', 'end')
+
     """
     iterable = iter(iterable)
+    
     try:
-        cur = next(iterable)
+
+        if start is _sentinel:
+            cur = next(iterable)
+        else:
+            cur = start
+            
         while True:
+
             nxt = next(iterable)
             yield (cur, nxt)
             cur = nxt
+
     except StopIteration:
-        pass
+
+        if end is not _sentinel:
+            yield (cur, end)
 
 
 def iter_subclasses(cls, _seen=None):
