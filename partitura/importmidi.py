@@ -193,11 +193,15 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 notes_by_track_ch[(track_nr, ch)] = ch_notes
 
     tr_ch_keys = sorted(notes_by_track_ch.keys())
-    group_part_voice_keys, part_names, group_names = assign_group_part_voice(part_voice_assign_mode,
-                                                                             tr_ch_keys,
-                                                                             track_names_by_track)
+    group_part_voice_keys, part_names, group_names = assign_group_part_voice(
+        part_voice_assign_mode,
+        tr_ch_keys,
+        track_names_by_track)
+    
     # for key and time sigs:
-    track_to_part_mapping = make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys)
+    track_to_part_mapping = make_track_to_part_mapping(
+        tr_ch_keys,
+        group_part_voice_keys)
 
     # pairs of (part, voice) for each note
     part_voice_list = [[part, voice] for tr_ch, (_, part, voice)
@@ -208,8 +212,12 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     # structured array (onset, pitch, duration) of all notes in the piece
     # jointly, so we concatenate all notes
     # note_list = sorted(note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
-    note_list = [note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes]
-    note_array = np.array(note_list, dtype=[('onset', np.int), ('pitch', np.int), ('duration', np.int)])
+    note_list = [note for notes in (notes_by_track_ch[key]
+                                    for key in tr_ch_keys)
+                 for note in notes]
+    note_array = np.array(note_list, dtype=[('onset', np.int),
+                                            ('pitch', np.int),
+                                            ('duration', np.int)])
 
     LOGGER.debug('pitch spelling')
     spelling_global = analysis.estimate_spelling(note_array)

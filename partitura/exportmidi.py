@@ -2,263 +2,182 @@
 
 import logging
 import numpy as np
+from operator import itemgetter
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message
 
-from partitura.score import Part, PartGroup, iter_parts
-
-import ipdb
+from partitura.score import iter_parts
+from partitura.utils import partition
 
 __all__ = ['save_midi']
+
 LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
-
-
-DEFAULT_FORMAT = 0  # MIDI file format
-DEFAULT_PPQ = 480  # PPQ = pulses per quarter note
-DEFAULT_TIME_SIGNATURE = (4, 4)
 
 
 def get_partgroup(part):
-    parent = part.parent
-    while parent and parent.parent:
+    parent = part
+    while parent.parent:
         parent = parent.parent
     return parent
 
 
-def assign_parts_voices_tracks_channels(mode, prt_grp_part_voice_list,
-                                        onoff_list, prt_grp_part_voice_set):
-    """
-    Assign given parts and their voices' notes to MIDI tracks and channels.
+def map_to_track_channel(note_keys, mode):
+    ch_helper = {}
+    tr_helper = {}
+    track = {}
+    channel = {}
+    for (pg, p, v) in note_keys:
+        if mode == 0:
+            trk = tr_helper.setdefault(p, len(tr_helper))
+            ch1 = ch_helper.setdefault(p, {})
+            ch2 = ch1.setdefault(v, len(ch1)+1)
+            track[(pg, p, v)] = trk
+            channel[(pg, p, v)] = ch2
+        elif mode == 1:
+            trk = tr_helper.setdefault(pg, len(tr_helper))
+            ch1 = ch_helper.setdefault(pg, {})
+            ch2 = ch1.setdefault(p, len(ch1)+1)
+            track[(pg, p, v)] = trk
+            channel[(pg, p, v)] = ch2
+        elif mode == 2:
+            track[(pg, p, v)] = 0
+            ch = ch_helper.setdefault(p, len(ch_helper)+1)
+            channel[(pg, p, v)] = ch
+        elif mode == 3:
+            trk = tr_helper.setdefault(p, len(tr_helper))
+            track[(pg, p, v)] = trk
+            channel[(pg, p, v)] = 1
+        elif mode == 4:
+            track[(pg, p, v)] = 0
+            channel[(pg, p, v)] = 1
+        elif mode == 5:
+            trk = tr_helper.setdefault((p, v), len(tr_helper))
+            track[(pg, p, v)] = trk
+            channel[(pg, p, v)] = 1
+        else:
+            raise Exception('unsupported part/voice assign mode {}'
+                            .format(mode))
 
-    Parameters
-    ----------
-    mode : int
+    result = dict((k, (track.get(k, 0), channel.get(k, 1)))
+                  for k in note_keys)
+    # for (pg, p, voice), v in result.items():
+    #     pgn = pg.group_name if hasattr(pg, 'group_name') else pg.id
+    #     print(pgn, p.id, voice)
+    #     print(v)
+    #     print()
+    return result
+    
 
-    prt_grp_part_voice_list : list of tuples
-
-    onoff_list : list
-
-
-    Returns
-    -------
-    assigned_notes : dictionary of lists
-        each list has [note_on/note_off, time-stamp, midi_pitch, midi_channel],
-        the dictionary keys are the numbers of the respective MIDI tracks
-        the notes are assigned to.
-    """
-    chn_nr_start = 1    # check whether starts at zero or one
-    track_nr_start = 1  # should start at 1
-
-    assigned_notes = defaultdict(list)  # keys are track numbers
-
-    if mode == 0:
-        for kk, elem in enumerate(prt_grp_part_voice_list):
-            assigned_notes[elem[1]].append([*onoff_list[kk], elem[2]])
-    if mode == 1:
-        pg_part_combis = set()
-        only_part_combis = set()
-        for elem in prt_grp_part_voice_set:
-            if elem[0] is not None:
-                pg_part_combis.add(elem[:2])
-            elif elem[0] is None:
-                only_part_combis.add(elem[:2])
-
-        opc_sorted = list(only_part_combis)
-        opc_sorted.sort(key=lambda x: x[1])
-
-        ppc_sorted = list(pg_part_combis)
-        ppc_sorted.sort(key=lambda x: (x[0], x[1]))
-
-        track_nr_lookup = dict()
-        for kk, elem in enumerate([*opc_sorted, *ppc_sorted]):
-            track_nr_lookup[elem] = kk
-
-        for kk, elem in enumerate(prt_grp_part_voice_list):
-            assigned_notes[track_nr_lookup[tuple(elem[:2])]].append([*onoff_list[kk], elem[1]])
-
-    if mode == 2:
-        for kk, elem in enumerate(prt_grp_part_voice_list):
-            # only one single track, number starting at 1
-            # midi channels assigned by part number (they start at 1).
-            assigned_notes[1].append([*onoff_list[kk], elem[1]])
-    if mode == 3:
-        for kk, elem in enumerate(prt_grp_part_voice_list):
-            # each Part gets one track, all voices in one Part
-            # put on same channel.
-            assigned_notes[elem[1]].append([*onoff_list[kk], chn_nr_start])
-    if mode == 4:
-        for kk, elem in enumerate(prt_grp_part_voice_list):
-            # only one single track, number starting at 1
-            # assign all notes to the same channel.
-            assigned_notes[1].append([*onoff_list[kk], chn_nr_start])
-    if mode == 5:
-        # all possible part, voice combis, removing PartGroup info
-        # not sure if necessary
-        part_voice_combis = set()
-        for elem in prt_grp_part_voice_set:
-            part_voice_combis.add(elem[1:])
-
-        # should preserve order of Parts, voices
-        pvc_sorted = list(part_voice_combis)
-        pvc_sorted.sort(key=lambda x: (x[0], x[1]))
-
-        # use the Part, voice combis for getting track numbers
-        # they start at zero here
-        track_nr_lookup = dict()
-        for kk, elem in enumerate(pvc_sorted):
-            track_nr_lookup[elem] = kk
-
-        # finally, assign notes to the MIDI tracks
-        for kk, elem in enumerate(prt_grp_part_voice_list):
-            # single channel per track
-            # the channel number is obtained from lookup dict
-            assigned_notes[track_nr_lookup[tuple(elem[1:])]].append([*onoff_list[kk], chn_nr_start])
-
-    for key in assigned_notes.keys():
-        # sort by time-stamps all messages within each track.
-        # is it enough to sort the notes by their time-stamp? Or should
-        # there be some logic to make sure that the note_off always come
-        # before a new note on of e.g. same pitch?
-        # NOTE: as the note_off messages were added after each note_on
-        # message into the list, I guess the sorting should keep that order
-        # intact anyway?
-        assigned_notes[key].sort(key=lambda x: x[0][1])
-
-    return assigned_notes
+def get_ppq(parts):
+    ppqs = np.concatenate([part.quarter_durations()[:, 1]
+                           for part in iter_parts(parts)])
+    ppq = np.lcm.reduce(ppqs)
+    return ppq
 
 
-def add_notes_to_track(assigned_notes_current_track, track, velocity):
-    """Helper function for adding notes to a MIDI track
-
-    Parameters
-    ----------
-    assigned_notes_current_track : list
-
-    track : Mido MIDI track object (CHECK)
-
-    Returns
-    -------
-    no returns
-    """
-    notes_by_ppq = defaultdict(list)
-    for elem in assigned_notes_current_track:
-        notes_by_ppq[elem[1]].append(elem)
-
-    ts_sorted = sorted(notes_by_ppq.keys())  # somehow necessary
-    last_ts = 0
-    for ts in ts_sorted:  # notes_by_ppq.keys():
-        delta_t = ts - last_ts
-        for msg, divs, pitch, chn in notes_by_ppq[ts]:
-            # print(f"delta_t: {delta_t}")
-            # print(f"msg: {msg}")
-            track.append(Message(msg,
-                                 channel=chn,
-                                 note=pitch,
-                                 velocity=velocity,
-                                 time=delta_t))
-            delta_t = 0
-        last_ts = ts
-
-
-def save_midi(fn, parts_partgroups, part_voice_assign_mode=0, file_type=1,
-              default_vel=64, ppq=DEFAULT_PPQ):
+def save_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     """Write data from Part objects to a MIDI file
 
     Parameters
     ----------
-    fn : str
-        can this also be a file like object? Check
-
-    parts_partgroups : single or list of mulitple score.Part objects
-        CHECK!
-
+    parts : Part, PartGroup or list of these
+        The musical score to be saved.
+    out : str or file-like object
+        Either a filename or a file-like object to write the MIDI data
+        to.
     part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
-        This keyword controls how part and voice information is associated
-        to track and channel information in the MIDI file. The semantics of
-        the modes is as follows:
+        This keyword controls how part and voice information is
+        associated to track and channel information in the MIDI file.
+        The semantics of the modes is as follows:
 
         0
-            Write one track for each Part, with channels assigned by voices
+            Write one track for each Part, with channels assigned by
+            voices
         1
-            Write one track for each PartGroup, with channels assigned by Parts
-            (voice info is lost)
-            (There can be multiple levels of partgroups, I suggest using
-            the highest level of partgroup/part) [note: this will e.g. lead
-            to all strings into the same track]
-            Each part not in a PartGroup will be assigned its own track
+            Write one track for each PartGroup, with channels assigned by
+            Parts (voice info is lost) (There can be multiple levels of
+            partgroups, I suggest using the highest level of
+            partgroup/part) [note: this will e.g. lead to all strings into
+            the same track] Each part not in a PartGroup will be assigned
+            its own track
         2
-            Write a single track with channels assigned by Part
-            (voice info is lost)
+            Write a single track with channels assigned by Part (voice
+            info is lost)
         3
             Write one track per Part, and a single channel for all voices
             (voice info is lost)
         4
-            Write a single track with a single channel
-            (Part and voice info is lost)
+            Write a single track with a single channel (Part and voice
+            info is lost)
         5
-            Return one track per <Part, voice> combination,
-            each track having a single channel.
+            Return one track per <Part, voice> combination, each track
+            having a single channel.
 
-    file_type : int, optional
-        type of MIDI file to be created.
-
-    default_vel : int, optional
-        default velocity for all MIDI notes.
-
-    ppq : int, optional.
-        parts per quarter (ppq) for the MIDI file, i.e. amount of ticks
-        per quarter note.
+    velocity : int, optional
+        Default velocity for all MIDI notes.
 
     Returns
     -------
-    no returns
+    
     """
 
-    onoff_list = []
-    prt_grp_part_voice_list = []
-    prt_grp_part_voice = set()  # all occurring different combinations
+    # TODO: write track names, time sigs, key sigs, tempos
+    ppq = get_ppq(parts)
 
-    for kk, part in enumerate(iter_parts(parts_partgroups)):
+    onoffs = []
+    onoff_keys = []
+    onoff_key_set = OrderedDict()
+
+    for i, part in enumerate(iter_parts(parts)):
 
         pg = get_partgroup(part)
 
-        # current part's notes, we use `notes_tied`!
         notes = part.notes_tied
-        qm = part.quarter_map    # quarter map of the current part
+        qm = part.quarter_map
 
         for note in notes:
-            # check ints
-            onoff_list.append(['note_on', int(qm(note.start.t) * ppq), note.midi_pitch])
-            onoff_list.append(['note_off', int(qm(note.end_tied.t) * ppq), note.midi_pitch])
 
-            # enumerate parts starting from 1
-            # note that we do this 2 times to have equally many as note_on,
-            # note_off messages.
-            prt_grp_part_voice_list.append([pg, kk + 1, note.voice])
-            prt_grp_part_voice_list.append([pg, kk + 1, note.voice])
+            on = int(qm(note.start.t) * ppq)
+            off = int(qm(note.end_tied.t) * ppq)
 
-            prt_grp_part_voice.add((pg, kk + 1, note.voice))
+            onoffs.append(['note_on', on, note.midi_pitch])
+            onoffs.append(['note_off', off, note.midi_pitch])
 
-    # part_voice_assign_mode = 1  # remove this after testing!
-    # get dict of notes assigned to each MIDI track, keys are MIDI channel numbers
-    assigned_notes = assign_parts_voices_tracks_channels(part_voice_assign_mode,
-                                                         prt_grp_part_voice_list,
-                                                         onoff_list,
-                                                         prt_grp_part_voice)
+            # note_key is a tuple (part_group, part, voice)
+            note_key = (pg, part, note.voice)
+            # we add the note_key twice: once for note_on, once for note_off
+            onoff_keys.extend([note_key, note_key])
+            onoff_key_set[note_key] = True
 
-    # create object, spefify some basic parameters here
-    mf = MidiFile(type=file_type, ticks_per_beat=ppq)
+    tr_ch_map = map_to_track_channel(list(onoff_key_set.keys()), part_voice_assign_mode)
+    
+    n_tracks = max(tr for tr, _ in tr_ch_map.values()) + 1
+    tracks = [MidiTrack() for _ in range(n_tracks)]
+    nows = [0]*n_tracks
+    msg_order = np.argsort(np.fromiter((t for _, t, _ in onoffs),dtype=np.int))
 
-    # for each track, add the assigned notes and append to file object
-    for key in sorted(assigned_notes.keys()):  # keys are MIDI track numbers
-        # print(key)
-        # create track and append to file object
-        track = MidiTrack()
+    for i in msg_order:
+        msg_key = onoff_keys[i]
+        msg_type, t, pitch = onoffs[i]
+        tr, ch = tr_ch_map[msg_key]
+        delta = t - nows[tr]
+        tracks[tr].append(Message(msg_type,
+                                  note=pitch,
+                                  channel=ch,
+                                  velocity=velocity,
+                                  time=delta))
+        nows[tr] = t
+
+    midi_type = 0 if n_tracks == 1 else 1
+    
+    mf = MidiFile(type=midi_type, ticks_per_beat=ppq)
+
+    for track in tracks:
         mf.tracks.append(track)
 
-        # add all notes assigned to current track to the track object
-        add_notes_to_track(assigned_notes[key], track, default_vel)
-
-    mf.save(fn)  # save the midi file
+    if out:
+        if hasattr(out, 'write'):
+            mf.save(file=out)
+        else:
+            mf.save(out)
