@@ -1771,6 +1771,12 @@ def add_measures(part):
             measure_start = pos
             measure_end_beats = min(beat_map(pos) + measure_dur, beat_map(end))
             measure_end = min(ts_end, inv_beat_map(measure_end_beats))
+
+            # if existing_measure at start:
+            #     pos += measure_end
+            #     continue
+            # elif existing_measure before measure_end:
+            #     measure_end = start_
             # print('measure', measure_start, measure_end)
             part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
             pos = measure_end
