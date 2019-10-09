@@ -11,6 +11,7 @@ TODO
 import re
 import numpy as np
 from fractions import Fraction
+from collections import defaultdict
 
 from partitura.utils import (
     pitch_spelling_to_midi_pitch,
@@ -59,27 +60,42 @@ class MatchError(Exception):
 
 class FractionalSymbolicDuration(object):
 
-    def __init__(self, numerator, denominator=1, tuple_div=None):
+    def __init__(self, numerator, denominator=1, tuple_div=None, add_components=None):
 
         self.numerator = numerator
         self.denominator = denominator
         self.tuple_div = tuple_div
 
+        self.add_components = add_components
+
+    def _str(self, numerator, denominator, tuple_div):
+        if denominator == 1 and tuple_div is None:
+            return str(numerator)
+        else:
+            if tuple_div is None:
+                return '{0}/{1}'.format(numerator,
+                                        denominator)
+            else:
+                return '{0}/{1}/{2}'.format(numerator,
+                                            denominator,
+                                            tuple_div)
+
     def __str__(self):
 
-        if self.denominator == 1 and self.tuple_div is None:
-            return str(self.numerator)
+        if self.add_components is None:
+
+            return self._str(self.numerator,
+                             self.denominator,
+                             self.tuple_div)
+
         else:
-            if self.tuple_div is None:
-                return '{0}/{1}'.format(self.numerator,
-                                        self.denominator)
-            else:
-                return '{0}/{1}/{2}'.format(self.numerator,
-                                            self.denominator,
-                                            self.tuple_div)
+            r = [self._str(*i) for i in self.add_components]
+
+            r = [i for i in r if i != '0']
+
+            return '+'.join(r)
 
     def __add__(self, sd):
-
         if isinstance(sd, int):
             sd = FractionalSymbolicDuration(sd, 1)
 
@@ -87,7 +103,21 @@ class FractionalSymbolicDuration(object):
         new_den = np.lcm(dens[0], dens[1])
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])
-        return FractionalSymbolicDuration(new_num, new_den)
+
+        if self.add_components is None and sd.add_components is None:
+            add_components = [(self.numerator, self.denominator, self.tuple_div),
+                              (sd.numerator, sd.denominator, sd.tuple_div)]
+
+        elif self.add_components is not None and sd.add_components is None:
+            add_components = self.add_components + [(sd.numerator, sd.denominator, sd.tuple_div)]
+        elif self.add_components is None and sd.add_components is not None:
+            add_components = [(self.numerator, self.denominator, self.tuple_div)] + sd.add_components
+
+        elif self.add_components is not None and sd.add_components is not None:
+            add_components = self.add_components + sd.add_components
+
+        return FractionalSymbolicDuration(new_num, new_den,
+                                          add_components=add_components)
 
     def __radd__(self, sd):
         return self.__add__(sd)
@@ -810,6 +840,14 @@ class MatchFile(object):
         return [l for l in self.lines if isinstance(l, MatchSustainPedal)]
 
     @property
+    def insertions(self):
+        return [x.note for x in self.lines if isinstance(x, MatchInsertionNote)]
+
+    @property
+    def deletions(self):
+        return [x.snote for x in self.lines if isinstance(x, MatchSnoteDeletion)]
+
+    @property
     def _info(self):
         """
         Return all InfoLine objects
@@ -883,7 +921,7 @@ class MatchFile(object):
         return ml
 
 
-def load_match(fn):
+def load_match(fn, pedal_threshold=64):
 
     # Parse Matchfile
     mf = MatchFile(fn)
@@ -916,6 +954,7 @@ def load_match(fn):
 
     ppart = PerformedPart(id=mf.info('piece'), notes=pnotes,
                           pedal=sustain_pedal,
+                          pedal_threshold=pedal_threshold,
                           midi_clock_rate=midi_clock_rate,
                           midi_clock_units=midi_clock_units)
 
@@ -923,6 +962,27 @@ def load_match(fn):
     spart = Part(id=mf.info('piece'))
 
     ###### Alignment ########
-    alignment = dict([(snote.Anchor, note.Number) for snote, note in mf.note_pairs])
+    matched_notes = dict([(snote.Anchor, note.Number)
+                          for snote, note in mf.note_pairs])
+    inserted_notes = [note.Number for note in mf.insertions]
+    deleted_notes = [snote.Anchor for snote in mf.deletions]
+    ornaments = {}
+
+    alignment = PerformanceAlignment(matched=matched_notes,
+                                     insertions=inserted_notes,
+                                     deletions=deleted_notes,
+                                     ornaments=ornaments)
 
     return spart, ppart, alignment
+
+
+class PerformanceAlignment(object):
+    """Class for representing the alignment of a score and a performance
+    """
+
+    def __init__(self, matched={}, insertions=[],
+                 deletions=[], ornaments={}):
+        self.matched = matched
+        self.insertions = insertions
+        self.deletions = deletions
+        self.ornaments = ornaments
