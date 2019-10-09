@@ -2,11 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 This module contains methods for parsing matchfiles
-
-TODO
-----
-* Add PerformanceTimeline?
-* Allow for creating Notes and other elements from matchlines
 """
 import re
 import numpy as np
@@ -59,13 +54,16 @@ class MatchError(Exception):
 
 
 class FractionalSymbolicDuration(object):
+    """
+    A class to represent symbolic duration information
+    """
 
-    def __init__(self, numerator, denominator=1, tuple_div=None, add_components=None):
+    def __init__(self, numerator, denominator=1,
+                 tuple_div=None, add_components=None):
 
         self.numerator = numerator
         self.denominator = denominator
         self.tuple_div = tuple_div
-
         self.add_components = add_components
 
     def _str(self, numerator, denominator, tuple_div):
@@ -83,16 +81,11 @@ class FractionalSymbolicDuration(object):
     def __str__(self):
 
         if self.add_components is None:
-
             return self._str(self.numerator,
                              self.denominator,
                              self.tuple_div)
-
         else:
             r = [self._str(*i) for i in self.add_components]
-
-            r = [i for i in r if i != '0']
-
             return '+'.join(r)
 
     def __add__(self, sd):
@@ -104,20 +97,30 @@ class FractionalSymbolicDuration(object):
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])
 
-        if self.add_components is None and sd.add_components is None:
-            add_components = [(self.numerator, self.denominator, self.tuple_div),
-                              (sd.numerator, sd.denominator, sd.tuple_div)]
+        if (self.add_components is None and
+                sd.add_components is None):
+            add_components = [
+                (self.numerator, self.denominator, self.tuple_div),
+                (sd.numerator, sd.denominator, sd.tuple_div)]
 
-        elif self.add_components is not None and sd.add_components is None:
-            add_components = self.add_components + [(sd.numerator, sd.denominator, sd.tuple_div)]
-        elif self.add_components is None and sd.add_components is not None:
-            add_components = [(self.numerator, self.denominator, self.tuple_div)] + sd.add_components
-
-        elif self.add_components is not None and sd.add_components is not None:
+        elif (self.add_components is not None
+              and sd.add_components is None):
+            add_components = (self.add_components
+                              + [(sd.numerator, sd.denominator, sd.tuple_div)])
+        elif (self.add_components is None
+              and sd.add_components is not None):
+            add_components = ([(self.numerator, self.denominator, self.tuple_div)]
+                              + sd.add_components)
+        else:
             add_components = self.add_components + sd.add_components
 
-        return FractionalSymbolicDuration(new_num, new_den,
-                                          add_components=add_components)
+        # Remove spurious components with 0 in the numerator
+        add_components = [c for c in add_components if c[0] != 0]
+
+        return FractionalSymbolicDuration(
+            numerator=new_num,
+            denuminator=new_den,
+            add_components=add_components)
 
     def __radd__(self, sd):
         return self.__add__(sd)
@@ -297,10 +300,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
-                   + '{Bar}:{Beat},{Offset},{Duration},'
-               + '{OnsetInBeats},{OffsetInBeats},'
-                   + '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
+                   '{Bar}:{Beat},{Offset},{Duration},' +
+               '{OnsetInBeats},{OffsetInBeats},' +
+                   '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -397,8 +400,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
-                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
+                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -437,14 +440,6 @@ class MatchNote(MatchLine):
                  step=NoteName,
                  alter=Modifier,
                  octave=Octave)
-            # if NoteName.upper() in NOTE_NAMES:
-            #     self.NoteName = NoteName.upper()
-            # else:
-            #     raise ValueError(
-            #         'Invalid note name. Should be in {0}'.format(','.join(NOTE_NAMES)))
-
-            # self.Modifier = Modifier
-            # self.Octave = int(Octave)
 
         else:
             # infer the pitch information from the MIDI pitch
@@ -464,7 +459,6 @@ class MatchNote(MatchLine):
 
             else:
                 # Set the Midi pitch
-                # self.MidiPitch = (int(MidiPitch), int(np.mod(MidiPitch, 12)))
                 self.MidiPitch = int(MidiPitch)
 
         else:
@@ -907,9 +901,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta)
-                and hasattr(i, 'Attribute')
-                and i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta) and
+                hasattr(i, 'Attribute') and
+                i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):
