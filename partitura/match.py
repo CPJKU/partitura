@@ -44,19 +44,9 @@ class MatchError(Exception):
     pass
 
 
-class Foo(int):
-    def __new__(cls, some_argument=None, value=0):
-        i = int.__new__(cls, value)
-        i._some_argument = some_argument
-        return i
-
-    def print_some_argument(self):
-        print(self._some_argument)
-
-
 class FractionalSymbolicDuration(object):
 
-    def __init__(self, numerator, denominator, tuple_div=None):
+    def __init__(self, numerator, denominator=1, tuple_div=None):
 
         self.numerator = numerator
         self.denominator = denominator
@@ -74,6 +64,30 @@ class FractionalSymbolicDuration(object):
                 return '{0}/{1}/{2}'.format(self.numerator,
                                             self.denominator,
                                             self.tuple_div)
+
+    def __add__(self, sd):
+
+        if isinstance(sd, int):
+            sd = FractionalSymbolicDuration(sd, 1)
+
+        dens = np.array([self.denominator, sd.denominator], dtype=np.int)
+        new_den = np.lcm(dens[0], dens[1])
+        a_mult = new_den // dens
+        new_num = np.dot(a_mult, [self.numerator, sd.numerator])
+        return FractionalSymbolicDuration(new_num, new_den)
+
+    def __radd__(self, sd):
+
+        return self.__add__(sd)
+
+        # if isinstance(sd, int):
+        #     sd = FractionalSymbolicDuration(sd, 1)
+
+        # dens = np.array([self.denominator, sd.denominator], dtype=np.int)
+        # new_den = np.lcm(dens[0], dens[1])
+        # a_mult = new_den // dens
+        # new_num = np.dot(a_mult, [self.numerator, sd.numerator])
+        # return FractionalSymbolicDuration(new_num, new_den)
 
 
 def pitch_name_2_midi_PC(modifier, name, octave):
@@ -134,32 +148,40 @@ class Ratio:
             raise ParseRationalException(string)
 
 
-def interpret_field_rational(data, allow_additions=False):
+def interpret_field_rational(data, allow_additions=True, rationals_as_list=True):
     """Convert data to int, if not possible, to float, if not possible
     try to interpret as rational number and return it as float, if not
     possible, return data itself."""
-    global rational_pattern
+    # global rational_pattern
     v = interpret_field(data)
     if type(v) == str:
         m = rational_pattern.match(v)
         m2 = double_rational_pattern.match(v)
         if m:
             groups = m.groups()
-            return [int(g) for g in groups]
-            # return float(groups[0]) / float(groups[1])
-            # return FractionalSymbolicDuration(int(groups[0]), int(groups[1]))
+            if rationals_as_list:
+                return [int(g) for g in groups]
+            else:
+                return FractionalSymbolicDuration(*[int(g) for g in groups])
         elif m2:
             groups = m2.groups()
-            # return FractionalSymbolicDuration(int(groups[0]), int(groups[1]), int(groups[2]))
-            return [int(g) for g in groups]
+            if rationals_as_list:
+                return [int(g) for g in groups]
+            else:
+                return FractionalSymbolicDuration(*[int(g) for g in groups])
         else:
             if allow_additions:
                 parts = v.split('+')
+
                 if len(parts) > 1:
                     iparts = [interpret_field_rational(
-                        i, allow_additions=False) for i in parts]
+                        i, allow_additions=False, rationals_as_list=False) for i in parts]
+
                     # to be replaced with isinstance(i,numbers.Number)
-                    if all(type(i) in (int, float) for i in iparts):
+                    if all(type(i) in (int, float, FractionalSymbolicDuration) for i in iparts):
+                        if any([isinstance(i, FractionalSymbolicDuration) for i in iparts]):
+                            iparts = [FractionalSymbolicDuration(i) if not isinstance(i, FractionalSymbolicDuration) else i
+                                      for i in iparts]
                         return sum(iparts)
                     else:
                         return v
@@ -216,6 +238,7 @@ class MatchInfo(MatchLine):
     field_names = ['Attribute', 'Value']
     pattern = 'info\(\s*([^,]+)\s*,\s*(.+)\s*\)\.'
     re_obj = re.compile(pattern)
+    field_interpreter = interpret_field
 
     def __init__(self, Attribute, Value):
         self.Attribute = Attribute
@@ -234,6 +257,7 @@ class MatchMeta(MatchLine):
     field_names = ['Attribute', 'Value', 'Bar', 'TimeInBeats']
     pattern = 'meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\.'
     re_obj = re.compile(pattern)
+    field_interpreter = interpret_field
 
     def __init__(self, Attribute, Value, Bar, TimeInBeats):
         self.Attribute = Attribute
@@ -280,13 +304,26 @@ class MatchSnote(MatchLine):
 
         if isinstance(Offset, int):
             self.Offset = FractionalSymbolicDuration(Offset, 1)
-        else:
+        elif isinstance(Offset, (list, tuple)):
             self.Offset = FractionalSymbolicDuration(*Offset)
+        elif isinstance(Offset, FractionalSymbolicDuration):
+            self.Offset = Offset
 
         if isinstance(Duration, int):
             self.Duration = FractionalSymbolicDuration(Duration, 1)
-        else:
+        elif isinstance(Duration, (list, tuple)):
             self.Duration = FractionalSymbolicDuration(*Duration)
+        elif isinstance(Duration, FractionalSymbolicDuration):
+            self.Duration = Duration
+
+        # else:
+        #     try:
+        #         self.Duration = FractionalSymbolicDuration(*Duration)
+        #     except:
+        #         print(Duration)
+        #         import pdb
+        #         pdb.set_trace()
+            # raise ValueError('Invalid Duration')
 
         # self.Duration = Duration
         self.OnsetInBeats = OnsetInBeats
@@ -819,17 +856,14 @@ class MatchFile(object):
 
         """
         tspat = re.compile('([0-9]+)/([0-9]*)')
-        # m = [(int(x[0]), int(x[1])) for x in
-        #      tspat.findall(self.info('timeSignature'))]
-        import pdb
-        pdb.set_trace()
-        m = [(int(x) for x in tspat.search(self.info('timeSignature')).groups())]
+        m = [(int(x[0]), int(x[1])) for x in
+             tspat.findall(self.info('timeSignature'))]
         _timeSigs = []
         if len(m) > 0:
             _timeSigs.append((self.first_onset, m[0]))
         for l in self.time_sig_lines:
             _timeSigs.append((float(l.TimeInBeats), [
-                            (int(x[0]), int(x[1])) for x in tspat.search(str(l.Value))][0]))
+                            (int(x[0]), int(x[1])) for x in tspat.findall(l.Value)][0]))
         _timeSigs = list(set(_timeSigs))
         _timeSigs.sort(key=lambda x: x[0])
 
@@ -858,18 +892,3 @@ class MatchFile(object):
             ml = [parse_matchline(
                 'meta(timeSignature,{0},1,{1}).'.format(ts, self.first_onset))]
         return ml
-
-
-if __name__ == '__main__':
-
-    import os
-    import glob
-
-    all_match_files = glob.glob(os.path.join('../vienna4x22_rematched', '*.match'))
-
-    for fn in all_match_files[:1]:
-        # fn = all_match_files[0]
-        mf = MatchFile(fn)
-
-    # for snote in mf.snotes:
-    #     print(snote.Bar, snote.Beat, snote.Offset)
