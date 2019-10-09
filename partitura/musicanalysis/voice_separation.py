@@ -17,10 +17,37 @@ __all__ = ['estimate_voices']
 MAX_COST = 1000
 
 
-def estimate_voices(notearray, strictly_monophonic_voices=False):
-    """
-    Voice estimation using the voice separation algorithm
-    proposed in [1].
+def rename_voices(voices):
+    # rename voices so that the first occurring voice has number 1, the second
+    # occurring voice has number 2, etc.
+    vmap = {}
+    return np.fromiter((vmap.setdefault(v, len(vmap)+1) for v in voices),
+                       dtype=voices.dtype)
+
+
+def prepare_notearray(notearray):
+    # * check whether notearray is a structured array
+    # * check whether it has pitch/onset/duration fields
+    # * return a copy of pitch/onset/duration fields with added id field
+    if notearray.dtype.fields is None:
+        raise ValueError('`notearray` must be a structured numpy array')
+
+    for field in ('pitch', 'onset', 'duration'):
+        if field not in notearray.dtype.names:
+            raise ValueError('Input array does not contain the field {0}'.format(field))
+
+    new_dtype = notearray.dtype.descr.copy() + [('id', 'i4')]
+
+    return np.fromiter(zip(notearray['pitch'],
+                           notearray['onset'],
+                           notearray['duration'],
+                           np.arange(len(notearray))),
+                       dtype=new_dtype)
+
+
+def estimate_voices(notearray, monophonic_voices=False):
+    """Voice estimation using the voice separation algorithm proposed 
+    in [1].
 
     Parameters
     ----------
@@ -32,14 +59,17 @@ def estimate_voices(notearray, strictly_monophonic_voices=False):
         It might be useful to have an `id` field containing
         the ID's of the notes. If this field is not contained
         in the array, ID's will be created for the notes.
-    strictly_monophonic_voices : bool (default False)
-        Make chords
+    monophonic_voices : bool
+        If True voices are guaranteed to be monophonic. Otherwise
+        notes with the same onset and duration are treated as a chord
+        and assigned to the same voice. Defaults to False.
 
     Returns
     -------
     voice : numpy array
         Voice for each note in the notearray. (The voices start with 1, as
         is the MusicXML convention).
+
     References
     ----------
     [1] Elaine Chew and Xiaodan Wu (2006) Separating Voices in
@@ -51,38 +81,45 @@ def estimate_voices(notearray, strictly_monophonic_voices=False):
     ----
     * Handle grace notes correctly. The current version simply
       deletes all grace notes.
+
     """
 
-    if notearray.dtype.fields is None:
-        raise ValueError('`notearray` must be a structured numpy array')
 
-    for field in ('pitch', 'onset', 'duration'):
-        if field not in notearray.dtype.names:
-            raise ValueError('Input array does not contain the field {0}'.format(field))
+    input_array = prepare_notearray(notearray)
 
-    if 'id' not in notearray.dtype.names:
-        input_array = add_field(notearray, [('id', int)])
-        input_array['id'] = np.arange(len(notearray), dtype=int)
+    if monophonic_voices:
+
+        # identity mapping
+        idx_equivs = dict((n, n) for n in input_array['id'])
 
     else:
-        input_array = notearray
 
-    # Indices for sorting the output such that it matches
-    # the original input (VoSA reorders the notes by onset and
-    # by pitch)
-    orig_idxs = np.arange(len(notearray))
+        note_by_key = defaultdict(list)
 
-    id_sort_idxs = np.sort(input_array['id'])
+        for (pitch, onset, dur, i) in input_array:
+            note_by_key[(onset, dur)].append(i)
+
+        # dict that maps first chord note index to the list of all note indices
+        # of the same chord
+        idx_equivs = dict((n[0], np.array(n)) for n in note_by_key.values())
+
+        # keep the first note of each chord, the rest of the chord notes will be
+        # assigned the same voice as the first chord note
+        input_array = input_array[sorted(idx_equivs.keys())]
 
     # Perform voice separation
-    v_notearray = VoSA(input_array[id_sort_idxs]).note_array
+    v_notearray = VoSA(input_array).note_array
 
-    # Sort output according to the note id's
-    v_notearray = v_notearray[v_notearray['id'].argsort()]
+    # map the voices to the original notes
+    voices = np.empty(len(notearray), dtype=np.int)
+    for idx, voice in zip(v_notearray['id'], v_notearray['voice']):
+        voices[idx_equivs[idx]] = voice
 
-    voices = v_notearray[np.argsort(orig_idxs[id_sort_idxs])]['voice'] + 1
+    # rename voices so that the first occurring voice has number 1, the second
+    # occurring voice has number 2, etc.
+    rvoices = rename_voices(voices)        
 
-    return voices
+    return rvoices
 
 
 def pairwise_cost(prev, nxt):
@@ -726,10 +763,13 @@ class VoSA(VSBaseScore):
         # Score
         self.score = score
 
-        # Get the IDs of the notes
-        if 'id' not in self.score.dtype.names:
-            self.score = add_field(self.score, [('id', int)])
-            self.score['id'] = np.arange(len(self.score), dtype=int)
+        # # mg: if this class is not public, but only used by estimate_voices,
+        # # we can get rid of the checks of id.
+
+        # # Get the IDs of the notes
+        # if 'id' not in self.score.dtype.names:
+        #     self.score = add_field(self.score, [('id', int)])
+        #     self.score['id'] = np.arange(len(self.score), dtype=int)
 
         if delete_gracenotes:
             # TODO: Handle grace notes correctly
