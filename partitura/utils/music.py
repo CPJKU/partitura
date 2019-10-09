@@ -108,10 +108,43 @@ MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', '
 
 
 def pitch_spelling_to_midi_pitch(step, alter, octave):
-    midi_pitch = ((octave + 1) * 12 +
-                  MIDI_BASE_CLASS[step.lower()] +
-                  (alter or 0))
+    midi_pitch = ((octave + 1) * 12
+                  + MIDI_BASE_CLASS[step.lower()]
+                  + (alter or 0))
     return midi_pitch
+
+
+SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, 'b': -1, 'bb': -2, '-': None}
+
+
+def ensure_pitch_spelling_format(step, alter, octave):
+
+    if step.lower() not in MIDI_BASE_CLASS or step.lower() == 'r':
+        raise ValueError('Invalid `step`')
+
+    if isinstance(alter, str):
+        try:
+            alter = SIGN_TO_ALTER[alter]
+        except KeyError:
+            raise ValueError('Invalid `alter`, must be ("n", "#", "x", "b" or "bb"), but given {0}'.format(alter))
+
+    if not isinstance(alter, int):
+        try:
+            alter = int(alter)
+        except ValueError:
+            raise ValueError('`alter` must be an integer')
+
+    if octave == '-':
+        # check octave for weird rests in Batik match files
+        octave = None
+    else:
+        if not isinstance(octave, int):
+            try:
+                octave = int(octave)
+            except ValueError:
+                raise ValueError('`octave` must be an integer')
+
+    return step, alter, octave
 
 
 def fifths_mode_to_key_name(fifths, mode=None):
@@ -329,8 +362,8 @@ def format_symbolic_duration(symbolic_dur):
 def symbolic_to_numeric_duration(symbolic_dur, divs):
     numdur = divs * LABEL_DURS[symbolic_dur.get('type', None)]
     numdur *= DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
-    numdur *= ((symbolic_dur.get('normal_notes') or 1) /
-               (symbolic_dur.get('actual_notes') or 1))
+    numdur *= ((symbolic_dur.get('normal_notes') or 1)
+               / (symbolic_dur.get('actual_notes') or 1))
     return numdur
 
 
@@ -418,8 +451,8 @@ def find_tie_split(start, end, divs, max_splits=3):
             new_states = [state + [s.item()] for s in ordered_splits]
             # start and end must be "in sync" with splits for states to succeed
             new_states = [s for s in new_states if
-                          (s[0] - start) % smallest_unit == 0
-                          and (end - s[-1]) % smallest_unit == 0]
+                          (s[0] - start) % smallest_unit == 0 and
+                          (end - s[-1]) % smallest_unit == 0]
             return new_states
 
     def combine(new_states, old_states):

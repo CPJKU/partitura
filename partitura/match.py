@@ -13,7 +13,8 @@ import numpy as np
 from fractions import Fraction
 
 from partitura.utils import (
-    pitch_spelling_to_midi_pitch
+    pitch_spelling_to_midi_pitch,
+    ensure_pitch_spelling_format,
 )
 
 from partitura.performance import (
@@ -32,14 +33,12 @@ rational_pattern = re.compile('^([0-9]+)/([0-9]+)$')
 double_rational_pattern = re.compile('^([0-9]+)/([0-9]+)/([0-9]+)$')
 LATEST_VERSION = 5.0
 
-PITCH_CLASSES = [('C', 'n'), ('C', '#'), ('D', 'n'), ('D', '#'), ('E', 'n'), ('F', 'n'),
-                 ('F', '#'), ('G', 'n'), ('G', '#'), ('A', 'n'), ('A', '#'), ('B', 'n')]
+PITCH_CLASSES = [('C', 0), ('C', 1), ('D', 0), ('D', 1), ('E', 0), ('F', 0),
+                 ('F', 1), ('G', 0), ('G', 1), ('A', 0), ('A', 1), ('B', 0)]
 
 PC_DICT = dict(zip(range(12), PITCH_CLASSES))
 
 NOTE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
-
-LATEST_VERSION = 5.0
 
 # Ignore enharmonic keys above A# Maj (no E# Maj!)
 KEY_SIGNATURES = {0: ('C', 'A'), 1: ('G', 'E'), 2: ('D', 'B'), 3: ('A', 'F#'),
@@ -87,21 +86,6 @@ class FractionalSymbolicDuration(object):
 
     def __radd__(self, sd):
         return self.__add__(sd)
-
-
-def pitch_name_2_midi_PC(step, octave, alter):
-    """
-    To be replaced!
-    """
-    if step == 'r':
-        return (0, 0)
-    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[step.lower()] +
-                  {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[alter])
-    mid = (octave + 1) * 12 + base_class
-    # for mozartmatch files (in which the octave numbers are off by one)
-    # mid = octave*12 + base_class
-    pitchclass = np.mod(base_class, 12)
-    return (mid, pitchclass)
 
 
 def interpret_field(data):
@@ -278,10 +262,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
-                   + '{Bar}:{Beat},{Offset},{Duration},'
-               + '{OnsetInBeats},{OffsetInBeats},'
-                   + '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
+                   '{Bar}:{Beat},{Offset},{Duration},' +
+               '{OnsetInBeats},{OffsetInBeats},' +
+                   '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -295,9 +279,12 @@ class MatchSnote(MatchLine):
                  ScoreAttributesList=[]):
 
         self.Anchor = Anchor
-        self.NoteName = NoteName
-        self.Modifier = Modifier
-        self.Octave = Octave
+        (self.NoteName, self.Modifier,
+         self.Octave) = ensure_pitch_spelling_format(
+             step=NoteName,
+            alter=Modifier,
+            octave=Octave)
+
         self.Bar = Bar
         self.Beat = Beat
 
@@ -349,9 +336,9 @@ class MatchSnote(MatchLine):
     @property
     def MidiPitch(self):
         if isinstance(self.Octave, int):
-            return pitch_name_2_midi_PC(step=self.NoteName,
-                                        octave=self.Octave,
-                                        alter=self.Modifier)
+            return pitch_spelling_to_midi_pitch(step=self.NoteName,
+                                                octave=self.Octave,
+                                                alter=self.Modifier)
         else:
             return None
 
@@ -360,11 +347,10 @@ class MatchSnote(MatchLine):
         return self.out_pattern.format(
             Anchor=self.Anchor,
             NoteName=self.NoteName,
-            Modifier=self.Modifier,
+            Modifier=ALTER_SIGNS[self.Modifier],
             Octave=self.Octave,
             Bar=self.Bar,
             Beat=self.Beat,
-            # Offset=str(Fraction.from_float(self.Offset)),
             Offset=str(self.Offset),
             Duration=self.DurationSymbolic,
             OnsetInBeats=self.OnsetInBeats,
@@ -376,8 +362,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
-                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
+                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -411,14 +397,19 @@ class MatchNote(MatchLine):
         # Set attributes regarding pitch spelling
         if has_pitch_spelling:
             # Ensure that note name is uppercase
-            if NoteName.upper() in NOTE_NAMES:
-                self.NoteName = NoteName.upper()
-            else:
-                raise ValueError(
-                    'Invalid note name. Should be in {0}'.format(','.join(NOTE_NAMES)))
+            (self.NoteName, self.Modifier,
+             self.Octave) = ensure_pitch_spelling_format(
+                 step=NoteName,
+                 alter=Modifier,
+                 octave=Octave)
+            # if NoteName.upper() in NOTE_NAMES:
+            #     self.NoteName = NoteName.upper()
+            # else:
+            #     raise ValueError(
+            #         'Invalid note name. Should be in {0}'.format(','.join(NOTE_NAMES)))
 
-            self.Modifier = Modifier
-            self.Octave = int(Octave)
+            # self.Modifier = Modifier
+            # self.Octave = int(Octave)
 
         else:
             # infer the pitch information from the MIDI pitch
@@ -429,15 +420,23 @@ class MatchNote(MatchLine):
 
         # Check if the provided MIDI pitch corresponds to the correct pitch spelling
         if has_midi_pitch:
-            if MidiPitch != pitch_name_2_midi_PC(step=self.NoteName,
-                                                 octave=self.Octave,
-                                                 alter=self.Modifier)[0]:
+            if MidiPitch != pitch_spelling_to_midi_pitch(
+                    step=self.NoteName,
+                    octave=self.Octave,
+                    alter=self.Modifier):
                 raise ValueError('The provided pitch spelling information does not match '
                                  'the given MIDI pitch!')
 
             else:
                 # Set the Midi pitch
-                self.MidiPitch = (int(MidiPitch), int(np.mod(MidiPitch, 12)))
+                # self.MidiPitch = (int(MidiPitch), int(np.mod(MidiPitch, 12)))
+                self.MidiPitch = int(MidiPitch)
+
+        else:
+            self.MidiPitch = pitch_spelling_to_midi_pitch(
+                step=self.NoteName,
+                octave=self.Octave,
+                alter=self.Modifier)
 
         self.Onset = Onset
         self.Offset = Offset
@@ -802,6 +801,10 @@ class MatchFile(object):
         return [x.snote for x in self.lines if hasattr(x, 'snote')]
 
     @property
+    def sustain_pedal(self):
+        return [l for l in self.lines if isinstance(l, MatchSustainPedal)]
+
+    @property
     def _info(self):
         """
         Return all InfoLine objects
@@ -861,9 +864,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta)
-                and hasattr(i, 'Attribute')
-                and i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta) and
+                hasattr(i, 'Attribute') and
+                i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):

@@ -21,7 +21,8 @@ from .music import (
     estimate_symbolic_duration,
     format_symbolic_duration,
     to_quarter_tempo,
-    pitch_spelling_to_midi_pitch
+    pitch_spelling_to_midi_pitch,
+    ensure_pitch_spelling_format
 )
 
 
