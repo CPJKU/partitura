@@ -316,15 +316,6 @@ class MatchSnote(MatchLine):
         elif isinstance(Duration, FractionalSymbolicDuration):
             self.Duration = Duration
 
-        # else:
-        #     try:
-        #         self.Duration = FractionalSymbolicDuration(*Duration)
-        #     except:
-        #         print(Duration)
-        #         import pdb
-        #         pdb.set_trace()
-            # raise ValueError('Invalid Duration')
-
         # self.Duration = Duration
         self.OnsetInBeats = OnsetInBeats
         self.OffsetInBeats = OffsetInBeats
