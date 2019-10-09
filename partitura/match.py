@@ -770,15 +770,13 @@ class MatchFile(object):
     Class for representing MatchFiles
     """
 
-    def __init__(self, filename, pedal_threshold=64):
-
-        fileData = [l.decode('utf8').strip() for l in open(filename, 'rb')]
+    def __init__(self, filename):
 
         self.name = filename
 
-        self.lines = np.array([parse_matchline(l) for l in fileData])
-
-        self.pedal_threshold = 64
+        with open(filename) as f:
+            
+            self.lines = np.array([parse_matchline(l) for l in f.read().splitlines()])
 
     @property
     def note_pairs(self):
