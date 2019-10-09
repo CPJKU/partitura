@@ -180,7 +180,7 @@ class TestMIDIImportModes(unittest.TestCase):
             n_ch_notes = [self.notes_per_tr_ch[tr_ch] for tr_ch in by_track[tr]]
             n_voice_notes = [len(vn) for v, vn in
                              partition(lambda x: x, [n.voice for n in part_notes]).items()]
-            msg = ('Part voices should have {} respectively, but they have {}'
+            msg = ('Part voices should have {} notes respectively, but they have {}'
                    .format(n_ch_notes, n_voice_notes))
             self.assertEqual(n_ch_notes, n_voice_notes, msg)
 
