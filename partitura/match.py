@@ -855,6 +855,10 @@ class MatchFile(object):
         return min([n.OnsetInBeats for n in self.snotes])
 
     @property
+    def first_bar(self):
+        return min([n.Bar for n in self.snotes])
+
+    @property
     def time_signatures(self):
         """
         A list of tuples(t, (a, b)), indicating a time signature of a over b, starting at t
@@ -865,9 +869,9 @@ class MatchFile(object):
              tspat.findall(self.info('timeSignature'))]
         _timeSigs = []
         if len(m) > 0:
-            _timeSigs.append((self.first_onset, m[0]))
+            _timeSigs.append((self.first_onset, self.first_bar, m[0]))
         for l in self.time_sig_lines:
-            _timeSigs.append((float(l.TimeInBeats), [
+            _timeSigs.append((float(l.TimeInBeats), int(l.Bar), [
                             (int(x[0]), int(x[1])) for x in tspat.findall(l.Value)][0]))
         _timeSigs = list(set(_timeSigs))
         _timeSigs.sort(key=lambda x: x[0])
@@ -876,8 +880,8 @@ class MatchFile(object):
         timeSigs = [_timeSigs[0]]
 
         for ts in _timeSigs:
-            ts_on, (ts_num, ts_den) = ts
-            ts_on_prev, (ts_num_prev, ts_den_prev) = timeSigs[-1]
+            ts_on, bar, (ts_num, ts_den) = ts
+            ts_on_prev, ts_bar_prev, (ts_num_prev, ts_den_prev) = timeSigs[-1]
             if ts_num != ts_num_prev or ts_den != ts_den_prev:
                 timeSigs.append(ts)
 
@@ -895,7 +899,7 @@ class MatchFile(object):
         if len(ml) == 0:
             ts = self.info('timeSignature')
             ml = [parse_matchline(
-                'meta(timeSignature,{0},1,{1}).'.format(ts, self.first_onset))]
+                'meta(timeSignature,{0},{1},{2}).'.format(ts, self.first_bar, self.first_onset))]
         return ml
 
 
