@@ -12,6 +12,15 @@ import re
 import numpy as np
 from fractions import Fraction
 
+from partitura.utils import (
+    pitch_spelling_to_midi_pitch
+)
+
+from partitura.performance import (
+    PerformedNote,
+    SustainPedal,
+    PerformedPart)
+
 import logging
 import warnings
 
@@ -77,27 +86,17 @@ class FractionalSymbolicDuration(object):
         return FractionalSymbolicDuration(new_num, new_den)
 
     def __radd__(self, sd):
-
         return self.__add__(sd)
 
-        # if isinstance(sd, int):
-        #     sd = FractionalSymbolicDuration(sd, 1)
 
-        # dens = np.array([self.denominator, sd.denominator], dtype=np.int)
-        # new_den = np.lcm(dens[0], dens[1])
-        # a_mult = new_den // dens
-        # new_num = np.dot(a_mult, [self.numerator, sd.numerator])
-        # return FractionalSymbolicDuration(new_num, new_den)
-
-
-def pitch_name_2_midi_PC(modifier, name, octave):
+def pitch_name_2_midi_PC(step, octave, alter):
     """
     To be replaced!
     """
-    if name == 'r':
+    if step == 'r':
         return (0, 0)
-    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[name.lower()] +
-                  {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[modifier])
+    base_class = ({'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}[step.lower()] +
+                  {'b': -1, 'bb': -2, '#': 1, 'x': 2, '##': 2, 'n': 0}[alter])
     mid = (octave + 1) * 12 + base_class
     # for mozartmatch files (in which the octave numbers are off by one)
     # mid = octave*12 + base_class
@@ -350,7 +349,9 @@ class MatchSnote(MatchLine):
     @property
     def MidiPitch(self):
         if isinstance(self.Octave, int):
-            return pitch_name_2_midi_PC(self.Modifier, self.NoteName, self.Octave)
+            return pitch_name_2_midi_PC(step=self.NoteName,
+                                        octave=self.Octave,
+                                        alter=self.Modifier)
         else:
             return None
 
@@ -428,9 +429,9 @@ class MatchNote(MatchLine):
 
         # Check if the provided MIDI pitch corresponds to the correct pitch spelling
         if has_midi_pitch:
-            if MidiPitch != pitch_name_2_midi_PC(self.Modifier,
-                                                 self.NoteName,
-                                                 self.Octave)[0]:
+            if MidiPitch != pitch_name_2_midi_PC(step=self.NoteName,
+                                                 octave=self.Octave,
+                                                 alter=self.Modifier)[0]:
                 raise ValueError('The provided pitch spelling information does not match '
                                  'the given MIDI pitch!')
 
@@ -775,7 +776,7 @@ class MatchFile(object):
         self.name = filename
 
         with open(filename) as f:
-            
+
             self.lines = np.array([parse_matchline(l) for l in f.read().splitlines()])
 
     @property
@@ -799,15 +800,6 @@ class MatchFile(object):
         Return all score notes (as MatchSnote objects)
         """
         return [x.snote for x in self.lines if hasattr(x, 'snote')]
-
-    @property
-    def pedal_threshold(self):
-        return self._pedal_threshold
-
-    @pedal_threshold.setter
-    def pedal_threshold(self, value):
-        self._pedal_threshold = value
-        # adjust sound off (AdjOffset) here...
 
     @property
     def _info(self):
@@ -881,3 +873,20 @@ class MatchFile(object):
             ml = [parse_matchline(
                 'meta(timeSignature,{0},1,{1}).'.format(ts, self.first_onset))]
         return ml
+
+
+def load_match(fn):
+
+    mf = MatchFile(fn)
+
+    pnotes = []
+    for note in mf.notes:
+        pnote = PerformedNote(id=note.id,
+                              midi_pitch=note.midi_pitch,
+                              note_on=note.Onset,
+                              note_off=note.Offset,
+                              velocity=note.Velocity,
+                              sound_off=note.AdjOffset,
+                              step=note.NoteName,
+                              octave=note.Octave,
+                              alter=note.Modifier)

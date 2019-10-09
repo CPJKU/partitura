@@ -17,15 +17,15 @@ LABEL_DURS = {
     'h': 2,
     'quarter': 1,
     'q': 1,
-    'eighth': 1/2,
-    'e': 1/2,
-    '16th': 1/4,
-    '32nd': 1/8.,
-    '64th': 1/16,
-    '128th': 1/32,
-    '256th': 1/64
+    'eighth': 1 / 2,
+    'e': 1 / 2,
+    '16th': 1 / 4,
+    '32nd': 1 / 8.,
+    '64th': 1 / 16,
+    '128th': 1 / 32,
+    '256th': 1 / 64
 }
-DOT_MULTIPLIERS = (1, 1+1/2, 1+3/4, 1+7/8)
+DOT_MULTIPLIERS = (1, 1 + 1 / 2, 1 + 3 / 4, 1 + 7 / 8)
 # DURS and SYM_DURS encode the same information as _LABEL_DURS and
 # _DOT_MULTIPLIERS, but they allow for faster estimation of symbolic duration
 # (estimate_symbolic duration). At some point we will probably do away with
@@ -45,66 +45,73 @@ DURS = np.array([
     3.0000000e+01])
 
 SYM_DURS = [
-  {"type": "256th", "dots": 0},
-  {"type": "256th", "dots": 1},
-  {"type": "256th", "dots": 2},
-  {"type": "256th", "dots": 3},
-  {"type": "128th", "dots": 0},
-  {"type": "128th", "dots": 1},
-  {"type": "128th", "dots": 2},
-  {"type": "128th", "dots": 3},
-  {"type": "64th", "dots": 0},
-  {"type": "64th", "dots": 1},
-  {"type": "64th", "dots": 2},
-  {"type": "64th", "dots": 3},
-  {"type": "32nd", "dots": 0},
-  {"type": "32nd", "dots": 1},
-  {"type": "32nd", "dots": 2},
-  {"type": "32nd", "dots": 3},
-  {"type": "16th", "dots": 0},
-  {"type": "16th", "dots": 1},
-  {"type": "16th", "dots": 2},
-  {"type": "16th", "dots": 3},
-  {"type": "eighth", "dots": 0},
-  {"type": "e", "dots": 0},
-  {"type": "eighth", "dots": 1},
-  {"type": "e", "dots": 1},
-  {"type": "eighth", "dots": 2},
-  {"type": "e", "dots": 2},
-  {"type": "eighth", "dots": 3},
-  {"type": "e", "dots": 3},
-  {"type": "quarter", "dots": 0},
-  {"type": "q", "dots": 0},
-  {"type": "quarter", "dots": 1},
-  {"type": "q", "dots": 1},
-  {"type": "quarter", "dots": 2},
-  {"type": "q", "dots": 2},
-  {"type": "quarter", "dots": 3},
-  {"type": "q", "dots": 3},
-  {"type": "half", "dots": 0},
-  {"type": "h", "dots": 0},
-  {"type": "half", "dots": 1},
-  {"type": "h", "dots": 1},
-  {"type": "half", "dots": 2},
-  {"type": "h", "dots": 2},
-  {"type": "half", "dots": 3},
-  {"type": "h", "dots": 3},
-  {"type": "whole", "dots": 0},
-  {"type": "whole", "dots": 1},
-  {"type": "whole", "dots": 2},
-  {"type": "whole", "dots": 3},
-  {"type": "breve", "dots": 0},
-  {"type": "breve", "dots": 1},
-  {"type": "breve", "dots": 2},
-  {"type": "breve", "dots": 3},
-  {"type": "long", "dots": 0},
-  {"type": "long", "dots": 1},
-  {"type": "long", "dots": 2},
-  {"type": "long", "dots": 3}
+    {"type": "256th", "dots": 0},
+    {"type": "256th", "dots": 1},
+    {"type": "256th", "dots": 2},
+    {"type": "256th", "dots": 3},
+    {"type": "128th", "dots": 0},
+    {"type": "128th", "dots": 1},
+    {"type": "128th", "dots": 2},
+    {"type": "128th", "dots": 3},
+    {"type": "64th", "dots": 0},
+    {"type": "64th", "dots": 1},
+    {"type": "64th", "dots": 2},
+    {"type": "64th", "dots": 3},
+    {"type": "32nd", "dots": 0},
+    {"type": "32nd", "dots": 1},
+    {"type": "32nd", "dots": 2},
+    {"type": "32nd", "dots": 3},
+    {"type": "16th", "dots": 0},
+    {"type": "16th", "dots": 1},
+    {"type": "16th", "dots": 2},
+    {"type": "16th", "dots": 3},
+    {"type": "eighth", "dots": 0},
+    {"type": "e", "dots": 0},
+    {"type": "eighth", "dots": 1},
+    {"type": "e", "dots": 1},
+    {"type": "eighth", "dots": 2},
+    {"type": "e", "dots": 2},
+    {"type": "eighth", "dots": 3},
+    {"type": "e", "dots": 3},
+    {"type": "quarter", "dots": 0},
+    {"type": "q", "dots": 0},
+    {"type": "quarter", "dots": 1},
+    {"type": "q", "dots": 1},
+    {"type": "quarter", "dots": 2},
+    {"type": "q", "dots": 2},
+    {"type": "quarter", "dots": 3},
+    {"type": "q", "dots": 3},
+    {"type": "half", "dots": 0},
+    {"type": "h", "dots": 0},
+    {"type": "half", "dots": 1},
+    {"type": "h", "dots": 1},
+    {"type": "half", "dots": 2},
+    {"type": "h", "dots": 2},
+    {"type": "half", "dots": 3},
+    {"type": "h", "dots": 3},
+    {"type": "whole", "dots": 0},
+    {"type": "whole", "dots": 1},
+    {"type": "whole", "dots": 2},
+    {"type": "whole", "dots": 3},
+    {"type": "breve", "dots": 0},
+    {"type": "breve", "dots": 1},
+    {"type": "breve", "dots": 2},
+    {"type": "breve", "dots": 3},
+    {"type": "long", "dots": 0},
+    {"type": "long", "dots": 1},
+    {"type": "long", "dots": 2},
+    {"type": "long", "dots": 3}
 ]
 
 MAJOR_KEYS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#']
 MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#']
+
+
+def pitch_spelling_to_midi_pitch(step, alter, octave):
+    midi_pitch = ((octave + 1) * 12 +
+                  MIDI_BASE_CLASS[step.lower()] +
+                  (alter or 0))
+    return midi_pitch
 
 
 def fifths_mode_to_key_name(fifths, mode=None):
@@ -241,9 +248,9 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
         symbolic duration or None
     """
     global DURS, SYM_DURS
-    qdur = dur/div
+    qdur = dur / div
     i = find_nearest(DURS, qdur)
-    if np.abs(qdur-DURS[i]) < eps:
+    if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
         return None
@@ -309,15 +316,14 @@ def format_symbolic_duration(symbolic_dur):
         return 'unknown'
 
     else:
-        result = (symbolic_dur.get('type') or '')+'.'*symbolic_dur.get('dots', 0)
+        result = (symbolic_dur.get('type') or '') + '.' * symbolic_dur.get('dots', 0)
 
         if 'actual_notes' in symbolic_dur and 'normal_notes' in symbolic_dur:
 
             result += '_{}/{}'.format(symbolic_dur['actual_notes'],
-                                     symbolic_dur['normal_notes'])
+                                      symbolic_dur['normal_notes'])
 
         return result
-
 
 
 def symbolic_to_numeric_duration(symbolic_dur, divs):
@@ -326,7 +332,6 @@ def symbolic_to_numeric_duration(symbolic_dur, divs):
     numdur *= ((symbolic_dur.get('normal_notes') or 1) /
                (symbolic_dur.get('actual_notes') or 1))
     return numdur
-
 
 
 def order_splits(start, end, smallest_unit):
@@ -365,12 +370,12 @@ def order_splits(start, end, smallest_unit):
     b = smallest_unit
     result = []
 
-    splits = np.arange((b*2)*(1+(start+b)//(b*2)), end+b, b*2)-b
+    splits = np.arange((b * 2) * (1 + (start + b) // (b * 2)), end + b, b * 2) - b
 
-    while b*(1+start//b) < end and b*(end//b) > start:
+    while b * (1 + start // b) < end and b * (end // b) > start:
         result.insert(0, splits)
         b = b * 2
-        splits = np.arange((b*2)*(1+(start+b)//(b*2)), end+b, b*2)-b
+        splits = np.arange((b * 2) * (1 + (start + b) // (b * 2)), end + b, b * 2) - b
 
     if result:
         return np.concatenate(result)
@@ -401,20 +406,20 @@ def find_tie_split(start, end, divs, max_splits=3):
     smallest_unit = find_smallest_unit(divs)
 
     def success(state):
-        return all(estimate_symbolic_duration(right-left, divs)
-                   for left, right in iter_current_next([start]+state+[end]))
+        return all(estimate_symbolic_duration(right - left, divs)
+                   for left, right in iter_current_next([start] + state + [end]))
 
     def expand(state):
         if len(state) >= max_splits:
             return []
         else:
-            split_start = ([start]+state)[-1]
+            split_start = ([start] + state)[-1]
             ordered_splits = order_splits(split_start, end, smallest_unit)
-            new_states = [state+[s.item()] for s in ordered_splits]
+            new_states = [state + [s.item()] for s in ordered_splits]
             # start and end must be "in sync" with splits for states to succeed
             new_states = [s for s in new_states if
-                          (s[0]-start) % smallest_unit == 0 and
-                          (end-s[-1]) % smallest_unit == 0]
+                          (s[0] - start) % smallest_unit == 0
+                          and (end - s[-1]) % smallest_unit == 0]
             return new_states
 
     def combine(new_states, old_states):
@@ -426,15 +431,14 @@ def find_tie_split(start, end, divs, max_splits=3):
     splits = search(states, success, expand, combine)
 
     if splits is not None:
-        solution = [(left, right, estimate_symbolic_duration(right-left, divs))
-                     for left, right in iter_current_next([start]+splits+[end])]
+        solution = [(left, right, estimate_symbolic_duration(right - left, divs))
+                    for left, right in iter_current_next([start] + splits + [end])]
         # print(solution)
         return solution
     else:
-        pass # print('no solution for ', start, end, divs)
+        pass  # print('no solution for ', start, end, divs)
 
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
