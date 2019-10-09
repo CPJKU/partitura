@@ -119,7 +119,7 @@ class FractionalSymbolicDuration(object):
 
         return FractionalSymbolicDuration(
             numerator=new_num,
-            denuminator=new_den,
+            denominator=new_den,
             add_components=add_components)
 
     def __radd__(self, sd):
