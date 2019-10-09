@@ -11,6 +11,7 @@ from collections import defaultdict
 from partitura.utils import (
     pitch_spelling_to_midi_pitch,
     ensure_pitch_spelling_format,
+    ALTER_SIGNS
 )
 
 from partitura.performance import (
@@ -97,20 +98,20 @@ class FractionalSymbolicDuration(object):
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])
 
-        if (self.add_components is None and
-                sd.add_components is None):
+        if (self.add_components is None
+                and sd.add_components is None):
             add_components = [
                 (self.numerator, self.denominator, self.tuple_div),
                 (sd.numerator, sd.denominator, sd.tuple_div)]
 
-        elif (self.add_components is not None
-              and sd.add_components is None):
-            add_components = (self.add_components
-                              + [(sd.numerator, sd.denominator, sd.tuple_div)])
-        elif (self.add_components is None
-              and sd.add_components is not None):
-            add_components = ([(self.numerator, self.denominator, self.tuple_div)]
-                              + sd.add_components)
+        elif (self.add_components is not None and
+              sd.add_components is None):
+            add_components = (self.add_components +
+                              [(sd.numerator, sd.denominator, sd.tuple_div)])
+        elif (self.add_components is None and
+              sd.add_components is not None):
+            add_components = ([(self.numerator, self.denominator, self.tuple_div)] +
+                              sd.add_components)
         else:
             add_components = self.add_components + sd.add_components
 
@@ -150,23 +151,6 @@ def interpret_field(data):
             return float(data)
         except ValueError:
             return data
-
-
-class ParseRationalException(Exception):
-    def __init__(self, string):
-        self.string = string
-
-    def __str__(self):
-        return 'Could not parse string "{0}"'.format(self.string)
-
-
-class Ratio:
-    def __init__(self, string):
-        try:
-            self.numerator, self.denominator = [
-                int(i) for i in string.split('/')]
-        except:
-            raise ParseRationalException(string)
 
 
 def interpret_field_rational(data, allow_additions=True, rationals_as_list=True):
@@ -300,10 +284,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
-                   '{Bar}:{Beat},{Offset},{Duration},' +
-               '{OnsetInBeats},{OffsetInBeats},' +
-                   '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
+                   + '{Bar}:{Beat},{Offset},{Duration},'
+               + '{OnsetInBeats},{OffsetInBeats},'
+                   + '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -400,8 +384,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
-                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
+                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -901,9 +885,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta) and
-                hasattr(i, 'Attribute') and
-                i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta)
+                and hasattr(i, 'Attribute')
+                and i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):
