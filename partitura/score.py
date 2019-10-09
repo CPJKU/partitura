@@ -40,7 +40,8 @@ from partitura.utils import (
     estimate_symbolic_duration,
     symbolic_to_numeric_duration,
     fifths_mode_to_key_name,
-    pitch_spelling_to_midi_pitch
+    pitch_spelling_to_midi_pitch,
+    to_quarter_tempo
 )
 # the score ontology for longer scores requires a high recursion limit
 # increase when needed
@@ -1131,6 +1132,10 @@ class Tempo(TimedObject):
         self.bpm = bpm
         self.unit = unit
 
+    @property
+    def microseconds_per_quarter(self):
+        return int(np.round(60*(10**6/to_quarter_tempo(self.unit or 'q', self.bpm))))
+        
     def __str__(self):
         if self.unit:
             return 'Tempo {}={}'.format(self.unit, self.bpm)

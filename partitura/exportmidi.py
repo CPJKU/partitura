@@ -7,7 +7,7 @@ from operator import itemgetter
 from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
-from partitura.score import iter_parts
+import partitura.score as score
 from partitura.utils import partition, MIDI_CONTROL_TYPES
 
 __all__ = ['save_score_midi', 'save_performance_midi']
@@ -71,7 +71,7 @@ def map_to_track_channel(note_keys, mode):
 
 def get_ppq(parts):
     ppqs = np.concatenate([part.quarter_durations()[:, 1]
-                           for part in iter_parts(parts)])
+                           for part in score.iter_parts(parts)])
     ppq = np.lcm.reduce(ppqs)
     return ppq
 
@@ -185,53 +185,89 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
 
     """
 
-    # TODO: write track names, time sigs, key sigs, tempos
     ppq = get_ppq(parts)
 
-    onoffs = []
-    onoff_keys = []
-    onoff_key_set = OrderedDict()
+    events = defaultdict(lambda: defaultdict(list))
+    meta_events = defaultdict(lambda: defaultdict(list))
 
-    for i, part in enumerate(iter_parts(parts)):
+    event_keys = OrderedDict()
+    tempos = {}
 
+    for i, part in enumerate(score.iter_parts(parts)):
+        
         pg = get_partgroup(part)
 
         notes = part.notes_tied
         qm = part.quarter_map
         q_offset = qm(part.first_point.t)
 
+        def to_ppq(t):
+            # convert div times to new ppq
+            return int(ppq*qm(t))
+        
+        for tp in part.iter_all(score.Tempo):
+            tempos[to_ppq(tp.start.t)] = MetaMessage('set_tempo', tempo=tp.microseconds_per_quarter)
+
+        for ts in part.iter_all(score.TimeSignature):
+            meta_events[part][to_ppq(ts.start.t)].append(MetaMessage('time_signature',
+                                                                     numerator=ts.beats,
+                                                                     denominator=ts.beat_type))
+
+        for ks in part.iter_all(score.KeySignature):
+            meta_events[part][to_ppq(ks.start.t)].append(MetaMessage('key_signature', key=ks.name))
+
         for note in notes:
+            
+            # key is a tuple (part_group, part, voice) that will be converted into a (track, channel) pair.
+            key = (pg, part, note.voice)
+            events[key][to_ppq(note.start.t)].append(Message('note_on', note=note.midi_pitch))
+            events[key][to_ppq(note.end_tied.t)].append(Message('note_off', note=note.midi_pitch))
 
-            on = int((qm(note.start.t) - q_offset) * ppq)
-            off = int((qm(note.end_tied.t) - q_offset) * ppq)
+            event_keys[key] = True
 
-            onoffs.append(['note_on', on, note.midi_pitch])
-            onoffs.append(['note_off', off, note.midi_pitch])
+    tr_ch_map = map_to_track_channel(list(event_keys.keys()),
+                                     part_voice_assign_mode)
 
-            # note_key is a tuple (part_group, part, voice)
-            note_key = (pg, part, note.voice)
-            # we add the note_key twice: once for note_on, once for note_off
-            onoff_keys.extend([note_key, note_key])
-            onoff_key_set[note_key] = True
 
-    tr_ch_map = map_to_track_channel(list(onoff_key_set.keys()), part_voice_assign_mode)
-    
+    # replace original event keys (partgroup, part, voice) by (track, ch) keys:
+    for key in list(events.keys()):
+        evs_by_time = events[key]
+        del events[key]
+        tr, ch = tr_ch_map[key]
+        for t, evs in evs_by_time.items():
+            events[tr][t].extend((ev.copy(channel=ch) for ev in evs))
+
+    # figure out in which tracks to replicate the time/key signatures of each part
+    part_track_map = partition(lambda x: x[0][1], tr_ch_map.items())
+    for part, rest in part_track_map.items():
+        part_track_map[part] = set(x[1][0] for x in rest)
+
+    # add the time/key sigs to their corresponding tracks
+    for part, m_events in meta_events.items():
+        tracks = part_track_map[part]
+        for tr in tracks:
+            for t, me in m_events.items():
+                events[tr][t] = me + events[tr][t]
+
     n_tracks = max(tr for tr, _ in tr_ch_map.values()) + 1
     tracks = [MidiTrack() for _ in range(n_tracks)]
-    nows = [0]*n_tracks
-    msg_order = np.argsort(np.fromiter((t for _, t, _ in onoffs),dtype=np.int))
 
-    for i in msg_order:
-        msg_key = onoff_keys[i]
-        msg_type, t, pitch = onoffs[i]
-        tr, ch = tr_ch_map[msg_key]
-        delta = t - nows[tr]
-        tracks[tr].append(Message(msg_type,
-                                  note=pitch,
-                                  channel=ch,
-                                  velocity=velocity,
-                                  time=delta))
-        nows[tr] = t
+    # tempo events are handled differently from key/time sigs because the have a
+    # global effect. Instead of adding to each relevant track, like the key/time
+    # sig events, we add them only to the first track
+    track0_events = events[0]
+    for t, tp in tempos.items():
+        events[0][t].insert(0, tp)
+
+    for tr, events_by_time in events.items():
+        t_prev = 0
+        for t in sorted(events_by_time.keys()):
+            evs = events_by_time[t]
+            delta = t - t_prev
+            for ev in evs:
+                tracks[tr].append(ev.copy(time=delta))
+                delta = 0
+            t_prev = t
 
     midi_type = 0 if n_tracks == 1 else 1
     

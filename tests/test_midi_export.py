@@ -53,6 +53,7 @@ def make_assignment_mode_example():
     part_1 = score.Part('P1')
     part_2 = score.Part('P2')
     part_3 = score.Part('P3')
+
     part_1.set_quarter_duration(0, 1)
     part_2.set_quarter_duration(0, 2)
     part_3.set_quarter_duration(0, 3)
@@ -64,7 +65,8 @@ def make_assignment_mode_example():
     part_1.add(score.Note(step='B', octave=4, voice=2), 5, 6)
     part_1.add(score.Note(step='B', octave=4, voice=3), 7, 10)
 
-    part_1.add(score.TimeSignature(4, 4), 0)
+    part_2.add(score.TimeSignature(4, 4), 0)
+    part_2.add(score.Tempo(80), 0)
     part_2.add(score.Note(step='D', octave=5, voice=1), 0, 1)
     part_2.add(score.Note(step='E', octave=5, voice=2), 1, 2)
     part_2.add(score.Note(step='F', octave=5, voice=2), 2, 3)
@@ -85,15 +87,6 @@ def get_partgroup(part):
     while parent.parent:
         parent = parent.parent
     return parent
-
-# def get_partgroup_part_voice_numbers(parts):
-#     counter = Counter()
-#     for part in score.iter_parts(parts):
-#         pg = get_partgroup(part)
-#         for note in part.notes_tied:
-#             key = (pg, part, note.voice)
-#             counter.update((key,))
-#     return counter
 
 def note_voices(part):
     return [note.voice for note in part.notes_tied]
@@ -130,7 +123,6 @@ class TestMIDIExportModes(unittest.TestCase):
             vc = note_voices(part)
             # channels per note in track
             ch = note_channels(track)
-
             vcp = partition(lambda x: -1 if x is None else x, vc)
             chp = partition(lambda x: x, ch)
             vc_list = [len(vcp[x]) for x in sorted(vcp.keys())]
@@ -140,6 +132,18 @@ class TestMIDIExportModes(unittest.TestCase):
                    'but they have {}'.format(vc_list, ch_list))
 
             self.assertEqual(vc_list, ch_list, msg)
+
+            ts_part = sum(1 for _  in part.iter_all(score.TimeSignature))
+            ts_track = sum(1 for e in track if e.type == 'time_signature')
+            msg = ('Track should have {} time signatures respectively, '
+                   'but has {}'.format(ts_part, ts_track))
+            self.assertEqual(ts_part, ts_track, msg)
+            
+            ks_part = sum(1 for _  in part.iter_all(score.KeySignature))
+            ks_track = sum(1 for e in track if e.type == 'key_signature')
+            msg = ('Track should have {} key signatures respectively, '
+                   'but has {}'.format(ks_part, ks_track))
+            self.assertEqual(ks_part, ks_track, msg)
 
     def test_midi_export_mode_1(self):
         m = self._export_and_read(mode=1)
@@ -237,3 +241,25 @@ class TestMIDIExportModes(unittest.TestCase):
                    'part_voice_assign_mode=2 in save_score_midi'
                    .format(n_tr_ch, n_prt_vc))
             self.assertEqual(n_tr_ch, n_prt_vc, msg)
+
+        ts_part = n_items_per_part_voice(self.parts, score.TimeSignature)
+        ts_track = [sum(1 for e in track if e.type == 'time_signature')
+                    for track in m.tracks]
+        msg = ('Number of time signatures per track should be {} respectively, '
+               'but is {}'.format(ts_part, ts_track))
+        self.assertEqual(ts_part, ts_track, msg)
+
+        ks_part = n_items_per_part_voice(self.parts, score.KeySignature)
+        ks_track = [sum(1 for e in track if e.type == 'key_signature')
+                    for track in m.tracks]
+        msg = ('Number of key signatures per track should be {} respectively, '
+               'but is {}'.format(ks_part, ks_track))
+        self.assertEqual(ks_part, ks_track, msg)
+
+            
+def n_items_per_part_voice(pg, cls):
+    n_items = []
+    for part in score.iter_parts(pg):
+        n = sum(1 for _ in part.iter_all(cls))
+        n_items.extend([n]*len(set(n.voice for n in part.notes_tied)))
+    return n_items
