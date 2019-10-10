@@ -10,7 +10,7 @@ import mido
 
 import partitura.score as score
 from partitura import save_musicxml
-from partitura.utils import partition, estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name
+from partitura.utils import partition, estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties
 import partitura.musicanalysis as analysis
 
 __all__ = ['load_midi']
@@ -379,22 +379,13 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             for tr_ch in track_ch_combis], part_names, group_names
 
 
-def estimate_clef(pitches):
-    # avg_pitch = np.mean(pitches)
-    center = np.median(pitches)
-    # number, sign, line, octave_change):
-    clefs = [score.Clef(1, 'F', 4, 0), score.Clef(1, 'G', 2, 0)]
-    f = interp1d([0, 49, 70, 127], [0, 0, 1, 1], kind='nearest')
-    return clefs[int(f(center))]
-
-
 def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
     LOGGER.debug('create_part')
 
     part = score.Part(part_id, part_name=part_name)
     part.set_quarter_duration(0, ticks)
 
-    clef = estimate_clef([pitch for _, pitch, _ in notes])
+    clef = score.Clef(number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes]))
     part.add(clef, 0)
     for t, name in key_sigs:
         fifths, mode = key_name_to_fifths_mode(name)

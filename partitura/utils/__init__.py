@@ -22,6 +22,7 @@ from .music import (
     format_symbolic_duration,
     to_quarter_tempo,
     pitch_spelling_to_midi_pitch,
+    estimate_clef_properties,
     ensure_pitch_spelling_format
 )
 

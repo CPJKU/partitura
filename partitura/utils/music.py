@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 from . import find_nearest, search, iter_current_next
 
@@ -144,7 +145,7 @@ def ensure_pitch_spelling_format(step, alter, octave):
             except ValueError:
                 raise ValueError('`octave` must be an integer')
 
-    return step, alter, octave
+    return step.upper(), alter, octave
 
 
 def fifths_mode_to_key_name(fifths, mode=None):
@@ -470,6 +471,18 @@ def find_tie_split(start, end, divs, max_splits=3):
         return solution
     else:
         pass  # print('no solution for ', start, end, divs)
+
+
+def estimate_clef_properties(pitches):
+    # avg_pitch = np.mean(pitches)
+    center = np.median(pitches)
+    # number, sign, line, octave_change):
+    # clefs = [score.Clef(1, 'F', 4, 0), score.Clef(1, 'G', 2, 0)]
+    clefs = [dict(sign='F', line=4, octave_change=0),
+             dict(sign='G', line=2, octave_change=0)]
+    f = interp1d([0, 49, 70, 127], [0, 0, 1, 1], kind='nearest')
+    return clefs[int(f(center))]
+
 
 
 if __name__ == '__main__':

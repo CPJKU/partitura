@@ -1772,15 +1772,28 @@ def add_measures(part):
             measure_end_beats = min(beat_map(pos) + measure_dur, beat_map(end))
             measure_end = min(ts_end, inv_beat_map(measure_end_beats))
 
-            # if existing_measure at start:
-            #     pos += measure_end
-            #     continue
-            # elif existing_measure before measure_end:
-            #     measure_end = start_
-            # print('measure', measure_start, measure_end)
+            # any existing measures between measure_start and measure_end
+            existing_measure = next(part.iter_all(Measure, measure_start, measure_end), None)
+
+            if existing_measure:
+                if existing_measure.start.t == measure_start:
+                    assert existing_measure.end.t > pos
+                    pos += existing_measure.end.t
+                    existing_measure.number = mcounter
+                    mcounter += 1
+                    continue
+                else:
+                    measure_end = existing_measure.start.t
+
             part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
-            pos = measure_end
-            mcounter += 1
+
+            if existing_measure:
+                pos = existing_measure.end.t
+                existing_measure.number = mcounter + 1
+                mcounter = mcounter + 2 
+            else:
+                pos = measure_end
+                mcounter += 1
 
 
 def remove_grace_notes(part):

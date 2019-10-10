@@ -36,6 +36,7 @@ def prepare_notearray(notearray):
         if field not in notearray.dtype.names:
             raise ValueError('Input array does not contain the field {0}'.format(field))
 
+    # TODO: take only pitch onset and duration fields!!!
     new_dtype = notearray.dtype.descr.copy() + [('id', 'i4')]
 
     return np.fromiter(zip(notearray['pitch'],
