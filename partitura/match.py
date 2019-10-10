@@ -861,7 +861,7 @@ class MatchFile(object):
     @property
     def time_signatures(self):
         """
-        A list of tuples(t, (a, b)), indicating a time signature of a over b, starting at t
+        A list of tuples(t, b, (n, d)), indicating a time signature of n over v, starting at t in bar b
 
         """
         tspat = re.compile('([0-9]+)/([0-9]*)')
@@ -901,6 +901,12 @@ class MatchFile(object):
             ml = [parse_matchline(
                 'meta(timeSignature,{0},{1},{2}).'.format(ts, self.first_bar, self.first_onset))]
         return ml
+
+    @property
+    def key_signatures(self):
+        """
+        A list of tuples (t, b, (a
+        """
 
 
 def load_match(fn, pedal_threshold=64):
@@ -948,6 +954,8 @@ def load_match(fn, pedal_threshold=64):
                           for snote, note in mf.note_pairs])
     inserted_notes = [note.Number for note in mf.insertions]
     deleted_notes = [snote.Anchor for snote in mf.deletions]
+
+    # TODO: ornament lines and types
     ornaments = {}
 
     alignment = PerformanceAlignment(matched=matched_notes,

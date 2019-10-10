@@ -9,7 +9,8 @@ class PerformedNote(object):
     """A class for representing performed MIDI notes
     """
 
-    def __init__(self, id, midi_pitch, note_on, note_off, velocity,
+    def __init__(self, id, midi_pitch, note_on,
+                 note_off, velocity,
                  sound_off=None, step=None, octave=None,
                  alter=None, use_sound_off=False):
 
@@ -27,9 +28,9 @@ class PerformedNote(object):
         self.alter = alter
 
         has_pitch_spelling = not (
-            self.step is None or
-            self.octave is None or
-            self.alter is None)
+            self.step is None
+            or self.octave is None
+            or self.alter is None)
 
         if has_pitch_spelling:
             if self.midi_pitch != pitch_spelling_to_midi_pitch(
@@ -65,7 +66,13 @@ class SustainPedal(object):
 
 
 class PerformedPart(object):
-    """Represents a performance part
+    """Represents a performed part, e.g.. all notes and related controller/modifiers of one single instrument
+
+    Parameters
+    ----------
+    id : str
+        The identifier of the part
+    part_name : 
     """
 
     def __init__(self, id, part_name=None, notes=None,
@@ -87,8 +94,12 @@ class PerformedPart(object):
 
         self.pedal_threshold = pedal_threshold
 
-        self.midi_clock_rate = midi_clock_rate
-        self.midi_clock_units = midi_clock_units
+        self.midi_clock_rate = float(midi_clock_rate)
+        self.midi_clock_units = float(midi_clock_units)
+
+    @property
+    def _note_onsets_in_seconds(self):
+        return np.array([float(n.note_on) * self.midi_clock_rate / (self.midi_clock_units * 1e6) for n in self.notes])
 
     @property
     def pedal_threshold(self):
@@ -96,11 +107,18 @@ class PerformedPart(object):
 
     @pedal_threshold.setter
     def pedal_threshold(self, value):
+        """
+        Set the pedal threshold and update the sound_off
+        of the notes
+        """
         self._pedal_threshold = value
 
         adjust_offsets_w_sustain(notes=self.notes,
                                  sustain_pedals=self.pedal,
                                  threshold=self._pedal_threshold)
+
+    # @property
+    # def note_array(self):
 
 
 def adjust_offsets_w_sustain(notes, sustain_pedals, threshold=64):
