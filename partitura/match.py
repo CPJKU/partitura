@@ -926,16 +926,16 @@ class MatchFile(object):
 
             ks_info = kspat.search(ks)
 
-            keysig = self._format_key_signature(
+            keysig = (self._format_key_signature(
                 step=ks_info.group('step1'),
                 alter_sign=ks_info.group('alter1'),
-                mode=ks_info.group('mode1'))
+                mode=ks_info.group('mode1')), )
 
             if ks_info.group('step2') != '':
-                keysig += self._format_key_signature(
+                keysig += (self._format_key_signature(
                     step=ks_info.group('step2'),
                     alter_sign=ks_info.group('alter2'),
-                    mode=ks_info.group('mode2'))
+                    mode=ks_info.group('mode2')), )
 
             _keysigs.append((t, b, keysig))
 
@@ -958,7 +958,8 @@ class MatchFile(object):
 
         keyname = step + alter_sign + mode
 
-        return key_name_to_fifths_mode(keyname)
+        # return key_name_to_fifths_mode(keyname)
+        return keyname
 
     @property
     def key_sig_lines(self):
