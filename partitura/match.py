@@ -956,10 +956,7 @@ class MatchFile(object):
         else:
             raise ValueError('Invalid mode. Expected "major" or "minor" but got {0}'.format(mode))
 
-        keyname = step + alter_sign + mode
-
-        # return key_name_to_fifths_mode(keyname)
-        return keyname
+        return step + alter_sign + mode
 
     @property
     def key_sig_lines(self):
