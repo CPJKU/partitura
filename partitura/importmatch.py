@@ -4,15 +4,23 @@
 This module contains methods for parsing matchfiles
 """
 import re
-import numpy as np
 from fractions import Fraction
 from collections import defaultdict
+from operator import attrgetter
+import logging
+import warnings
+
+import numpy as np
+from scipy.interpolate import interp1d
 
 from partitura.utils import (
     pitch_spelling_to_midi_pitch,
     ensure_pitch_spelling_format,
     ALTER_SIGNS,
-    key_name_to_fifths_mode
+    key_name_to_fifths_mode,
+    iter_current_next,
+    partition,
+    estimate_clef_properties 
 )
 
 from partitura.performance import (
@@ -21,13 +29,8 @@ from partitura.performance import (
     PerformedPart
 )
 
-from partitura.score import (
-    Part
-)
-
-import logging
-import warnings
-
+import partitura.score as score
+from partitura.musicanalysis import estimate_voices, estimate_key
 
 __all__ = ['load_match']
 LOGGER = logging.getLogger(__name__)
@@ -1009,7 +1012,8 @@ def load_match(fn, pedal_threshold=64):
                           midi_clock_units=midi_clock_units)
 
     ####### Generate Part ######
-    spart = Part(id=mf.info('piece'))
+    # spart = Part(id=mf.info('piece'))
+    spart = part_from_matchfile(mf)
 
     ###### Alignment ########
     matched_notes = dict([(snote.Anchor, note.Number)
@@ -1038,3 +1042,176 @@ class PerformanceAlignment(object):
         self.insertions = insertions
         self.deletions = deletions
         self.ornaments = ornaments
+
+
+# PART FROM MATCHFILE stuff
+
+def part_from_matchfile(mf):
+    part = score.Part('P1', mf.info('piece'))
+    snotes = sorted(mf.snotes, key=attrgetter('OnsetInBeats'))
+    divs = np.lcm.reduce(np.unique([note.Offset.denominator*(note.Offset.tuple_div or 1)
+                                    for note in snotes]))
+    part.set_quarter_duration(0, divs)
+    max_time = max(n.OffsetInBeats for n in snotes)
+    min_time = snotes[0].OnsetInBeats # sorted by OnsetInBeats
+
+    ts = mf.time_signatures
+
+    beats_map, beat_type_map, min_time_q = make_timesig_maps(ts, max_time)
+
+    bars = np.unique([n.Bar for n in snotes])
+    t = min_time
+    t = t * 4 / beat_type_map(min_time_q)
+    offset = t
+    # bar map: bar_number-> start in quarters
+    bar_times = {}
+    for b0, b1 in iter_current_next(bars, start=0):
+        # print(b1, t)
+        bar_times.setdefault(b1, t)
+        if t < 0:
+            t = 0
+        else:
+            # multiply by diff between consecutive bar numbers
+            n_bars = b1-b0
+            t += (n_bars*4*beats_map(t))/beat_type_map(t)
+
+    for note in snotes:
+        # start of bar in quarter units
+        bar_start = bar_times[note.Bar]
+        # offset within bar in quarter units
+        bar_offset = (note.Beat-1)*4/beat_type_map(bar_start) 
+        # offset within beat in quarter units
+        beat_offset = 4*note.Offset.numerator/(note.Offset.denominator*(note.Offset.tuple_div or 1))
+        # note onset in divs
+        onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
+
+        if note.Anchor.startswith('n'):
+            note_id = note.Anchor
+        else:
+            note_id = 'n{}'.format(note.Anchor)
+
+        sa = next((a for a in note.ScoreAttributesList if isinstance(a, str)
+                   and a.startswith('staff')), None)
+        if sa:
+            try:
+                staff = int(sa[-1])
+            except ValueError:
+                staff = 1
+        else:
+            staff = 1
+
+        if note.Duration.add_components:
+            prev_part_note = None
+            for i, (num, den, tuple_div) in enumerate(note.Duration.add_components):
+                duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+                assert duration_divs > 0
+                offset_divs = onset_divs + duration_divs
+                tnote_id = 'n{}_{}'.format(note.Anchor, i)
+                part_note = score.Note(id=tnote_id,
+                                       step=note.NoteName, octave=note.Octave, alter=note.Modifier,
+                                       staff=staff)
+                part.add(part_note, onset_divs, offset_divs)
+                if prev_part_note:
+                    prev_part_note.tie_next = part_note
+                    part_note.tie_prev = prev_part_note
+                prev_part_note = part_note
+                onset_divs = offset_divs
+        else:
+            num = note.Duration.numerator
+            den = note.Duration.denominator
+            tuple_div = note.Duration.tuple_div
+            duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+            #duration_divs = int(divs*4*note.Duration.numerator/(note.Duration.denominator*(note.Duration.tuple_div or 1)))
+            offset_divs = onset_divs + duration_divs
+
+            if 'grace' in note.ScoreAttributesList or note.Duration.numerator == 0:
+                part_note = score.GraceNote('appoggiatura', id=note_id, staff=staff,
+                                            step=note.NoteName, octave=note.Octave, alter=note.Modifier)
+            else:
+                part_note = score.Note(id=note_id, staff=staff,
+                                       step=note.NoteName, octave=note.Octave, alter=note.Modifier)
+            part.add(part_note, onset_divs, offset_divs)
+            # print(onset_divs, offset_divs)
+
+    # add time signatures
+    for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
+        bar_start_divs = int(divs*(bar_times[ts_bar]-offset)) # in quarters
+        part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
+
+    # add key signatures
+    for (ks_beat_time, ks_bar, keys) in mf.key_signatures:
+        if len(keys) > 1:
+            # there are multple equivalent keys, so we check which one is most
+            # likely according to the key estimator
+            est_keys = estimate_key(notes_to_notearray(part.notes_tied), return_sorted_keys=True)
+            idx = [est_keys.index(key) if key in est_keys else np.inf
+                   for key in keys]
+            key_name = keys[np.argmin(idx)]
+        else:
+            key_name = keys[0]
+        fifths, mode = key_name_to_fifths_mode(key_name)
+        part.add(score.KeySignature(fifths, mode), 0)
+        
+    add_clefs(part)
+
+    # add incomplete measure if necessary
+    if offset < 0:
+        part.add(score.Measure(number=1), 0, int(-offset*divs))
+    # add the rest of the measures automatically
+    score.add_measures(part)
+
+    score.tie_notes(part)
+    score.find_tuplets(part)
+
+    add_voices(part)
+
+    return part
+
+    
+def make_timesig_maps(ts_orig, max_time):
+    # TODO: make sure that ts_orig covers range from min_time
+    
+    # return two functions that map score times (in quarter units) to time sig
+    # beats, and time sig beat_type respectively
+    ts = list(ts_orig)
+    assert len(ts) > 0
+    ts.append((max_time, None, ts[-1][2]))
+
+    x = np.array([t for t, _, _ in ts])
+    y = np.array([x for _, _, x in ts])
+
+    start_q = x[0]*4/y[0, 1]
+    x_q = np.cumsum(np.r_[start_q, 4*np.diff(x)/y[:-1, 1]])
+
+    beats_map = interp1d(x_q, y[:, 0] , kind='previous')
+    beat_type_map = interp1d(x_q, y[:, 1] , kind='previous')
+
+    return beats_map, beat_type_map, start_q
+
+def add_clefs(part):
+    by_staff = partition(attrgetter('staff'), part.notes_tied)
+    for staff, notes in by_staff.items():
+        part.add(score.Clef(number=staff, **estimate_clef_properties([n.midi_pitch for n in notes])), 0)
+
+    
+def notes_to_notearray(notes):
+    return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
+                    dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
+    
+
+def add_voices(part):
+    by_staff = partition(attrgetter('staff'), part.notes_tied)
+    max_voice = 0
+    for staff, notes in by_staff.items():
+        voices = estimate_voices(notes_to_notearray(notes))
+        assert len(voices) == len(notes)
+        for n, voice in zip(notes, voices):
+            assert voice > 0
+            n.voice = voice + max_voice
+
+            n_next = n
+            while n_next.tie_next:
+                n_next = n_next.tie_next
+                n_next.voice = voice + max_voice
+                
+        max_voice = np.max(voices)
