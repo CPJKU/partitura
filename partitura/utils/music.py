@@ -109,13 +109,14 @@ MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', '
 
 
 def pitch_spelling_to_midi_pitch(step, alter, octave):
-    midi_pitch = ((octave + 1) * 12
-                  + MIDI_BASE_CLASS[step.lower()]
-                  + (alter or 0))
+    midi_pitch = ((octave + 1) * 12 +
+                  MIDI_BASE_CLASS[step.lower()] +
+                  (alter or 0))
     return midi_pitch
 
 
-SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, 'b': -1, 'bb': -2, '-': None}
+SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, '##': 2, '###': 3,
+                 'b': -1, 'bb': -2, 'bbb': -3, '-': None}
 
 
 def ensure_pitch_spelling_format(step, alter, octave):
@@ -363,8 +364,8 @@ def format_symbolic_duration(symbolic_dur):
 def symbolic_to_numeric_duration(symbolic_dur, divs):
     numdur = divs * LABEL_DURS[symbolic_dur.get('type', None)]
     numdur *= DOT_MULTIPLIERS[symbolic_dur.get('dots', 0)]
-    numdur *= ((symbolic_dur.get('normal_notes') or 1)
-               / (symbolic_dur.get('actual_notes') or 1))
+    numdur *= ((symbolic_dur.get('normal_notes') or 1) /
+               (symbolic_dur.get('actual_notes') or 1))
     return numdur
 
 
@@ -452,8 +453,8 @@ def find_tie_split(start, end, divs, max_splits=3):
             new_states = [state + [s.item()] for s in ordered_splits]
             # start and end must be "in sync" with splits for states to succeed
             new_states = [s for s in new_states if
-                          (s[0] - start) % smallest_unit == 0 and
-                          (end - s[-1]) % smallest_unit == 0]
+                          (s[0] - start) % smallest_unit == 0
+                          and (end - s[-1]) % smallest_unit == 0]
             return new_states
 
     def combine(new_states, old_states):
@@ -482,7 +483,6 @@ def estimate_clef_properties(pitches):
              dict(sign='G', line=2, octave_change=0)]
     f = interp1d([0, 49, 70, 127], [0, 0, 1, 1], kind='nearest')
     return clefs[int(f(center))]
-
 
 
 if __name__ == '__main__':

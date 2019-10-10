@@ -11,7 +11,8 @@ from collections import defaultdict
 from partitura.utils import (
     pitch_spelling_to_midi_pitch,
     ensure_pitch_spelling_format,
-    ALTER_SIGNS
+    ALTER_SIGNS,
+    key_name_to_fifths_mode
 )
 
 from partitura.performance import (
@@ -98,20 +99,20 @@ class FractionalSymbolicDuration(object):
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])
 
-        if (self.add_components is None
-                and sd.add_components is None):
+        if (self.add_components is None and
+                sd.add_components is None):
             add_components = [
                 (self.numerator, self.denominator, self.tuple_div),
                 (sd.numerator, sd.denominator, sd.tuple_div)]
 
-        elif (self.add_components is not None and
-              sd.add_components is None):
-            add_components = (self.add_components +
-                              [(sd.numerator, sd.denominator, sd.tuple_div)])
-        elif (self.add_components is None and
-              sd.add_components is not None):
-            add_components = ([(self.numerator, self.denominator, self.tuple_div)] +
-                              sd.add_components)
+        elif (self.add_components is not None
+              and sd.add_components is None):
+            add_components = (self.add_components
+                              + [(sd.numerator, sd.denominator, sd.tuple_div)])
+        elif (self.add_components is None
+              and sd.add_components is not None):
+            add_components = ([(self.numerator, self.denominator, self.tuple_div)]
+                              + sd.add_components)
         else:
             add_components = self.add_components + sd.add_components
 
@@ -284,10 +285,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
-                   + '{Bar}:{Beat},{Offset},{Duration},'
-               + '{OnsetInBeats},{OffsetInBeats},'
-                   + '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
+                   '{Bar}:{Beat},{Offset},{Duration},' +
+               '{OnsetInBeats},{OffsetInBeats},' +
+                   '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -384,8 +385,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
-                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
+                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -889,9 +890,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta)
-                and hasattr(i, 'Attribute')
-                and i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta) and
+                hasattr(i, 'Attribute') and
+                i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):
@@ -905,8 +906,73 @@ class MatchFile(object):
     @property
     def key_signatures(self):
         """
-        A list of tuples (t, b, (a
+        A list of tuples (t, b, (f,m)) or (t, b, (f1, m1, f2, m2))
         """
+        kspat = re.compile(('(?P<step1>[A-G])(?P<alter1>[#b]*) '
+                            '(?P<mode1>[a-zA-z]+)(?P<slash>/*)'
+                            '(?P<step2>[A-G]*)(?P<alter2>[#b]*)'
+                            '(?P<space2> *)(?P<mode2>[a-zA-z]*)'))
+
+        _keysigs = []
+        for ksl in self.key_sig_lines:
+            if isinstance(ksl, MatchInfo):
+                # remove brackets and only take
+                # the first key signature
+                ks = ksl.Value.replace('[', '').replace(']', '').split(',')[0]
+                t = self.first_onset
+                b = self.first_bar
+            elif isinstance(ksl, MatchMeta):
+                ks = ksl.Value
+                t = ksl.TimeInBeats
+                b = ksl.Bar
+
+            ks_info = kspat.search(ks)
+
+            keysig = self._format_key_signature(
+                step=ks_info.group('step1'),
+                alter_sign=ks_info.group('alter1'),
+                mode=ks_info.group('mode1'))
+
+            if ks_info.group('step2') != '':
+                keysig += self._format_key_signature(
+                    step=ks_info.group('step2'),
+                    alter_sign=ks_info.group('alter2'),
+                    mode=ks_info.group('mode2'))
+
+            _keysigs.append((t, b, keysig))
+
+        keysigs = [_keysigs[0]]
+
+        for k in _keysigs:
+            if k[2] != keysigs[-1][2]:
+                keysigs.append(k)
+
+        return keysigs
+
+    def _format_key_signature(self, step, alter_sign, mode):
+
+        if mode.lower() in ('maj', '', 'major'):
+            mode = ''
+        elif mode.lower() in ('min', 'm', 'minor'):
+            mode = 'm'
+        else:
+            raise ValueError('Invalid mode. Expected "major" or "minor" but got {0}'.format(mode))
+
+        keyname = step + alter_sign + mode
+
+        return key_name_to_fifths_mode(keyname)
+
+    @property
+    def key_sig_lines(self):
+
+        ks_info = [l for l in self.info() if l.Attribute == 'keySignature']
+        ml = (ks_info
+              + [i for i in self.lines if
+                 isinstance(i, MatchMeta)
+               and hasattr(i, 'Attribute')
+               and i.Attribute == 'keySignature'])
+
+        return ml
 
 
 def load_match(fn, pedal_threshold=64):
