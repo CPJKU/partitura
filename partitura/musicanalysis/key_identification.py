@@ -38,7 +38,7 @@ KEYS = [('C', 'major', 0),
         ('G#', 'minor', 5),
         ('A', 'minor', 0),
         ('Bb', 'minor', -5),
-        ('B' 'minor', 2)]
+        ('B', 'minor', 2)]
 
 
 ################ Krumhansl--Kessler Key Profiles ########################
@@ -122,14 +122,15 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
         if 'key_profiles' not in kwargs:
             kwargs['key_profiles'] = 'temperley'
 
-    root, mode, fifths = kid(note_array, *args, **kwargs)
-
-    return root, mode, fifths
+    return kid(note_array, *args, **kwargs)
 
 
-def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER):
-    """
-    Estimate key of a piece
+def format_key(root, mode, fifths):
+    return '{}{}'.format(root, 'm' if mode == 'minor' else '')
+
+def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER, return_sorted_keys=False):
+    """Estimate key of a piece
+    
     """
     if isinstance(key_profiles, str):
         if key_profiles in ('ks', 'krumhansl_kessler'):
@@ -157,4 +158,7 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER):
     corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]
                       for kp in key_profiles])
 
-    return KEYS[corrs.argmax()]
+    if return_sorted_keys:
+        return [format_key(*KEYS[i]) for i in np.argsort(corrs)[::-1]]
+    else:
+        return format_key(*KEYS[corrs.argmax()])
