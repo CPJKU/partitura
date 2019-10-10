@@ -21,7 +21,7 @@ def rename_voices(voices):
     # rename voices so that the first occurring voice has number 1, the second
     # occurring voice has number 2, etc.
     vmap = {}
-    return np.fromiter((vmap.setdefault(v, len(vmap)+1) for v in voices),
+    return np.fromiter((vmap.setdefault(v, len(vmap) + 1) for v in voices),
                        dtype=voices.dtype)
 
 
@@ -85,7 +85,6 @@ def estimate_voices(notearray, monophonic_voices=False):
 
     """
 
-
     input_array = prepare_notearray(notearray)
 
     if monophonic_voices:
@@ -118,7 +117,7 @@ def estimate_voices(notearray, monophonic_voices=False):
 
     # rename voices so that the first occurring voice has number 1, the second
     # occurring voice has number 2, etc.
-    rvoices = rename_voices(voices)        
+    rvoices = rename_voices(voices)
 
     return rvoices
 
@@ -759,7 +758,7 @@ class VoSA(VSBaseScore):
     * better handle grace notes
     """
 
-    def __init__(self, score, delete_gracenotes=True):
+    def __init__(self, score, delete_gracenotes=False):
 
         # Score
         self.score = score
