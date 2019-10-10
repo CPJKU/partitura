@@ -20,14 +20,18 @@ class TestLoadMatch(unittest.TestCase):
         for fn in MATCH_IMPORT_EXPORT_TESTFILES:
 
             # read file
-            fileData = [l.decode('utf8').strip() for l in open(fn, 'rb')]
+            with open(fn) as f:
+
+                file_contents = [parse_matchline(l) for l in f.read().splitlines()]
+
             # parse match file
             match = MatchFile(fn)
 
             # Not mached lines are returned as False
-            matched_lines = [True if ml else False for ml in match.lines]
+            # matched_lines = [True if ml else False for ml in match.lines]
+            matched_lines = [1 for ml in match.lines if ml]
             # Assert that all lines in the matchfile where matched
-            self.assertTrue(sum(matched_lines), len(fileData))
+            self.assertTrue(len(matched_lines), len(file_contents))
 
     def test_match_lines(self):
 
