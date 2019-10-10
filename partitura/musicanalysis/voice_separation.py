@@ -335,7 +335,7 @@ class VSNote(object):
         self.skip_contig = 0
 
         self.is_grace = self.duration == 0
-        self._grace = None
+        self._grace = []
         self._voice = voice
         self.velocity = None
 
@@ -346,9 +346,8 @@ class VSNote(object):
     @voice.setter
     def voice(self, voice):
         self._voice = voice
-
-        if self._grace is not None:
-            self._grace.voice = self._voice
+        for n in self._grace:
+            n.voice = voice
 
     def is_sounding(self, tp):
         return tp >= self.onset and tp < self.offset
@@ -359,8 +358,9 @@ class VSNote(object):
 
     @grace.setter
     def grace(self, grace):
-        self._grace = grace
-        self._grace.voice = self.voice
+        self._grace.append(grace)
+        for n in self._grace:
+            n.voice = self.voice
 
     def __str__(self):
         return 'VSNote {id}: pitch {pi}, onset {on}, duration {dur}, voice {voice}'.format(
