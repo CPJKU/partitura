@@ -224,9 +224,9 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
     if estimate_voice_info:
         LOGGER.debug('voice estimation')
+        # TODO: deal with zero duration notes in note_array. Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
-        # TODO: don't do +1 as soon as this is done in estimate_voices
-        estimated_voices += 1
+        assert len(part_voice_list) == len(estimated_voices) 
         for part_voice, voice_est in zip(part_voice_list, estimated_voices):
             if part_voice[1] is None:
                 part_voice[1] = voice_est
