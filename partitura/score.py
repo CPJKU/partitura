@@ -1743,7 +1743,7 @@ def add_measures(part):
 
     # make sure we cover time from the start of the timeline
     if len(timesigs) == 0 or timesigs[0, 0] > start:
-        timesigs = np.vstack([[start, 4]], timesigs)
+        timesigs = np.vstack(([[start, 4]], timesigs))
 
     # in unlikely case of timesig at last point, remove it
     if timesigs[-1, 0] >= end:
