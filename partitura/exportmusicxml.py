@@ -272,7 +272,8 @@ def remove_voice_polyphony_single(notes, voice_spans):
 
     by_onset = defaultdict(list)
     for note in notes:
-        by_onset[note.start.t].append(note)
+        if not isinstance(note, score.GraceNote):
+            by_onset[note.start.t].append(note)
     onsets = sorted(by_onset.keys())
 
     for o in onsets:
@@ -375,6 +376,10 @@ def linearize_segment_contents(part, start, end, counter):
         # notes_by_voice = {0: [rest]}
         notes_by_voice[None] = []
         
+    for v, nn in notes_by_voice.items():
+        print('voice', v)
+        for n in nn:
+            print(' {}'.format(n))
     # make sure there is no polyphony within voices by assigning any violating
     # notes to a new (free) voice.
     remove_voice_polyphony(notes_by_voice)
@@ -885,7 +890,7 @@ def save_musicxml(parts, out=None):
             if measure.number is not None:
 
                 attrib['number'] = str(measure.number)
-
+                print('measure', measure.number)
             measure_e = etree.SubElement(part_e, 'measure', **attrib)
             contents = linearize_measure_contents(part, measure.start, measure.end, counter)
             measure_e.extend(contents)
