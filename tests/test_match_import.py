@@ -11,6 +11,7 @@ from tempfile import TemporaryFile
 from . import MATCH_IMPORT_EXPORT_TESTFILES
 
 from partitura.importmatch import MatchFile, parse_matchline
+from partitura import load_match
 
 
 class TestLoadMatch(unittest.TestCase):
@@ -55,6 +56,13 @@ class TestLoadMatch(unittest.TestCase):
         for ml in matchlines:
             mo = parse_matchline(ml)
             self.assertTrue(mo.matchline, ml)
+
+    def test_load_match(self):
+        for fn in MATCH_IMPORT_EXPORT_TESTFILES:
+
+            # parse match file
+            spart, ppart, alignment = load_match(fn)
+            self.assertTrue(1, 1)
 
 
 if __name__ == '__main__':
