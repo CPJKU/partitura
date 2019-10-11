@@ -1,7 +1,8 @@
 import numpy as np
 
 from partitura.utils import (
-    pitch_spelling_to_midi_pitch
+    pitch_spelling_to_midi_pitch,
+    ALTER_SIGNS
 )
 
 
@@ -28,18 +29,27 @@ class PerformedNote(object):
         self.alter = alter
 
         has_pitch_spelling = not (
-            self.step is None
-            or self.octave is None
-            or self.alter is None)
+            self.step is None or
+            self.octave is None or
+            self.alter is None)
 
         if has_pitch_spelling:
-            if self.midi_pitch != pitch_spelling_to_midi_pitch(
-                    step=self.step,
-                    octave=self.octave,
-                    alter=self.alter):
+            est_mp = pitch_spelling_to_midi_pitch(
+                step=self.step,
+                octave=self.octave,
+                alter=self.alter)
+            if self.midi_pitch != est_mp:
 
-                raise ValueError('The provided pitch spelling information does not match '
-                                 'the given MIDI pitch')
+                raise ValueError('The provided pitch spelling '
+                                 'information does not match '
+                                 'the given MIDI pitch: '
+                                 '{step}{alter}{octave}({mps}) '
+                                 '!= {mp}'.format(
+                                     step=self.step,
+                                     octave=self.octave,
+                                     alter=ALTER_SIGNS[self.alter],
+                                     mps=est_mp,
+                                     mp=self.midi_pitch))
 
     @property
     def duration(self):

@@ -20,7 +20,7 @@ from partitura.utils import (
     key_name_to_fifths_mode,
     iter_current_next,
     partition,
-    estimate_clef_properties 
+    estimate_clef_properties
 )
 
 from partitura.performance import (
@@ -102,20 +102,20 @@ class FractionalSymbolicDuration(object):
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])
 
-        if (self.add_components is None
-                and sd.add_components is None):
+        if (self.add_components is None and
+                sd.add_components is None):
             add_components = [
                 (self.numerator, self.denominator, self.tuple_div),
                 (sd.numerator, sd.denominator, sd.tuple_div)]
 
-        elif (self.add_components is not None and
-              sd.add_components is None):
-            add_components = (self.add_components +
-                              [(sd.numerator, sd.denominator, sd.tuple_div)])
-        elif (self.add_components is None and
-              sd.add_components is not None):
-            add_components = ([(self.numerator, self.denominator, self.tuple_div)] +
-                              sd.add_components)
+        elif (self.add_components is not None
+              and sd.add_components is None):
+            add_components = (self.add_components
+                              + [(sd.numerator, sd.denominator, sd.tuple_div)])
+        elif (self.add_components is None
+              and sd.add_components is not None):
+            add_components = ([(self.numerator, self.denominator, self.tuple_div)]
+                              + sd.add_components)
         else:
             add_components = self.add_components + sd.add_components
 
@@ -288,10 +288,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
-                   + '{Bar}:{Beat},{Offset},{Duration},'
-               + '{OnsetInBeats},{OffsetInBeats},'
-                   + '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
+                   '{Bar}:{Beat},{Offset},{Duration},' +
+               '{OnsetInBeats},{OffsetInBeats},' +
+                   '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -386,8 +386,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
-                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
+                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -544,6 +544,7 @@ class MatchSnoteNote(MatchLine):
             self.note.NoteName = self.snote.NoteName
             self.note.Modifier = self.snote.Modifier
             self.note.Octave = self.snote.Octave
+            self.note.MidiPitch = self.snote.MidiPitch
 
     @property
     def matchline(self):
@@ -891,9 +892,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta)
-                and hasattr(i, 'Attribute')
-                and i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta) and
+                hasattr(i, 'Attribute') and
+                i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):
@@ -965,56 +966,43 @@ class MatchFile(object):
     def key_sig_lines(self):
 
         ks_info = [l for l in self.info() if l.Attribute == 'keySignature']
-        ml = (ks_info +
-              [i for i in self.lines if
-                 isinstance(i, MatchMeta) and
-               hasattr(i, 'Attribute') and
-               i.Attribute == 'keySignature'])
+        ml = (ks_info
+              + [i for i in self.lines if
+                 isinstance(i, MatchMeta)
+               and hasattr(i, 'Attribute')
+               and i.Attribute == 'keySignature'])
 
         return ml
 
 
 def load_match(fn, pedal_threshold=64):
+    """
+    Load a matchfile
 
+    Parameters
+    ----------
+    fn : str
+        The matchfile
+    pedal_threshold : int
+        Threshold for adjusting sound off of the performed
+        notes using pedal information (default is 64)
+
+    Returns
+    -------
+    spart : Part
+        A score part
+    ppart : PerformedPart
+        A performed part
+    alignment : PerformanceAlignment
+        A performed alignment
+    """
     # Parse Matchfile
     mf = MatchFile(fn)
 
     ######## Generate PerformedPart #########
-    midi_clock_rate = mf.info('midiClockRate')
-
-    midi_clock_units = mf.info('midiClockUnits')
-
-    pnotes = []
-    for note in mf.notes:
-        pnote = PerformedNote(id=note.Number,
-                              midi_pitch=note.MidiPitch,
-                              note_on=note.Onset,
-                              note_off=note.Offset,
-                              velocity=note.Velocity,
-                              sound_off=note.AdjOffset,
-                              step=note.NoteName,
-                              octave=note.Octave,
-                              alter=note.Modifier)
-
-        pnotes.append(pnote)
-
-    sustain_pedal = []
-    for ped in mf.sustain_pedal:
-        pedal = SustainPedal(time=ped.Time,
-                             value=ped.Value)
-
-        sustain_pedal.append(pedal)
-
-    ppart = PerformedPart(id=mf.info('piece'), notes=pnotes,
-                          pedal=sustain_pedal,
-                          pedal_threshold=pedal_threshold,
-                          midi_clock_rate=midi_clock_rate,
-                          midi_clock_units=midi_clock_units)
-
+    ppart = performed_part_from_match(mf, pedal_threshold)
     ####### Generate Part ######
-    # spart = Part(id=mf.info('piece'))
     spart = part_from_matchfile(mf)
-
     ###### Alignment ########
     matched_notes = dict([(snote.Anchor, note.Number)
                           for snote, note in mf.note_pairs])
@@ -1049,11 +1037,11 @@ class PerformanceAlignment(object):
 def part_from_matchfile(mf):
     part = score.Part('P1', mf.info('piece'))
     snotes = sorted(mf.snotes, key=attrgetter('OnsetInBeats'))
-    divs = np.lcm.reduce(np.unique([note.Offset.denominator*(note.Offset.tuple_div or 1)
+    divs = np.lcm.reduce(np.unique([note.Offset.denominator * (note.Offset.tuple_div or 1)
                                     for note in snotes]))
     part.set_quarter_duration(0, divs)
     max_time = max(n.OffsetInBeats for n in snotes)
-    min_time = snotes[0].OnsetInBeats # sorted by OnsetInBeats
+    min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
 
     ts = mf.time_signatures
 
@@ -1072,16 +1060,16 @@ def part_from_matchfile(mf):
             t = 0
         else:
             # multiply by diff between consecutive bar numbers
-            n_bars = b1-b0
-            t += (n_bars*4*beats_map(t))/beat_type_map(t)
+            n_bars = b1 - b0
+            t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
     for note in snotes:
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
         # offset within bar in quarter units
-        bar_offset = (note.Beat-1)*4/beat_type_map(bar_start) 
+        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
         # offset within beat in quarter units
-        beat_offset = 4*note.Offset.numerator/(note.Offset.denominator*(note.Offset.tuple_div or 1))
+        beat_offset = 4 * note.Offset.numerator / (note.Offset.denominator * (note.Offset.tuple_div or 1))
         # note onset in divs
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
 
@@ -1090,8 +1078,8 @@ def part_from_matchfile(mf):
         else:
             note_id = 'n{}'.format(note.Anchor)
 
-        sa = next((a for a in note.ScoreAttributesList if isinstance(a, str)
-                   and a.startswith('staff')), None)
+        sa = next((a for a in note.ScoreAttributesList if isinstance(a, str) and
+                   a.startswith('staff')), None)
         if sa:
             try:
                 staff = int(sa[-1])
@@ -1103,7 +1091,7 @@ def part_from_matchfile(mf):
         if note.Duration.add_components:
             prev_part_note = None
             for i, (num, den, tuple_div) in enumerate(note.Duration.add_components):
-                duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+                duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
                 assert duration_divs > 0
                 offset_divs = onset_divs + duration_divs
                 tnote_id = 'n{}_{}'.format(note.Anchor, i)
@@ -1120,7 +1108,7 @@ def part_from_matchfile(mf):
             num = note.Duration.numerator
             den = note.Duration.denominator
             tuple_div = note.Duration.tuple_div
-            duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+            duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
             #duration_divs = int(divs*4*note.Duration.numerator/(note.Duration.denominator*(note.Duration.tuple_div or 1)))
             offset_divs = onset_divs + duration_divs
 
@@ -1135,7 +1123,7 @@ def part_from_matchfile(mf):
 
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
-        bar_start_divs = int(divs*(bar_times[ts_bar]-offset)) # in quarters
+        bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
 
     # add key signatures
@@ -1151,12 +1139,12 @@ def part_from_matchfile(mf):
             key_name = keys[0]
         fifths, mode = key_name_to_fifths_mode(key_name)
         part.add(score.KeySignature(fifths, mode), 0)
-        
+
     add_clefs(part)
 
     # add incomplete measure if necessary
     if offset < 0:
-        part.add(score.Measure(number=1), 0, int(-offset*divs))
+        part.add(score.Measure(number=1), 0, int(-offset * divs))
     # add the rest of the measures automatically
     score.add_measures(part)
 
@@ -1167,10 +1155,10 @@ def part_from_matchfile(mf):
 
     return part
 
-    
+
 def make_timesig_maps(ts_orig, max_time):
     # TODO: make sure that ts_orig covers range from min_time
-    
+
     # return two functions that map score times (in quarter units) to time sig
     # beats, and time sig beat_type respectively
     ts = list(ts_orig)
@@ -1180,24 +1168,25 @@ def make_timesig_maps(ts_orig, max_time):
     x = np.array([t for t, _, _ in ts])
     y = np.array([x for _, _, x in ts])
 
-    start_q = x[0]*4/y[0, 1]
-    x_q = np.cumsum(np.r_[start_q, 4*np.diff(x)/y[:-1, 1]])
+    start_q = x[0] * 4 / y[0, 1]
+    x_q = np.cumsum(np.r_[start_q, 4 * np.diff(x) / y[:-1, 1]])
 
-    beats_map = interp1d(x_q, y[:, 0] , kind='previous')
-    beat_type_map = interp1d(x_q, y[:, 1] , kind='previous')
+    beats_map = interp1d(x_q, y[:, 0], kind='previous')
+    beat_type_map = interp1d(x_q, y[:, 1], kind='previous')
 
     return beats_map, beat_type_map, start_q
+
 
 def add_clefs(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
     for staff, notes in by_staff.items():
         part.add(score.Clef(number=staff, **estimate_clef_properties([n.midi_pitch for n in notes])), 0)
 
-    
+
 def notes_to_notearray(notes):
     return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
                     dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
-    
+
 
 def add_voices(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
@@ -1213,5 +1202,59 @@ def add_voices(part):
             while n_next.tie_next:
                 n_next = n_next.tie_next
                 n_next.voice = voice + max_voice
-                
+
         max_voice = np.max(voices)
+
+
+def performed_part_from_match(mf, pedal_threshold=64):
+    """
+    Make PerformedPart from performance info in
+    a MatchFile
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A matchfile
+    pedal_threshold : int
+        A description
+
+    Returns
+    -------
+    ppart : PerformedPart
+        A performed part
+    """
+    # Get midi time units
+    midi_clock_rate = mf.info('midiClockRate')
+    midi_clock_units = mf.info('midiClockUnits')
+
+    # PerformedNote instances for all MatchNotes
+    pnotes = []
+    for note in mf.notes:
+        pnote = PerformedNote(id=note.Number,
+                              midi_pitch=note.MidiPitch,
+                              note_on=note.Onset,
+                              note_off=note.Offset,
+                              velocity=note.Velocity,
+                              sound_off=note.AdjOffset,
+                              step=note.NoteName,
+                              octave=note.Octave,
+                              alter=note.Modifier)
+        pnotes.append(pnote)
+
+    # SustainPedal instances for sustain pedal lines
+    sustain_pedal = []
+    for ped in mf.sustain_pedal:
+        pedal = SustainPedal(time=ped.Time,
+                             value=ped.Value)
+
+        sustain_pedal.append(pedal)
+
+    # Make performed part
+    ppart = PerformedPart(id='P1',
+                          part_name=mf.info('piece'),
+                          notes=pnotes,
+                          pedal=sustain_pedal,
+                          pedal_threshold=pedal_threshold,
+                          midi_clock_rate=midi_clock_rate,
+                          midi_clock_units=midi_clock_units)
+    return ppart
