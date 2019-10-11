@@ -305,7 +305,7 @@ class MatchSnote(MatchLine):
                  Offset, Duration, OnsetInBeats, OffsetInBeats,
                  ScoreAttributesList=[]):
 
-        self.Anchor = Anchor
+        self.Anchor = str(Anchor)
         (self.NoteName, self.Modifier,
          self.Octave) = ensure_pitch_spelling_format(
              step=NoteName,
@@ -1068,10 +1068,10 @@ def part_from_matchfile(mf):
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
         # offset within bar in quarter units
-        bar_offset = (note.Beat-1) * 4 / beat_type_map(bar_start) 
+        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
         # offset within beat in quarter units
-        beat_offset = ( 4 * note.Offset.numerator /
-                        (note.Offset.denominator*(note.Offset.tuple_div or 1)))
+        beat_offset = (4 * note.Offset.numerator
+                       / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
         # note onset in divs
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
 
@@ -1106,7 +1106,7 @@ def part_from_matchfile(mf):
 
                 part_note = score.Note(**note_attributes)
 
-                duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+                duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
 
                 assert duration_divs > 0
 
@@ -1125,27 +1125,27 @@ def part_from_matchfile(mf):
             num = note.Duration.numerator
             den = note.Duration.denominator
             tuple_div = note.Duration.tuple_div
-            duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+            duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
 
             offset_divs = onset_divs + duration_divs
 
             # notes with duration 0, are also treated as grace notes, even if
             # they do not have a 'grace' score attribute
             if ('grace' in note.ScoreAttributesList
-                or note.Duration.numerator == 0):
+                    or note.Duration.numerator == 0):
 
                 part_note = score.GraceNote('appoggiatura', **note_attributes)
 
             else:
 
                 part_note = score.Note(**note_attributes)
-                
+
             part.add(part_note, onset_divs, offset_divs)
 
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
 
-        bar_start_divs = int(divs*(bar_times[ts_bar]-offset)) # in quarters
+        bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
 
     # add key signatures
@@ -1171,7 +1171,7 @@ def part_from_matchfile(mf):
     # add incomplete measure if necessary
     if offset < 0:
 
-        part.add(score.Measure(number=1), 0, int(-offset*divs))
+        part.add(score.Measure(number=1), 0, int(-offset * divs))
 
     # add the rest of the measures automatically
     score.add_measures(part)
@@ -1209,6 +1209,7 @@ def add_clefs(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
     for staff, notes in by_staff.items():
         part.add(score.Clef(number=staff, **estimate_clef_properties([n.midi_pitch for n in notes])), 0)
+
 
 def add_voices(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
