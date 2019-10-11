@@ -10,7 +10,7 @@ from tempfile import TemporaryFile
 
 from . import MATCH_IMPORT_EXPORT_TESTFILES
 
-from partitura.match import MatchFile, parse_matchline
+from partitura.importmatch import MatchFile, parse_matchline
 
 
 class TestLoadMatch(unittest.TestCase):
