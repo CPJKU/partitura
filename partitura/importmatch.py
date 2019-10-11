@@ -1041,12 +1041,12 @@ def part_from_matchfile(mf):
     divs = np.lcm.reduce(np.unique([note.Offset.denominator * (note.Offset.tuple_div or 1)
                                     for note in snotes]))
     part.set_quarter_duration(0, divs)
-    max_time = max(n.OffsetInBeats for n in snotes)
     min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
+    max_time = max(n.OffsetInBeats for n in snotes)
 
     ts = mf.time_signatures
 
-    beats_map, beat_type_map, min_time_q = make_timesig_maps(ts, max_time)
+    beats_map, beat_type_map, min_time_q, max_time_q = make_timesig_maps(ts, max_time)
 
     bars = np.unique([n.Bar for n in snotes])
     t = min_time
@@ -1055,14 +1055,15 @@ def part_from_matchfile(mf):
     # bar map: bar_number-> start in quarters
     bar_times = {}
     for b0, b1 in iter_current_next(bars, start=0):
-        # print(b1, t)
+
         bar_times.setdefault(b1, t)
         if t < 0:
             t = 0
         else:
             # multiply by diff between consecutive bar numbers
             n_bars = b1 - b0
-            t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
+            if t <= max_time_q:
+                t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
     for note in snotes:
         # start of bar in quarter units
@@ -1198,11 +1199,12 @@ def make_timesig_maps(ts_orig, max_time):
 
     start_q = x[0] * 4 / y[0, 1]
     x_q = np.cumsum(np.r_[start_q, 4 * np.diff(x) / y[:-1, 1]])
-
+    end_q = x_q[-1]
+    
     beats_map = interp1d(x_q, y[:, 0], kind='previous')
     beat_type_map = interp1d(x_q, y[:, 1], kind='previous')
 
-    return beats_map, beat_type_map, start_q
+    return beats_map, beat_type_map, start_q, end_q
 
 
 def add_clefs(part):
