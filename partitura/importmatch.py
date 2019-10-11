@@ -20,7 +20,8 @@ from partitura.utils import (
     key_name_to_fifths_mode,
     iter_current_next,
     partition,
-    estimate_clef_properties
+    estimate_clef_properties,
+    notes_to_notearray
 )
 
 from partitura.performance import (
@@ -1067,67 +1068,89 @@ def part_from_matchfile(mf):
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
         # offset within bar in quarter units
-        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
+        bar_offset = (note.Beat-1) * 4 / beat_type_map(bar_start) 
         # offset within beat in quarter units
-        beat_offset = 4 * note.Offset.numerator / (note.Offset.denominator * (note.Offset.tuple_div or 1))
+        beat_offset = ( 4 * note.Offset.numerator /
+                        (note.Offset.denominator*(note.Offset.tuple_div or 1)))
         # note onset in divs
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
 
-        if note.Anchor.startswith('n'):
-            note_id = note.Anchor
-        else:
-            note_id = 'n{}'.format(note.Anchor)
+        # dictionary with keyword args with which the Note (or GraceNote) will be instantiated
+        note_attributes = dict(step=note.NoteName,
+                               octave=note.Octave,
+                               alter=note.Modifier)
 
-        sa = next((a for a in note.ScoreAttributesList if isinstance(a, str) and
-                   a.startswith('staff')), None)
-        if sa:
-            try:
-                staff = int(sa[-1])
-            except ValueError:
-                staff = 1
+        if note.Anchor.startswith('n'):
+            note_attributes['id'] = note.Anchor
         else:
-            staff = 1
+            note_attributes['id'] = 'n{}'.format(note.Anchor)
+
+        staff_nr = next((a[-1] for a in note.ScoreAttributesList if a.startswith('staff')), None)
+        try:
+            note_attributes['staff'] = int(staff_nr)
+        except (TypeError, ValueError):
+            # no staff attribute, or staff attribute does not end with a number
+            note_attributes['staff'] = None
 
         if note.Duration.add_components:
             prev_part_note = None
+
             for i, (num, den, tuple_div) in enumerate(note.Duration.add_components):
-                duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
+
+                # when we add multiple notes that are tied, the first note will
+                # get the original note id, and subsequent notes will get a
+                # derived note id (by appending, 'a', 'b', 'c',...)
+                if i > 0:
+                    # tnote_id = 'n{}_{}'.format(note.Anchor, i)
+                    note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
+
+                part_note = score.Note(**note_attributes)
+
+                duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+
                 assert duration_divs > 0
+
                 offset_divs = onset_divs + duration_divs
-                tnote_id = 'n{}_{}'.format(note.Anchor, i)
-                part_note = score.Note(id=tnote_id,
-                                       step=note.NoteName, octave=note.Octave, alter=note.Modifier,
-                                       staff=staff)
+
                 part.add(part_note, onset_divs, offset_divs)
+
                 if prev_part_note:
                     prev_part_note.tie_next = part_note
                     part_note.tie_prev = prev_part_note
                 prev_part_note = part_note
                 onset_divs = offset_divs
+
         else:
+
             num = note.Duration.numerator
             den = note.Duration.denominator
             tuple_div = note.Duration.tuple_div
-            duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
-            #duration_divs = int(divs*4*note.Duration.numerator/(note.Duration.denominator*(note.Duration.tuple_div or 1)))
+            duration_divs = int(divs*4*num/(den*(tuple_div or 1)))
+
             offset_divs = onset_divs + duration_divs
 
-            if 'grace' in note.ScoreAttributesList or note.Duration.numerator == 0:
-                part_note = score.GraceNote('appoggiatura', id=note_id, staff=staff,
-                                            step=note.NoteName, octave=note.Octave, alter=note.Modifier)
+            # notes with duration 0, are also treated as grace notes, even if
+            # they do not have a 'grace' score attribute
+            if ('grace' in note.ScoreAttributesList
+                or note.Duration.numerator == 0):
+
+                part_note = score.GraceNote('appoggiatura', **note_attributes)
+
             else:
-                part_note = score.Note(id=note_id, staff=staff,
-                                       step=note.NoteName, octave=note.Octave, alter=note.Modifier)
+
+                part_note = score.Note(**note_attributes)
+                
             part.add(part_note, onset_divs, offset_divs)
-            # print(onset_divs, offset_divs)
 
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
-        bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
+
+        bar_start_divs = int(divs*(bar_times[ts_bar]-offset)) # in quarters
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
 
     # add key signatures
     for (ks_beat_time, ks_bar, keys) in mf.key_signatures:
+
         if len(keys) > 1:
             # there are multple equivalent keys, so we check which one is most
             # likely according to the key estimator
@@ -1135,8 +1158,11 @@ def part_from_matchfile(mf):
             idx = [est_keys.index(key) if key in est_keys else np.inf
                    for key in keys]
             key_name = keys[np.argmin(idx)]
+
         else:
+
             key_name = keys[0]
+
         fifths, mode = key_name_to_fifths_mode(key_name)
         part.add(score.KeySignature(fifths, mode), 0)
 
@@ -1144,7 +1170,9 @@ def part_from_matchfile(mf):
 
     # add incomplete measure if necessary
     if offset < 0:
-        part.add(score.Measure(number=1), 0, int(-offset * divs))
+
+        part.add(score.Measure(number=1), 0, int(-offset*divs))
+
     # add the rest of the measures automatically
     score.add_measures(part)
 
@@ -1181,12 +1209,6 @@ def add_clefs(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
     for staff, notes in by_staff.items():
         part.add(score.Clef(number=staff, **estimate_clef_properties([n.midi_pitch for n in notes])), 0)
-
-
-def notes_to_notearray(notes):
-    return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
-                    dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
-
 
 def add_voices(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)

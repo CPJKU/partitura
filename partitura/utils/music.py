@@ -475,7 +475,11 @@ def find_tie_split(start, end, divs, max_splits=3):
 
 
 def estimate_clef_properties(pitches):
-    # avg_pitch = np.mean(pitches)
+    # estimate the optimal clef for the given pitches. This returns a dictionary
+    # with the sign, line, and octave_change attributes of the clef
+    # (cf. MusicXML clef description). Currently only G and F clefs without
+    # octave changes are supported.
+
     center = np.median(pitches)
     # number, sign, line, octave_change):
     # clefs = [score.Clef(1, 'F', 4, 0), score.Clef(1, 'G', 2, 0)]
@@ -484,6 +488,13 @@ def estimate_clef_properties(pitches):
     f = interp1d([0, 49, 70, 127], [0, 0, 1, 1], kind='nearest')
     return clefs[int(f(center))]
 
+
+def notes_to_notearray(notes):
+    # create a structured array with fields pitch, onset and duration for a
+    # given list of notes
+    return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
+                    dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
+    
 
 if __name__ == '__main__':
     import doctest

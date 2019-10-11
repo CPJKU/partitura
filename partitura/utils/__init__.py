@@ -23,7 +23,8 @@ from .music import (
     to_quarter_tempo,
     pitch_spelling_to_midi_pitch,
     estimate_clef_properties,
-    ensure_pitch_spelling_format
+    ensure_pitch_spelling_format,
+    notes_to_notearray
 )
 
 

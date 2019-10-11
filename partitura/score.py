@@ -1790,7 +1790,7 @@ def add_measures(part):
             if existing_measure:
                 pos = existing_measure.end.t
                 existing_measure.number = mcounter + 1
-                mcounter = mcounter + 2 
+                mcounter = mcounter + 2
             else:
                 pos = measure_end
                 mcounter += 1
@@ -2029,12 +2029,13 @@ def repeats_to_start_end(repeats, first, last):
 
 def make_tied_note_id(prev_id):
     # non-public
-    """
-    Create a derived note ID for newly created notes
+    """Create a derived note ID for newly created notes, by appending
+    letters to the ID. If the original ID has the form X-Y (e.g.
+    n1-1), then the letter will be appended to the X part.
 
     Parameters
     ----------
-    prev_id: str
+    prev_id : str
         Original note ID
 
     Returns
@@ -2048,15 +2049,19 @@ def make_tied_note_id(prev_id):
     'n0a'
     >>> make_tied_note_id('n0a')
     'n0b'
+    >>> make_tied_note_id('n0-1')
+    'n0a-1'
 
     """
-
-    if len(prev_id) > 0:
-        if ord(prev_id[-1]) < ord('a') - 1:
-            return prev_id + 'a'
+    prev_id_parts = prev_id.split('-', 1)
+    prev_id_p1 = prev_id_parts[0]
+    if prev_id_p1:
+        if ord(prev_id_p1[-1]) < ord('a') - 1:
+            return '-'.join(['{}a'.format(prev_id_p1)] +
+                            prev_id_parts[1:])
         else:
-            return prev_id[:-1] + chr(ord(prev_id[-1]) + 1)
-
+            return '-'.join(['{}{}'.format(prev_id_p1[:-1], chr(ord(prev_id[-1]) + 1))]
+                            + prev_id_parts[1:])
     else:
         return None
 
