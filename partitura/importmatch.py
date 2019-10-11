@@ -24,11 +24,7 @@ from partitura.utils import (
     notes_to_notearray
 )
 
-from partitura.performance import (
-    PerformedNote,
-    SustainPedal,
-    PerformedPart
-)
+from partitura.performance import PerformedPart
 
 import partitura.score as score
 from partitura.musicanalysis import estimate_voices, estimate_key
@@ -1005,32 +1001,26 @@ def load_match(fn, pedal_threshold=64):
     ####### Generate Part ######
     spart = part_from_matchfile(mf)
     ###### Alignment ########
-    matched_notes = dict([(snote.Anchor, note.Number)
-                          for snote, note in mf.note_pairs])
-    inserted_notes = [note.Number for note in mf.insertions]
-    deleted_notes = [snote.Anchor for snote in mf.deletions]
-
-    # TODO: ornament lines and types
-    ornaments = {}
-
-    alignment = PerformanceAlignment(matched=matched_notes,
-                                     insertions=inserted_notes,
-                                     deletions=deleted_notes,
-                                     ornaments=ornaments)
+    alignment = alignment_from_matchfile(mf)
 
     return spart, ppart, alignment
 
 
-class PerformanceAlignment(object):
-    """Class for representing the alignment of a score and a performance
-    """
+def alignment_from_matchfile(mf):
+    result = []
 
-    def __init__(self, matched={}, insertions=[],
-                 deletions=[], ornaments={}):
-        self.matched = matched
-        self.insertions = insertions
-        self.deletions = deletions
-        self.ornaments = ornaments
+    for l in mf.lines:
+
+        if isinstance(l, MatchSnoteNote):
+            result.append(dict(label='match', score_id=l.snote.Anchor, performance_id=l.note.Number))
+        elif isinstance(l, MatchSnoteDeletion):
+            result.append(dict(label='deletion', score_id=l.snote.Anchor))
+        elif isinstance(l, MatchInsertionNote):
+            result.append(dict(label='insertion', performance_id=l.note.Number))
+        elif isinstance(l, MatchOrnamentNote):
+            result.append(dict(label='ornament', score_id=l.Anchor, performance_id=l.note.Number))
+            
+    return result
 
 
 # PART FROM MATCHFILE stuff
@@ -1231,6 +1221,8 @@ def add_voices(part):
         max_voice = np.max(voices)
 
 
+# PERFORMANCE PART FROM MATCHFILE stuff
+
 def performed_part_from_match(mf, pedal_threshold=64):
     """
     Make PerformedPart from performance info in
@@ -1249,37 +1241,33 @@ def performed_part_from_match(mf, pedal_threshold=64):
         A performed part
     """
     # Get midi time units
-    midi_clock_rate = mf.info('midiClockRate')
-    midi_clock_units = mf.info('midiClockUnits')
+    mpq = mf.info('midiClockRate')
+    ppq = mf.info('midiClockUnits')
 
     # PerformedNote instances for all MatchNotes
-    pnotes = []
+    notes = []
     for note in mf.notes:
-        pnote = PerformedNote(id=note.Number,
-                              midi_pitch=note.MidiPitch,
-                              note_on=note.Onset,
-                              note_off=note.Offset,
-                              velocity=note.Velocity,
-                              sound_off=note.AdjOffset,
-                              step=note.NoteName,
-                              octave=note.Octave,
-                              alter=note.Modifier)
-        pnotes.append(pnote)
+
+        sound_off = note.Offset if note.AdjOffset is None else note.AdjOffset
+
+        notes.append(dict(id=note.Number,
+                          midi_pitch=note.MidiPitch,
+                          note_on=note.Onset*mpq/(10**6*ppq),
+                          note_off=note.Offset*mpq/(10**6*ppq),
+                          sound_off=sound_off*mpq/(10**6*ppq),
+                          velocity=note.Velocity
+                          ))
 
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = []
     for ped in mf.sustain_pedal:
-        pedal = SustainPedal(time=ped.Time,
-                             value=ped.Value)
-
-        sustain_pedal.append(pedal)
+        sustain_pedal.append(dict(time=ped.Time*mpq/(10**6*ppq),
+                                  value=ped.Value))
 
     # Make performed part
     ppart = PerformedPart(id='P1',
                           part_name=mf.info('piece'),
-                          notes=pnotes,
+                          notes=notes,
                           pedal=sustain_pedal,
-                          pedal_threshold=pedal_threshold,
-                          midi_clock_rate=midi_clock_rate,
-                          midi_clock_units=midi_clock_units)
+                          pedal_threshold=pedal_threshold)
     return ppart
