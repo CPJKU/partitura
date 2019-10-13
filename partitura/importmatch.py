@@ -971,7 +971,6 @@ class MatchFile(object):
 
         return ml
 
-
 def load_match(fn, pedal_threshold=64):
     """
     Load a matchfile
@@ -1071,10 +1070,11 @@ def part_from_matchfile(mf):
                                octave=note.Octave,
                                alter=note.Modifier)
 
-        if note.Anchor.startswith('n'):
-            note_attributes['id'] = note.Anchor
-        else:
-            note_attributes['id'] = 'n{}'.format(note.Anchor)
+        # if not note.Anchor.startswith('n'):
+        #     note_attributes['id'] = note.Anchor
+        # else:
+        #     note_attributes['id'] = 'n{}'.format(note.Anchor)
+        note_attributes['id'] = note.Anchor
 
         staff_nr = next((a[-1] for a in note.ScoreAttributesList if a.startswith('staff')), None)
         try:

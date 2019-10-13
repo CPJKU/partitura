@@ -65,7 +65,6 @@ def test_musicxml(fn, validate=False):
     # bm = part.quarter_map
 
     out_fn = '/tmp/out.xml'
-    print(part.timeline.quarter_durations)
     save_musicxml(part, out_fn)
 
 def main():

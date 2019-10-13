@@ -32,6 +32,7 @@ files.
 Conceptual Overview
 ===================
 
+In `partitura` the elements of a musical score are represented as a collection of instances of classes like `Note`, `Measure`, `Slur`, and `Rest`. These instances are attached to an instance of class `Part` that corresponds to the role of an instrument in a musical score.
 
 Relation to `music21 <https://web.mit.edu/music21/>`_
 =====================================================
