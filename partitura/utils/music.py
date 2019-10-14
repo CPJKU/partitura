@@ -121,8 +121,9 @@ SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, '##': 2, '###': 3,
 
 def ensure_pitch_spelling_format(step, alter, octave):
 
-    if step.lower() not in MIDI_BASE_CLASS or step.lower() == 'r':
-        raise ValueError('Invalid `step`')
+    if step.lower() not in MIDI_BASE_CLASS:
+        if step.lower() != 'r':
+            raise ValueError('Invalid `step`')
 
     if isinstance(alter, str):
         try:
@@ -133,8 +134,9 @@ def ensure_pitch_spelling_format(step, alter, octave):
     if not isinstance(alter, int):
         try:
             alter = int(alter)
-        except ValueError:
-            raise ValueError('`alter` must be an integer')
+        except TypeError or ValueError:
+            if alter is not None:
+                raise ValueError('`alter` must be an integer or None')
 
     if octave == '-':
         # check octave for weird rests in Batik match files
@@ -143,8 +145,9 @@ def ensure_pitch_spelling_format(step, alter, octave):
         if not isinstance(octave, int):
             try:
                 octave = int(octave)
-            except ValueError:
-                raise ValueError('`octave` must be an integer')
+            except TypeError or ValueError:
+                if octave is not None:
+                    raise ValueError('`octave` must be an integer or None')
 
     return step.upper(), alter, octave
 
@@ -494,7 +497,7 @@ def notes_to_notearray(notes):
     # given list of notes
     return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
                     dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
-    
+
 
 if __name__ == '__main__':
     import doctest

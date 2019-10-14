@@ -607,11 +607,7 @@ class MatchSnoteDeletion(MatchLine):
         if match_pattern is not None:
             groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
             snote_kwargs = dict(zip(MatchSnote.field_names, groups))
-            try:
-                snote = MatchSnote(**snote_kwargs)
-            except:
-                import pdb
-                pdb.set_trace()
+            snote = MatchSnote(**snote_kwargs)
             match_line = cls(snote=snote)
             return match_line
 
