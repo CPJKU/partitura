@@ -1145,6 +1145,9 @@ def part_from_matchfile(mf):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes['staff'] = None
 
+        # get rid of this if as soon as we have a way to iterate over the
+        # duration components. For now we have to treat the cases simple
+        # and compound durations separately.
         if note.Duration.add_components:
             prev_part_note = None
 
@@ -1269,6 +1272,7 @@ def add_voices(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
     max_voice = 0
     for staff, notes in by_staff.items():
+
         voices = estimate_voices(notes_to_notearray(notes))
         assert len(voices) == len(notes)
         for n, voice in zip(notes, voices):

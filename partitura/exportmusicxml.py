@@ -730,9 +730,19 @@ def do_attributes(part, start, end):
         by_start[o.start.t].append(o)
     for o in part.iter_all(score.TimeSignature, start, end):
         by_start[o.start.t].append(o)
+
+    # sort clefs by number before adding them to by_start
+    clefs_by_start = defaultdict(list)
+
     for o in part.iter_all(score.Clef, start, end):
-        by_start[o.start.t].append(o)
-                  
+
+        clefs_by_start[o.start.t].append(o)
+
+    for t, clefs in clefs_by_start.items():
+
+        clefs.sort(key=lambda clef: getattr(clef, 'number', 0))
+        by_start[t].extend(clefs)
+        
     result = []
 
     for t in sorted(by_start.keys()):
