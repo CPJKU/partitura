@@ -127,6 +127,9 @@ class FractionalSymbolicDuration(object):
     def __radd__(self, sd):
         return self.__add__(sd)
 
+    def __float__(self):
+        return self.numerator/(self.denominator*(self.tuple_div or 1))
+
 
 def interpret_field(data):
     """
@@ -1024,9 +1027,15 @@ def alignment_from_matchfile(mf):
 
 # PART FROM MATCHFILE stuff
 
+def sort_snotes(snotes):
+    sidx = np.lexsort(list(zip(*[(float(n.Offset), float(n.Beat), float(n.Bar))
+                                 for n in snotes])))
+    return [snotes[i] for i in sidx]
+    
 def part_from_matchfile(mf):
     part = score.Part('P1', mf.info('piece'))
-    snotes = sorted(mf.snotes, key=attrgetter('OnsetInBeats'))
+    # snotes = sorted(mf.snotes, key=attrgetter('OnsetInBeats'))
+    snotes = sort_snotes(mf.snotes)
     divs = np.lcm.reduce(np.unique([note.Offset.denominator * (note.Offset.tuple_div or 1)
                                     for note in snotes]))
     part.set_quarter_duration(0, divs)
@@ -1068,13 +1077,8 @@ def part_from_matchfile(mf):
         # dictionary with keyword args with which the Note (or GraceNote) will be instantiated
         note_attributes = dict(step=note.NoteName,
                                octave=note.Octave,
-                               alter=note.Modifier)
-
-        # if not note.Anchor.startswith('n'):
-        #     note_attributes['id'] = note.Anchor
-        # else:
-        #     note_attributes['id'] = 'n{}'.format(note.Anchor)
-        note_attributes['id'] = note.Anchor
+                               alter=note.Modifier,
+                               id=note.Anchor)
 
         staff_nr = next((a[-1] for a in note.ScoreAttributesList if a.startswith('staff')), None)
         try:

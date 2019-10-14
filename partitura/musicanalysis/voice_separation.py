@@ -45,6 +45,8 @@ def prepare_notearray(notearray):
                            np.arange(len(notearray))),
                        dtype=new_dtype)
 
+def argmax_pitch(idx, pitches):
+    return idx[np.argmax(pitches[idx])]
 
 def estimate_voices(notearray, monophonic_voices=False):
     """Voice estimation using the voice separation algorithm proposed 
@@ -101,7 +103,8 @@ def estimate_voices(notearray, monophonic_voices=False):
 
         # dict that maps first chord note index to the list of all note indices
         # of the same chord
-        idx_equivs = dict((n[0], np.array(n)) for n in note_by_key.values())
+        idx_equivs = dict((argmax_pitch(np.array(idx), input_array['pitch']), np.array(idx))
+                          for idx in note_by_key.values())
 
         # keep the first note of each chord, the rest of the chord notes will be
         # assigned the same voice as the first chord note

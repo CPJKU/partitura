@@ -42,7 +42,6 @@ def adjust_offsets_w_sustain(notes, sustain_pedals, threshold=64):
 
     if len(sustain_pedals) > 0:
         # Get pedal times
-        print(sustain_pedals)
         pedal = np.array([(x['time'], x['value'] > threshold) for x in sustain_pedals])
         # sort, just in case
         pedal = pedal[np.argsort(pedal[:, 0]), :]

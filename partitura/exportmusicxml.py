@@ -341,21 +341,21 @@ def remove_voice_polyphony(notes_by_voice):
         notes_by_voice[v] = vnotes
         
 
-def fill_gaps_with_rests(notes_by_voice, start, end, part):
-    for voice, notes in notes_by_voice.items():
-        if len(notes) == 0:
-            rest = score.Rest(voice=voice or None)
-            part.add(rest, start.t, end.t)
-        else:
-            t = start.t
-            for note in notes:
-                if note.start.t > t:
-                    rest = score.Rest(voice=voice or None)
-                    part.add(rest, t, note.start.t)
-                t = note.end.t
-            if note.end.t < end.t:
-                rest = score.Rest(voice=voice or None)
-                part.add(rest, note.end.t, end.t)
+# def fill_gaps_with_rests(notes_by_voice, start, end, part):
+#     for voice, notes in notes_by_voice.items():
+#         if len(notes) == 0:
+#             rest = score.Rest(voice=voice or None)
+#             part.add(rest, start.t, end.t)
+#         else:
+#             t = start.t
+#             for note in notes:
+#                 if note.start.t > t:
+#                     rest = score.Rest(voice=voice or None)
+#                     part.add(rest, t, note.start.t)
+#                 t = note.end.t
+#             if note.end.t < end.t:
+#                 rest = score.Rest(voice=voice or None)
+#                 part.add(rest, note.end.t, end.t)
                 
 
 def linearize_segment_contents(part, start, end, counter):
@@ -394,6 +394,7 @@ def linearize_segment_contents(part, start, end, counter):
 
         voice_notes = notes_by_voice[voice]
         # grace notes should precede other notes at the same onset
+        voice_notes.sort(key=lambda n: n.midi_pitch)
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
         # voice_notes.sort(key=lambda n: -n.duration)
         voice_notes.sort(key=lambda n: n.start.t)
