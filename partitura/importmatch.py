@@ -587,6 +587,10 @@ class MatchSnoteNote(MatchLine):
 
 
 class MatchSnoteDeletion(MatchLine):
+    """
+    Class for representing a deleted note, i.e., a score note
+    which was not performed.
+    """
     out_pattern = '{SnoteLine}-deletion.'
     pattern = MatchSnote.pattern + '-deletion\.'
     re_obj = re.compile(pattern)
@@ -618,7 +622,22 @@ class MatchSnoteDeletion(MatchLine):
         return str(self.snote) + '\nDeletion'
 
 
+class MatchSnoteTrailingScore(MatchSnoteDeletion):
+    """
+    A variant of MatchSnoteDeletion for older match files.
+    """
+    pattern = MatchSnote.pattern + '-trailing_score_note\.'
+    re_obj = re.compile(pattern)
+
+    def __init__(self, snote):
+        super().__init__(snote)
+
+
 class MatchInsertionNote(MatchLine):
+    """
+    A class for representing inserted notes, i.e., performed notes
+    without a corresponding score note.
+    """
     out_pattern = 'insertion-{NoteLine}.'
     pattern = 'insertion-' + MatchNote.pattern + '.'
     re_obj = re.compile(pattern)
@@ -645,6 +664,28 @@ class MatchInsertionNote(MatchLine):
             return cls(note=note)
         else:
             raise MatchError('Input matchline does not fit expected pattern')
+
+
+class MatchHammerBounceNote(MatchInsertionNote):
+    """
+    A variant of MatchInsertionNote for older match files.
+    """
+    pattern = 'hammer_bounce-' + MatchNote.pattern + '.'
+    re_obj = re.compile(pattern)
+
+    def __init__(self, note):
+        super().__init__(note)
+
+
+class MatchTrailingPlayedNote(MatchInsertionNote):
+    """
+    Another variant of MatchInsertionNote for older match files.
+    """
+    pattern = 'trailing_played_note-' + MatchNote.pattern + '.'
+    re_obj = re.compile(pattern)
+
+    def __init__(self, note):
+        super().__init__(note)
 
 
 class MatchSustainPedal(MatchLine):
@@ -692,11 +733,11 @@ class MatchSoftPedal(MatchLine):
 class MatchOrnamentNote(MatchLine):
     out_pattern = 'ornament({Anchor})-{NoteLine}'
     field_names = ['Anchor'] + MatchNote.field_names
-    pattern = 'ornament\([^\)]*\)-' + MatchNote.pattern
+    pattern = 'ornament\(([^\)]*)\)-' + MatchNote.pattern
     re_obj = re.compile(pattern)
 
-    def __init__(self, anchor, note):
-        self.Anchor = anchor
+    def __init__(self, Anchor, note):
+        self.Anchor = Anchor
         self.note = note
 
     @property
@@ -711,7 +752,8 @@ class MatchOrnamentNote(MatchLine):
 
         if match_pattern is not None:
             groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            note_kwargs = groups[1:]
+            note_kwargs = dict(zip(MatchNote.field_names, groups[1:]))
+
             anchor = groups[0]
             note = MatchNote(**note_kwargs)
             return cls(Anchor=anchor,
@@ -719,6 +761,16 @@ class MatchOrnamentNote(MatchLine):
 
         else:
             raise MatchError('Input matchline does not fit expected pattern')
+
+
+class MatchTrillNote(MatchOrnamentNote):
+    out_pattern = 'trill({Anchor})-{NoteLine}'
+    field_names = ['Anchor'] + MatchNote.field_names
+    pattern = 'trill\(([^\)]*)\)-' + MatchNote.pattern
+    re_obj = re.compile(pattern)
+
+    def __init__(self, Anchor, note):
+        super().__init__(Anchor, note)
 
 
 def parse_matchline(l):
@@ -735,6 +787,8 @@ def parse_matchline(l):
     * trailing_played_note-PlayedNote.
     * trill(Anchor)-PlayedNote.
     * meta(Attribute, Value, Bar, Beat).
+    * sustain(Time, Value)
+    * soft(Time, Value)
 
     or False if none can be matched
 
@@ -751,11 +805,16 @@ def parse_matchline(l):
 
     from_matchline_methods = [MatchSnoteNote.from_matchline,
                               MatchSnoteDeletion.from_matchline,
+                              MatchSnoteTrailingScore.from_matchline,
                               MatchInsertionNote.from_matchline,
+                              MatchHammerBounceNote.from_matchline,
+                              MatchTrailingPlayedNote.from_matchline,
+                              MatchTrillNote.from_matchline,
+                              MatchOrnamentNote.from_matchline,
                               MatchSustainPedal.from_matchline,
                               MatchSoftPedal.from_matchline,
                               MatchInfo.from_matchline,
-                              MatchMeta.from_matchline
+                              MatchMeta.from_matchline,
                               ]
     matchline = False
     for from_matchline in from_matchline_methods:
@@ -1002,13 +1061,23 @@ def alignment_from_matchfile(mf):
     for l in mf.lines:
 
         if isinstance(l, MatchSnoteNote):
-            result.append(dict(label='match', score_id=l.snote.Anchor, performance_id=l.note.Number))
+            result.append(dict(label='match',
+                               score_id=l.snote.Anchor,
+                               performance_id=l.note.Number))
         elif isinstance(l, MatchSnoteDeletion):
-            result.append(dict(label='deletion', score_id=l.snote.Anchor))
+            result.append(dict(label='deletion',
+                               score_id=l.snote.Anchor))
         elif isinstance(l, MatchInsertionNote):
-            result.append(dict(label='insertion', performance_id=l.note.Number))
+            result.append(dict(label='insertion',
+                               performance_id=l.note.Number))
         elif isinstance(l, MatchOrnamentNote):
-            result.append(dict(label='ornament', score_id=l.Anchor, performance_id=l.note.Number))
+            result.append(dict(label='ornament',
+                               score_id=l.Anchor,
+                               performance_id=l.note.Number))
+        elif isinstance(l, MatchTrillNote):
+            result.append(dict(label='trill',
+                               score_id=l.Anchor,
+                               performance_id=l.note.Number))
 
     return result
 
