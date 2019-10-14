@@ -46,8 +46,10 @@ def prepare_notearray(notearray):
                            np.arange(len(notearray))),
                        dtype=new_dtype)
 
+
 def argmax_pitch(idx, pitches):
     return idx[np.argmax(pitches[idx])]
+
 
 def estimate_voices(notearray, monophonic_voices=False):
     """Voice estimation using the voice separation algorithm proposed 
@@ -851,14 +853,16 @@ class VoSA(VSBaseScore):
         # number of voices at each time point in the score
         n_voices = np.array([len(sn) for sn in self])
 
-        if len(n_voices) > 5:
-            if n_voices[:-3].max() < n_voices[-3:].max():
-                self.num_voices = n_voices[:-3].max()
-            else:
-                self.num_voices = np.max(n_voices)
+        self.num_voices = np.max(n_voices)
 
-        else:
-            self.num_voices = np.max(n_voices)
+        # if len(n_voices) > 5:
+        #     if n_voices[:-3].max() < n_voices[-3:].max():
+        #         self.num_voices = n_voices[:-3].max()
+        #     else:
+        #         self.num_voices = np.max(n_voices)
+
+        # else:
+        #     self.num_voices = np.max(n_voices)
 
         # change in number of voices
         # it includes the beginning (there were no notes before the begining)

@@ -1088,7 +1088,7 @@ def alignment_from_matchfile(mf):
 def sort_snotes(snotes):
     sidx = np.lexsort(list(zip(*[(float(n.Offset), float(n.Beat), float(n.Bar))
                                  for n in snotes])))
-    return [snotes[i] for i in sidx]
+    return [snotes[i] for i in sidx if snotes[i].NoteName.lower() != 'r']
 
 
 def part_from_matchfile(mf):
