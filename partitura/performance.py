@@ -1,16 +1,35 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+This module contains a lightweight ontology to represent a performance 
+in a MIDI-like format. A performance is defined at the highest level by
+a `PerformedPart`. This object contains performed notes and other attributes
+such as pedal.
+"""
+import logging
+
 import numpy as np
 
+LOGGER = logging.getLogger(__name__)
+
+
 class PerformedPart(object):
-    """Represents a performed part, e.g.. all notes and related controller/modifiers of one single instrument
+    """
+    Represents a performed part, e.g.. all notes and related
+    controller/modifiers of one single instrument
 
     Parameters
     ----------
+    notes : list
+        A list of dictionaries containing performed note information
     id : str
         The identifier of the part
-    part_name : 
+    part_name : Name for the part
     """
 
-    def __init__(self, notes, id=None, part_name=None, pedal=None, pedal_threshold=64):
+    def __init__(self, notes, id=None, part_name=None,
+                 pedal=None, pedal_threshold=64):
         super().__init__()
         self.id = id
         self.part_name = part_name
@@ -47,13 +66,13 @@ def adjust_offsets_w_sustain(notes, sustain_pedals, threshold=64):
         pedal = pedal[np.argsort(pedal[:, 0]), :]
 
         # reduce the pedal info to just the times where there is a change in pedal state
-        
-        pedal = np.vstack(((min(pedal[0, 0] - 1, first_off - 1), 0),  
+
+        pedal = np.vstack(((min(pedal[0, 0] - 1, first_off - 1), 0),
                            pedal[0, :],
                            # if there is an onset before the first pedal info, assume pedal is off
                            pedal[np.where(np.diff(pedal[:, 1]) != 0)[0] + 1, :],
                            # if there is an offset after the last pedal info, assume pedal is off
-                           (max(pedal[-1, 0] + 1, last_off + 1), 0)  
+                           (max(pedal[-1, 0] + 1, last_off + 1), 0)
                            ))
         last_pedal_change_before_off = np.searchsorted(pedal[:, 0], offs) - 1
 
