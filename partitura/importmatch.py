@@ -41,15 +41,6 @@ PITCH_CLASSES = [('C', 0), ('C', 1), ('D', 0), ('D', 1), ('E', 0), ('F', 0),
 
 PC_DICT = dict(zip(range(12), PITCH_CLASSES))
 
-NOTE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
-
-# Ignore enharmonic keys above A# Maj (no E# Maj!)
-KEY_SIGNATURES = {0: ('C', 'A'), 1: ('G', 'E'), 2: ('D', 'B'), 3: ('A', 'F#'),
-                  4: ('E', 'C#'), 5: ('B', 'G#'), 6: ('F#', 'D#'), 7: ('C#', 'A#'),
-                  8: ('G#', 'E#'), 9: ('D#', 'B#'), 10: ('A#', 'F##'),
-                  -1: ('F', 'D'), -2: ('Bb', 'G'), -3: ('Eb', 'C'), -4: ('Ab', 'F'),
-                  -5: ('Db', 'Bb'), -6: ('Gb', 'Eb'), -7: ('Cb', 'Ab')}
-
 
 class MatchError(Exception):
     pass
@@ -128,7 +119,7 @@ class FractionalSymbolicDuration(object):
         return self.__add__(sd)
 
     def __float__(self):
-        return self.numerator/(self.denominator*(self.tuple_div or 1))
+        return self.numerator / (self.denominator * (self.tuple_div or 1))
 
 
 def interpret_field(data):
@@ -974,6 +965,7 @@ class MatchFile(object):
 
         return ml
 
+
 def load_match(fn, pedal_threshold=64):
     """
     Load a matchfile
@@ -1021,7 +1013,7 @@ def alignment_from_matchfile(mf):
             result.append(dict(label='insertion', performance_id=l.note.Number))
         elif isinstance(l, MatchOrnamentNote):
             result.append(dict(label='ornament', score_id=l.Anchor, performance_id=l.note.Number))
-            
+
     return result
 
 
@@ -1031,7 +1023,8 @@ def sort_snotes(snotes):
     sidx = np.lexsort(list(zip(*[(float(n.Offset), float(n.Beat), float(n.Bar))
                                  for n in snotes])))
     return [snotes[i] for i in sidx]
-    
+
+
 def part_from_matchfile(mf):
     part = score.Part('P1', mf.info('piece'))
     # snotes = sorted(mf.snotes, key=attrgetter('OnsetInBeats'))
@@ -1194,7 +1187,7 @@ def make_timesig_maps(ts_orig, max_time):
     start_q = x[0] * 4 / y[0, 1]
     x_q = np.cumsum(np.r_[start_q, 4 * np.diff(x) / y[:-1, 1]])
     end_q = x_q[-1]
-    
+
     beats_map = interp1d(x_q, y[:, 0], kind='previous')
     beat_type_map = interp1d(x_q, y[:, 1], kind='previous')
 
@@ -1256,16 +1249,16 @@ def performed_part_from_match(mf, pedal_threshold=64):
 
         notes.append(dict(id=note.Number,
                           midi_pitch=note.MidiPitch,
-                          note_on=note.Onset*mpq/(10**6*ppq),
-                          note_off=note.Offset*mpq/(10**6*ppq),
-                          sound_off=sound_off*mpq/(10**6*ppq),
+                          note_on=note.Onset * mpq / (10**6 * ppq),
+                          note_off=note.Offset * mpq / (10**6 * ppq),
+                          sound_off=sound_off * mpq / (10**6 * ppq),
                           velocity=note.Velocity
                           ))
 
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = []
     for ped in mf.sustain_pedal:
-        sustain_pedal.append(dict(time=ped.Time*mpq/(10**6*ppq),
+        sustain_pedal.append(dict(time=ped.Time * mpq / (10**6 * ppq),
                                   value=ped.Value))
 
     # Make performed part
