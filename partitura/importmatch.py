@@ -1071,13 +1071,14 @@ def alignment_from_matchfile(mf):
             result.append(dict(label='insertion',
                                performance_id=l.note.Number))
         elif isinstance(l, MatchOrnamentNote):
+            if isinstance(l, MatchTrillNote):
+                ornament_type = 'trill'
+            else:
+                ornament_type = 'generic_ornament'
             result.append(dict(label='ornament',
                                score_id=l.Anchor,
-                               performance_id=l.note.Number))
-        elif isinstance(l, MatchTrillNote):
-            result.append(dict(label='trill',
-                               score_id=l.Anchor,
-                               performance_id=l.note.Number))
+                               performance_id=l.note.Number,
+                               type=ornament_type))
 
     return result
 
