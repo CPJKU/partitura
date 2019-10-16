@@ -92,6 +92,14 @@ def estimate_voices(notearray, monophonic_voices=False):
 
     input_array = prepare_notearray(notearray)
 
+    # Remove grace notes
+    # grace_note_idxs = np.where(input_array['duration'] == 0)[0]
+
+    # grace_by_key = defaultdict(list)
+
+    # for (pitch, onset, dur, i) in input_array[grace_note_idxs]:
+    #     grace_by_key[i].append(
+
     if monophonic_voices:
 
         # identity mapping
@@ -769,30 +777,29 @@ class VoSA(VSBaseScore):
         # Score
         self.score = score
 
-        # # mg: if this class is not public, but only used by estimate_voices,
-        # # we can get rid of the checks of id.
-
-        # # Get the IDs of the notes
-        # if 'id' not in self.score.dtype.names:
-        #     self.score = add_field(self.score, [('id', int)])
-        #     self.score['id'] = np.arange(len(self.score), dtype=int)
-
         if delete_gracenotes:
             # TODO: Handle grace notes correctly
             self.score = self.score[score['duration'] != 0]
         else:
             grace_note_idxs = np.where(score['duration'] == 0)[0]
-
+            unique_onsets = np.unique(self.score['onset'])
+            unique_onset_idxs = [np.where(self.score['onset'] == u)[0]
+                                 for u in unique_onsets]
             main_notes_idxs = []
             grace_notes = []
             for g_i in grace_note_idxs:
                 grace_note = self.score[g_i]
-                same_onset_idxs = np.where(self.score['onset'] == grace_note['onset'])[0]
-                same_onset_idxs = same_onset_idxs[same_onset_idxs != g_i]
-                candidate_notes = self.score[same_onset_idxs]
+                candidate_note_idxs = np.where(self.score['onset'] == grace_note['onset'])[0]
+                candidate_note_idxs = candidate_note_idxs[candidate_note_idxs != g_i]
 
-                main_notes_idxs.append(same_onset_idxs[
-                    np.argmin(abs(candidate_notes['pitch'] - grace_note['pitch']))])
+                if len(candidate_note_idxs) == 0:
+                    next_onset_idx = int(np.where(unique_onsets == grace_note['onset'])[0] + 1)
+                    candidate_note_idxs = unique_onset_idxs[next_onset_idx]
+
+                candidate_notes = self.score[candidate_note_idxs]
+                main_notes_idxs.append(candidate_note_idxs[
+                    np.argmin(abs(candidate_notes['pitch'] -
+                                  grace_note['pitch']))])
 
         self.notes = []
 
@@ -801,8 +808,7 @@ class VoSA(VSBaseScore):
             note = VSNote(pitch=n['pitch'],
                           onset=n['onset'],
                           duration=n['duration'],
-                          note_id=n['id'],
-                          velocity=n['velocity'] if 'velocity' in self.score.dtype.names else None)
+                          note_id=n['id'])
 
             self.notes.append(note)
 

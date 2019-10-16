@@ -90,20 +90,20 @@ class FractionalSymbolicDuration(object):
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])
 
-        if (self.add_components is None and
-                sd.add_components is None):
+        if (self.add_components is None
+                and sd.add_components is None):
             add_components = [
                 (self.numerator, self.denominator, self.tuple_div),
                 (sd.numerator, sd.denominator, sd.tuple_div)]
 
-        elif (self.add_components is not None
-              and sd.add_components is None):
-            add_components = (self.add_components
-                              + [(sd.numerator, sd.denominator, sd.tuple_div)])
-        elif (self.add_components is None
-              and sd.add_components is not None):
-            add_components = ([(self.numerator, self.denominator, self.tuple_div)]
-                              + sd.add_components)
+        elif (self.add_components is not None and
+              sd.add_components is None):
+            add_components = (self.add_components +
+                              [(sd.numerator, sd.denominator, sd.tuple_div)])
+        elif (self.add_components is None and
+              sd.add_components is not None):
+            add_components = ([(self.numerator, self.denominator, self.tuple_div)] +
+                              sd.add_components)
         else:
             add_components = self.add_components + sd.add_components
 
@@ -279,10 +279,10 @@ class MatchSnote(MatchLine):
     Class representing a score note
     """
 
-    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},' +
-                   '{Bar}:{Beat},{Offset},{Duration},' +
-               '{OnsetInBeats},{OffsetInBeats},' +
-                   '[{ScoreAttributesList}])')
+    out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
+                   + '{Bar}:{Beat},{Offset},{Duration},'
+               + '{OnsetInBeats},{OffsetInBeats},'
+                   + '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
     re_obj = re.compile(pattern)
@@ -377,8 +377,8 @@ class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    out_pattern = ('note({Number},[{NoteName},{Modifier}],'
-                   + '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
+    out_pattern = ('note({Number},[{NoteName},{Modifier}],' +
+                   '{Octave},{Onset},{Offset},{AdjOffset},{Velocity})')
 
     field_names = ['Number', 'NoteName', 'Modifier', 'Octave',
                    'Onset', 'Offset', 'AdjOffset', 'Velocity']
@@ -938,9 +938,9 @@ class MatchFile(object):
 
     def _time_sig_lines(self):
         return [i for i in self.lines if
-                isinstance(i, MatchMeta) and
-                hasattr(i, 'Attribute') and
-                i.Attribute == 'timeSignature']
+                isinstance(i, MatchMeta)
+                and hasattr(i, 'Attribute')
+                and i.Attribute == 'timeSignature']
 
     @property
     def time_sig_lines(self):
@@ -1012,11 +1012,11 @@ class MatchFile(object):
     def key_sig_lines(self):
 
         ks_info = [l for l in self.info() if l.Attribute == 'keySignature']
-        ml = (ks_info
-              + [i for i in self.lines if
-                 isinstance(i, MatchMeta)
-               and hasattr(i, 'Attribute')
-               and i.Attribute == 'keySignature'])
+        ml = (ks_info +
+              [i for i in self.lines if
+                 isinstance(i, MatchMeta) and
+               hasattr(i, 'Attribute') and
+               i.Attribute == 'keySignature'])
 
         return ml
 
@@ -1128,8 +1128,8 @@ def part_from_matchfile(mf):
         # offset within bar in quarter units
         bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
         # offset within beat in quarter units
-        beat_offset = (4 * note.Offset.numerator
-                       / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
+        beat_offset = (4 * note.Offset.numerator /
+                       (note.Offset.denominator * (note.Offset.tuple_div or 1)))
         # note onset in divs
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
 
@@ -1188,8 +1188,8 @@ def part_from_matchfile(mf):
 
             # notes with duration 0, are also treated as grace notes, even if
             # they do not have a 'grace' score attribute
-            if ('grace' in note.ScoreAttributesList
-                    or note.Duration.numerator == 0):
+            if ('grace' in note.ScoreAttributesList or
+                    note.Duration.numerator == 0):
 
                 part_note = score.GraceNote('appoggiatura', **note_attributes)
 
@@ -1275,6 +1275,7 @@ def add_voices(part):
     for staff, notes in by_staff.items():
 
         voices = estimate_voices(notes_to_notearray(notes))
+
         assert len(voices) == len(notes)
         for n, voice in zip(notes, voices):
             assert voice > 0
@@ -1286,6 +1287,17 @@ def add_voices(part):
                 n_next.voice = voice + max_voice
 
         max_voice = np.max(voices)
+
+    if any([n.voice is None for n in part.notes]):
+        # Hack to add voices to notes not included in a staff!
+        # not musically meaningful
+        ev = 1
+        for n in part.notes:
+            if n.voice is None:
+                n.voice = max_voice + ev
+                ev += 1
+        # import pdb
+        # pdb.set_trace()
 
 
 # PERFORMANCE PART FROM MATCHFILE stuff
