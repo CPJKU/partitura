@@ -6,7 +6,7 @@ This module contains methods for parsing matchfiles
 import re
 from fractions import Fraction
 from collections import defaultdict
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 import logging
 import warnings
 
@@ -40,7 +40,8 @@ PITCH_CLASSES = [('C', 0), ('C', 1), ('D', 0), ('D', 1), ('E', 0), ('F', 0),
                  ('F', 1), ('G', 0), ('G', 1), ('A', 0), ('A', 1), ('B', 0)]
 
 PC_DICT = dict(zip(range(12), PITCH_CLASSES))
-
+CLEF_ORDER = ['G', 'F', 'C', 'percussion', 'TAB', 'jianpu', None]
+NUMBER_PAT = re.compile('\d+')
 
 class MatchError(Exception):
     pass
@@ -1055,19 +1056,35 @@ def part_from_matchfile(mf):
     for note in snotes:
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
+
         # offset within bar in quarter units
         bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
         # offset within beat in quarter units
         beat_offset = (4 * note.Offset.numerator
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
+
+        # # anacrusis
+        if bar_start < 0:
+            # in case of anacrusis we set the bar_start to -bar_duration (in
+            # quarters) so that the below calculation is correct
+            bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
+            
         # note onset in divs
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
+        print(note.Anchor, onset_divs, bar_start, bar_offset, beat_offset, offset)
 
+        articulations = set()
+        if 'staccato' in note.ScoreAttributesList:
+            articulations.add('staccato')
+        if 'accent' in note.ScoreAttributesList:
+            articulations.add('accent')
+        
         # dictionary with keyword args with which the Note (or GraceNote) will be instantiated
         note_attributes = dict(step=note.NoteName,
                                octave=note.Octave,
                                alter=note.Modifier,
-                               id=note.Anchor)
+                               id=note.Anchor,
+                               articulations=articulations)
 
         staff_nr = next((a[-1] for a in note.ScoreAttributesList if a.startswith('staff')), None)
         try:
@@ -1076,9 +1093,13 @@ def part_from_matchfile(mf):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes['staff'] = None
 
+        note_attributes['voice'] = next((int(a) for a in note.ScoreAttributesList
+                                         if NUMBER_PAT.match(a)), None)
+
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
         # and compound durations separately.
+
         if note.Duration.add_components:
             prev_part_note = None
 
@@ -1153,20 +1174,24 @@ def part_from_matchfile(mf):
         fifths, mode = key_name_to_fifths_mode(key_name)
         part.add(score.KeySignature(fifths, mode), 0)
 
-    add_clefs(part)
-
+    add_staffs(part)
+    # add_clefs(part)
+    
     # add incomplete measure if necessary
-    if offset < 0:
 
+    if offset < 0:
+        
         part.add(score.Measure(number=1), 0, int(-offset * divs))
 
     # add the rest of the measures automatically
     score.add_measures(part)
-
+    # print(part.pretty())
     score.tie_notes(part)
     score.find_tuplets(part)
 
-    add_voices(part)
+    if not all([n.voice for n in part.notes_tied]):
+        print('notes without voice detected')
+        add_voices(part)
 
     return part
 
@@ -1193,6 +1218,80 @@ def make_timesig_maps(ts_orig, max_time):
     return beats_map, beat_type_map, start_q, end_q
 
 
+def add_staffs(part, split=55, only_missing=True):
+    # assign staffs using a hard limit
+    notes = part.notes_tied
+    for n in notes:
+
+        if only_missing and n.staff:
+            continue
+
+        if n.midi_pitch > split:
+            staff = 1
+        else:
+            staff = 2
+
+        n.staff =staff
+
+        n_tied = n.tie_next
+        while n_tied:
+            n_tied.staff = staff
+            n_tied = n_tied.tie_next
+
+    part.add(score.Clef(number=1, sign='G', line=2, octave_change=0), 0)
+    part.add(score.Clef(number=2, sign='F', line=4, octave_change=0), 0)
+
+
+def add_staffs_v1(part):
+    # assign staffs by first estimating voices jointly, then assigning voices to staffs
+    
+    notes = part.notes_tied
+    # estimate voices in strictly monophonic way
+    voices = estimate_voices(notes_to_notearray(notes), monophonic_voices=True)
+    for v, note in zip(voices, notes):
+        print(note.start.t, note.midi_pitch, v)
+    # group notes by voice
+    by_voice = partition(itemgetter(0), zip(voices, notes))
+    clefs = {}
+
+    for v, vnotes in by_voice.items():
+        # voice numbers may be recycled throughout the piece, so we split by
+        # time gap
+        t_diffs = np.diff([n.start.t for _, n in vnotes])
+        t_threshold = np.inf # np.median(t_diffs)+1
+        note_groups = np.split([note for _, note in vnotes],
+                               np.where(t_diffs > t_threshold)[0]+1)
+
+        # for each note group estimate the clef
+        for note_group in note_groups:
+            if len(note_group) > 0:
+                pitches = [n.midi_pitch for n in note_group]
+                clef = tuple(estimate_clef_properties(pitches).items())
+                staff = clefs.setdefault(clef, len(clefs))
+                
+                print((note_group[0].start.t, note_group[-1].end.t),
+                      (np.min(pitches), np.max(pitches), np.mean(pitches)), clef)
+                for n in note_group:
+                    n.staff = staff
+                    n_tied = n.tie_next
+                    while n_tied:
+                        n_tied.staff = staff
+                        n_tied = n_tied.tie_next
+
+
+    # re-order the staffs to a fixed order (see CLEF_ORDER), rather than by
+    # first appearance
+    clef_list = list((dict(clef), i) for clef, i in clefs.items())
+    clef_list.sort(key=lambda x: x[0].get('octave_change', 0))
+    clef_list.sort(key=lambda x: CLEF_ORDER.index(x[0].get('sign', 'G')))
+    staff_map = dict((j, i+1) for i, (_, j) in enumerate(clef_list))
+    for n in notes:
+        n.staff = staff_map[n.staff]
+    for i, (clef_properties, _) in enumerate(clef_list):
+        part.add(score.Clef(number=i+1, **clef_properties), 0)
+    # partition(attrgetter('staff'), part.notes_tied)
+    #**estimate_clef_properties([n.midi_pitch for n in notes])
+    
 def add_clefs(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
     for staff, notes in by_staff.items():
