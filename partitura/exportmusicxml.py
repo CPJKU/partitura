@@ -16,6 +16,9 @@ LOGGER = logging.getLogger(__name__)
 
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
+ARTICULATIONS = ['accent', 'breath-mark', 'caesura', 'detached-legato', 'doit',
+                 'falloff', 'plop', 'scoop', 'spiccato', 'staccatissimo',
+                 'staccato', 'stress', 'strong-accent', 'tenuto', 'unstress']
 
 def filter_string(s):
     """
@@ -101,6 +104,16 @@ def make_note_el(note, dur, voice, counter):
 
         notations.append(etree.Element('fermata'))
     
+    if note.articulations:
+        articulations = []
+        for articulation in note.articulations:
+            if articulation in ARTICULATIONS: 
+                articulations.append(etree.Element(articulation))
+        if articulations:
+            articulations_e = etree.Element('articulations')
+            articulations_e.extend(articulations)
+            notations.append(articulations_e)
+            
     sym_dur = note.symbolic_duration or {}
     
     if sym_dur.get('type') is not None:
@@ -381,7 +394,6 @@ def linearize_segment_contents(part, start, end, counter):
     remove_voice_polyphony(notes_by_voice)
 
     # fill_gaps_with_rests(notes_by_voice, start, end, part)
-
     # # redo
     # notes = part.iter_all(score.GenericNote,
     #                               start=start, end=end,
@@ -394,7 +406,7 @@ def linearize_segment_contents(part, start, end, counter):
 
         voice_notes = notes_by_voice[voice]
         # grace notes should precede other notes at the same onset
-        voice_notes.sort(key=lambda n: n.midi_pitch)
+        voice_notes.sort(key=lambda n: n.midi_pitch if hasattr(n, 'midi_pitch') else -1, reverse=True)
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
         # voice_notes.sort(key=lambda n: -n.duration)
         voice_notes.sort(key=lambda n: n.start.t)
