@@ -1177,7 +1177,7 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations={}):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -1296,7 +1296,7 @@ class GenericNote(TimedObject):
         s = ('{} id={} voice={} staff={} type={}'
              .format(type(self).__name__, self.id, self.voice, self.staff,
                      format_symbolic_duration(self.symbolic_duration)))
-        if len(self.articulations) > 0:
+        if self.articulations:
             s += ' articulations=({})'.format(", ".join(self.articulations))
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
