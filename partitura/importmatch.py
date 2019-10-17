@@ -1261,7 +1261,7 @@ def part_from_matchfile(mf):
     score.find_tuplets(part)
 
     if not all([n.voice for n in part.notes_tied]):
-        print('notes without voice detected')
+        # print('notes without voice detected')
         add_voices(part)
 
     return part
@@ -1319,8 +1319,9 @@ def add_staffs_v1(part):
     notes = part.notes_tied
     # estimate voices in strictly monophonic way
     voices = estimate_voices(notes_to_notearray(notes), monophonic_voices=True)
-    for v, note in zip(voices, notes):
-        print(note.start.t, note.midi_pitch, v)
+    # for v, note in zip(voices, notes):
+    #     print(note.start.t, note.midi_pitch, v)
+
     # group notes by voice
     by_voice = partition(itemgetter(0), zip(voices, notes))
     clefs = {}
@@ -1340,8 +1341,8 @@ def add_staffs_v1(part):
                 clef = tuple(estimate_clef_properties(pitches).items())
                 staff = clefs.setdefault(clef, len(clefs))
 
-                print((note_group[0].start.t, note_group[-1].end.t),
-                      (np.min(pitches), np.max(pitches), np.mean(pitches)), clef)
+                # print((note_group[0].start.t, note_group[-1].end.t),
+                #       (np.min(pitches), np.max(pitches), np.mean(pitches)), clef)
                 for n in note_group:
                     n.staff = staff
                     n_tied = n.tie_next
