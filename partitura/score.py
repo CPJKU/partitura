@@ -679,10 +679,26 @@ class TimePoint(ComparableMixin):
             for subcls in iter_subclasses(otype):
                 yield from self.ending_objects[subcls]
 
-    def get_prev_of_type(self, otype, eq=False):
-        """Return the object(s) of type `otype` that start at the latest time
-        before this time point (or at this time point, if `eq` is True)
+    def iter_prev(self, cls, eq=False, include_subclasses=False):
+        """Iterate backwards in time from the current timepoint over
+        starting object(s) of type `cls`.
 
+        Parameters
+        ----------
+        cls : class
+            Class of objects to iterate over
+        eq : bool, optional
+            If True start iterating at the current timepoint, rather
+            than its predecessor. Defaults to False.
+        include_subclasses : bool, optional
+            If True include subclasses of `cls` in the iteration.
+            Defaults to False.
+
+        Yields
+        ------
+        cls
+            Instances of `cls`
+        
         """
         if eq:
             tp = self
@@ -690,13 +706,29 @@ class TimePoint(ComparableMixin):
             tp = self.prev
 
         while tp:
-            yield from tp.iter_starting(otype)
+            yield from tp.iter_starting(cls, include_subclasses)
             tp = tp.prev
 
-    def get_next_of_type(self, otype, eq=False):
-        """Return the object(s) of type `otype` that start at the earliest
-        time after this time point (or at this time point, if `eq` is True)
+    def iter_next(self, cls, eq=False, include_subclasses=False):
+        """Iterate forwards in time from the current timepoint over
+        starting object(s) of type `cls`.
 
+        Parameters
+        ----------
+        cls : class
+            Class of objects to iterate over
+        eq : bool, optional
+            If True start iterating at the current timepoint, rather
+            than its successor. Defaults to False.
+        include_subclasses : bool, optional
+            If True include subclasses of `cls` in the iteration.
+            Defaults to False.
+
+        Yields
+        ------
+        cls
+            Instances of `cls`
+        
         """
         if eq:
             tp = self
@@ -704,8 +736,26 @@ class TimePoint(ComparableMixin):
             tp = self.next
 
         while tp:
-            yield from tp.iter_starting(otype)
+            yield from tp.iter_starting(cls, include_subclasses)
             tp = tp.next
+
+    # OBSOLETE
+    # TODO: substite iter_prev for all calls to get_prev_of_type
+    def get_prev_of_type(self, otype, eq=False):
+        """Return the object(s) of type `otype` that start at the latest time
+        before this time point (or at this time point, if `eq` is True)
+
+        """
+        yield from self.iter_prev(otype, eq=eq)
+    
+    # OBSOLETE
+    # TODO: substite iter_next for all calls to get_next_of_type
+    def get_next_of_type(self, otype, eq=False):
+        """Return the object(s) of type `otype` that start at the earliest
+        time after this time point (or at this time point, if `eq` is True)
+
+        """
+        yield from self.iter_next(otype, eq)
 
     def _cmpkey(self):
         """This method returns the value to be compared (code for that is in
@@ -1130,10 +1180,21 @@ class TempoDirection(Direction):
     pass
 
 
+# class DynamicTempoDirection(TempoDirection):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         # self.intermediate = []
+
 class DynamicTempoDirection(TempoDirection):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # self.intermediate = []
+    pass
+
+
+class IncreasingTempoDirection(DynamicTempoDirection):
+    pass
+
+
+class DecreasingTempoDirection(DynamicTempoDirection):
+    pass
 
 
 class ConstantTempoDirection(TempoDirection):
@@ -1145,18 +1206,31 @@ class ConstantArticulationDirection(TempoDirection):
 
 
 class ResetTempoDirection(ConstantTempoDirection):
-    pass
+    @property
+    def reference_tempo(self):
+        direction = None
+        for d in self.start.iter_prev(ConstantTempoDirection):
+            direction = d
+        return d
 
 
 class LoudnessDirection(Direction):
     pass
 
 
-class DynamicLoudnessDirection(LoudnessDirection):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # self.intermediate = []
+# class DynamicLoudnessDirection(LoudnessDirection):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         # self.intermediate = []
 
+class DynamicLoudnessDirection(LoudnessDirection):
+    pass
+
+class IncreasingLoudnessDirection(DynamicLoudnessDirection):
+    pass
+
+class DecreasingLoudnessDirection(DynamicLoudnessDirection):
+    pass
 
 class ConstantLoudnessDirection(LoudnessDirection):
     pass
@@ -2151,12 +2225,33 @@ def set_end_times(parts):
         
 
 def _set_end_times(part, cls):
-    for obj, next_obj in iter_current_next(part.iter_all(cls), end=None):
-        if obj.end is None:
-            if next_obj is None:
-                obj.end = part.last_point
-            else:
-                obj.end = next_obj.start
+    acc = []
+    t = None
+
+    for obj in part.iter_all(cls, include_subclasses=True):
+        if obj.start == t:
+
+            if obj.end is None:
+
+                acc.append(obj)
+
+        else:
+
+            for o in acc:
+
+                o.end = obj.start
+
+            acc = []
+
+            if obj.end is None:
+
+                acc.append(obj)
+
+            t = obj.start
+
+    for o in acc:
+
+        o.end = part.last_point
 
 
 def split_note(part, note, splits):

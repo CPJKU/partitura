@@ -25,8 +25,8 @@ class TestDirectionParser(unittest.TestCase):
     cases = [
         ('Andante', [score.ConstantTempoDirection]),
         ('ligato', [score.ConstantArticulationDirection]),
-        ('sempre cresc', [score.DynamicLoudnessDirection]),
-        ('poco a poco rallentando', [score.DynamicTempoDirection]),
+        ('sempre cresc', [score.IncreasingLoudnessDirection]),
+        ('poco a poco rallentando', [score.DecreasingTempoDirection]),
         ]
         
     def test_parser(self):
