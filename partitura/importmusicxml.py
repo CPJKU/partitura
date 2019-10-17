@@ -235,6 +235,9 @@ def _parse_parts(document, part_dict):
             position = _handle_measure(
                 measure_el, position, part, ongoing)
 
+        # set end times for various musical elements that only have a start time
+        # when constructed from MusicXML
+        score.set_end_times(part)
 
 def _handle_measure(measure_el, position, part, ongoing):
     """
