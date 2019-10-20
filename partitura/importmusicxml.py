@@ -838,6 +838,9 @@ def _handle_note(e, position, part, ongoing, prev_note):
                                    symbolic_duration=symbolic_duration,
                                    articulations=articulations,
                                    steal_proportion=steal_proportion)
+            if (isinstance(prev_note, score.GraceNote)
+                and prev_note.voice == voice):
+                note.grace_prev = prev_note
         else:
 
             note = score.Note(step, octave, alter, note_id,
@@ -845,6 +848,9 @@ def _handle_note(e, position, part, ongoing, prev_note):
                               symbolic_duration=symbolic_duration,
                               articulations=articulations)
 
+        if (isinstance(prev_note, score.GraceNote)
+            and prev_note.voice == voice):
+            prev_note.grace_next = note
     else:
         # note element is a rest
         note = score.Rest(note_id, voice=voice, staff=staff,
