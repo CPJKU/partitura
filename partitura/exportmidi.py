@@ -135,11 +135,12 @@ def save_midi(parts, out, part_voice_assign_mode=0, velocity=64):
 
         notes = part.notes_tied
         qm = part.quarter_map
+        q_offset = qm(part.first_point.t)
 
         for note in notes:
 
-            on = int(qm(note.start.t) * ppq)
-            off = int(qm(note.end_tied.t) * ppq)
+            on = int((qm(note.start.t) - q_offset) * ppq)
+            off = int((qm(note.end_tied.t) - q_offset) * ppq)
 
             onoffs.append(['note_on', on, note.midi_pitch])
             onoffs.append(['note_off', off, note.midi_pitch])
