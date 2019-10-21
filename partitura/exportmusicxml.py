@@ -16,6 +16,9 @@ LOGGER = logging.getLogger(__name__)
 
 DOCTYPE = '''<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">'''
 MEASURE_SEP_COMMENT = '======================================================='
+ARTICULATIONS = ['accent', 'breath-mark', 'caesura', 'detached-legato', 'doit',
+                 'falloff', 'plop', 'scoop', 'spiccato', 'staccatissimo',
+                 'staccato', 'stress', 'strong-accent', 'tenuto', 'unstress']
 
 def filter_string(s):
     """
@@ -101,6 +104,16 @@ def make_note_el(note, dur, voice, counter):
 
         notations.append(etree.Element('fermata'))
     
+    if note.articulations:
+        articulations = []
+        for articulation in note.articulations:
+            if articulation in ARTICULATIONS: 
+                articulations.append(etree.Element(articulation))
+        if articulations:
+            articulations_e = etree.Element('articulations')
+            articulations_e.extend(articulations)
+            notations.append(articulations_e)
+            
     sym_dur = note.symbolic_duration or {}
     
     if sym_dur.get('type') is not None:
@@ -341,21 +354,21 @@ def remove_voice_polyphony(notes_by_voice):
         notes_by_voice[v] = vnotes
         
 
-def fill_gaps_with_rests(notes_by_voice, start, end, part):
-    for voice, notes in notes_by_voice.items():
-        if len(notes) == 0:
-            rest = score.Rest(voice=voice or None)
-            part.add(rest, start.t, end.t)
-        else:
-            t = start.t
-            for note in notes:
-                if note.start.t > t:
-                    rest = score.Rest(voice=voice or None)
-                    part.add(rest, t, note.start.t)
-                t = note.end.t
-            if note.end.t < end.t:
-                rest = score.Rest(voice=voice or None)
-                part.add(rest, note.end.t, end.t)
+# def fill_gaps_with_rests(notes_by_voice, start, end, part):
+#     for voice, notes in notes_by_voice.items():
+#         if len(notes) == 0:
+#             rest = score.Rest(voice=voice or None)
+#             part.add(rest, start.t, end.t)
+#         else:
+#             t = start.t
+#             for note in notes:
+#                 if note.start.t > t:
+#                     rest = score.Rest(voice=voice or None)
+#                     part.add(rest, t, note.start.t)
+#                 t = note.end.t
+#             if note.end.t < end.t:
+#                 rest = score.Rest(voice=voice or None)
+#                 part.add(rest, note.end.t, end.t)
                 
 
 def linearize_segment_contents(part, start, end, counter):
@@ -381,7 +394,6 @@ def linearize_segment_contents(part, start, end, counter):
     remove_voice_polyphony(notes_by_voice)
 
     # fill_gaps_with_rests(notes_by_voice, start, end, part)
-
     # # redo
     # notes = part.iter_all(score.GenericNote,
     #                               start=start, end=end,
@@ -394,6 +406,7 @@ def linearize_segment_contents(part, start, end, counter):
 
         voice_notes = notes_by_voice[voice]
         # grace notes should precede other notes at the same onset
+        voice_notes.sort(key=lambda n: n.midi_pitch if hasattr(n, 'midi_pitch') else -1, reverse=True)
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
         # voice_notes.sort(key=lambda n: -n.duration)
         voice_notes.sort(key=lambda n: n.start.t)
@@ -729,9 +742,19 @@ def do_attributes(part, start, end):
         by_start[o.start.t].append(o)
     for o in part.iter_all(score.TimeSignature, start, end):
         by_start[o.start.t].append(o)
+
+    # sort clefs by number before adding them to by_start
+    clefs_by_start = defaultdict(list)
+
     for o in part.iter_all(score.Clef, start, end):
-        by_start[o.start.t].append(o)
-                  
+
+        clefs_by_start[o.start.t].append(o)
+
+    for t, clefs in clefs_by_start.items():
+
+        clefs.sort(key=lambda clef: getattr(clef, 'number', 0))
+        by_start[t].extend(clefs)
+        
     result = []
 
     for t in sorted(by_start.keys()):

@@ -94,12 +94,11 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     """
     iterable = iter(iterable)
     
+    cur = start
     try:
 
-        if start is _sentinel:
+        if cur is _sentinel:
             cur = next(iterable)
-        else:
-            cur = start
             
         while True:
 
@@ -109,7 +108,7 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
 
     except StopIteration:
 
-        if end is not _sentinel:
+        if cur is not _sentinel and end is not _sentinel:
             yield (cur, end)
 
 

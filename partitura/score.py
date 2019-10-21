@@ -1177,7 +1177,7 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations={}):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -1296,7 +1296,7 @@ class GenericNote(TimedObject):
         s = ('{} id={} voice={} staff={} type={}'
              .format(type(self).__name__, self.id, self.voice, self.staff,
                      format_symbolic_duration(self.symbolic_duration)))
-        if len(self.articulations) > 0:
+        if self.articulations:
             s += ' articulations=({})'.format(", ".join(self.articulations))
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
@@ -2130,6 +2130,33 @@ def tie_notes(part):
             else:
                 failed += 1
     # print(failed, succeeded, failed/succeeded)
+
+
+def set_end_times(parts):
+    """
+    Set missing end times of musical elements in a part to equal the start times
+    of the subsequent element of the same class. This is useful for some classes
+    
+    Parameters
+    ----------
+    part: Part or PartGroup, or list of these
+        Parts to be processed
+    """
+    for part in iter_parts(parts):
+        # page, system, loudnessdirection, tempodirection
+        _set_end_times(part, Page)
+        _set_end_times(part, System)
+        _set_end_times(part, ConstantLoudnessDirection)
+        _set_end_times(part, ConstantTempoDirection)
+        
+
+def _set_end_times(part, cls):
+    for obj, next_obj in iter_current_next(part.iter_all(cls), end=None):
+        if obj.end is None:
+            if next_obj is None:
+                obj.end = part.last_point
+            else:
+                obj.end = next_obj.start
 
 
 def split_note(part, note, splits):

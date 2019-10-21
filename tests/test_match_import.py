@@ -45,13 +45,17 @@ class TestLoadMatch(unittest.TestCase):
         info_line = 'info(matchFileVersion,4.0).'
         meta_line = 'meta(keySignature,C Maj/A min,0,-1.0).'
         sustain_line = 'sustain(779,59).'
+        trill_line = 'trill(726-1)-note(751,[D,n],5,57357,57533,57533,60).'
+        ornament_line = 'ornament(726-1)-note(751,[D,n],5,57357,57533,57533,60).'
 
         matchlines = [snote_note_line,
                       snote_deletion_line,
                       note_insertion_line,
                       info_line,
                       meta_line,
-                      sustain_line]
+                      sustain_line,
+                      trill_line,
+                      ornament_line]
 
         for ml in matchlines:
             mo = parse_matchline(ml)
