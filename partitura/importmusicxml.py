@@ -273,8 +273,8 @@ def _handle_measure(measure_el, position, part, ongoing):
             position -= duration
 
             if position < measure.start.t:
-                LOGGER.warning('<backup> crosses measure boundary, adjusting position from {} to {}'
-                               .format(position, measure.start.t))
+                LOGGER.warning('<backup> crosses measure boundary, adjusting position from {} to {} in Measure {}'
+                               .format(position, measure.start.t, measure.number))
                 position = measure.start.t
 
             # <backup> tags trigger an update of the measure
