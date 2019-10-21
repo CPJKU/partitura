@@ -557,12 +557,6 @@ def _handle_direction(e, position, part, ongoing):
                 parse_result = parse_direction(child.text)
                 starting_directions.extend(parse_result)                
 
-                # if parse_result is not None:
-                #     if isinstance(parse_result, (list, tuple)):
-                #         starting_directions.extend(parse_result)
-                #     else:
-                #         starting_directions.append(parse_result)
-
         elif dt.tag == 'wedge':
 
             number = get_value_from_attribute(dt, 'number', int) or 1
@@ -570,8 +564,10 @@ def _handle_direction(e, position, part, ongoing):
             wedge_type = get_value_from_attribute(dt, 'type', str)
 
             if wedge_type in ('crescendo', 'diminuendo'):
-
-                o = score.DynamicLoudnessDirection(wedge_type)
+                if wedge_type == 'crescendo':
+                    o = score.IncreasingLoudnessDirection(wedge_type)
+                else:
+                    o = score.DecreasingLoudnessDirection(wedge_type)
                 starting_directions.append(o)
                 ongoing[key] = o
 
@@ -838,17 +834,28 @@ def _handle_note(e, position, part, ongoing, prev_note):
         if grace is not None:
             grace_type, steal_proportion = get_grace_info(grace)
             note = score.GraceNote(grace_type, step, octave, alter,
-                                   note_id, voice, staff, symbolic_duration,
-                                   articulations, steal_proportion=steal_proportion)
+                                   note_id, voice=voice, staff=staff,
+                                   symbolic_duration=symbolic_duration,
+                                   articulations=articulations,
+                                   steal_proportion=steal_proportion)
+            if (isinstance(prev_note, score.GraceNote)
+                and prev_note.voice == voice):
+                note.grace_prev = prev_note
         else:
 
-            note = score.Note(step, octave, alter, note_id, voice, staff,
-                              symbolic_duration, articulations)
+            note = score.Note(step, octave, alter, note_id,
+                              voice=voice, staff=staff,
+                              symbolic_duration=symbolic_duration,
+                              articulations=articulations)
 
+        if (isinstance(prev_note, score.GraceNote)
+            and prev_note.voice == voice):
+            prev_note.grace_next = note
     else:
         # note element is a rest
-        note = score.Rest(note_id, voice, staff,
-                          symbolic_duration, articulations)
+        note = score.Rest(note_id, voice=voice, staff=staff,
+                          symbolic_duration=symbolic_duration,
+                          articulations=articulations)
 
     part.add(note, position, position+duration)
 

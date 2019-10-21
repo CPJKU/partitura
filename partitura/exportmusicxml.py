@@ -377,8 +377,8 @@ def linearize_segment_contents(part, start, end, counter):
     (notes, directions, divisions, time signatures).
     """
     notes = part.iter_all(score.GenericNote,
-                                  start=start, end=end,
-                                  include_subclasses=True)
+                          start=start, end=end,
+                          include_subclasses=True)
 
     notes_by_voice = partition(lambda n: n.voice or 0, notes)
     if len(notes_by_voice) == 0:
@@ -405,16 +405,25 @@ def linearize_segment_contents(part, start, end, counter):
     for voice in sorted(notes_by_voice.keys()):
 
         voice_notes = notes_by_voice[voice]
-        # grace notes should precede other notes at the same onset
+        # sort by pitch
         voice_notes.sort(key=lambda n: n.midi_pitch if hasattr(n, 'midi_pitch') else -1, reverse=True)
+        # grace notes should precede other notes at the same onset
         voice_notes.sort(key=lambda n: not isinstance(n, score.GraceNote))
         # voice_notes.sort(key=lambda n: -n.duration)
         voice_notes.sort(key=lambda n: n.start.t)
         
         for n in voice_notes:
-            # make rest: duration, voice, type
-            note_e = do_note(n, end.t, part, voice, counter)
-            voices_e[voice].append(note_e)
+            if isinstance(n, score.GraceNote):
+                # check if it is the first in its sequence
+                if not n.grace_prev:
+                    # if so we add the whole grace sequence at once to ensure
+                    # the correct order
+                    for m in n.iter_grace_seq():
+                        note_e = do_note(m, end.t, part, voice, counter)
+                        voices_e[voice].append(note_e)
+            else:
+                note_e = do_note(n, end.t, part, voice, counter)
+                voices_e[voice].append(note_e)
             
         add_chord_tags(voices_e[voice])
 

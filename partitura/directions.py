@@ -348,11 +348,19 @@ def create_directions(tree, string, start=None, end=None):
     elif tree.data == 'constant_mixed_adj':
         return [score.Direction(" ".join(tree.children).lower(), string[start:end])]
 
-    elif tree.data in ('inc_loudness_adj', 'dec_loudness_adj'):
-        return [score.DynamicLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
+    elif tree.data == 'inc_loudness_adj':
+        return [score.IncreasingLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
 
-    elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
-        return [score.DynamicTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+    elif tree.data == 'dec_loudness_adj':
+        return [score.DecreasingLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
+
+    # elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
+    #     return [score.DynamicTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+    elif tree.data == 'inc_tempo_adj':
+        return [score.IncreasingTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+
+    elif tree.data == 'dec_tempo_adj':
+        return [score.DecreasingTempoDirection(" ".join(tree.children).lower(), string[start:end])]
 
     elif tree.data == 'genre':
         if len(tree.children) > 1:

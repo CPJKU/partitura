@@ -38,6 +38,7 @@ from partitura.utils import (
     find_tie_split,
     format_symbolic_duration,
     estimate_symbolic_duration,
+    symbolic_to_numeric_duration,
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch
 )
@@ -371,6 +372,20 @@ class Part(object):
         for tp in self.points[start_idx:end_idx]:
             tp.quarter = quarter
 
+    def multiply_quarter_durations(self, factor):
+        """Multiply all quarter durations by `factor`.
+
+        This is useful when expanding grace notes.
+                
+        Parameters
+        ----------
+        factor: int
+            Multiplication factor. Should be a positive integer
+        
+        """
+        for t, q in self.quarter_durations():
+            self.set_quarter_duration(t, factor*q)
+        
     def _add_point(self, tp):
         """
         add `TimePoint` object `tp` to the time line, unless there is already a timepoint at the same time
@@ -679,10 +694,26 @@ class TimePoint(ComparableMixin):
             for subcls in iter_subclasses(otype):
                 yield from self.ending_objects[subcls]
 
-    def get_prev_of_type(self, otype, eq=False):
-        """Return the object(s) of type `otype` that start at the latest time
-        before this time point (or at this time point, if `eq` is True)
+    def iter_prev(self, cls, eq=False, include_subclasses=False):
+        """Iterate backwards in time from the current timepoint over
+        starting object(s) of type `cls`.
 
+        Parameters
+        ----------
+        cls : class
+            Class of objects to iterate over
+        eq : bool, optional
+            If True start iterating at the current timepoint, rather
+            than its predecessor. Defaults to False.
+        include_subclasses : bool, optional
+            If True include subclasses of `cls` in the iteration.
+            Defaults to False.
+
+        Yields
+        ------
+        cls
+            Instances of `cls`
+        
         """
         if eq:
             tp = self
@@ -690,13 +721,29 @@ class TimePoint(ComparableMixin):
             tp = self.prev
 
         while tp:
-            yield from tp.iter_starting(otype)
+            yield from tp.iter_starting(cls, include_subclasses)
             tp = tp.prev
 
-    def get_next_of_type(self, otype, eq=False):
-        """Return the object(s) of type `otype` that start at the earliest
-        time after this time point (or at this time point, if `eq` is True)
+    def iter_next(self, cls, eq=False, include_subclasses=False):
+        """Iterate forwards in time from the current timepoint over
+        starting object(s) of type `cls`.
 
+        Parameters
+        ----------
+        cls : class
+            Class of objects to iterate over
+        eq : bool, optional
+            If True start iterating at the current timepoint, rather
+            than its successor. Defaults to False.
+        include_subclasses : bool, optional
+            If True include subclasses of `cls` in the iteration.
+            Defaults to False.
+
+        Yields
+        ------
+        cls
+            Instances of `cls`
+        
         """
         if eq:
             tp = self
@@ -704,8 +751,26 @@ class TimePoint(ComparableMixin):
             tp = self.next
 
         while tp:
-            yield from tp.iter_starting(otype)
+            yield from tp.iter_starting(cls, include_subclasses)
             tp = tp.next
+
+    # OBSOLETE
+    # TODO: substite iter_prev for all calls to get_prev_of_type
+    def get_prev_of_type(self, otype, eq=False):
+        """Return the object(s) of type `otype` that start at the latest time
+        before this time point (or at this time point, if `eq` is True)
+
+        """
+        yield from self.iter_prev(otype, eq=eq)
+    
+    # OBSOLETE
+    # TODO: substite iter_next for all calls to get_next_of_type
+    def get_next_of_type(self, otype, eq=False):
+        """Return the object(s) of type `otype` that start at the earliest
+        time after this time point (or at this time point, if `eq` is True)
+
+        """
+        yield from self.iter_next(otype, eq)
 
     def _cmpkey(self):
         """This method returns the value to be compared (code for that is in
@@ -1130,10 +1195,21 @@ class TempoDirection(Direction):
     pass
 
 
+# class DynamicTempoDirection(TempoDirection):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         # self.intermediate = []
+
 class DynamicTempoDirection(TempoDirection):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # self.intermediate = []
+    pass
+
+
+class IncreasingTempoDirection(DynamicTempoDirection):
+    pass
+
+
+class DecreasingTempoDirection(DynamicTempoDirection):
+    pass
 
 
 class ConstantTempoDirection(TempoDirection):
@@ -1145,18 +1221,31 @@ class ConstantArticulationDirection(TempoDirection):
 
 
 class ResetTempoDirection(ConstantTempoDirection):
-    pass
+    @property
+    def reference_tempo(self):
+        direction = None
+        for d in self.start.iter_prev(ConstantTempoDirection):
+            direction = d
+        return d
 
 
 class LoudnessDirection(Direction):
     pass
 
 
-class DynamicLoudnessDirection(LoudnessDirection):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # self.intermediate = []
+# class DynamicLoudnessDirection(LoudnessDirection):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         # self.intermediate = []
 
+class DynamicLoudnessDirection(LoudnessDirection):
+    pass
+
+class IncreasingLoudnessDirection(DynamicLoudnessDirection):
+    pass
+
+class DecreasingLoudnessDirection(DynamicLoudnessDirection):
+    pass
 
 class ConstantLoudnessDirection(LoudnessDirection):
     pass
@@ -1202,6 +1291,17 @@ class GenericNote(TimedObject):
 
     @property
     def symbolic_duration(self):
+        """TODO
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
         if self._sym_dur is None:
             # compute value
             assert self.start is not None
@@ -1268,6 +1368,17 @@ class GenericNote(TimedObject):
 
     @property
     def duration_from_symbolic(self):
+        """TODO
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
         if self.symbolic_duration:
             # divs = self.start.get_prev_of_type(Divisions, eq=True)
             # if len(divs) == 0:
@@ -1280,6 +1391,17 @@ class GenericNote(TimedObject):
 
     @property
     def tie_prev_notes(self):
+        """TODO
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
         if self.tie_prev:
             return self.tie_prev.tie_prev_notes + [self.tie_prev]
         else:
@@ -1287,10 +1409,74 @@ class GenericNote(TimedObject):
 
     @property
     def tie_next_notes(self):
+        """TODO
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
         if self.tie_next:
             return [self.tie_next] + self.tie_next.tie_next_notes
         else:
             return []
+
+    def iter_voice_prev(self):
+        """TODO
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
+        for n in self.start.iter_prev(GenericNote, include_subclasses=True):
+            if n.voice == n.voice:
+                yield n
+
+    def iter_voice_next(self):
+        """TODO
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
+        for n in self.start.iter_next(GenericNote, include_subclasses=True):
+            if n.voice == n.voice:
+                yield n
+        
+    def iter_chord(self, same_duration=True, same_voice=True):
+        """TODO
+        
+        Parameters
+        ----------
+        same_duration: type, optional
+            Description of `same_duration`
+        same_voice: type, optional
+            Description of `same_voice`
+        
+        Returns
+        -------
+        type
+            Description of return value
+        """
+        
+        for n in self.start.iter_starting(GenericNote, include_subclasses=True):
+            if (((not same_voice) or n.voice == self.voice)
+                and ((not same_duration) or (n.duration == self.duration))):
+                yield n
 
     def __str__(self):
         s = ('{} id={} voice={} staff={} type={}'
@@ -1388,7 +1574,35 @@ class GraceNote(Note):
         super().__init__(*args, **kwargs)
         self.grace_type = grace_type
         self.steal_proportion = steal_proportion
+        self.grace_next = None
+        self.grace_prev = None
+        self._ref_attrs.extend(['grace_next', 'grace_prev'])
 
+    @property
+    def main_note(self):
+        n = self.grace_next
+        while isinstance(n, GraceNote):
+            n = n.grace_next
+        return n
+
+    def iter_grace_seq(self):
+        """Iterate over this and all subsequent grace notes, excluding the main note.
+        
+        Yields
+        ------
+        GraceNote
+        """
+        
+        
+        yield self
+        n = self.grace_next
+        while isinstance(n, GraceNote):
+            yield n
+            n = n.grace_next
+
+    def __str__(self):
+        return ' '.join((super().__str__(),
+                         'main_note={}'.format(self.main_note and self.main_note.id)))
 
 class PartGroup(object):
     """Represents a grouping of several instruments, usually named, and
@@ -1814,8 +2028,8 @@ def remove_grace_notes(part):
                                       if n.grace_type is None]
 
 
-def expand_grace_notes(timeline, default_type='appoggiatura', min_steal=.05, max_steal=.7):
-    """Expand grace notes on a timeline.
+def expand_grace_notes(part):
+    """Expand grace notes on a part.
 
     Expand durations of grace notes according to their specifications,
     or according to the default settings specified using the keywords.
@@ -1823,134 +2037,72 @@ def expand_grace_notes(timeline, default_type='appoggiatura', min_steal=.05, max
     set accordingly. Multiple contiguous grace notes inside a voice
     are expanded sequentially.
 
-    The specified timeline object will be modified in place.
+    The specified part object will be modified in place.
 
     Parameters
     ----------
-    timeline : Timeline
-        The timeline on which to expand the grace notes
-    default_type : str, optional. Default: 'appoggiatura'
-        The type of grace note, if no type is specified in the grace
-        note itself. Possibilites are: {'appoggiatura',
-        'acciaccatura'}.
-    min_steal : float, optional
-        The minimal proportion of the note to steal wherever no
-        proportion is speficied in the grace notes themselves.
-    max_steal : float, optional
-        The maximal proportion of the note to steal wherever no
-        proportion is speficied in the grace notes themselves.
+    part : Part
+        The part on which to expand the grace notes
 
     """
+    for gn in part.iter_all(GraceNote):
 
-    assert default_type in (u'appoggiatura', u'acciaccatura')
-    assert 0 < min_steal <= max_steal
-    assert min_steal <= max_steal < 1.0
+        if gn.grace_prev:
+            continue
 
-    def n_notes_to_steal(n_notes):
-        return min_steal + (max_steal - min_steal) * 2 * (1 / (1 + np.exp(- n_notes + 1)) - .5)
+        if gn.grace_type not in ('appoggiatura', 'acciaccatura'):
+            grace_type = 'appoggiatura'
+        else:
+            grace_type = gn.grace_type
+            
+        total_grace_dur = sum(n.duration_from_symbolic for n in gn.iter_grace_seq())
 
-    def shorten_main_notes_by(offset, notes, group_id):
-        # start and duration of the main note
-        old_start = notes[0].start
-        n_dur = np.min([n.duration for n in notes])
-        offset = min(n_dur * .5, offset)
-        new_start_t = old_start.t + offset
-        for i, n in enumerate(notes):
-            old_start.starting_objects[Note].remove(n)
-            timeline.add_starting_object(new_start_t, n)
-            n.appoggiatura_group_id = group_id
-            n.appoggiatura_duration = offset / float(n_dur)
-        return new_start_t
+        if grace_type == 'appoggiatura':
 
-    def shorten_prev_notes_by(offset, notes, group_id):
-        old_end = notes[0].end
-        n_dur = notes[0].duration
-        offset = min(n_dur * .5, offset)
-        new_end_t = old_end.t - offset
+            if not gn.main_note:
+                continue
 
-        for n in notes:
-            old_end.ending_objects[Note].remove(n)
-            timeline.add_ending_object(new_end_t, n)
-            n.acciaccatura_group_id = group_id
-            n.acciaccatura_duration = offset / float(n_dur)
+            # don't take more than half of the main note duration
+            capped_grace_dur = min(gn.main_note.duration/2, total_grace_dur)
+            new_start = gn.main_note.start.t + capped_grace_dur
 
-        return new_end_t
+            # shorten main note
+            for n in gn.main_note.iter_chord():
 
-    def set_acciaccatura_times(notes, start_t, group_id):
-        N = len(notes)
-        end_t = notes[0].start.t
-        times = np.linspace(start_t, end_t, N + 1, endpoint=True)
-        for i, n in enumerate(notes):
-            n.start.starting_objects[Note].remove(n)
-            timeline.add_starting_object(times[i], n)
-            n.end.ending_objects[Note].remove(n)
-            timeline.add_ending_object(times[i + 1], n)
-            n.acciaccatura_group_id = group_id
-            n.acciaccatura_idx = i
-            n.acciaccatura_size = N
+                part.remove(n, 'start')
+                part.add(n, int(new_start))
 
-    def set_appoggiatura_times(notes, end_t, group_id):
-        N = len(notes)
-        start_t = notes[0].start.t
-        times = np.linspace(start_t, end_t, N + 1, endpoint=True)
-        for i, n in enumerate(notes):
-            n.start.starting_objects[type(n)].remove(n)
-            timeline.add_starting_object(times[i], n)
-            n.end.ending_objects[type(n)].remove(n)
-            timeline.add_ending_object(times[i + 1], n)
-            n.appoggiatura_group_id = group_id
-            n.appoggiatura_idx = i
-            n.appoggiatura_size = N
+            start = gn.start.t
+            for m in gn.iter_grace_seq():
 
-    time_grouped_gns = partition(operator.attrgetter('start.t'),
-                                 timeline.iter_all(GraceNote))
-    times = sorted(time_grouped_gns.keys())
+                end = start + capped_grace_dur*m.duration_from_symbolic/total_grace_dur
+                part.remove(m)
+                part.add(m, int(start), int(end))
+                start = end
 
-    group_counter = 0
-    for t in times:
+        if grace_type == 'acciaccatura':
 
-        voice_grouped_gns = partition(operator.attrgetter('voice'),
-                                      time_grouped_gns[t])
+            prev_note = next(gn.iter_voice_prev(), None)
 
-        for voice, gn_group in voice_grouped_gns.items():
+            if not prev_note:
+                continue
 
-            for n in gn_group:
-                if n.grace_type == 'grace':
-                    n.grace_type = default_type
+            capped_grace_dur = min(prev_note.duration/2, total_grace_dur)
+            new_end = prev_note.end.t - capped_grace_dur
 
-            type_grouped_gns = partition(operator.attrgetter('grace_type'),
-                                         gn_group)
+            # shorten prev note
+            for n in prev_note.iter_chord():
 
-            for gtype, type_group in type_grouped_gns.items():
-                total_steal_old = n_notes_to_steal(len(type_group))
-                total_steal = np.sum([n.duration_from_symbolic for n
-                                      in type_group])
-                main_notes = [m for m in type_group[0].simultaneous_notes_in_voice
-                              if not isinstance(m, GraceNote)]
+                part.remove(n, 'end')
+                part.add(n, end=int(new_end))
 
-                if len(main_notes) > 0:
-                    total_steal = min(
-                        main_notes[0].duration / 2., total_steal)
-
-                if gtype == 'appoggiatura':
-                    total_steal = np.sum([n.duration_from_symbolic for n
-                                          in type_group])
-                    if len(main_notes) > 0:
-                        new_onset = shorten_main_notes_by(
-                            total_steal, main_notes, group_counter)
-                        set_appoggiatura_times(
-                            type_group, new_onset, group_counter)
-                        group_counter += 1
-
-                elif gtype == 'acciaccatura':
-                    prev_notes = [m for m in type_group[0].previous_notes_in_voice
-                                  if m.grace_type is None]
-                    if len(prev_notes) > 0:
-                        new_offset = shorten_prev_notes_by(
-                            total_steal, prev_notes, group_counter)
-                        set_acciaccatura_times(
-                            type_group, new_offset, group_counter)
-                        group_counter += 1
+            # set grace note times
+            start = new_end
+            for m in gn.iter_grace_seq():
+                end = start + capped_grace_dur*m.duration_from_symbolic/total_grace_dur
+                part.remove(m)
+                part.add(m, int(start), int(end))
+                start = end
 
 
 def iter_parts(partlist):
@@ -2151,12 +2303,33 @@ def set_end_times(parts):
         
 
 def _set_end_times(part, cls):
-    for obj, next_obj in iter_current_next(part.iter_all(cls), end=None):
-        if obj.end is None:
-            if next_obj is None:
-                obj.end = part.last_point
-            else:
-                obj.end = next_obj.start
+    acc = []
+    t = None
+
+    for obj in part.iter_all(cls, include_subclasses=True):
+        if obj.start == t:
+
+            if obj.end is None:
+
+                acc.append(obj)
+
+        else:
+
+            for o in acc:
+
+                o.end = obj.start
+
+            acc = []
+
+            if obj.end is None:
+
+                acc.append(obj)
+
+            t = obj.start
+
+    for o in acc:
+
+        o.end = part.last_point
 
 
 def split_note(part, note, splits):

@@ -20,6 +20,7 @@ from .music import (
     key_name_to_fifths_mode,
     estimate_symbolic_duration,
     format_symbolic_duration,
+    symbolic_to_numeric_duration,
     to_quarter_tempo,
     pitch_spelling_to_midi_pitch,
     estimate_clef_properties,
