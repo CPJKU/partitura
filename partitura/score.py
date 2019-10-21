@@ -335,42 +335,83 @@ class Part(object):
         #                 bounds_error=False, fill_value=(qd[0, 1], qd[-1, 1]))
         return interp1d(qd[:, 0], qd[:, 1], kind='previous')
 
-    def set_quarter_duration(self, t, quarter):
+    def set_quarter_duration(self, t, quarter, adjust_times=False):
         # add quarter duration at time t, unless it is redundant. If another
         # quarter duration is at t, replace it.
+
+        # shorthand
         times = self._quarter_times
         quarters = self._quarter_durations
-        i = np.searchsorted(self._quarter_times, t)
+
+        i = np.searchsorted(times, t)
         changed = False
-        i_prev = i - 1
-        if (i_prev < 0
-                or quarters[i_prev] != quarter):
+            
+        if (i == 0 or quarters[i-1] != quarter):
             # add or replace
             if i == len(times) or times[i] != t:
                 # add
-                self._quarter_times.insert(i, t)
-                self._quarter_durations.insert(i, quarter)
+                orig_quarter = 1 if i==0 else quarters[i-1]
+                times.insert(i, t)
+                quarters.insert(i, quarter)
                 changed = True
             elif quarters[i] != quarter:
                 # replace
-                self._quarter_durations[i] = quarter
+                orig_quarter = quarters[i]
+                quarters[i] = quarter
                 changed = True
-
+            else:
+                # times[i] == t, quarters[i] == quarter
+                pass
+        
         if not changed:
             return
 
-        self._make_quarter_map()
-
-        if i + 1 == len(self._quarter_times):
+        if i + 1 == len(times):
             t_next = np.inf
         else:
-            t_next = self._quarter_times[i + 1]
+            t_next = times[i + 1]
 
         # update quarter attribute of all timepoints in the range [t, t_next]
         start_idx = np.searchsorted(self.points, TimePoint(t))
         end_idx = np.searchsorted(self.points, TimePoint(t_next))
         for tp in self.points[start_idx:end_idx]:
             tp.quarter = quarter
+
+        if adjust_times:
+
+            multiplier = quarter/orig_quarter
+
+            # adjust quarter times
+            if i+1 < len(times):
+                
+                offset = (times[i+1] - t)*(multiplier - 1)
+                for j in range(i+1, len(times)):
+                    new_t = times[j] + offset
+                    if not (new_t).is_integer():
+                        LOGGER.warning('New quarter duration time {} will be rounded to {}'
+                                       .format(new_t, int(np.round(new_t))))
+                    times[j] = int(new_t)
+
+            offset = (t_next - t)*(multiplier - 1)
+            for tp in self.points[end_idx:]:
+                new_t = tp.t + offset
+                if not (new_t).is_integer():
+                    LOGGER.warning('Timepoint with time {} will be rounded to {}'
+                                   .format(new_t, int(np.round(new_t))))
+                    new_t = np.round(new_t)
+                tp.t = int(new_t)
+
+
+            for tp in self.points[start_idx:end_idx:]:
+                new_t = t+(tp.t - t)*multiplier
+                if not (new_t).is_integer():
+                    LOGGER.warning('Timepoint with time {} will be rounded to {}'
+                                   .format(new_t, int(np.round(new_t))))
+                    new_t = np.round(new_t)
+                tp.t = int(new_t)
+
+        # update the interpolation function
+        self._make_quarter_map()
 
     def multiply_quarter_durations(self, factor):
         """Multiply all quarter durations by `factor`.
@@ -383,9 +424,13 @@ class Part(object):
             Multiplication factor. Should be a positive integer
         
         """
-        for t, q in self.quarter_durations():
-            self.set_quarter_duration(t, factor*q)
-        
+        # we shouldn't iterate directly over self.quarter_durations(), because
+        # the values will be modified during the iteration
+        for i in range(len(self.quarter_durations())):
+            t = self._quarter_times[i]
+            q = self._quarter_durations[i]
+            self.set_quarter_duration(t, factor*q, adjust_times=True)
+
     def _add_point(self, tp):
         """
         add `TimePoint` object `tp` to the time line, unless there is already a timepoint at the same time
