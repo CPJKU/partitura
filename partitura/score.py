@@ -2073,7 +2073,7 @@ def remove_grace_notes(part):
                                       if n.grace_type is None]
 
 
-def expand_grace_notes(part):
+def expand_grace_notes(part, min_prop=.05, max_prop=.5):
     """Expand grace notes on a part.
 
     Expand durations of grace notes according to their specifications,
@@ -2108,7 +2108,9 @@ def expand_grace_notes(part):
                 continue
 
             # don't take more than half of the main note duration
-            capped_grace_dur = min(gn.main_note.duration/2, total_grace_dur)
+            capped_grace_dur = max(gn.main_note.duration*min_prop,
+                                   min(gn.main_note.duration*max_prop,
+                                       total_grace_dur))
             new_start = gn.main_note.start.t + capped_grace_dur
 
             # shorten main note
@@ -2132,7 +2134,10 @@ def expand_grace_notes(part):
             if not prev_note:
                 continue
 
-            capped_grace_dur = min(prev_note.duration/2, total_grace_dur)
+            capped_grace_dur = max(prev_note.duration*min_prop,
+                                   min(prev_note.duration*max_prop,
+                                       total_grace_dur))
+            # capped_grace_dur = min(prev_note.duration/2, total_grace_dur)
             new_end = prev_note.end.t - capped_grace_dur
 
             # shorten prev note
