@@ -857,12 +857,28 @@ class MatchFile(object):
         """
         return [x.note for x in self.lines if hasattr(x, 'note')]
 
+    def iter_notes(self):
+        """
+        Iterate over all performed notes (as MatchNote objects)
+        """
+        for x in self.lines:
+            if hasattr(x, 'note'):
+                yield x.note
+
     @property
     def snotes(self):
         """
         Return all score notes (as MatchSnote objects)
         """
         return [x.snote for x in self.lines if hasattr(x, 'snote')]
+
+    def iter_snotes(self):
+        """
+        Iterate over all performed notes (as MatchNote objects)
+        """
+        for x in self.lines:
+            if hasattr(x, 'snote'):
+                yield x.snote
 
     @property
     def sustain_pedal(self):
@@ -1028,38 +1044,48 @@ class MatchFile(object):
                 f.write(l.matchline + '\n')
 
 
-def load_match(fn, pedal_threshold=64):
-    """
-    Load a matchfile
+def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False):
+    """Load a matchfile.
 
     Parameters
     ----------
     fn : str
         The matchfile
-    pedal_threshold : int
-        Threshold for adjusting sound off of the performed
-        notes using pedal information (default is 64)
+    create_part : bool, optional
+        When True create a Part object from the snote information in
+        the match file. Defaults to False.
+    pedal_threshold : int, optional
+        Threshold for adjusting sound off of the performed notes using
+        pedal information. Defaults to 64.
+    first_note_at_zero : bool, optional
+        When True the note_on and note_off times in the performance
+        are shifted to make the first note_on time equal zero.
 
     Returns
     -------
+    ppart : list
+        The performed part, a list of dictionaries
+    alignment : list
+        The score--performance alignment, a list of dictionaries
     spart : Part
-        A score part
-    ppart : PerformedPart
-        A performed part
-    alignment : PerformanceAlignment
-        A performed alignment
+        The score part. This item is only returned when `create_part` = True.
+    
     """
     # Parse Matchfile
     mf = MatchFile(fn)
 
     ######## Generate PerformedPart #########
-    ppart = performed_part_from_match(mf, pedal_threshold)
+    ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
     ####### Generate Part ######
-    spart = part_from_matchfile(mf)
+    if create_part:
+        spart = part_from_matchfile(mf)
     ###### Alignment ########
     alignment = alignment_from_matchfile(mf)
-
-    return spart, ppart, alignment
+    
+    if create_part:
+        return ppart, alignment, spart
+    else:
+        return ppart, alignment
 
 
 def alignment_from_matchfile(mf):
@@ -1408,22 +1434,25 @@ def add_voices(part):
 
 # PERFORMANCE PART FROM MATCHFILE stuff
 
-def performed_part_from_match(mf, pedal_threshold=64):
-    """
-    Make PerformedPart from performance info in
-    a MatchFile
+def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
+    """Make PerformedPart from performance info in a MatchFile
 
     Parameters
     ----------
     mf : MatchFile
-        A matchfile
-    pedal_threshold : int
-        A description
+        A MatchFile instance
+    pedal_threshold : int, optional
+        Threshold for adjusting sound off of the performed notes using
+        pedal information. Defaults to 64.
+    first_note_at_zero : bool, optional
+        When True the note_on and note_off times in the performance
+        are shifted to make the first note_on time equal zero.
 
     Returns
     -------
     ppart : PerformedPart
         A performed part
+    
     """
     # Get midi time units
     mpq = mf.info('midiClockRate')
@@ -1431,15 +1460,22 @@ def performed_part_from_match(mf, pedal_threshold=64):
 
     # PerformedNote instances for all MatchNotes
     notes = []
-    for note in mf.notes:
+
+    first_note = next(mf.iter_notes(), None)
+    if first_note and first_note_at_zero:
+        offset = first_note.Onset * mpq / (10**6 * ppq)
+    else:
+        offset = 0
+        
+    for note in mf.iter_notes():
 
         sound_off = note.Offset if note.AdjOffset is None else note.AdjOffset
 
         notes.append(dict(id=note.Number,
                           midi_pitch=note.MidiPitch,
-                          note_on=note.Onset * mpq / (10**6 * ppq),
-                          note_off=note.Offset * mpq / (10**6 * ppq),
-                          sound_off=sound_off * mpq / (10**6 * ppq),
+                          note_on=note.Onset * mpq / (10**6 * ppq) - offset,
+                          note_off=note.Offset * mpq / (10**6 * ppq) - offset,
+                          sound_off=sound_off * mpq / (10**6 * ppq) - offset,
                           velocity=note.Velocity
                           ))
 
