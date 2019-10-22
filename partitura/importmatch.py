@@ -283,7 +283,7 @@ class MatchSnote(MatchLine):
 
     out_pattern = ('snote({Anchor},[{NoteName},{Modifier}],{Octave},'
                    + '{Bar}:{Beat},{Offset},{Duration},'
-               + '{OnsetInBeats},{OffsetInBeats},'
+                   + '{OnsetInBeats},{OffsetInBeats},'
                    + '[{ScoreAttributesList}])')
 
     pattern = 'snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)'
@@ -364,7 +364,7 @@ class MatchSnote(MatchLine):
         return self.out_pattern.format(
             Anchor=self.Anchor,
             NoteName=self.NoteName,
-            Modifier=ALTER_SIGNS[self.Modifier],
+            Modifier='n' if self.Modifier == 0 else ALTER_SIGNS[self.Modifier],
             Octave=self.Octave,
             Bar=self.Bar,
             Beat=self.Beat,
@@ -465,7 +465,7 @@ class MatchNote(MatchLine):
         return self.out_pattern.format(
             Number=self.Number,
             NoteName=self.NoteName,
-            Modifier=self.Modifier,
+            Modifier='n' if self.Modifier == 0 else ALTER_SIGNS[self.Modifier],
             Octave=self.Octave,
             Onset=self.Onset,
             Offset=self.Offset,
@@ -1016,11 +1016,16 @@ class MatchFile(object):
         ks_info = [l for l in self.info() if l.Attribute == 'keySignature']
         ml = (ks_info +
               [i for i in self.lines if
-                 isinstance(i, MatchMeta) and
+               isinstance(i, MatchMeta) and
                hasattr(i, 'Attribute') and
                i.Attribute == 'keySignature'])
 
         return ml
+
+    def write(self, filename):
+        with open(filename, 'w') as f:
+            for l in self.lines:
+                f.write(l.matchline + '\n')
 
 
 def load_match(fn, pedal_threshold=64):
