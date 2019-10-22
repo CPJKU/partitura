@@ -271,6 +271,12 @@ def _handle_measure(measure_el, position, part, ongoing):
 
             duration = get_value_from_tag(e, 'duration', int) or 0
             position -= duration
+
+            if position < measure.start.t:
+                LOGGER.warning('<backup> crosses measure boundary, adjusting position from {} to {} in Measure {}'
+                               .format(position, measure.start.t, measure.number))
+                position = measure.start.t
+
             # <backup> tags trigger an update of the measure
             # duration up to the measure position (after the
             # <backup> has been processed); This has been found to
