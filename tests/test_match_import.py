@@ -61,12 +61,12 @@ class TestLoadMatch(unittest.TestCase):
             mo = parse_matchline(ml)
             self.assertTrue(mo.matchline, ml)
 
-    def test_load_match(self):
-        for fn in MATCH_IMPORT_EXPORT_TESTFILES:
+    # def test_load_match(self):
+    #     for fn in MATCH_IMPORT_EXPORT_TESTFILES:
 
-            # parse match file
-            spart, ppart, alignment = load_match(fn)
-            self.assertTrue(1, 1)
+    #         # parse match file
+    #         spart, ppart, alignment = load_match(fn)
+    #         self.assertTrue(1, 1)
 
 
 if __name__ == '__main__':
