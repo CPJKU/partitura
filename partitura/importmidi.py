@@ -9,64 +9,186 @@ from scipy.interpolate import interp1d
 import mido
 
 import partitura.score as score
+import partitura.performance as performance
 from partitura import save_musicxml
-from partitura.utils import partition, estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties
+from partitura.utils import partition, estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties, MIDI_CONTROL_TYPES
 import partitura.musicanalysis as analysis
 
-__all__ = ['load_midi']
+__all__ = ['load_score_midi', 'load_performance_midi']
+
 LOGGER = logging.getLogger(__name__)
 
 
-def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
-              quantization_unit=None, estimate_voice_info=True,
-              estimate_key=False, assign_note_ids=True):
+# as key for the dict use channel * 128 (max number of pitches) + pitch
+def note_hash(channel, pitch):
+    """Generate a note hash."""
+    return channel * 128 + pitch
 
-    """Load a musical score from a MIDI file. Pitch names are estimated
-    using Meredith's PS13 algorithm [1]_.
 
+def load_performance_midi(fn, default_bpm=120):
+    """Load a musical performance from a MIDI file.
+
+    This function should be used for MIDI files that encode
+    performances, such as those obtained from a capture of a MIDI
+    instrument. This function loads note on/off events as well as
+    control events, but ignores other data such as time and key
+    signatures. Furthermore, the PerformedPart instance that the
+    function returns does not retain the ticks_per_beat or tempo
+    events. The timing of all events is represented in seconds. If you
+    wish to retain this information consider using the
+    `load_score_midi` function.
 
     Parameters
     ----------
-    fn : type
-        Description of `fn`
+    fn : str
+        Path to MIDI file
+    default_bpm : number, optional
+        Tempo to use wherever the MIDI does not specify a tempo.
+        Defaults to 120.
+
+    Returns
+    -------
+    :class:`partitura.performance.PerformedPart`
+        A PerformedPart instance.
+    
+    """
+    mid = mido.MidiFile(fn)
+    # parts per quarter
+    ppq = mid.ticks_per_beat
+    
+    notes = []
+    controls = []
+    for i, track in enumerate(mid.tracks):
+
+        # microseconds per quarter
+        mpq = 60 * (10**6 / default_bpm)
+        t = 0
+        sounding_notes = {}
+
+        for msg in track:
+
+            t = t + msg.time
+
+            if msg.type == 'set_tempo':
+
+                mpq = msg.tempo/10**6
+
+            elif msg.type == 'control_change':
+
+                if msg.control not in MIDI_CONTROL_TYPES:
+
+                    LOGGER.warning('ignoring unknown MIDI control type {}'.format(msg.control))
+                    continue
+
+                controls.append(dict(
+                    time=(mpq*(t/ppq))/10**6,
+                    type=MIDI_CONTROL_TYPES[msg.control],
+                    value=msg.value,
+                    track=i,
+                    channel=msg.channel))
+
+            else:
+
+                note_on = msg.type == 'note_on'
+                note_off = msg.type == 'note_off'
+
+                if not (note_on or note_off):
+                    continue
+
+                # hash sounding note
+                note = note_hash(msg.channel, msg.note)
+
+                # start note if it's a 'note on' event with velocity > 0
+                if note_on and msg.velocity > 0:
+
+                    # save the onset time and velocity
+                    sounding_notes[note] = (t, msg.velocity)
+
+                # end note if it's a 'note off' event or 'note on' with velocity 0
+                elif note_off or (note_on and msg.velocity == 0):
+
+                    if note not in sounding_notes:
+                        warnings.warn('ignoring MIDI message %s' % msg)
+                        continue
+                    
+                    # append the note to the list associated with the channel
+                    notes.append(dict(
+                        id=len(notes),
+                        midi_pitch=msg.note,
+                        note_on=(mpq*(sounding_notes[note][0]/ppq))/10**6,
+                        note_off=(mpq*(t/ppq))/10**6,
+                        track=i,
+                        channel=msg.channel,
+                        velocity=sounding_notes[note][1]))
+
+                    # remove hash from dict
+                    del sounding_notes[note]
+
+    return performance.PerformedPart(notes, controls=controls)
+    
+
+def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
+                    quantization_unit=None, estimate_voice_info=True,
+                    estimate_key=False, assign_note_ids=True):
+
+    """Load a musical score from a MIDI file and return it as a Part
+    instance.
+
+    This function interprets MIDI information as describing a score.
+    Pitch names are estimated using Meredith's PS13 algorithm [1]_.
+    Assignment of notes to voices can either be done using Chew and
+    Wu's voice separation algorithm [2]_, or by choosing one of the
+    part/voice assignment modes that assign voices based on
+    track/channel information. Furthermore, the key signature can be
+    estimated based on Krumhansl's 1990 key profiles [3]_.
+
+    This function expects times to be metrical/quantized. Optionally a
+    quantization unit may be specified. If you wish to access the non-
+    quantized time of MIDI events you may wish to used the
+    `load_performance_midi` function instead.
+
+    Parameters
+    ----------
+    fn : str
+        Path to MIDI file
     part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
-        This keyword controls how part and voice information is associated
-        to track and channel information in the MIDI file. The semantics of
-        the modes is as follows:
-
-        0
-            Return one Part per track, with voices assigned by channel
-        1
-            Return one PartGroup per track, with Parts assigned by channel (no
-            voices)
-        2
-            Return single Part with voices assigned by track (tracks are
-            combined, channel info is ignored)
-        3
-            Return one Part per track, without voices (channel info is ignored)
-        4
-            Return single Part without voices (channel and track info is
-            ignored)
-        5
-            Return one Part per <track, channel> combination, without voices
-
-        Defaults to 0.
+        This keyword controls how part and voice information is
+        associated to track and channel information in the MIDI file.
+        The semantics of the modes is as follows:
+    0
+        Return one Part per track, with voices assigned by channel
+    1
+        Return one PartGroup per track, with Parts assigned by channel
+        (no voices)
+    2
+        Return single Part with voices assigned by track (tracks are
+        combined, channel info is ignored)
+    3
+        Return one Part per track, without voices (channel info is
+        ignored)
+    4
+        Return single Part without voices (channel and track info is
+        ignored)
+    5
+            Return one Part per <track, channel> combination, without
+        voices  Defaults to 0.
     ensure_list : bool, optional
-        When True, return a list independent of how many part or partgroup
-        elements were created from the MIDI file. By default, when the
-        return value of `load_midi` produces a single
-        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
-        element, the element itself is returned instead of a list
-        containing the element. Defaults to False.
+        When True, return a list independent of how many part or
+        partgroup elements were created from the MIDI file. By
+        default, when the return value of `load_score_midi` produces a
+    single : class:`partitura.score.Part` or
+        :Class:`partitura.score.PartGroup` element, the element itself
+        is returned instead of a list containing the element. Defaults
+        to False.
     quantization_unit : integer or None, optional
         Quantize MIDI times to multiples of this unit. If None, the
-        quantization unit is chosen automatically as the smallest division
-        of the parts per quarter (MIDI "ticks") that can be represented as
-        a symbolic duration. Defaults to None.
+        quantization unit is chosen automatically as the smallest
+        division of the parts per quarter (MIDI "ticks") that can be
+        represented as a symbolic duration. Defaults to None.
     estimate_key : bool, optional
-        When True use Krumhansl's 1990 key profiles [3]_ to determine the
-        most likely global key, discarding any key information in the MIDI
-        file.
+        When True use Krumhansl's 1990 key profiles [3]_ to determine
+        the most likely global key, discarding any key information in
+        the MIDI file.
     estimate_voice_info : bool, optional
         When True use Chew and Wu's voice separation algorithm [2]_ to
         estimate voice information. This option is ignored for
@@ -93,11 +215,6 @@ def load_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     """
     mid = mido.MidiFile(fn)
     divs = mid.ticks_per_beat
-
-    # as key for the dict use channel * 128 (max number of pitches) + pitch
-    def note_hash(channel, pitch):
-        """Generate a note hash."""
-        return channel * 128 + pitch
 
     # these lists will contain information from dedicated tracks for meta
     # information (i.e. without notes)
@@ -323,7 +440,7 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
 #     n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
 #     prop_without_dur = n_without_dur/max(1, len(durations))
 #     if prop_without_dur > threshold:
-#         LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
+#         LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_score_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
 #     return prop_without_dur < threshold
 
 

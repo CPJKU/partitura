@@ -7,7 +7,7 @@ import unittest
 from tempfile import NamedTemporaryFile
 import mido
 
-from partitura import load_midi
+from partitura import load_score_midi
 from partitura.utils import partition
 import partitura.score as score
 
@@ -34,7 +34,7 @@ def fill_track(track, notes, divs, vel=64):
         prev = t
 
 def make_assignment_mode_example():
-    # create a midi file on which to test the assignment modes in load_midi
+    # create a midi file on which to test the assignment modes in load_score_midi
     divs = 10
     mid = mido.MidiFile(ticks_per_beat=divs)
     track_1 = mido.MidiTrack()
@@ -134,7 +134,7 @@ class TestMIDITuplets(unittest.TestCase):
             mid, actual, normal = example_gen_func()
             with NamedTemporaryFile(suffix='.mid') as fh:
                 mid.save(fh.name)
-                part = load_midi(fh.name, part_voice_assign_mode=0)
+                part = load_score_midi(fh.name, part_voice_assign_mode=0)
                 notes = part.notes
     
                 if len(actual) != len(normal):
@@ -158,11 +158,11 @@ class TestMIDIImportModes(unittest.TestCase):
         self.mid.save(self.tmpfile.name)
         
     def test_midi_import_mode_0(self):
-        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=0)
+        parts = load_score_midi(self.tmpfile.name, part_voice_assign_mode=0)
         by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
 
         msg = ('Number of parts {} does not equal number of tracks {} while '
-               'testing part_voice_assign_mode=0 in load_midi').format(
+               'testing part_voice_assign_mode=0 in load_score_midi').format(
                    len(parts), len(by_track))
         self.assertEqual(len(parts), len(by_track), msg)
 
@@ -185,10 +185,10 @@ class TestMIDIImportModes(unittest.TestCase):
             self.assertEqual(n_ch_notes, n_voice_notes, msg)
 
     def test_midi_import_mode_1(self):
-        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=1)
+        parts = load_score_midi(self.tmpfile.name, part_voice_assign_mode=1)
         by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
         msg = ('Number of partgroups {} does not equal number of tracks {} while '
-               'testing part_voice_assign_mode=0 in load_midi').format(
+               'testing part_voice_assign_mode=0 in load_score_midi').format(
                    len(parts), len(by_track))
         self.assertEqual(len(parts), len(by_track), msg)
 
@@ -210,7 +210,7 @@ class TestMIDIImportModes(unittest.TestCase):
                 self.assertEqual(notes_in_part, notes_in_track)
 
     def test_midi_import_mode_2(self):
-        part = load_midi(self.tmpfile.name, part_voice_assign_mode=2)
+        part = load_score_midi(self.tmpfile.name, part_voice_assign_mode=2)
         msg = '{} should be a Part instance but it is not'.format(part)
         self.assertTrue(isinstance(part, score.Part), msg)
         by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
@@ -224,7 +224,7 @@ class TestMIDIImportModes(unittest.TestCase):
         self.assertEqual(n_voice_notes, n_track_notes, msg)
 
     def test_midi_import_mode_3(self):
-        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=3)
+        parts = load_score_midi(self.tmpfile.name, part_voice_assign_mode=3)
         by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
 
         msg = ('Number of parts {} does not equal number of tracks {}'
@@ -243,7 +243,7 @@ class TestMIDIImportModes(unittest.TestCase):
             self.assertEqual(n_track_notes, n_part_notes, msg)
 
     def test_midi_import_mode_4(self):
-        part = load_midi(self.tmpfile.name, part_voice_assign_mode=4)
+        part = load_score_midi(self.tmpfile.name, part_voice_assign_mode=4)
         msg = '{} should be a Part instance but it is not'.format(part)
         self.assertTrue(isinstance(part, score.Part), msg)
         midi_notes = sum(self.notes_per_tr_ch.values())
@@ -252,7 +252,7 @@ class TestMIDIImportModes(unittest.TestCase):
         self.assertEqual(midi_notes, part_notes, msg)
 
     def test_midi_import_mode_5(self):
-        parts = load_midi(self.tmpfile.name, part_voice_assign_mode=5)
+        parts = load_score_midi(self.tmpfile.name, part_voice_assign_mode=5)
         msg = ('Number of parts should be {} but it is {}'
                .format(len(self.notes_per_tr_ch), len(parts)))
         self.assertEqual(len(parts), len(self.notes_per_tr_ch), msg)

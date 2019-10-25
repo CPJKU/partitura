@@ -2162,7 +2162,7 @@ def iter_parts(partlist):
     depth-first fashion.
 
     This function is designed to take the result of
-    :func:`partitura.load_midi` and :func:`partitura.load_musicxml` as
+    :func:`partitura.load_score_midi` and :func:`partitura.load_musicxml` as
     input.
 
     Parameters

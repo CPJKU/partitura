@@ -1482,13 +1482,14 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = []
     for ped in mf.sustain_pedal:
-        sustain_pedal.append(dict(time=ped.Time * mpq / (10**6 * ppq),
+        sustain_pedal.append(dict(type='sustain_pedal',
+                                  time=ped.Time * mpq / (10**6 * ppq),
                                   value=ped.Value))
 
     # Make performed part
     ppart = PerformedPart(id='P1',
                           part_name=mf.info('piece'),
                           notes=notes,
-                          pedal=sustain_pedal,
-                          pedal_threshold=pedal_threshold)
+                          controls=sustain_pedal,
+                          sustain_pedal_threshold=pedal_threshold)
     return ppart

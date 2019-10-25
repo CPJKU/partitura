@@ -5,12 +5,12 @@ import numpy as np
 from operator import itemgetter
 
 from collections import defaultdict, OrderedDict
-from mido import MidiFile, MidiTrack, Message
+from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 from partitura.score import iter_parts
-from partitura.utils import partition
+from partitura.utils import partition, MIDI_CONTROL_TYPES
 
-__all__ = ['save_midi']
+__all__ = ['save_score_midi', 'save_performance_midi']
 
 LOGGER = logging.getLogger(__name__)
 
@@ -75,8 +75,74 @@ def get_ppq(parts):
     ppq = np.lcm.reduce(ppqs)
     return ppq
 
+def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velocity=64):
+    """Save a :class:`~partitura.performance.PerformedPart` instance as a
+    MIDI file.
 
-def save_midi(parts, out, part_voice_assign_mode=0, velocity=64):
+    Parameters
+    ----------
+    performed_part : :class:`~partitura.performance.PerformedPart`
+        The performed part to save
+    out : str or file-like object
+        Either a filename or a file-like object to write the MIDI data
+        to.
+    mpq : int, optional
+        Microseconds per quarter note. This is known in MIDI parlance
+        as the "tempo" value. Defaults to 500000 (i.e. 120 BPM).
+    ppq : int, optional
+        Parts per quarter, also known as ticks per beat. Defaults to
+        480.
+    default_velocity : int, optional
+        A default velocity value (between 0 and 127) to be used for
+        notes without a specified velocity. Defaults to 64.
+
+    """
+    track_events = defaultdict(lambda: defaultdict(list))
+
+    ct_to_int = dict((v, k) for k, v in MIDI_CONTROL_TYPES.items())
+    for c in performed_part.controls:
+        track = c.get('track', 0)
+        ch = c.get('channel', 1)
+        t = int(np.round(10**6*ppq*c['time']/mpq))
+        track_events[track][t].append(
+            Message('control_change', control=ct_to_int[c['type']], value=c['value'], channel=ch))
+
+    for n in performed_part.notes:
+        track = n.get('track', 0)
+        ch = n.get('channel', 1)
+        t_on = int(np.round(10**6*ppq*n['note_on']/mpq))
+        t_off = int(np.round(10**6*ppq*n['note_off']/mpq))
+        vel = n.get('velocity', default_velocity)
+        track_events[track][t_on].append(
+            Message('note_on', note=n['midi_pitch'], velocity=vel, channel=ch))
+        track_events[track][t_off].append(
+            Message('note_off', note=n['midi_pitch'], velocity=0, channel=ch))
+
+
+    midi_type = 0 if len(track_events) == 1 else 1
+    
+    mf = MidiFile(type=midi_type, ticks_per_beat=ppq)
+
+    for j, i in enumerate(sorted(track_events.keys())):
+        track = MidiTrack()
+        mf.tracks.append(track)
+        if j == 0:
+            track.append(MetaMessage('set_tempo', tempo=mpq, time=0))
+        t = 0
+        for t_msg in sorted(track_events[i].keys()):
+            t_delta = t_msg - t
+            for msg in track_events[i][t_msg]:
+                track.append(msg.copy(time=t_delta))
+                t_delta = 0
+            t = t_msg
+    if out:
+        if hasattr(out, 'write'):
+            mf.save(file=out)
+        else:
+            mf.save(out)
+
+
+def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     """Write data from Part objects to a MIDI file
 
     Parameters
@@ -117,9 +183,6 @@ def save_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     velocity : int, optional
         Default velocity for all MIDI notes.
 
-    Returns
-    -------
-    
     """
 
     # TODO: write track names, time sigs, key sigs, tempos

@@ -159,7 +159,7 @@ def load_musicxml(xml, ensure_list=False, validate=False):
     ensure_list : bool, optional
         When True, return a list independent of how many part or partgroup
         elements were created from the MIDI file. By default, when the
-        return value of `load_midi` produces a single 
+        return value of `load_musicxml` produces a single 
         :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
         element, the element itself is returned instead of a list
         containing the element. Defaults to False.

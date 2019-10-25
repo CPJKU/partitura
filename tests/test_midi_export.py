@@ -7,7 +7,7 @@ import unittest
 from tempfile import TemporaryFile
 import mido
 
-from partitura import save_midi
+from partitura import save_score_midi
 from partitura.utils import partition
 import partitura.score as score
 
@@ -113,7 +113,7 @@ class TestMIDIExportModes(unittest.TestCase):
         
     def _export_and_read(self, mode):
         with TemporaryFile(suffix='.mid') as f:
-            save_midi(self.parts, f, part_voice_assign_mode=mode)
+            save_score_midi(self.parts, f, part_voice_assign_mode=mode)
             f.flush()
             f.seek(0)
             return mido.MidiFile(file=f)
@@ -121,7 +121,7 @@ class TestMIDIExportModes(unittest.TestCase):
     def test_midi_export_mode_0(self):
         m = self._export_and_read(mode=0)
         msg = ('Number of parts {} does not equal number of tracks {} while '
-               'testing part_voice_assign_mode=0 in save_midi'
+               'testing part_voice_assign_mode=0 in save_score_midi'
                .format(len(self.parts_list), len(m.tracks)))
         self.assertEqual(len(self.parts_list), len(m.tracks), msg)
 
@@ -147,7 +147,7 @@ class TestMIDIExportModes(unittest.TestCase):
                           in self.parts_list))
         n_tracks_trg = len(partgroups)
         msg = ('Number of parts {} does not equal number of tracks {} while '
-               'testing part_voice_assign_mode=1 in save_midi'
+               'testing part_voice_assign_mode=1 in save_score_midi'
                .format(n_tracks_trg, len(m.tracks)))
         self.assertEqual(n_tracks_trg, len(m.tracks), msg)
         for pg, track in zip(partgroups, m.tracks):
@@ -160,7 +160,7 @@ class TestMIDIExportModes(unittest.TestCase):
     def test_midi_export_mode_2(self):
         m = self._export_and_read(mode=2)
         msg = ('Number of tracks {} does not equal 1 while '
-               'testing part_voice_assign_mode=2 in save_midi'
+               'testing part_voice_assign_mode=2 in save_score_midi'
                .format(len(m.tracks)))
         self.assertEqual(1, len(m.tracks), msg)
         
@@ -170,7 +170,7 @@ class TestMIDIExportModes(unittest.TestCase):
         channels = sorted(by_channel.keys())
         n_channels = len(channels)
         msg = ('Number of channels {} does not equal {} while '
-               'testing part_voice_assign_mode=2 in save_midi'
+               'testing part_voice_assign_mode=2 in save_score_midi'
                .format(n_channels, n_channels_trg))
         self.assertEqual(n_channels_trg, n_channels, msg)
         for part, ch in zip(self.parts_list, channels):
@@ -178,14 +178,14 @@ class TestMIDIExportModes(unittest.TestCase):
             n_notes = len(by_channel[ch])
             msg = ('Number of notes in channel {} should be '
                    '{} while testing '
-                   'part_voice_assign_mode=2 in save_midi'
+                   'part_voice_assign_mode=2 in save_score_midi'
                    .format(n_notes, n_notes_trg))
             self.assertEqual(n_notes_trg, n_notes, msg)
 
     def test_midi_export_mode_3(self):
         m = self._export_and_read(mode=3)
         msg = ('Number of parts {} does not equal number of tracks {} while '
-               'testing part_voice_assign_mode=4 in save_midi'
+               'testing part_voice_assign_mode=4 in save_score_midi'
                .format(len(self.parts_list), len(m.tracks)))
         self.assertEqual(len(self.parts_list), len(m.tracks), msg)
 
@@ -207,7 +207,7 @@ class TestMIDIExportModes(unittest.TestCase):
     def test_midi_export_mode_4(self):
         m = self._export_and_read(mode=4)
         msg = ('Number of tracks {} does not equal 1 while '
-               'testing part_voice_assign_mode=4 in save_midi'
+               'testing part_voice_assign_mode=4 in save_score_midi'
                .format(len(m.tracks)))
         self.assertEqual(1, len(m.tracks), msg)
 
@@ -227,13 +227,13 @@ class TestMIDIExportModes(unittest.TestCase):
         notes_per_tr_ch = get_track_voice_numbers(m)
         notes_per_prt_vc = get_part_voice_numbers(self.parts)
         msg = ('Number of tracks {} should equal {} while '
-               'testing part_voice_assign_mode=5 in save_midi'
+               'testing part_voice_assign_mode=5 in save_score_midi'
                .format(len(notes_per_tr_ch), len(notes_per_prt_vc)))
         self.assertEqual(len(notes_per_tr_ch), len(notes_per_prt_vc), msg)
         for n_tr_ch, n_prt_vc in zip(notes_per_tr_ch.values(),
                                      notes_per_prt_vc.values()):
             msg = ('Number of notes in track {} should '
                    'equal {} in while testing '
-                   'part_voice_assign_mode=2 in save_midi'
+                   'part_voice_assign_mode=2 in save_score_midi'
                    .format(n_tr_ch, n_prt_vc))
             self.assertEqual(n_tr_ch, n_prt_vc, msg)

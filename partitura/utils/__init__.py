@@ -14,6 +14,7 @@ from .generic import (
     search)
 from .music import (
     MIDI_BASE_CLASS,
+    MIDI_CONTROL_TYPES,
     ALTER_SIGNS,
     find_tie_split,
     fifths_mode_to_key_name,
