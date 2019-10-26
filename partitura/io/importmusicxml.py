@@ -1085,7 +1085,11 @@ def get_articulations(e):
 def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
                      expand_grace_notes=True, validate=False,
                      beat_times=True):
-    """Get a note array from a MusicXML file
+    """Return pitch, onset, and duration information for notes from a
+    MusicXML file as a structured array.
+
+    By default a single array is returned by combining the note
+    information of all parts in the MusicXML file.
 
     Parameters
     ----------
@@ -1095,6 +1099,8 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         If `True`, returns a single array containing all notes.
         Otherwise, returns a list of arrays for each part.
     expand_grace_notes : bool or 'delete'
+        When True, grace note onset and durations will be adjusted to
+        have a non-zero duration.
     beat_times : bool
         When True (default) return onset and duration in beats.
         Otherwise, return the onset and duration in divisions.
@@ -1104,7 +1110,7 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     score : structured array or list of structured arrays
         Structured array containing the score. The fields are 'pitch',
         'onset' and 'duration'.
-
+    
     """
 
     if not isinstance(expand_grace_notes, (bool, str)):
@@ -1123,8 +1129,8 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     # Parse MusicXML
     parts = load_musicxml(fn, ensure_list=True, validate=validate)
     scr = []
-    for part in parts:
-        # Unfold part to have repetitions
+    for part in score.iter_parts(parts):
+        # Unfold any repetitions in part
         part = score.unfold_part_maximal(part)
         if expand_grace_notes:
             LOGGER.debug('Expanding grace notes...')

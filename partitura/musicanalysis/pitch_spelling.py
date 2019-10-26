@@ -5,9 +5,6 @@ Pitch Spelling using the ps13 algorithm.
 References
 ----------
 
-[1] Meredith, D (2006) The ps13 Pitch Spelling Algorithm. Journal  of New Music Research, 35(2):121
-
-[2] Meredith, D. (2019). RecurSIA-RRT: Recursive translatable point-set pattern discovery with removal of redundant translators. 12th International Workshop on Machine Learning and Music. Würzburg, Germany.
 
 """
 import numpy as np
@@ -23,8 +20,7 @@ ALTER = np.array(['n', '#', 'b'])
 
 
 def estimate_spelling(note_array, method='ps13s1', *args, **kwargs):
-    """
-    Estimate pitch spelling
+    """Estimate pitch spelling using the ps13 algorithm [4]_, [5]_.
 
     Parameters
     ----------
@@ -40,7 +36,18 @@ def estimate_spelling(note_array, method='ps13s1', *args, **kwargs):
     Returns
     -------
     spelling : structured array
-        Array with pitch spellings. The fields are 'step', 'alter' and 'octave'
+        Array with pitch spellings. The fields are 'step', 'alter' and 
+        'octave'
+
+    References
+    ----------
+    .. [4] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal 
+           of New Music Research, 35(2):121.
+    .. [5] Meredith, D. (2019). "RecurSIA-RRT: Recursive translatable 
+           point-set pattern discovery with removal of redundant translators". 
+           12th International Workshop on Machine Learning and Music. Würzburg, 
+           Germany.
+
     """
     if method == 'ps13s1':
         ps = ps13s1

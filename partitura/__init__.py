@@ -12,6 +12,11 @@ from .io.importmatch import load_match
 from .display import show
 from . import musicanalysis
 
+"""
+The top level of the package contains functions to load and save data, as well as  
+"""
+
+
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version
 

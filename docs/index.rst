@@ -20,6 +20,8 @@ Partitura documentation
    :caption: API Reference
 
    modules/partitura
+   modules/partitura.score
+   modules/partitura.performance
    modules/partitura.musicanalysis
 
 

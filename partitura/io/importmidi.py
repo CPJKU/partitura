@@ -130,7 +130,6 @@ def load_performance_midi(fn, default_bpm=120):
 def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                     quantization_unit=None, estimate_voice_info=True,
                     estimate_key=False, assign_note_ids=True):
-
     """Load a musical score from a MIDI file and return it as a Part
     instance.
 
@@ -155,31 +154,31 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         This keyword controls how part and voice information is
         associated to track and channel information in the MIDI file.
         The semantics of the modes is as follows:
-    0
-        Return one Part per track, with voices assigned by channel
-    1
-        Return one PartGroup per track, with Parts assigned by channel
-        (no voices)
-    2
-        Return single Part with voices assigned by track (tracks are
-        combined, channel info is ignored)
-    3
-        Return one Part per track, without voices (channel info is
-        ignored)
-    4
-        Return single Part without voices (channel and track info is
-        ignored)
-    5
+
+        0
+            Return one Part per track, with voices assigned by channel
+        1
+            Return one PartGroup per track, with Parts assigned by channel
+            (no voices)
+        2
+            Return single Part with voices assigned by track (tracks are
+            combined, channel info is ignored)
+        3
+            Return one Part per track, without voices (channel info is
+            ignored)
+        4
+            Return single Part without voices (channel and track info is
+            ignored)
+        5
             Return one Part per <track, channel> combination, without
-        voices  Defaults to 0.
+            voices  Defaults to 0.
     ensure_list : bool, optional
-        When True, return a list independent of how many part or
-        partgroup elements were created from the MIDI file. By
-        default, when the return value of `load_score_midi` produces a
-    single : class:`partitura.score.Part` or
-        :Class:`partitura.score.PartGroup` element, the element itself
-        is returned instead of a list containing the element. Defaults
-        to False.
+        When True, return a list independent of how many part or partgroup
+        elements were created from the MIDI file. By default, when the
+        return value of `load_score_midi` produces a single 
+        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
+        element, the element itself is returned instead of a list
+        containing the element. Defaults to False.
     quantization_unit : integer or None, optional
         Quantize MIDI times to multiples of this unit. If None, the
         quantization unit is chosen automatically as the smallest
@@ -203,14 +202,14 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
     References
     ----------
-
-    .. [1] Dave Meredith, "The ps13 Pitch Spelling Algorithm", Journal of
-           New Music Research 35(2), 2006.
-    .. [2] Elaine Chew and Xiaodan Wu, "Separating Voices in Polyphonic
-           Music: A Contig Mapping Approach". Computer Music Modeling and
-           Retrieval (CMMR), pp. 1–20, 2005.
-    .. [3] Carol L. Krumhansl, "Cognitive foundations of musical pitch",
-           Oxford University Press, New York, 1990.
+    .. [1] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal 
+           of New Music Research, 35(2):121.
+    .. [2] Chew, E. and Wu, Xiaodan (2006) "Separating Voices in
+           Polyphonic Music: A Contig Mapping Approach". In Uffe Kock, 
+           editor, Computer Music Modeling and Retrieval (CMMR), pp. 1–20, 
+           Springer Berlin Heidelberg.
+    .. [3] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
+           Oxford University Press, New York.
 
     """
     mid = mido.MidiFile(fn)
@@ -435,13 +434,6 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
     for (tr, _), (_, part, _) in zip(tr_ch_keys, group_part_voice_keys):
         track_to_part_keys[tr].add(part)
     return track_to_part_keys
-
-# def timings_ok(durations, divs, threshold=.1):
-#     n_without_dur = sum(1 for dur in durations if not estimate_symbolic_duration(dur, divs))
-#     prop_without_dur = n_without_dur/max(1, len(durations))
-#     if prop_without_dur > threshold:
-#         LOGGER.warning('{:.1f}% of the notes ({}/{}) have irregular durations. Maybe you want to load this file as a performance rather than a score. If you do wish to interpret the MIDI as a score use the option --force-duration-analysis, but beware that analysis may be very slow and still fail. Another option is to quantize note onset and offset times by setting the `quantization_unit` keyword argument of `load_score_midi`) to an appropriate value'.format(100*prop_without_dur, n_without_dur, len(durations)))
-#     return prop_without_dur < threshold
 
 
 def assign_group_part_voice(mode, track_ch_combis, track_names):

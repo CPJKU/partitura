@@ -1,31 +1,63 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""This module contains a lightweight ontology to represent a performance in a
+MIDI-like format. A performance is defined at the highest level by a
+:class:`~partitura.performance.PerformedPart`. This object contains performed
+notes as well as continuous control parameters, such as sustain pedal.
+
 """
-This module contains a lightweight ontology to represent a performance 
-in a MIDI-like format. A performance is defined at the highest level by
-a `PerformedPart`. This object contains performed notes and other attributes
-such as pedal.
-"""
+
 import logging
 
 import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
+__all__ = ['PerformedPart']
 
 class PerformedPart(object):
-    """
-    Represents a performed part, e.g.. all notes and related
-    controller/modifiers of one single instrument
+    """Represents a performed part, e.g. all notes and related
+    controller/modifiers of one single instrument.
+
+    Performed notes are stored as a list of dictionaries, where each
+    dictionary represents a performed note, should have at least the
+    keys "note_on", "note_off", the onset and offset times of the note
+    in seconds, respectively.
+
+    Continuous controls are also stored as a list of dictionaries,
+    where each dictionary represents a control change. Each dictionary
+    should have a key "type" (the name of the control, e.g.
+    "sustain_pedal", "soft_pedal"), "time" (in seconds), and "value"
+    (a number).
 
     Parameters
     ----------
     notes : list
-        A list of dictionaries containing performed note information
+        A list of dictionaries containing performed note information.
     id : str
         The identifier of the part
-    part_name : Name for the part
+    controls : list
+        A list of dictionaries containing continuous control information
+    part_name : str
+        Name for the part
+    sustain_pedal_threshold : int
+        The threshold above which sustain pedal values are considered
+        to be equivalent to on. For values below the threshold the
+        sustain pedal is treated as off. Defaults to 64.
+
+    Attributes
+    ----------
+    notes : list
+        A list of dictionaries containing performed note information.
+    id : str
+        The identifier of the part
+    part_name : str
+        Name for the part
+    controls : list
+        A list of dictionaries containing continuous control
+        information
+    
     """
 
     def __init__(self, notes, id=None, part_name=None,
@@ -41,14 +73,30 @@ class PerformedPart(object):
 
     @property
     def sustain_pedal_threshold(self):
+        """The threshold value (number) above which sustain pedal values
+        are considered to be equivalent to on. For values below the
+        threshold the sustain pedal is treated as off. Defaults to 64.
+
+        Based on the control items of type "sustain_pedal", in
+        combination with the value of the "sustain_pedal_threshold"
+        attribute, the note dictionaries will be extended with a key
+        "sound_off". This key represents the time the note will stop
+        sounding. When the sustain pedal is off, `sound_off` will
+        coincide with `note_off`.  When the sustain pedal is on,
+        `sound_off` will equal the earliest time the sustain pedal is
+        off after `note_off`. The `sound_off` values of notes will be
+        automatically recomputed each time the
+        `sustain_pedal_threshold` is set.
+        
+        """
         return self._sustain_pedal_threshold
 
     @sustain_pedal_threshold.setter
     def sustain_pedal_threshold(self, value):
-        """
-        Set the pedal threshold and update the sound_off
-        of the notes
-        """
+        # """
+        # Set the pedal threshold and update the sound_off
+        # of the notes
+        # """
         self._sustain_pedal_threshold = value
         adjust_offsets_w_sustain(self.notes, self.controls, self._sustain_pedal_threshold)
 

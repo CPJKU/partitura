@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Voice Separation using Chew and Wu's algorithm
+"""Voice Separation using Chew and Wu's algorithm.
+
 """
 import numpy as np
 
@@ -53,7 +53,7 @@ def argmax_pitch(idx, pitches):
 
 def estimate_voices(notearray, monophonic_voices=False):
     """Voice estimation using the voice separation algorithm proposed 
-    in [1].
+    in [1]_.
 
     Parameters
     ----------
@@ -78,10 +78,10 @@ def estimate_voices(notearray, monophonic_voices=False):
 
     References
     ----------
-    [1] Elaine Chew and Xiaodan Wu (2006) Separating Voices in
-        Polyphonic Music: A Contig Mapping Approach. In Uffe Kock, 
-        editor, Computer Music Modeling and Retrieval. Springer 
-        Berlin Heidelberg.
+    .. [1] Chew, E. and Wu, Xiaodan (2006) "Separating Voices in
+           Polyphonic Music: A Contig Mapping Approach". In Uffe Kock, 
+           editor, "Computer Music Modeling and Retrieval". Springer 
+           Berlin Heidelberg.
 
     TODO
     ----

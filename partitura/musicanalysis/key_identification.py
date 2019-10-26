@@ -2,9 +2,6 @@
 """
 Krumhansl and Shepard key estimation
 
-References
-----
-[1] Krumhansl, C. L. (1990) Cognitive foundations of musical pitch Oxford University Press, New York
 """
 import numpy as np
 from scipy.linalg import circulant
@@ -90,7 +87,9 @@ KOSTKA_PAYNE = build_key_profile_matrix(key_prof_maj_kp, key_prof_min_kp)
 
 
 def estimate_key(note_array, method='krumhansl', *args, **kwargs):
-    """Estimate key of a piece
+    """
+    Estimate key of a piece by comparing the pitch statistics of the
+    note array to key profiles [2]_, [3]_.
 
     Parameters
     ----------
@@ -98,7 +97,6 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
         Array containing the score
     method : {'krumhansl', 'temperley'}
         Method for estimating the key. Default is 'krumhansl'.
-        More options will be added in the future. 
     args, kwargs
         Positional and Keyword arguments for the key estimation method
 
@@ -110,6 +108,14 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
         Mode of the key ('major' or 'minor')
     fifths : int
         Position in the circle of fifths
+    
+    References
+    ----------
+    .. [2] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
+           Oxford University Press, New York.
+    .. [3] Temperley, D. (1999) "What's key for key? The Krumhansl-Schmuckler
+           key-finding algorithm reconsidered". Music Perception. 17(1), 
+           pp. 65--100.
 
     """
     if method not in ('krumhansl', ):

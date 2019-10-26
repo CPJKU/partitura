@@ -6,15 +6,6 @@ partitura
    :undoc-members:
    :show-inheritance:
 
-
-partitura.score
----------------
-
-.. automodule:: partitura.score
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 ..
    partitura.importmusicxml
    ------------------------
