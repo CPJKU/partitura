@@ -12,7 +12,7 @@ import os
 import subprocess
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from partitura.exportmusicxml import save_musicxml
+from partitura import save_musicxml
 LOGGER = logging.getLogger(__name__)
 
 __all__ = ['show']

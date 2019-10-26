@@ -7,7 +7,7 @@ import logging
 import partitura.score as score
 from operator import itemgetter, attrgetter
 
-from partitura.importmusicxml import DYN_DIRECTIONS
+from .importmusicxml import DYN_DIRECTIONS
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
 
 __all__ = ['save_musicxml']

@@ -4,10 +4,10 @@ import argparse
 
 from partitura import load_musicxml, save_musicxml
 import partitura.score as score
-from partitura.importmusicxml import xml_to_notearray
+from partitura.io.importmusicxml import xml_to_notearray
 
 def test_musicxml(fn, validate=False):
-    part = load_musicxml(fn, validate)
+    part = load_musicxml(fn, validate, force_note_ids=False)
 
     print(part.pretty())
     # return 
