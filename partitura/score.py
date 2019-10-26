@@ -1263,19 +1263,20 @@ class Direction(TimedObject):
 class TempoDirection(Direction):
     pass
 
+class DynamicDirection(Direction):
+    pass
 
 # class DynamicTempoDirection(TempoDirection):
 #     def __init__(self, *args, **kwargs):
 #         super().__init__(*args, **kwargs)
 #         # self.intermediate = []
 
-class DynamicTempoDirection(TempoDirection):
+class DynamicTempoDirection(DynamicDirection, TempoDirection):
     pass
 
 
 class IncreasingTempoDirection(DynamicTempoDirection):
     pass
-
 
 class DecreasingTempoDirection(DynamicTempoDirection):
     pass
@@ -1307,8 +1308,10 @@ class LoudnessDirection(Direction):
 #         super().__init__(*args, **kwargs)
 #         # self.intermediate = []
 
-class DynamicLoudnessDirection(LoudnessDirection):
-    pass
+class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
+    def __init__(self, *args, wedge=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wedge = wedge
 
 
 class IncreasingLoudnessDirection(DynamicLoudnessDirection):
@@ -2384,6 +2387,7 @@ def _set_end_times(part, cls):
     t = None
 
     for obj in part.iter_all(cls, include_subclasses=True):
+
         if obj.start == t:
 
             if obj.end is None:
@@ -2394,7 +2398,7 @@ def _set_end_times(part, cls):
 
             for o in acc:
 
-                o.end = obj.start
+                part.add(o, end=obj.start)
 
             acc = []
 
@@ -2406,7 +2410,7 @@ def _set_end_times(part, cls):
 
     for o in acc:
 
-        o.end = part.last_point
+        part.add(o, end=part.last_point.t)
 
 
 def split_note(part, note, splits):

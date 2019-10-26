@@ -669,11 +669,33 @@ def merge_measure_contents(notes, other, measure_start):
         
 
 def do_directions(part, start, end):
+    result = []
+
+    # ending directions
+    directions = part.iter_all(score.DynamicDirection, start.next, end.next,
+                               include_subclasses=True, mode='ending')
+
+    for direction in directions:
+        # print([direction])
+        text = direction.raw_text or direction.text
+        e0 = etree.Element('direction')
+        e1 = etree.SubElement(e0, 'direction-type')
+
+        if getattr(direction, 'wedge', False):
+
+            e2 = etree.SubElement(e1, 'wedge', type='stop')
+
+        else:
+            # e2 = etree.SubElement(e0, 'direction-type')
+            etree.SubElement(e1, 'dashes', number="1", type='stop')
+
+        elem = (direction.end.t, None, e0)
+        result.append(elem)
+
     tempos = part.iter_all(score.Tempo, start, end)
     directions = part.iter_all(score.Direction, start, end,
-                                       include_subclasses=True)
+                               include_subclasses=True)
     
-    result = []
     for tempo in tempos:
         # e0 = etree.Element('direction')
         # e1 = etree.SubElement(e0, 'direction-type')
@@ -695,16 +717,26 @@ def do_directions(part, start, end):
             e2 = etree.SubElement(e1, 'dynamics')
             etree.SubElement(e2, text)
 
+        elif getattr(direction, 'wedge', False):
+            
+            if isinstance(direction, score.IncreasingLoudnessDirection):
+                wtype = 'crescendo'
+            else:
+                wtype = 'diminuendo'
+
+            e2 = etree.SubElement(e1, 'wedge', type=wtype)
+
         else:
 
             e2 = etree.SubElement(e1, 'words')
             e2.text = filter_string(text)
             
-        if direction.end is not None:
-
-            e3 = etree.SubElement(e0, 'direction-type')
-            etree.SubElement(e3, 'dashes', type='start')
-
+            if (isinstance(direction, score.DynamicDirection)
+                and direction.end is not None):
+                # print([direction, direction.end.t])
+                e3 = etree.SubElement(e0, 'direction-type')
+                etree.SubElement(e3, 'dashes', number="1", type='start')
+    
 
         if direction.staff is not None:
 
@@ -714,14 +746,6 @@ def do_directions(part, start, end):
         elem = (direction.start.t, None, e0)
         result.append(elem)
 
-        if direction.end is not None:
-
-            e6 = etree.Element('direction')
-            e7 = etree.SubElement(e6, 'direction-type')
-            etree.SubElement(e7, 'dashes', type='stop')
-
-            elem = (direction.end.t, None, e6)
-            result.append(elem)
 
     return result
     
