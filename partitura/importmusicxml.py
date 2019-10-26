@@ -147,9 +147,8 @@ def _parse_partlist(partlist):
     return structure, part_dict
 
 
-def load_musicxml(xml, ensure_list=False, validate=False):
-    """
-    Parse a MusicXML file and build a composite score ontology
+def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
+    """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
     Parameters
@@ -157,21 +156,28 @@ def load_musicxml(xml, ensure_list=False, validate=False):
     xml : str or file-like  object
         Path to the MusicXML file to be parsed, or a file-like object
     ensure_list : bool, optional
-        When True, return a list independent of how many part or partgroup
-        elements were created from the MIDI file. By default, when the
-        return value of `load_musicxml` produces a single 
-        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
-        element, the element itself is returned instead of a list
-        containing the element. Defaults to False.
-    validate : bool, optional.
-        When True, the validity of the MusicXML is checked against the MusicXML
-        3.1 specification before loading the file. An exception will be raised
-        when the MusicXML is invalid. Defaults to False.
+        When True return a list independent of how many part or
+        partgroup elements were created from the MIDI file. By
+        default, when the return value of `load_musicxml` produces a
+    single : class:`partitura.score.Part` or
+        :Class:`partitura.score.PartGroup` element, the element itself
+        is returned instead of a list containing the element. Defaults
+        to False.
+    validate : bool, optional
+        When True the validity of the MusicXML is checked against the
+        MusicXML 3.1 specification before loading the file. An
+        exception will be raised when the MusicXML is invalid.
+        Defaults to False.
+    force_note_ids : bool, optional.
+        When True each Note in the returned Part(s) will have a newly
+        assigned unique id attribute. Existing note id attributes in
+        the MusicXML will be discarded.
 
     Returns
     -------
     partlist : list
         A list of either Part or PartGroup objects
+
     """
     if validate:
         validate_musicxml(xml, debug=True)
@@ -199,10 +205,23 @@ def load_musicxml(xml, ensure_list=False, validate=False):
     else:
         partlist = []
 
+    if force_note_ids:
+        assign_note_ids(partlist)
+
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
     else:
         return partlist
+
+
+def assign_note_ids(parts):
+    # assign note ids to ensure uniqueness across all parts, discarding any
+    # existing note ids
+    i = 0
+    for part in score.iter_parts(parts):
+        for n in part.notes:
+            n.id = 'n{}'.format(i)
+            i += 1
 
 
 def _parse_parts(document, part_dict):
@@ -561,7 +580,7 @@ def _handle_direction(e, position, part, ongoing):
 
                 # try to make a direction out of words
                 parse_result = parse_direction(child.text)
-                starting_directions.extend(parse_result)                
+                starting_directions.extend(parse_result)
 
         elif dt.tag == 'wedge':
 
@@ -1022,7 +1041,7 @@ def handle_slurs(notations, ongoing, note):
                 slur.set_end_note(note)
 
             stopping_slurs.append(slur)
-    
+
     return starting_slurs, stopping_slurs
 
 
@@ -1085,7 +1104,7 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     score : structured array or list of structured arrays
         Structured array containing the score. The fields are 'pitch',
         'onset' and 'duration'.
-    
+
     """
 
     if not isinstance(expand_grace_notes, (bool, str)):
@@ -1144,4 +1163,3 @@ def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
             return scr[scr['onset'].argsort()]
     else:
         return scr
-
