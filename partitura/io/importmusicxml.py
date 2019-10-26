@@ -1082,7 +1082,7 @@ def get_articulations(e):
     return [a for a in articulations if e.find(a) is not None]
 
 
-def xml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
+def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
                      expand_grace_notes=True, validate=False,
                      beat_times=True):
     """Get a note array from a MusicXML file
