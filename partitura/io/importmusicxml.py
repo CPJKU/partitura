@@ -258,6 +258,7 @@ def _parse_parts(document, part_dict):
         # when constructed from MusicXML
         score.set_end_times(part)
 
+
 def _handle_measure(measure_el, position, part, ongoing):
     """
     Parse a <measure>...</measure> element, adding it and its contents to the
@@ -590,9 +591,9 @@ def _handle_direction(e, position, part, ongoing):
 
             if wedge_type in ('crescendo', 'diminuendo'):
                 if wedge_type == 'crescendo':
-                    o = score.IncreasingLoudnessDirection(wedge_type)
+                    o = score.IncreasingLoudnessDirection(wedge_type, wedge=True)
                 else:
-                    o = score.DecreasingLoudnessDirection(wedge_type)
+                    o = score.DecreasingLoudnessDirection(wedge_type, wedge=True)
                 starting_directions.append(o)
                 ongoing[key] = o
 

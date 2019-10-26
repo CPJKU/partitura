@@ -95,6 +95,8 @@ class TestMusicXML(unittest.TestCase):
         part1.add(rest1, 15, 30)
         part1.add(note2, 0, 30)
         
+        score.set_end_times(part1)
+        
         # pretty print the part
         pstring1 = part1.pretty()
 
@@ -194,7 +196,7 @@ def make_part_slur():
 
     score.add_measures(part)
     score.tie_notes(part)
-
+    score.set_end_times(part)
     return part
     
 
@@ -225,6 +227,7 @@ def make_part_tuplet():
 
     score.add_measures(part)
     score.find_tuplets(part)
+    score.set_end_times(part)
 
     return part
 
