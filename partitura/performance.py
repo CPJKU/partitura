@@ -16,6 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 __all__ = ['PerformedPart']
 
+
 class PerformedPart(object):
     """Represents a performed part, e.g. all notes and related
     controller/modifiers of one single instrument.
@@ -57,7 +58,7 @@ class PerformedPart(object):
     controls : list
         A list of dictionaries containing continuous control
         information
-    
+
     """
 
     def __init__(self, notes, id=None, part_name=None,
@@ -87,7 +88,7 @@ class PerformedPart(object):
         off after `note_off`. The `sound_off` values of notes will be
         automatically recomputed each time the
         `sustain_pedal_threshold` is set.
-        
+
         """
         return self._sustain_pedal_threshold
 
@@ -98,7 +99,58 @@ class PerformedPart(object):
         # of the notes
         # """
         self._sustain_pedal_threshold = value
-        adjust_offsets_w_sustain(self.notes, self.controls, self._sustain_pedal_threshold)
+        adjust_offsets_w_sustain(self.notes, self.controls,
+                                 self._sustain_pedal_threshold)
+
+    @property
+    def note_array(self):
+        """Structured array containing performance information.
+        The fields are 'id', 'pitch', 'p_onset', 'p_duration' and
+        'velocity'.
+        """
+        fields = [('id', 'U256'),
+                  ('pitch', 'i4'),
+                  ('p_onset', 'f4'),
+                  ('p_duration', 'f4'),
+                  ('velocity', 'i4')]
+        note_array = []
+        for n in self.notes:
+            offset = n.get('sound_off', n['note_off'])
+            p_duration = offset - n['note_on']
+            note_array.append((n['id'],
+                               n['midi_pitch'],
+                               n['p_onset'],
+                               n['note_on'],
+                               p_duration,
+                               n['velocity']))
+
+        return np.array(note_array, dtype=fields)
+
+    @classmethod
+    def from_note_array(cls, note_array,
+                        id=None, part_name=None):
+        """Create an instance of PerformedPart from a note_array.
+        Note that this property does not include non-note information (i.e.
+        controls such as sustain pedal).
+        """
+        if not 'id' in note_array.dtype.names:
+            n_ids = ['n{0}'.format(i) for i in range(len(note_array))]
+        else:
+            n_ids = note_array['id']
+
+        notes = []
+        for nid, note in zip(n_ids, note_array):
+            notes.append(dict(id=nid,
+                              midi_pitch=note['pitch'],
+                              note_on=note['p_onset'],
+                              note_off=note['p_onset'] + note['p_duration'],
+                              sound_off=note['p_onset'] + note['p_duration'],
+                              velocity=note['velocity']))
+
+        return cls(id=id,
+                   part_name=part_name,
+                   notes=notes,
+                   controls=None)
 
 
 def adjust_offsets_w_sustain(notes, controls, threshold=64):
