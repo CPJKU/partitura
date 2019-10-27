@@ -2380,7 +2380,7 @@ def set_end_times(parts):
         # page, system, loudnessdirection, tempodirection
         _set_end_times(part, Page)
         _set_end_times(part, System)
-        # _set_end_times(part, ConstantLoudnessDirection)
+        _set_end_times(part, ConstantLoudnessDirection)
         _set_end_times(part, ConstantTempoDirection)
 
 
@@ -2400,7 +2400,7 @@ def _set_end_times(part, cls):
 
             for o in acc:
 
-                part.add(o, end=obj.start)
+                part.add(o, end=obj.start.t)
 
             acc = []
 
