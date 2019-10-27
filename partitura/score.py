@@ -346,12 +346,12 @@ class Part(object):
 
         i = np.searchsorted(times, t)
         changed = False
-            
-        if (i == 0 or quarters[i-1] != quarter):
+
+        if (i == 0 or quarters[i - 1] != quarter):
             # add or replace
             if i == len(times) or times[i] != t:
                 # add
-                orig_quarter = 1 if i==0 else quarters[i-1]
+                orig_quarter = 1 if i == 0 else quarters[i - 1]
                 times.insert(i, t)
                 quarters.insert(i, quarter)
                 changed = True
@@ -363,7 +363,7 @@ class Part(object):
             else:
                 # times[i] == t, quarters[i] == quarter
                 pass
-        
+
         if not changed:
             return
 
@@ -380,20 +380,20 @@ class Part(object):
 
         if adjust_times:
 
-            multiplier = quarter/orig_quarter
+            multiplier = quarter / orig_quarter
 
             # adjust quarter times
-            if i+1 < len(times):
-                
-                offset = (times[i+1] - t)*(multiplier - 1)
-                for j in range(i+1, len(times)):
+            if i + 1 < len(times):
+
+                offset = (times[i + 1] - t) * (multiplier - 1)
+                for j in range(i + 1, len(times)):
                     new_t = times[j] + offset
                     if not (new_t).is_integer():
                         LOGGER.warning('New quarter duration time {} will be rounded to {}'
                                        .format(new_t, int(np.round(new_t))))
                     times[j] = int(new_t)
 
-            offset = (t_next - t)*(multiplier - 1)
+            offset = (t_next - t) * (multiplier - 1)
             for tp in self.points[end_idx:]:
                 new_t = tp.t + offset
                 if not (new_t).is_integer():
@@ -402,9 +402,8 @@ class Part(object):
                     new_t = np.round(new_t)
                 tp.t = int(new_t)
 
-
             for tp in self.points[start_idx:end_idx:]:
-                new_t = t+(tp.t - t)*multiplier
+                new_t = t + (tp.t - t) * multiplier
                 if not (new_t).is_integer():
                     LOGGER.warning('Timepoint with time {} will be rounded to {}'
                                    .format(new_t, int(np.round(new_t))))
@@ -418,19 +417,19 @@ class Part(object):
         """Multiply all quarter durations by `factor`.
 
         This is useful when expanding grace notes.
-                
+
         Parameters
         ----------
         factor: int
             Multiplication factor. Should be a positive integer
-        
+
         """
         # we shouldn't iterate directly over self.quarter_durations(), because
         # the values will be modified during the iteration
         for i in range(len(self.quarter_durations())):
             t = self._quarter_times[i]
             q = self._quarter_durations[i]
-            self.set_quarter_duration(t, factor*q, adjust_times=True)
+            self.set_quarter_duration(t, factor * q, adjust_times=True)
 
     def _add_point(self, tp):
         """
@@ -607,6 +606,26 @@ class Part(object):
         """
         return self.points[0] if len(self.points) > 0 else None
 
+    @property
+    def note_array(self):
+        """
+        A structured array containing pitch, onset, duration, voice and id
+        for each note
+        """
+        note_array = []
+        fields = [('onset', 'f4'),
+                  ('duration', 'f4'),
+                  ('pitch', 'i4'),
+                  ('voice', 'i4'),
+                  ('id', 'U256')]
+        for note in self.notes_tied:
+            note_on, note_off = self.beat_map([note.start.t, note.end.t])
+            note_dur = note_off - note_on
+            note_array.append((note_on, note_dur, note.midi_pitch,
+                               note.voice, note.id))
+
+        return np.array(note_array, dtype=fields)
+
 
 class TimePoint(ComparableMixin):
 
@@ -758,7 +777,7 @@ class TimePoint(ComparableMixin):
         ------
         cls
             Instances of `cls`
-        
+
         """
         if eq:
             tp = self
@@ -788,7 +807,7 @@ class TimePoint(ComparableMixin):
         ------
         cls
             Instances of `cls`
-        
+
         """
         if eq:
             tp = self
@@ -807,7 +826,7 @@ class TimePoint(ComparableMixin):
 
         """
         yield from self.iter_prev(otype, eq=eq)
-    
+
     # OBSOLETE
     # TODO: substite iter_next for all calls to get_next_of_type
     def get_next_of_type(self, otype, eq=False):
@@ -1133,8 +1152,8 @@ class Tempo(TimedObject):
 
     @property
     def microseconds_per_quarter(self):
-        return int(np.round(60*(10**6/to_quarter_tempo(self.unit or 'q', self.bpm))))
-        
+        return int(np.round(60 * (10**6 / to_quarter_tempo(self.unit or 'q', self.bpm))))
+
     def __str__(self):
         if self.unit:
             return 'Tempo {}={}'.format(self.unit, self.bpm)
@@ -1243,6 +1262,7 @@ class Direction(TimedObject):
 class TempoDirection(Direction):
     pass
 
+
 class DynamicDirection(Direction):
     pass
 
@@ -1251,12 +1271,14 @@ class DynamicDirection(Direction):
 #         super().__init__(*args, **kwargs)
 #         # self.intermediate = []
 
+
 class DynamicTempoDirection(DynamicDirection, TempoDirection):
     pass
 
 
 class IncreasingTempoDirection(DynamicTempoDirection):
     pass
+
 
 class DecreasingTempoDirection(DynamicTempoDirection):
     pass
@@ -1293,11 +1315,14 @@ class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
         super().__init__(*args, **kwargs)
         self.wedge = wedge
 
+
 class IncreasingLoudnessDirection(DynamicLoudnessDirection):
     pass
 
+
 class DecreasingLoudnessDirection(DynamicLoudnessDirection):
     pass
+
 
 class ConstantLoudnessDirection(LoudnessDirection):
     pass
@@ -1344,16 +1369,16 @@ class GenericNote(TimedObject):
     @property
     def symbolic_duration(self):
         """TODO
-        
+
         Parameters
         ----------
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         if self._sym_dur is None:
             # compute value
             assert self.start is not None
@@ -1421,16 +1446,16 @@ class GenericNote(TimedObject):
     @property
     def duration_from_symbolic(self):
         """TODO
-        
+
         Parameters
         ----------
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         if self.symbolic_duration:
             # divs = self.start.get_prev_of_type(Divisions, eq=True)
             # if len(divs) == 0:
@@ -1444,16 +1469,16 @@ class GenericNote(TimedObject):
     @property
     def tie_prev_notes(self):
         """TODO
-        
+
         Parameters
         ----------
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         if self.tie_prev:
             return self.tie_prev.tie_prev_notes + [self.tie_prev]
         else:
@@ -1462,16 +1487,16 @@ class GenericNote(TimedObject):
     @property
     def tie_next_notes(self):
         """TODO
-        
+
         Parameters
         ----------
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         if self.tie_next:
             return [self.tie_next] + self.tie_next.tie_next_notes
         else:
@@ -1479,55 +1504,55 @@ class GenericNote(TimedObject):
 
     def iter_voice_prev(self):
         """TODO
-        
+
         Parameters
         ----------
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         for n in self.start.iter_prev(GenericNote, include_subclasses=True):
             if n.voice == n.voice:
                 yield n
 
     def iter_voice_next(self):
         """TODO
-        
+
         Parameters
         ----------
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         for n in self.start.iter_next(GenericNote, include_subclasses=True):
             if n.voice == n.voice:
                 yield n
-        
+
     def iter_chord(self, same_duration=True, same_voice=True):
         """TODO
-        
+
         Parameters
         ----------
         same_duration: type, optional
             Description of `same_duration`
         same_voice: type, optional
             Description of `same_voice`
-        
+
         Returns
         -------
         type
             Description of return value
         """
-        
+
         for n in self.start.iter_starting(GenericNote, include_subclasses=True):
             if (((not same_voice) or n.voice == self.voice)
-                and ((not same_duration) or (n.duration == self.duration))):
+                    and ((not same_duration) or (n.duration == self.duration))):
                 yield n
 
     def __str__(self):
@@ -1639,13 +1664,12 @@ class GraceNote(Note):
 
     def iter_grace_seq(self):
         """Iterate over this and all subsequent grace notes, excluding the main note.
-        
+
         Yields
         ------
         GraceNote
         """
-        
-        
+
         yield self
         n = self.grace_next
         while isinstance(n, GraceNote):
@@ -1655,6 +1679,7 @@ class GraceNote(Note):
     def __str__(self):
         return ' '.join((super().__str__(),
                          'main_note={}'.format(self.main_note and self.main_note.id)))
+
 
 class PartGroup(object):
     """Represents a grouping of several instruments, usually named, and
@@ -2106,7 +2131,7 @@ def expand_grace_notes(part, min_prop=.05, max_prop=.5):
             grace_type = 'appoggiatura'
         else:
             grace_type = gn.grace_type
-            
+
         total_grace_dur = sum(n.duration_from_symbolic for n in gn.iter_grace_seq())
 
         if grace_type == 'appoggiatura':
@@ -2115,8 +2140,8 @@ def expand_grace_notes(part, min_prop=.05, max_prop=.5):
                 continue
 
             # don't take more than half of the main note duration
-            capped_grace_dur = max(gn.main_note.duration*min_prop,
-                                   min(gn.main_note.duration*max_prop,
+            capped_grace_dur = max(gn.main_note.duration * min_prop,
+                                   min(gn.main_note.duration * max_prop,
                                        total_grace_dur))
             new_start = gn.main_note.start.t + capped_grace_dur
 
@@ -2129,7 +2154,7 @@ def expand_grace_notes(part, min_prop=.05, max_prop=.5):
             start = gn.start.t
             for m in gn.iter_grace_seq():
 
-                end = start + capped_grace_dur*m.duration_from_symbolic/total_grace_dur
+                end = start + capped_grace_dur * m.duration_from_symbolic / total_grace_dur
                 part.remove(m)
                 part.add(m, int(start), int(end))
                 start = end
@@ -2141,8 +2166,8 @@ def expand_grace_notes(part, min_prop=.05, max_prop=.5):
             if not prev_note:
                 continue
 
-            capped_grace_dur = max(prev_note.duration*min_prop,
-                                   min(prev_note.duration*max_prop,
+            capped_grace_dur = max(prev_note.duration * min_prop,
+                                   min(prev_note.duration * max_prop,
                                        total_grace_dur))
             # capped_grace_dur = min(prev_note.duration/2, total_grace_dur)
             new_end = prev_note.end.t - capped_grace_dur
@@ -2156,7 +2181,7 @@ def expand_grace_notes(part, min_prop=.05, max_prop=.5):
             # set grace note times
             start = new_end
             for m in gn.iter_grace_seq():
-                end = start + capped_grace_dur*m.duration_from_symbolic/total_grace_dur
+                end = start + capped_grace_dur * m.duration_from_symbolic / total_grace_dur
                 part.remove(m)
                 part.add(m, int(start), int(end))
                 start = end
@@ -2345,7 +2370,7 @@ def set_end_times(parts):
     """
     Set missing end times of musical elements in a part to equal the start times
     of the subsequent element of the same class. This is useful for some classes
-    
+
     Parameters
     ----------
     part: Part or PartGroup, or list of these
@@ -2355,9 +2380,9 @@ def set_end_times(parts):
         # page, system, loudnessdirection, tempodirection
         _set_end_times(part, Page)
         _set_end_times(part, System)
-        _set_end_times(part, ConstantLoudnessDirection)
+        # _set_end_times(part, ConstantLoudnessDirection)
         _set_end_times(part, ConstantTempoDirection)
-        
+
 
 def _set_end_times(part, cls):
     acc = []
