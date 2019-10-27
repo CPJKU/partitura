@@ -119,7 +119,6 @@ class PerformedPart(object):
             p_duration = offset - n['note_on']
             note_array.append((n['id'],
                                n['midi_pitch'],
-                               n['p_onset'],
                                n['note_on'],
                                p_duration,
                                n['velocity']))

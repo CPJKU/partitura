@@ -188,8 +188,8 @@ class Part(object):
         keypoints = np.array(keypoints_list, dtype=np.float)
 
         x = keypoints[:, 0]
-        y = np.r_[0, np.cumsum((keypoints[:-1, 2] *
-                                np.diff(keypoints[:, 0])) /
+        y = np.r_[0, np.cumsum((keypoints[:-1, 2]
+                                * np.diff(keypoints[:, 0])) /
                                keypoints[:-1, 1])]
 
         m1 = next(self.first_point.iter_starting(Measure), None)
@@ -517,8 +517,8 @@ class Part(object):
             except:
                 raise Exception('Not implemented: removing an object that is registered by its superclass')
             # cleanup timepoint if no starting/ending objects are left
-            if (sum(len(oo) for oo in o.start.starting_objects.values())
-                    + sum(len(oo) for oo in o.start.ending_objects.values())) == 0:
+            if (sum(len(oo) for oo in o.start.starting_objects.values()) +
+                    sum(len(oo) for oo in o.start.ending_objects.values())) == 0:
                 self._remove_point(o.start)
             o.start = None
 
@@ -528,8 +528,8 @@ class Part(object):
             except:
                 raise Exception('Not implemented: removing an object that is registered by its superclass')
             # cleanup timepoint if no starting/ending objects are left
-            if (sum(len(oo) for oo in o.end.starting_objects.values())
-                    + sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
+            if (sum(len(oo) for oo in o.end.starting_objects.values()) +
+                    sum(len(oo) for oo in o.end.ending_objects.values())) == 0:
                 self._remove_point(o.end)
             o.end = None
 
@@ -1263,6 +1263,7 @@ class Direction(TimedObject):
 class TempoDirection(Direction):
     pass
 
+
 class DynamicDirection(Direction):
     pass
 
@@ -1271,12 +1272,14 @@ class DynamicDirection(Direction):
 #         super().__init__(*args, **kwargs)
 #         # self.intermediate = []
 
+
 class DynamicTempoDirection(DynamicDirection, TempoDirection):
     pass
 
 
 class IncreasingTempoDirection(DynamicTempoDirection):
     pass
+
 
 class DecreasingTempoDirection(DynamicTempoDirection):
     pass
@@ -1549,8 +1552,8 @@ class GenericNote(TimedObject):
         """
 
         for n in self.start.iter_starting(GenericNote, include_subclasses=True):
-            if (((not same_voice) or n.voice == self.voice) and
-                    ((not same_duration) or (n.duration == self.duration))):
+            if (((not same_voice) or n.voice == self.voice)
+                    and ((not same_duration) or (n.duration == self.duration))):
                 yield n
 
     def __str__(self):
@@ -1810,14 +1813,14 @@ class ScoreVariant(object):
                     # don't repeat time sig if it hasn't changed
                     elif isinstance(o, TimeSignature):
                         prev = next(iter(tp_new.get_prev_of_type(TimeSignature)), None)
-                        if prev is not None and ((o.beats, o.beat_type)
-                                                 == (prev.beats, prev.beat_type)):
+                        if prev is not None and ((o.beats, o.beat_type) ==
+                                                 (prev.beats, prev.beat_type)):
                             continue
                     # don't repeat key sig if it hasn't changed
                     elif isinstance(o, KeySignature):
                         prev = next(iter(tp_new.get_prev_of_type(KeySignature)), None)
-                        if prev is not None and ((o.fifths, o.mode)
-                                                 == (prev.fifths, prev.mode)):
+                        if prev is not None and ((o.fifths, o.mode) ==
+                                                 (prev.fifths, prev.mode)):
                             continue
 
                     # make a copy of the object
@@ -1915,8 +1918,8 @@ def make_score_variants(part):
 
     """
 
-    if len(list(part.iter_all(DaCapo))
-           + list(part.iter_all(Fine))) > 0:
+    if len(list(part.iter_all(DaCapo)) +
+           list(part.iter_all(Fine))) > 0:
         LOGGER.warning(('Generation of repeat structures involving da '
                         'capo/fine/coda/segno directions is not '
                         'supported yet'))
@@ -2289,11 +2292,11 @@ def make_tied_note_id(prev_id):
     prev_id_p1 = prev_id_parts[0]
     if prev_id_p1:
         if ord(prev_id_p1[-1]) < ord('a') - 1:
-            return '-'.join(['{}a'.format(prev_id_p1)]
-                            + prev_id_parts[1:])
-        else:
-            return '-'.join(['{}{}'.format(prev_id_p1[:-1], chr(ord(prev_id[-1]) + 1))] +
+            return '-'.join(['{}a'.format(prev_id_p1)] +
                             prev_id_parts[1:])
+        else:
+            return '-'.join(['{}{}'.format(prev_id_p1[:-1], chr(ord(prev_id[-1]) + 1))]
+                            + prev_id_parts[1:])
     else:
         return None
 
@@ -2378,7 +2381,7 @@ def set_end_times(parts):
         # page, system, loudnessdirection, tempodirection
         _set_end_times(part, Page)
         _set_end_times(part, System)
-        _set_end_times(part, ConstantLoudnessDirection)
+        # _set_end_times(part, ConstantLoudnessDirection)
         _set_end_times(part, ConstantTempoDirection)
 
 
