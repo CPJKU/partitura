@@ -54,9 +54,9 @@ def show(part, out_fmt='png'):
     
     img_fn = show_musescore(part, out_fmt)
     
-    if not os.path.exists(img_fn):
+    if img_fn is None or not os.path.exists(img_fn):
         img_fn =  show_lilypond(part, out_fmt)
-        if not os.path.exists(img_fn):
+        if img_fn is None or not os.path.exists(img_fn):
             return None
     
     # NOTE: the temporary image file will not be deleted.
