@@ -20,6 +20,23 @@ ARTICULATIONS = ['accent', 'breath-mark', 'caesura', 'detached-legato', 'doit',
                  'falloff', 'plop', 'scoop', 'spiccato', 'staccatissimo',
                  'staccato', 'stress', 'strong-accent', 'tenuto', 'unstress']
 
+def range_number_from_counter(e, label, counter):
+    key = (label, e)
+    number = counter.get(key, None)
+
+    if number is None:
+
+        number = 1 + sum(1 for o in counter.keys() if o[0] == label)
+        assert number is not None
+        counter[key] = number
+
+    else:
+
+        del counter[key]
+
+    return number
+
+
 def filter_string(s):
     """
     Make (unicode) string fit for passing it to lxml, which means (at least)
@@ -137,34 +154,18 @@ def make_note_el(note, dur, voice, counter):
         etree.SubElement(note_e, 'staff').text = '{}'.format(note.staff)
 
     for slur in note.slur_stops:
-        slur_key = ('slur', slur)
-        number = counter.get(slur_key, None)
 
-        if number is None:
-
-            number = 1
-            counter[slur_key] = number
-
-        else:
-
-            del counter[slur_key]
-
+        number = range_number_from_counter(slur, 'slur', counter)
+        
         notations.append(etree.Element('slur', number='{}'.format(number), type='stop'))
 
     for slur in note.slur_starts:
-        slur_key = ('slur', slur)
-        number = counter.get(slur_key, None)
 
-        if number is None:
+        number = range_number_from_counter(slur, 'slur', counter)
 
-            number = 1 + sum(1 for o in counter.keys() if o[0] == 'slur')
-            counter[slur_key] = number
-
-        else:
-
-            del counter[slur_key]
-            
-        notations.append(etree.Element('slur', number='{}'.format(number), type='start'))
+        notations.append(etree.Element('slur',
+                                       number='{}'.format(number),
+                                       type='start'))
 
     for tuplet in note.tuplet_stops:
         tuplet_key = ('tuplet', tuplet)
@@ -221,7 +222,7 @@ def do_note(note, measure_end, timeline, voice, counter):
     return (note.start.t, dur_divs, note_e)
 
 
-def linearize_measure_contents(part, start, end, counter):
+def linearize_measure_contents(part, start, end, state):
     """
     Determine the document order of events starting between `start` (inclusive)
     and `end` (exlusive).  (notes, directions, divisions, time signatures). This
@@ -258,7 +259,7 @@ def linearize_measure_contents(part, start, end, counter):
     contents = []
 
     for i in range(1, len(splits)):
-        contents.extend(linearize_segment_contents(part, splits[i-1], splits[i], counter))
+        contents.extend(linearize_segment_contents(part, splits[i-1], splits[i], state))
 
     return contents
 
@@ -371,11 +372,12 @@ def remove_voice_polyphony(notes_by_voice):
 #                 part.add(rest, note.end.t, end.t)
                 
 
-def linearize_segment_contents(part, start, end, counter):
+def linearize_segment_contents(part, start, end, state):
     """
     Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
     (notes, directions, divisions, time signatures).
     """
+
     notes = part.iter_all(score.GenericNote,
                           start=start, end=end,
                           include_subclasses=True)
@@ -419,16 +421,17 @@ def linearize_segment_contents(part, start, end, counter):
                     # if so we add the whole grace sequence at once to ensure
                     # the correct order
                     for m in n.iter_grace_seq():
-                        note_e = do_note(m, end.t, part, voice, counter)
+                        note_e = do_note(m, end.t, part, voice,
+                                         state['note_id_counter'])
                         voices_e[voice].append(note_e)
             else:
-                note_e = do_note(n, end.t, part, voice, counter)
+                note_e = do_note(n, end.t, part, voice, state['note_id_counter'])
                 voices_e[voice].append(note_e)
             
         add_chord_tags(voices_e[voice])
 
     attributes_e = do_attributes(part, start, end)
-    directions_e = do_directions(part, start, end)
+    directions_e = do_directions(part, start, end, state['range_counter'])
     prints_e = do_prints(part, start, end)
     barline_e = do_barlines(part, start, end)
 
@@ -668,7 +671,7 @@ def merge_measure_contents(notes, other, measure_start):
     return result
         
 
-def do_directions(part, start, end):
+def do_directions(part, start, end, counter):
     result = []
 
     # ending directions
@@ -676,21 +679,24 @@ def do_directions(part, start, end):
                                include_subclasses=True, mode='ending')
 
     for direction in directions:
-        # print([direction])
         text = direction.raw_text or direction.text
         e0 = etree.Element('direction')
         e1 = etree.SubElement(e0, 'direction-type')
 
+
         if getattr(direction, 'wedge', False):
 
-            e2 = etree.SubElement(e1, 'wedge', type='stop')
+            number = range_number_from_counter(direction, 'wedge', counter)
+            e2 = etree.SubElement(e1, 'wedge', number='{}'.format(number), type='stop')
 
         else:
-            # e2 = etree.SubElement(e0, 'direction-type')
-            etree.SubElement(e1, 'dashes', number="1", type='stop')
+
+            number = range_number_from_counter(direction, 'wedge', counter)
+            etree.SubElement(e1, 'dashes', number='{}'.format(number), type='stop')
 
         elem = (direction.end.t, None, e0)
         result.append(elem)
+
 
     tempos = part.iter_all(score.Tempo, start, end)
     directions = part.iter_all(score.Direction, start, end,
@@ -724,7 +730,8 @@ def do_directions(part, start, end):
             else:
                 wtype = 'diminuendo'
 
-            e2 = etree.SubElement(e1, 'wedge', type=wtype)
+            number = range_number_from_counter(direction, 'wedge', counter)
+            e2 = etree.SubElement(e1, 'wedge', number='{}'.format(number), type=wtype)
 
         else:
 
@@ -733,9 +740,9 @@ def do_directions(part, start, end):
             
             if (isinstance(direction, score.DynamicDirection)
                 and direction.end is not None):
-                # print([direction, direction.end.t])
                 e3 = etree.SubElement(e0, 'direction-type')
-                etree.SubElement(e3, 'dashes', number="1", type='start')
+                number = range_number_from_counter(direction, 'dashes', counter)
+                etree.SubElement(e3, 'dashes', number='{}'.format(number), type='start')
     
 
         if direction.staff is not None:
@@ -745,7 +752,6 @@ def do_directions(part, start, end):
 
         elem = (direction.start.t, None, e0)
         result.append(elem)
-
 
     return result
     
@@ -857,7 +863,10 @@ def save_musicxml(parts, out=None):
     root = etree.Element('score-partwise')
     
     partlist_e = etree.SubElement(root, 'part-list')
-    counter = {}
+    state = {
+        'note_id_counter': {},
+        'range_counter': {},
+    }
 
     group_stack = []
 
@@ -944,7 +953,10 @@ def save_musicxml(parts, out=None):
                 attrib['number'] = str(measure.number)
 
             measure_e = etree.SubElement(part_e, 'measure', **attrib)
-            contents = linearize_measure_contents(part, measure.start, measure.end, counter)
+            contents = linearize_measure_contents(part,
+                                                  measure.start,
+                                                  measure.end,
+                                                  state)
             measure_e.extend(contents)
             
     close_group_stack()
