@@ -2105,14 +2105,8 @@ def remove_grace_notes(part):
                                       if n.grace_type is None]
 
 
-def expand_grace_notes(part, min_prop=.05, max_prop=.5):
-    """Expand grace notes on a part.
-
-    Expand durations of grace notes according to their specifications,
-    or according to the default settings specified using the keywords.
-    The onsets/offsets of the grace notes and surrounding notes are
-    set accordingly. Multiple contiguous grace notes inside a voice
-    are expanded sequentially.
+def expand_grace_notes(part):
+    """Expand grace note durations in a part.
 
     The specified part object will be modified in place.
 
@@ -2123,69 +2117,10 @@ def expand_grace_notes(part, min_prop=.05, max_prop=.5):
 
     """
     for gn in part.iter_all(GraceNote):
-
-        if gn.grace_prev:
-            continue
-
-        if gn.grace_type not in ('appoggiatura', 'acciaccatura'):
-            grace_type = 'appoggiatura'
-        else:
-            grace_type = gn.grace_type
-
-        total_grace_dur = sum(n.duration_from_symbolic for n in gn.iter_grace_seq())
-
-        if grace_type == 'appoggiatura':
-
-            if not gn.main_note:
-                continue
-
-            # don't take more than half of the main note duration
-            capped_grace_dur = max(gn.main_note.duration * min_prop,
-                                   min(gn.main_note.duration * max_prop,
-                                       total_grace_dur))
-            new_start = gn.main_note.start.t + capped_grace_dur
-
-            # shorten main note
-            for n in gn.main_note.iter_chord():
-
-                part.remove(n, 'start')
-                part.add(n, int(new_start))
-
-            start = gn.start.t
-            for m in gn.iter_grace_seq():
-
-                end = start + capped_grace_dur * m.duration_from_symbolic / total_grace_dur
-                part.remove(m)
-                part.add(m, int(start), int(end))
-                start = end
-
-        if grace_type == 'acciaccatura':
-
-            prev_note = next(gn.iter_voice_prev(), None)
-
-            if not prev_note:
-                continue
-
-            capped_grace_dur = max(prev_note.duration * min_prop,
-                                   min(prev_note.duration * max_prop,
-                                       total_grace_dur))
-            # capped_grace_dur = min(prev_note.duration/2, total_grace_dur)
-            new_end = prev_note.end.t - capped_grace_dur
-
-            # shorten prev note
-            for n in prev_note.iter_chord():
-
-                part.remove(n, 'end')
-                part.add(n, end=int(new_end))
-
-            # set grace note times
-            start = new_end
-            for m in gn.iter_grace_seq():
-                end = start + capped_grace_dur * m.duration_from_symbolic / total_grace_dur
-                part.remove(m)
-                part.add(m, int(start), int(end))
-                start = end
-
+        dur = symbolic_to_numeric_duration(gn.symbolic_duration, gn.start.quarter)
+        part.remove(gn, 'end')
+        part.add(gn, end=gn.start.t+int(np.round(dur)))
+        
 
 def iter_parts(partlist):
     """Iterate over all Part instances in partlist, which is a list of
