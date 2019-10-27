@@ -796,6 +796,9 @@ def do_attributes(part, start, end):
         
     result = []
 
+    # hacky: flag to include staves element before the first clef
+    staves_included = False
+
     for t in sorted(by_start.keys()):
 
         attr_e = etree.Element('attributes')
@@ -823,6 +826,11 @@ def do_attributes(part, start, end):
 
             elif isinstance(o, score.Clef):
 
+                if not staves_included:
+                    staves_e = etree.SubElement(attr_e, 'staves')
+                    staves_e.text = '{}'.format(len(clefs))
+                    staves_included = True
+                    
                 clef_e = etree.SubElement(attr_e, 'clef')
 
                 if o.number:
