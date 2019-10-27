@@ -91,7 +91,7 @@ def find_musescore3():
 
     return result
         
-def show_musescore(part, out_fmt):
+def show_musescore(part, out_fmt, dpi=90):
     mscore_exec = find_musescore3()
     if not mscore_exec:
         return False
@@ -102,7 +102,7 @@ def show_musescore(part, out_fmt):
     with NamedTemporaryFile(suffix='.musicxml') as xml_fh, \
          NamedTemporaryFile(suffix='.{}'.format(out_fmt), delete=False) as img_fh:
         save_musicxml(part, xml_fh)
-        cmd = [mscore_exec, '-T', '10', '-r', '90', '-o', img_fh.name, xml_fh.name]
+        cmd = [mscore_exec, '-T', '10', '-r', '{}'.format(dpi), '-o', img_fh.name, xml_fh.name]
         try:
             ps = subprocess.run(cmd, stdin=xml_fh, stdout=subprocess.PIPE)
             if ps.returncode != 0:
