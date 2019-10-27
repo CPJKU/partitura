@@ -583,14 +583,13 @@ class Part(object):
                 end = TimePoint(end)
             end_idx = np.searchsorted(self.points, end)
 
-        r = []
         if mode == 'ending':
             for tp in self.points[start_idx: end_idx]:
                 yield from tp.iter_ending(cls, include_subclasses)
         else:
             for tp in self.points[start_idx: end_idx]:
                 yield from tp.iter_starting(cls, include_subclasses)
-        return r
+
 
     @property
     def last_point(self):
