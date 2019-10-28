@@ -888,8 +888,7 @@ def _handle_note(e, position, part, ongoing, prev_note):
     ties = e.findall('tie')
     if len(ties) > 0:
 
-        # TODO: this fails when note is a rest
-        tie_key = ('tie', note.midi_pitch)
+        tie_key = ('tie', getattr(note, 'midi_pitch', 'rest'))
         tie_types = set(tie.attrib['type'] for tie in ties)
 
         if 'stop' in tie_types:
