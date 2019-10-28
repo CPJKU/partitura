@@ -1091,7 +1091,7 @@ class Measure(TimedObject):
     Attributes
     ----------
     number : int
-        the number of the measure. (directly taken from musicxml file?)
+        the number of the measure.
     page : int
     system : int
     incomplete : boolean
