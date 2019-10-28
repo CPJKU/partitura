@@ -37,10 +37,9 @@ The :func:`partitura.show` function displays the part as a typeset score:
    :align: center
         
 This should open an image of the score in the default image viewing
-application of your desktop.
-
-The function requires that the `lilypond <http://lilypond.org/>`_
-music typesetting program is installed on your computer.
+application of your desktop. The function requires that either `MuseScore 
+<https://musescore.org/>`_ or `lilypond <http://lilypond.org/>`_ is
+installed on your computer.
 
 
 Exporting a score to MusicXML
