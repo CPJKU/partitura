@@ -126,7 +126,7 @@ def load_performance_midi(fn, default_bpm=120):
 
     return performance.PerformedPart(notes, controls=controls)
     
-
+    
 def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                     quantization_unit=None, estimate_voice_info=True,
                     estimate_key=False, assign_note_ids=True):
@@ -204,7 +204,7 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     ----------
     .. [1] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal 
            of New Music Research, 35(2):121.
-    .. [2] Chew, E. and Wu, Xiaodan (2006) "Separating Voices in
+    .. [2] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
            Polyphonic Music: A Contig Mapping Approach". In Uffe Kock, 
            editor, Computer Music Modeling and Retrieval (CMMR), pp. 1–20, 
            Springer Berlin Heidelberg.

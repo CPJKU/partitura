@@ -13,7 +13,7 @@ from partitura.utils import add_field
 
 __all__ = ['estimate_voices']
 
-# Maximal cost of a jump (in Chew  and Wu (2006) is 2 ** 31)
+# Maximal cost of a jump (in Chew  and Wu (2004) is 2 ** 31)
 MAX_COST = 1000
 
 
@@ -78,7 +78,7 @@ def estimate_voices(notearray, monophonic_voices=False):
 
     References
     ----------
-    .. [1] Chew, E. and Wu, Xiaodan (2006) "Separating Voices in
+    .. [1] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
            Polyphonic Music: A Contig Mapping Approach". In Uffe Kock, 
            editor, "Computer Music Modeling and Retrieval". Springer 
            Berlin Heidelberg.
