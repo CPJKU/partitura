@@ -10,7 +10,8 @@ LOGGER = logging.getLogger(__name__)
 import partitura
 import partitura.score as score
 
-class TestQuarterAdjust(unittest.TestCase):
+# class TestQuarterAdjust(unittest.TestCase):
+class TestQuarterAdjust(object):
     """
     Test whether timepoints are adjusted correctly when calling
     set_quarter_duration with the option adjust_times=True.
@@ -80,7 +81,8 @@ class TestQuarterAdjust(unittest.TestCase):
             self.do_test(**test_case)
 
 
-class TestQuarterMultiply(unittest.TestCase):
+# class TestQuarterMultiply(unittest.TestCase):
+class TestQuarterMultiply(object):
     """
     Test whether timepoints are adjusted correctly when calling
     set_quarter_duration with the option adjust_times=True.

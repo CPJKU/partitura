@@ -426,7 +426,7 @@ def _handle_new_page(position, part, ongoing):
             return
 
         part.add(ongoing['page'], None, position)
-        page_nr = ongoing['page'].nr + 1
+        page_nr = ongoing['page'].number + 1
     else:
         page_nr = 1
 
@@ -444,7 +444,7 @@ def _handle_new_system(position, part, ongoing):
 
         # end current page
         part.add(ongoing['system'], None, position)
-        system_nr = ongoing['system'].nr + 1
+        system_nr = ongoing['system'].number + 1
     else:
         system_nr = 1
 
@@ -968,7 +968,7 @@ def handle_tuplets(notations, ongoing, note):
 
             else:
 
-                tuplet.set_start_note(note)
+                tuplet.start_note = note
 
             starting_tuplets.append(tuplet)
 
@@ -981,7 +981,7 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet = score.Tuplet(None, note)
                 ongoing[stop_tuplet_key] = tuplet
             else:
-                tuplet.set_end_note(note)
+                tuplet.end_note = note
 
             stopping_tuplets.append(tuplet)
 
@@ -1024,7 +1024,7 @@ def handle_slurs(notations, ongoing, note):
 
             else:
 
-                slur.set_start_note(note)
+                slur.start_note = note
 
             starting_slurs.append(slur)
 
@@ -1038,7 +1038,7 @@ def handle_slurs(notations, ongoing, note):
                 ongoing[stop_slur_key] = slur
             else:
 
-                slur.set_end_note(note)
+                slur.end_note = note
 
             stopping_slurs.append(slur)
 
