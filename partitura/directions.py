@@ -11,6 +11,7 @@ be inferred, a `score.Words` instance is returned.
 The functionality is provided by the function `parse_words`
 """
 
+import re
 import logging
 
 try:
@@ -44,6 +45,33 @@ def join_items(items):
     return ' | '.join('{}i'.format(item) if item.startswith('/') else '"{}"i'.format(item)
                       for item in items)
 
+UNABBREVS = [
+    (re.compile('(crescendo|cresc\.?)'), 'crescendo'),
+    (re.compile('(smorzando|smorz\.?)'), 'smorzando'),
+    (re.compile('(decrescendo|(decresc|decr|dimin|dim)\.?)'), 'diminuendo'),
+    (re.compile('((acceler|accel|acc)\.?)'), 'accelerando'),
+    (re.compile('(ritenente|riten\.?)'), 'ritenuto'),
+    (re.compile('((ritard|rit)\.?)'), 'ritardando'),
+    (re.compile('((rallent|rall)\.?)'), 'rallentando'),
+    (re.compile('(dolciss\.?)'), 'dolcissimo'),
+    (re.compile('((sosten|sost)\.?)'), 'sostenuto'),
+    (re.compile('(delicatiss\.?)'), 'delicatissimo'),
+    (re.compile('(leggieramente|leggiermente|leggiero|legg\.?)'), 'leggiero'),
+    (re.compile('(leggierissimo|(leggieriss\.?))'), 'leggierissimo'),
+    (re.compile('(scherz\.?)'), 'scherzando'),
+    (re.compile('(tenute|ten\.?)'), 'tenuto'),
+    (re.compile('(allegretto)'), 'allegro'),
+    (re.compile('(espress\.?)'), 'espressivo'),
+    (re.compile('(ligato)'), 'legato'),
+    (re.compile('(ligatissimo)'), 'legatissimo'),
+    (re.compile('((rinforz|rinf|rfz|rf)\.?)'), 'rinforzando'),
+]
+
+def unabbreviate(s):
+    for p, v in UNABBREVS:
+        if p.match(s):
+            return v
+    return s
 
 INC_LOUDNESS_ADJ = [
     r'/(crescendo|cresc\.?)/',
@@ -312,6 +340,10 @@ NEG: "non"i
 )
 
 
+def regularize_form(children):
+    return ' '.join(unabbreviate(ch.lower()) for ch in children)
+
+
 def create_directions(tree, string, start=None, end=None):
     """
     Recursively walk the parse tree of `string` to create a `score.Direction` or `score.Words` instance.
@@ -337,36 +369,36 @@ def create_directions(tree, string, start=None, end=None):
                 + create_directions(tree.children[1], string))
 
     elif tree.data == 'constant_tempo_adj':
-        return [score.ConstantTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.ConstantTempoDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'constant_loudness_adj':
-        return [score.ConstantLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.ConstantLoudnessDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'constant_articulation_adj':
-        return [score.ConstantArticulationDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.ConstantArticulationDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'constant_mixed_adj':
-        return [score.Direction(" ".join(tree.children).lower(), string[start:end])]
+        return [score.Direction(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'inc_loudness_adj':
-        return [score.IncreasingLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.IncreasingLoudnessDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'dec_loudness_adj':
-        return [score.DecreasingLoudnessDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.DecreasingLoudnessDirection(regularize_form(tree.children), string[start:end])]
 
     # elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
-    #     return [score.DynamicTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+    #     return [score.DynamicTempoDirection(regularize_form(tree.children), string[start:end])]
     elif tree.data == 'inc_tempo_adj':
-        return [score.IncreasingTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.IncreasingTempoDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'dec_tempo_adj':
-        return [score.DecreasingTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.DecreasingTempoDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'genre':
         if len(tree.children) > 1:
             # this can be something like "scherzo vivace" or "marcia funebre"
             pass
-        return [score.ConstantTempoDirection(tree.children[0].lower(), string[start:end])]
+        return [score.ConstantTempoDirection(regularize_form(tree.children[:1]), string[start:end])]
 
     elif tree.data == 'tempo_indication':
         bpm = int(tree.children[1])
@@ -374,7 +406,7 @@ def create_directions(tree, string, start=None, end=None):
         return [score.Tempo(bpm, unit)]
 
     elif tree.data == 'tempo_reset':
-        return [score.ResetTempoDirection(" ".join(tree.children).lower(), string[start:end])]
+        return [score.ResetTempoDirection(regularize_form(tree.children), string[start:end])]
 
     elif tree.data == 'words':
         return [score.Words(string[start:end])]
