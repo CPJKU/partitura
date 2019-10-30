@@ -2424,7 +2424,7 @@ def repeats_to_start_end(repeats, first, last):
     return list(zip(starts, ends))
 
 
-def make_tied_note_id(prev_id):
+def _make_tied_note_id(prev_id):
     # non-public
     """Create a derived note ID for newly created notes, by appending
     letters to the ID. If the original ID has the form X-Y (e.g.
@@ -2442,11 +2442,11 @@ def make_tied_note_id(prev_id):
 
     Examples
     --------
-    >>> make_tied_note_id('n0')
+    >>> _make_tied_note_id('n0')
     'n0a'
-    >>> make_tied_note_id('n0a')
+    >>> _make_tied_note_id('n0a')
     'n0b'
-    >>> make_tied_note_id('n0-1')
+    >>> _make_tied_note_id('n0-1')
     'n0a-1'
 
     """
@@ -2490,7 +2490,7 @@ def tie_notes(part):
             cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t - cur_note.start.t, cur_note.start.quarter)
             sym_dur = estimate_symbolic_duration(note_end.t - next_measure.start.t, next_measure.start.quarter)
             if cur_note.id is not None:
-                note_id = make_tied_note_id(cur_note.id)
+                note_id = _make_tied_note_id(cur_note.id)
             else:
                 note_id = None
             next_note = Note(note.step, note.octave, note.alter, id=note_id,
@@ -2598,7 +2598,7 @@ def split_note(part, note, splits):
         note.slur_stops = []
 
         if cur_note.id is not None:
-            note_id = make_tied_note_id(cur_note.id)
+            note_id = _make_tied_note_id(cur_note.id)
         else:
             note_id = None
 
