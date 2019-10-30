@@ -1,16 +1,63 @@
 Release Notes
 =============
 
-Version 0.2.1 (prerelease)
---------------------------
+Version 0.3.0 (Released on 2019-10-30)
+--------------------------------------
 
+API changes:
+
+* Rename load_midi -> load_score_midi
+* Rename xml_to_notearray -> musicxml_to_notearray
+* Rename divisions_map -> quarter_duration_map
+* Page/System: rename nr -> number
+* Make Part.points private (_points)
+* Remove voice related methods on Note (only used in obsolete expand_grace_notes
+version)
+
+New features:
+
+* Save Part as MIDI file (save_score_midi)
+* Add PerformedPart to represent performances
+* Load MIDI as PerformedPart (load_performance_midi)
+* Save PerformedPart as MIDI (save_performance_midi)
+* Add support for Match files (load_match)
+* New options for iter_current_next
+* Make_measures respects existing measures optionally
+* Export articulations to musicxml.
+* load_score_midi: Estimate staffs (if not specified)
+* load_score_midi: Estimate voices (if not specified)
+* load_musicxml: Set end times of score elements to start of next element of
+  that class (Page, System, Direction)
+* Define Incr/Decr loudness/tempo directions
+* Add iter_prev/iter_next methods
+* Be explicit about kwargs in Note creation
+* Add show function to display score, using either MuseScore or Lilypond as
+  backend
+* Add load_via_musescore to load scores in other formats 
+
+Bug fixes:
+
+* Better clef support in musicxml export
+* export_musicxml: fixes in handle wedge/dashes export
+* The order in which simulatenous notes are listed in a timepoint no longer
+  influences the chord-handling logic in voice estimation, and the musicxml
+  export.
+* Fix incorrect construction of dtypes for structarray in voice_separation
+* Fix in anacrusis handling
+* Fix in iter_current_next
+* import_musicxml: check for <backup> crossing measure boundary
+    
 Other changes:
 
+* Get rid of deprecated get_prev/next_of_type
+* Tuplet/Slur: make use of getter/setter for start/end_note
+* Improvements in parse_direction
+* expand_grace_notes now simpy sets note durations, without shifting onsets
 * Rename strictly_monophonic_voices keyword arg to monophonic_voices in
   estimate_voices, and implement (previously unimplemented) functionality: With
   monophonic_voice=False, notes with same onset and duration as treated as
   chords and assigned to the same voice
-
+* More documentation
 
 Version 0.2.0 (prerelease; Released on 2019-10-04)
 --------------------------------------------------
