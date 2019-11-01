@@ -137,12 +137,8 @@ class Part(object):
                              tss))
         tss = np.vstack((tss,
                          (self.last_point.t, tss[-1, 1], tss[-1, 2])))
-        try:
-            return interp1d(tss[:, 0], tss[:, 1:], kind='previous')
-        except:
-            beats_f = interp1d(tss[:, 0], tss[:, 1], kind='previous')
-            beat_type_f = interp1d(tss[:, 0], tss[:, 2], kind='previous')
-            return lambda x: np.array([beats_f(x), beat_type_f(x)])
+
+        return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous')
 
     def _time_interpolator(self, quarter=False, inv=False):
 
