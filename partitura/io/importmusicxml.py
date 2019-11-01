@@ -910,22 +910,30 @@ def _handle_note(e, position, part, ongoing, prev_note):
     if notations is not None:
 
         if notations.find('fermata') is not None:
+
             fermata = score.Fermata(note)
             part.add(fermata, position)
             note.fermata = fermata
 
-        starting_slurs, stopping_slurs = handle_slurs(notations, ongoing, note)
+        starting_slurs, stopping_slurs = handle_slurs(notations, ongoing, note, position)
+
         for slur in starting_slurs:
+
             part.add(slur, position)
+
         for slur in stopping_slurs:
-            part.add(slur, None, position+duration)
+
+            part.add(slur, end=position)
 
         starting_tups, stopping_tups = handle_tuplets(notations, ongoing, note)
 
         for tup in starting_tups:
+
             part.add(tup, position)
+
         for tup in stopping_tups:
-            part.add(tup, None, position+duration)
+
+            part.add(tup, end=position+duration)
 
     new_position = position + duration
 
@@ -988,7 +996,13 @@ def handle_tuplets(notations, ongoing, note):
     return starting_tuplets, stopping_tuplets
 
 
-def handle_slurs(notations, ongoing, note):
+def handle_slurs(notations, ongoing, note, position):
+    # we need position here to check for erroneous slurs: sometimes a slur stop
+    # is encountered before the corresponding slur start. This is a valid use
+    # case (e.g. slur starts in staff 2 and ends in staff 1). However, if the
+    # stop is before the start in time, then it is just a MusicXML encoding
+    # error.
+    
     starting_slurs = []
     stopping_slurs = []
     slurs = notations.findall('slur')
@@ -1017,7 +1031,20 @@ def handle_slurs(notations, ongoing, note):
             # this stop
             slur = ongoing.pop(stop_slur_key, None)
 
-            if slur is None:
+            # if slur.end_note.start.t < position then the slur stop is
+            # rogue. We drop it and treat the slur start like a fresh start
+            if slur is None or slur.end_note.start.t <= position:
+
+                if slur and slur.end_note.start.t <= position:
+                    msg = ('Dropping slur {} starting at {} ({}) and ending '
+                           'at {} ({})'
+                           .format(slur_number, position, note.id,
+                                   slur.end_note.start.t, slur.end_note.id))
+                    LOGGER.warning(msg)
+                    # remove the slur from the timeline
+                    slur.end_note.start.remove_ending_object(slur)
+                    # remove the reference to the slur in the end note
+                    slur.end_note.slur_stops.remove(slur)
 
                 slur = score.Slur(note)
                 ongoing[start_slur_key] = slur
@@ -1031,11 +1058,25 @@ def handle_slurs(notations, ongoing, note):
         elif slur_type == 'stop':
 
             slur = ongoing.pop(start_slur_key, None)
-            if slur is None:
+
+            if slur is None or slur.start_note.start.t >= position:
+
+                if slur and slur.start_note.start.t >= position:
+                    msg = ('Dropping slur {} starting at {} ({}) and ending '
+                           'at {} ({})'
+                           .format(slur_number, slur.start_note.start.t,
+                                   slur.start_note.id, position, note.id))
+                    LOGGER.warning(msg)
+                    # remove the slur from the timeline
+                    slur.start_note.start.remove_starting_object(slur)
+                    # remove the reference to the slur in the end note
+                    slur.start_note.slur_starts.remove(slur)
+
                 # slur stop occurs before slur start in document order, that
                 # is a valid scenario
                 slur = score.Slur(None, note)
                 ongoing[stop_slur_key] = slur
+
             else:
 
                 slur.end_note = note
