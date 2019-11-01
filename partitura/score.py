@@ -1528,38 +1528,31 @@ class Direction(TimedObject):
             return '{} "{}"'.format(type(self).__name__, self.text)
 
 
-class TempoDirection(Direction):
-    pass
 
+class LoudnessDirection(Direction): pass
+class TempoDirection(Direction): pass
+class ArticulationDirection(Direction): pass
 
-class DynamicDirection(Direction):
-    pass
+class ConstantDirection(Direction): pass
+class DynamicDirection(Direction): pass
+class ImpulsiveDirection(Direction): pass
 
-# class DynamicTempoDirection(TempoDirection):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         # self.intermediate = []
+class ConstantLoudnessDirection(ConstantDirection, LoudnessDirection): pass
+class ConstantTempoDirection(ConstantDirection, TempoDirection): pass
+class ConstantArticulationDirection(ConstantDirection, ArticulationDirection): pass
 
+class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
+    def __init__(self, *args, wedge=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.wedge = wedge
+class DynamicTempoDirection(DynamicDirection, TempoDirection): pass
 
-class DynamicTempoDirection(DynamicDirection, TempoDirection):
-    pass
+class IncreasingLoudnessDirection(DynamicLoudnessDirection): pass
+class DecreasingLoudnessDirection(DynamicLoudnessDirection): pass
+class IncreasingTempoDirection(DynamicTempoDirection): pass
+class DecreasingTempoDirection(DynamicTempoDirection): pass
 
-
-class IncreasingTempoDirection(DynamicTempoDirection):
-    pass
-
-
-class DecreasingTempoDirection(DynamicTempoDirection):
-    pass
-
-
-class ConstantTempoDirection(TempoDirection):
-    pass
-
-
-class ConstantArticulationDirection(TempoDirection):
-    pass
-
+class ImpulsiveLoudnessDirection(ImpulsiveDirection, LoudnessDirection): pass
 
 class ResetTempoDirection(ConstantTempoDirection):
     @property
@@ -1568,37 +1561,6 @@ class ResetTempoDirection(ConstantTempoDirection):
         for d in self.start.iter_prev(ConstantTempoDirection):
             direction = d
         return direction
-
-
-class LoudnessDirection(Direction):
-    pass
-
-
-# class DynamicLoudnessDirection(LoudnessDirection):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         # self.intermediate = []
-
-class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
-    def __init__(self, *args, wedge=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.wedge = wedge
-
-
-class IncreasingLoudnessDirection(DynamicLoudnessDirection):
-    pass
-
-
-class DecreasingLoudnessDirection(DynamicLoudnessDirection):
-    pass
-
-
-class ConstantLoudnessDirection(LoudnessDirection):
-    pass
-
-
-class ImpulsiveLoudnessDirection(LoudnessDirection):
-    pass
 
 
 class GenericNote(TimedObject):
@@ -2546,7 +2508,8 @@ def set_end_times(parts):
         _set_end_times(part, System)
         _set_end_times(part, ConstantLoudnessDirection)
         _set_end_times(part, ConstantTempoDirection)
-
+        _set_end_times(part, ConstantArticulationDirection)
+    
 
 def _set_end_times(part, cls):
     acc = []
