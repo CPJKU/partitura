@@ -513,9 +513,6 @@ class Part(object):
             object, or both. Defaults to 'both'.
 
         """
-        if isinstance(o, list):
-            # This is a hack
-            o = o[0]
 
         if which in ('start', 'both') and o.start:
             try:

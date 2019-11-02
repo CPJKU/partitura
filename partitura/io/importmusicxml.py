@@ -256,8 +256,12 @@ def _parse_parts(document, part_dict):
         # remove unfinished elements from the timeline
         for k, o in ongoing.items():
             if k not in ('page', 'system'):
-                part.remove(o)
-                
+                if isinstance(o, list):
+                    for o_i in o:
+                        part.remove(o_i)
+                else:
+                    part.remove(o)
+
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
         score.set_end_times(part)
