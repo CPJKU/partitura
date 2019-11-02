@@ -251,9 +251,13 @@ def _parse_parts(document, part_dict):
         _handle_new_system(position, part, ongoing)
 
         for measure_el in part_el.xpath('measure'):
-            position = _handle_measure(
-                measure_el, position, part, ongoing)
+            position = _handle_measure(measure_el, position, part, ongoing)
 
+        # remove unfinished elements from the timeline
+        for k, o in ongoing.items():
+            if k not in ('page', 'system'):
+                part.remove(o)
+                
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
         score.set_end_times(part)
@@ -923,7 +927,7 @@ def _handle_note(e, position, part, ongoing, prev_note):
 
         for slur in stopping_slurs:
 
-            part.add(slur, end=position)
+            part.add(slur, end=position+duration)
 
         starting_tups, stopping_tups = handle_tuplets(notations, ongoing, note)
 
