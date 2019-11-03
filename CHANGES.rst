@@ -1,7 +1,24 @@
 Release Notes
 =============
 
-Version 0.3.0 (Released on 2019-10-30)
+Version 0.3.2 (Released on 2019-11-03)
+--------------------------------------
+
+API changes:
+
+* More systematic direction ontology
+
+New features:
+
+* Add `grace_seq_len` property to grace note
+* Add `backwards` keyword arg to `iter_grace_seq`
+
+Bug fixes:
+  
+* Fix regression in slur handling; Remove unended objects in import
+
+
+Version 0.3.1 (Released on 2019-10-30)
 --------------------------------------
 
 API changes:
