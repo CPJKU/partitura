@@ -1863,11 +1863,6 @@ class GraceNote(Note):
         return (sum(1 for _ in self.iter_grace_seq(backwards=True))
                 + sum(1 for _ in self.iter_grace_seq())
                 - 1) # subtract one because self is counted twice
-        # return (len(list(self.iter_grace_seq(backwards=True))),
-        #         + len(list(self.iter_grace_seq())),
-        #         - 1) # subtract one because self is counted twice
-        # return (len(list(self.iter_grace_seq(backwards=True)))
-        #         - 1) # subtract one because self is counted twice
 
     def iter_grace_seq(self, backwards=False):
         """Iterate over this and all subsequent/preceding grace notes,
