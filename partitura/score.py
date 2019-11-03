@@ -1858,24 +1858,52 @@ class GraceNote(Note):
             n = n.grace_next
         return n
 
-    def iter_grace_seq(self):
-        """Iterate over this and all subsequent grace notes, excluding the main note.
+    @property
+    def grace_seq_len(self):
+        return (sum(1 for _ in self.iter_grace_seq(backwards=True))
+                + sum(1 for _ in self.iter_grace_seq())
+                - 1) # subtract one because self is counted twice
+        # return (len(list(self.iter_grace_seq(backwards=True))),
+        #         + len(list(self.iter_grace_seq())),
+        #         - 1) # subtract one because self is counted twice
+        # return (len(list(self.iter_grace_seq(backwards=True)))
+        #         - 1) # subtract one because self is counted twice
+
+    def iter_grace_seq(self, backwards=False):
+        """Iterate over this and all subsequent/preceding grace notes,
+        excluding the main note.
+
+        Parameters
+        ----------
+        backwards : bool, optional
+            When True, iterate over preceding grace notes. Otherwise
+            iterate over subsequent grace notes. Defaults to False.
 
         Yields
         ------
         GraceNote
+        
         """
 
         yield self
-        n = self.grace_next
+        if backwards:
+            n = self.grace_prev
+        else:
+            n = self.grace_next
         while isinstance(n, GraceNote):
             yield n
-            n = n.grace_next
+            if backwards:
+                n = n.grace_prev
+            else:
+                n = n.grace_next
 
     def __str__(self):
-        return ' '.join((super().__str__(),
-                         'main_note={}'.format(self.main_note and self.main_note.id)))
-
+        s = ' '.join(
+            (super().__str__(),
+             'main_note={}'.format(self.main_note and self.main_note.id)))
+             # 'grace_prev={}'.format(self.grace_prev.id if self.grace_prev else None),
+             # 'grace_next={}'.format(self.grace_next.id if self.grace_next else None)),
+        return s
 
 class PartGroup(object):
     """Represents a grouping of several instruments, usually named, and
