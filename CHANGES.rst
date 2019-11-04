@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+Version 0.3.3 (Released on 2019-11-04)
+--------------------------------------
+
+Bug fixes:
+  
+* Fix missing dedent import
+
+
 Version 0.3.2 (Released on 2019-11-03)
 --------------------------------------
 
