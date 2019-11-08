@@ -969,6 +969,375 @@ class TimedObject(ReplaceRefMixin):
         self.end = None
 
 
+class GenericNote(TimedObject):
+    """Represents the common aspects of notes and rests (and in the future
+    unpitched notes)
+
+    Parameters
+    ----------
+    voice : integer, optional (default: None)
+    id : integer, optional (default: None)
+
+    """
+
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None):
+        self._sym_dur = None
+        super().__init__()
+        self.voice = voice
+        self.id = id
+        self.staff = staff
+        self.symbolic_duration = symbolic_duration
+        self.articulations = articulations
+
+        # these attributes are set after the instance is constructed
+        self.fermata = None
+        self.tie_prev = None
+        self.tie_next = None
+        self.slur_stops = []
+        self.slur_starts = []
+        self.tuplet_stops = []
+        self.tuplet_starts = []
+
+        # maintain a list of attributes to update when cloning this instance
+        self._ref_attrs.extend(['tie_prev', 'tie_next',
+                                'slur_stops', 'slur_starts',
+                                'tuplet_stops', 'tuplet_starts'])
+
+    @property
+    def symbolic_duration(self):
+        """
+        The symbolic duration of the note.
+
+        This property returns a dictionary specifying the symbolic
+        duration of the note. The dictionary may have the following
+        keys:
+
+        * type : the note type as a string, e.g. 'quarter', 'half'
+
+        * dots : an integer specifying the number of dots. When this
+          key is missing it means there are no dots.
+
+        * actual_notes : Specifies the number of actual notes in a
+          rhythmical tuplet. Used in conjunction with `normal_notes`.
+
+        * normal_notes : Specifies the normal number of notes in a
+          rhythmical tuplet. For example a triplet of eights in the time
+          of two eights would correspond to actual_notes=3,
+          normal_notes=2.
+
+        The symbolic duration dictionary of a note can either be set
+        manually (for example by specifying the `symbolic_duration`
+        constructor keyword argument), or left unspecified (i.e.
+        None). In the latter case the symbolic duration is estimated
+        dynamically based on the note start and end times. Note that
+        this latter case is generally preferrable because it ensures
+        that the symbolic duration is consistent with the numeric
+        duration.
+
+        If the symbolic duration cannot be estimated from the numeric
+        duration None is returned.
+
+        Returns
+        -------
+        dict or None
+            A dictionary specifying the symbolic duration of the note, or
+            None if the symbolic duration could not be estimated from the
+            numeric duration.
+
+        """
+        if self._sym_dur is None:
+            # compute value
+            if not self.start or not self.end:
+                LOGGER.warning('Cannot estimate symbolic duration for notes that are not added to a Part')
+                return None
+            if self.start.quarter is None:
+                LOGGER.warning('Cannot estimate symbolic duration when not quarter_duration has been set. See Part.set_quarter_duration.')
+                return None
+            return estimate_symbolic_duration(self.duration, self.start.quarter)
+        else:
+            # return set value
+            return self._sym_dur
+
+    @symbolic_duration.setter
+    def symbolic_duration(self, v):
+        self._sym_dur = v
+
+    @property
+    def duration(self):
+        """The duration of the note in divisions
+
+        Returns
+        -------
+        int
+
+        """
+
+        try:
+            return self.end.t - self.start.t
+        except:
+            LOGGER.warn('no end time found for note')
+            return 0
+
+    @property
+    def end_tied(self):
+        """The `Timepoint` corresponding to the end of the note, or---when
+        this note belongs to a group of tied notes---the end of the last
+        note in the group.
+
+        Returns
+        -------
+        TimePoint
+            End of note
+
+        """
+        if self.tie_next is None:
+            return self.end
+        else:
+            return self.tie_next.end_tied
+
+    @property
+    def duration_tied(self):
+        """Time difference of the start of the note to the end of the note,
+        or---when  this note belongs to a group of tied notes---the end of
+        the last note in the group.
+
+        Returns
+        -------
+        int
+            Duration of note
+
+        """
+        if self.tie_next is None:
+            return self.duration
+        else:
+            return self.duration + self.tie_next.duration_tied
+
+    @property
+    def duration_from_symbolic(self):
+        """Return the numeric duration given the symbolic duration of the
+        note and the quarter_duration in effect.
+
+        Returns
+        -------
+        int or None
+        """
+
+        if self.symbolic_duration:
+            # check for self.start, and self.start.quarter
+            return symbolic_to_numeric_duration(self.symbolic_duration, self.start.quarter)
+        else:
+            return None
+
+    @property
+    def tie_prev_notes(self):
+        """TODO
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        type
+            Description of return value
+        """
+
+        if self.tie_prev:
+            return self.tie_prev.tie_prev_notes + [self.tie_prev]
+        else:
+            return []
+
+    @property
+    def tie_next_notes(self):
+        """TODO
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        type
+            Description of return value
+        """
+
+        if self.tie_next:
+            return [self.tie_next] + self.tie_next.tie_next_notes
+        else:
+            return []
+
+    # def iter_voice_prev(self):
+    #     """TODO
+
+    #     Parameters
+    #     ----------
+
+    #     Returns
+    #     -------
+    #     type
+    #         Description of return value
+    #     """
+
+    #     for n in self.start.iter_prev(GenericNote, include_subclasses=True):
+    #         if n.voice == n.voice:
+    #             yield n
+
+    # def iter_voice_next(self):
+    #     """TODO
+
+    #     Parameters
+    #     ----------
+
+    #     Returns
+    #     -------
+    #     type
+    #         Description of return value
+    #     """
+
+    #     for n in self.start.iter_next(GenericNote, include_subclasses=True):
+    #         if n.voice == n.voice:
+    #             yield n
+
+    def iter_chord(self, same_duration=True, same_voice=True):
+        """Iterate over notes with coinciding start times.
+
+        Parameters
+        ----------
+        same_duration : bool, optional
+            When True limit the iteration to notes that have the same
+            duration as the current note. Defaults to True.
+        same_voice : bool, optional
+            When True limit the iteration to notes that have the same
+            voice as the current note. Defaults to True.
+
+        Yields
+        ------
+        GenericNote    
+
+        """
+
+        for n in self.start.iter_starting(GenericNote, include_subclasses=True):
+            if (((not same_voice) or n.voice == self.voice)
+                    and ((not same_duration) or (n.duration == self.duration))):
+                yield n
+
+    def __str__(self):
+        s = ('{} id={} voice={} staff={} type={}'
+             .format(type(self).__name__, self.id, self.voice, self.staff,
+                     format_symbolic_duration(self.symbolic_duration)))
+        if self.articulations:
+            s += ' articulations=({})'.format(", ".join(self.articulations))
+        if self.tie_prev or self.tie_next:
+            all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
+            tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
+            tied_id = '+'.join(n.id or 'None' for n in all_tied)
+            return s + ' tie_group={}'.format(tied_id)
+        else:
+            return s
+
+
+class Note(GenericNote):
+    def __init__(self, step, octave, alter=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.step = step
+        self.octave = octave
+        self.alter = alter
+
+    def __str__(self):
+        return ' '.join((super().__str__(),
+                         'pitch={}{}{}'.format(self.step, self.alter_sign, self.octave)))
+
+    @property
+    def midi_pitch(self):
+        """The midi pitch value of the note (MIDI note number). C4 (middle C,
+        in german: c') is note number 60.
+
+        Returns
+        -------
+        integer
+            The note's pitch as MIDI note number.
+
+        """
+        return pitch_spelling_to_midi_pitch(step=self.step,
+                                            octave=self.octave,
+                                            alter=self.alter)
+
+    # TODO: include morphetic pitch method based in code in musicanalysis package
+
+    @property
+    def alter_sign(self):
+        """The alteration of the note
+
+        Returns
+        -------
+        str
+
+        """
+        return ALTER_SIGNS[self.alter]
+
+
+class Rest(GenericNote):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class GraceNote(Note):
+    def __init__(self, grace_type, *args, steal_proportion=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.grace_type = grace_type
+        self.steal_proportion = steal_proportion
+        self.grace_next = None
+        self.grace_prev = None
+        self._ref_attrs.extend(['grace_next', 'grace_prev'])
+
+    @property
+    def main_note(self):
+        n = self.grace_next
+        while isinstance(n, GraceNote):
+            n = n.grace_next
+        return n
+
+    @property
+    def grace_seq_len(self):
+        return (sum(1 for _ in self.iter_grace_seq(backwards=True))
+                + sum(1 for _ in self.iter_grace_seq())
+                - 1) # subtract one because self is counted twice
+
+    def iter_grace_seq(self, backwards=False):
+        """Iterate over this and all subsequent/preceding grace notes,
+        excluding the main note.
+
+        Parameters
+        ----------
+        backwards : bool, optional
+            When True, iterate over preceding grace notes. Otherwise
+            iterate over subsequent grace notes. Defaults to False.
+
+        Yields
+        ------
+        GraceNote
+        
+        """
+
+        yield self
+        if backwards:
+            n = self.grace_prev
+        else:
+            n = self.grace_next
+        while isinstance(n, GraceNote):
+            yield n
+            if backwards:
+                n = n.grace_prev
+            else:
+                n = n.grace_next
+
+    def __str__(self):
+        s = ' '.join(
+            (super().__str__(),
+             'main_note={}'.format(self.main_note and self.main_note.id)))
+             # 'grace_prev={}'.format(self.grace_prev.id if self.grace_prev else None),
+             # 'grace_next={}'.format(self.grace_next.id if self.grace_next else None)),
+        return s
+
+
 class Page(TimedObject):
     """A page in a musical score. Its start and end times describe the
     range of musical time that is spanned by the page.
@@ -1577,342 +1946,6 @@ class ResetTempoDirection(ConstantTempoDirection):
         return direction
 
 
-class GenericNote(TimedObject):
-    """Represents the common aspects of notes and rests (and in the future
-    unpitched notes)
-
-    Parameters
-    ----------
-    voice : integer, optional (default: None)
-    id : integer, optional (default: None)
-
-    """
-
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None):
-        self._sym_dur = None
-        super().__init__()
-        self.voice = voice
-        self.id = id
-        self.staff = staff
-        self.symbolic_duration = symbolic_duration
-        self.articulations = articulations
-
-        # these attributes are set after the instance is constructed
-        self.fermata = None
-        self.tie_prev = None
-        self.tie_next = None
-        self.slur_stops = []
-        self.slur_starts = []
-        self.tuplet_stops = []
-        self.tuplet_starts = []
-
-        # maintain a list of attributes to update when cloning this instance
-        self._ref_attrs.extend(['tie_prev', 'tie_next',
-                                'slur_stops', 'slur_starts',
-                                'tuplet_stops', 'tuplet_starts'])
-
-    @property
-    def symbolic_duration(self):
-        """TODO
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        if self._sym_dur is None:
-            # compute value
-            assert self.start is not None
-            assert self.end is not None
-            assert self.start.quarter is not None
-            return estimate_symbolic_duration(self.duration, self.start.quarter)
-        else:
-            # return set value
-            return self._sym_dur
-
-    @symbolic_duration.setter
-    def symbolic_duration(self, v):
-        self._sym_dur = v
-
-    @property
-    def duration(self):
-        """The duration of the note in divisions
-
-        Returns
-        -------
-        int
-
-        """
-
-        try:
-            return self.end.t - self.start.t
-        except:
-            LOGGER.warn('no end time found for note')
-            return 0
-
-    @property
-    def end_tied(self):
-        """The `Timepoint` corresponding to the end of the note, or---when
-        this note belongs to a group of tied notes---the end of the last
-        note in the group.
-
-        Returns
-        -------
-        TimePoint
-            End of note
-
-        """
-        if self.tie_next is None:
-            return self.end
-        else:
-            return self.tie_next.end_tied
-
-    @property
-    def duration_tied(self):
-        """Time difference of the start of the note to the end of the note,
-        or---when  this note belongs to a group of tied notes---the end of
-        the last note in the group.
-
-        Returns
-        -------
-        int
-            Duration of note
-
-        """
-        if self.tie_next is None:
-            return self.duration
-        else:
-            return self.duration + self.tie_next.duration_tied
-
-    @property
-    def duration_from_symbolic(self):
-        """TODO
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        if self.symbolic_duration:
-            return symbolic_to_numeric_duration(self.symbolic_duration, self.start.quarter)
-        else:
-            return None
-
-    @property
-    def tie_prev_notes(self):
-        """TODO
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        if self.tie_prev:
-            return self.tie_prev.tie_prev_notes + [self.tie_prev]
-        else:
-            return []
-
-    @property
-    def tie_next_notes(self):
-        """TODO
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        if self.tie_next:
-            return [self.tie_next] + self.tie_next.tie_next_notes
-        else:
-            return []
-
-    def iter_voice_prev(self):
-        """TODO
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        for n in self.start.iter_prev(GenericNote, include_subclasses=True):
-            if n.voice == n.voice:
-                yield n
-
-    def iter_voice_next(self):
-        """TODO
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        for n in self.start.iter_next(GenericNote, include_subclasses=True):
-            if n.voice == n.voice:
-                yield n
-
-    def iter_chord(self, same_duration=True, same_voice=True):
-        """TODO
-
-        Parameters
-        ----------
-        same_duration: type, optional
-            Description of `same_duration`
-        same_voice: type, optional
-            Description of `same_voice`
-
-        Returns
-        -------
-        type
-            Description of return value
-        """
-
-        for n in self.start.iter_starting(GenericNote, include_subclasses=True):
-            if (((not same_voice) or n.voice == self.voice)
-                    and ((not same_duration) or (n.duration == self.duration))):
-                yield n
-
-    def __str__(self):
-        s = ('{} id={} voice={} staff={} type={}'
-             .format(type(self).__name__, self.id, self.voice, self.staff,
-                     format_symbolic_duration(self.symbolic_duration)))
-        if self.articulations:
-            s += ' articulations=({})'.format(", ".join(self.articulations))
-        if self.tie_prev or self.tie_next:
-            all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
-            tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
-            tied_id = '+'.join(n.id or 'None' for n in all_tied)
-            return s + ' tie_group={}'.format(tied_id)
-        else:
-            return s
-
-
-class Note(GenericNote):
-    def __init__(self, step, octave, alter=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.step = step
-        self.octave = octave
-        self.alter = alter
-
-    def __str__(self):
-        return ' '.join((super().__str__(),
-                         'pitch={}{}{}'.format(self.step, self.alter_sign, self.octave)))
-
-    @property
-    def midi_pitch(self):
-        """The midi pitch value of the note (MIDI note number). C4 (middle C,
-        in german: c') is note number 60.
-
-        Returns
-        -------
-        integer
-            The note's pitch as MIDI note number.
-
-        """
-        return pitch_spelling_to_midi_pitch(step=self.step,
-                                            octave=self.octave,
-                                            alter=self.alter)
-
-    # TODO: include morphetic pitch method based in code in musicanalysis package
-
-    @property
-    def alter_sign(self):
-        """The alteration of the note
-
-        Returns
-        -------
-        str
-
-        """
-        return ALTER_SIGNS[self.alter]
-
-
-class Rest(GenericNote):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class GraceNote(Note):
-    def __init__(self, grace_type, *args, steal_proportion=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.grace_type = grace_type
-        self.steal_proportion = steal_proportion
-        self.grace_next = None
-        self.grace_prev = None
-        self._ref_attrs.extend(['grace_next', 'grace_prev'])
-
-    @property
-    def main_note(self):
-        n = self.grace_next
-        while isinstance(n, GraceNote):
-            n = n.grace_next
-        return n
-
-    @property
-    def grace_seq_len(self):
-        return (sum(1 for _ in self.iter_grace_seq(backwards=True))
-                + sum(1 for _ in self.iter_grace_seq())
-                - 1) # subtract one because self is counted twice
-
-    def iter_grace_seq(self, backwards=False):
-        """Iterate over this and all subsequent/preceding grace notes,
-        excluding the main note.
-
-        Parameters
-        ----------
-        backwards : bool, optional
-            When True, iterate over preceding grace notes. Otherwise
-            iterate over subsequent grace notes. Defaults to False.
-
-        Yields
-        ------
-        GraceNote
-        
-        """
-
-        yield self
-        if backwards:
-            n = self.grace_prev
-        else:
-            n = self.grace_next
-        while isinstance(n, GraceNote):
-            yield n
-            if backwards:
-                n = n.grace_prev
-            else:
-                n = n.grace_next
-
-    def __str__(self):
-        s = ' '.join(
-            (super().__str__(),
-             'main_note={}'.format(self.main_note and self.main_note.id)))
-             # 'grace_prev={}'.format(self.grace_prev.id if self.grace_prev else None),
-             # 'grace_next={}'.format(self.grace_next.id if self.grace_next else None)),
-        return s
-
 class PartGroup(object):
     """Represents a grouping of several instruments, usually named, and
     expressed in the score with a group symbol such as a brace or a
@@ -1978,8 +2011,7 @@ class PartGroup(object):
 
 
 class ScoreVariant(object):
-    """
-    """
+    # non-public
 
     def __init__(self, part, start_time=0):
         self.t_unfold = start_time
@@ -2089,17 +2121,25 @@ class ScoreVariant(object):
 
 
 def iter_unfolded_parts(part):
-    """TODO: Description
+    """Iterate over unfolded clones of `part`.
+
+    For each repeat construct in `part` the iterator produces two
+    clones, one with the repeat included and another without the
+    repeat. That means the number of items returned is two to the
+    power of the number of repeat constructs in the part.
+
+    The first item returned by the iterator is the version of the part
+    without any repeated sections, the last item is the version of the
+    part with all repeat constructs expanded.
 
     Parameters
     ----------
-    part: type
-        Description of `part`
+    part : :class:`Part`
+        Part to unfold
 
     Yields
     ------
-    ScoreVariant
-        Description of return value
+    
     """
 
     for sv in make_score_variants(part):
@@ -2113,7 +2153,7 @@ def unfold_part_maximal(part):
 
     Returns
     -------
-    Part
+    part : :class:`Part`
         The unfolded Part
 
     """
@@ -2124,12 +2164,13 @@ def unfold_part_maximal(part):
 
 def make_score_variants(part):
     # non-public (use unfold_part_maximal, or iter_unfolded_parts)
+    
     """Create a list of ScoreVariant objects, each representing a
     distinct way to unfold the score, based on the repeat structure.
 
     Parameters
     ----------
-    part: Part
+    part : :class:`Part`
         A part for which to make the score variants
 
     Returns
@@ -2246,16 +2287,17 @@ def add_measures(part):
     """Add measures to a part.
 
     This function adds Measure objects to the part according to any
-    time signatures present in the part. Please note that any existing
-    measures will be untouched and ignored.
+    time signatures present in the part. Any existing measures will be
+    untouched, and added measures will be delimited by the existing
+    measures.
 
-    The part object will be modified in place.
+    The Part object will be modified in place.
 
     Parameters
     ----------
-    part : Part
+    part : :class:`Part`
         Part instance
-
+    
     """
 
     timesigs = np.array([(ts.start.t, ts.beats)
@@ -2353,7 +2395,7 @@ def expand_grace_notes(part):
 
     Parameters
     ----------
-    part : Part
+    part : :class:`Part`
         The part on which to expand the grace notes
 
     """
@@ -2381,7 +2423,7 @@ def iter_parts(partlist):
 
     Yields
     -------
-        `Part` instances in `partlist`
+        :class:`Part` instances in `partlist`
 
     """
 
@@ -2477,13 +2519,14 @@ def _make_tied_note_id(prev_id):
 
 
 def tie_notes(part):
-    """TODO: Description
+    """Find notes that span measure boundaries and notes with composite
+    durations, and split them adding ties.
 
     Parameters
     ----------
-    part: type
+    part : :class:`Part`
         Description of `part`
-
+    
     """
 
     # split and tie notes at measure boundaries
@@ -2543,6 +2586,7 @@ def tie_notes(part):
 
 
 def set_end_times(parts):
+    # non-public
     """
     Set missing end times of musical elements in a part to equal the start times
     of the subsequent element of the same class. This is useful for some classes
@@ -2636,13 +2680,17 @@ def split_note(part, note, splits):
 
 
 def find_tuplets(part):
-    """TODO: Description
+    """Identify tuplets in `part` and set their symbolic durations
+    explicitly.
+
+    This function adds `actual_notes` and `normal_notes` keys to the
+    symbolic duration of tuplet notes.
 
     Parameters
     ----------
-    part: type
-        Description of `part`
-
+    part : :class:`Part`
+        Part instance
+    
     """
 
     # quick shot at finding tuplets intended to cover some common cases.

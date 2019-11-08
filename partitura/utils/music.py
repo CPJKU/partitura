@@ -249,30 +249,33 @@ def key_name_to_fifths_mode(name):
 
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):
-    """
-    Given a numeric duration, a divisions value (specifiying the number of units
-    per quarter note) and optionally a tolerance `eps` for numerical
-    imprecisions, estimate corresponding the symbolic duration. If a matching
-    symbolic duration is found, it is returned as a tuple (type, dots), where
-    type is a string such as 'quarter', or '16th', and dots is an integer
-    specifying the number of dots. If no matching symbolic duration is found the
-    function returns None.
+    """Given a numeric duration, a divisions value (specifiying the
+    number of units per quarter note) and optionally a tolerance `eps`
+    for numerical imprecisions, estimate corresponding the symbolic
+    duration. If a matching symbolic duration is found, it is returned
+    as a tuple (type, dots), where type is a string such as 'quarter',
+    or '16th', and dots is an integer specifying the number of dots.
+    If no matching symbolic duration is found the function returns
+    None.
 
-    NOTE this function does not estimate composite durations, nor
+    NOTE : this function does not estimate composite durations, nor
     time-modifications such as triplets.
 
     Parameters
     ----------
-    dur: float or int
+    dur : float or int
         Numeric duration value
-    div: int
+    div : int
         Number of units per quarter note
-    eps: float, optional (default: 10**-3)
+    eps : float, optional (default: 10**-3)
         Tolerance in case of imprecise matches
+
+    Returns
+    -------
+
 
     Examples
     --------
-
     >>> estimate_symbolic_duration(24, 16)
     {'type': 'quarter', 'dots': 1}
     >>> estimate_symbolic_duration(15, 10)
@@ -281,13 +284,7 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     The following example returns None:
 
     >>> estimate_symbolic_duration(23, 16)
-
-
-    Returns
-    -------
-    dict or None
-        A dictionary containing keys 'type' and 'dots' expressing the estimated
-        symbolic duration or None
+    
     """
     global DURS, SYM_DURS
     qdur = dur / div
