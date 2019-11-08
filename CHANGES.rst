@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+Version 0.3.5 (Released on 2019-11-08)
+--------------------------------------
+
+Other changes:
+
+* Add documentation
+
+
 Version 0.3.4 (Released on 2019-11-08)
 --------------------------------------
 
