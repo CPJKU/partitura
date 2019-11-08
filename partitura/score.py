@@ -129,16 +129,23 @@ class Part(object):
         tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
                         for ts in self.iter_all(TimeSignature)])
         if len(tss) == 0:
-            # warn assumption
-            tss = np.array([(self.first_point.t, 4, 4),
-                            (self.last_point.t, 4, 4)])
+            # default time sig
+            beats, beat_type = 4, 4
+            LOGGER.warning('No time signatures found, assuming {}/{}'
+                           .format(beats, beat_type))
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.last_point.t
+            tss = np.array([(t0, beats, beat_type),
+                            (tN, beats, beat_type)])
         elif tss[0, 0] > self.first_point.t:
             tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
                              tss))
-        tss = np.vstack((tss,
-                         (self.last_point.t, tss[-1, 1], tss[-1, 2])))
 
-        return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous')
+        return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous',
+                        bounds_error=False, fill_value='extrapolate')
 
     def _time_interpolator(self, quarter=False, inv=False):
 
@@ -1524,7 +1531,7 @@ class Direction(TimedObject):
 
     def __str__(self):
         if self.raw_text is not None:
-            return '{} "{}" ("{}")'.format(type(self).__name__, self.text, self.raw_text)
+            return '{} "{}" raw_text="{}"'.format(type(self).__name__, self.text, self.raw_text)
         else:
             return '{} "{}"'.format(type(self).__name__, self.text)
 
@@ -1546,6 +1553,12 @@ class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
     def __init__(self, *args, wedge=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.wedge = wedge
+    def __str__(self):
+        if self.wedge:
+            return '{} wedge'.format(super().__str__())
+        else:
+            return super().__init__()
+
 class DynamicTempoDirection(DynamicDirection, TempoDirection): pass
 
 class IncreasingLoudnessDirection(DynamicLoudnessDirection): pass
@@ -2180,24 +2193,27 @@ def make_score_variants(part):
                 sv.add_segment(rep_start, ending1.start)
 
                 ending2 = next(rep_end.iter_starting(Ending), None)
+
                 if ending2:
                     # add the first occurrence of the repeat
                     sv.add_segment(ending2.start, ending2.end)
+
+                    # new_sv includes the 1/2 ending repeat, which means:
+                    # 1. from repeat start to repeat end (which includes ending 1)
+                    new_sv.add_segment(rep_start, rep_end)
+                    # 2. from repeat start to ending 1 start
+                    new_sv.add_segment(rep_start, ending1.start)
+                    # 3. ending 2 start to ending 2 end
+                    new_sv.add_segment(ending2.start, ending2.end)
+    
+                    # new score time will be the score time
+                    t_end = ending2.end
+    
                 else:
                     # ending 1 without ending 2, should not happen normally
-                    pass
-
-                # new_sv includes the 1/2 ending repeat, which means:
-                # 1. from repeat start to repeat end (which includes ending 1)
-                new_sv.add_segment(rep_start, rep_end)
-                # 2. from repeat start to ending 1 start
-                new_sv.add_segment(rep_start, ending1.start)
-                # 3. ending 2 start to ending 2 end
-                new_sv.add_segment(ending2.start, ending2.end)
-
-                # update the score time
-                t_score = ending2.end
-
+                    LOGGER.warning('ending 1 without ending 2')
+                    # new score time will be the score time
+                    t_end = ending1.end
             else:
                 # add the first occurrence of the repeat
                 sv.add_segment(rep_start, rep_end)
@@ -2207,12 +2223,13 @@ def make_score_variants(part):
                 new_sv.add_segment(rep_start, rep_end)
 
                 # update the score time
-                t_score = rep_end
+                t_end = rep_end
 
             # add both score variants
             new_svs.append(sv)
             new_svs.append(new_sv)
-
+        t_score = t_end
+        
         svs = new_svs
 
     # are we at the end of the piece already?
@@ -2240,12 +2257,21 @@ def add_measures(part):
         Part instance
 
     """
+
     timesigs = np.array([(ts.start.t, ts.beats)
                          for ts in part.iter_all(TimeSignature)],
                         dtype=np.int)
+
+    if len(timesigs) == 0:
+        LOGGER.warning('No time signatures found, not adding measures')
+        return
+    
     start = part.first_point.t
     end = part.last_point.t
 
+    if start == end:
+        return
+    
     # make sure we cover time from the start of the timeline
     if len(timesigs) == 0 or timesigs[0, 0] > start:
         timesigs = np.vstack(([[start, 4]], timesigs))

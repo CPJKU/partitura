@@ -92,19 +92,23 @@ def load_via_musescore(fn):
         return load_musicxml(xml_fh.name)
 
 
-def show_musescore(part, out_fmt, dpi=90):
+def render_musescore(part, fmt, out_fn=None, dpi=90):
     """Render a part using musescore.
 
     Parameters
     ----------
     part : Part
         Part to be rendered
-    out_fmt : {'png', 'pdf'}
+    fmt : {'png', 'pdf'}
         Output image format
+    out_fn : str or None, optional
+        The path of the image output file, if not specified, the
+        rendering will be saved to a temporary filename. Defaults to
+        None.
     dpi : int, optional
-        Image resolution. This option is ignored when `out_fmt` is
+        Image resolution. This option is ignored when `fmt` is
         'pdf'. Defaults to 90.
-
+    
     """
     mscore_exec = find_musescore3()
 
@@ -112,23 +116,26 @@ def show_musescore(part, out_fmt, dpi=90):
 
         return None
 
-    if out_fmt not in ('png', 'pdf'):
+    if fmt not in ('png', 'pdf'):
 
         LOGGER.warning('warning: unsupported output format')
         return None
-    
+
     with NamedTemporaryFile(suffix='.musicxml') as xml_fh, \
-        NamedTemporaryFile(suffix='.{}'.format(out_fmt), delete=False) as img_fh:
+         NamedTemporaryFile(suffix='.{}'.format(fmt)) as img_fh:
 
-        save_musicxml(part, xml_fh)
+        save_musicxml(part, xml_fh.name)
+
         cmd = [mscore_exec, '-T', '10', '-r', '{}'.format(dpi), '-o', img_fh.name, xml_fh.name]
-
         try:
 
-            ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
             if ps.returncode != 0:
-                LOGGER.error('Command {} failed with code {}'
-                             .format(cmd, ps.returncode))
+                LOGGER.error('Command {} failed with code {}; stdout: {}; stderr: {}'
+                             .format(cmd, ps.returncode, ps.stdout.decode('UTF-8'),
+                                     ps.stderr.decode('UTF-8')))
                 return None
 
         except FileNotFoundError as f:
@@ -137,7 +144,24 @@ def show_musescore(part, out_fmt, dpi=90):
                          .format(' '.join(cmd), f))
             return None
 
+        LOGGER.error('Command {} returned with code {}; stdout: {}; stderr: {}'
+                     .format(cmd, ps.returncode, ps.stdout.decode('UTF-8'),
+                             ps.stderr.decode('UTF-8')))
+
         name, ext = os.path.splitext(img_fh.name)
-        return '{}-1{}'.format(name, ext)
+        if fmt == 'png':
+            img_fn = '{}-1{}'.format(name, ext)
+        else:
+            img_fn = '{}{}'.format(name, ext)
+            
+        # print(img_fn, os.path.exists(img_fn))
+        if os.path.exists(img_fn):
+            if out_fn:
+                shutil.copy(img_fn, out_fn)
+                return out_fn
+            else:
+                return img_fn
+        else:
+            return None
 
 

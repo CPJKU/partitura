@@ -16,7 +16,7 @@ URL = 'https://github.com/mgrachten/partitura'
 EMAIL = 'partitura-users@googlegroups.com'
 AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
 REQUIRES_PYTHON = '>=3.5'
-VERSION = '0.3.3'
+VERSION = '0.3.4'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -43,7 +43,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 # Import the README and use it as the long-description.
 # Note: this will only work if 'README.md' is present in your MANIFEST.in file!
 try:
-    with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
+    with io.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
         long_description = '\n' + f.read()
 except FileNotFoundError:
     long_description = DESCRIPTION
@@ -63,7 +63,8 @@ setup(
     version=about['__version__'],
     description=DESCRIPTION,
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    # long_description_content_type='text/markdown',
+    long_description_content_type='text/x-rst',
     keywords=KEYWORDS,
     author=AUTHOR,
     author_email=EMAIL,
