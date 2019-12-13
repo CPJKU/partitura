@@ -503,6 +503,186 @@ def notes_to_notearray(notes):
                     dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
 
 
+def notes_to_pianoroll(notes, onset_only=False,
+                       pitch_margin=-1, beat_margin=0,
+                       beat_div=8):
+    """
+    Convert note information to a pianoroll.
+
+    Parameters
+    ----------
+    notes: ndarray
+       M x 3 ndarray representing M notes. The three columns specify onset,
+       offset, and midi pitch of the notes
+
+    onset_only: type, optional
+       if True, code only the onsets of the notes, otherwise code onset and
+       duration
+
+    pitch_margin: type, optional
+       if `pitch_margin` > -1, the resulting array will have `pitch_margin`
+       empty rows above and below the highest and lowest pitches, respectively;
+       if `pitch_margin` == -1, the resulting pianoroll will have span the fixed
+       pitch range between (and including) 1 and 127.
+
+    beat_margin: type, optional
+       the resulting array will have `beat_margin` * `beat_div` empty columns
+       before and after the piano roll
+
+    beat_div: type, optional
+       how many sub-divisions for each beat
+
+    Returns
+    -------
+
+    scipy.sparse.csr_matrix
+        A sparse boolean matrix of size representing the pianoroll; The first
+        dimension is pitch, the second is time; The sizes of the dimensions vary
+        with the parameters `pitch_margin`, `beat_margin`, and `beat_div`
+    """
+
+    m, _ = _notes_to_pianoroll(notes, onset_only,
+                               pitch_margin, beat_margin, beat_div)
+    return m
+
+
+def notes_to_notecentered_pianoroll(notes, onset_only=True,
+                                    neighbour_pitches=10, neighbour_beats=2,
+                                    beat_div=8):
+    """Convert a matrix with note information (3 columns: onset, offset, midipitch)
+    into a sparse note-centered piano roll representation, and return the result
+    as a sparse matrix
+
+    :param notes: M x 3 array representing M notes
+
+    :param onset_only: if True, code only the onsets of the notes, otherwise
+       code onset and duration
+
+    :param lowest_pitch: the lowest midi pitch to consider
+
+    :param highest_pitch: the highest midi pitch to consider
+
+    :param beat_div: how many sub-divisions for each beat
+
+    :param neighbour_beats: how many beats before and after the central note to
+       code
+
+    :returns: a tuple (A, pitch_range), where A is a M x N sparse matrix where
+       each row corresponds to a vectorized representation of a note context. N
+       = (2 * (`highest_pitch` - `lowest_pitch`)) * `beat_div` * (2 *
+       `neighbour_beats`), and pitch_range is the size of the first dimension
+       (pitch) of the note contexts. So in order to reconstruct the 2D note
+       context of the i-th note from A, do: A[i,:].reshape((pitch_range, -1))
+
+    """
+
+    m, idx = _notes_to_pianoroll(notes, onset_only,
+                                 neighbour_pitches, neighbour_beats, beat_div)
+
+    return _note_center(neighbour_pitches, neighbour_beats, beat_div, idx, m)
+
+
+def _notes_to_pianoroll(note_array, onset_only,
+                        neighbour_pitches, neighbour_beats, beat_div):
+
+    # columns:
+    ONSET = 0
+    OFFSET = 1
+    PITCH = 2
+    notes = note_array.copy()
+    offset = notes['onset'] + notes['duration']
+    
+    if neighbour_pitches > -1:
+        highest_pitch = np.max(notes['pitch'])
+        lowest_pitch = np.min(notes['pitch'])
+    else:
+        lowest_pitch = 0
+        highest_pitch = 127
+
+    pitch_span = highest_pitch - lowest_pitch + 1
+
+    # sorted idx
+    idx = np.argsort(notes['onset'])
+    # sort notes
+    notes = notes[idx]
+    min_time = notes['onset'][0]
+    max_time = np.max(offset)
+
+    # shift times to start at 0
+    notes['onset'] -= min_time - neighbour_beats
+    offset -= min_time - neighbour_beats
+    if neighbour_pitches > -1:
+        notes['pitch'] -= lowest_pitch
+        notes['pitch'] += neighbour_pitches
+
+    # size of the feature matrix
+    if neighbour_pitches > -1:
+        M = int(pitch_span + 2 * neighbour_pitches)
+    else:
+        M = int(pitch_span)
+    N = int(np.ceil(beat_div * (2 * neighbour_beats + max_time - min_time)))
+
+    nnotes = notes.copy()
+    nnotes[:, (ONSET, OFFSET)] = np.round(beat_div * notes[:, (ONSET, OFFSET)])
+    nnotes = nnotes.astype(np.int)
+    idx = nnotes[:, (PITCH, ONSET)]
+
+    if onset_only:
+        idx_fill = idx
+    else:
+        nnotes[:, OFFSET] = np.maximum(nnotes[:, ONSET] + 1,
+                                       nnotes[:, OFFSET] - 1)
+        idx_fill = np.vstack([np.column_stack((np.zeros(off - on) + pitch,
+                                               np.arange(on, off)))
+                              for on, off, pitch in nnotes
+                              if off < N])
+        # off >= N does not normally happen, typically only when grace notes at
+        # the end are expanded
+    m = csc_matrix((np.ones(idx_fill.shape[0]),
+                    (idx_fill[:, 0], idx_fill[:, 1])),
+                   shape=(M, N), dtype=np.bool)
+
+    return m, idx
+
+
+def _note_center(neighbour_pitches, neighbour_beats, beat_div, idx, m):
+
+    neighbour_timesteps = beat_div * neighbour_beats
+    pt_nbh = np.array((neighbour_pitches, neighbour_timesteps))
+
+    vslice = None
+    t_min_prev = None
+    K = 2 * neighbour_timesteps
+
+    nn = []
+    mm = []
+    for i, n in enumerate(idx):
+        p_min, t_min = n - pt_nbh
+        p_max, t_max = n + pt_nbh
+
+        # subsequent notes with the same onset reuse the vslice
+        if t_min_prev != t_min:
+            vslice = m[:, t_min:t_max]
+
+        t_min_prev = t_min
+
+        ii, jj = vslice[p_min:p_max + 1, :].nonzero()
+
+        mm.append(ii * K + jj)
+        nn.append(np.zeros(ii.shape[0]) + i)
+
+    mm = np.concatenate(mm)
+    nn = np.concatenate(nn)
+
+    A = csr_matrix((np.ones(nn.shape[0]),
+                    (nn, mm)),
+                   shape=(
+                       idx.shape[0], (2 * neighbour_pitches + 1) * (2 * neighbour_timesteps)),
+                   dtype=np.bool)
+    return A  # , 2 * neighbour_pitches + 1
+
+
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
