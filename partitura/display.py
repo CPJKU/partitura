@@ -14,11 +14,11 @@ import subprocess
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from partitura import save_musicxml
-from partitura.io.musescore import show_musescore
+from partitura.io.musescore import render_musescore
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ['show']
+__all__ = ['render']
 
 # def ly_install_msg():
 #     """Issue a platform specific installation suggestion for lilypond
@@ -37,9 +37,11 @@ __all__ = ['show']
 #              'http://lilypond.org/')
 #     return s
 
-def show(part, out_fmt='png'):
-    """Show a rendering of one or more parts or partgroups using the
-    desktop default application.
+def render(part, fmt='png', dpi=90, out_fn=None):
+    """Create a rendering of one or more parts or partgroups.
+
+    The function can save the rendered image to a file (when `out_fn`
+    is specified), or shown in the default image viewer application.
 
     Rendering is first attempted through musecore, and if that fails
     through lilypond. If that also fails the function returns without
@@ -49,33 +51,37 @@ def show(part, out_fmt='png'):
     ----------
     part : :class:`partitura.score.Part` or :class:`partitura.score.PartGroup` or list of these
         The score content to be displayed
-    out_fmt : {'png', 'pdf'}, optional
+    fmt : {'png', 'pdf'}, optional
         The image format of the rendered material
+    out_fn : str or None, optional
+        The path of the image output file. If None, the rendering will
+        be displayed in a viewer.
     
     """
     
-    img_fn = show_musescore(part, out_fmt)
-    
+    img_fn = render_musescore(part, fmt, out_fn, dpi)
+
     if img_fn is None or not os.path.exists(img_fn):
-        img_fn =  show_lilypond(part, out_fmt)
+        img_fn =  render_lilypond(part, fmt, out_fn)
         if img_fn is None or not os.path.exists(img_fn):
             return None
     
-    # NOTE: the temporary image file will not be deleted.
-    if platform.system() == 'Linux':
-        subprocess.call(['xdg-open', img_fn])
-    elif platform.system() == 'Darwin':
-        subprocess.call(['open', img_fn])
-    elif platform.system() == 'Windows':
-        os.startfile(img_fn)
+    if not out_fn:
+        # NOTE: the temporary image file will not be deleted.
+        if platform.system() == 'Linux':
+            subprocess.call(['xdg-open', img_fn])
+        elif platform.system() == 'Darwin':
+            subprocess.call(['open', img_fn])
+        elif platform.system() == 'Windows':
+            os.startfile(img_fn)
 
 
-def show_lilypond(part, out_fmt='png'):
-    if out_fmt not in ('png', 'pdf'):
+def render_lilypond(part, fmt='png', out_fn=None):
+    if fmt not in ('png', 'pdf'):
         print('warning: unsupported output format')
         return
 
-    prvw_sfx = '.preview.{}'.format(out_fmt)
+    prvw_sfx = '.preview.{}'.format(fmt)
     
     with TemporaryFile() as xml_fh, \
          NamedTemporaryFile(suffix=prvw_sfx, delete=False) as img_fh:
@@ -102,7 +108,7 @@ def show_lilypond(part, out_fmt='png'):
         
         # convert lilypond format (read from pipe of ps1) to image, and save to
         # temporary filename
-        cmd2 = ['lilypond', '--{}'.format(out_fmt),
+        cmd2 = ['lilypond', '--{}'.format(fmt),
                 '-dno-print-pages', '-dpreview',
                 '-o{}'.format(img_stem), '-']
         try:

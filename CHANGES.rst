@@ -1,6 +1,35 @@
 Release Notes
 =============
 
+Version 0.3.5 (Released on 2019-11-08)
+--------------------------------------
+
+Other changes:
+
+* Add documentation
+
+
+Version 0.3.4 (Released on 2019-11-08)
+--------------------------------------
+
+API changes:
+
+* Rename `out_fmt` kwarg to `fmt` in `show`
+* Add `dpi` kwarg to `show`
+* Rename `show` function to `render`
+
+New features:
+
+* Save rendered scores to image file using `render`
+* Add `wedge` attribute to DynamicLoudnessMarkings to differentiate them
+  from textual directions
+
+Bug fixes:
+  
+* Do not crash when calling time_signature_map on empty Part instances
+* Fix bug in repeat unfolding
+
+
 Version 0.3.3 (Released on 2019-11-04)
 --------------------------------------
 
