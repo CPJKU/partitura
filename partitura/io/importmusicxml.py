@@ -567,6 +567,9 @@ def _handle_direction(e, position, part, ongoing):
     # keep track of starting and stopping dashes
     dashes_keys = {}
 
+    # keep track of starting and stopping pedals
+    pedal_keys = {}
+
     for direction_type in direction_types:
         # direction_type
         dt = next(iter(direction_type))
@@ -628,6 +631,30 @@ def _handle_direction(e, position, part, ongoing):
             # will not be treated correctly. I'm not sure how dashes spanning
             # systems are encoded in practice (need examples).
 
+        elif dt.tag == 'pedal':
+
+            #start/stop
+            pedal_type = get_value_from_attribute(dt, 'type', str)
+            number = get_value_from_attribute(dt, 'number', int) or 1
+            key = ('pedal', number)
+            if pedal_type == 'start':
+                o = score.SustainPedalDirection(staff=staff)
+
+                starting_directions.append(o)
+
+                ongoing[key] = o
+
+            elif pedal_type == 'stop':
+
+                o = ongoing.get(key)
+                if o is not None:
+                    ending_directions.append(o)
+                    del ongoing[key]
+
+                else:
+                    LOGGER.warning(
+                        'Did not find a pedal start element for pedal stop!')
+            
         else:
             LOGGER.warning('ignoring direction type: {} {}'.format(
                 dt.tag, dt.attrib))

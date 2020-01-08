@@ -1909,6 +1909,7 @@ class Direction(TimedObject):
 class LoudnessDirection(Direction): pass
 class TempoDirection(Direction): pass
 class ArticulationDirection(Direction): pass
+class PedalDirection(Direction): pass
 
 class ConstantDirection(Direction): pass
 class DynamicDirection(Direction): pass
@@ -1936,6 +1937,10 @@ class IncreasingTempoDirection(DynamicTempoDirection): pass
 class DecreasingTempoDirection(DynamicTempoDirection): pass
 
 class ImpulsiveLoudnessDirection(ImpulsiveDirection, LoudnessDirection): pass
+
+class SustainPedalDirection(PedalDirection):
+    def __init__(self, *args, **kwargs):
+        super().__init__('sustain_pedal', *args, **kwargs)
 
 class ResetTempoDirection(ConstantTempoDirection):
     @property
