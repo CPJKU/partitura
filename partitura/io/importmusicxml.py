@@ -286,6 +286,7 @@ def _handle_measure(measure_el, position, part, ongoing):
     # used to keep track of the duration of the measure
     measure_maxtime = measure_start
     trailing_children = []
+    note_idx = 1 # 1 index to be compatible with alignment
     for i, e in enumerate(measure_el):
 
         if e.tag == 'backup':
@@ -334,8 +335,9 @@ def _handle_measure(measure_el, position, part, ongoing):
 
         elif e.tag == 'note':
             (position, prev_note) = _handle_note(
-                e, position, part, ongoing, prev_note)
+                e, position, part, ongoing, prev_note, measure.number, note_idx)
             measure_maxtime = max(measure_maxtime, position)
+            note_idx += 1
 
         elif e.tag == 'barline':
             repeat = e.find('repeat')
@@ -639,13 +641,11 @@ def _handle_direction(e, position, part, ongoing):
             key = ('pedal', number)
             if pedal_type == 'start':
                 o = score.SustainPedalDirection(staff=staff)
-
                 starting_directions.append(o)
 
                 ongoing[key] = o
 
             elif pedal_type == 'stop':
-
                 o = ongoing.get(key)
                 if o is not None:
                     ending_directions.append(o)
@@ -840,7 +840,7 @@ def _handle_sound(e, position, part):
         # part.add_starting_object(position, tempo)
         _add_tempo_if_unique(position, part, tempo)
 
-def _handle_note(e, position, part, ongoing, prev_note):
+def _handle_note(e, position, part, ongoing, prev_note, measure_index, note_index):
 
     # prev_note is used when the current note has a <chord/> tag
 
@@ -917,6 +917,9 @@ def _handle_note(e, position, part, ongoing, prev_note):
         note = score.Rest(note_id, voice=voice, staff=staff,
                           symbolic_duration=symbolic_duration,
                           articulations=articulations)
+
+    note.note_index = note_index
+    note.measure_index = measure_index
 
     part.add(note, position, position+duration)
 
