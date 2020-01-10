@@ -28,9 +28,9 @@ that we load the above score as follows:
 Displaying the typeset part
 ===========================
 
-The :func:`partitura.show` function displays the part as a typeset score:
+The :func:`partitura.render` function displays the part as a typeset score:
 
->>> partitura.show(part)
+>>> partitura.render(part)
 
 .. image:: images/score_example.png
    :alt: Score example
@@ -345,7 +345,7 @@ Part id="P0" name="My Part"
 
 Let' see what our part with measures looks like in typeset form:
          
->>> partitura.show(part)
+>>> partitura.render(part)
 
 .. image:: images/score_example_1.png
    :alt: Part with measures
@@ -364,7 +364,7 @@ tied together. This can be done automatically using the function
 :func:`~partitura.score.tie_notes`:
 
 >>> score.tie_notes(part)
->>> partitura.show(part)
+>>> partitura.render(part)
 
 .. image:: images/score_example_2.png
    :alt: Part with measures
