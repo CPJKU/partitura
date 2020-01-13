@@ -592,8 +592,8 @@ def notes_to_pianoroll(note_array, time_div=8, onset_only=False,
     if time_div < 1:
         raise ValueError('`time_div` should be larger than 1.')
 
-    note_info = np.column_stack((note_array[field].astype(np.float)
-                                 for field in fields))  
+    note_info = np.column_stack([note_array[field].astype(np.float)
+                                 for field in fields])
     return _notes_to_pianoroll(note_info=note_info,
                                time_div=time_div,
                                onset_only=onset_only,
