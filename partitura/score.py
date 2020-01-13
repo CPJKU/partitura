@@ -543,7 +543,7 @@ class Part(object):
         # remove tp when it has no starting or ending objects
         if (sum(len(oo) for oo in tp.starting_objects.values()) +
             sum(len(oo) for oo in tp.ending_objects.values())) == 0:
-            self._remove_point(o.end)
+            self._remove_point(tp)
 
     def iter_all(self, cls, start=None, end=None,
                  include_subclasses=False, mode='starting'):

@@ -26,7 +26,9 @@ from .music import (
     pitch_spelling_to_midi_pitch,
     estimate_clef_properties,
     ensure_pitch_spelling_format,
-    notes_to_notearray
+    notes_to_notearray,
+    notearray_to_pianoroll,
+    pianoroll_to_notearray
 )
 
 
