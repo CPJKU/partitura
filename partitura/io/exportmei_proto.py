@@ -9,35 +9,35 @@ import sys
 part = score.Part("P0","Test")
 
 # test case blues lick
-part.set_quarter_duration(0,10)
-part.add(score.KeySignature(-3,"minor"),start=0)
-part.add(score.TimeSignature(6,8),start=0)
-part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
-part.add(score.Clef(sign="G",line=2, octave_change=0, number=2),start=0)
-n0 = score.Note(id="n0",step="C",octave=2,voice=1, staff=1)
-n1 =score.Note(id="n1",step="E",octave=2,voice=1, staff=1, alter=-1)
-n2 =score.Note(id="n2",step="D",octave=2,voice=1, staff=1)
-part.add(n0,start=0,end=5)
-part.add(n1,start=5,end=10)
-part.add(n2,start=10,end=15)
-n0q = score.Note(id="n0q",step="G",octave=2,voice=1, staff=1)
-n1q =score.Note(id="n1q",step="G",octave=2,voice=1, staff=1)
-n2q =score.Note(id="n2q",step="G",octave=2,voice=1, staff=1)
-part.add(n0q,start=0,end=5)
-part.add(n1q,start=5,end=10)
-part.add(n2q,start=10,end=15)
-part.add(score.Note(id="n3",step="C",octave=2,voice=1, staff=1),start=15,end=40)
-n0s2 = score.Note(id="n0s2",step="C",octave=4,voice=1, staff=2)
-n1s2 =score.Note(id="n1s2",step="E",octave=4,voice=1, staff=2, alter=-1)
-n2s2 =score.Note(id="n2s2",step="D",octave=4,voice=1, staff=2)
-part.add(n0s2,start=0,end=5)
-part.add(n1s2,start=5,end=10)
-part.add(n2s2,start=10,end=15)
-part.add(score.Slur(n0s2,n2s2),start=0)
-part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=40)
+# part.set_quarter_duration(0,10)
+# part.add(score.KeySignature(-3,"minor"),start=0)
+# part.add(score.TimeSignature(6,8),start=0)
+# part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
+# part.add(score.Clef(sign="G",line=2, octave_change=0, number=2),start=0)
+# n0 = score.Note(id="n0",step="C",octave=2,voice=1, staff=1)
+# n1 =score.Note(id="n1",step="E",octave=2,voice=1, staff=1, alter=-1)
+# n2 =score.Note(id="n2",step="D",octave=2,voice=1, staff=1)
+# part.add(n0,start=0,end=5)
+# part.add(n1,start=5,end=10)
+# part.add(n2,start=10,end=15)
+# n0q = score.Note(id="n0q",step="G",octave=2,voice=1, staff=1)
+# n1q =score.Note(id="n1q",step="G",octave=2,voice=1, staff=1)
+# n2q =score.Note(id="n2q",step="G",octave=2,voice=1, staff=1)
+# part.add(n0q,start=0,end=5)
+# part.add(n1q,start=5,end=10)
+# part.add(n2q,start=10,end=15)
+# part.add(score.Note(id="n3",step="C",octave=2,voice=1, staff=1),start=15,end=40)
+# n0s2 = score.Note(id="n0s2",step="C",octave=4,voice=1, staff=2)
+# n1s2 =score.Note(id="n1s2",step="E",octave=4,voice=1, staff=2, alter=-1)
+# n2s2 =score.Note(id="n2s2",step="D",octave=4,voice=1, staff=2)
+# part.add(n0s2,start=0,end=5)
+# part.add(n1s2,start=5,end=10)
+# part.add(n2s2,start=10,end=15)
+# part.add(score.Slur(n0s2,n2s2),start=0)
+# part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=40)
 
 
-# testing crossing measures and tieing notes together
+# # testing crossing measures and tieing notes together
 # part.set_quarter_duration(0,16)
 # part.add(score.KeySignature(-3,"minor"),start=0)
 # part.add(score.TimeSignature(4,4),start=0)
@@ -45,8 +45,10 @@ part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=4
 #
 # part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=1)
 # part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=1,end=1+3*16+4+1)
+# part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=1,end=1+3*16+4+1)
+# part.add(score.Note(id="n3",step="E",octave=3, staff=1, voice=1),start=1,end=1+3*16+4+1)
 #
-score.add_measures(part)
+# score.add_measures(part)
 
 # using this feature?
 # making ties then becomes about looking at the tiegroup tag of notes
@@ -54,7 +56,7 @@ score.add_measures(part)
 # without this feature, notes crossing measure boundaries have to be handled
 #score.tie_notes(part)
 
-#part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
+part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
 
 
 
@@ -306,12 +308,20 @@ for m in part.iter_all(score.Measure):
 
                 openBeam=False
                 parent = layer
-                for chordNotes in chords:
+
+                next_dur_dots, next_splitNote = calc_dur_dots_splitNote(chords[0][0])
+
+                for i in range(len(chords)):
+                    chordNotes = chords[i]
                     rep = chordNotes[0]
-                    dur_dots,splitNote = calc_dur_dots_splitNote(rep)
+                    dur_dots,splitNote = next_dur_dots, next_splitNote
+
+                    # hack right now, don't need to check every iteration, good time to factor out inside of loop
+                    if i < len(chords)-1:
+                        next_dur_dots, next_splitNote = calc_dur_dots_splitNote(chords[i+1][0])
 
                     if isinstance(rep,score.Note):
-                        if not openBeam and dur_dots[0][0]>=8:
+                        if not openBeam and dur_dots[0][0]>=8 and next_dur_dots[0][0]>=8 and i < len(chords)-1:
                             parent = addChild(layer,"beam")
                             openBeam = True
 
