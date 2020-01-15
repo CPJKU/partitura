@@ -214,14 +214,20 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
         return partlist
 
 
+# CHANGED TO ALSO INCLUDE REST
 def assign_note_ids(parts):
     # assign note ids to ensure uniqueness across all parts, discarding any
     # existing note ids
-    i = 0
+    ni = 0
+    ri = 0
     for part in score.iter_parts(parts):
-        for n in part.notes:
-            n.id = 'n{}'.format(i)
-            i += 1
+        for n in part.iter_all(score.GenericNote, include_subclasses=True):
+            if isinstance(n,score.Rest):
+                n.id = 'r{}'.format(ri)
+                ri+=1
+            else:
+                n.id = 'n{}'.format(ni)
+                ni+=1
 
 
 def _parse_parts(document, part_dict):
