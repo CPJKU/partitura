@@ -233,6 +233,7 @@ for m in part.iter_all(score.Measure):
 
             ties_perStaff_perVoice={}
 
+            clefs_withinMeasure = None
             if s in clefs_withinMeasure_perStaff.keys():
                 clefs_withinMeasure = clefs_withinMeasure_perStaff[s]
 
@@ -357,45 +358,42 @@ for m in part.iter_all(score.Measure):
                     else:
                         keySig = keySigs_withinMeasure[0]
 
-                def insertElem(elem, note):
+                def insertElem_check(elem, note):
                     return elem!=None and elem.start.t<=note.start.t
+
+                def insertElem(elem, note, elemName, attribNames, attribValsOf_elem, cursor, elemContainer):
+                    ob = openBeam
+                    p = parent
+                    if insertElem_check(elem,note):
+                        # note should also be split according to keysig or clef etc insertion time, right now only beaming is disrupted
+                        if openBeam:
+                            ob = False
+                            p = layer
+
+                        xmlElem = addChild(p, elemName)
+                        attribVals = attribValsOf_elem(elem)
+
+                        for nv in zip(attribNames, attribVals):
+                            setAttributes(xmlElem,nv)
+
+                        cursor+=1
+
+                        if cursor==len(elemContainer):
+                            elem = None
+                        else:
+                            elem = elemContainer[cursor]
+
+                    return ob, p, cursor, elem
+
 
                 for chord_i in range(len(chords)):
                     chordNotes = chords[chord_i]
                     rep = chordNotes[0]
                     dur_dots,splitNotes = next_dur_dots, next_splitNotes
 
-                    if insertElem(clef, rep):
-                        if openBeam:
-                            openBeam=False
-                            parent = layer
+                    openBeam, parent, clef_i, clef = insertElem(clef, rep, "clef", ["shape","line"], lambda c:(c.sign,c.line), clef_i, clefs_withinMeasure)
 
-                        clefElem = addChild(parent, "clef")
-                        setAttributes(clefElem,("shape",clef.sign),("line",clef.line))
-
-                        clef_i+=1
-
-                        if clef_i==len(clefs_withinMeasure):
-                            clef = None
-                        else:
-                            clef = clefs_withinMeasure[clef_i]
-                            
-                    if insertElem(keySig, rep):
-                        if openBeam:
-                            openBeam=False
-                            parent = layer
-
-                        keySigElem = addChild(parent, "keySig")
-                        fifths, mode, pname = attribsOf_keySig(keySig)
-
-                        setAttributes(keySigElem,("sig",fifths),("mode", mode),("pname",pname))
-
-                        keySig_i+=1
-
-                        if keySig_i==len(keySigs_withinMeasure):
-                            keySig = None
-                        else:
-                            keySig = keySigs_withinMeasure[keySig_i]
+                    openBeam, parent, keySig_i, keySig = insertElem(keySig, rep, "keySig", ["sig","mode","pname"], attribsOf_keySig, keySig_i, keySigs_withinMeasure)
 
 
                     # hack right now, don't need to check every iteration, good time to factor out inside of loop
@@ -407,7 +405,7 @@ for m in part.iter_all(score.Measure):
                             if dur_dots[0][0]<8:
                                 openBeam=False
                                 parent = layer
-                        elif dur_dots[0][0]>=8 and (next_dur_dots[0][0]>=8 and chord_i<len(chords)-1 or len(dur_dots)>1) and not insertElem(clef, chords[chord_i+1][0]) and not insertElem(keySig, chords[chord_i+1][0]):
+                        elif dur_dots[0][0]>=8 and (next_dur_dots[0][0]>=8 and chord_i<len(chords)-1 or len(dur_dots)>1) and not insertElem_check(clef, chords[chord_i+1][0]) and not insertElem_check(keySig, chords[chord_i+1][0]):
                             parent = addChild(layer,"beam")
                             openBeam = True
 
