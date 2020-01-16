@@ -8,19 +8,36 @@ import sys
 
 part = score.Part("P0","Test")
 
-part.set_quarter_duration(0,2)
-part.add(score.KeySignature(-3,"minor"),start=0)
-part.add(score.TimeSignature(4,4),start=0)
-part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
-
-part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=0,end=5)
-part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=5,end=6)
-part.add(score.Note(id="n3",step="E",octave=2, staff=1, voice=1),start=6,end=7)
-part.add(score.Note(id="n4",step="F",octave=2, staff=1, voice=1),start=7,end=9)
-part.add(score.Note(id="n5",step="D",octave=2, staff=1, voice=1),start=9,end=10)
-part.add(score.Note(id="n6",step="A",octave=2, staff=1, voice=1),start=10,end=16)
-
-score.add_measures(part)
+# part.set_quarter_duration(0,2)
+# part.add(score.KeySignature(0,"major"),start=0)
+# part.add(score.TimeSignature(4,4),start=0)
+#
+# part.add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
+# part.add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
+#
+#
+#
+# part.add(score.Note(id="n0s2",step="C",octave=4, staff=1, voice=1),start=0,end=5)
+# part.add(score.Note(id="n2s2",step="G",octave=4, staff=1, voice=1),start=5,end=6)
+# part.add(score.Note(id="n3s2",step="E",octave=4, staff=1, voice=1),start=6,end=7)
+# part.add(score.Note(id="n4s2",step="F",octave=4, staff=1, voice=1),start=7,end=9)
+# part.add(score.Note(id="n5s2",step="D",octave=4, staff=1, voice=1),start=9,end=10)
+# part.add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,end=16)
+#
+# part.add(score.Note(id="n0s22",step="E",octave=4, staff=1, voice=1),start=0,end=5)
+# part.add(score.Note(id="n2s22",step="B",octave=4, staff=1, voice=1),start=5,end=6)
+# part.add(score.Note(id="n3s22",step="G",octave=4, staff=1, voice=1),start=6,end=7)
+# part.add(score.Note(id="n4s22",step="A",octave=4, staff=1, voice=1),start=7,end=9)
+# part.add(score.Note(id="n5s22",step="F",octave=4, staff=1, voice=1),start=9,end=10)
+# part.add(score.Note(id="n6s22",step="C",octave=5, staff=1, voice=1),start=10,end=16)
+#
+# part.add(score.Note(id="n0",step="C",octave=2, staff=2, voice=1),start=0,end=3)
+# part.add(score.Note(id="n2",step="E",octave=2, staff=2, voice=1),start=3,end=6)
+# part.add(score.Note(id="n3",step="G",octave=2, staff=2, voice=1),start=6,end=7)
+# part.add(score.Note(id="n4",step="D",octave=2, staff=2, voice=1),start=7,end=10)
+# part.add(score.Note(id="n5",step="F",octave=2, staff=2, voice=1),start=10,end=13)
+# part.add(score.Note(id="n6",step="A",octave=2, staff=2, voice=1),start=13,end=16)
+# score.add_measures(part)
 # test case blues lick
 # part.set_quarter_duration(0,10)
 # part.add(score.KeySignature(-3,"minor"),start=0)
@@ -69,9 +86,11 @@ score.add_measures(part)
 # without this feature, notes crossing measure boundaries have to be handled
 #score.tie_notes(part)
 
-#part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
+part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
 
+qd=part.quarter_durations()[0][1]
 
+part.add(score.Clef(sign="F",line=4, octave_change=0, number=2), start=int(qd*(2+1/4)))
 
 
 # create MEI file from this ;D
@@ -80,8 +99,8 @@ def addChild(parent,childName):
     return etree.SubElement(parent,childName)
 
 def setAttributes(elem, *list_attrib_val):
-    for pair in list_attrib_val:
-        elem.set(pair[0],str(pair[1]))
+    for attrib_val in list_attrib_val:
+        elem.set(attrib_val[0],str(attrib_val[1]))
 
 nameSpace = "http://www.music-encoding.org/ns/mei"
 
@@ -160,6 +179,10 @@ else:
             if c[i].start.t < clef.start.t:
                 clef = c[i]
 
+        if clef.number == None:
+            print("Encountered clef which isn't assigned to a staff, please assign following clef:")
+            print(clef)
+            sys.exit()
 
         staffDef = addChild(staffGrp,"staffDef")
         setAttributes(staffDef,("n",clef.number),("lines",5),("clef.shape",clef.sign),("clef.line",clef.line))
@@ -176,14 +199,14 @@ measure_counter = 0
 notes_nextMeasure_perStaff = {}
 
 for m in part.iter_all(score.Measure):
+    clefs_withinMeasure_perStaff = partition_handleNone(lambda c:c.number, part.iter_all(score.Clef, m.start, m.end),"number")
+
     measure=addChild(section,"measure")
     setAttributes(measure,("n",m.number))
 
     quarterDur = m.start.quarter
 
-    notes_withinMeasure = part.iter_all(score.GenericNote, m.start, m.end, include_subclasses=True)
-
-    notes_withinMeasure_perStaff = partition_handleNone(lambda n:n.staff, notes_withinMeasure, "staff")
+    notes_withinMeasure_perStaff = partition_handleNone(lambda n:n.staff, part.iter_all(score.GenericNote, m.start, m.end, include_subclasses=True), "staff")
 
     notes_nextMeasure_perStaff_keys=set(notes_nextMeasure_perStaff.keys())
     notes_withinMeasure_perStaff_keys=set(notes_withinMeasure_perStaff.keys())
@@ -202,6 +225,9 @@ for m in part.iter_all(score.Measure):
             notes_withinMeasure_perStaff_perVoice = partition_handleNone(lambda n:n.voice, notes_perStaff[s], "voice")
 
             ties_perStaff_perVoice={}
+
+            if s in clefs_withinMeasure_perStaff.keys():
+                clefs_withinMeasure = clefs_withinMeasure_perStaff[s]
 
             for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
                 layer=addChild(staff,"layer")
@@ -235,14 +261,15 @@ for m in part.iter_all(score.Measure):
                     else:
                         chords.append([n])
 
-                def calc_dur_dots_splitNote(n):
+                def calc_dur_dots_splitNotes(n):
                     note_duration = n.duration
-                    splitNote = None
+
+                    splitNotes = None
 
                     if n.start.t+n.duration>m.end.t:
                         note_duration = m.end.t - n.start.t
                         # just some value different from None, for later checking
-                        splitNote = True
+                        splitNotes = []
 
 
                     # what if note doesn't have any ID?
@@ -297,22 +324,43 @@ for m in part.iter_all(score.Measure):
                     if curr_dur!=0:
                         dur_dots.append((powerOf2_toDur(curr_dur), curr_dots))
 
-                    return dur_dots,splitNote
+                    return dur_dots,splitNotes
 
 
                 openBeam=False
                 parent = layer
 
-                next_dur_dots, next_splitNote = calc_dur_dots_splitNote(chords[0][0])
+                next_dur_dots, next_splitNotes = calc_dur_dots_splitNotes(chords[0][0])
+
+                clef_i=0
+                clef = None
+                if s in clefs_withinMeasure_perStaff.keys():
+                    if measure_counter==0:
+                        if len(clefs_withinMeasure)>1:
+                            clef = clefs_withinMeasure[1]
+                    else:
+                        clef = clefs_withinMeasure[0]
 
                 for i in range(len(chords)):
                     chordNotes = chords[i]
                     rep = chordNotes[0]
-                    dur_dots,splitNote = next_dur_dots, next_splitNote
+                    dur_dots,splitNotes = next_dur_dots, next_splitNotes
+
+                    if clef!=None and clef.start.t<=rep.start.t:
+                        clefElem = addChild(parent, "clef")
+                        setAttributes(clefElem,("shape",clef.sign),("line",clef.line))
+
+                        clef_i+=1
+
+                        if clef_i==len(clefs_withinMeasure):
+                            clef = None
+                        else:
+                            clef = clefs_withinMeasure[clef_i]
+
 
                     # hack right now, don't need to check every iteration, good time to factor out inside of loop
                     if i < len(chords)-1:
-                        next_dur_dots, next_splitNote = calc_dur_dots_splitNote(chords[i+1][0])
+                        next_dur_dots, next_splitNotes = calc_dur_dots_splitNotes(chords[i+1][0])
 
                     if isinstance(rep,score.Note):
                         if openBeam:
@@ -367,11 +415,9 @@ for m in part.iter_all(score.Measure):
 
                                     setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
-                        if splitNote!=None:
-                            splitNote = []
-
+                        if splitNotes!=None:
                             for n in chordNotes:
-                                splitNote.append(score.Note(n.step,n.octave, id=n.id+"s"))
+                                splitNotes.append(score.Note(n.step,n.octave, id=n.id+"s"))
 
 
                             if len(dur_dots)>1:
@@ -382,8 +428,8 @@ for m in part.iter_all(score.Measure):
                                     ties[n.id]=[n.id, n.id+"s"]
 
                     elif isinstance(rep,score.Rest):
-                        if splitNote!=None:
-                            splitNote = [score.Rest(id=rep.id+"s")]
+                        if splitNotes!=None:
+                            splitNotes.append(score.Rest(id=rep.id+"s"))
 
                         rest = addChild(layer,"rest")
 
@@ -397,8 +443,8 @@ for m in part.iter_all(score.Measure):
 
                                 setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
-                    if splitNote!=None:
-                        for sn in splitNote:
+                    if splitNotes!=None:
+                        for sn in splitNotes:
                             sn.voice = rep.voice
                             sn.start = m.end
                             sn.end = score.TimePoint(rep.start.t+rep.duration)
@@ -427,10 +473,6 @@ for m in part.iter_all(score.Measure):
 
     create_staff({k:v for k,v in notes_nextMeasure_perStaff.items() if k in notes_nextMeasure_perStaff_keys}, ties_perStaff)
 
-    # check if there are notes that overlap with same staff and same voice during this measure (is that a problem or is it just another case to be handled?)
-#     for s in staff_intersection_keys:
-#         notes_perVoice_keys, voice_intersection_keys = splitSets(notes_nextMeasure_perStaff[s].keys(), notes_withinMeasure_perStaff[s].keys())
-#         print(voice_intersection_keys)
 
 
     for slur in part.iter_all(score.Slur, m.start, m.end):
