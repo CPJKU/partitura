@@ -8,6 +8,19 @@ import sys
 
 part = score.Part("P0","Test")
 
+part.set_quarter_duration(0,2)
+part.add(score.KeySignature(-3,"minor"),start=0)
+part.add(score.TimeSignature(4,4),start=0)
+part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
+
+part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=0,end=5)
+part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=5,end=6)
+part.add(score.Note(id="n3",step="E",octave=2, staff=1, voice=1),start=6,end=7)
+part.add(score.Note(id="n4",step="F",octave=2, staff=1, voice=1),start=7,end=9)
+part.add(score.Note(id="n5",step="D",octave=2, staff=1, voice=1),start=9,end=10)
+part.add(score.Note(id="n6",step="A",octave=2, staff=1, voice=1),start=10,end=16)
+
+score.add_measures(part)
 # test case blues lick
 # part.set_quarter_duration(0,10)
 # part.add(score.KeySignature(-3,"minor"),start=0)
@@ -48,7 +61,7 @@ part = score.Part("P0","Test")
 # part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=1,end=1+3*16+4+1)
 # part.add(score.Note(id="n3",step="E",octave=3, staff=1, voice=1),start=1,end=1+3*16+4+1)
 #
-# score.add_measures(part)
+#
 
 # using this feature?
 # making ties then becomes about looking at the tiegroup tag of notes
@@ -56,7 +69,7 @@ part = score.Part("P0","Test")
 # without this feature, notes crossing measure boundaries have to be handled
 #score.tie_notes(part)
 
-part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
+#part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
 
 
 
@@ -135,24 +148,23 @@ def partition_handleNone(func, iter, partitionAttrib):
 
     return p
 
-addDefaultStaffDef = True
-
 clefs = partition_handleNone(lambda c:c.number, part.iter_all(score.Clef), "number")
 
-for c in clefs.values():
-    clef = c[0]
-
-    for i in range(1,len(c)):
-        if c[i].start.t < clef.start.t:
-            clef = c[i]
-
-
+if len(clefs)==0:
     staffDef = addChild(staffGrp,"staffDef")
-    setAttributes(staffDef,("n",clef.number),("lines",5),("clef.shape",clef.sign),("clef.line",clef.line))
-    addDefaultStaffDef = False
+else:
+    for c in clefs.values():
+        clef = c[0]
 
-if addDefaultStaffDef:
-    staffDef = addChild(staffGrp,"staffDef")
+        for i in range(1,len(c)):
+            if c[i].start.t < clef.start.t:
+                clef = c[i]
+
+
+        staffDef = addChild(staffGrp,"staffDef")
+        setAttributes(staffDef,("n",clef.number),("lines",5),("clef.shape",clef.sign),("clef.line",clef.line))
+
+
 
 
 
@@ -167,14 +179,6 @@ for m in part.iter_all(score.Measure):
     measure=addChild(section,"measure")
     setAttributes(measure,("n",m.number))
 
-    #for i in range(len(quarterDurations)):
-    # handle differing quarter durations within a single measure?
-
-    if m.start.quarter!= m.end.quarter:
-        print("something's rotten in the state of Denmark")
-        print("quarter duration is different at the end of the measure from when it starts")
-        sys.exit()
-
     quarterDur = m.start.quarter
 
     notes_withinMeasure = part.iter_all(score.GenericNote, m.start, m.end, include_subclasses=True)
@@ -185,15 +189,9 @@ for m in part.iter_all(score.Measure):
     notes_withinMeasure_perStaff_keys=set(notes_withinMeasure_perStaff.keys())
 
     staff_intersection_keys = notes_nextMeasure_perStaff_keys.intersection(notes_withinMeasure_perStaff_keys)
-    notes_nextMeasure_perStaff_keys = notes_nextMeasure_perStaff_keys.difference(staff_intersection_keys)
-    notes_withinMeasure_perStaff_keys=notes_withinMeasure_perStaff_keys.difference(staff_intersection_keys)
-    staff_disjunction = {}
 
-    for nnm in notes_nextMeasure_perStaff_keys:
-        staff_disjunction[nnm]=notes_nextMeasure_perStaff[nnm]
-
-    for nwm in notes_withinMeasure_perStaff_keys:
-        staff_disjunction[nwm]=notes_withinMeasure_perStaff[nwm]
+    for s in staff_intersection_keys:
+        notes_withinMeasure_perStaff[s].extend(notes_nextMeasure_perStaff[s])
 
     def create_staff(notes_perStaff, ties_perStaff):
         for s in notes_perStaff.keys():
@@ -211,6 +209,8 @@ for m in part.iter_all(score.Measure):
                 setAttributes(layer,("n",voice))
 
                 ties={}
+
+                notes.sort(key=lambda n:n.start.t)
 
                 chords = [[notes[0]]]
 
@@ -248,13 +248,6 @@ for m in part.iter_all(score.Measure):
                     # what if note doesn't have any ID?
                     # maybe n.id = generateId()
 
-                    # estimate_symbolic_duration ?
-                    # or just this:
-                    # n.duration is some fraction of quarterDur and that fraction is a sum of powers of 2
-                    # note n breaks up into multiple notes for every disjunct sequence of consecutive powers of 2
-                    # where each note has a duration of int(4/the largest power of 2 in the sequence)
-                    # and the number of dots is (the length of the sequence - 1)
-
                     fraction = note_duration/quarterDur
                     intPart = int(fraction)
                     fracPart = fraction - intPart
@@ -263,7 +256,8 @@ for m in part.iter_all(score.Measure):
                     powOf_2 = 1
 
                     while intPart>0:
-                        untiedDurations.insert(0,(intPart%2)*powOf_2)
+                        bit = intPart%2
+                        untiedDurations.insert(0,bit*powOf_2)
                         intPart=intPart//2
                         powOf_2*=2
 
@@ -321,7 +315,11 @@ for m in part.iter_all(score.Measure):
                         next_dur_dots, next_splitNote = calc_dur_dots_splitNote(chords[i+1][0])
 
                     if isinstance(rep,score.Note):
-                        if not openBeam and dur_dots[0][0]>=8 and next_dur_dots[0][0]>=8 and i < len(chords)-1:
+                        if openBeam:
+                            if dur_dots[0][0]<8:
+                                openBeam=False
+                                parent = layer
+                        elif dur_dots[0][0]>=8 and (next_dur_dots[0][0]>=8 and i<len(chords)-1 or len(dur_dots)>1):
                             parent = addChild(layer,"beam")
                             openBeam = True
 
@@ -338,8 +336,6 @@ for m in part.iter_all(score.Measure):
 
                         # additional ties will have to work together with ties specified in partitura
                         if len(dur_dots)>1:
-                            # how to interleave beam and chords?
-
                             for n in chordNotes:
                                 ties[n.id]=[n.id]
 
@@ -422,8 +418,14 @@ for m in part.iter_all(score.Measure):
 
     ties_perStaff = {}
 
-    create_staff(staff_disjunction, ties_perStaff)
+    # staffs should probably be created in order
 
+    create_staff(notes_withinMeasure_perStaff, ties_perStaff)
+
+
+    notes_nextMeasure_perStaff_keys = notes_nextMeasure_perStaff_keys.difference(staff_intersection_keys)
+
+    create_staff({k:v for k,v in notes_nextMeasure_perStaff.items() if k in notes_nextMeasure_perStaff_keys}, ties_perStaff)
 
     # check if there are notes that overlap with same staff and same voice during this measure (is that a problem or is it just another case to be handled?)
 #     for s in staff_intersection_keys:
