@@ -91,6 +91,7 @@ part = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_N
 qd=part.quarter_durations()[0][1]
 
 part.add(score.Clef(sign="F",line=4, octave_change=0, number=2), start=int(qd*(2+1/4)))
+part.add(score.KeySignature(-3,"minor"),start=int(qd*(2+1/4)))
 
 
 # create MEI file from this ;D
@@ -131,20 +132,25 @@ scoreDef = addChild(mei_score,"scoreDef")
 
 keySig = next(part.iter_all(score.KeySignature),None)
 
-if keySig!=None:
-    key = keySig.name
+def attribsOf_keySig(ks):
+    key = ks.name
     pname = key[0]
     mode = "major"
 
     if len(key)==2:
         mode="minor"
 
-    fifths = str(abs(keySig.fifths))
+    fifths = str(abs(ks.fifths))
 
-    if keySig.fifths<0:
+    if ks.fifths<0:
         fifths+="f"
     else:
         fifths+="s"
+
+    return fifths, mode, pname
+
+if keySig!=None:
+    fifths, mode, pname = attribsOf_keySig(keySig)
 
     setAttributes(scoreDef,("key.sig",fifths),("key.mode", mode),("key.pname",pname))
 
@@ -200,6 +206,7 @@ notes_nextMeasure_perStaff = {}
 
 for m in part.iter_all(score.Measure):
     clefs_withinMeasure_perStaff = partition_handleNone(lambda c:c.number, part.iter_all(score.Clef, m.start, m.end),"number")
+    keySigs_withinMeasure = list(part.iter_all(score.KeySignature, m.start, m.end))
 
     measure=addChild(section,"measure")
     setAttributes(measure,("n",m.number))
@@ -245,7 +252,6 @@ for m in part.iter_all(score.Measure):
                 for i in range(1,len(notes)):
                     rep = chords[-1][0]
                     n = notes[i]
-                    # what to do with notes that start same time but have different durations?
                     # should multiple Rests with same start time or a mix of Rests and Notes with same start times be ignored, trigger a warning or be an error?
                     if isinstance(rep,score.Note) and isinstance(n, score.Note) and rep.start.t==n.start.t:
                         if rep.duration==n.duration:
@@ -268,7 +274,6 @@ for m in part.iter_all(score.Measure):
 
                     if n.start.t+n.duration>m.end.t:
                         note_duration = m.end.t - n.start.t
-                        # just some value different from None, for later checking
                         splitNotes = []
 
 
@@ -327,6 +332,7 @@ for m in part.iter_all(score.Measure):
                     return dur_dots,splitNotes
 
 
+
                 openBeam=False
                 parent = layer
 
@@ -341,12 +347,29 @@ for m in part.iter_all(score.Measure):
                     else:
                         clef = clefs_withinMeasure[0]
 
-                for i in range(len(chords)):
-                    chordNotes = chords[i]
+                keySig_i=0
+                keySig = None
+
+                if len(keySigs_withinMeasure)>0:
+                    if measure_counter==0:
+                        if len(keySigs_withinMeasure)>1:
+                            keySig = keySigs_withinMeasure[1]
+                    else:
+                        keySig = keySigs_withinMeasure[0]
+
+                def insertElem(elem, note):
+                    return elem!=None and elem.start.t<=note.start.t
+
+                for chord_i in range(len(chords)):
+                    chordNotes = chords[chord_i]
                     rep = chordNotes[0]
                     dur_dots,splitNotes = next_dur_dots, next_splitNotes
 
-                    if clef!=None and clef.start.t<=rep.start.t:
+                    if insertElem(clef, rep):
+                        if openBeam:
+                            openBeam=False
+                            parent = layer
+
                         clefElem = addChild(parent, "clef")
                         setAttributes(clefElem,("shape",clef.sign),("line",clef.line))
 
@@ -356,18 +379,35 @@ for m in part.iter_all(score.Measure):
                             clef = None
                         else:
                             clef = clefs_withinMeasure[clef_i]
+                            
+                    if insertElem(keySig, rep):
+                        if openBeam:
+                            openBeam=False
+                            parent = layer
+
+                        keySigElem = addChild(parent, "keySig")
+                        fifths, mode, pname = attribsOf_keySig(keySig)
+
+                        setAttributes(keySigElem,("sig",fifths),("mode", mode),("pname",pname))
+
+                        keySig_i+=1
+
+                        if keySig_i==len(keySigs_withinMeasure):
+                            keySig = None
+                        else:
+                            keySig = keySigs_withinMeasure[keySig_i]
 
 
                     # hack right now, don't need to check every iteration, good time to factor out inside of loop
-                    if i < len(chords)-1:
-                        next_dur_dots, next_splitNotes = calc_dur_dots_splitNotes(chords[i+1][0])
+                    if chord_i < len(chords)-1:
+                        next_dur_dots, next_splitNotes = calc_dur_dots_splitNotes(chords[chord_i+1][0])
 
                     if isinstance(rep,score.Note):
                         if openBeam:
                             if dur_dots[0][0]<8:
                                 openBeam=False
                                 parent = layer
-                        elif dur_dots[0][0]>=8 and (next_dur_dots[0][0]>=8 and i<len(chords)-1 or len(dur_dots)>1):
+                        elif dur_dots[0][0]>=8 and (next_dur_dots[0][0]>=8 and chord_i<len(chords)-1 or len(dur_dots)>1) and not insertElem(clef, chords[chord_i+1][0]) and not insertElem(keySig, chords[chord_i+1][0]):
                             parent = addChild(layer,"beam")
                             openBeam = True
 
