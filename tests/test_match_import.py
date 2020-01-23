@@ -65,7 +65,7 @@ class TestLoadMatch(unittest.TestCase):
     #     for fn in MATCH_IMPORT_EXPORT_TESTFILES:
 
     #         # parse match file
-    #         spart, ppart, alignment = load_match(fn)
+    #         ppart, alignment, spart = load_match(fn, create_part=True)
     #         self.assertTrue(1, 1)
 
 

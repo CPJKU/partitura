@@ -1244,7 +1244,7 @@ def part_from_matchfile(mf):
             if ('grace' in note.ScoreAttributesList or
                     note.Duration.numerator == 0):
 
-                part_note = score.GraceNote('appoggiatura', **note_attributes)
+                part_note = score.GraceNote(grace_type='appoggiatura', **note_attributes)
 
             else:
 
@@ -1314,8 +1314,13 @@ def make_timesig_maps(ts_orig, max_time):
     x_q = np.cumsum(np.r_[start_q, 4 * np.diff(x) / y[:-1, 1]])
     end_q = x_q[-1]
 
-    beats_map = interp1d(x_q, y[:, 0], kind='previous')
-    beat_type_map = interp1d(x_q, y[:, 1], kind='previous')
+    # TODO: fix error with bounds
+    beats_map = interp1d(x_q, y[:, 0], kind='previous',)
+                         # bounds_error=False,
+                         # fill_value=(y[0, 0], y[-1, 0]))
+    beat_type_map = interp1d(x_q, y[:, 1], kind='previous',)
+                             # bounds_error=False,
+                             # fill_value=(y[0, 1], y[-1, 1]))
 
     return beats_map, beat_type_map, start_q, end_q
 

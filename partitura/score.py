@@ -1235,11 +1235,23 @@ class GenericNote(TimedObject):
 
 
 class Note(GenericNote):
-    def __init__(self, step, octave, alter=None, *args, **kwargs):
+    def __init__(self, step, octave, alter=None, beam=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.step = step
         self.octave = octave
         self.alter = alter
+        # Add beam (
+        self.beam = beam
+
+        # import pdb
+        # pdb.set_trace()
+        if self.beam is not None:
+            try:
+                self.beam.append(self)
+            except:
+                import pdb
+                pdb.set_trace()
+        
 
     def __str__(self):
         return ' '.join((super().__str__(),
@@ -1277,6 +1289,27 @@ class Note(GenericNote):
 class Rest(GenericNote):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+class Beam(TimedObject):
+    """
+    Represent beams (for MEI)
+    """
+    def __init__(self, id=None):
+        super().__init__()
+        self.id = id
+        self.notes = []
+
+    def append(self, note):
+        self.notes.append(note)
+        self.update_time()
+
+    def update_time():
+        start_idx = np.argmin([n.start.t for n in self.notes])
+        end_idx = np.argmax([n.end.t for n in self.notes])
+
+        self.start = notes[start_idx].start
+        self.end = notes[end_idx].end
+        
 
 
 class GraceNote(Note):
