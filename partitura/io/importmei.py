@@ -145,48 +145,7 @@ def mei_ns_name(name):
 #shortcut
 mns = mei_ns_name
 
-
-
             
-            
-if __name__ == '__main__':
-    
-    mei = '/Users/aae/Repos/maps_ismir_lbd/data/Scores/Mozart_Variations_K_265_1_no_repetitions.mei'
-    validate = True
-    parser = etree.XMLParser(resolve_entities=False,
-                             huge_tree=False,
-                             remove_comments=True,
-                             remove_blank_text=True,
-                             ns_clean=True)
-
-    document = etree.parse(mei, parser)
-
-    if validate:
-        validate_mei(document, debug=True)
-    
-
-    root = document.getroot()
-
-    ns = '{{{0}}}'.format(etree.QName(root.tag).namespace)
-
-    music_el = root.find(ns + 'music')
-
-
-    structure = []
-    for matter_el in music_el:
-        if el_tag(matter_el) == 'front':
-            print('front matter')
-        elif el_tag(matter_el) == 'back':
-            print('back matter')
-        if el_tag(matter_el) == 'body':
-            # an MEI can contain a collection of works
-            # check if there is a single work or multiple movements/pieces
-            for body_el in matter_el:
-
-                if el_tag(body_el) == 'mdiv':
-                    # parse mdiv
-                    mdiv = _parse_mdiv(body_el)
-                    structure.append(mdiv)
             
     
 
