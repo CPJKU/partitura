@@ -504,10 +504,12 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
         if duration > 0:
-            note = score.Note(step, octave, alter, voice=int(voice or 0), id=note_id,
+            note = score.Note(step=step, octave=octave, alter=alter,
+                              voice=int(voice or 0), id=note_id,
                               symbolic_duration=estimate_symbolic_duration(duration, ticks))
         else:
-            note = score.GraceNote('appoggiatura', step, octave, alter, voice=int(voice or 0), id=note_id,
+            note = score.GraceNote(grace_type='appoggiatura', step=step,
+                                   octave=octave, alter=alter, voice=int(voice or 0), id=note_id,
                                    symbolic_duration=dict(type='quarter'))
 
         part.add(note, onset, onset+duration)

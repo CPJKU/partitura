@@ -873,8 +873,9 @@ def _handle_note(e, position, part, ongoing, prev_note):
 
         if grace is not None:
             grace_type, steal_proportion = get_grace_info(grace)
-            note = score.GraceNote(grace_type, step, octave, alter,
-                                   note_id, voice=voice, staff=staff,
+            note = score.GraceNote(grace_type=grace_type, step=step,
+                                   octave=octave, alter=alter,
+                                   id=note_id, voice=voice, staff=staff,
                                    symbolic_duration=symbolic_duration,
                                    articulations=articulations,
                                    steal_proportion=steal_proportion)
@@ -882,8 +883,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
                 and prev_note.voice == voice):
                 note.grace_prev = prev_note
         else:
-
-            note = score.Note(step, octave, alter, note_id,
+            note = score.Note(step=step, octave=octave,
+                              alter=alter, id=note_id,
                               voice=voice, staff=staff,
                               symbolic_duration=symbolic_duration,
                               articulations=articulations)
@@ -893,7 +894,7 @@ def _handle_note(e, position, part, ongoing, prev_note):
             prev_note.grace_next = note
     else:
         # note element is a rest
-        note = score.Rest(note_id, voice=voice, staff=staff,
+        note = score.Rest(id=note_id, voice=voice, staff=staff,
                           symbolic_duration=symbolic_duration,
                           articulations=articulations)
 
