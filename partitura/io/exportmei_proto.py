@@ -13,7 +13,7 @@ def errorPrint(*list_errorMsg):
     sys.exit()
 
 
-# parts = [score.Part("P0","Test"), score.Part("P1","Test")]
+# parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test")]
 #
 #
 # parts[0].set_quarter_duration(0,2)
@@ -22,9 +22,13 @@ def errorPrint(*list_errorMsg):
 # parts[1].set_quarter_duration(0,2)
 # parts[1].add(score.KeySignature(0,"major"),start=0)
 # parts[1].add(score.TimeSignature(4,4),start=0)
+# parts[2].set_quarter_duration(0,2)
+# parts[2].add(score.KeySignature(0,"major"),start=0)
+# parts[2].add(score.TimeSignature(4,4),start=0)
 #
 # parts[0].add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
 # parts[1].add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
+# parts[2].add(score.Clef(sign="G",line=2, octave_change=0, number=3),start=0)
 #
 #
 #
@@ -35,12 +39,12 @@ def errorPrint(*list_errorMsg):
 # parts[0].add(score.Note(id="n5s2",step="D",octave=4, staff=1, voice=1),start=9,end=10)
 # parts[0].add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,end=16)
 #
-# # parts[0].add(score.Note(id="n0s22",step="E",octave=4, staff=1, voice=1),start=0,end=5)
-# # parts[0].add(score.Note(id="n2s22",step="B",octave=4, staff=1, voice=1),start=5,end=6)
-# # parts[0].add(score.Note(id="n3s22",step="G",octave=4, staff=1, voice=1),start=6,end=7)
-# # parts[0].add(score.Note(id="n4s22",step="A",octave=4, staff=1, voice=1),start=7,end=9)
-# # parts[0].add(score.Note(id="n5s22",step="F",octave=4, staff=1, voice=1),start=9,end=10)
-# # parts[0].add(score.Note(id="n6s22",step="C",octave=5, staff=1, voice=1),start=10,end=16)
+# parts[2].add(score.Note(id="n0s22",step="E",octave=4, staff=3, voice=1),start=0,end=5)
+# parts[2].add(score.Note(id="n2s22",step="B",octave=4, staff=3, voice=1),start=5,end=6)
+# parts[2].add(score.Note(id="n3s22",step="G",octave=4, staff=3, voice=1),start=6,end=7)
+# parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7,end=9)
+# parts[2].add(score.Note(id="n5s22",step="F",octave=4, staff=3, voice=1),start=9,end=10)
+# parts[2].add(score.Note(id="n6s22",step="C",octave=5, staff=3, voice=1),start=10,end=16)
 #
 # parts[1].add(score.Note(id="n0",step="C",octave=2, staff=2, voice=1),start=0,end=3)
 # parts[1].add(score.Note(id="n2",step="E",octave=2, staff=2, voice=1),start=3,end=6)
@@ -50,41 +54,42 @@ def errorPrint(*list_errorMsg):
 # parts[1].add(score.Note(id="n6",step="A",octave=2, staff=2, voice=1),start=13,end=16)
 # score.add_measures(parts[0])
 # score.add_measures(parts[1])
+# score.add_measures(parts[2])
 #
 # score.tie_notes(parts[0])
 # score.tie_notes(parts[1])
 # test case blues lick
-part = score.Part("P0","Test")
-part.set_quarter_duration(0,10)
-part.add(score.KeySignature(-3,"minor"),start=0)
-part.add(score.TimeSignature(6,8),start=0)
-part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
-part.add(score.Clef(sign="G",line=2, octave_change=0, number=2),start=0)
-n0 = score.Note(id="n0",step="C",octave=2,voice=1, staff=1)
-n1 =score.Note(id="n1",step="E",octave=2,voice=1, staff=1, alter=-1)
-n2 =score.Note(id="n2",step="D",octave=2,voice=1, staff=1)
-part.add(n0,start=0,end=5)
-part.add(n1,start=5,end=10)
-part.add(n2,start=10,end=15)
-n0q = score.Note(id="n0q",step="G",octave=2,voice=1, staff=1)
-n1q =score.Note(id="n1q",step="G",octave=2,voice=1, staff=1)
-n2q =score.Note(id="n2q",step="G",octave=2,voice=1, staff=1)
-part.add(n0q,start=0,end=5)
-part.add(n1q,start=5,end=10)
-part.add(n2q,start=10,end=15)
-part.add(score.Note(id="n3",step="C",octave=2,voice=1, staff=1),start=15,end=40)
-n0s2 = score.Note(id="n0s2",step="C",octave=4,voice=1, staff=2)
-n1s2 =score.Note(id="n1s2",step="E",octave=4,voice=1, staff=2, alter=-1)
-n2s2 =score.Note(id="n2s2",step="D",octave=4,voice=1, staff=2)
-part.add(n0s2,start=0,end=5)
-part.add(n1s2,start=5,end=10)
-part.add(n2s2,start=10,end=15)
-part.add(score.Slur(n0s2,n2s2),start=0)
-part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=40)
-
-score.add_measures(part)
-
-parts=[part]
+# part = score.Part("P0","Test")
+# part.set_quarter_duration(0,10)
+# part.add(score.KeySignature(-3,"minor"),start=0)
+# part.add(score.TimeSignature(6,8),start=0)
+# part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
+# part.add(score.Clef(sign="G",line=2, octave_change=0, number=2),start=0)
+# n0 = score.Note(id="n0",step="C",octave=2,voice=1, staff=1)
+# n1 =score.Note(id="n1",step="E",octave=2,voice=1, staff=1, alter=-1)
+# n2 =score.Note(id="n2",step="D",octave=2,voice=1, staff=1)
+# part.add(n0,start=0,end=5)
+# part.add(n1,start=5,end=10)
+# part.add(n2,start=10,end=15)
+# n0q = score.Note(id="n0q",step="G",octave=2,voice=1, staff=1)
+# n1q =score.Note(id="n1q",step="G",octave=2,voice=1, staff=1)
+# n2q =score.Note(id="n2q",step="G",octave=2,voice=1, staff=1)
+# part.add(n0q,start=0,end=5)
+# part.add(n1q,start=5,end=10)
+# part.add(n2q,start=10,end=15)
+# part.add(score.Note(id="n3",step="C",octave=2,voice=1, staff=1),start=15,end=40)
+# n0s2 = score.Note(id="n0s2",step="C",octave=4,voice=1, staff=2)
+# n1s2 =score.Note(id="n1s2",step="E",octave=4,voice=1, staff=2, alter=-1)
+# n2s2 =score.Note(id="n2s2",step="D",octave=4,voice=1, staff=2)
+# part.add(n0s2,start=0,end=5)
+# part.add(n1s2,start=5,end=10)
+# part.add(n2s2,start=10,end=15)
+# part.add(score.Slur(n0s2,n2s2),start=0)
+# part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=40)
+#
+# score.add_measures(part)
+# score.tie_notes(part)
+# parts=[part]
 
 # # testing crossing measures and tieing notes together
 # part.set_quarter_duration(0,16)
@@ -105,20 +110,23 @@ parts=[part]
 # without this feature, notes crossing measure boundaries have to be handled
 #score.tie_notes(part)
 
-# parts = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
-#
+
+
+parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
+partitura.render(parts)
+
 # part = parts
 #
 # qd=part.quarter_durations()[0][1]
 #
 # part.add(score.Clef(sign="F",line=4, octave_change=0, number=2), start=int(qd*(2+1/4)))
 # part.add(score.KeySignature(-3,"minor"),start=int(qd*(2+1/4)))
-#
-#
-# if isinstance(parts, score.PartGroup):
-#     parts = parts.children
-# else:
-#     parts=[parts]
+
+
+if isinstance(parts, score.PartGroup):
+    parts = parts.children
+else:
+    parts=[parts]
 
 
 
@@ -190,7 +198,10 @@ def firstInstance(cls, part, singleInstance=True):
             "ID "+part.id,
             "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
         else:
-            return instances[0]
+            if len(instances)>0:
+                return instances[0]
+            else:
+                return None
     else:
         return instances
 
@@ -226,9 +237,19 @@ staffGrp = addChild(scoreDef,"staffGrp")
 
 def partition_handleNone(func, iter, partitionAttrib):
     p = partition(func,iter)
+    newKey = None
 
     if None in p.keys():
-        errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
+        #errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
+
+        # for testing purposes, introduce phantom staff, however, return to error when done testing
+        newKey = 1
+
+        for k in p.keys():
+            if k!=None and k>newKey:
+                newKey=k
+        p[newKey]=p[None]
+        del p[None]
 
     return p
 
@@ -241,6 +262,7 @@ clefs = partition_handleNone(lambda c:c.number, clefs, "number")
 
 if len(clefs)==0:
     staffDef = addChild(staffGrp,"staffDef")
+    setAttributes(staffDef,("n",1),("lines",5),("clef.shape","G"),("clef.line",2))
 else:
     for c in clefs.values():
         if len(c)>1:
@@ -303,7 +325,7 @@ for measure_i in range(len(measures[0])):
         m = measures[part_i][measure_i]
         clefs_withinMeasure_perStaff = partition_handleNone(lambda c:c.number, parts[part_i].iter_all(score.Clef, m.start, m.end),"number")
         keySigs_withinMeasure = list(parts[part_i].iter_all(score.KeySignature, m.start, m.end))
-
+        timeSigs_withinMeasure = list(parts[part_i].iter_all(score.TimeSignature, m.start, m.end))
 
 
         quarterDur = m.start.quarter
@@ -364,6 +386,8 @@ for measure_i in range(len(measures[0])):
                             chords.append([n])
 
                     def calc_dur_dots_splitNotes_firstTempDur(n):
+
+
                         note_duration = n.duration
 
                         splitNotes = None
@@ -443,33 +467,37 @@ for measure_i in range(len(measures[0])):
 
                     next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0])
 
+                    def firstValidItem(container, notEmpty):
+                        if notEmpty:
+                            if measure_i==0:
+                                if len(container)>1:
+                                    return container[1]
+                            else:
+                                return container[0]
+
+                        return None
+
                     clef_i=0
-                    clef = None
-                    if s in clefs_withinMeasure_perStaff.keys():
-                        if measure_i==0:
-                            if len(clefs_withinMeasure)>1:
-                                clef = clefs_withinMeasure[1]
-                        else:
-                            clef = clefs_withinMeasure[0]
+                    clef = firstValidItem(clefs_withinMeasure, s in clefs_withinMeasure_perStaff.keys())
 
                     keySig_i=0
-                    keySig = None
+                    keySig = firstValidItem(keySigs_withinMeasure, len(keySigs_withinMeasure)>0)
 
-                    if len(keySigs_withinMeasure)>0:
-                        if measure_i==0:
-                            if len(keySigs_withinMeasure)>1:
-                                keySig = keySigs_withinMeasure[1]
-                        else:
-                            keySig = keySigs_withinMeasure[0]
+                    timeSig_i=0
+                    timeSig = firstValidItem(timeSigs_withinMeasure, len(timeSigs_withinMeasure)>0)
 
-                    def insertElem_check(elem, t):
-                        return elem!=None and elem.start.t<=t
+                    def insertElem_check(t, *list_elem):
+                        for elem in list_elem:
+                            if elem!=None and elem.start.t<=t:
+                                return True
+
+                        return False
 
                     def insertElem(elem, note, elemName, attribNames, attribValsOf_elem, cursor, elemContainer):
                         ob = openBeam
                         p = parent
-                        if insertElem_check(elem,note.start.t):
-                            # note should also be split according to keysig or clef etc insertion time, right now only beaming is disrupted
+                        if insertElem_check(note.start.t, elem):
+                            # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
                             if openBeam:
                                 ob = False
                                 p = layer
@@ -499,6 +527,7 @@ for measure_i in range(len(measures[0])):
 
                         openBeam, parent, keySig_i, keySig = insertElem(keySig, rep, "keySig", ["sig","mode","pname"], attribsOf_keySig, keySig_i, keySigs_withinMeasure)
 
+                        openBeam, parent, timeSig_i, timeSig = insertElem(timeSig, rep, "meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSig_i, timeSigs_withinMeasure)
 
 
 
@@ -511,7 +540,7 @@ for measure_i in range(len(measures[0])):
                                 if dur_dots[0][0]<8:
                                     openBeam=False
                                     parent = layer
-                            elif dur_dots[0][0]>=8 and next_dur_dots[0][0]>=8 and (chord_i<len(chords)-1 and not insertElem_check(clef, chords[chord_i+1][0].start.t) and not insertElem_check(keySig, chords[chord_i+1][0].start.t) or len(dur_dots)>1 and not insertElem_check(clef, rep.start.t+firstTempDur) and not insertElem_check(keySig, rep.start.t+firstTempDur)):
+                            elif dur_dots[0][0]>=8 and next_dur_dots[0][0]>=8 and (chord_i<len(chords)-1 and not insertElem_check(chords[chord_i+1][0].start.t, clef, keySig, timeSig) or len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, clef, keySig, timeSig)):
                                 parent = addChild(layer,"beam")
                                 openBeam = True
 
@@ -653,4 +682,3 @@ for measure_i in range(len(measures[0])):
 (etree.ElementTree(mei)).write("testResult.mei",pretty_print=True)
 
 #print(etree.tostring(mei,pretty_print=True))
-#partitura.render(part)
