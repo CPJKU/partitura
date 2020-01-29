@@ -5,12 +5,179 @@ from partitura.utils.generic import partition
 from partitura.utils.music import estimate_symbolic_duration
 import sys
 
+def calc_dur_dots_splitNotes_firstTempDur(n, m, quarterDur):
+    note_duration = n.duration
+
+    splitNotes = None
+
+    if n.start.t+n.duration>m.end.t:
+        note_duration = m.end.t - n.start.t
+        splitNotes = []
+
+
+
+    # what if note doesn't have any ID?
+    # maybe n.id = generateId()
+
+    fraction = note_duration/quarterDur
+    intPart = int(fraction)
+    fracPart = fraction - intPart
+
+
+
+    untiedDurations = []
+    powOf_2 = 1
+
+    while intPart>0:
+        bit = intPart%2
+        untiedDurations.insert(0,bit*powOf_2)
+        intPart=intPart//2
+        powOf_2*=2
+
+
+
+
+    powOf_2 = 1/2
+
+    while fracPart > 0:
+        fracPart*=2
+        bit = int(fracPart)
+        fracPart-=bit
+        untiedDurations.append(bit*powOf_2)
+        powOf_2/=2
+
+
+
+
+    def powerOf2_toDur(p):
+        return int(4/p)
+
+    dur_dots = []
+
+    curr_dur = 0
+    curr_dots = 0
+
+    i=0
+
+    while i<len(untiedDurations):
+        if curr_dur!=0:
+            if untiedDurations[i]==0:
+                dur_dots.append((powerOf2_toDur(curr_dur), curr_dots))
+                curr_dots=0
+                curr_dur=0
+            else:
+                curr_dots+=1
+        else:
+            curr_dur = untiedDurations[i]
+
+        i+=1
+
+    if curr_dur!=0:
+        dur_dots.append((powerOf2_toDur(curr_dur), curr_dots))
+
+    firstTempDur = int(untiedDurations[0]*quarterDur)
+
+    return dur_dots,splitNotes, firstTempDur
+
+
+
+def insertElem_check(t, inbetweenNotesElems):
+    for ine in inbetweenNotesElems:
+        if ine.elem!=None and ine.elem.start.t<=t:
+            return True
+
+    return False
+
+
 
 def errorPrint(*list_errorMsg):
     for msg in list_errorMsg:
         print(msg)
 
     sys.exit()
+
+def partition_handleNone(func, iter, partitionAttrib):
+    p = partition(func,iter)
+    newKey = None
+
+    if None in p.keys():
+        #errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
+
+        # for testing purposes, introduce phantom staff, however, return to error when done testing
+        newKey = 1
+
+        for k in p.keys():
+            if k!=None and k>newKey:
+                newKey=k
+        p[newKey]=p[None]
+        del p[None]
+
+    return p
+
+def addChild(parent,childName):
+    return etree.SubElement(parent,childName)
+
+def setAttributes(elem, *list_attrib_val):
+    for attrib_val in list_attrib_val:
+        elem.set(attrib_val[0],str(attrib_val[1]))
+
+def attribsOf_keySig(ks):
+    key = ks.name
+    pname = key[0]
+    mode = "major"
+
+    if len(key)==2:
+        mode="minor"
+
+    fifths = str(abs(ks.fifths))
+
+    if ks.fifths<0:
+        fifths+="f"
+    else:
+        fifths+="s"
+
+    return fifths, mode, pname
+
+def firstInstance(cls, part, singleInstance=True):
+    instances = list(part.iter_all(cls, score.TimePoint(0), score.TimePoint(1)))
+
+    if singleInstance:
+        if len(instances)>1:
+            errorPrint("Part "+part.name,
+            "ID "+part.id,
+            "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
+        else:
+            if len(instances)>0:
+                return instances[0]
+            else:
+                return None
+    else:
+        return instances
+
+def isTemporallyAligned(measures):
+    i=0
+
+    while True:
+        if i<len(measures[0]):
+            rep = measures[0][i]
+            duration = (rep.end.t-rep.start.t)//rep.start.quarter
+            for ii in range(1,len(measures)):
+                # bounds check might change depending if all parts have to have same amount of measures
+                if i<len(measures[ii]):
+                    m = measures[ii][i]
+
+                    dur = (m.end.t-m.start.t)//m.start.quarter
+
+                    if dur!=duration:
+                        return False
+
+            i+=1
+
+        else:
+            # break might change depending if all parts have to have same amount of measures
+            break
+
+    return True
 
 
 # parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test")]
@@ -92,17 +259,22 @@ def errorPrint(*list_errorMsg):
 # parts=[part]
 
 # # testing crossing measures and tieing notes together
+# part = score.Part("P0", "Test")
 # part.set_quarter_duration(0,16)
 # part.add(score.KeySignature(-3,"minor"),start=0)
 # part.add(score.TimeSignature(4,4),start=0)
 # part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
 #
 # part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=1)
-# part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=1,end=1+3*16+4+1)
-# part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=1,end=1+3*16+4+1)
-# part.add(score.Note(id="n3",step="E",octave=3, staff=1, voice=1),start=1,end=1+3*16+4+1)
 #
+# e = 1+3*16+4+2
 #
+# part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=1,end=e)
+# part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=1,end=e)
+# part.add(score.Note(id="n3",step="E",octave=3, staff=1, voice=1),start=1,end=e)
+# score.add_measures(part)
+#
+# parts = part
 
 # using this feature?
 # making ties then becomes about looking at the tiegroup tag of notes
@@ -112,8 +284,9 @@ def errorPrint(*list_errorMsg):
 
 
 
-parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
-partitura.render(parts)
+parts = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
+#parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
+#partitura.render(parts)
 
 # part = parts
 #
@@ -130,12 +303,7 @@ else:
 
 
 
-def addChild(parent,childName):
-    return etree.SubElement(parent,childName)
 
-def setAttributes(elem, *list_attrib_val):
-    for attrib_val in list_attrib_val:
-        elem.set(attrib_val[0],str(attrib_val[1]))
 
 nameSpace = "http://www.music-encoding.org/ns/mei"
 
@@ -169,41 +337,7 @@ scoreDef = addChild(mei_score,"scoreDef")
 
 
 
-def attribsOf_keySig(ks):
-    key = ks.name
-    pname = key[0]
-    mode = "major"
 
-    if len(key)==2:
-        mode="minor"
-
-    fifths = str(abs(ks.fifths))
-
-    if ks.fifths<0:
-        fifths+="f"
-    else:
-        fifths+="s"
-
-    return fifths, mode, pname
-
-def equal_keySig(ks1, ks2):
-    return ks1.name==ks2.name and ks1.fifths==ks2.fifths
-
-def firstInstance(cls, part, singleInstance=True):
-    instances = list(part.iter_all(cls, score.TimePoint(0), score.TimePoint(1)))
-
-    if singleInstance:
-        if len(instances)>1:
-            errorPrint("Part "+part.name,
-            "ID "+part.id,
-            "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
-        else:
-            if len(instances)>0:
-                return instances[0]
-            else:
-                return None
-    else:
-        return instances
 
 commonKeySig = firstInstance(score.KeySignature, parts[0])
 commonTimeSig = firstInstance(score.TimeSignature, parts[0])
@@ -235,23 +369,7 @@ section = addChild(mei_score,"section")
 # might want to count staff numbers during processing and update staffGrp if count isn't consistent with clefs
 staffGrp = addChild(scoreDef,"staffGrp")
 
-def partition_handleNone(func, iter, partitionAttrib):
-    p = partition(func,iter)
-    newKey = None
 
-    if None in p.keys():
-        #errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
-
-        # for testing purposes, introduce phantom staff, however, return to error when done testing
-        newKey = 1
-
-        for k in p.keys():
-            if k!=None and k>newKey:
-                newKey=k
-        p[newKey]=p[None]
-        del p[None]
-
-    return p
 
 clefs=[]
 
@@ -285,30 +403,7 @@ for i in range(1,len(parts)):
 
     measures.append(m)
 
-def isTemporallyAligned(measures):
-    i=0
 
-    while True:
-        if i<len(measures[0]):
-            rep = measures[0][i]
-            duration = (rep.end.t-rep.start.t)//rep.start.quarter
-            for ii in range(1,len(parts)):
-                # bounds check might change depending if all parts have to have same amount of measures
-                if i<len(measures[ii]):
-                    m = measures[ii][i]
-
-                    dur = (m.end.t-m.start.t)//m.start.quarter
-
-                    if dur!=duration:
-                        return False
-
-            i+=1
-
-        else:
-            # break might change depending if all parts have to have same amount of measures
-            break
-
-    return True
 
 
 notes_lastMeasure_perStaff = {}
@@ -320,340 +415,296 @@ for measure_i in range(len(measures[0])):
 
     notes_nextMeasure_perStaff={}
     ties_perStaff = {}
+    notes_withinMeasure_perStaff = notes_lastMeasure_perStaff
+    clefs_withinMeasure_perStaff = {}
+    keySigs_withinMeasure_perStaff = {}
+    timeSigs_withinMeasure_perStaff = {}
+    quarterDur_perStaff = {}
 
     for part_i in range(len(parts)):
         m = measures[part_i][measure_i]
-        clefs_withinMeasure_perStaff = partition_handleNone(lambda c:c.number, parts[part_i].iter_all(score.Clef, m.start, m.end),"number")
+
+        # TODO: multiple staves per part means keysigs and timesigs have to be copied among those staves
+        clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, parts[part_i].iter_all(score.Clef, m.start, m.end),"number")
         keySigs_withinMeasure = list(parts[part_i].iter_all(score.KeySignature, m.start, m.end))
         timeSigs_withinMeasure = list(parts[part_i].iter_all(score.TimeSignature, m.start, m.end))
 
 
+
         quarterDur = m.start.quarter
 
-        notes_withinMeasure_perStaff = partition_handleNone(lambda n:n.staff, parts[part_i].iter_all(score.GenericNote, m.start, m.end, include_subclasses=True), "staff")
+        notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, parts[part_i].iter_all(score.GenericNote, m.start, m.end, include_subclasses=True), "staff")
 
-        notes_lastMeasure_perStaff_keys=set(notes_lastMeasure_perStaff.keys())
-        notes_withinMeasure_perStaff_keys=set(notes_withinMeasure_perStaff.keys())
+#         notes_lastMeasure_perStaff_keys=set(notes_lastMeasure_perStaff.keys())
+#         notes_withinMeasure_perStaff_perPart_keys=set(notes_withinMeasure_perStaff_perPart.keys())
+#
+#         staff_intersection_keys = notes_lastMeasure_perStaff_keys.intersection(notes_withinMeasure_perStaff_perPart_keys)
+#
+#         for s in staff_intersection_keys:
+#             notes_withinMeasure_perStaff_perPart[s].extend(notes_lastMeasure_perStaff[s])
 
-        staff_intersection_keys = notes_lastMeasure_perStaff_keys.intersection(notes_withinMeasure_perStaff_keys)
+        for s in notes_withinMeasure_perStaff_perPart.keys():
+            if s in notes_withinMeasure_perStaff.keys():
+                notes_withinMeasure_perStaff[s].extend(notes_withinMeasure_perStaff_perPart[s])
+            else:
+                notes_withinMeasure_perStaff[s]=notes_withinMeasure_perStaff_perPart[s]
 
-        for s in staff_intersection_keys:
-            notes_withinMeasure_perStaff[s].extend(notes_lastMeasure_perStaff[s])
+            quarterDur_perStaff[s]=quarterDur
 
-        def create_staff(notes_perStaff, ties_perStaff, notes_nextMeasure_perStaff):
-            for s in notes_perStaff.keys():
-                staff=addChild(measure,"staff")
-
-                setAttributes(staff,("n",s))
-
-                notes_withinMeasure_perStaff_perVoice = partition_handleNone(lambda n:n.voice, notes_perStaff[s], "voice")
-
-                ties_perStaff_perVoice={}
-
-                clefs_withinMeasure = None
+            if s in clefs_withinMeasure_perStaff_perPart.keys():
                 if s in clefs_withinMeasure_perStaff.keys():
-                    clefs_withinMeasure = clefs_withinMeasure_perStaff[s]
+                    clefs_withinMeasure_perStaff[s].extend(clefs_withinMeasure_perStaff_perPart[s])
+                else:
+                    clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
 
-                for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
-                    layer=addChild(staff,"layer")
+            if s in keySigs_withinMeasure_perStaff.keys():
+                keySigs_withinMeasure_perStaff[s].extend(keySigs_withinMeasure)
+            else:
+                keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
 
-                    setAttributes(layer,("n",voice))
+            if s in timeSigs_withinMeasure_perStaff.keys():
+                timeSigs_withinMeasure_perStaff[s].extend(timeSigs_withinMeasure)
+            else:
+                timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
 
-                    ties={}
+        for s in clefs_withinMeasure_perStaff_perPart.keys():
+            if s not in clefs_withinMeasure_perStaff.keys():
+                clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
 
-                    notes.sort(key=lambda n:n.start.t)
+    sorted_staves = sorted(notes_withinMeasure_perStaff.keys())
 
-                    chords = [[notes[0]]]
+    for s in sorted_staves:
+        staff=addChild(measure,"staff")
+
+        setAttributes(staff,("n",s))
+
+        notes_withinMeasure_perStaff_perVoice = partition_handleNone(lambda n:n.voice, notes_withinMeasure_perStaff[s], "voice")
+
+        ties_perStaff_perVoice={}
 
 
 
-                    for i in range(1,len(notes)):
-                        rep = chords[-1][0]
-                        n = notes[i]
-                        # should multiple Rests with same start time or a mix of Rests and Notes with same start times be ignored, trigger a warning or be an error?
-                        if isinstance(rep,score.Note) and isinstance(n, score.Note) and rep.start.t==n.start.t:
-                            if rep.duration==n.duration:
-                                chords[-1].append(n)
-                            else:
-                                errorPrint("In staff "+str(s)+",",
-                                "in measure "+str(m.number)+",",
-                                "for voice "+str(voice)+",",
-                                "2 notes start at time "+str(n.start.t)+",",
-                                "but have different durations, namely "+n.id+" has duration "+str(n.duration)+" and "+rep.id+" has duration "+str(rep.duration),
-                                "change to same duration for a chord or change voice of one of the notes for something else")
+        for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
+            layer=addChild(staff,"layer")
 
+            setAttributes(layer,("n",voice))
+
+            ties={}
+
+            notes.sort(key=lambda n:n.start.t)
+
+            chords = [[notes[0]]]
+
+
+
+            for i in range(1,len(notes)):
+                rep = chords[-1][0]
+                n = notes[i]
+                # should multiple Rests with same start time or a mix of Rests and Notes with same start times be ignored, trigger a warning or be an error?
+                if isinstance(rep,score.Note) and isinstance(n, score.Note) and rep.start.t==n.start.t:
+                    if rep.duration==n.duration:
+                        chords[-1].append(n)
+                    else:
+                        errorPrint("In staff "+str(s)+",",
+                        "in measure "+str(m.number)+",",
+                        "for voice "+str(voice)+",",
+                        "2 notes start at time "+str(n.start.t)+",",
+                        "but have different durations, namely "+n.id+" has duration "+str(n.duration)+" and "+rep.id+" has duration "+str(rep.duration),
+                        "change to same duration for a chord or change voice of one of the notes for something else")
+
+                else:
+                    chords.append([n])
+
+
+            def handleBeam(openUp, layer):
+                parent = layer
+
+                if openUp:
+                    parent = addChild(layer,"beam")
+
+                return openUp, parent
+
+
+            openBeam, parent = handleBeam(False,layer)
+
+            quarterDur = quarterDur_perStaff[s]
+
+            next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0], m, quarterDur)
+
+            class InbetweenNotesElement:
+                __slots__ = ["name","attribNames","attribValsOf","container","i","elem"]
+
+                def __init__(self, name, attribNames, attribValsOf, container_dict, staff, measure_i):
+                    self.name = name
+                    self.attribNames = attribNames
+                    self.attribValsOf = attribValsOf
+
+                    self.i=0
+                    self.elem=None
+
+                    if staff in container_dict.keys():
+                        self.container = container_dict[staff]
+                        if measure_i==0:
+                            if len(self.container)>1:
+                                self.elem = self.container[1]
                         else:
-                            chords.append([n])
-
-                    def calc_dur_dots_splitNotes_firstTempDur(n):
-
-
-                        note_duration = n.duration
-
-                        splitNotes = None
-
-                        if n.start.t+n.duration>m.end.t:
-                            note_duration = m.end.t - n.start.t
-                            splitNotes = []
-
-
-                        # what if note doesn't have any ID?
-                        # maybe n.id = generateId()
-
-                        fraction = note_duration/quarterDur
-                        intPart = int(fraction)
-                        fracPart = fraction - intPart
-
-
-
-                        untiedDurations = []
-                        powOf_2 = 1
-
-                        while intPart>0:
-                            bit = intPart%2
-                            untiedDurations.insert(0,bit*powOf_2)
-                            intPart=intPart//2
-                            powOf_2*=2
+                            if len(self.container)>0:
+                                self.elem = self.container[0]
+                    else:
+                        self.container=[]
 
 
 
 
-                        powOf_2 = 1/2
+            inbetweenNotesElements = [
+                InbetweenNotesElement("clef", ["shape","line"], lambda c:(c.sign,c.line), clefs_withinMeasure_perStaff, s, measure_i),
+                InbetweenNotesElement("keySig", ["sig","mode","pname"], attribsOf_keySig, keySigs_withinMeasure_perStaff, s, measure_i),
+                InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSigs_withinMeasure_perStaff, s, measure_i)
+            ]
 
-                        while fracPart > 0:
-                            fracPart*=2
-                            bit = int(fracPart)
-                            fracPart-=bit
-                            untiedDurations.append(bit*powOf_2)
-                            powOf_2/=2
+            for chord_i in range(len(chords)):
+                chordNotes = chords[chord_i]
+                rep = chordNotes[0]
+                dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
 
+                for ine in inbetweenNotesElements:
+                    if insertElem_check(rep.start.t, [ine]):
+                        # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
+                        if openBeam:
+                            openBeam, parent = handleBeam(False,layer)
 
+                        xmlElem = addChild(parent, ine.name)
+                        attribVals = ine.attribValsOf(ine.elem)
 
+                        for nv in zip(ine.attribNames, attribVals):
+                            setAttributes(xmlElem,nv)
 
-                        def powerOf2_toDur(p):
-                            return int(4/p)
-
-                        dur_dots = []
-
-                        curr_dur = 0
-                        curr_dots = 0
-
-                        i=0
-
-                        while i<len(untiedDurations):
-                            if curr_dur!=0:
-                                if untiedDurations[i]==0:
-                                    dur_dots.append((powerOf2_toDur(curr_dur), curr_dots))
-                                    curr_dots=0
-                                    curr_dur=0
-                                else:
-                                    curr_dots+=1
-                            else:
-                                curr_dur = untiedDurations[i]
-
-                            i+=1
-
-                        if curr_dur!=0:
-                            dur_dots.append((powerOf2_toDur(curr_dur), curr_dots))
-
-                        firstTempDur = int(untiedDurations[0]*quarterDur)
-
-                        return dur_dots,splitNotes, firstTempDur
+                        if ine.i+1>=len(ine.container):
+                            ine.elem = None
+                        else:
+                            ine.i+=1
+                            ine.elem = ine.container[ine.i]
 
 
 
-                    openBeam=False
-                    parent = layer
 
-                    next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0])
+                # hack right now, don't need to check every iteration, good time to factor out inside of loop
+                if chord_i < len(chords)-1:
+                    next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[chord_i+1][0], m, quarterDur)
 
-                    def firstValidItem(container, notEmpty):
-                        if notEmpty:
-                            if measure_i==0:
-                                if len(container)>1:
-                                    return container[1]
-                            else:
-                                return container[0]
-
-                        return None
-
-                    clef_i=0
-                    clef = firstValidItem(clefs_withinMeasure, s in clefs_withinMeasure_perStaff.keys())
-
-                    keySig_i=0
-                    keySig = firstValidItem(keySigs_withinMeasure, len(keySigs_withinMeasure)>0)
-
-                    timeSig_i=0
-                    timeSig = firstValidItem(timeSigs_withinMeasure, len(timeSigs_withinMeasure)>0)
-
-                    def insertElem_check(t, *list_elem):
-                        for elem in list_elem:
-                            if elem!=None and elem.start.t<=t:
-                                return True
-
-                        return False
-
-                    def insertElem(elem, note, elemName, attribNames, attribValsOf_elem, cursor, elemContainer):
-                        ob = openBeam
-                        p = parent
-                        if insertElem_check(note.start.t, elem):
-                            # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
-                            if openBeam:
-                                ob = False
-                                p = layer
-
-                            xmlElem = addChild(p, elemName)
-                            attribVals = attribValsOf_elem(elem)
-
-                            for nv in zip(attribNames, attribVals):
-                                setAttributes(xmlElem,nv)
-
-                            cursor+=1
-
-                            if cursor==len(elemContainer):
-                                elem = None
-                            else:
-                                elem = elemContainer[cursor]
-
-                        return ob, p, cursor, elem
+                if isinstance(rep,score.Note):
+                    # check to close beam
+                    if openBeam and dur_dots[0][0]<8:
+                        openBeam, parent = handleBeam(False,layer)
+                    # check to open beam
+                    elif not openBeam:
+                        # open beam if there are multiple "consecutive notes" which don't get interrupted by some element
+                        if len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, inbetweenNotesElements):
+                            openBeam, parent = handleBeam(True,layer)
+                        # open beam if there is just a single note that is not the last one in measure and next note in measure fits in beam as well, without getting interrupted by some element
+                        elif len(dur_dots)<=1 and chord_i<len(chords)-1 and next_dur_dots[0][0]>=8 and not insertElem_check(chords[chord_i+1][0].start.t, inbetweenNotesElements):
+                            openBeam, parent = handleBeam(True,layer)
 
 
-                    for chord_i in range(len(chords)):
-                        chordNotes = chords[chord_i]
-                        rep = chordNotes[0]
-                        dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
+                    if len(chordNotes)>1:
+                        chord = addChild(parent,"chord")
+                        setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-                        openBeam, parent, clef_i, clef = insertElem(clef, rep, "clef", ["shape","line"], lambda c:(c.sign,c.line), clef_i, clefs_withinMeasure)
+                        for n in chordNotes:
+                            note=addChild(chord,"note")
+                            setAttributes(note,(xmlIdString,n.id),("pname",n.step.lower()),("oct",n.octave))
+                    else:
+                        note=addChild(parent,"note")
+                        setAttributes(note,(xmlIdString,rep.id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-                        openBeam, parent, keySig_i, keySig = insertElem(keySig, rep, "keySig", ["sig","mode","pname"], attribsOf_keySig, keySig_i, keySigs_withinMeasure)
+                    if len(dur_dots)>1:
+                        for n in chordNotes:
+                            ties[n.id]=[n.id]
 
-                        openBeam, parent, timeSig_i, timeSig = insertElem(timeSig, rep, "meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSig_i, timeSigs_withinMeasure)
-
-
-
-                        # hack right now, don't need to check every iteration, good time to factor out inside of loop
-                        if chord_i < len(chords)-1:
-                            next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[chord_i+1][0])
-
-                        if isinstance(rep,score.Note):
-                            if openBeam:
-                                if dur_dots[0][0]<8:
-                                    openBeam=False
-                                    parent = layer
-                            elif dur_dots[0][0]>=8 and next_dur_dots[0][0]>=8 and (chord_i<len(chords)-1 and not insertElem_check(chords[chord_i+1][0].start.t, clef, keySig, timeSig) or len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, clef, keySig, timeSig)):
+                        for i in range(1,len(dur_dots)):
+                            if not openBeam and dur_dots[i][0]>=8:
                                 parent = addChild(layer,"beam")
                                 openBeam = True
 
                             if len(chordNotes)>1:
                                 chord = addChild(parent,"chord")
-                                setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
+                                setAttributes(chord,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
                                 for n in chordNotes:
                                     note=addChild(chord,"note")
-                                    setAttributes(note,(xmlIdString,n.id),("pname",n.step.lower()),("oct",n.octave))
+
+                                    id = n.id+"-"+str(i)
+
+                                    ties[n.id].append(id)
+
+                                    setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave))
+
+
                             else:
                                 note=addChild(parent,"note")
-                                setAttributes(note,(xmlIdString,rep.id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-                            # additional ties will have to work together with ties specified in partitura
-                            if len(dur_dots)>1:
-                                for n in chordNotes:
-                                    ties[n.id]=[n.id]
+                                id = rep.id+"-"+str(i)
 
-                                for i in range(1,len(dur_dots)):
-                                    if not openBeam and dur_dots[i][0]>=8:
-                                        parent = addChild(layer,"beam")
-                                        openBeam = True
+                                ties[rep.id].append(id)
 
-                                    if len(chordNotes)>1:
-                                        chord = addChild(parent,"chord")
-                                        setAttributes(chord,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
-
-                                        for n in chordNotes:
-                                            note=addChild(chord,"note")
-
-                                            id = n.id+"-"+str(i)
-
-                                            ties[n.id].append(id)
-
-                                            setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave))
-
-
-                                    else:
-                                        note=addChild(parent,"note")
-
-                                        id = rep.id+"-"+str(i)
-
-                                        ties[rep.id].append(id)
-
-                                        setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+                                setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
 
 
-                            if splitNotes!=None:
-                                for n in chordNotes:
-                                    splitNotes.append(score.Note(n.step,n.octave, id=n.id+"s"))
+                    if splitNotes!=None:
+                        for n in chordNotes:
+                            splitNotes.append(score.Note(n.step,n.octave, id=n.id+"s"))
 
 
-                                if len(dur_dots)>1:
-                                    for n in chordNotes:
-                                        ties[n.id].append(n.id+"s")
-                                else:
-                                    for n in chordNotes:
-                                        ties[n.id]=[n.id, n.id+"s"]
-
+                        if len(dur_dots)>1:
                             for n in chordNotes:
-                                if n.tie_next!=None:
-                                    if n.id in ties.keys():
-                                        ties[n.id].append(n.tie_next.id)
-                                    else:
-                                        ties[n.id]=[n.id, n.tie_next.id]
+                                ties[n.id].append(n.id+"s")
+                        else:
+                            for n in chordNotes:
+                                ties[n.id]=[n.id, n.id+"s"]
 
-                        elif isinstance(rep,score.Rest):
-                            if splitNotes!=None:
-                                splitNotes.append(score.Rest(id=rep.id+"s"))
+                    for n in chordNotes:
+                        if n.tie_next!=None:
+                            if n.id in ties.keys():
+                                ties[n.id].append(n.tie_next.id)
+                            else:
+                                ties[n.id]=[n.id, n.tie_next.id]
 
-                            rest = addChild(layer,"rest")
+                elif isinstance(rep,score.Rest):
+                    if splitNotes!=None:
+                        splitNotes.append(score.Rest(id=rep.id+"s"))
 
-                            setAttributes(rest,(xmlIdString,rep.id),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
+                    rest = addChild(layer,"rest")
 
-                            if len(dur_dots)>1:
-                                for i in range(1,len(dur_dots)):
-                                    rest=addChild(layer,"rest")
+                    setAttributes(rest,(xmlIdString,rep.id),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-                                    id = rep.id+str(i)
+                    if len(dur_dots)>1:
+                        for i in range(1,len(dur_dots)):
+                            rest=addChild(layer,"rest")
 
-                                    setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+                            id = rep.id+str(i)
 
-                        if splitNotes!=None:
-                            for sn in splitNotes:
-                                sn.voice = rep.voice
-                                sn.start = m.end
-                                sn.end = score.TimePoint(rep.start.t+rep.duration)
+                            setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
-                                if s in notes_nextMeasure_perStaff.keys():
-                                    notes_nextMeasure_perStaff[s].append(sn)
-                                else:
-                                    notes_nextMeasure_perStaff[s]=[sn]
-                    # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
+                if splitNotes!=None:
+                    for sn in splitNotes:
+                        sn.voice = rep.voice
+                        sn.start = m.end
+                        sn.end = score.TimePoint(rep.start.t+rep.duration)
 
-
-                    ties_perStaff_perVoice[voice]=ties
-
-                ties_perStaff[s]=ties_perStaff_perVoice
-
-
-
-        # staffs should probably be created in order
+                        if s in notes_nextMeasure_perStaff.keys():
+                            notes_nextMeasure_perStaff[s].append(sn)
+                        else:
+                            notes_nextMeasure_perStaff[s]=[sn]
+            # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
 
 
-        create_staff(notes_withinMeasure_perStaff, ties_perStaff, notes_nextMeasure_perStaff)
+            ties_perStaff_perVoice[voice]=ties
+
+        ties_perStaff[s]=ties_perStaff_perVoice
 
 
-        notes_lastMeasure_perStaff_keys = notes_lastMeasure_perStaff_keys.difference(staff_intersection_keys)
-        notes_lastMeasure_perStaff = {k:v for k,v in notes_lastMeasure_perStaff.items() if k in notes_lastMeasure_perStaff_keys}
 
-    create_staff(notes_lastMeasure_perStaff, ties_perStaff, notes_nextMeasure_perStaff)
     notes_lastMeasure_perStaff = notes_nextMeasure_perStaff
 
     for p in parts:
