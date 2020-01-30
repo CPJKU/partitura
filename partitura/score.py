@@ -1300,15 +1300,16 @@ class Beam(TimedObject):
         self.notes = []
 
     def append(self, note):
+        note.beam = self
         self.notes.append(note)
         self.update_time()
 
-    def update_time():
+    def update_time(self):
         start_idx = np.argmin([n.start.t for n in self.notes])
         end_idx = np.argmax([n.end.t for n in self.notes])
 
-        self.start = notes[start_idx].start
-        self.end = notes[end_idx].end
+        self.start = self.notes[start_idx].start
+        self.end = self.notes[end_idx].end
         
 
 
