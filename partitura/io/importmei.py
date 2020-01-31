@@ -89,8 +89,8 @@ def _parse_score(score_el):
         if el_tag(el) == 'scoreDef':
             for def_el in el:
                 if el_tag(def_el) == 'staffGrp':
-                    import pdb
-                    pdb.set_trace()
+                    # import pdb
+                    # pdb.set_trace()
                     part_id = get_value_from_attribute(def_el, xns('id'), str)
 
                     part_name = get_value_from_tag(def_el, 'label', str)
@@ -110,7 +110,7 @@ def _parse_section(section_el, section_start_t=0):
     m_number = 0
     measures = []
     for el in section_el:
-        if el_tag(s_el) == 'measure':
+        if el_tag(el) == 'measure':
             measure = score.Measure(m_number)
             m_number += 1
 
@@ -128,10 +128,12 @@ def _parse_staffGrp(staffGrp_el):
             staff_group = _parse_staffGrp(el)
             staff_groups.append(staff_group)
 
+        
         # TODO: braces and barlines
         if el_tag(el) == 'label':
             
-            pass
+            import pdb
+            pdb.set_trace()
         
 
 

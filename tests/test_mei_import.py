@@ -21,7 +21,7 @@ if __name__ == '__main__':
                              huge_tree=False,
                              remove_comments=True,
                              remove_blank_text=True,
-                             ns_clean=True)
+                             ns_clean=True) # For some reason, ns_clean does not remove the namespace from tags
 
     document = etree.parse(mei, parser)
 
