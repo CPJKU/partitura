@@ -980,7 +980,7 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, do_idx=None):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -988,6 +988,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
+        self.do_idx = do_idx
 
         # these attributes are set after the instance is constructed
         self.fermata = None

@@ -821,6 +821,12 @@ def _handle_sound(e, position, part):
 
 def _handle_note(e, position, part, ongoing, prev_note):
 
+    # get all generic notes (which have a document order index)
+    generic_notes = list(part.iter_all(score.GenericNote, include_subclasses=True))
+    if len(generic_notes) == 0:
+        do_idx = 0
+    else:
+        do_idx = max([gn.do_idx for gn in generic_notes]) + 1
     # prev_note is used when the current note has a <chord/> tag
 
     # get some common features of element if available
@@ -878,7 +884,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
                                    id=note_id, voice=voice, staff=staff,
                                    symbolic_duration=symbolic_duration,
                                    articulations=articulations,
-                                   steal_proportion=steal_proportion)
+                                   steal_proportion=steal_proportion,
+                                   do_idx=do_idx)
             if (isinstance(prev_note, score.GraceNote)
                 and prev_note.voice == voice):
                 note.grace_prev = prev_note
@@ -887,7 +894,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
                               alter=alter, id=note_id,
                               voice=voice, staff=staff,
                               symbolic_duration=symbolic_duration,
-                              articulations=articulations)
+                              articulations=articulations,
+                              do_idx=do_idx)
 
         if (isinstance(prev_note, score.GraceNote)
             and prev_note.voice == voice):
@@ -896,7 +904,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
         # note element is a rest
         note = score.Rest(id=note_id, voice=voice, staff=staff,
                           symbolic_duration=symbolic_duration,
-                          articulations=articulations)
+                          articulations=articulations,
+                          do_idx=do_idx)
 
     part.add(note, position, position+duration)
 
