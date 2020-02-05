@@ -639,8 +639,7 @@ class Part(object):
         beat_map = self.beat_map
         note_array = []
         for note in self.notes_tied:
-            note_on, note_off = beat_map([note.start.t, note.end.t])
-            note_dur = note_off - note_on
+            note_on, note_dur = beat_map([note.start.t, note.duration_tied])
             note_array.append((note_on, note_dur, note.midi_pitch,
                                note.voice, note.id))
 
