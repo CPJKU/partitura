@@ -204,6 +204,26 @@ def matchfile_from_alignment(alignment, ppart, spart,
             insertion_line = MatchInsertionNote(note)
             note_lines.append(insertion_line)
 
+        elif label == 'ornament':
+            ornament_type = al_note['type']
+            # Quirk for Magaloff/Zeilinger
+            al_note['score_id'] = 'n' + al_note['score_id'].split('-')[0]
+            snote = score_info[al_note['score_id']]
+            note = perf_info[al_note['performance_id']]
+            if ornament_type == 'trill':
+                ornament_line = MatchTrillNote(Anchor=snote.Anchor,
+                                               note=note)
+            else:
+                print(ornament_type)
+                ornament_line = MatchOrnamentNote(Anchor=snote.Anchor,
+                                                  note=note)
+
+            note_lines.append(ornament_line)
+                
+        else:
+            print('unprocessed line {0}'.format(label))
+            print(str(al_note))
+
     # Create match lines for pedal information
     pedal_lines = []
     for c in ppart.controls:
