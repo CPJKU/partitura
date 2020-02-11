@@ -1026,7 +1026,7 @@ def handle_slurs(notations, ongoing, note, position):
     # case (e.g. slur starts in staff 2 and ends in staff 1). However, if the
     # stop is before the start in time, then it is just a MusicXML encoding
     # error.
-    
+
     starting_slurs = []
     stopping_slurs = []
     slurs = notations.findall('slur')
@@ -1175,7 +1175,7 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     score : structured array or list of structured arrays
         Structured array containing the score. The fields are 'pitch',
         'onset' and 'duration'.
-    
+
     """
 
     if not isinstance(expand_grace_notes, (bool, str)):

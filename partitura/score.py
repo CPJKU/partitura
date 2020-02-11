@@ -128,6 +128,8 @@ class Part(object):
         """
         tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
                         for ts in self.iter_all(TimeSignature)])
+
+        print(tss)
         if len(tss) == 0:
             # default time sig
             beats, beat_type = 4, 4
@@ -147,7 +149,7 @@ class Part(object):
         return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous',
                         bounds_error=False, fill_value='extrapolate')
 
-    def _time_interpolator(self, quarter=False, inv=False):
+    def _time_interpolator(self, quarter=False, inv=False, keep_anacrusis=False):
 
         if len(self._points) < 2:
             return lambda x: np.zeros(len(x))
@@ -195,10 +197,12 @@ class Part(object):
             if ts:
 
                 normal_dur = ts.beats
+                print(x, y, normal_dur)
                 if quarter:
-                    normal_dur *= ts.beat_type / 4
-                if actual_dur < normal_dur:
+                    normal_dur *=  4 / ts.beat_type
+                if actual_dur < normal_dur and keep_anacrusis:
                     y -= actual_dur
+                print(x, y, actual_dur, normal_dur)
             else:
                 # warn
                 pass
@@ -636,7 +640,7 @@ class Part(object):
                   ('pitch', 'i4'),
                   ('voice', 'i4'),
                   ('id', 'U256')]
-        beat_map = self.beat_map
+        beat_map = self.quarter_map
         note_array = []
         for note in self.notes_tied:
             note_on, note_dur = beat_map([note.start.t, note.duration_tied])
@@ -1210,7 +1214,7 @@ class GenericNote(TimedObject):
 
         Yields
         ------
-        GenericNote    
+        GenericNote
 
         """
 
@@ -1251,7 +1255,7 @@ class Note(GenericNote):
             except:
                 import pdb
                 pdb.set_trace()
-        
+
 
     def __str__(self):
         return ' '.join((super().__str__(),
@@ -1310,7 +1314,7 @@ class Beam(TimedObject):
 
         self.start = self.notes[start_idx].start
         self.end = self.notes[end_idx].end
-        
+
 
 
 class GraceNote(Note):
@@ -1348,7 +1352,7 @@ class GraceNote(Note):
         Yields
         ------
         GraceNote
-        
+
         """
 
         yield self
@@ -1923,7 +1927,7 @@ class Words(TimedObject):
 
 class Direction(TimedObject):
     """Base class for performance directions in the score.
-    
+
     """
 
     def __init__(self, text, raw_text=None, staff=None):
@@ -2173,7 +2177,7 @@ def iter_unfolded_parts(part):
 
     Yields
     ------
-    
+
     """
 
     for sv in make_score_variants(part):
@@ -2198,7 +2202,7 @@ def unfold_part_maximal(part):
 
 def make_score_variants(part):
     # non-public (use unfold_part_maximal, or iter_unfolded_parts)
-    
+
     """Create a list of ScoreVariant objects, each representing a
     distinct way to unfold the score, based on the repeat structure.
 
@@ -2280,10 +2284,10 @@ def make_score_variants(part):
                     new_sv.add_segment(rep_start, ending1.start)
                     # 3. ending 2 start to ending 2 end
                     new_sv.add_segment(ending2.start, ending2.end)
-    
+
                     # new score time will be the score time
                     t_end = ending2.end
-    
+
                 else:
                     # ending 1 without ending 2, should not happen normally
                     LOGGER.warning('ending 1 without ending 2')
@@ -2304,7 +2308,7 @@ def make_score_variants(part):
             new_svs.append(sv)
             new_svs.append(new_sv)
         t_score = t_end
-        
+
         svs = new_svs
 
     # are we at the end of the piece already?
@@ -2331,7 +2335,7 @@ def add_measures(part):
     ----------
     part : :class:`Part`
         Part instance
-    
+
     """
 
     timesigs = np.array([(ts.start.t, ts.beats)
@@ -2341,13 +2345,13 @@ def add_measures(part):
     if len(timesigs) == 0:
         LOGGER.warning('No time signatures found, not adding measures')
         return
-    
+
     start = part.first_point.t
     end = part.last_point.t
 
     if start == end:
         return
-    
+
     # make sure we cover time from the start of the timeline
     if len(timesigs) == 0 or timesigs[0, 0] > start:
         timesigs = np.vstack(([[start, 4]], timesigs))
@@ -2560,7 +2564,7 @@ def tie_notes(part):
     ----------
     part : :class:`Part`
         Description of `part`
-    
+
     """
 
     # split and tie notes at measure boundaries
@@ -2637,7 +2641,7 @@ def set_end_times(parts):
         _set_end_times(part, ConstantLoudnessDirection)
         _set_end_times(part, ConstantTempoDirection)
         _set_end_times(part, ConstantArticulationDirection)
-    
+
 
 def _set_end_times(part, cls):
     acc = []
@@ -2724,7 +2728,7 @@ def find_tuplets(part):
     ----------
     part : :class:`Part`
         Part instance
-    
+
     """
 
     # quick shot at finding tuplets intended to cover some common cases.

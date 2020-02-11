@@ -9,6 +9,7 @@ from collections import defaultdict
 from operator import attrgetter, itemgetter
 import logging
 import warnings
+import numpy as np
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -201,7 +202,7 @@ def performed_part_from_nakamura(mf, pedal_threshold=64, first_note_at_zero=Fals
 
     for note in mf.iter_notes():
         notes.append(dict(id=note.number,
-                          midi_pitch=NoteName2MidiPitch(note.notename),
+                          midi_pitch=note_name_to_midi_pitch(note.notename),
                           note_on=note.onset  - offset,
                           note_off=note.offset  - offset,
                           sound_off=note.offset - offset,
@@ -214,14 +215,40 @@ def performed_part_from_nakamura(mf, pedal_threshold=64, first_note_at_zero=Fals
                           sustain_pedal_threshold=pedal_threshold)
     return ppart
 
-def NoteName2MidiPitch(NoteName):
+def note_name_to_midi_pitch(notename):
     """
     Utility function to convert the Nakamura pitch spelling to MIDI pitches
     """
     pitch = 0
-    keys = ["A","B","C","D","E","F","G","\#","b","0","1","2","3","4","5","6","7","8"]
-    values = [21,23,12,14,16,17,19,      1, -1,   0,  12, 24, 36, 48, 60, 72, 84, 96]
+    keys = ["A","B","C","D","E","F","G","\#","b","0","1","2","3","4","5","6","7","8", "x", "bb"]
+    values = [21,23,12,14,16,17,19,      1, -1,   0,  12, 24, 36, 48, 60, 72, 84, 96, 2, -1 ]#the last one is only -1 since the single b is also found, adding up to -2
     for k, v in zip(keys, values):
-        if k in NoteName:
+        if k in notename:
             pitch += v
     return pitch
+
+
+def match_by_pitch_and_position(dicts_0, dicts_1,
+                                name_pitch_0 = "pitch", name_pitch_1 = "pitch",
+                                name_position_0 = "onset", name_position_1 = "onset",
+                                name_id_0 = "id", name_id_1 = "id",
+                                position_alignment_threshold = 0.005):
+    """
+    Utility function to align two note_arrays or lists of note dictionaries by pitch and score position
+    """
+
+    alignment = []
+    for ele_0 in dicts_0:
+        dict = {"id_0": [ele_0[name_id_0]], "id_1":[]}
+        for ele_1 in dicts_1:
+            if np.abs(ele_0[name_position_0]-ele_1[name_position_1]) < position_alignment_threshold and ele_0[name_pitch_0] == ele_1[name_pitch_1]:
+                dict["id_1"].append(ele_1[name_id_1])
+
+        if len(dict["id_1"]) > 1:
+            print(dict["id_0"], " of dicts_0 has multiple matches in dicts_1: ", dict["id_1"])
+        if len(dict["id_1"]) < 1:
+            print(dict["id_0"], " of dicts_0 has no matches in dicts_1")
+
+        alignment.append(dict)
+
+    return alignment
