@@ -307,15 +307,27 @@ class MatchSnote(MatchLine):
         self.Bar = Bar
         self.Beat = Beat
 
+        # import pdb
+        # pdb.set_trace()
         if isinstance(Offset, int):
             self.Offset = FractionalSymbolicDuration(Offset, 1)
+        elif isinstance(Offset, float):
+            _offset = Fraction.from_float(Offset)
+            # import pdb
+            # pdb.set_trace()
+            self.Offset = FractionalSymbolicDuration(_offset.numerator,
+                                                     _offset.denominator)
         elif isinstance(Offset, (list, tuple)):
             self.Offset = FractionalSymbolicDuration(*Offset)
         elif isinstance(Offset, FractionalSymbolicDuration):
             self.Offset = Offset
-
+            
         if isinstance(Duration, int):
             self.Duration = FractionalSymbolicDuration(Duration, 1)
+        elif isinstance(Duration, float):
+            _duration = Fraction.from_float(Duration)
+            self.Duration = FractionalSymbolicDuration(_duration.numerator,
+                                                       _duration.denominator)
         elif isinstance(Duration, (list, tuple)):
             self.Duration = FractionalSymbolicDuration(*Duration)
         elif isinstance(Duration, FractionalSymbolicDuration):
@@ -834,13 +846,18 @@ class MatchFile(object):
     Class for representing MatchFiles
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename=None):
 
-        self.name = filename
+        if filename is not None:
 
-        with open(filename) as f:
+            self.name = filename
 
-            self.lines = np.array([parse_matchline(l) for l in f.read().splitlines()])
+            with open(filename) as f:
+
+                self.lines = np.array([parse_matchline(l) for l in f.read().splitlines()])
+        else:
+            self.name = None
+            self.lines = np.array([])
 
     @property
     def note_pairs(self):
@@ -1042,6 +1059,13 @@ class MatchFile(object):
         with open(filename, 'w') as f:
             for l in self.lines:
                 f.write(l.matchline + '\n')
+
+    @classmethod
+    def from_lines(cls, lines, name=''):
+        matchfile = cls(None)
+        matchfile.lines = np.array(lines)
+        matchfile.name = name
+        return matchfile
 
 
 def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False):

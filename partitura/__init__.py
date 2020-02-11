@@ -12,6 +12,7 @@ from .io.exportmusicxml import save_musicxml
 from .io.importmidi import load_score_midi, load_performance_midi
 from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
+from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamura
 from .display import render
 from . import musicanalysis
@@ -27,4 +28,5 @@ EXAMPLE_MUSICXML = pkg_resources.resource_filename("partitura", 'assets/score_ex
 __all__ = ['load_musicxml', 'save_musicxml', 'musicxml_to_notearray',
            'load_score_midi', 'save_score_midi', 'load_via_musescore',
            'load_performance_midi', 'save_performance_midi',
+           'load_match', 'save_match',
            'render', 'EXAMPLE_MUSICXML']
