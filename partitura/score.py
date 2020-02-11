@@ -2808,10 +2808,12 @@ def find_tuplets(part):
                             tup_start += 1
 
 
-class InvalidTimePointException():
+class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number.
 
     """
+    def __init__(self, message=None):
+        super().__init__(message)
 
 if __name__ == '__main__':
     import doctest

@@ -15,6 +15,19 @@ MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 # _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
 ALTER_SIGNS = {None: '', 0: '', 1: '#', 2: 'x', -1: 'b', -2: 'bb'}
 
+DUMMY_PS_BASE_CLASS = {0: ('c', 0),
+                       1: ('c', 1),
+                       2: ('d', 0),
+                       3: ('d', 1),
+                       4: ('e', 0),
+                       5: ('f', 0),
+                       6: ('f', 1),
+                       7: ('g', 0),
+                       8: ('g', 1),
+                       9: ('a', 0),
+                       10: ('a', 1),
+                       11: ('b', 0)}
+
 LABEL_DURS = {
     'long': 16,
     'breve': 8,
@@ -118,6 +131,12 @@ def pitch_spelling_to_midi_pitch(step, alter, octave):
                   MIDI_BASE_CLASS[step.lower()] +
                   (alter or 0))
     return midi_pitch
+
+def midi_pitch_to_pitch_spelling(midi_pitch):
+    octave = midi_pitch // 12 - 1
+    step, alter = DUMMY_PS_BASE_CLASS[np.mod(midi_pitch, 12)]
+    return ensure_pitch_spelling_format(step, alter, octave)
+    
 
 
 SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, '##': 2, '###': 3,
