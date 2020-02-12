@@ -781,6 +781,83 @@ def pianoroll_to_notearray(pianoroll, time_div=8):
                                  ('velocity', 'i4')])
     return note_array
 
+def match_note_arrays(input_note_array, target_note_array,
+                      array_type='performance', epsilon=0.01,
+                      first_note_at_zero=False):
+    """
+    Get indices of the notes from an input note array corresponding to
+    a reference note array.
+
+    Parameters
+    ----------
+    input_note_array : structured array
+        Array containing performance/score information
+    target_note_arr : structured array
+        Array containing performance/score information, which which we want
+        to match the input.
+    array_type : 'performance' or 'score'
+        Whether the structured arrays contain a performance or a score
+    epsilon : float
+        Epsilon for comparison of onset times.
+    first_note_at_zero : bool
+        If True, shifts the onsets of both note_arrays to start at 0.
+
+    Returns
+    -------
+    matched_idxs : np.ndarray
+        Indices of input_note_array corresponding to target_note_array
+
+    Notes
+    -----
+    This is a greedy method. This method is useful to compare the 
+    *same performance* in different formats (e.g., in a match file 
+    and MIDI), or the *same score* (e.g., a MIDI file generated from 
+    a MusicXML file). It will not produce meaningful results
+    between a score and a performance.
+    """
+    if array_type == 'performance':
+        onset_key, duration_key = ('p_onset', 'p_duration')
+    elif array_type == 'score':
+        onset_key, duration_key = ('onset', 'duration')
+
+    if first_note_at_zero:
+        i_start = input_note_array[onset_key].min()
+        t_start = target_note_array[onset_key].min()
+    else:
+        i_start, t_start = (0, 0)
+
+    # sort indices
+    i_sort_idx = np.argsort(input_note_array[onset_key])
+    t_sort_idx = np.argsort(target_note_array[onset_key])
+
+    # get onset, pitch and duration information
+    i_onsets = input_note_array[onset_key][i_sort_idx] - i_start
+    i_pitch = input_note_array['pitch'][i_sort_idx]
+    i_duration = input_note_array[duration_key][i_sort_idx]
+
+    t_onsets = target_note_array[onset_key][t_sort_idx] - t_start
+    t_pitch = target_note_array['pitch'][t_sort_idx]
+    t_duration = target_note_array[duration_key][t_sort_idx]
+
+    matched_idxs = []
+    for i, o, p, d in zip(t_sort_idx, t_onsets, t_pitch, t_duration):
+        # candidate onset idxs (between o - epsilon and o + epsilon)
+        coix = np.where(np.logical_and(i_onsets >= o - epsilon,
+                                       i_onsets <= o + epsilon))[0]
+        if len(coix) > 0:
+            # index of the note with the same pitch
+            cpix = np.where(i_pitch[coix] == p)[0]
+            if len(cpix) > 0:
+                # index of the note with the closest duration
+                m_idx = abs(i_duration[coix[cpix]] - d).argmin()
+                # match notes
+                matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
+
+    matched_idxs = np.array(matched_idxs)
+
+    return matched_idxs
+
+
 
 if __name__ == '__main__':
     import doctest
