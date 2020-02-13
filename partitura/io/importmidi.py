@@ -25,7 +25,7 @@ def note_hash(channel, pitch):
     return channel * 128 + pitch
 
 
-def load_performance_midi(fn, default_bpm=120):
+def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -52,16 +52,20 @@ def load_performance_midi(fn, default_bpm=120):
         A PerformedPart instance.
     
     """
-    mid = mido.MidiFile(fn)
+    mid = mido.MidiFile(fn,)
     # parts per quarter
     ppq = mid.ticks_per_beat
-    
+    # microseconds per quarter
+    mpq = 60 * (10**6 / default_bpm)
+        
     notes = []
     controls = []
+    if merge_tracks:
+        mid= mido.merge_tracks(mid.tracks)
+        
     for i, track in enumerate(mid.tracks):
 
-        # microseconds per quarter
-        mpq = 60 * (10**6 / default_bpm)
+        
         t = 0
         sounding_notes = {}
 
