@@ -783,7 +783,8 @@ def pianoroll_to_notearray(pianoroll, time_div=8):
 
 def match_note_arrays(input_note_array, target_note_array,
                       array_type='performance', epsilon=0.01,
-                      first_note_at_zero=False):
+                      first_note_at_zero=False,
+                      check_duration=True):
     """
     Get indices of the notes from an input note array corresponding to
     a reference note array.
@@ -833,23 +834,30 @@ def match_note_arrays(input_note_array, target_note_array,
     # get onset, pitch and duration information
     i_onsets = input_note_array[onset_key][i_sort_idx] - i_start
     i_pitch = input_note_array['pitch'][i_sort_idx]
-    i_duration = input_note_array[duration_key][i_sort_idx]
-
+    
     t_onsets = target_note_array[onset_key][t_sort_idx] - t_start
     t_pitch = target_note_array['pitch'][t_sort_idx]
-    t_duration = target_note_array[duration_key][t_sort_idx]
+    
+    if check_duration:
+        i_duration = input_note_array[duration_key][i_sort_idx]
+        t_duration = target_note_array[duration_key][t_sort_idx]
 
     matched_idxs = []
-    for i, o, p, d in zip(t_sort_idx, t_onsets, t_pitch, t_duration):
+    
+    for t, (i, o, p) in enumerate(zip(t_sort_idx, t_onsets, t_pitch)):
         # candidate onset idxs (between o - epsilon and o + epsilon)
         coix = np.where(np.logical_and(i_onsets >= o - epsilon,
                                        i_onsets <= o + epsilon))[0]
         if len(coix) > 0:
             # index of the note with the same pitch
             cpix = np.where(i_pitch[coix] == p)[0]
+            
             if len(cpix) > 0:
                 # index of the note with the closest duration
-                m_idx = abs(i_duration[coix[cpix]] - d).argmin()
+                if check_duration:
+                    m_idx = abs(i_duration[coix[cpix]] - t_duration[t]).argmin()
+                else:
+                    m_idx = 0
                 # match notes
                 matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
 
