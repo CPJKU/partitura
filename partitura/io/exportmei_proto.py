@@ -222,7 +222,7 @@ def commonSignature(cls, sig_eql, parts, currentMeasures=None):
     else:
         sigs = firstInstance_perPart(cls, parts)
 
-    if sigs==None or None in sigs:
+    if sigs==None or len(sigs)==0 or None in sigs:
         return None
 
     commonSig = sigs.pop()
@@ -237,79 +237,79 @@ def commonSignature(cls, sig_eql, parts, currentMeasures=None):
 
 
 
-parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test")]
-
-
-parts[0].set_quarter_duration(0,2)
-parts[0].add(score.KeySignature(0,"major"),start=0)
-parts[0].add(score.TimeSignature(4,4),start=0)
-parts[0].add(score.Tempo(90),start=0)
-
-parts[1].add(score.KeySignature(0,"major"),start=0)
-parts[1].set_quarter_duration(0,8)
-parts[1].add(score.TimeSignature(3,4),start=0)
-parts[1].add(score.Tempo(120),start=0)
-
-parts[2].set_quarter_duration(0,8)
-parts[2].add(score.KeySignature(0,"major"),start=0)
-parts[2].add(score.TimeSignature(4,4),start=0)
-parts[2].add(score.Tempo(90),start=0)
-
-parts[0].add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
-parts[1].add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
-parts[2].add(score.Clef(sign="G",line=2, octave_change=1, number=3),start=0)
-
-
-
-parts[0].add(score.Note(id="n0s2",step="C",octave=4, staff=1, voice=1),start=0,end=5)
-parts[0].add(score.Note(id="n2s2",step="G",octave=4, staff=1, voice=1),start=5,end=6)
-parts[0].add(score.Note(id="n3s2",step="E",octave=4, staff=1, voice=1),start=6,end=7)
-parts[0].add(score.Note(id="n4s2",step="F",octave=4, staff=1, voice=1),start=7,end=9)
-parts[0].add(score.Note(id="n5s2",step="D",octave=4, staff=1, voice=1),start=9,end=10)
-parts[0].add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,end=16)
-
-parts[2].add(score.Note(id="n0s22",step="E",octave=4, staff=3, voice=1),start=0,end=5*4)
-parts[2].add(score.Note(id="n2s22",step="B",octave=4, staff=3, voice=1),start=5*4,end=6*4)
-parts[2].add(score.Note(id="n3s22",step="G",octave=4, staff=3, voice=1),start=6*4,end=7*4)
-parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7*4,end=8*4)
-
-parts[0].add(score.Note(id="n0s2+16",step="C",octave=4, staff=1, voice=1),start=0+16,end=5+16)
-parts[0].add(score.Note(id="n2s2+16",step="G",octave=4, staff=1, voice=1),start=5+16,end=6+16)
-parts[0].add(score.Note(id="n3s2+16",step="E",octave=4, staff=1, voice=1),start=6+16,end=7+16)
-parts[0].add(score.Note(id="n4s2+16",step="F",octave=4, staff=1, voice=1),start=7+16,end=9+16)
-parts[0].add(score.Note(id="n5s2+16",step="D",octave=4, staff=1, voice=1),start=9+16,end=10+16)
-parts[0].add(score.Note(id="n6s2+16",step="A",octave=4, staff=1, voice=1),start=10+16,end=16+16)
-
-parts[2].add(score.Note(id="n0s22+16*4",step="E",octave=4, staff=3, voice=1),start=0+16*4,end=5*4+16*4)
-parts[2].add(score.Note(id="n2s22+16*4",step="B",octave=4, staff=3, voice=1),start=5*4+16*4,end=6*4+16*4)
-parts[2].add(score.Note(id="n3s22+16*4",step="G",octave=4, staff=3, voice=1),start=6*4+16*4,end=7*4+16*4)
-parts[2].add(score.Note(id="n4s22+16*4",step="A",octave=4, staff=3, voice=1),start=7*4+16*4,end=8*4+16*4)
-
-def conv(fraction, qd):
-    return int(fraction*qd)
-
-qd = 8
-t1 = 0
-t2 = conv(9/8, qd)
-parts[1].add(score.Note(id="n0",step="C",octave=2, staff=2, voice=1),start=t1,end=t2)
-t1 = t2
-t2 = conv(9/8, qd) + t1
-parts[1].add(score.Note(id="n2",step="E",octave=2, staff=2, voice=1),start=t1,end=t2)
-t1 = t2
-t2 = conv(3/8, qd) + t1
-parts[1].add(score.Note(id="n3",step="G",octave=2, staff=2, voice=1),start=t1,end=t2)
-t1 = t2
-t2 = conv(9/8, qd) + t1
-parts[1].add(score.Note(id="n4",step="D",octave=2, staff=2, voice=1),start=t1,end=t2)
-t1 = t2
-t2 = conv(9/8, qd) + t1
-parts[1].add(score.Note(id="n5",step="F",octave=2, staff=2, voice=1),start=t1,end=t2)
-t1 = t2
-t2 = conv(9/8, qd) + t1
-parts[1].add(score.Note(id="n6",step="C",octave=3, staff=2, voice=1),start=t1,end=t2)
-score.add_measures(parts[0])
-score.add_measures(parts[1])
-score.add_measures(parts[2])
+# parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test")]
+#
+#
+# parts[0].set_quarter_duration(0,2)
+# parts[0].add(score.KeySignature(0,"major"),start=0)
+# parts[0].add(score.TimeSignature(4,4),start=0)
+# parts[0].add(score.Tempo(90),start=0)
+#
+# parts[1].add(score.KeySignature(0,"major"),start=0)
+# parts[1].set_quarter_duration(0,8)
+# parts[1].add(score.TimeSignature(3,4),start=0)
+# parts[1].add(score.Tempo(120),start=0)
+#
+# parts[2].set_quarter_duration(0,8)
+# parts[2].add(score.KeySignature(0,"major"),start=0)
+# parts[2].add(score.TimeSignature(4,4),start=0)
+# parts[2].add(score.Tempo(90),start=0)
+#
+# parts[0].add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
+# parts[1].add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
+# parts[2].add(score.Clef(sign="G",line=2, octave_change=1, number=3),start=0)
+#
+#
+#
+# parts[0].add(score.Note(id="n0s2",step="C",octave=4, staff=1, voice=1),start=0,end=5)
+# parts[0].add(score.Note(id="n2s2",step="G",octave=4, staff=1, voice=1),start=5,end=6)
+# parts[0].add(score.Note(id="n3s2",step="E",octave=4, staff=1, voice=1),start=6,end=7)
+# parts[0].add(score.Note(id="n4s2",step="F",octave=4, staff=1, voice=1),start=7,end=9)
+# parts[0].add(score.Note(id="n5s2",step="D",octave=4, staff=1, voice=1),start=9,end=10)
+# parts[0].add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,end=16)
+#
+# parts[2].add(score.Note(id="n0s22",step="E",octave=4, staff=3, voice=1),start=0,end=5*4)
+# parts[2].add(score.Note(id="n2s22",step="B",octave=4, staff=3, voice=1),start=5*4,end=6*4)
+# parts[2].add(score.Note(id="n3s22",step="G",octave=4, staff=3, voice=1),start=6*4,end=7*4)
+# parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7*4,end=8*4)
+#
+# parts[0].add(score.Note(id="n0s2+16",step="C",octave=4, staff=1, voice=1),start=0+16,end=5+16)
+# parts[0].add(score.Note(id="n2s2+16",step="G",octave=4, staff=1, voice=1),start=5+16,end=6+16)
+# parts[0].add(score.Note(id="n3s2+16",step="E",octave=4, staff=1, voice=1),start=6+16,end=7+16)
+# parts[0].add(score.Note(id="n4s2+16",step="F",octave=4, staff=1, voice=1),start=7+16,end=9+16)
+# parts[0].add(score.Note(id="n5s2+16",step="D",octave=4, staff=1, voice=1),start=9+16,end=10+16)
+# parts[0].add(score.Note(id="n6s2+16",step="A",octave=4, staff=1, voice=1),start=10+16,end=16+16)
+#
+# parts[2].add(score.Note(id="n0s22+16*4",step="E",octave=4, staff=3, voice=1),start=0+16*4,end=5*4+16*4)
+# parts[2].add(score.Note(id="n2s22+16*4",step="B",octave=4, staff=3, voice=1),start=5*4+16*4,end=6*4+16*4)
+# parts[2].add(score.Note(id="n3s22+16*4",step="G",octave=4, staff=3, voice=1),start=6*4+16*4,end=7*4+16*4)
+# parts[2].add(score.Note(id="n4s22+16*4",step="A",octave=4, staff=3, voice=1),start=7*4+16*4,end=8*4+16*4)
+#
+# def conv(fraction, qd):
+#     return int(fraction*qd)
+#
+# qd = 8
+# t1 = 0
+# t2 = conv(9/8, qd)
+# parts[1].add(score.Note(id="n0",step="C",octave=2, staff=2, voice=1),start=t1,end=t2)
+# t1 = t2
+# t2 = conv(9/8, qd) + t1
+# parts[1].add(score.Note(id="n2",step="E",octave=2, staff=2, voice=1),start=t1,end=t2)
+# t1 = t2
+# t2 = conv(3/8, qd) + t1
+# parts[1].add(score.Note(id="n3",step="G",octave=2, staff=2, voice=1),start=t1,end=t2)
+# t1 = t2
+# t2 = conv(9/8, qd) + t1
+# parts[1].add(score.Note(id="n4",step="D",octave=2, staff=2, voice=1),start=t1,end=t2)
+# t1 = t2
+# t2 = conv(9/8, qd) + t1
+# parts[1].add(score.Note(id="n5",step="F",octave=2, staff=2, voice=1),start=t1,end=t2)
+# t1 = t2
+# t2 = conv(9/8, qd) + t1
+# parts[1].add(score.Note(id="n6",step="C",octave=3, staff=2, voice=1),start=t1,end=t2)
+# score.add_measures(parts[0])
+# score.add_measures(parts[1])
+# score.add_measures(parts[2])
 #
 # score.tie_notes(parts[0])
 # score.tie_notes(parts[1])
@@ -384,6 +384,20 @@ score.add_measures(parts[2])
 #
 # parts=part
 
+
+part = score.Part("P0","Test")
+part.set_quarter_duration(0,2)
+part.add(score.TimeSignature(4,4),start=0,end=8)
+part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=8)
+part.add(score.TimeSignature(6,8),start=8,end=8+6)
+part.add(score.Words("Oy",staff=1),start=4)
+part.add(score.Rest(id="r1",staff=1, voice=1),start=8,end=8+6)
+score.add_measures(part)
+
+
+
+parts=[part]
+
 # # testing crossing measures and tieing notes together
 # part = score.Part("P0", "Test")
 # part.set_quarter_duration(0,16)
@@ -412,22 +426,20 @@ score.add_measures(parts[2])
 
 
 
-#parts = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
-#parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
-#partitura.render(parts)
-
+# parts = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
+# #parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
+#
+#
 # part = parts
 #
 # qd=part.quarter_durations()[0][1]
 #
 # part.add(score.Clef(sign="F",line=4, octave_change=0, number=2), start=int(qd*(2+1/4)))
 # part.add(score.KeySignature(-3,"minor"),start=int(qd*(2+1/4)))
-
-
-# if isinstance(parts, score.PartGroup):
-#     parts = parts.children
-# else:
-#     parts=[parts]
+#
+# partitura.render(parts)
+#
+# parts=[part]
 
 
 
@@ -542,7 +554,7 @@ staves_sorted = [s for staves in staves_perPart for s in staves]
 staves_sorted.sort()
 
 def attribsOf_Clef(clef):
-    if clef.octave_change!=0:
+    if clef.octave_change!=None and clef.octave_change!=0:
         place = "above"
 
         if clef.octave_change<0:
@@ -677,6 +689,7 @@ if measuresAreAligned:
         timeSigs_withinMeasure_perStaff = {}
         measure_perStaff = {}
         slurs_withinMeasure = []
+        dirs_withinMeasure=[]
         tuplets_withinMeasure_perStaff = {}
 
         for part_i, part in enumerate(parts):
@@ -702,13 +715,18 @@ if measuresAreAligned:
 
 
             def cls_withinMeasure(part, cls, measure, incl_subcls=False):
-                return list(part.iter_all(cls, measure.start, measure.end, include_subclasses=incl_subcls))
+                return part.iter_all(cls, measure.start, measure.end, include_subclasses=incl_subcls)
 
             clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, cls_withinMeasure(part, score.Clef, m),"number")
-            keySigs_withinMeasure = cls_withinMeasure(part,score.KeySignature, m)
-            timeSigs_withinMeasure = cls_withinMeasure(part, score.TimeSignature, m)
+            keySigs_withinMeasure = list(cls_withinMeasure(part,score.KeySignature, m))
+            timeSigs_withinMeasure = list(cls_withinMeasure(part, score.TimeSignature, m))
             slurs_withinMeasure.extend(cls_withinMeasure(part, score.Slur, m))
 
+            beat_map = part.beat_map
+
+            for w in cls_withinMeasure(part, score.Words, m):
+                tstamp=beat_map(w.start.t)-beat_map(m.start.t)+1
+                dirs_withinMeasure.append((tstamp,w))
 
 
             notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, cls_withinMeasure(part,score.GenericNote, m, True), "staff")
@@ -727,7 +745,6 @@ if measuresAreAligned:
             for s in clefs_withinMeasure_perStaff_perPart.keys():
                 clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
 
-        #for s in sorted(notes_withinMeasure_perStaff.keys()):
         for s in staves_sorted:
             staff=addChild(measure,"staff")
 
@@ -1050,14 +1067,14 @@ if measuresAreAligned:
 
         notes_lastMeasure_perStaff = notes_nextMeasure_perStaff
 
-        def perPartIter(parts, cls, start, end):
-            for p in parts:
-                for x in p.iter_all(cls, start, end):
-                    yield x
-
         for slur in slurs_withinMeasure:
             s = addChild(measure,"slur")
             setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
+
+        for tstamp,word in dirs_withinMeasure:
+            d = addChild(measure, "dir")
+            setAttributes(d,("staff",word.staff),("tstamp",tstamp))
+            d.text = word.text
 
 #         for word in perPartIter(parts, score.Words, m.start, m.end):
 #             w = addChild(measure,"dir")
