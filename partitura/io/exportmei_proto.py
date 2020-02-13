@@ -5,12 +5,25 @@ from partitura.utils.generic import partition
 from partitura.utils.music import estimate_symbolic_duration
 import sys
 
-
+def extendKey(dictOfLists, key, value):
+    if key in dictOfLists.keys():
+        if isinstance(value, list):
+            dictOfLists[key].extend(value)
+        else:
+            dictOfLists[key].append(value)
+    else:
+        if isinstance(value, list):
+            dictOfLists[key]=value
+        else:
+            dictOfLists[key]=[value]
 
 autoBeaming = True
 
 
 def calc_dur_dots_splitNotes_firstTempDur(note, measure):
+    if measure=="pad":
+        return [], None, None
+
     if isinstance(note, score.GraceNote):
         dur_dots,_,_ = calc_dur_dots_splitNotes_firstTempDur(note.main_note, measure)
         dur_dots = [(2*dur_dots[0][0], dur_dots[0][1])]
@@ -135,61 +148,79 @@ def attribsOf_keySig(ks):
 
     return fifths, mode, pname
 
-def firstInstance(cls, parts, singleInstance=True, start=score.TimePoint(0), end=score.TimePoint(1)):
-    def helper(c,p,si,s,e):
-        instances = list(p.iter_all(c,s,e))
+def firstInstances_perPart(cls, parts, start=score.TimePoint(0), end=score.TimePoint(1)):
+    if not isinstance(start, list):
+        start = [start]*len(parts)
+    else:
+        assert len(parts)==len(start), "ERROR at firstInstances_perPart: start times are given as list with different size to parts list"
 
-        if si:
-            if len(instances)>1:
-                errorPrint("Part "+part.name,
-                "ID "+part.id,
-                "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
-            elif len(instances)>0:
-                return instances[0]
-        elif len(instances)>0:
-            t = min(instances, key=lambda i:i.start.t).start.t
+    if not isinstance(end, list):
+        end = [end]*len(parts)
+    else:
+        assert len(parts)==len(end), "ERROR at firstInstances_perPart: end times are given as list with different size to parts list"
 
-            return [i for i in instances if t==i.start.t]
+    instances_perPart=[]
 
+    nonEmpty = False
+
+    for i,p in enumerate(parts):
+        s = start[i]
+        e = end[i]
+        instances = list(p.iter_all(cls,s,e))
+
+        if len(instances)==0:
+            instances_perPart.append([])
+            continue
+
+        nonEmpty = True
+        t = min(instances, key=lambda i:i.start.t).start.t
+        instances_perPart.append([i for i in instances if t==i.start.t])
+
+    if nonEmpty:
+        return instances_perPart
+
+    return []
+
+def firstInstance_perPart(cls, parts, start=score.TimePoint(0), end=score.TimePoint(1)):
+    fispp = firstInstances_perPart(cls, parts, start, end)
+
+    fipp = []
+
+    for i,fis in enumerate(fispp):
+        if len(fis)==0:
+            fipp.append(None)
+        elif len(fis)==1:
+            fipp.append(fis[0])
+        else:
+            errorPrint("Part "+parts[i].name,
+            "ID "+parts[i].id,
+            "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
+
+    return fipp
+
+def firstInstances(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
+    fis = firstInstances_perPart(cls, [part], start, end)
+
+    if len(fis)==0:
+        return []
+
+    return fis[0]
+
+def firstInstance(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
+    fi = firstInstance_perPart(cls, [part], start, end)
+
+    if len(fi)==0:
         return None
 
-    if isinstance(parts, list):
-        if not isinstance(start, list):
-            start = [start]*len(parts)
-        else:
-            assert len(parts)==len(start), "ERROR at firstInstance: start times are given as list with different size to parts list"
-
-        if not isinstance(end, list):
-            end = [end]*len(parts)
-        else:
-            assert len(parts)==len(end), "ERROR at firstInstance: end times are given as list with different size to parts list"
-
-        instances_perPart=[]
-
-        for i,p in enumerate(parts):
-            s = start[i]
-            e = end[i]
-            instances_perPart.append(helper(cls,p,singleInstance,s,e))
-
-        for i in instances_perPart:
-            if i!=None:
-                return instances_perPart
-
-        return None
-
-    return helper(cls,parts,singleInstance,start,end)
+    return fi[0]
 
 
-
-
-def commonSignature(sigs, sig_eql, parts=None, currentMeasures=None):
-    # sigs is either a class of some signature or a list of signatures
-
-    if not isinstance(sigs, list):
-        if currentMeasures!=None:
-            sigs = firstInstance(sigs, parts, start=[cm.start for cm in currentMeasures], end=[cm.end for cm in currentMeasures])
-        else:
-            sigs = firstInstance(sigs, parts)
+def commonSignature(cls, sig_eql, parts, currentMeasures=None):
+    sigs = None
+    if currentMeasures!=None:
+        sigs = firstInstance_perPart(cls, parts, start=[cm.start for cm in currentMeasures], end=[cm.end for cm in currentMeasures])
+    else:
+        sigs = firstInstance_perPart(cls, parts)
 
     if sigs==None or None in sigs:
         return None
@@ -203,23 +234,6 @@ def commonSignature(sigs, sig_eql, parts=None, currentMeasures=None):
     return commonSig
 
 
-#     commonSig = firstInstance(cls, parts[0], start=currentMeasures[0].start, end=currentMeasures[0].end)
-#
-#     if commonSig==None:
-#         return None
-#
-#     for i in range(1,len(parts)):
-#         p = parts[i]
-#         cm = currentMeasures[i]
-#
-#         sig = firstInstance(cls, p, start=cm.start, end=cm.end)
-#
-#         if sig==None or sig.start.t!=commonSig.start.t or not sig_eql(commonSig, sig):
-#             return None
-#
-#     return commonSig
-
-
 
 
 
@@ -229,7 +243,7 @@ parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test
 parts[0].set_quarter_duration(0,2)
 parts[0].add(score.KeySignature(0,"major"),start=0)
 parts[0].add(score.TimeSignature(4,4),start=0)
-parts[0].add(score.Tempo(91),start=0)
+parts[0].add(score.Tempo(90),start=0)
 
 parts[1].add(score.KeySignature(0,"major"),start=0)
 parts[1].set_quarter_duration(0,8)
@@ -243,7 +257,7 @@ parts[2].add(score.Tempo(90),start=0)
 
 parts[0].add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
 parts[1].add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
-parts[2].add(score.Clef(sign="G",line=2, octave_change=0, number=3),start=0)
+parts[2].add(score.Clef(sign="G",line=2, octave_change=1, number=3),start=0)
 
 
 
@@ -257,9 +271,19 @@ parts[0].add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,
 parts[2].add(score.Note(id="n0s22",step="E",octave=4, staff=3, voice=1),start=0,end=5*4)
 parts[2].add(score.Note(id="n2s22",step="B",octave=4, staff=3, voice=1),start=5*4,end=6*4)
 parts[2].add(score.Note(id="n3s22",step="G",octave=4, staff=3, voice=1),start=6*4,end=7*4)
-parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7*4,end=9*4)
-parts[2].add(score.Note(id="n5s22",step="F",octave=4, staff=3, voice=1),start=9*4,end=10*4)
-parts[2].add(score.Note(id="n6s22",step="E",octave=4, staff=3, voice=1),start=10*4,end=16*4)
+parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7*4,end=8*4)
+
+parts[0].add(score.Note(id="n0s2+16",step="C",octave=4, staff=1, voice=1),start=0+16,end=5+16)
+parts[0].add(score.Note(id="n2s2+16",step="G",octave=4, staff=1, voice=1),start=5+16,end=6+16)
+parts[0].add(score.Note(id="n3s2+16",step="E",octave=4, staff=1, voice=1),start=6+16,end=7+16)
+parts[0].add(score.Note(id="n4s2+16",step="F",octave=4, staff=1, voice=1),start=7+16,end=9+16)
+parts[0].add(score.Note(id="n5s2+16",step="D",octave=4, staff=1, voice=1),start=9+16,end=10+16)
+parts[0].add(score.Note(id="n6s2+16",step="A",octave=4, staff=1, voice=1),start=10+16,end=16+16)
+
+parts[2].add(score.Note(id="n0s22+16*4",step="E",octave=4, staff=3, voice=1),start=0+16*4,end=5*4+16*4)
+parts[2].add(score.Note(id="n2s22+16*4",step="B",octave=4, staff=3, voice=1),start=5*4+16*4,end=6*4+16*4)
+parts[2].add(score.Note(id="n3s22+16*4",step="G",octave=4, staff=3, voice=1),start=6*4+16*4,end=7*4+16*4)
+parts[2].add(score.Note(id="n4s22+16*4",step="A",octave=4, staff=3, voice=1),start=7*4+16*4,end=8*4+16*4)
 
 def conv(fraction, qd):
     return int(fraction*qd)
@@ -464,6 +488,12 @@ for i in range(1,len(parts)):
 
     measures.append(m)
 
+# for mp in measures:
+#     print("|",end="")
+#     for m in mp:
+#         print(m.start.t,"-",m.end.t,"|",end="")
+#     print("")
+
 
 def verticalSlice(list_2d, index):
     vslice = []
@@ -476,12 +506,10 @@ def verticalSlice(list_2d, index):
 startingMeasures = verticalSlice(measures,0)
 commonKeySig = commonSignature(score.KeySignature, lambda ks1, ks2: ks1.name==ks2.name and ks1.fifths==ks2.fifths, parts, startingMeasures)
 
-timeSigs = firstInstance(score.TimeSignature, parts, start=[sm.start for sm in startingMeasures], end=[sm.end for sm in startingMeasures])
-
 def timeSig_eql(ts1,ts2):
     return ts1.beats==ts2.beats and ts1.beat_type==ts2.beat_type
 
-commonTimeSig = commonSignature(timeSigs, timeSig_eql,parts)
+commonTimeSig = commonSignature(score.TimeSignature, timeSig_eql,parts, startingMeasures)
 
 
 
@@ -502,11 +530,13 @@ staffGrp = addChild(scoreDef,"staffGrp")
 
 
 
-clefs_perPart=[]
+clefs_perPart=firstInstances_perPart(score.Clef, parts)
 
-for p in parts:
-    cs = firstInstance(score.Clef, p, singleInstance=False)
-    clefs_perPart.append(partition_handleNone(lambda c:c.number, cs, "number"))
+def idx(len_obj):
+    return range(len(len_obj))
+
+for i in idx(clefs_perPart):
+    clefs_perPart[i] = partition_handleNone(lambda c:c.number, clefs_perPart[i], "number")
 
 staves_sorted = [s for staves in staves_perPart for s in staves]
 staves_sorted.sort()
@@ -518,7 +548,7 @@ def attribsOf_Clef(clef):
         if clef.octave_change<0:
             place="below"
 
-        return clef.sign, clef.line, abs(clef.octave_change), place
+        return clef.sign, clef.line, 1+7*abs(clef.octave_change), place
 
     return clef.sign, clef.line
 
@@ -557,8 +587,10 @@ else:
 
     for i, clefs in enumerate(clefs_perPart):
         staves_perPart[i].extend(clefs.keys())
+        staves_sorted.extend(clefs.keys())
         for c in clefs.values():
             create_staffDef_safe(staffGrp, c)
+    staves_sorted.sort()
 
 measuresAreAligned = True
 if paddingRequired:
@@ -578,10 +610,9 @@ if paddingRequired:
 
         compM_keys = list(compareMeasures.keys())
 
-        new_tempii = firstInstance(score.Tempo, [p for i, p in enumerate(parts) if i in compM_keys], start=[cm.start for cm in compareMeasures.values()], end=[cm.end for cm in compareMeasures.values()])
+        new_tempii = firstInstance_perPart(score.Tempo, [p for i, p in enumerate(parts) if i in compM_keys], start=[cm.start for cm in compareMeasures.values()], end=[cm.end for cm in compareMeasures.values()])
 
-        if new_tempii==None:
-            new_tempii=[]
+        if len(new_tempii)==0:
             for k in compM_keys:
                 new_tempii.append(tempii[k])
         else:
@@ -618,6 +649,9 @@ if paddingRequired:
 
 if measuresAreAligned:
     timeOffset = [0]*len(measures)
+
+    measurePad = score.Measure
+
     if paddingRequired:
         for i, mp in enumerate(measures):
             ii=len(mp)
@@ -630,10 +664,10 @@ if measuresAreAligned:
     autoRestCount = 0
 
     for measure_i,_ in enumerate(measures[0]):
-
-
         measure=addChild(section,"measure")
         setAttributes(measure,("n",measure_i))
+
+
 
         notes_nextMeasure_perStaff={}
         ties_perStaff = {}
@@ -642,53 +676,59 @@ if measuresAreAligned:
         keySigs_withinMeasure_perStaff = {}
         timeSigs_withinMeasure_perStaff = {}
         measure_perStaff = {}
+        slurs_withinMeasure = []
+        tuplets_withinMeasure_perStaff = {}
 
         for part_i, part in enumerate(parts):
             m = measures[part_i][measure_i]
 
+
+
+            def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount):
+                measure_perStaff[s]="pad"
+                r = score.Rest(id="pR"+str(autoRestCount), voice=1)
+                r.start = score.TimePoint(0)
+                r.end = r.start
+
+                extendKey(notes_withinMeasure_perStaff, s, r)
+                return autoRestCount+1
+
             if m=="pad":
-                #TODO: how do you do the pad?
-                pass
+                for s in staves_perPart[part_i]:
+                    autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 
-            clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, part.iter_all(score.Clef, m.start, m.end),"number")
-            keySigs_withinMeasure = list(part.iter_all(score.KeySignature, m.start, m.end))
-            timeSigs_withinMeasure = list(part.iter_all(score.TimeSignature, m.start, m.end))
+                continue
 
 
 
-            notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, part.iter_all(score.GenericNote, m.start, m.end, include_subclasses=True), "staff")
+            def cls_withinMeasure(part, cls, measure, incl_subcls=False):
+                return list(part.iter_all(cls, measure.start, measure.end, include_subclasses=incl_subcls))
+
+            clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, cls_withinMeasure(part, score.Clef, m),"number")
+            keySigs_withinMeasure = cls_withinMeasure(part,score.KeySignature, m)
+            timeSigs_withinMeasure = cls_withinMeasure(part, score.TimeSignature, m)
+            slurs_withinMeasure.extend(cls_withinMeasure(part, score.Slur, m))
+
+
+
+            notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, cls_withinMeasure(part,score.GenericNote, m, True), "staff")
+
+            for s in staves_perPart[part_i]:
+                keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
+                timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
+
+                if s not in notes_withinMeasure_perStaff_perPart.keys():
+                    autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 
             for s in notes_withinMeasure_perStaff_perPart.keys():
-                if s in notes_withinMeasure_perStaff.keys():
-                    notes_withinMeasure_perStaff[s].extend(notes_withinMeasure_perStaff_perPart[s])
-                else:
-                    notes_withinMeasure_perStaff[s]=notes_withinMeasure_perStaff_perPart[s]
-
-                if s in clefs_withinMeasure_perStaff_perPart.keys():
-                    if s in clefs_withinMeasure_perStaff.keys():
-                        clefs_withinMeasure_perStaff[s].extend(clefs_withinMeasure_perStaff_perPart[s])
-                    else:
-                        clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
-
-                if s in keySigs_withinMeasure_perStaff.keys():
-                    keySigs_withinMeasure_perStaff[s].extend(keySigs_withinMeasure)
-                else:
-                    keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
-
-                if s in timeSigs_withinMeasure_perStaff.keys():
-                    timeSigs_withinMeasure_perStaff[s].extend(timeSigs_withinMeasure)
-                else:
-                    timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
-
+                extendKey(notes_withinMeasure_perStaff, s, notes_withinMeasure_perStaff_perPart[s])
                 measure_perStaff[s]=m
 
             for s in clefs_withinMeasure_perStaff_perPart.keys():
-                if s not in clefs_withinMeasure_perStaff.keys():
-                    clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
+                clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
 
-        sorted_staves = sorted(notes_withinMeasure_perStaff.keys())
-
-        for s in sorted_staves:
+        #for s in sorted(notes_withinMeasure_perStaff.keys()):
+        for s in staves_sorted:
             staff=addChild(measure,"staff")
 
             setAttributes(staff,("n",s))
@@ -709,12 +749,11 @@ if measuresAreAligned:
 
                 notes_partition=partition_handleNone(lambda n:n.start.t, notes, "start.t")
 
-                times = list(notes_partition.keys())
-                times.sort()
-
                 chords = []
 
-                for t in times:
+
+
+                for t in sorted(notes_partition.keys()):
                     ns = notes_partition[t]
 
                     if len(ns)>1:
@@ -832,7 +871,6 @@ if measuresAreAligned:
 
                 for chord_i, chordNotes in enumerate(chords):
                     rep = chordNotes[0]
-                    dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
 
                     for ine in inbetweenNotesElements:
                         if insertElem_check(rep.start.t, [ine]):
@@ -842,6 +880,8 @@ if measuresAreAligned:
 
                             xmlElem = addChild(parent, ine.name)
                             attribVals = ine.attribValsOf(ine.elem)
+
+                            assert len(ine.attribNames)>=len(attribVals), "ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name
 
                             for nv in zip(ine.attribNames[:len(attribVals)], attribVals):
                                 setAttributes(xmlElem,nv)
@@ -856,9 +896,12 @@ if measuresAreAligned:
                     def nextRep(chords,chord_i):
                         return chords[chord_i+1][0]
 
+                    dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
                     # hack right now, don't need to check every iteration, good time to factor out inside of loop
                     if chord_i < len(chords)-1:
                         next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(nextRep(chords,chord_i), m)
+
+
 
                     if isinstance(rep,score.Note):
                         if not isinstance(rep, score.GraceNote):
@@ -945,8 +988,11 @@ if measuresAreAligned:
 
 
                         if splitNotes!=None:
+
+
                             for n in chordNotes:
                                 splitNotes.append(score.Note(n.step,n.octave, id=n.id+"s"))
+
 
 
                             if len(dur_dots)>1:
@@ -967,7 +1013,7 @@ if measuresAreAligned:
                         if splitNotes!=None:
                             splitNotes.append(score.Rest(id=rep.id+"s"))
 
-                        if m.start.t == rep.start.t and m.end.t == rep.end.t:
+                        if m=="pad" or m.start.t == rep.start.t and m.end.t == rep.end.t:
                             rest = addChild(layer,"mRest")
 
                             setAttributes(rest,(xmlIdString,rep.id))
@@ -1004,11 +1050,18 @@ if measuresAreAligned:
 
         notes_lastMeasure_perStaff = notes_nextMeasure_perStaff
 
-        for p in parts:
-            for slur in p.iter_all(score.Slur, m.start, m.end):
-                s = addChild(measure,"slur")
-                setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
+        def perPartIter(parts, cls, start, end):
+            for p in parts:
+                for x in p.iter_all(cls, start, end):
+                    yield x
 
+        for slur in slurs_withinMeasure:
+            s = addChild(measure,"slur")
+            setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
+
+#         for word in perPartIter(parts, score.Words, m.start, m.end):
+#             w = addChild(measure,"dir")
+#             setAttributes(w, ("staff",w.staff), ("tstamp",))
 
         for s,tps in ties_perStaff.items():
 
