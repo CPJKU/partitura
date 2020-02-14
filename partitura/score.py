@@ -149,7 +149,7 @@ class Part(object):
         return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous',
                         bounds_error=False, fill_value='extrapolate')
 
-    def _time_interpolator(self, quarter=False, inv=False, keep_anacrusis=False):
+    def _time_interpolator(self, quarter=False, inv=False):
 
         if len(self._points) < 2:
             return lambda x: np.zeros(len(x))
@@ -200,7 +200,7 @@ class Part(object):
                 print(x, y, normal_dur, ts.beat_type)
                 if quarter:
                     normal_dur *=  4 / ts.beat_type
-                if actual_dur < normal_dur and keep_anacrusis:
+                if actual_dur < normal_dur:
                     y -= actual_dur
                 print(x, y, actual_dur, normal_dur)
             else:
