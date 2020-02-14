@@ -13,7 +13,7 @@ from .io.importmidi import load_score_midi, load_performance_midi
 from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
 from .io.exportmatch import save_match
-from .io.importnakamura import load_nakamura
+from .io.importnakamura import load_nakamuracorresp as lnc
 from .io.importnakamura import match_by_pitch_and_position as mpp
 
 from .display import render

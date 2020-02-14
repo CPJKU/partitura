@@ -29,8 +29,12 @@ from partitura.performance import PerformedPart
 import partitura.score as score
 
 
+class MatchError(Exception):
+    pass
+
+
 ###################################################
-class NakamuraLine(object):
+class NakamuraMatchLine(object):
     field_names = ['number', 'onset', 'offset', 'notename',
                     'velocityonset', 'velocityoffset',
                     'channel', 'matchstatus', 'scoretime', 'snoteID',
@@ -58,7 +62,7 @@ class NakamuraLine(object):
             match_line = cls(**kwargs)
             return match_line
 
-def parse_nakamuraline(l):
+def parse_nakamuramatchline(l):
     """
     Return objects representing the line as line or comment
 
@@ -73,19 +77,19 @@ def parse_nakamuraline(l):
        Object representing the line.
     """
 
-    from_nakamuraline_methods = [NakamuraLine.from_line]
-    nakamuraline = False
-    for from_nakamuraline in from_nakamuraline_methods:
+    from_NakamuraMatchLine_methods = [NakamuraMatchLine.from_line]
+    nakamuramatchline = False
+    for from_NakamuraMatchLine in from_NakamuraMatchLine_methods:
         try:
-            nakamuraline = from_nakamuraline(l)
+            nakamuramatchline = from_NakamuraMatchLine(l)
             break
         except MatchError:
             continue
 
-    return nakamuraline
+    return nakamuramatchline
 
 
-class NakamuraFile(object):
+class NakamuraMatchFile(object):
     """
     Class for representing nakamura's match.txt Files
     """
@@ -94,7 +98,7 @@ class NakamuraFile(object):
         self.name = filename
 
         with open(filename) as f:
-            self.lines = np.array([parse_nakamuraline(l) for l in f.read().splitlines()])
+            self.lines = np.array([parse_nakamuramatchline(l) for l in f.read().splitlines()])
 
     @property
     def note_pairs(self):
@@ -125,8 +129,8 @@ class NakamuraFile(object):
 
 
 
-def load_nakamura(fn, pedal_threshold=64, first_note_at_zero=False):
-    """Load a nakamuramatchfile.
+def load_nakamuramatch(fn, pedal_threshold=64, first_note_at_zero=False):
+    """ Load a nakamuramatchfile.
 
     Parameters
     ----------
@@ -148,20 +152,20 @@ def load_nakamura(fn, pedal_threshold=64, first_note_at_zero=False):
 
     """
     # Parse Matchfile
-    mf = NakamuraFile(fn)
+    mf = NakamuraMatchFile(fn)
 
     ######## Generate PerformedPart #########
 
-    ppart = performed_part_from_nakamura(mf, pedal_threshold, first_note_at_zero)
+    ppart = performed_part_from_nakamuramatch(mf, pedal_threshold, first_note_at_zero)
 
     ###### Alignment ########
 
-    alignment = alignment_from_nakamura(mf)
+    alignment = alignment_from_nakamuramatch(mf)
 
     return mf, ppart, alignment
 
 
-def alignment_from_nakamura(mf):
+def alignment_from_nakamuramatch(mf):
     result = []
     for l in mf.iter_notes():
         result.append(dict(label='match',
@@ -171,7 +175,7 @@ def alignment_from_nakamura(mf):
 
 # PERFORMANCE PART FROM MATCHFILE stuff
 
-def performed_part_from_nakamura(mf, pedal_threshold=64, first_note_at_zero=False):
+def performed_part_from_nakamuramatch(mf, pedal_threshold=64, first_note_at_zero=False):
     """Make PerformedPart from performance info in a Nakamura match.txt file
 
     Parameters
@@ -214,6 +218,203 @@ def performed_part_from_nakamura(mf, pedal_threshold=64, first_note_at_zero=Fals
                           notes=notes,
                           sustain_pedal_threshold=pedal_threshold)
     return ppart
+
+
+
+
+
+
+
+
+
+
+
+
+# NAKAMURA CORRESP FILES FROM MIDI TO MIDI ALIGNMENT
+
+class NakamuraCorrespLine(object):
+    field_names = ["alignID", "alignOntime", "alignSitch",
+                    "alignPitch", "alignOnvel", "refID",
+                    "refOntime", "refSitch", "refPitch", "refOnvel"]
+    def __init__(self, alignID, alignOntime, alignSitch,
+                    alignPitch, alignOnvel, refID,
+                    refOntime, refSitch, refPitch, refOnvel):
+
+        self.id0 = str(alignID)
+        self.onset0 = float(alignOntime)
+        self.pitch0 = int(alignPitch)
+
+        self.id1 = str(refID)
+        self.onset1 = float(refOntime)
+        self.pitch1 = int(refPitch)
+
+    @classmethod
+    def from_line(cls, correspline, pos=0):
+        line_split = correspline.split("\t")
+        del line_split[-1]
+
+        if len(line_split) != 10:
+            return None
+        else:
+            kwargs = dict(zip(cls.field_names, line_split))
+            match_line = cls(**kwargs)
+            return match_line
+
+def parse_nakamuracorrespline(l):
+    """
+    Return objects representing the line as line or comment
+
+    Parameters
+    ----------
+    l : str
+        Line of the match file
+
+    Returns
+    -------
+    matchline : subclass of `MatchLine`
+       Object representing the line.
+    """
+
+    from_NakamuraCorrespLine_methods = [NakamuraCorrespLine.from_line]
+    nakamuracorrespline = None
+    for from_NakamuraCorrespLine in from_NakamuraCorrespLine_methods:
+        try:
+            nakamuracorrespline = from_NakamuraCorrespLine(l)
+            break
+        except MatchError:
+            continue
+
+    return nakamuracorrespline
+
+
+class NakamuraCorrespFile(object):
+    """
+    Class for representing nakamura's match.txt Files
+    """
+
+    def __init__(self, filename):
+        self.name = filename
+
+        with open(filename) as f:
+            self.lines = np.array([parse_nakamuracorrespline(l) for l in f.read().splitlines()])
+
+    @property
+    def note_pairs(self):
+        raise NotImplementedError
+
+    @property
+    def notes(self):
+        raise NotImplementedError
+
+    def iter_notes(self):
+        """
+        Iterate over all note pairs
+        """
+        for x in self.lines:
+            if x is None:
+                continue
+            else:
+                yield x
+
+    @property
+    def snotes(self):
+        raise NotImplementedError
+
+
+    @property
+    def sustain_pedal(self):
+        raise NotImplementedError
+
+    @property
+    def note_arrays(self):
+        """
+        generate a tuple of (performance-, score-) note arrays with pitch, id and onset information (in seconds).
+
+        Returns
+        -------
+        (array_performance, array_score) : tuple
+            a tuple of structured arrays
+        """
+        fields = [('onset', 'f4'),
+                  ('pitch', 'i4'),
+                  ('id', 'U256')]
+
+        note_array0 = []
+        note_array1 = []
+        for l in self.iter_notes():
+            if l.id0 != "*":
+                note_array0.append((l.onset0, l.pitch0, l.id0))
+            if l.id1 != "*":
+                note_array1.append((l.onset1, l.pitch1, l.id1))
+            if l.id0 == "*":
+                print("performance omission at score id: ", l.id1)
+            if l.id1 == "*":
+                print("performance insertion at performance id: ", l.id0)
+        ar0 = np.array(note_array0, dtype=fields)
+        ar1 = np.array(note_array1, dtype=fields)
+        return ar0, ar1
+
+
+    @property
+    def alignment(self):
+        result = []
+        for l in self.iter_notes():
+            if l.id0 == "*":
+                result.append(dict(label='omission',
+                                performance_id=l.id0,
+                                score_id=l.id1))
+            elif l.id1 == "*":
+                result.append(dict(label='insertion',
+                                performance_id=l.id0,
+                                score_id=l.id1))
+            else:
+                result.append(dict(label='match',
+                                performance_id=l.id0,
+                                score_id=l.id1))
+        return result
+
+
+
+def load_nakamuracorresp(fn, pedal_threshold=64, first_note_at_zero=False):
+    """ Load a nakamuramatchfile.
+
+    Parameters
+    ----------
+    fn : str
+        The nakamura match.txt-file
+    pedal_threshold : int, optional
+        Threshold for adjusting sound off of the performed notes using
+        pedal information. Defaults to 64.
+    first_note_at_zero : bool, optional
+        When True the note_on and note_off times in the performance
+        are shifted to make the first note_on time equal zero.
+
+    Returns
+    -------
+    array_performance : structured array
+        structured array of performed notes
+    array_score : structured array
+        structured array of score notes
+    alignment : list
+        The score--performance alignment, a list of dictionaries
+    """
+    # Parse Matchfile
+    cf = NakamuraCorrespFile(fn)
+    array_performance, array_score = cf.note_arrays
+    alignment = cf.alignment
+    return array_performance, array_score, alignment
+
+
+
+
+
+
+
+
+
+
+
+
 
 def note_name_to_midi_pitch(notename):
     """

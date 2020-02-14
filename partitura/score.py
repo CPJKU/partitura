@@ -633,7 +633,6 @@ class Part(object):
     def note_array(self):
         """A structured array containing pitch, onset, duration, voice
         and id for each note
-
         """
         fields = [('onset', 'f4'),
                   ('duration', 'f4'),
