@@ -334,6 +334,7 @@ class NakamuraCorrespFile(object):
         -------
         (array_performance, array_score) : tuple
             a tuple of structured arrays
+
         """
         fields = [('onset', 'f4'),
                   ('pitch', 'i4'),
@@ -404,6 +405,17 @@ def load_nakamuracorresp(fn, pedal_threshold=64, first_note_at_zero=False):
     alignment = cf.alignment
     return array_performance, array_score, alignment
 
+
+from partitura.utils import match_note_arrays
+
+def align_corresp_pipeline(corresp_file, performance_midi, score_midi, al):
+
+    match_note_arrays(input_note_array, target_note_array,
+                      array_type='performance', epsilon=0.01,
+                      first_note_at_zero=False,
+                      check_duration=True):
+
+    return
 
 
 
