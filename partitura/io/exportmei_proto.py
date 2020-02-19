@@ -5,6 +5,11 @@ from partitura.utils.generic import partition
 from partitura.utils.music import estimate_symbolic_duration
 import sys
 
+
+nameSpace = "http://www.music-encoding.org/ns/mei"
+
+xmlIdString = "{http://www.w3.org/XML/1998/namespace}id"
+
 def extendKey(dictOfLists, key, value):
     if key in dictOfLists.keys():
         if isinstance(value, list):
@@ -20,7 +25,7 @@ def extendKey(dictOfLists, key, value):
 
 
 
-def calc_dur_dots_splitNotes_firstTempDur(note, measure):
+def calc_dur_dots_splitNotes_firstTempDur(note, measure, numToNumbase_ratio=1):
     if measure=="pad":
         return [], None, None
 
@@ -38,7 +43,8 @@ def calc_dur_dots_splitNotes_firstTempDur(note, measure):
         splitNotes = []
 
     quarterDur = measure.start.quarter
-    fraction = note_duration/quarterDur
+    fraction = numToNumbase_ratio*note_duration/quarterDur
+
     intPart = int(fraction)
     fracPart = fraction - intPart
 
@@ -109,6 +115,7 @@ def errorPrint(*list_errorMsg):
 def partition_handleNone(func, iter, partitionAttrib):
     p = partition(func,iter)
     newKey = None
+
 
     if None in p.keys():
         #errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
@@ -233,7 +240,280 @@ def commonSignature(cls, sig_eql, parts, currentMeasures=None):
 
     return commonSig
 
+def verticalSlice(list_2d, index):
+    vslice = []
 
+    for list_1d in list_2d:
+        vslice.append(list_1d[index])
+
+    return vslice
+
+def timeSig_eql(ts1,ts2):
+    return ts1.beats==ts2.beats and ts1.beat_type==ts2.beat_type
+
+
+def idx(len_obj):
+    return range(len(len_obj))
+
+def attribsOf_Clef(clef):
+    if clef.octave_change!=None and clef.octave_change!=0:
+        place = "above"
+
+        if clef.octave_change<0:
+            place="below"
+
+        return clef.sign, clef.line, 1+7*abs(clef.octave_change), place
+
+    return clef.sign, clef.line
+
+def create_staffDef(staffGrp, clef):
+    staffDef = addChild(staffGrp,"staffDef")
+
+    attribs = attribsOf_Clef(clef)
+    setAttributes(staffDef,("n",clef.number),("lines",5),("clef.shape",attribs[0]),("clef.line",attribs[1]))
+    if len(attribs)==4:
+        setAttributes(staffDef,("clef.dis",attribs[2]),("clef.dis.place",attribs[3]))
+
+
+def create_staffDef_safe(staffGrp, c):
+    clef = c[0]
+    assert len(c)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
+    create_staffDef(staffGrp, clef)
+
+def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount):
+    measure_perStaff[s]="pad"
+    r = score.Rest(id="pR"+str(autoRestCount), voice=1)
+    r.start = score.TimePoint(0)
+    r.end = r.start
+
+    extendKey(notes_withinMeasure_perStaff, s, r)
+    return autoRestCount+1
+
+
+
+
+class InbetweenNotesElement:
+    __slots__ = ["name","attribNames","attribValsOf","container","i","elem"]
+
+    def __init__(self, name, attribNames, attribValsOf, container_dict, staff, measure_i, skipIndex):
+        self.name = name
+        self.attribNames = attribNames
+        self.attribValsOf = attribValsOf
+
+        self.i=0
+        self.elem=None
+
+        if staff in container_dict.keys():
+            self.container = container_dict[staff]
+            if measure_i==0:
+                if len(self.container)>skipIndex:
+                    self.elem = self.container[skipIndex]
+            else:
+                if len(self.container)>0:
+                    self.elem = self.container[0]
+        else:
+            self.container=[]
+
+def nextRep(chords,chord_i):
+        return chords[chord_i+1][0]
+
+def handleBeam(openUp, parent):
+    if openUp:
+        parent = addChild(parent,"beam")
+
+    return openUp, parent
+
+
+
+def isChordInTuplet(chord_i, tupletIndices):
+    for start, stop in tupletIndices:
+        if start<=chord_i and chord_i<=stop:
+            return True
+
+    return False
+
+def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
+    if isChordInTuplet(chord_i, tupletIndices):
+        rep = chords[chord_i][0]
+        return rep.symbolic_duration["actual_notes"]/rep.symbolic_duration["normal_notes"]
+
+    return 1
+
+def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parent, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, next_dur_dots=None):
+    chordNotes = chords[chord_i]
+    rep = chordNotes[0]
+
+    for ine in inbetweenNotesElements:
+        if insertElem_check(rep.start.t, [ine]):
+            # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
+            if openBeam and autoBeaming:
+                openBeam, parent = handleBeam(False,parent)
+
+            xmlElem = addChild(parent, ine.name)
+            attribVals = ine.attribValsOf(ine.elem)
+
+            assert len(ine.attribNames)>=len(attribVals), "ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name
+
+            for nv in zip(ine.attribNames[:len(attribVals)], attribVals):
+                setAttributes(xmlElem,nv)
+
+            if ine.i+1>=len(ine.container):
+                ine.elem = None
+            else:
+                ine.i+=1
+                ine.elem = ine.container[ine.i]
+
+    if isChordInTuplet(chord_i, tupletIndices):
+        if not openTuplet:
+            parent = addChild(layer,"tuplet")
+            num = rep.symbolic_duration["actual_notes"]
+            numbase = rep.symbolic_duration["normal_notes"]
+            setAttributes(parent, (xmlIdString,"t"+str(tuplet_idCounter)), ("num",num), ("numbase",numbase))
+            tuplet_idCounter+=1
+            openTuplet = True
+    elif openTuplet:
+        parent = layer
+        openTuplet = False
+
+    if isinstance(rep,score.Note):
+        if not isinstance(rep, score.GraceNote):
+            if autoBeaming:
+                # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
+
+                # check to close beam
+                if openBeam and dur_dots[0][0]<8:
+                    openBeam, parent = handleBeam(False,parent)
+                # check to open beam
+                elif not openBeam and dur_dots[0][0]>=8:
+                    # open beam if there are multiple "consecutive notes" which don't get interrupted by some element
+                    if len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, inbetweenNotesElements):
+                        openBeam, parent = handleBeam(True,parent)
+                    # open beam if there is just a single note that is not the last one in measure and next note in measure fits in beam as well, without getting interrupted by some element
+                    elif len(dur_dots)<=1 and chord_i<len(chords)-1 and next_dur_dots[0][0]>=8 and not insertElem_check(nextRep(chords,chord_i).start.t, inbetweenNotesElements):
+                        openBeam, parent = handleBeam(True,parent)
+            elif openBeam and rep.beam!=chords[chord_i-1][0].beam and not isinstance(chords[chord_i-1][0],score.GraceNote):
+                openBeam, parent = handleBeam(False,parent)
+
+            if not autoBeaming and not openBeam and rep.beam!=None:
+                openBeam, parent = handleBeam(True,parent)
+
+        def conditional_gracify(elem, rep):
+            if isinstance(rep,score.GraceNote):
+                grace = "unacc"
+
+                if rep.grace_type == "appoggiatura":
+                    grace = "acc"
+
+                setAttributes(elem,("grace",grace))
+
+                if rep.steal_proportion != None:
+                    setAttributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
+
+        if len(chordNotes)>1:
+            chord = addChild(parent,"chord")
+            setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
+
+            conditional_gracify(chord, rep)
+
+            for n in chordNotes:
+                note=addChild(chord,"note")
+                setAttributes(note,(xmlIdString,n.id),("pname",n.step.lower()),("oct",n.octave))
+        else:
+            note=addChild(parent,"note")
+            setAttributes(note,(xmlIdString,rep.id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
+
+            conditional_gracify(note,rep)
+
+        if len(dur_dots)>1:
+            for n in chordNotes:
+                ties[n.id]=[n.id]
+
+            def create_splitUpNotes(chordNotes, i, parent, dur_dots, ties, rep):
+                if len(chordNotes)>1:
+                    chord = addChild(parent,"chord")
+                    setAttributes(chord,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+
+                    for n in chordNotes:
+                        note=addChild(chord,"note")
+
+                        id = n.id+"-"+str(i)
+
+                        ties[n.id].append(id)
+
+                        setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave))
+                else:
+                    note=addChild(parent,"note")
+
+                    id = rep.id+"-"+str(i)
+
+                    ties[rep.id].append(id)
+
+                    setAttributes(note,(xmlIdString,id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+
+            for i in range(1,len(dur_dots)-1):
+                if not openBeam and dur_dots[i][0]>=8:
+                    openBeam, parent = handleBeam(True,parent)
+
+                create_splitUpNotes(chordNotes, i,parent,dur_dots,ties,rep)
+
+            create_splitUpNotes(chordNotes, len(dur_dots)-1,parent,dur_dots,ties,rep)
+
+
+        if splitNotes!=None:
+
+
+            for n in chordNotes:
+                splitNotes.append(score.Note(n.step,n.octave, id=n.id+"s"))
+
+
+
+            if len(dur_dots)>1:
+                for n in chordNotes:
+                    ties[n.id].append(n.id+"s")
+            else:
+                for n in chordNotes:
+                    ties[n.id]=[n.id, n.id+"s"]
+
+        for n in chordNotes:
+            if n.tie_next!=None:
+                if n.id in ties.keys():
+                    ties[n.id].append(n.tie_next.id)
+                else:
+                    ties[n.id]=[n.id, n.tie_next.id]
+
+    elif isinstance(rep,score.Rest):
+        if splitNotes!=None:
+            splitNotes.append(score.Rest(id=rep.id+"s"))
+
+        if measure=="pad" or measure.start.t == rep.start.t and measure.end.t == rep.end.t:
+            rest = addChild(layer,"mRest")
+
+            setAttributes(rest,(xmlIdString,rep.id))
+        else:
+            rest = addChild(layer,"rest")
+
+            setAttributes(rest,(xmlIdString,rep.id),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
+
+            if len(dur_dots)>1:
+                for i in range(1,len(dur_dots)):
+                    rest=addChild(layer,"rest")
+
+                    id = rep.id+str(i)
+
+                    setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+
+    if splitNotes!=None:
+        for sn in splitNotes:
+            sn.voice = rep.voice
+            sn.start = measure.end
+            sn.end = score.TimePoint(rep.start.t+rep.duration)
+
+            if s in notes_nextMeasure_perStaff.keys():
+                notes_nextMeasure_perStaff[s].append(sn)
+            else:
+                notes_nextMeasure_perStaff[s]=[sn]
+
+    return tuplet_idCounter, openBeam, parent, openTuplet
 
 # parts is either a Part, a PartGroup or a list of Parts
 
@@ -245,9 +525,7 @@ def exportToMEI(parts):
 
     autoBeaming = True
 
-    nameSpace = "http://www.music-encoding.org/ns/mei"
 
-    xmlIdString = "{http://www.w3.org/XML/1998/namespace}id"
 
 
 
@@ -307,19 +585,12 @@ def exportToMEI(parts):
     #     print("")
 
 
-    def verticalSlice(list_2d, index):
-        vslice = []
 
-        for list_1d in list_2d:
-            vslice.append(list_1d[index])
-
-        return vslice
 
     startingMeasures = verticalSlice(measures,0)
     commonKeySig = commonSignature(score.KeySignature, lambda ks1, ks2: ks1.name==ks2.name and ks1.fifths==ks2.fifths, parts, startingMeasures)
 
-    def timeSig_eql(ts1,ts2):
-        return ts1.beats==ts2.beats and ts1.beat_type==ts2.beat_type
+
 
     commonTimeSig = commonSignature(score.TimeSignature, timeSig_eql,parts, startingMeasures)
 
@@ -344,8 +615,7 @@ def exportToMEI(parts):
 
     clefs_perPart=firstInstances_perPart(score.Clef, parts)
 
-    def idx(len_obj):
-        return range(len(len_obj))
+    tuplet_idCounter = 0
 
     for i in idx(clefs_perPart):
         clefs_perPart[i] = partition_handleNone(lambda c:c.number, clefs_perPart[i], "number")
@@ -353,30 +623,7 @@ def exportToMEI(parts):
     staves_sorted = [s for staves in staves_perPart for s in staves]
     staves_sorted.sort()
 
-    def attribsOf_Clef(clef):
-        if clef.octave_change!=None and clef.octave_change!=0:
-            place = "above"
 
-            if clef.octave_change<0:
-                place="below"
-
-            return clef.sign, clef.line, 1+7*abs(clef.octave_change), place
-
-        return clef.sign, clef.line
-
-    def create_staffDef(staffGrp, clef):
-        staffDef = addChild(staffGrp,"staffDef")
-
-        attribs = attribsOf_Clef(clef)
-        setAttributes(staffDef,("n",clef.number),("lines",5),("clef.shape",attribs[0]),("clef.line",attribs[1]))
-        if len(attribs)==4:
-            setAttributes(staffDef,("clef.dis",attribs[2]),("clef.dis.place",attribs[3]))
-
-
-    def create_staffDef_safe(staffGrp, c):
-        clef = c[0]
-        assert len(c)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
-        create_staffDef(staffGrp, clef)
 
     if len(clefs_perPart)==0 and len(staves_sorted)==0:
         create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=1, octave_change=0))
@@ -495,17 +742,6 @@ def exportToMEI(parts):
             for part_i, part in enumerate(parts):
                 m = measures[part_i][measure_i]
 
-
-
-                def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount):
-                    measure_perStaff[s]="pad"
-                    r = score.Rest(id="pR"+str(autoRestCount), voice=1)
-                    r.start = score.TimePoint(0)
-                    r.end = r.start
-
-                    extendKey(notes_withinMeasure_perStaff, s, r)
-                    return autoRestCount+1
-
                 if m=="pad":
                     for s in staves_perPart[part_i]:
                         autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
@@ -517,10 +753,14 @@ def exportToMEI(parts):
                 def cls_withinMeasure(part, cls, measure, incl_subcls=False):
                     return part.iter_all(cls, measure.start, measure.end, include_subclasses=incl_subcls)
 
+                def cls_withinMeasure_list(part, cls, measure, incl_subcls=False):
+                    return list(cls_withinMeasure(part,cls,measure,incl_subcls))
+
                 clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, cls_withinMeasure(part, score.Clef, m),"number")
-                keySigs_withinMeasure = list(cls_withinMeasure(part,score.KeySignature, m))
-                timeSigs_withinMeasure = list(cls_withinMeasure(part, score.TimeSignature, m))
+                keySigs_withinMeasure = cls_withinMeasure_list(part,score.KeySignature, m)
+                timeSigs_withinMeasure = cls_withinMeasure_list(part, score.TimeSignature, m)
                 slurs_withinMeasure.extend(cls_withinMeasure(part, score.Slur, m))
+                tuplets_withinMeasure = cls_withinMeasure_list(part, score.Tuplet, m)
 
                 beat_map = part.beat_map
 
@@ -534,6 +774,7 @@ def exportToMEI(parts):
                 for s in staves_perPart[part_i]:
                     keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
                     timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
+                    tuplets_withinMeasure_perStaff[s]=tuplets_withinMeasure
 
                     if s not in notes_withinMeasure_perStaff_perPart.keys():
                         autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
@@ -555,7 +796,7 @@ def exportToMEI(parts):
                 ties_perStaff_perVoice={}
 
                 m = measure_perStaff[s]
-
+                tuplets = tuplets_withinMeasure_perStaff[s]
 
                 for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
                     layer=addChild(staff,"layer")
@@ -563,6 +804,8 @@ def exportToMEI(parts):
                     setAttributes(layer,("n",voice))
 
                     ties={}
+
+
 
                     notes_partition=partition_handleNone(lambda n:n.start.t, notes, "start.t")
 
@@ -582,22 +825,23 @@ def exportToMEI(parts):
                                 gn_chords=[]
 
                                 def scanBackwards(gns):
-                                    start = gns.pop(0)
+                                    start = gns[0]
 
                                     while isinstance(start.grace_prev, score.GraceNote):
                                         start = start.grace_prev
-
-                                        assert start in gns, "ERROR at GraceNote-proc scanBackwards: Connected GraceNotes don't share same staff or voice or starting time"
-
-                                        gns.remove(start)
 
                                     return start
 
                                 start = scanBackwards(gns)
 
+                                def processGraceNote(n, gns):
+                                    assert n in gns, "Error at forward scan of GraceNotes: a grace_next has either different staff, voice or starting time than GraceNote chain"
+                                    gns.remove(n)
+                                    return n.grace_next
+
                                 while isinstance(start, score.GraceNote):
                                     gn_chords.append([start])
-                                    start = start.grace_next
+                                    start = processGraceNote(start, gns)
 
                                 while len(gns)>0:
                                     start = scanBackwards(gns)
@@ -605,9 +849,8 @@ def exportToMEI(parts):
                                     i=0
                                     while isinstance(start, score.GraceNote):
                                         assert i<len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
-
                                         gn_chords[i].append(start)
-                                        start = start.grace_next
+                                        start = processGraceNote(start, gns)
                                         i+=1
 
                                     assert i==len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
@@ -633,49 +876,47 @@ def exportToMEI(parts):
                                     "specifically note "+str(rep)+" has beam "+str(rep.beam),
                                     "and note "+str(n)+" has beam "+str(n.beam),
                                     "export still continues though")
-
+                                elif set(rep.tuplet_starts)!=set(n.tuplet_starts) and set(rep.tuplet_stops)!=set(n.tuplet_stops):
+                                    print("WARNING: notes within chords don't share same tuplets, export still continues though")
                             chords.append(regNotes)
                         else:
                             chords.append(ns)
 
+                    def addChordIdx(tuplet_list, tuplet, chords):
+                        for ci,c in enumerate(chords):
+                            for n in c:
+                                if tuplet in n.tuplet_starts:
+                                    tuplet_start.append(ci)
+                                    break
+
+                    tupletIndices = []
+                    for tuplet in tuplets:
+                        ci = 0
+                        start = -1
+                        stop = -1
+                        while ci<len(chords):
+                            for n in chords[ci]:
+                                if tuplet in n.tuplet_starts:
+                                    start=ci
+                                    break
+                            for n in chords[ci]:
+                                if tuplet in n.tuplet_stops:
+                                    stop=ci
+                                    break
+
+                            if start>=0 and stop>=0:
+                                assert start<=stop, "Tuplet stops before it starts?"
+                                tupletIndices.append((start,stop))
+                                break
+
+                            ci+=1
 
 
-
-
-                    def handleBeam(openUp, layer):
-                        parent = layer
-
-                        if openUp:
-                            parent = addChild(layer,"beam")
-
-                        return openUp, parent
 
 
                     openBeam, parent = handleBeam(False,layer)
 
-                    next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0],m)
-
-                    class InbetweenNotesElement:
-                        __slots__ = ["name","attribNames","attribValsOf","container","i","elem"]
-
-                        def __init__(self, name, attribNames, attribValsOf, container_dict, staff, measure_i, skipIndex):
-                            self.name = name
-                            self.attribNames = attribNames
-                            self.attribValsOf = attribValsOf
-
-                            self.i=0
-                            self.elem=None
-
-                            if staff in container_dict.keys():
-                                self.container = container_dict[staff]
-                                if measure_i==0:
-                                    if len(self.container)>skipIndex:
-                                        self.elem = self.container[skipIndex]
-                                else:
-                                    if len(self.container)>0:
-                                        self.elem = self.container[0]
-                            else:
-                                self.container=[]
+                    next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0],m, calcNumToNumbaseRatio(0, chords, tupletIndices))
 
 
 
@@ -686,177 +927,16 @@ def exportToMEI(parts):
                         InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSigs_withinMeasure_perStaff, s, measure_i, int(commonTimeSig!=None))
                     ]
 
-                    for chord_i, chordNotes in enumerate(chords):
-                        rep = chordNotes[0]
+                    openTuplet = False
 
-                        for ine in inbetweenNotesElements:
-                            if insertElem_check(rep.start.t, [ine]):
-                                # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
-                                if openBeam and autoBeaming:
-                                    openBeam, parent = handleBeam(False,layer)
-
-                                xmlElem = addChild(parent, ine.name)
-                                attribVals = ine.attribValsOf(ine.elem)
-
-                                assert len(ine.attribNames)>=len(attribVals), "ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name
-
-                                for nv in zip(ine.attribNames[:len(attribVals)], attribVals):
-                                    setAttributes(xmlElem,nv)
-
-                                if ine.i+1>=len(ine.container):
-                                    ine.elem = None
-                                else:
-                                    ine.i+=1
-                                    ine.elem = ine.container[ine.i]
-
-
-                        def nextRep(chords,chord_i):
-                            return chords[chord_i+1][0]
-
+                    for chord_i in range(len(chords)-1):
                         dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
-                        # hack right now, don't need to check every iteration, good time to factor out inside of loop
-                        if chord_i < len(chords)-1:
-                            next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(nextRep(chords,chord_i), m)
+                        tuplet_idCounter, openBeam, parent, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parent, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, next_dur_dots)
+                        next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(nextRep(chords,chord_i), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
+
+                    tuplet_idCounter,_,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parent, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet)
 
 
-
-                        if isinstance(rep,score.Note):
-                            if not isinstance(rep, score.GraceNote):
-                                if autoBeaming:
-                                    # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
-
-                                    # check to close beam
-                                    if openBeam and dur_dots[0][0]<8:
-                                        openBeam, parent = handleBeam(False,layer)
-                                    # check to open beam
-                                    elif not openBeam and dur_dots[0][0]>=8:
-                                        # open beam if there are multiple "consecutive notes" which don't get interrupted by some element
-                                        if len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, inbetweenNotesElements):
-                                            openBeam, parent = handleBeam(True,layer)
-                                        # open beam if there is just a single note that is not the last one in measure and next note in measure fits in beam as well, without getting interrupted by some element
-                                        elif len(dur_dots)<=1 and chord_i<len(chords)-1 and next_dur_dots[0][0]>=8 and not insertElem_check(nextRep(chords,chord_i).start.t, inbetweenNotesElements):
-                                            openBeam, parent = handleBeam(True,layer)
-                                elif openBeam and rep.beam!=chords[chord_i-1][0].beam and not isinstance(chords[chord_i-1][0],score.GraceNote):
-                                    openBeam, parent = handleBeam(False,layer)
-
-                                if not autoBeaming and not openBeam and rep.beam!=None:
-                                    openBeam, parent = handleBeam(True,layer)
-
-                            def conditional_gracify(elem, rep):
-                                if isinstance(rep,score.GraceNote):
-                                    grace = "unacc"
-
-                                    if rep.grace_type == "appoggiatura":
-                                        grace = "acc"
-
-                                    setAttributes(elem,("grace",grace))
-
-                                    if rep.steal_proportion != None:
-                                        setAttributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
-
-                            if len(chordNotes)>1:
-                                chord = addChild(parent,"chord")
-                                setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
-
-                                conditional_gracify(chord, rep)
-
-                                for n in chordNotes:
-                                    note=addChild(chord,"note")
-                                    setAttributes(note,(xmlIdString,n.id),("pname",n.step.lower()),("oct",n.octave))
-                            else:
-                                note=addChild(parent,"note")
-                                setAttributes(note,(xmlIdString,rep.id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
-
-                                conditional_gracify(note,rep)
-
-                            if len(dur_dots)>1:
-                                for n in chordNotes:
-                                    ties[n.id]=[n.id]
-
-                                def create_splitUpNotes(chordNotes, i, parent, dur_dots, ties, xmlIdString, rep):
-                                    if len(chordNotes)>1:
-                                        chord = addChild(parent,"chord")
-                                        setAttributes(chord,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
-
-                                        for n in chordNotes:
-                                            note=addChild(chord,"note")
-
-                                            id = n.id+"-"+str(i)
-
-                                            ties[n.id].append(id)
-
-                                            setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave))
-                                    else:
-                                        note=addChild(parent,"note")
-
-                                        id = rep.id+"-"+str(i)
-
-                                        ties[rep.id].append(id)
-
-                                        setAttributes(note,(xmlIdString,id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
-
-                                for i in range(1,len(dur_dots)-1):
-                                    if not openBeam and dur_dots[i][0]>=8:
-                                        openBeam, parent = handleBeam(True,layer)
-
-                                    create_splitUpNotes(chordNotes, i,parent,dur_dots,ties,xmlIdString, rep)
-
-                                create_splitUpNotes(chordNotes, len(dur_dots)-1,parent,dur_dots,ties,xmlIdString, rep)
-
-
-                            if splitNotes!=None:
-
-
-                                for n in chordNotes:
-                                    splitNotes.append(score.Note(n.step,n.octave, id=n.id+"s"))
-
-
-
-                                if len(dur_dots)>1:
-                                    for n in chordNotes:
-                                        ties[n.id].append(n.id+"s")
-                                else:
-                                    for n in chordNotes:
-                                        ties[n.id]=[n.id, n.id+"s"]
-
-                            for n in chordNotes:
-                                if n.tie_next!=None:
-                                    if n.id in ties.keys():
-                                        ties[n.id].append(n.tie_next.id)
-                                    else:
-                                        ties[n.id]=[n.id, n.tie_next.id]
-
-                        elif isinstance(rep,score.Rest):
-                            if splitNotes!=None:
-                                splitNotes.append(score.Rest(id=rep.id+"s"))
-
-                            if m=="pad" or m.start.t == rep.start.t and m.end.t == rep.end.t:
-                                rest = addChild(layer,"mRest")
-
-                                setAttributes(rest,(xmlIdString,rep.id))
-                            else:
-                                rest = addChild(layer,"rest")
-
-                                setAttributes(rest,(xmlIdString,rep.id),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
-
-                                if len(dur_dots)>1:
-                                    for i in range(1,len(dur_dots)):
-                                        rest=addChild(layer,"rest")
-
-                                        id = rep.id+str(i)
-
-                                        setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
-
-                        if splitNotes!=None:
-                            for sn in splitNotes:
-                                sn.voice = rep.voice
-                                sn.start = m.end
-                                sn.end = score.TimePoint(rep.start.t+rep.duration)
-
-                                if s in notes_nextMeasure_perStaff.keys():
-                                    notes_nextMeasure_perStaff[s].append(sn)
-                                else:
-                                    notes_nextMeasure_perStaff[s]=[sn]
 
 
                     ties_perStaff_perVoice[voice]=ties
@@ -1110,3 +1190,7 @@ def exportToMEI(parts):
 
 
 #print(etree.tostring(mei,pretty_print=True))
+
+parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
+#partitura.render(parts)
+exportToMEI(parts)
