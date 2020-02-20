@@ -314,14 +314,16 @@ class InbetweenNotesElement:
         else:
             self.container=[]
 
-def nextRep(chords,chord_i):
-        return chords[chord_i+1][0]
+def chordRep(chords,chord_i):
+        return chords[chord_i][0]
 
-def handleBeam(openUp, parent):
+def handleBeam(openUp, parents):
     if openUp:
-        parent = addChild(parent,"beam")
+        parents.append(addChild(parents[-1],"beam"))
+    else:
+        parents.pop()
 
-    return openUp, parent
+    return openUp
 
 
 
@@ -339,7 +341,7 @@ def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
 
     return 1
 
-def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parent, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, next_dur_dots=None):
+def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, next_dur_dots=None):
     chordNotes = chords[chord_i]
     rep = chordNotes[0]
 
@@ -347,9 +349,9 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
         if insertElem_check(rep.start.t, [ine]):
             # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
             if openBeam and autoBeaming:
-                openBeam, parent = handleBeam(False,parent)
+                openBeam = handleBeam(False,parents)
 
-            xmlElem = addChild(parent, ine.name)
+            xmlElem = addChild(parents[-1], ine.name)
             attribVals = ine.attribValsOf(ine.elem)
 
             assert len(ine.attribNames)>=len(attribVals), "ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name
@@ -365,37 +367,37 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
     if isChordInTuplet(chord_i, tupletIndices):
         if not openTuplet:
-            parent = addChild(layer,"tuplet")
+            parents.append(addChild(parents[-1],"tuplet"))
             num = rep.symbolic_duration["actual_notes"]
             numbase = rep.symbolic_duration["normal_notes"]
-            setAttributes(parent, (xmlIdString,"t"+str(tuplet_idCounter)), ("num",num), ("numbase",numbase))
+            setAttributes(parents[-1], (xmlIdString,"t"+str(tuplet_idCounter)), ("num",num), ("numbase",numbase))
             tuplet_idCounter+=1
             openTuplet = True
     elif openTuplet:
-        parent = layer
+        parents.pop()
         openTuplet = False
 
     if isinstance(rep,score.Note):
-        if not isinstance(rep, score.GraceNote):
-            if autoBeaming:
-                # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
+        if autoBeaming:
+            # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
 
-                # check to close beam
-                if openBeam and dur_dots[0][0]<8:
-                    openBeam, parent = handleBeam(False,parent)
-                # check to open beam
-                elif not openBeam and dur_dots[0][0]>=8:
-                    # open beam if there are multiple "consecutive notes" which don't get interrupted by some element
-                    if len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, inbetweenNotesElements):
-                        openBeam, parent = handleBeam(True,parent)
-                    # open beam if there is just a single note that is not the last one in measure and next note in measure fits in beam as well, without getting interrupted by some element
-                    elif len(dur_dots)<=1 and chord_i<len(chords)-1 and next_dur_dots[0][0]>=8 and not insertElem_check(nextRep(chords,chord_i).start.t, inbetweenNotesElements):
-                        openBeam, parent = handleBeam(True,parent)
-            elif openBeam and rep.beam!=chords[chord_i-1][0].beam and not isinstance(chords[chord_i-1][0],score.GraceNote):
-                openBeam, parent = handleBeam(False,parent)
+            # check to close beam
+            if openBeam and (dur_dots[0][0]<8 or chord_i-1>=0 and type(rep)!=type(chordRep(chords, chord_i-1))):
+                openBeam = handleBeam(False,parents)
 
-            if not autoBeaming and not openBeam and rep.beam!=None:
-                openBeam, parent = handleBeam(True,parent)
+            # check to open beam (maybe again)
+            if not openBeam and dur_dots[0][0]>=8:
+                # open beam if there are multiple "consecutive notes" which don't get interrupted by some element
+                if len(dur_dots)>1 and not insertElem_check(rep.start.t+firstTempDur, inbetweenNotesElements):
+                    openBeam=handleBeam(True,parents)
+                # open beam if there is just a single note that is not the last one in measure and next note in measure is of same type and fits in beam as well, without getting interrupted by some element
+                elif len(dur_dots)<=1 and chord_i+1<len(chords) and next_dur_dots[0][0]>=8 and type(rep)==type(chordRep(chords,chord_i+1)) and not insertElem_check(chordRep(chords,chord_i+1).start.t, inbetweenNotesElements):
+                    openBeam = handleBeam(True,parents)
+        elif openBeam and chord_i>0 and rep.beam!=chordRep(chords,chord_i-1).beam:
+            openBeam = handleBeam(False,parents)
+
+        if not autoBeaming and not openBeam and rep.beam!=None:
+            openBeam = handleBeam(True,parents)
 
         def conditional_gracify(elem, rep):
             if isinstance(rep,score.GraceNote):
@@ -410,7 +412,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                     setAttributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
 
         if len(chordNotes)>1:
-            chord = addChild(parent,"chord")
+            chord = addChild(parents[-1],"chord")
             setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
             conditional_gracify(chord, rep)
@@ -419,7 +421,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                 note=addChild(chord,"note")
                 setAttributes(note,(xmlIdString,n.id),("pname",n.step.lower()),("oct",n.octave))
         else:
-            note=addChild(parent,"note")
+            note=addChild(parents[-1],"note")
             setAttributes(note,(xmlIdString,rep.id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
             conditional_gracify(note,rep)
@@ -428,9 +430,9 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             for n in chordNotes:
                 ties[n.id]=[n.id]
 
-            def create_splitUpNotes(chordNotes, i, parent, dur_dots, ties, rep):
+            def create_splitUpNotes(chordNotes, i, parents, dur_dots, ties, rep):
                 if len(chordNotes)>1:
-                    chord = addChild(parent,"chord")
+                    chord = addChild(parents[-1],"chord")
                     setAttributes(chord,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
                     for n in chordNotes:
@@ -442,7 +444,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
                         setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave))
                 else:
-                    note=addChild(parent,"note")
+                    note=addChild(parents[-1],"note")
 
                     id = rep.id+"-"+str(i)
 
@@ -452,11 +454,11 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
             for i in range(1,len(dur_dots)-1):
                 if not openBeam and dur_dots[i][0]>=8:
-                    openBeam, parent = handleBeam(True,parent)
+                    openBeam = handleBeam(True,parents)
 
-                create_splitUpNotes(chordNotes, i,parent,dur_dots,ties,rep)
+                create_splitUpNotes(chordNotes, i,parents,dur_dots,ties,rep)
 
-            create_splitUpNotes(chordNotes, len(dur_dots)-1,parent,dur_dots,ties,rep)
+            create_splitUpNotes(chordNotes, len(dur_dots)-1,parents,dur_dots,ties,rep)
 
 
         if splitNotes!=None:
@@ -513,17 +515,15 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             else:
                 notes_nextMeasure_perStaff[s]=[sn]
 
-    return tuplet_idCounter, openBeam, parent, openTuplet
+    return tuplet_idCounter, openBeam, openTuplet
 
 # parts is either a Part, a PartGroup or a list of Parts
 
-def exportToMEI(parts):
+def exportToMEI(parts, autoBeaming=True):
     if isinstance(parts, score.PartGroup):
         parts = parts.children
     elif isinstance(parts, score.Part):
         parts = [parts]
-
-    autoBeaming = True
 
 
 
@@ -724,7 +724,7 @@ def exportToMEI(parts):
 
         for measure_i,_ in enumerate(measures[0]):
             measure=addChild(section,"measure")
-            setAttributes(measure,("n",measure_i))
+            setAttributes(measure,("n",measure_i+1))
 
 
 
@@ -913,8 +913,8 @@ def exportToMEI(parts):
 
 
 
-
-                    openBeam, parent = handleBeam(False,layer)
+                    parents = [layer]
+                    openBeam = False
 
                     next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0],m, calcNumToNumbaseRatio(0, chords, tupletIndices))
 
@@ -931,10 +931,10 @@ def exportToMEI(parts):
 
                     for chord_i in range(len(chords)-1):
                         dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
-                        tuplet_idCounter, openBeam, parent, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parent, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, next_dur_dots)
-                        next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(nextRep(chords,chord_i), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
+                        tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, next_dur_dots)
+                        next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
 
-                    tuplet_idCounter,_,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parent, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet)
+                    tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet)
 
 
 
