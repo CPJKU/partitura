@@ -240,6 +240,7 @@ def commonSignature(cls, sig_eql, parts, currentMeasures=None):
 
     return commonSig
 
+# all sublists of list_2d have to have len > index
 def verticalSlice(list_2d, index):
     vslice = []
 
@@ -251,6 +252,8 @@ def verticalSlice(list_2d, index):
 def timeSig_eql(ts1,ts2):
     return ts1.beats==ts2.beats and ts1.beat_type==ts2.beat_type
 
+def keySig_eql(ks1,ks2):
+    return ks1.name==ks2.name and ks1.fifths==ks2.fifths
 
 def idx(len_obj):
     return range(len(len_obj))
@@ -295,7 +298,7 @@ def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 class InbetweenNotesElement:
     __slots__ = ["name","attribNames","attribValsOf","container","i","elem"]
 
-    def __init__(self, name, attribNames, attribValsOf, container_dict, staff, measure_i, skipIndex):
+    def __init__(self, name, attribNames, attribValsOf, container_dict, staff, skipIndex):
         self.name = name
         self.attribNames = attribNames
         self.attribValsOf = attribValsOf
@@ -305,12 +308,8 @@ class InbetweenNotesElement:
 
         if staff in container_dict.keys():
             self.container = container_dict[staff]
-            if measure_i==0:
-                if len(self.container)>skipIndex:
-                    self.elem = self.container[skipIndex]
-            else:
-                if len(self.container)>0:
-                    self.elem = self.container[0]
+            if len(self.container)>skipIndex:
+                self.elem = self.container[skipIndex]
         else:
             self.container=[]
 
@@ -517,6 +516,262 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
     return tuplet_idCounter, openBeam, openTuplet
 
+
+
+def createScoreDef(measures, measure_i, parts, parent):
+    referenceMeasures = verticalSlice(measures,measure_i)
+
+    commonKeySig = commonSignature(score.KeySignature, keySig_eql, parts, referenceMeasures)
+    commonTimeSig = commonSignature(score.TimeSignature, timeSig_eql,parts, referenceMeasures)
+
+    scoreDef = None
+
+    if commonKeySig!=None or commonTimeSig!=None:
+        scoreDef = addChild(parent,"scoreDef")
+
+    if commonKeySig!=None:
+        fifths, mode, pname = attribsOf_keySig(commonKeySig)
+
+        setAttributes(scoreDef,("key.sig",fifths),("key.mode", mode),("key.pname",pname))
+
+    if commonTimeSig!=None:
+        setAttributes(scoreDef,("meter.count",commonTimeSig.beats),("meter.unit",commonTimeSig.beat_type))
+
+    return scoreDef
+
+def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure):
+    for part_i, part in enumerate(parts):
+        m = measures[part_i][measure_i]
+
+        if m=="pad":
+            for s in staves_perPart[part_i]:
+                autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
+
+            continue
+
+
+
+        def cls_withinMeasure(part, cls, measure, incl_subcls=False):
+            return part.iter_all(cls, measure.start, measure.end, include_subclasses=incl_subcls)
+
+        def cls_withinMeasure_list(part, cls, measure, incl_subcls=False):
+            return list(cls_withinMeasure(part,cls,measure,incl_subcls))
+
+        clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, cls_withinMeasure(part, score.Clef, m),"number")
+        keySigs_withinMeasure = cls_withinMeasure_list(part,score.KeySignature, m)
+        timeSigs_withinMeasure = cls_withinMeasure_list(part, score.TimeSignature, m)
+        slurs_withinMeasure.extend(cls_withinMeasure(part, score.Slur, m))
+        tuplets_withinMeasure = cls_withinMeasure_list(part, score.Tuplet, m)
+
+        beat_map = part.beat_map
+
+        for w in cls_withinMeasure(part, score.Words, m):
+            tstamp=beat_map(w.start.t)-beat_map(m.start.t)+1
+            dirs_withinMeasure.append((tstamp,w))
+
+
+        notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, cls_withinMeasure(part,score.GenericNote, m, True), "staff")
+
+        for s in staves_perPart[part_i]:
+            keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
+            timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
+            tuplets_withinMeasure_perStaff[s]=tuplets_withinMeasure
+
+            if s not in notes_withinMeasure_perStaff_perPart.keys():
+                autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
+
+        for s in notes_withinMeasure_perStaff_perPart.keys():
+            extendKey(notes_withinMeasure_perStaff, s, notes_withinMeasure_perStaff_perPart[s])
+            measure_perStaff[s]=m
+
+        for s in clefs_withinMeasure_perStaff_perPart.keys():
+            clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
+
+        return autoRestCount
+
+def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure):
+    measure=addChild(section,"measure")
+    setAttributes(measure,("n",measure_i+1))
+
+    for s in staves_sorted:
+        staff=addChild(measure,"staff")
+
+        setAttributes(staff,("n",s))
+
+        notes_withinMeasure_perStaff_perVoice = partition_handleNone(lambda n:n.voice, notes_withinMeasure_perStaff[s], "voice")
+
+        ties_perStaff_perVoice={}
+
+        m = measure_perStaff[s]
+        tuplets = tuplets_withinMeasure_perStaff[s]
+
+        for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
+            layer=addChild(staff,"layer")
+
+            setAttributes(layer,("n",voice))
+
+            ties={}
+
+
+
+            notes_partition=partition_handleNone(lambda n:n.start.t, notes, "start.t")
+
+            chords = []
+
+
+
+            for t in sorted(notes_partition.keys()):
+                ns = notes_partition[t]
+
+                if len(ns)>1:
+                    type_partition = partition_handleNone(lambda n: isinstance(n,score.GraceNote),ns,"isGraceNote")
+
+                    if True in type_partition.keys():
+                        gns = type_partition[True]
+
+                        gn_chords=[]
+
+                        def scanBackwards(gns):
+                            start = gns[0]
+
+                            while isinstance(start.grace_prev, score.GraceNote):
+                                start = start.grace_prev
+
+                            return start
+
+                        start = scanBackwards(gns)
+
+                        def processGraceNote(n, gns):
+                            assert n in gns, "Error at forward scan of GraceNotes: a grace_next has either different staff, voice or starting time than GraceNote chain"
+                            gns.remove(n)
+                            return n.grace_next
+
+                        while isinstance(start, score.GraceNote):
+                            gn_chords.append([start])
+                            start = processGraceNote(start, gns)
+
+                        while len(gns)>0:
+                            start = scanBackwards(gns)
+
+                            i=0
+                            while isinstance(start, score.GraceNote):
+                                assert i<len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
+                                gn_chords[i].append(start)
+                                start = processGraceNote(start, gns)
+                                i+=1
+
+                            assert i==len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
+
+                        for gnc in gn_chords:
+                            chords.append(gnc)
+
+                    assert False in type_partition.keys(), "ERROR at ChordNotes-grouping: GraceNotes detected without additional regular Notes at same time"
+                    regNotes =type_partition[False]
+                    rep = regNotes[0]
+
+                    for i in range(1,len(regNotes)):
+                        n = regNotes[i]
+                        if n.duration!=rep.duration:
+                            errorPrint("In staff "+str(s)+",",
+                            "in measure "+str(m.number)+",",
+                            "for voice "+str(voice)+",",
+                            "2 notes start at time "+str(n.start.t)+",",
+                            "but have different durations, namely "+n.id+" has duration "+str(n.duration)+" and "+rep.id+" has duration "+str(rep.duration),
+                            "change to same duration for a chord or change voice of one of the notes for something else")
+                        elif rep.beam!=n.beam:
+                            print("WARNING: notes within chords don't share the same beam",
+                            "specifically note "+str(rep)+" has beam "+str(rep.beam),
+                            "and note "+str(n)+" has beam "+str(n.beam),
+                            "export still continues though")
+                        elif set(rep.tuplet_starts)!=set(n.tuplet_starts) and set(rep.tuplet_stops)!=set(n.tuplet_stops):
+                            print("WARNING: notes within chords don't share same tuplets, export still continues though")
+                    chords.append(regNotes)
+                else:
+                    chords.append(ns)
+
+            def addChordIdx(tuplet_list, tuplet, chords):
+                for ci,c in enumerate(chords):
+                    for n in c:
+                        if tuplet in n.tuplet_starts:
+                            tuplet_start.append(ci)
+                            break
+
+            tupletIndices = []
+            for tuplet in tuplets:
+                ci = 0
+                start = -1
+                stop = -1
+                while ci<len(chords):
+                    for n in chords[ci]:
+                        if tuplet in n.tuplet_starts:
+                            start=ci
+                            break
+                    for n in chords[ci]:
+                        if tuplet in n.tuplet_stops:
+                            stop=ci
+                            break
+
+                    if start>=0 and stop>=0:
+                        assert start<=stop, "Tuplet stops before it starts?"
+                        tupletIndices.append((start,stop))
+                        break
+
+                    ci+=1
+
+
+
+            parents = [layer]
+            openBeam = False
+
+            next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0],m, calcNumToNumbaseRatio(0, chords, tupletIndices))
+
+
+
+
+            inbetweenNotesElements = [
+                InbetweenNotesElement("clef", ["shape","line","dis","dis.place"], attribsOf_Clef, clefs_withinMeasure_perStaff, s, int(measure_i==0)),
+                InbetweenNotesElement("keySig", ["sig","mode","pname","sig.showchange"], (lambda ks: attribsOf_keySig(ks)+("true",)), keySigs_withinMeasure_perStaff, s, int(scoreDef!=None)),
+                InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSigs_withinMeasure_perStaff, s, int(scoreDef!=None))
+            ]
+
+            openTuplet = False
+
+            for chord_i in range(len(chords)-1):
+                dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
+                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, next_dur_dots)
+                next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
+
+            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet)
+
+
+
+
+            ties_perStaff_perVoice[voice]=ties
+
+        ties_perStaff[s]=ties_perStaff_perVoice
+
+    for slur in slurs_withinMeasure:
+        s = addChild(measure,"slur")
+        setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
+
+    for tstamp,word in dirs_withinMeasure:
+        d = addChild(measure, "dir")
+        setAttributes(d,("staff",word.staff),("tstamp",tstamp))
+        d.text = word.text
+
+    for s,tps in ties_perStaff.items():
+
+        for v,tpspv in tps.items():
+
+            for ties in tpspv.values():
+
+                for i in range(len(ties)-1):
+                    tie = addChild(measure, "tie")
+
+                    setAttributes(tie, ("staff",s), ("startid","#"+ties[i]), ("endid","#"+ties[i+1]))
+
+    return tuplet_idCounter, notes_nextMeasure_perStaff
+
 # parts is either a Part, a PartGroup or a list of Parts
 
 def exportToMEI(parts, autoBeaming=True):
@@ -548,7 +803,7 @@ def exportToMEI(parts, autoBeaming=True):
     mdiv=addChild(body,"mdiv")
     mei_score=addChild(mdiv,"score")
 
-    scoreDef = addChild(mei_score,"scoreDef")
+
 
 
 
@@ -587,29 +842,20 @@ def exportToMEI(parts, autoBeaming=True):
 
 
 
-    startingMeasures = verticalSlice(measures,0)
-    commonKeySig = commonSignature(score.KeySignature, lambda ks1, ks2: ks1.name==ks2.name and ks1.fifths==ks2.fifths, parts, startingMeasures)
-
-
-
-    commonTimeSig = commonSignature(score.TimeSignature, timeSig_eql,parts, startingMeasures)
 
 
 
 
+    scoreDef = createScoreDef(measures, 0, parts, mei_score)
 
-    if commonKeySig!=None:
-        fifths, mode, pname = attribsOf_keySig(commonKeySig)
-
-        setAttributes(scoreDef,("key.sig",fifths),("key.mode", mode),("key.pname",pname))
-
-    if commonTimeSig!=None:
-        setAttributes(scoreDef,("meter.count",commonTimeSig.beats),("meter.unit",commonTimeSig.beat_type))
-
-    section = addChild(mei_score,"section")
-
-    # might want to count staff numbers during processing and update staffGrp if count isn't consistent with clefs
-    staffGrp = addChild(scoreDef,"staffGrp")
+    if scoreDef==None:
+        scoreDef = addChild(mei_score,"scoreDef")
+        # might want to count staff numbers during processing and update staffGrp if count isn't consistent with clefs
+        staffGrp = addChild(scoreDef,"staffGrp")
+        scoreDef = None
+    else:
+        # might want to count staff numbers during processing and update staffGrp if count isn't consistent with clefs
+        staffGrp = addChild(scoreDef,"staffGrp")
 
 
 
@@ -650,6 +896,10 @@ def exportToMEI(parts, autoBeaming=True):
             for c in clefs.values():
                 create_staffDef_safe(staffGrp, c)
         staves_sorted.sort()
+
+    section = addChild(mei_score,"section")
+
+
 
     measuresAreAligned = True
     if paddingRequired:
@@ -722,12 +972,22 @@ def exportToMEI(parts, autoBeaming=True):
         notes_lastMeasure_perStaff = {}
         autoRestCount = 0
 
-        for measure_i,_ in enumerate(measures[0]):
-            measure=addChild(section,"measure")
-            setAttributes(measure,("n",measure_i+1))
+        notes_nextMeasure_perStaff={}
+        ties_perStaff = {}
+        notes_withinMeasure_perStaff = notes_lastMeasure_perStaff
+        clefs_withinMeasure_perStaff = {}
+        keySigs_withinMeasure_perStaff = {}
+        timeSigs_withinMeasure_perStaff = {}
+        measure_perStaff = {}
+        slurs_withinMeasure = []
+        dirs_withinMeasure=[]
+        tuplets_withinMeasure_perStaff = {}
 
+        autoRestCount=extractFromMeasures(parts, measures, 0, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure)
 
+        tupletId_counter, notes_lastMeasure_perStaff =createMeasure(section, 0, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure)
 
+        for measure_i in range(1,len(measures[0])):
             notes_nextMeasure_perStaff={}
             ties_perStaff = {}
             notes_withinMeasure_perStaff = notes_lastMeasure_perStaff
@@ -739,237 +999,12 @@ def exportToMEI(parts, autoBeaming=True):
             dirs_withinMeasure=[]
             tuplets_withinMeasure_perStaff = {}
 
-            for part_i, part in enumerate(parts):
-                m = measures[part_i][measure_i]
+            autoRestCount=extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure)
 
-                if m=="pad":
-                    for s in staves_perPart[part_i]:
-                        autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
+            scoreDef=createScoreDef(measures, measure_i, parts, section)
 
-                    continue
+            tupletId_counter, notes_lastMeasure_perStaff = createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure)
 
-
-
-                def cls_withinMeasure(part, cls, measure, incl_subcls=False):
-                    return part.iter_all(cls, measure.start, measure.end, include_subclasses=incl_subcls)
-
-                def cls_withinMeasure_list(part, cls, measure, incl_subcls=False):
-                    return list(cls_withinMeasure(part,cls,measure,incl_subcls))
-
-                clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, cls_withinMeasure(part, score.Clef, m),"number")
-                keySigs_withinMeasure = cls_withinMeasure_list(part,score.KeySignature, m)
-                timeSigs_withinMeasure = cls_withinMeasure_list(part, score.TimeSignature, m)
-                slurs_withinMeasure.extend(cls_withinMeasure(part, score.Slur, m))
-                tuplets_withinMeasure = cls_withinMeasure_list(part, score.Tuplet, m)
-
-                beat_map = part.beat_map
-
-                for w in cls_withinMeasure(part, score.Words, m):
-                    tstamp=beat_map(w.start.t)-beat_map(m.start.t)+1
-                    dirs_withinMeasure.append((tstamp,w))
-
-
-                notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, cls_withinMeasure(part,score.GenericNote, m, True), "staff")
-
-                for s in staves_perPart[part_i]:
-                    keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
-                    timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
-                    tuplets_withinMeasure_perStaff[s]=tuplets_withinMeasure
-
-                    if s not in notes_withinMeasure_perStaff_perPart.keys():
-                        autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
-
-                for s in notes_withinMeasure_perStaff_perPart.keys():
-                    extendKey(notes_withinMeasure_perStaff, s, notes_withinMeasure_perStaff_perPart[s])
-                    measure_perStaff[s]=m
-
-                for s in clefs_withinMeasure_perStaff_perPart.keys():
-                    clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
-
-            for s in staves_sorted:
-                staff=addChild(measure,"staff")
-
-                setAttributes(staff,("n",s))
-
-                notes_withinMeasure_perStaff_perVoice = partition_handleNone(lambda n:n.voice, notes_withinMeasure_perStaff[s], "voice")
-
-                ties_perStaff_perVoice={}
-
-                m = measure_perStaff[s]
-                tuplets = tuplets_withinMeasure_perStaff[s]
-
-                for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
-                    layer=addChild(staff,"layer")
-
-                    setAttributes(layer,("n",voice))
-
-                    ties={}
-
-
-
-                    notes_partition=partition_handleNone(lambda n:n.start.t, notes, "start.t")
-
-                    chords = []
-
-
-
-                    for t in sorted(notes_partition.keys()):
-                        ns = notes_partition[t]
-
-                        if len(ns)>1:
-                            type_partition = partition_handleNone(lambda n: isinstance(n,score.GraceNote),ns,"isGraceNote")
-
-                            if True in type_partition.keys():
-                                gns = type_partition[True]
-
-                                gn_chords=[]
-
-                                def scanBackwards(gns):
-                                    start = gns[0]
-
-                                    while isinstance(start.grace_prev, score.GraceNote):
-                                        start = start.grace_prev
-
-                                    return start
-
-                                start = scanBackwards(gns)
-
-                                def processGraceNote(n, gns):
-                                    assert n in gns, "Error at forward scan of GraceNotes: a grace_next has either different staff, voice or starting time than GraceNote chain"
-                                    gns.remove(n)
-                                    return n.grace_next
-
-                                while isinstance(start, score.GraceNote):
-                                    gn_chords.append([start])
-                                    start = processGraceNote(start, gns)
-
-                                while len(gns)>0:
-                                    start = scanBackwards(gns)
-
-                                    i=0
-                                    while isinstance(start, score.GraceNote):
-                                        assert i<len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
-                                        gn_chords[i].append(start)
-                                        start = processGraceNote(start, gns)
-                                        i+=1
-
-                                    assert i==len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
-
-                                for gnc in gn_chords:
-                                    chords.append(gnc)
-
-                            assert False in type_partition.keys(), "ERROR at ChordNotes-grouping: GraceNotes detected without additional regular Notes at same time"
-                            regNotes =type_partition[False]
-                            rep = regNotes[0]
-
-                            for i in range(1,len(regNotes)):
-                                n = regNotes[i]
-                                if n.duration!=rep.duration:
-                                    errorPrint("In staff "+str(s)+",",
-                                    "in measure "+str(m.number)+",",
-                                    "for voice "+str(voice)+",",
-                                    "2 notes start at time "+str(n.start.t)+",",
-                                    "but have different durations, namely "+n.id+" has duration "+str(n.duration)+" and "+rep.id+" has duration "+str(rep.duration),
-                                    "change to same duration for a chord or change voice of one of the notes for something else")
-                                elif rep.beam!=n.beam:
-                                    print("WARNING: notes within chords don't share the same beam",
-                                    "specifically note "+str(rep)+" has beam "+str(rep.beam),
-                                    "and note "+str(n)+" has beam "+str(n.beam),
-                                    "export still continues though")
-                                elif set(rep.tuplet_starts)!=set(n.tuplet_starts) and set(rep.tuplet_stops)!=set(n.tuplet_stops):
-                                    print("WARNING: notes within chords don't share same tuplets, export still continues though")
-                            chords.append(regNotes)
-                        else:
-                            chords.append(ns)
-
-                    def addChordIdx(tuplet_list, tuplet, chords):
-                        for ci,c in enumerate(chords):
-                            for n in c:
-                                if tuplet in n.tuplet_starts:
-                                    tuplet_start.append(ci)
-                                    break
-
-                    tupletIndices = []
-                    for tuplet in tuplets:
-                        ci = 0
-                        start = -1
-                        stop = -1
-                        while ci<len(chords):
-                            for n in chords[ci]:
-                                if tuplet in n.tuplet_starts:
-                                    start=ci
-                                    break
-                            for n in chords[ci]:
-                                if tuplet in n.tuplet_stops:
-                                    stop=ci
-                                    break
-
-                            if start>=0 and stop>=0:
-                                assert start<=stop, "Tuplet stops before it starts?"
-                                tupletIndices.append((start,stop))
-                                break
-
-                            ci+=1
-
-
-
-                    parents = [layer]
-                    openBeam = False
-
-                    next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chords[0][0],m, calcNumToNumbaseRatio(0, chords, tupletIndices))
-
-
-
-
-                    inbetweenNotesElements = [
-                        InbetweenNotesElement("clef", ["shape","line","dis","dis.place"], attribsOf_Clef, clefs_withinMeasure_perStaff, s, measure_i,1),
-                        InbetweenNotesElement("keySig", ["sig","mode","pname","sig.showchange"], (lambda ks: attribsOf_keySig(ks)+("true",)), keySigs_withinMeasure_perStaff, s, measure_i, int(commonKeySig!=None)),
-                        InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSigs_withinMeasure_perStaff, s, measure_i, int(commonTimeSig!=None))
-                    ]
-
-                    openTuplet = False
-
-                    for chord_i in range(len(chords)-1):
-                        dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
-                        tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, next_dur_dots)
-                        next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
-
-                    tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet)
-
-
-
-
-                    ties_perStaff_perVoice[voice]=ties
-
-                ties_perStaff[s]=ties_perStaff_perVoice
-
-
-
-            notes_lastMeasure_perStaff = notes_nextMeasure_perStaff
-
-            for slur in slurs_withinMeasure:
-                s = addChild(measure,"slur")
-                setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
-
-            for tstamp,word in dirs_withinMeasure:
-                d = addChild(measure, "dir")
-                setAttributes(d,("staff",word.staff),("tstamp",tstamp))
-                d.text = word.text
-
-    #         for word in perPartIter(parts, score.Words, m.start, m.end):
-    #             w = addChild(measure,"dir")
-    #             setAttributes(w, ("staff",w.staff), ("tstamp",))
-
-            for s,tps in ties_perStaff.items():
-
-                for v,tpspv in tps.items():
-
-                    for ties in tpspv.values():
-
-                        for i in range(len(ties)-1):
-                            tie = addChild(measure, "tie")
-
-                            setAttributes(tie, ("staff",s), ("startid","#"+ties[i]), ("endid","#"+ties[i+1]))
 
 
 
