@@ -361,16 +361,16 @@ class NakamuraCorrespFile(object):
         result = []
         for l in self.iter_notes():
             if l.id0 == "*":
-                result.append(dict(label='omission',
-                                performance_id=l.id0,
+                result.append(dict(label='deletion',
+                                   performance_id=l.id0,
                                 score_id=l.id1))
             elif l.id1 == "*":
                 result.append(dict(label='insertion',
-                                performance_id=l.id0,
+                                performance_id=int(l.id0),
                                 score_id=l.id1))
             else:
                 result.append(dict(label='match',
-                                performance_id=l.id0,
+                                performance_id=int(l.id0),
                                 score_id=l.id1))
         return result
 
@@ -404,19 +404,6 @@ def load_nakamuracorresp(fn, pedal_threshold=64, first_note_at_zero=False):
     array_performance, array_score = cf.note_arrays
     alignment = cf.alignment
     return array_performance, array_score, alignment
-
-
-from partitura.utils import match_note_arrays
-
-def align_corresp_pipeline(corresp_file, performance_midi, score_midi, al):
-
-    match_note_arrays(input_note_array, target_note_array,
-                      array_type='performance', epsilon=0.01,
-                      first_note_at_zero=False,
-                      check_duration=True):
-
-    return
-
 
 
 
@@ -465,3 +452,115 @@ def match_by_pitch_and_position(dicts_0, dicts_1,
         alignment.append(dict)
 
     return alignment
+
+
+
+
+
+if __name__ == '__main__':
+
+    from partitura.utils import match_note_arrays
+    from partitura.io.importmusicxml import load_musicxml
+    from partitura.io.importmidi import load_performance_midi
+    from partitura.io.exportmatch import matchfile_from_alignment
+    
+    def alignment_from_corresp_pipeline(corresp_file, 
+                                        performance_midi, 
+                                        score_midi, 
+                                        musicxml):
+        """
+        this function aligns a performance midi and a musicxml via a 
+        given score midi and a nakamura corresp file.
+        """
+        
+        part_musicxml = load_musicxml(musicxml, force_note_ids=True)
+        score_xml_note_array = part_musicxml.note_array
+        # subtract anacrusis to start from zero
+        score_xml_note_array["onset"] -= score_xml_note_array["onset"][0] 
+        
+        ppart_midi_quart = load_performance_midi(score_midi, merge_tracks=True, time_in_quarter=True)
+        score_midi_note_array = ppart_midi_quart.note_array
+        
+        ppart_midi_sec = load_performance_midi(score_midi, merge_tracks=True)
+        perf_midi_note_array = ppart_midi_sec.note_array
+        
+        ppartp_midi = load_performance_midi(performance_midi, merge_tracks=True)
+        
+        array_performance, array_score, alignment = load_nakamuracorresp(corresp_file)
+        
+        print("part in quarters from xml, last onset in quarters: ", score_xml_note_array["onset"].max(), len(score_xml_note_array))
+        print("ppart in quarters from score midi, last onset in quarters: ", score_midi_note_array["p_onset"].max(), len(score_midi_note_array))
+        print("ppart in seconds from score midi, last onset in seconds: ", perf_midi_note_array["p_onset"].max(), len(perf_midi_note_array))
+        print("ppart performance from midi")
+        print("note arrays and alignment from nakamura corresp, last (score) onset in seconds: ", array_score["onset"].max(), len(array_score))
+        
+        # original_fields = [('id', '<U256'), ('pitch', '<i4'), ('p_onset', '<f4'), ('p_duration', '<f4'), ('velocity', '<i4')]
+        new_fields = [('id', '<U256'), ('pitch', '<i4'), ('onset', '<f4'), ('duration', '<f4'), ('velocity', '<i4')]
+        
+        score_midi_note_array.dtype = new_fields
+        perf_midi_note_array.dtype = new_fields
+        
+        match_quarter, match_quarter_note = match_note_arrays(score_xml_note_array, score_midi_note_array,
+                          array_type='score', epsilon=0.01,
+                          first_note_at_zero=True,
+                          check_duration=False,
+                          return_note_idxs=True)
+        # a small epsilon gives good results but misses all the acciaccaturas and broken chords, etc
+        # take the missed notes and do it again, more generously:
+        keys_not_matched_xml =[i for i in range(len(score_xml_note_array)) if i not in match_quarter[:,0]]
+        keys_not_matched_midi =[i for i in range(len(score_midi_note_array)) if i not in match_quarter[:,1]]
+
+        
+        match_quarter_grace, match_quarter_grace_note = match_note_arrays(score_xml_note_array[keys_not_matched_xml], 
+                                                score_midi_note_array[keys_not_matched_midi],
+                          array_type='score', epsilon=0.5,
+                          first_note_at_zero=True,
+                          check_duration=False,
+                          return_note_idxs=True)
+        
+        
+        match_quarter_note = np.concatenate((match_quarter_note, match_quarter_grace_note), axis=0)
+        
+        # match the midis 
+        match_sec, match_sec_note = match_note_arrays(array_score, perf_midi_note_array,
+                          array_type='score', epsilon=0.05,
+                          first_note_at_zero=True,
+                          check_duration=False,
+                          return_note_idxs=True)    
+        
+
+        for note in alignment:
+            name_in_score_corresp = note['score_id']
+            # find this name in the corresp midi match 
+            pos_in_midi_match, = np.where(match_sec_note[:,0]==name_in_score_corresp)
+            # extract the midi note name 
+            if len(pos_in_midi_match) > 0:
+                name_in_score_midi = match_sec_note[pos_in_midi_match[0],1]
+                # find this name in the xml midi match
+                pos_in_score_match, = np.where(match_quarter_note[:,1]==name_in_score_midi)
+                # insert the xml name in the alignment
+                if len(pos_in_score_match) > 0:
+                    note['score_id'] = match_quarter_note[pos_in_score_match[0],0]
+    
+        return alignment, ppartp_midi, part_musicxml
+
+    test_corresp = "/home/crow/repos/piano_performance_data/test/nakamura_ex/KimG01_infer_corresp.txt"
+    test_smidi = "/home/crow/repos/piano_performance_data/test/nakamura_ex/midi_cleaned.mid"
+    test_pmidi = "/home/crow/repos/piano_performance_data/test/nakamura_ex/KimG01.MID"
+    test_xml = "/home/crow/repos/piano_performance_data/test/nakamura_ex/musicxml_cleaned.musicxml"
+    test_match_OUT = "/home/crow/repos/piano_performance_data/test/nakamura_ex/TEST.match"
+    
+            
+    a, b, c = alignment_from_corresp_pipeline(corresp_file = test_corresp, 
+                                                       performance_midi = test_pmidi, 
+                                                       score_midi = test_smidi, 
+                                                       musicxml = test_xml)
+    
+    d = matchfile_from_alignment(a, b, c)
+    d.write(test_match_OUT)
+
+
+
+
+
+

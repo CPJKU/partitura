@@ -197,12 +197,10 @@ class Part(object):
             if ts:
 
                 normal_dur = ts.beats
-                print(x, y, normal_dur, ts.beat_type)
                 if quarter:
                     normal_dur *=  4 / ts.beat_type
                 if actual_dur < normal_dur:
                     y -= actual_dur
-                print(x, y, actual_dur, normal_dur)
             else:
                 # warn
                 pass

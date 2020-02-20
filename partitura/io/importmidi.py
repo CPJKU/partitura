@@ -25,7 +25,7 @@ def note_hash(channel, pitch):
     return channel * 128 + pitch
 
 
-def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
+def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quarter=False):
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -61,9 +61,11 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     notes = []
     controls = []
     if merge_tracks:
-        mid= mido.merge_tracks(mid.tracks)
-        
-    for i, track in enumerate(mid.tracks):
+        mid_merge= mido.merge_tracks(mid.tracks)
+        tracks = [(0, mid_merge)]
+    else:
+        tracks = [(i,u) for i, u in enumerate(mid.tracks)]
+    for i, track in tracks:
 
         
         t = 0
@@ -116,14 +118,25 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                         continue
                     
                     # append the note to the list associated with the channel
-                    notes.append(dict(
-                        id=len(notes),
-                        midi_pitch=msg.note,
-                        note_on=(mpq*(sounding_notes[note][0]/ppq))/10**6,
-                        note_off=(mpq*(t/ppq))/10**6,
-                        track=i,
-                        channel=msg.channel,
-                        velocity=sounding_notes[note][1]))
+                    if time_in_quarter:
+                         notes.append(dict(
+                            id=len(notes),
+                            midi_pitch=msg.note,
+                            note_on=(sounding_notes[note][0]/ppq),
+                            note_off=(t/ppq),
+                            track=i,
+                            channel=msg.channel,
+                            velocity=sounding_notes[note][1]))
+                    
+                    else:
+                        notes.append(dict(
+                            id=len(notes),
+                            midi_pitch=msg.note,
+                            note_on=(mpq*(sounding_notes[note][0]/ppq))/10**6,
+                            note_off=(mpq*(t/ppq))/10**6,
+                            track=i,
+                            channel=msg.channel,
+                            velocity=sounding_notes[note][1]))
 
                     # remove hash from dict
                     del sounding_notes[note]

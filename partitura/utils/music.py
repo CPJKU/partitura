@@ -784,7 +784,8 @@ def pianoroll_to_notearray(pianoroll, time_div=8):
 def match_note_arrays(input_note_array, target_note_array,
                       array_type='performance', epsilon=0.01,
                       first_note_at_zero=False,
-                      check_duration=True):
+                      check_duration=True,
+                      return_note_idxs=False):
     """
     Get indices of the notes from an input note array corresponding to
     a reference note array.
@@ -862,8 +863,12 @@ def match_note_arrays(input_note_array, target_note_array,
                 matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
 
     matched_idxs = np.array(matched_idxs)
-
-    return matched_idxs
+    if return_note_idxs:
+        matched_note_idxs = np.array([input_note_array["id"][matched_idxs[:,0]],
+                                target_note_array["id"][matched_idxs[:,1]]]).T
+        return matched_idxs, matched_note_idxs
+    else:
+        return matched_idxs
 
 
 

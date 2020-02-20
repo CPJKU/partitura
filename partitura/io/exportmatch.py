@@ -132,19 +132,19 @@ def matchfile_from_alignment(alignment, ppart, spart,
 
         # Get all notes in the measure (bar is the terminology
         # used in the definition of MatchFiles)
-        snotes = spart.iter_all(score.Note, m.start, m.end)
+        snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
         bar_start = float(spart.beat_map(m.start.t))
-
         for n in snotes:
             # Get note information
             # TODO: preserve symbolic durations?
             bar = int(m.number)
-            onset, duration = spart.beat_map([n.start.t, n.duration_tied])
+            onset, offset = spart.beat_map([n.start.t, n.start.t+n.duration_tied])
+            duration = offset-onset
             beat = (onset - bar_start) // 1
             moffset = onset - bar_start - beat
             offset = onset + duration
-
+            #print("DURATION", duration, n.duration_tied)
             score_info[n.id] = MatchSnote(
                 Anchor=n.id,
                 NoteName=n.step,
@@ -156,7 +156,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
                 Duration=float(duration),
                 OnsetInBeats=float(onset),
                 OffsetInBeats=float(offset))
-
+    
     # Create MatchNotes from performance informaton
     perf_info = dict()
     for pn in ppart.notes:
@@ -164,7 +164,6 @@ def matchfile_from_alignment(alignment, ppart, spart,
         onset = seconds_to_midi_ticks(pn['note_on'], mpq=mpq, ppq=ppq)
         offset = seconds_to_midi_ticks(pn['note_off'], mpq=mpq, ppq=ppq)
         adjoffset = seconds_to_midi_ticks(pn['sound_off'], mpq=mpq, ppq=ppq)
-
         perf_info[pn['id']] = MatchNote(Number=pn['id'],
                                         NoteName=note_name,
                                         Modifier=modifier,
@@ -186,6 +185,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
             # quirk from Magaloff/Zeilinger
             al_note['score_id'] = al_note['score_id'].split('-')[0]
             snote = score_info[al_note['score_id']]
+            
             pnote = perf_info[al_note['performance_id']]
             snote_note_line = MatchSnoteNote(snote=snote, note=pnote)
             note_lines.append(snote_note_line)
