@@ -140,6 +140,9 @@ class Part(object):
                 tN = self.last_point.t
             tss = np.array([(t0, beats, beat_type),
                             (tN, beats, beat_type)])
+        elif len(tss) == 1:
+            # If there is only a single time signature
+            return lambda x: np.array([tss[0, 1], tss[0, 2]])
         elif tss[0, 0] > self.first_point.t:
             tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
                              tss))
