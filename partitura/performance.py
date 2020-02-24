@@ -164,6 +164,8 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
                       if x['type'] == 'sustain_pedal'])
 
     if len(pedal) == 0:
+        for note in notes:
+            note["sound_off"] = note["note_off"]
         return
 
     # sort, just in case
