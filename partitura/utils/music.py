@@ -844,6 +844,7 @@ def match_note_arrays(input_note_array, target_note_array,
         t_duration = target_note_array[duration_key][t_sort_idx]
 
     matched_idxs = []
+    matched_note_idxs = []
     
     for t, (i, o, p) in enumerate(zip(t_sort_idx, t_onsets, t_pitch)):
         # candidate onset idxs (between o - epsilon and o + epsilon)
@@ -863,9 +864,16 @@ def match_note_arrays(input_note_array, target_note_array,
                 matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
 
     matched_idxs = np.array(matched_idxs)
+    matched_note_idxs = np.array(matched_note_idxs)
+    print("LENGTH OF MATCHED IDXS: ", len(matched_idxs), 
+          "LENGTH OF INPUT: ", len(input_note_array), 
+          "LENGTH OF TARGET: ", len(target_note_array))
+    
+    
     if return_note_idxs:
-        matched_note_idxs = np.array([input_note_array["id"][matched_idxs[:,0]],
-                                target_note_array["id"][matched_idxs[:,1]]]).T
+        if len(matched_idxs) > 0:
+            matched_note_idxs = np.array([input_note_array["id"][matched_idxs[:,0]],
+                                    target_note_array["id"][matched_idxs[:,1]]]).T
         return matched_idxs, matched_note_idxs
     else:
         return matched_idxs
