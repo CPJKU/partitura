@@ -17,10 +17,7 @@ def extendKey(dictOfLists, key, value):
         else:
             dictOfLists[key].append(value)
     else:
-        if isinstance(value, list):
-            dictOfLists[key]=value
-        else:
-            dictOfLists[key]=[value]
+        dictOfLists[key] = (value if isinstance(value, list) else [value])
 
 
 
@@ -118,16 +115,16 @@ def partition_handleNone(func, iter, partitionAttrib):
 
 
     if None in p.keys():
-        #errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
+        errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
 
-        # for testing purposes, introduce phantom staff, however, return to error when done testing
-        newKey = 1
-
-        for k in p.keys():
-            if k!=None and k>newKey:
-                newKey=k
-        p[newKey]=p[None]
-        del p[None]
+#         # for testing purposes, introduce phantom staff, however, return to error when done testing
+#         newKey = 1
+#
+#         for k in p.keys():
+#             if k!=None and k>newKey:
+#                 newKey=k
+#         p[newKey]=p[None]
+#         del p[None]
 
     return p
 
@@ -340,7 +337,7 @@ def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
 
     return 1
 
-def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, next_dur_dots=None):
+def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, lastKeySig, next_dur_dots=None):
     chordNotes = chords[chord_i]
     rep = chordNotes[0]
 
@@ -352,6 +349,9 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
             xmlElem = addChild(parents[-1], ine.name)
             attribVals = ine.attribValsOf(ine.elem)
+
+            if ine.name=="keySig":
+                lastKeySig = ine.elem
 
             assert len(ine.attribNames)>=len(attribVals), "ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name
 
@@ -410,6 +410,30 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                 if rep.steal_proportion != None:
                     setAttributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
 
+        def createNote(parent, n, id, lastKeySig):
+            note=addChild(parent,"note")
+
+            if n.alter!=None and abs(n.alter)>1:
+                print(n.alter, n)
+
+            step = n.step.lower()
+            setAttributes(note,(xmlIdString,id),("pname",step),("oct",n.octave))
+
+            sharps=['f','c','g','d','a','e','b']
+            flats=list(reversed(sharps))
+
+            if n.alter!=None:
+                if n.alter==0 and (lastKeySig.fifths>0 and step in sharps[:lastKeySig.fifths] or lastKeySig.fifths<0 and step in flats[:-lastKeySig.fifths]):
+                    setAttributes(note, ("accid","n"))
+                elif n.alter>0 and (lastKeySig.fifths<0 or lastKeySig.fifths>=0 and not step in sharps[:lastKeySig.fifths]):
+                    setAttributes(note, ("accid","s"))
+                elif n.alter<0 and (lastKeySig.fifths>0 or lastKeySig.fifths<=0 and not step in flats[:-lastKeySig.fifths]):
+                    setAttributes(note, ("accid","f"))
+            elif lastKeySig.fifths>0 and step in sharps[:lastKeySig.fifths] or lastKeySig.fifths<0 and step in flats[:-lastKeySig.fifths]:
+                setAttributes(note, ("accid","n"))
+
+            return note
+
         if len(chordNotes)>1:
             chord = addChild(parents[-1],"chord")
             setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
@@ -417,11 +441,12 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             conditional_gracify(chord, rep)
 
             for n in chordNotes:
-                note=addChild(chord,"note")
-                setAttributes(note,(xmlIdString,n.id),("pname",n.step.lower()),("oct",n.octave))
+                createNote(chord, n, n.id, lastKeySig)
+
+
         else:
-            note=addChild(parents[-1],"note")
-            setAttributes(note,(xmlIdString,rep.id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
+            note=createNote(parents[-1], rep, rep.id, lastKeySig)
+            setAttributes(note,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
             conditional_gracify(note,rep)
 
@@ -435,21 +460,18 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                     setAttributes(chord,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
                     for n in chordNotes:
-                        note=addChild(chord,"note")
-
                         id = n.id+"-"+str(i)
 
                         ties[n.id].append(id)
-
-                        setAttributes(note,(xmlIdString,id),("pname",n.step.lower()),("oct",n.octave))
+                        createNote(chord, n, id, lastKeySig)
                 else:
-                    note=addChild(parents[-1],"note")
-
                     id = rep.id+"-"+str(i)
 
                     ties[rep.id].append(id)
 
-                    setAttributes(note,(xmlIdString,id),("pname",rep.step.lower()),("oct",rep.octave),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+                    note=createNote(parents[-1], rep, id, lastKeySig)
+
+                    setAttributes(note,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
             for i in range(1,len(dur_dots)-1):
                 if not openBeam and dur_dots[i][0]>=8:
@@ -495,13 +517,12 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
             setAttributes(rest,(xmlIdString,rep.id),("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-            if len(dur_dots)>1:
-                for i in range(1,len(dur_dots)):
-                    rest=addChild(layer,"rest")
+            for i in range(1,len(dur_dots)):
+                rest=addChild(layer,"rest")
 
-                    id = rep.id+str(i)
+                id = rep.id+str(i)
 
-                    setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
+                setAttributes(rest,(xmlIdString,id),("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
     if splitNotes!=None:
         for sn in splitNotes:
@@ -509,10 +530,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             sn.start = measure.end
             sn.end = score.TimePoint(rep.start.t+rep.duration)
 
-            if s in notes_nextMeasure_perStaff.keys():
-                notes_nextMeasure_perStaff[s].append(sn)
-            else:
-                notes_nextMeasure_perStaff[s]=[sn]
+            extendKey(notes_nextMeasure_perStaff, s, sn)
 
     return tuplet_idCounter, openBeam, openTuplet
 
@@ -589,7 +607,7 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
 
         return autoRestCount
 
-def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure):
+def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff):
     measure=addChild(section,"measure")
     setAttributes(measure,("n",measure_i+1))
 
@@ -603,7 +621,12 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
         ties_perStaff_perVoice={}
 
         m = measure_perStaff[s]
-        tuplets = tuplets_withinMeasure_perStaff[s]
+
+        tuplets=[]
+        if s in tuplets_withinMeasure_perStaff.keys():
+            tuplets = tuplets_withinMeasure_perStaff[s]
+
+        lastKeySig=lastKeySig_perStaff[s]
 
         for voice,notes in notes_withinMeasure_perStaff_perVoice.items():
             layer=addChild(staff,"layer")
@@ -736,12 +759,15 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
             openTuplet = False
 
+
+
             for chord_i in range(len(chords)-1):
                 dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
-                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, next_dur_dots)
+
+                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, lastKeySig, next_dur_dots)
                 next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
 
-            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet)
+            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet, lastKeySig)
 
 
 
@@ -770,13 +796,50 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
                     setAttributes(tie, ("staff",s), ("startid","#"+ties[i]), ("endid","#"+ties[i+1]))
 
+    for s,k in keySigs_withinMeasure_perStaff.items():
+        if len(k)>0:
+            lastKeySig_perStaff[s]=max(k,key=lambda k:k.start.t)
+
     return tuplet_idCounter, notes_nextMeasure_perStaff
+
+def unpackPartGroup(partGrp, parts=[]):
+    for c in partGrp.children:
+        if isinstance(c, score.PartGroup):
+            unpackPartGroup(c, parts)
+        else:
+            parts.append(c)
+
+    return parts
+
+
+
+def bij1(staves_perPart):
+    staves_total = []
+    max_staff = 0
+    for staves in staves_perPart:
+        for s in staves:
+            staves_total.append(s+max_staff)
+
+        max_staff+=(max(staves) if len(staves)>0 else 1)
+
+    return staves_total
+
+def bij2(staff, staves_perPart):
+    for i,s in enumerate(staves_perPart):
+        if staff in s:
+            return i, staff
+
+        staff-=(max(s) if len(s)>0 else 1)
+
+    return None, None
+
 
 # parts is either a Part, a PartGroup or a list of Parts
 
 def exportToMEI(parts, autoBeaming=True):
+    print("begin export")
     if isinstance(parts, score.PartGroup):
-        parts = parts.children
+        parts=unpackPartGroup(parts)
     elif isinstance(parts, score.Part):
         parts = [parts]
 
@@ -833,12 +896,6 @@ def exportToMEI(parts, autoBeaming=True):
 
         measures.append(m)
 
-    # for mp in measures:
-    #     print("|",end="")
-    #     for m in mp:
-    #         print(m.start.t,"-",m.end.t,"|",end="")
-    #     print("")
-
 
 
 
@@ -861,41 +918,36 @@ def exportToMEI(parts, autoBeaming=True):
 
     clefs_perPart=firstInstances_perPart(score.Clef, parts)
 
-    tuplet_idCounter = 0
+
 
     for i in idx(clefs_perPart):
         clefs_perPart[i] = partition_handleNone(lambda c:c.number, clefs_perPart[i], "number")
 
-    staves_sorted = [s for staves in staves_perPart for s in staves]
+    staves_sorted = bij1(staves_perPart)
     staves_sorted.sort()
-
-
 
     if len(clefs_perPart)==0 and len(staves_sorted)==0:
         create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=1, octave_change=0))
     else:
         for s in staves_sorted:
-            clefs = None
+            part_i,staff = bij2(s,staves_perPart)
 
-            for cs in clefs_perPart:
-                if s in cs.keys():
-                    clefs = cs
-                    break
-
-            if clefs!=None:
-                c = clefs[s]
+            if staff in clefs_perPart[part_i].keys():
+                clefs = clefs_perPart[part_i]
+                c = clefs[staff]
                 create_staffDef_safe(staffGrp, c)
 
-                del clefs[s]
+                del clefs[staff]
             else:
                 create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=s, octave_change=0))
 
         for i, clefs in enumerate(clefs_perPart):
             staves_perPart[i].extend(clefs.keys())
-            staves_sorted.extend(clefs.keys())
             for c in clefs.values():
                 create_staffDef_safe(staffGrp, c)
+        staves_sorted = bij1(staves_perPart)
         staves_sorted.sort()
+
 
     section = addChild(mei_score,"section")
 
@@ -956,6 +1008,8 @@ def exportToMEI(parts, autoBeaming=True):
                     measuresAreAligned=False
                     break
 
+    tuplet_idCounter = 0
+
     if measuresAreAligned:
         timeOffset = [0]*len(measures)
 
@@ -983,9 +1037,17 @@ def exportToMEI(parts, autoBeaming=True):
         dirs_withinMeasure=[]
         tuplets_withinMeasure_perStaff = {}
 
+        lastKeySig_perStaff = {}
+
         autoRestCount=extractFromMeasures(parts, measures, 0, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure)
 
-        tupletId_counter, notes_lastMeasure_perStaff =createMeasure(section, 0, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure)
+        for s,k in keySigs_withinMeasure_perStaff.items():
+            if len(k)>0:
+                lastKeySig_perStaff[s]=min(k,key=lambda k:k.start.t)
+
+        tuplet_idCounter, notes_lastMeasure_perStaff =createMeasure(section, 0, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff)
+
+
 
         for measure_i in range(1,len(measures[0])):
             notes_nextMeasure_perStaff={}
@@ -1003,7 +1065,8 @@ def exportToMEI(parts, autoBeaming=True):
 
             scoreDef=createScoreDef(measures, measure_i, parts, section)
 
-            tupletId_counter, notes_lastMeasure_perStaff = createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure)
+            tuplet_idCounter, notes_lastMeasure_perStaff = createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff)
+
 
 
 
@@ -1016,216 +1079,220 @@ def exportToMEI(parts, autoBeaming=True):
 
 
 
-
-# parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test")]
-#
-#
-# parts[0].set_quarter_duration(0,2)
-# parts[0].add(score.KeySignature(0,"major"),start=0)
-# parts[0].add(score.TimeSignature(4,4),start=0)
-# parts[0].add(score.Tempo(90),start=0)
-#
-# parts[1].add(score.KeySignature(0,"major"),start=0)
-# parts[1].set_quarter_duration(0,8)
-# parts[1].add(score.TimeSignature(3,4),start=0)
-# parts[1].add(score.Tempo(120),start=0)
-#
-# parts[2].set_quarter_duration(0,8)
-# parts[2].add(score.KeySignature(0,"major"),start=0)
-# parts[2].add(score.TimeSignature(4,4),start=0)
-# parts[2].add(score.Tempo(90),start=0)
-#
-# parts[0].add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
-# parts[1].add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
-# parts[2].add(score.Clef(sign="G",line=2, octave_change=1, number=3),start=0)
-#
-#
-#
-# parts[0].add(score.Note(id="n0s2",step="C",octave=4, staff=1, voice=1),start=0,end=5)
-# parts[0].add(score.Note(id="n2s2",step="G",octave=4, staff=1, voice=1),start=5,end=6)
-# parts[0].add(score.Note(id="n3s2",step="E",octave=4, staff=1, voice=1),start=6,end=7)
-# parts[0].add(score.Note(id="n4s2",step="F",octave=4, staff=1, voice=1),start=7,end=9)
-# parts[0].add(score.Note(id="n5s2",step="D",octave=4, staff=1, voice=1),start=9,end=10)
-# parts[0].add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,end=16)
-#
-# parts[2].add(score.Note(id="n0s22",step="E",octave=4, staff=3, voice=1),start=0,end=5*4)
-# parts[2].add(score.Note(id="n2s22",step="B",octave=4, staff=3, voice=1),start=5*4,end=6*4)
-# parts[2].add(score.Note(id="n3s22",step="G",octave=4, staff=3, voice=1),start=6*4,end=7*4)
-# parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7*4,end=8*4)
-#
-# parts[0].add(score.Note(id="n0s2+16",step="C",octave=4, staff=1, voice=1),start=0+16,end=5+16)
-# parts[0].add(score.Note(id="n2s2+16",step="G",octave=4, staff=1, voice=1),start=5+16,end=6+16)
-# parts[0].add(score.Note(id="n3s2+16",step="E",octave=4, staff=1, voice=1),start=6+16,end=7+16)
-# parts[0].add(score.Note(id="n4s2+16",step="F",octave=4, staff=1, voice=1),start=7+16,end=9+16)
-# parts[0].add(score.Note(id="n5s2+16",step="D",octave=4, staff=1, voice=1),start=9+16,end=10+16)
-# parts[0].add(score.Note(id="n6s2+16",step="A",octave=4, staff=1, voice=1),start=10+16,end=16+16)
-#
-# parts[2].add(score.Note(id="n0s22+16*4",step="E",octave=4, staff=3, voice=1),start=0+16*4,end=5*4+16*4)
-# parts[2].add(score.Note(id="n2s22+16*4",step="B",octave=4, staff=3, voice=1),start=5*4+16*4,end=6*4+16*4)
-# parts[2].add(score.Note(id="n3s22+16*4",step="G",octave=4, staff=3, voice=1),start=6*4+16*4,end=7*4+16*4)
-# parts[2].add(score.Note(id="n4s22+16*4",step="A",octave=4, staff=3, voice=1),start=7*4+16*4,end=8*4+16*4)
-#
-# def conv(fraction, qd):
-#     return int(fraction*qd)
-#
-# qd = 8
-# t1 = 0
-# t2 = conv(9/8, qd)
-# parts[1].add(score.Note(id="n0",step="C",octave=2, staff=2, voice=1),start=t1,end=t2)
-# t1 = t2
-# t2 = conv(9/8, qd) + t1
-# parts[1].add(score.Note(id="n2",step="E",octave=2, staff=2, voice=1),start=t1,end=t2)
-# t1 = t2
-# t2 = conv(3/8, qd) + t1
-# parts[1].add(score.Note(id="n3",step="G",octave=2, staff=2, voice=1),start=t1,end=t2)
-# t1 = t2
-# t2 = conv(9/8, qd) + t1
-# parts[1].add(score.Note(id="n4",step="D",octave=2, staff=2, voice=1),start=t1,end=t2)
-# t1 = t2
-# t2 = conv(9/8, qd) + t1
-# parts[1].add(score.Note(id="n5",step="F",octave=2, staff=2, voice=1),start=t1,end=t2)
-# t1 = t2
-# t2 = conv(9/8, qd) + t1
-# parts[1].add(score.Note(id="n6",step="C",octave=3, staff=2, voice=1),start=t1,end=t2)
-# score.add_measures(parts[0])
-# score.add_measures(parts[1])
-# score.add_measures(parts[2])
-#
-# score.tie_notes(parts[0])
-# score.tie_notes(parts[1])
-# test case blues lick
-# part = score.Part("P0","Test")
-# part.set_quarter_duration(0,10)
-# part.add(score.KeySignature(-3,"minor"),start=0)
-# part.add(score.TimeSignature(6,8),start=0)
-# part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
-# part.add(score.Clef(sign="G",line=2, octave_change=0, number=2),start=0)
-# n0 = score.Note(id="n0",step="C",octave=2,voice=1, staff=1)
-# n1 =score.Note(id="n1",step="E",octave=2,voice=1, staff=1, alter=-1)
-# n2 =score.Note(id="n2",step="D",octave=2,voice=1, staff=1)
-# part.add(n0,start=0,end=5)
-# part.add(n1,start=5,end=10)
-# part.add(n2,start=10,end=15)
-# n0q = score.Note(id="n0q",step="G",octave=2,voice=1, staff=1)
-# n1q =score.Note(id="n1q",step="G",octave=2,voice=1, staff=1)
-# n2q =score.Note(id="n2q",step="G",octave=2,voice=1, staff=1)
-# part.add(n0q,start=0,end=5)
-# part.add(n1q,start=5,end=10)
-# part.add(n2q,start=10,end=15)
-# part.add(score.Note(id="n3",step="C",octave=2,voice=1, staff=1),start=15,end=40)
-# n0s2 = score.Note(id="n0s2",step="C",octave=4,voice=1, staff=2)
-# n1s2 =score.Note(id="n1s2",step="E",octave=4,voice=1, staff=2, alter=-1)
-# n2s2 =score.Note(id="n2s2",step="D",octave=4,voice=1, staff=2)
-# part.add(n0s2,start=0,end=5)
-# part.add(n1s2,start=5,end=10)
-# part.add(n2s2,start=10,end=15)
-# part.add(score.Slur(n0s2,n2s2),start=0)
-# part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=40)
-#
-# score.add_measures(part)
-# score.tie_notes(part)
-# parts=[part]
-
-
-
-# part = score.Part("P0", "Test")
-# part.set_quarter_duration(0,2)
-# part.add(score.KeySignature(-3,"minor"),start=0)
-# part.add(score.TimeSignature(2,4),start=0)
-# part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
-#
-# n0 = score.Note(id="n0",step="C",octave=4,voice=1, staff=1)
-# n1 = score.Note(id="n1",step="C",octave=4,voice=1, staff=1)
-# n2 = score.Note(id="n2",step="C",octave=4,voice=1, staff=1)
-# n3 = score.Note(id="n3",step="C",octave=4,voice=1, staff=1)
-# g = score.GraceNote(id="g", step="B", octave=3, voice=1, staff=1, grace_type='appoggiatura', steal_proportion=0.25)
-# g.grace_next = n3
-#
-# part.add(n0,start=0,end=1)
-# part.add(n1,start=1,end=2)
-# part.add(n2,start=2,end=3)
-# part.add(g,start=3,end=3)
-# part.add(n3,start=3,end=4)
-#
-# b1=score.Beam(id="b1")
-# b2=score.Beam(id="b2")
-#
-# b1.append(n0)
-# b1.append(n1)
-# b2.append(n2)
-# b2.append(n3)
-#
-# part.add(b1,start=0,end=2)
-# part.add(b2,start=2,end=4)
-#
-# score.add_measures(part)
-#
-# autoBeaming=False
-#
-# parts=part
-
-
-# part = score.Part("P0","Test")
-# part.set_quarter_duration(0,2)
-# part.add(score.TimeSignature(4,4),start=0,end=8)
-# part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=8)
-# part.add(score.TimeSignature(6,8),start=8,end=8+6)
-# part.add(score.Words("Oy",staff=1),start=4)
-# part.add(score.Rest(id="r1",staff=1, voice=1),start=8,end=8+6)
-# score.add_measures(part)
-#
-#
-#
-# parts=[part]
-#
-# exportToMEI(parts)
-
-# # testing crossing measures and tieing notes together
-# part = score.Part("P0", "Test")
-# part.set_quarter_duration(0,16)
-# part.add(score.KeySignature(-3,"minor"),start=0)
-# part.add(score.TimeSignature(4,4),start=0)
-# part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
-#
-# part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=1)
-#
-# e = 4*16
-#
-# part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=1,end=e)
-# part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=1,end=e)
-# part.add(score.Note(id="n3",step="E",octave=3, staff=1, voice=1),start=1,end=e)
-# part.add(score.Rest(id="r1",staff=1, voice=1),start=e,end=2*e)
-#
-# score.add_measures(part)
-#
-# parts = part
-
-# using this feature?
-# making ties then becomes about looking at the tiegroup tag of notes
-# which is fine, however the sum of powers of 2 idea seems better than estimating symbolic duration
-# without this feature, notes crossing measure boundaries have to be handled
-#score.tie_notes(part)
+def testExport():
+    # parts = [score.Part("P0","Test"), score.Part("P1","Test"), score.Part("P2","Test")]
+    #
+    #
+    # parts[0].set_quarter_duration(0,2)
+    # parts[0].add(score.KeySignature(0,"major"),start=0)
+    # parts[0].add(score.TimeSignature(4,4),start=0)
+    # parts[0].add(score.Tempo(90),start=0)
+    #
+    # parts[1].add(score.KeySignature(0,"major"),start=0)
+    # parts[1].set_quarter_duration(0,8)
+    # parts[1].add(score.TimeSignature(3,4),start=0)
+    # parts[1].add(score.Tempo(120),start=0)
+    #
+    # parts[2].set_quarter_duration(0,8)
+    # parts[2].add(score.KeySignature(0,"major"),start=0)
+    # parts[2].add(score.TimeSignature(4,4),start=0)
+    # parts[2].add(score.Tempo(90),start=0)
+    #
+    # parts[0].add(score.Clef(sign="G",line=2, octave_change=0, number=1),start=0)
+    # parts[1].add(score.Clef(sign="F",line=4, octave_change=0, number=2),start=0)
+    # parts[2].add(score.Clef(sign="G",line=2, octave_change=1, number=3),start=0)
+    #
+    #
+    #
+    # parts[0].add(score.Note(id="n0s2",step="C",octave=4, staff=1, voice=1),start=0,end=5)
+    # parts[0].add(score.Note(id="n2s2",step="G",octave=4, staff=1, voice=1),start=5,end=6)
+    # parts[0].add(score.Note(id="n3s2",step="E",octave=4, staff=1, voice=1),start=6,end=7)
+    # parts[0].add(score.Note(id="n4s2",step="F",octave=4, staff=1, voice=1),start=7,end=9)
+    # parts[0].add(score.Note(id="n5s2",step="D",octave=4, staff=1, voice=1),start=9,end=10)
+    # parts[0].add(score.Note(id="n6s2",step="A",octave=4, staff=1, voice=1),start=10,end=16)
+    #
+    # parts[2].add(score.Note(id="n0s22",step="E",octave=4, staff=3, voice=1),start=0,end=5*4)
+    # parts[2].add(score.Note(id="n2s22",step="B",octave=4, staff=3, voice=1),start=5*4,end=6*4)
+    # parts[2].add(score.Note(id="n3s22",step="G",octave=4, staff=3, voice=1),start=6*4,end=7*4)
+    # parts[2].add(score.Note(id="n4s22",step="A",octave=4, staff=3, voice=1),start=7*4,end=8*4)
+    #
+    # parts[0].add(score.Note(id="n0s2+16",step="C",octave=4, staff=1, voice=1),start=0+16,end=5+16)
+    # parts[0].add(score.Note(id="n2s2+16",step="G",octave=4, staff=1, voice=1),start=5+16,end=6+16)
+    # parts[0].add(score.Note(id="n3s2+16",step="E",octave=4, staff=1, voice=1),start=6+16,end=7+16)
+    # parts[0].add(score.Note(id="n4s2+16",step="F",octave=4, staff=1, voice=1),start=7+16,end=9+16)
+    # parts[0].add(score.Note(id="n5s2+16",step="D",octave=4, staff=1, voice=1),start=9+16,end=10+16)
+    # parts[0].add(score.Note(id="n6s2+16",step="A",octave=4, staff=1, voice=1),start=10+16,end=16+16)
+    #
+    # parts[2].add(score.Note(id="n0s22+16*4",step="E",octave=4, staff=3, voice=1),start=0+16*4,end=5*4+16*4)
+    # parts[2].add(score.Note(id="n2s22+16*4",step="B",octave=4, staff=3, voice=1),start=5*4+16*4,end=6*4+16*4)
+    # parts[2].add(score.Note(id="n3s22+16*4",step="G",octave=4, staff=3, voice=1),start=6*4+16*4,end=7*4+16*4)
+    # parts[2].add(score.Note(id="n4s22+16*4",step="A",octave=4, staff=3, voice=1),start=7*4+16*4,end=8*4+16*4)
+    #
+    # def conv(fraction, qd):
+    #     return int(fraction*qd)
+    #
+    # qd = 8
+    # t1 = 0
+    # t2 = conv(9/8, qd)
+    # parts[1].add(score.Note(id="n0",step="C",octave=2, staff=2, voice=1),start=t1,end=t2)
+    # t1 = t2
+    # t2 = conv(9/8, qd) + t1
+    # parts[1].add(score.Note(id="n2",step="E",octave=2, staff=2, voice=1),start=t1,end=t2)
+    # t1 = t2
+    # t2 = conv(3/8, qd) + t1
+    # parts[1].add(score.Note(id="n3",step="G",octave=2, staff=2, voice=1),start=t1,end=t2)
+    # t1 = t2
+    # t2 = conv(9/8, qd) + t1
+    # parts[1].add(score.Note(id="n4",step="D",octave=2, staff=2, voice=1),start=t1,end=t2)
+    # t1 = t2
+    # t2 = conv(9/8, qd) + t1
+    # parts[1].add(score.Note(id="n5",step="F",octave=2, staff=2, voice=1),start=t1,end=t2)
+    # t1 = t2
+    # t2 = conv(9/8, qd) + t1
+    # parts[1].add(score.Note(id="n6",step="C",octave=3, staff=2, voice=1),start=t1,end=t2)
+    # score.add_measures(parts[0])
+    # score.add_measures(parts[1])
+    # score.add_measures(parts[2])
+    #
+    # score.tie_notes(parts[0])
+    # score.tie_notes(parts[1])
+    # test case blues lick
+    # part = score.Part("P0","Test")
+    # part.set_quarter_duration(0,10)
+    # part.add(score.KeySignature(-3,"minor"),start=0)
+    # part.add(score.TimeSignature(6,8),start=0)
+    # part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
+    # part.add(score.Clef(sign="G",line=2, octave_change=0, number=2),start=0)
+    # n0 = score.Note(id="n0",step="C",octave=2,voice=1, staff=1)
+    # n1 =score.Note(id="n1",step="E",octave=2,voice=1, staff=1, alter=-1)
+    # n2 =score.Note(id="n2",step="D",octave=2,voice=1, staff=1)
+    # part.add(n0,start=0,end=5)
+    # part.add(n1,start=5,end=10)
+    # part.add(n2,start=10,end=15)
+    # n0q = score.Note(id="n0q",step="G",octave=2,voice=1, staff=1)
+    # n1q =score.Note(id="n1q",step="G",octave=2,voice=1, staff=1)
+    # n2q =score.Note(id="n2q",step="G",octave=2,voice=1, staff=1)
+    # part.add(n0q,start=0,end=5)
+    # part.add(n1q,start=5,end=10)
+    # part.add(n2q,start=10,end=15)
+    # part.add(score.Note(id="n3",step="C",octave=2,voice=1, staff=1),start=15,end=40)
+    # n0s2 = score.Note(id="n0s2",step="C",octave=4,voice=1, staff=2)
+    # n1s2 =score.Note(id="n1s2",step="E",octave=4,voice=1, staff=2, alter=-1)
+    # n2s2 =score.Note(id="n2s2",step="D",octave=4,voice=1, staff=2)
+    # part.add(n0s2,start=0,end=5)
+    # part.add(n1s2,start=5,end=10)
+    # part.add(n2s2,start=10,end=15)
+    # part.add(score.Slur(n0s2,n2s2),start=0)
+    # part.add(score.Note(id="n3s2",step="C",octave=4,voice=1, staff=2),start=15,end=40)
+    #
+    # score.add_measures(part)
+    # score.tie_notes(part)
+    # parts=[part]
 
 
 
-# parts = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
-# #parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
-#
-#
-# part = parts
-#
-# qd=part.quarter_durations()[0][1]
-#
-# part.add(score.Clef(sign="F",line=4, octave_change=0, number=2), start=int(qd*(2+1/4)))
-# part.add(score.KeySignature(-3,"minor"),start=int(qd*(2+1/4)))
-#
-# partitura.render(parts)
-#
-# parts=[part]
+    # part = score.Part("P0", "Test")
+    # part.set_quarter_duration(0,2)
+    # part.add(score.KeySignature(-3,"minor"),start=0)
+    # part.add(score.TimeSignature(2,4),start=0)
+    # part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
+    #
+    # n0 = score.Note(id="n0",step="C",octave=4,voice=1, staff=1)
+    # n1 = score.Note(id="n1",step="C",octave=4,voice=1, staff=1)
+    # n2 = score.Note(id="n2",step="C",octave=4,voice=1, staff=1)
+    # n3 = score.Note(id="n3",step="C",octave=4,voice=1, staff=1)
+    # g = score.GraceNote(id="g", step="B", octave=3, voice=1, staff=1, grace_type='appoggiatura', steal_proportion=0.25)
+    # g.grace_next = n3
+    #
+    # part.add(n0,start=0,end=1)
+    # part.add(n1,start=1,end=2)
+    # part.add(n2,start=2,end=3)
+    # part.add(g,start=3,end=3)
+    # part.add(n3,start=3,end=4)
+    #
+    # b1=score.Beam(id="b1")
+    # b2=score.Beam(id="b2")
+    #
+    # b1.append(n0)
+    # b1.append(n1)
+    # b2.append(n2)
+    # b2.append(n3)
+    #
+    # part.add(b1,start=0,end=2)
+    # part.add(b2,start=2,end=4)
+    #
+    # score.add_measures(part)
+    #
+    # autoBeaming=False
+    #
+    # parts=part
 
 
-#print(etree.tostring(mei,pretty_print=True))
+    # part = score.Part("P0","Test")
+    # part.set_quarter_duration(0,2)
+    # part.add(score.TimeSignature(4,4),start=0,end=8)
+    # part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=8)
+    # part.add(score.TimeSignature(6,8),start=8,end=8+6)
+    # part.add(score.Words("Oy",staff=1),start=4)
+    # part.add(score.Rest(id="r1",staff=1, voice=1),start=8,end=8+6)
+    # score.add_measures(part)
+    #
+    #
+    #
+    # parts=[part]
+    #
+    # exportToMEI(parts)
 
-parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
-#partitura.render(parts)
-exportToMEI(parts)
+    # # testing crossing measures and tieing notes together
+    # part = score.Part("P0", "Test")
+    # part.set_quarter_duration(0,16)
+    # part.add(score.KeySignature(-3,"minor"),start=0)
+    # part.add(score.TimeSignature(4,4),start=0)
+    # part.add(score.Clef(sign="F",line=4, octave_change=0, number=1),start=0)
+    #
+    # part.add(score.Rest(id="r0",staff=1, voice=1),start=0,end=1)
+    #
+    # e = 4*16
+    #
+    # part.add(score.Note(id="n0",step="C",octave=2, staff=1, voice=1),start=1,end=e)
+    # part.add(score.Note(id="n2",step="G",octave=2, staff=1, voice=1),start=1,end=e)
+    # part.add(score.Note(id="n3",step="E",octave=3, staff=1, voice=1),start=1,end=e)
+    # part.add(score.Rest(id="r1",staff=1, voice=1),start=e,end=2*e)
+    #
+    # score.add_measures(part)
+    #
+    # parts = part
+
+    # using this feature?
+    # making ties then becomes about looking at the tiegroup tag of notes
+    # which is fine, however the sum of powers of 2 idea seems better than estimating symbolic duration
+    # without this feature, notes crossing measure boundaries have to be handled
+    #score.tie_notes(part)
+
+
+
+    # parts = partitura.load_musicxml("../../tests/data_examples/Three-Part_Invention_No_13_(fragment).xml", force_note_ids=True)
+    # #parts = partitura.load_musicxml("../../tests/data/musicxml/test_note_ties.xml", force_note_ids=True)
+    #
+    #
+    # part = parts
+    #
+    # qd=part.quarter_durations()[0][1]
+    #
+    # part.add(score.Clef(sign="F",line=4, octave_change=0, number=2), start=int(qd*(2+1/4)))
+    # part.add(score.KeySignature(-3,"minor"),start=int(qd*(2+1/4)))
+    #
+    # partitura.render(parts)
+    #
+    # parts=[part]
+
+
+    #print(etree.tostring(mei,pretty_print=True))
+
+    #parts = partitura.load_musicxml("The_Video_Game_Epic_Medley_For_Orchestra.xml", force_note_ids=True)
+    parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
+    #partitura.render(parts)
+    exportToMEI(parts)
+
+
+testExport()
