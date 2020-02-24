@@ -156,9 +156,10 @@ def matchfile_from_alignment(alignment, ppart, spart,
                 Duration=float(duration),
                 OnsetInBeats=float(onset),
                 OffsetInBeats=float(offset))
-    
+
     # Create MatchNotes from performance informaton
     perf_info = dict()
+    
     for pn in ppart.notes:
         note_name, modifier, octave = midi_pitch_to_pitch_spelling(pn['midi_pitch'])
         onset = seconds_to_midi_ticks(pn['note_on'], mpq=mpq, ppq=ppq)
