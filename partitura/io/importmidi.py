@@ -57,7 +57,12 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
     ppq = mid.ticks_per_beat
     # microseconds per quarter
     mpq = 60 * (10**6 / default_bpm)
-        
+    
+    if time_in_quarter:
+        time_conversion_factor = 1/ppq
+    else:
+        time_conversion_factor = mpq/(ppq*10**6)
+    
     notes = []
     controls = []
     if merge_tracks:
@@ -66,19 +71,27 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
     else:
         tracks = [(i,u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
-
+        
         
         t = 0
         sounding_notes = {}
 
         for msg in track:
-
-            t = t + msg.time
+            
+            # update time deltas when they arrive
+            t = t + msg.time * time_conversion_factor
 
             if msg.type == 'set_tempo':
 
                 mpq = msg.tempo
+                
+                if time_in_quarter:
+                    time_conversion_factor = 1/ppq
+                else:
+                    time_conversion_factor = mpq/(ppq*10**6)
 
+                print("change of Tempo: ", mpq, time_conversion_factor)
+                
             elif msg.type == 'control_change':
 
                 if msg.control not in MIDI_CONTROL_TYPES:
@@ -87,7 +100,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
                     continue
 
                 controls.append(dict(
-                    time=(mpq*(t/ppq))/10**6,
+                    time=t,
                     type=MIDI_CONTROL_TYPES[msg.control],
                     value=msg.value,
                     track=i,
@@ -118,25 +131,16 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
                         continue
                     
                     # append the note to the list associated with the channel
-                    if time_in_quarter:
-                         notes.append(dict(
-                            id=len(notes),
-                            midi_pitch=msg.note,
-                            note_on=(sounding_notes[note][0]/ppq),
-                            note_off=(t/ppq),
-                            track=i,
-                            channel=msg.channel,
-                            velocity=sounding_notes[note][1]))
                     
-                    else:
-                        notes.append(dict(
-                            id=len(notes),
-                            midi_pitch=msg.note,
-                            note_on=(mpq*(sounding_notes[note][0]/ppq))/10**6,
-                            note_off=(mpq*(t/ppq))/10**6,
-                            track=i,
-                            channel=msg.channel,
-                            velocity=sounding_notes[note][1]))
+                    notes.append(dict(
+                       id=len(notes),
+                       midi_pitch=msg.note,
+                       note_on=(sounding_notes[note][0]),
+                       note_off=(t),
+                       track=i,
+                       channel=msg.channel,
+                       velocity=sounding_notes[note][1]))
+                    
 
                     # remove hash from dict
                     del sounding_notes[note]
