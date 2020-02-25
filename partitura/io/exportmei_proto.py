@@ -256,15 +256,20 @@ def idx(len_obj):
     return range(len(len_obj))
 
 def attribsOf_Clef(clef):
+    sign = clef.sign
+
+    if sign=="percussion":
+        sign="perc"
+
     if clef.octave_change!=None and clef.octave_change!=0:
         place = "above"
 
         if clef.octave_change<0:
             place="below"
 
-        return clef.sign, clef.line, 1+7*abs(clef.octave_change), place
+        return sign, clef.line, 1+7*abs(clef.octave_change), place
 
-    return clef.sign, clef.line
+    return sign, clef.line
 
 def create_staffDef(staffGrp, clef):
     staffDef = addChild(staffGrp,"staffDef")
@@ -275,10 +280,7 @@ def create_staffDef(staffGrp, clef):
         setAttributes(staffDef,("clef.dis",attribs[2]),("clef.dis.place",attribs[3]))
 
 
-def create_staffDef_safe(staffGrp, c):
-    clef = c[0]
-    assert len(c)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
-    create_staffDef(staffGrp, clef)
+
 
 def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount):
     measure_perStaff[s]="pad"
@@ -337,7 +339,7 @@ def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
 
     return 1
 
-def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, lastKeySig, next_dur_dots=None):
+def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, next_dur_dots=None):
     chordNotes = chords[chord_i]
     rep = chordNotes[0]
 
@@ -410,11 +412,10 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                 if rep.steal_proportion != None:
                     setAttributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
 
-        def createNote(parent, n, id, lastKeySig):
-            note=addChild(parent,"note")
+        def createNote(parent, n, id, lastKeySig, noteAlterations):
 
-            if n.alter!=None and abs(n.alter)>1:
-                print(n.alter, n)
+
+            note=addChild(parent,"note")
 
             step = n.step.lower()
             setAttributes(note,(xmlIdString,id),("pname",step),("oct",n.octave))
@@ -422,15 +423,29 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             sharps=['f','c','g','d','a','e','b']
             flats=list(reversed(sharps))
 
-            if n.alter!=None:
-                if n.alter==0 and (lastKeySig.fifths>0 and step in sharps[:lastKeySig.fifths] or lastKeySig.fifths<0 and step in flats[:-lastKeySig.fifths]):
-                    setAttributes(note, ("accid","n"))
-                elif n.alter>0 and (lastKeySig.fifths<0 or lastKeySig.fifths>=0 and not step in sharps[:lastKeySig.fifths]):
-                    setAttributes(note, ("accid","s"))
-                elif n.alter<0 and (lastKeySig.fifths>0 or lastKeySig.fifths<=0 and not step in flats[:-lastKeySig.fifths]):
-                    setAttributes(note, ("accid","f"))
-            elif lastKeySig.fifths>0 and step in sharps[:lastKeySig.fifths] or lastKeySig.fifths<0 and step in flats[:-lastKeySig.fifths]:
-                setAttributes(note, ("accid","n"))
+            staffPos = step+str(n.octave)
+
+            alter = n.alter
+            if alter==None:
+                alter=0
+
+            def setAccid(note, acc, noteAlterations, staffPos, alter):
+                setAttributes(note, ("accid",acc))
+                noteAlterations[staffPos]=alter
+
+            # sharpen note if: is sharp, is not sharpened by key or prev alt
+            # flatten note if: is flat, is not flattened by key or prev alt
+            # neutralize note if: is neutral, is sharpened/flattened by key or prev alt
+
+            # check if note is sharpened/flattened by prev alt or key
+            if staffPos in noteAlterations.keys() and noteAlterations[staffPos]!=0 or step in sharps[:lastKeySig.fifths] or step in flats[:-lastKeySig.fifths]:
+                if alter==0:
+                    setAccid(note, "n", noteAlterations, staffPos, alter)
+            elif alter>0:
+                setAccid(note, "s", noteAlterations, staffPos, alter)
+            elif alter<0:
+                setAccid(note, "f", noteAlterations, staffPos, alter)
+
 
             return note
 
@@ -441,11 +456,11 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             conditional_gracify(chord, rep)
 
             for n in chordNotes:
-                createNote(chord, n, n.id, lastKeySig)
+                createNote(chord, n, n.id, lastKeySig, noteAlterations)
 
 
         else:
-            note=createNote(parents[-1], rep, rep.id, lastKeySig)
+            note=createNote(parents[-1], rep, rep.id, lastKeySig, noteAlterations)
             setAttributes(note,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
             conditional_gracify(note,rep)
@@ -463,13 +478,13 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                         id = n.id+"-"+str(i)
 
                         ties[n.id].append(id)
-                        createNote(chord, n, id, lastKeySig)
+                        createNote(chord, n, id, lastKeySig, noteAlterations)
                 else:
                     id = rep.id+"-"+str(i)
 
                     ties[rep.id].append(id)
 
-                    note=createNote(parents[-1], rep, id, lastKeySig)
+                    note=createNote(parents[-1], rep, id, lastKeySig, noteAlterations)
 
                     setAttributes(note,("dur",dur_dots[i][0]),("dots",dur_dots[i][1]))
 
@@ -598,20 +613,22 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
             if s not in notes_withinMeasure_perStaff_perPart.keys():
                 autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 
-        for s in notes_withinMeasure_perStaff_perPart.keys():
-            extendKey(notes_withinMeasure_perStaff, s, notes_withinMeasure_perStaff_perPart[s])
+        for s,nwp in notes_withinMeasure_perStaff_perPart.items():
+            extendKey(notes_withinMeasure_perStaff, s, nwp)
             measure_perStaff[s]=m
 
-        for s in clefs_withinMeasure_perStaff_perPart.keys():
-            clefs_withinMeasure_perStaff[s]=clefs_withinMeasure_perStaff_perPart[s]
+        for s,cwp in clefs_withinMeasure_perStaff_perPart.items():
+            clefs_withinMeasure_perStaff[s]=cwp
 
-        return autoRestCount
+    return autoRestCount
 
 def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff):
     measure=addChild(section,"measure")
     setAttributes(measure,("n",measure_i+1))
 
     for s in staves_sorted:
+        noteAlterations = {}
+
         staff=addChild(measure,"staff")
 
         setAttributes(staff,("n",s))
@@ -694,6 +711,7 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
                     for i in range(1,len(regNotes)):
                         n = regNotes[i]
+
                         if n.duration!=rep.duration:
                             errorPrint("In staff "+str(s)+",",
                             "in measure "+str(m.number)+",",
@@ -701,13 +719,15 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
                             "2 notes start at time "+str(n.start.t)+",",
                             "but have different durations, namely "+n.id+" has duration "+str(n.duration)+" and "+rep.id+" has duration "+str(rep.duration),
                             "change to same duration for a chord or change voice of one of the notes for something else")
-                        elif rep.beam!=n.beam:
-                            print("WARNING: notes within chords don't share the same beam",
-                            "specifically note "+str(rep)+" has beam "+str(rep.beam),
-                            "and note "+str(n)+" has beam "+str(n.beam),
-                            "export still continues though")
-                        elif set(rep.tuplet_starts)!=set(n.tuplet_starts) and set(rep.tuplet_stops)!=set(n.tuplet_stops):
-                            print("WARNING: notes within chords don't share same tuplets, export still continues though")
+                        # HACK: unpitched notes are treated as Rests right now
+                        elif not isinstance(rep,score.Rest) and not isinstance(n,score.Rest):
+                            if rep.beam!=n.beam:
+                                print("WARNING: notes within chords don't share the same beam",
+                                "specifically note "+str(rep)+" has beam "+str(rep.beam),
+                                "and note "+str(n)+" has beam "+str(n.beam),
+                                "export still continues though")
+                            elif set(rep.tuplet_starts)!=set(n.tuplet_starts) and set(rep.tuplet_stops)!=set(n.tuplet_stops):
+                                print("WARNING: notes within chords don't share same tuplets, export still continues though")
                     chords.append(regNotes)
                 else:
                     chords.append(ns)
@@ -764,10 +784,10 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
             for chord_i in range(len(chords)-1):
                 dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
 
-                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, lastKeySig, next_dur_dots)
+                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, next_dur_dots)
                 next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
 
-            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet, lastKeySig)
+            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet, lastKeySig, noteAlterations)
 
 
 
@@ -813,38 +833,18 @@ def unpackPartGroup(partGrp, parts=[]):
 
 
 
-def bij1(staves_perPart):
-    staves_total = []
-    max_staff = 0
-    for staves in staves_perPart:
-        for s in staves:
-            staves_total.append(s+max_staff)
-
-        max_staff+=(max(staves) if len(staves)>0 else 1)
-
-    return staves_total
-
-def bij2(staff, staves_perPart):
-    for i,s in enumerate(staves_perPart):
-        if staff in s:
-            return i, staff
-
-        staff-=(max(s) if len(s)>0 else 1)
-
-    return None, None
 
 
 # parts is either a Part, a PartGroup or a list of Parts
 
 def exportToMEI(parts, autoBeaming=True):
+
+
     print("begin export")
     if isinstance(parts, score.PartGroup):
         parts=unpackPartGroup(parts)
     elif isinstance(parts, score.Part):
         parts = [parts]
-
-
-
 
 
     mei = etree.Element("mei")
@@ -867,6 +867,8 @@ def exportToMEI(parts, autoBeaming=True):
     mei_score=addChild(mdiv,"score")
 
 
+    classesWithStaff = [score.GenericNote, score.Words, score.Direction]
+
 
 
 
@@ -874,13 +876,64 @@ def exportToMEI(parts, autoBeaming=True):
 
     for p in parts:
         staves_perPart.append([])
-        for thing in p.iter_all(object, include_subclasses=True):
-            val = getattr(thing,"staff",None)
 
-            if val is not None and not val in staves_perPart[-1]:
-                staves_perPart[-1].append(val)
+        for cls in classesWithStaff:
+            for staffedObj in p.iter_all(cls, include_subclasses=True):
+                if staffedObj.staff!=None and not staffedObj.staff in staves_perPart[-1]:
+                    staves_perPart[-1].append(staffedObj.staff)
 
+        for clef in p.iter_all(score.Clef):
+            if clef.number != None and not clef.number in staves_perPart[-1]:
+                staves_perPart[-1].append(clef.number)
 
+    stavesAreValid = True
+
+    for staves in staves_perPart:
+        if len(staves)==0:
+            stavesAreValid = False
+            break
+
+    staves_sorted = sorted([s for staves in staves_perPart for s in staves])
+
+    i=0
+
+    while i+1<len(staves_sorted):
+        if staves_sorted[i]==staves_sorted[i+1]:
+            stavesAreValid=False
+            break
+
+        i+=1
+
+    staves_perPart_backup = staves_perPart
+    if not stavesAreValid:
+        staves_sorted = []
+        staves_perPart = []
+
+        maxStaff = 0
+        for staves in staves_perPart_backup:
+            shift = [s+maxStaff for s in staves]
+
+            if len(shift)==0:
+                shift=[maxStaff+1]
+                maxStaff+=1
+            else:
+                maxStaff+=max(staves)
+
+            staves_sorted.extend(shift)
+            staves_perPart.append(shift)
+
+        staves_sorted.sort()
+
+        maxStaff = 0
+        for i,p in enumerate(parts):
+            for cls in classesWithStaff:
+                for staffObj in p.iter_all(cls,include_subclasses=True):
+                    staffObj.staff = maxStaff + (staffObj.staff if staffObj.staff!=None else 1)
+
+            for clef in p.iter_all(score.Clef):
+                clef.number=maxStaff + (clef.number if clef.number!=None else 1)
+
+            maxStaff+=(max(staves_perPart_backup[i]) if len(staves_perPart_backup[i])>0 else 1)
 
     measures = [list(parts[0].iter_all(score.Measure))]
     paddingRequired = False
@@ -923,30 +976,23 @@ def exportToMEI(parts, autoBeaming=True):
     for i in idx(clefs_perPart):
         clefs_perPart[i] = partition_handleNone(lambda c:c.number, clefs_perPart[i], "number")
 
-    staves_sorted = bij1(staves_perPart)
-    staves_sorted.sort()
-
     if len(clefs_perPart)==0 and len(staves_sorted)==0:
         create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=1, octave_change=0))
     else:
         for s in staves_sorted:
-            part_i,staff = bij2(s,staves_perPart)
+            clefs = None
 
-            if staff in clefs_perPart[part_i].keys():
-                clefs = clefs_perPart[part_i]
-                c = clefs[staff]
-                create_staffDef_safe(staffGrp, c)
+            for clefs_perStaff in clefs_perPart:
+                if s in clefs_perStaff.keys():
+                    clefs = clefs_perStaff[s]
+                    break
 
-                del clefs[staff]
+            if clefs!=None:
+                clef = clefs[0]
+                assert len(clefs)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
+                create_staffDef(staffGrp, clef)
             else:
                 create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=s, octave_change=0))
-
-        for i, clefs in enumerate(clefs_perPart):
-            staves_perPart[i].extend(clefs.keys())
-            for c in clefs.values():
-                create_staffDef_safe(staffGrp, c)
-        staves_sorted = bij1(staves_perPart)
-        staves_sorted.sort()
 
 
     section = addChild(mei_score,"section")
@@ -1042,8 +1088,7 @@ def exportToMEI(parts, autoBeaming=True):
         autoRestCount=extractFromMeasures(parts, measures, 0, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure)
 
         for s,k in keySigs_withinMeasure_perStaff.items():
-            if len(k)>0:
-                lastKeySig_perStaff[s]=min(k,key=lambda k:k.start.t)
+            lastKeySig_perStaff[s]= (min(k,key=lambda k:k.start.t) if len(k)>0 else None)
 
         tuplet_idCounter, notes_lastMeasure_perStaff =createMeasure(section, 0, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff)
 
@@ -1289,8 +1334,8 @@ def testExport():
 
     #print(etree.tostring(mei,pretty_print=True))
 
-    #parts = partitura.load_musicxml("The_Video_Game_Epic_Medley_For_Orchestra.xml", force_note_ids=True)
-    parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
+    parts = partitura.load_musicxml("The_Video_Game_Epic_Medley_For_Orchestra.xml", force_note_ids=True)
+    #parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
     #partitura.render(parts)
     exportToMEI(parts)
 
