@@ -482,6 +482,7 @@ def alignment_from_corresp_pipeline(corresp_file,
     perf_midi_note_array = ppart_midi_sec.note_array
     
     ppartp_midi = load_performance_midi(performance_midi, merge_tracks=True)
+    ppart_midi_note_array = ppartp_midi.note_array
     
     array_performance, array_score, alignment = load_nakamuracorresp(corresp_file)
     
@@ -502,7 +503,7 @@ def alignment_from_corresp_pipeline(corresp_file,
     
     score_midi_note_array.dtype = new_fields
     perf_midi_note_array.dtype = new_fields    
-    
+    ppart_midi_note_array.dtype = new_fields
     
     
     
@@ -528,12 +529,18 @@ def alignment_from_corresp_pipeline(corresp_file,
         if len(match_quarter_grace_note) > 0:
             match_quarter_note = np.concatenate((match_quarter_note, match_quarter_grace_note), axis=0)
     
-    # match the midis 
+    # match the score midis 
     match_sec, match_sec_note = match_note_arrays(array_score, perf_midi_note_array,
                       array_type='score', epsilon=0.05,
                       first_note_at_zero=True,
                       check_duration=False,
-                      return_note_idxs=True)    
+                      return_note_idxs=True) 
+    # match the performance midis 
+    match_perf, match_perf_note = match_note_arrays(ppart_midi_note_array, array_performance,
+                      array_type='score', epsilon=0.05,
+                      first_note_at_zero=True,
+                      check_duration=False,
+                      return_note_idxs=True)  
     
 
     for note in alignment:
@@ -549,18 +556,25 @@ def alignment_from_corresp_pipeline(corresp_file,
             if len(pos_in_score_match) > 0:
                 note['score_id'] = match_quarter_note[pos_in_score_match[0],0]
             
-            else:
+            elif len(pos_in_score_match) == 0:
                 note['score_id'] = "*"
                 note["label"] = "insertion"
-
-        
-        
-        else:
+        elif len(pos_in_midi_match) == 0:
             note['score_id'] = "*"
             note["label"] = "insertion"
-    
+        
+        name_in_perf_corresp = note["performance_id"]
+        pos_in_perf_match, = np.where(match_perf_note[:,1]==str(name_in_perf_corresp))
+        if len(pos_in_perf_match) > 0:
+            note['performance_id'] = int(match_perf_note[pos_in_perf_match[0],0])
+        
+        elif len(pos_in_perf_match) == 0:
+            note['performance_id'] = "*"
+            note['label'] = "deletion"
+            
     # CLEANUP ALIGNMENT; delete stuff that is in neither score nor performance
     alignment = [note for note in alignment if note['score_id'] != "*" or note['performance_id'] != "*"]
+
 
     return alignment, ppartp_midi, part_musicxml, (length_in_sec, length_in_quarter, average_tempo_sec_per_quarter)
 
