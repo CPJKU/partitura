@@ -845,7 +845,7 @@ def match_note_arrays(input_note_array, target_note_array,
 
     matched_idxs = []
     matched_note_idxs = []
-    
+    count_double = 0
     for t, (i, o, p) in enumerate(zip(t_sort_idx, t_onsets, t_pitch)):
         # candidate onset idxs (between o - epsilon and o + epsilon)
         coix = np.where(np.logical_and(i_onsets >= o - epsilon,
@@ -862,6 +862,12 @@ def match_note_arrays(input_note_array, target_note_array,
                     m_idx = 0
                 # match notes
                 matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
+                # if len(cpix)>1:
+                #     count_double += 1
+                #     print(input_note_array[i_sort_idx[coix[cpix]]])
+                #     print("MANY MATCHES IN TO A SINGLE TARGET", count_double)
+                #     print(target_note_array[i] )
+                #     print("__________________________________")
 
     matched_idxs = np.array(matched_idxs)
     matched_note_idxs = np.array(matched_note_idxs)
