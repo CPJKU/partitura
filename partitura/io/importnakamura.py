@@ -513,6 +513,7 @@ def alignment_from_corresp_pipeline(corresp_file,
                       check_duration=False,
                       return_note_idxs=True)
     
+    
     # a small epsilon gives good results but misses all the acciaccaturas and broken chords, etc
     # take the missed notes and do it again, more generously:
     keys_not_matched_xml =[i for i in range(len(score_xml_note_array)) if i not in match_quarter[:,0]]
@@ -521,7 +522,7 @@ def alignment_from_corresp_pipeline(corresp_file,
     if len(keys_not_matched_xml) > 0 and len(keys_not_matched_midi) > 0:
         match_quarter_grace, match_quarter_grace_note = match_note_arrays(score_xml_note_array[keys_not_matched_xml], 
                                                 score_midi_note_array[keys_not_matched_midi],
-                          array_type='score', epsilon=0.5,
+                          array_type='score', epsilon=1.0,
                           first_note_at_zero=True,
                           check_duration=False,
                           return_note_idxs=True)
