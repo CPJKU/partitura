@@ -339,7 +339,7 @@ def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
 
     return 1
 
-def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, measure, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, next_dur_dots=None):
+def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, measure, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, notes_nextMeasure_perStaff, next_dur_dots=None):
     chordNotes = chords[chord_i]
     rep = chordNotes[0]
 
@@ -430,6 +430,8 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                 alter=0
 
             def setAccid(note, acc, noteAlterations, staffPos, alter):
+                if staffPos in noteAlterations.keys() and alter==noteAlterations[staffPos]:
+                    return
                 setAttributes(note, ("accid",acc))
                 noteAlterations[staffPos]=alter
 
@@ -438,7 +440,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             # neutralize note if: is neutral, is sharpened/flattened by key or prev alt
 
             # check if note is sharpened/flattened by prev alt or key
-            if staffPos in noteAlterations.keys() and noteAlterations[staffPos]!=0 or step in sharps[:lastKeySig.fifths] or step in flats[:-lastKeySig.fifths]:
+            if staffPos in noteAlterations.keys() and noteAlterations[staffPos]!=0 or lastKeySig.fifths>0 and step in sharps[:lastKeySig.fifths] or lastKeySig.fifths<0 and step in flats[:-lastKeySig.fifths]:
                 if alter==0:
                     setAccid(note, "n", noteAlterations, staffPos, alter)
             elif alter>0:
@@ -572,13 +574,30 @@ def createScoreDef(measures, measure_i, parts, parent):
 
     return scoreDef
 
-def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure):
+
+class MeasureContent:
+    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs"]
+
+    def __init__(self):
+        self.ties_perStaff = {}
+        self.clefs_perStaff = {}
+        self.keySigs_perStaff = {}
+        self.timeSigs_perStaff = {}
+        self.measure_perStaff = {}
+        self.slurs = []
+        self.dirs=[]
+        self.tuplets_perStaff = {}
+
+
+def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, notes_withinMeasure_perStaff):
+    currentMeasureContent = MeasureContent()
+
     for part_i, part in enumerate(parts):
         m = measures[part_i][measure_i]
 
         if m=="pad":
             for s in staves_perPart[part_i]:
-                autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
+                autoRestCount = padMeasure(s, currentMeasureContent.measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 
             continue
 
@@ -593,38 +612,41 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
         clefs_withinMeasure_perStaff_perPart = partition_handleNone(lambda c:c.number, cls_withinMeasure(part, score.Clef, m),"number")
         keySigs_withinMeasure = cls_withinMeasure_list(part,score.KeySignature, m)
         timeSigs_withinMeasure = cls_withinMeasure_list(part, score.TimeSignature, m)
-        slurs_withinMeasure.extend(cls_withinMeasure(part, score.Slur, m))
+        currentMeasureContent.slurs.extend(cls_withinMeasure(part, score.Slur, m))
         tuplets_withinMeasure = cls_withinMeasure_list(part, score.Tuplet, m)
 
         beat_map = part.beat_map
 
         for w in cls_withinMeasure(part, score.Words, m):
             tstamp=beat_map(w.start.t)-beat_map(m.start.t)+1
-            dirs_withinMeasure.append((tstamp,w))
+            currentMeasureContent.dirs.append((tstamp,w))
 
 
         notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, cls_withinMeasure(part,score.GenericNote, m, True), "staff")
 
         for s in staves_perPart[part_i]:
-            keySigs_withinMeasure_perStaff[s]=keySigs_withinMeasure
-            timeSigs_withinMeasure_perStaff[s]=timeSigs_withinMeasure
-            tuplets_withinMeasure_perStaff[s]=tuplets_withinMeasure
+            currentMeasureContent.keySigs_perStaff[s]=keySigs_withinMeasure
+            currentMeasureContent.timeSigs_perStaff[s]=timeSigs_withinMeasure
+            currentMeasureContent.tuplets_perStaff[s]=tuplets_withinMeasure
 
             if s not in notes_withinMeasure_perStaff_perPart.keys():
-                autoRestCount = padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
+                autoRestCount = padMeasure(s, currentMeasureContent.measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 
         for s,nwp in notes_withinMeasure_perStaff_perPart.items():
             extendKey(notes_withinMeasure_perStaff, s, nwp)
-            measure_perStaff[s]=m
+            currentMeasureContent.measure_perStaff[s]=m
 
         for s,cwp in clefs_withinMeasure_perStaff_perPart.items():
-            clefs_withinMeasure_perStaff[s]=cwp
+            currentMeasureContent.clefs_perStaff[s]=cwp
 
-    return autoRestCount
 
-def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff):
+    return autoRestCount, currentMeasureContent
+
+def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, scoreDef, tuplet_idCounter, autoBeaming, lastKeySig_perStaff, currentMeasureContent):
     measure=addChild(section,"measure")
     setAttributes(measure,("n",measure_i+1))
+
+    ties_perStaff={}
 
     for s in staves_sorted:
         noteAlterations = {}
@@ -637,11 +659,11 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
         ties_perStaff_perVoice={}
 
-        m = measure_perStaff[s]
+        m = currentMeasureContent.measure_perStaff[s]
 
         tuplets=[]
-        if s in tuplets_withinMeasure_perStaff.keys():
-            tuplets = tuplets_withinMeasure_perStaff[s]
+        if s in currentMeasureContent.tuplets_perStaff.keys():
+            tuplets = currentMeasureContent.tuplets_perStaff[s]
 
         lastKeySig=lastKeySig_perStaff[s]
 
@@ -772,22 +794,22 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
 
             inbetweenNotesElements = [
-                InbetweenNotesElement("clef", ["shape","line","dis","dis.place"], attribsOf_Clef, clefs_withinMeasure_perStaff, s, int(measure_i==0)),
-                InbetweenNotesElement("keySig", ["sig","mode","pname","sig.showchange"], (lambda ks: attribsOf_keySig(ks)+("true",)), keySigs_withinMeasure_perStaff, s, int(scoreDef!=None)),
-                InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), timeSigs_withinMeasure_perStaff, s, int(scoreDef!=None))
+                InbetweenNotesElement("clef", ["shape","line","dis","dis.place"], attribsOf_Clef, currentMeasureContent.clefs_perStaff, s, int(measure_i==0)),
+                InbetweenNotesElement("keySig", ["sig","mode","pname","sig.showchange"], (lambda ks: attribsOf_keySig(ks)+("true",)), currentMeasureContent.keySigs_perStaff, s, int(scoreDef!=None)),
+                InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), currentMeasureContent.timeSigs_perStaff, s, int(scoreDef!=None))
             ]
 
             openTuplet = False
 
-
+            notes_nextMeasure_perStaff={}
 
             for chord_i in range(len(chords)-1):
                 dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
 
-                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, next_dur_dots)
+                tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, m, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, notes_nextMeasure_perStaff, next_dur_dots)
                 next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
 
-            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, notes_nextMeasure_perStaff, m, layer,tuplet_idCounter, openTuplet, lastKeySig, noteAlterations)
+            tuplet_idCounter,_,_=processChord(len(chords)-1, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, next_dur_dots, next_splitNotes, next_firstTempDur, tupletIndices, ties, m, layer,tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, notes_nextMeasure_perStaff)
 
 
 
@@ -796,11 +818,11 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
         ties_perStaff[s]=ties_perStaff_perVoice
 
-    for slur in slurs_withinMeasure:
+    for slur in currentMeasureContent.slurs:
         s = addChild(measure,"slur")
         setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
 
-    for tstamp,word in dirs_withinMeasure:
+    for tstamp,word in currentMeasureContent.dirs:
         d = addChild(measure, "dir")
         setAttributes(d,("staff",word.staff),("tstamp",tstamp))
         d.text = word.text
@@ -816,7 +838,7 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
                     setAttributes(tie, ("staff",s), ("startid","#"+ties[i]), ("endid","#"+ties[i+1]))
 
-    for s,k in keySigs_withinMeasure_perStaff.items():
+    for s,k in currentMeasureContent.keySigs_perStaff.items():
         if len(k)>0:
             lastKeySig_perStaff[s]=max(k,key=lambda k:k.start.t)
 
@@ -1072,45 +1094,30 @@ def exportToMEI(parts, autoBeaming=True):
         notes_lastMeasure_perStaff = {}
         autoRestCount = 0
 
-        notes_nextMeasure_perStaff={}
-        ties_perStaff = {}
         notes_withinMeasure_perStaff = notes_lastMeasure_perStaff
-        clefs_withinMeasure_perStaff = {}
-        keySigs_withinMeasure_perStaff = {}
-        timeSigs_withinMeasure_perStaff = {}
-        measure_perStaff = {}
-        slurs_withinMeasure = []
-        dirs_withinMeasure=[]
-        tuplets_withinMeasure_perStaff = {}
+
+
+
+
+        autoRestCount, currentMeasureContent = extractFromMeasures(parts, measures, 0, staves_perPart, autoRestCount, notes_withinMeasure_perStaff)
 
         lastKeySig_perStaff = {}
 
-        autoRestCount=extractFromMeasures(parts, measures, 0, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure)
-
-        for s,k in keySigs_withinMeasure_perStaff.items():
+        for s,k in currentMeasureContent.keySigs_perStaff.items():
             lastKeySig_perStaff[s]= (min(k,key=lambda k:k.start.t) if len(k)>0 else None)
 
-        tuplet_idCounter, notes_lastMeasure_perStaff =createMeasure(section, 0, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff)
+        tuplet_idCounter, notes_lastMeasure_perStaff =createMeasure(section, 0, staves_sorted, notes_withinMeasure_perStaff, scoreDef, tuplet_idCounter, autoBeaming, lastKeySig_perStaff, currentMeasureContent)
 
 
 
         for measure_i in range(1,len(measures[0])):
-            notes_nextMeasure_perStaff={}
-            ties_perStaff = {}
             notes_withinMeasure_perStaff = notes_lastMeasure_perStaff
-            clefs_withinMeasure_perStaff = {}
-            keySigs_withinMeasure_perStaff = {}
-            timeSigs_withinMeasure_perStaff = {}
-            measure_perStaff = {}
-            slurs_withinMeasure = []
-            dirs_withinMeasure=[]
-            tuplets_withinMeasure_perStaff = {}
 
-            autoRestCount=extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, measure_perStaff, notes_withinMeasure_perStaff, dirs_withinMeasure, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, tuplets_withinMeasure_perStaff, clefs_withinMeasure_perStaff, slurs_withinMeasure)
+            autoRestCount, currentMeasureContent=extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, notes_withinMeasure_perStaff)
 
             scoreDef=createScoreDef(measures, measure_i, parts, section)
 
-            tuplet_idCounter, notes_lastMeasure_perStaff = createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, measure_perStaff, tuplets_withinMeasure_perStaff, scoreDef, ties_perStaff, tuplet_idCounter, clefs_withinMeasure_perStaff, keySigs_withinMeasure_perStaff, timeSigs_withinMeasure_perStaff, autoBeaming, notes_nextMeasure_perStaff, slurs_withinMeasure, dirs_withinMeasure, lastKeySig_perStaff)
+            tuplet_idCounter, notes_lastMeasure_perStaff = createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, scoreDef, tuplet_idCounter, autoBeaming, lastKeySig_perStaff, currentMeasureContent)
 
 
 
@@ -1334,8 +1341,8 @@ def testExport():
 
     #print(etree.tostring(mei,pretty_print=True))
 
-    parts = partitura.load_musicxml("The_Video_Game_Epic_Medley_For_Orchestra.xml", force_note_ids=True)
-    #parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
+    #parts = partitura.load_musicxml("The_Video_Game_Epic_Medley_For_Orchestra.xml", force_note_ids=True)
+    parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
     #partitura.render(parts)
     exportToMEI(parts)
 
