@@ -4,7 +4,8 @@ from lxml import etree
 from partitura.utils.generic import partition
 from partitura.utils.music import estimate_symbolic_duration
 import sys
-
+import webbrowser
+import os
 
 nameSpace = "http://www.music-encoding.org/ns/mei"
 
@@ -576,7 +577,7 @@ def createScoreDef(measures, measure_i, parts, parent):
 
 
 class MeasureContent:
-    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs"]
+    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs","hairpins"]
 
     def __init__(self):
         self.ties_perStaff = {}
@@ -586,6 +587,7 @@ class MeasureContent:
         self.measure_perStaff = {}
         self.slurs = []
         self.dirs=[]
+        self.hairpins=[]
         self.tuplets_perStaff = {}
 
 
@@ -616,11 +618,31 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
         tuplets_withinMeasure = cls_withinMeasure_list(part, score.Tuplet, m)
 
         beat_map = part.beat_map
+        measure_t = beat_map(m.start.t)
+
+        def calc_tstamp(beat_map, t, measure_t):
+            return beat_map(t)-measure_t+1
 
         for w in cls_withinMeasure(part, score.Words, m):
-            tstamp=beat_map(w.start.t)-beat_map(m.start.t)+1
+            tstamp=calc_tstamp(beat_map, w.start.t, measure_t)
             currentMeasureContent.dirs.append((tstamp,w))
 
+        for hairpin in cls_withinMeasure(part, score.DynamicLoudnessDirection, m, True):
+            tstamp=calc_tstamp(beat_map, hairpin.start.t, measure_t)
+            tstamp2=None
+
+            if hairpin.end!=None:
+                measureCounter=1
+                while hairpin.end.t>measures[part_i][measure_i + measureCounter].start.t:
+                    measureCounter+=1
+
+                measureCounter-=1
+
+                tstamp2 = beat_map(hairpin.end.t)+ 1 - beat_map(measures[part_i][measure_i + measureCounter].start.t)
+
+                tstamp2 = str(measureCounter)+"m+"+str(tstamp2)
+
+            currentMeasureContent.hairpins.append((tstamp,tstamp2,hairpin))
 
         notes_withinMeasure_perStaff_perPart = partition_handleNone(lambda n:n.staff, cls_withinMeasure(part,score.GenericNote, m, True), "staff")
 
@@ -827,6 +849,13 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
         setAttributes(d,("staff",word.staff),("tstamp",tstamp))
         d.text = word.text
 
+    for tstamp,tstamp2,hairpin in currentMeasureContent.hairpins:
+        h = addChild(measure, "hairpin")
+        form = ("cres" if isinstance(hairpin, score.IncreasingLoudnessDirection) else "dim")
+        setAttributes(h,("staff",hairpin.staff),("tstamp",tstamp),("form", form))
+        if tstamp2!=None:
+            setAttributes(h,("tstamp2",tstamp2))
+
     for s,tps in ties_perStaff.items():
 
         for v,tpspv in tps.items():
@@ -896,6 +925,8 @@ def exportToMEI(parts, autoBeaming=True):
 
     staves_perPart=[]
 
+    stavesAreValid = True
+
     for p in parts:
         staves_perPart.append([])
 
@@ -904,16 +935,17 @@ def exportToMEI(parts, autoBeaming=True):
                 if staffedObj.staff!=None and not staffedObj.staff in staves_perPart[-1]:
                     staves_perPart[-1].append(staffedObj.staff)
 
+                if staffedObj.staff==None and len(staves_perPart[-1])!=0:
+                    stavesAreValid = False
+
+        if len(staves_perPart[-1])==0:
+            stavesAreValid = False
+
         for clef in p.iter_all(score.Clef):
             if clef.number != None and not clef.number in staves_perPart[-1]:
                 staves_perPart[-1].append(clef.number)
 
-    stavesAreValid = True
 
-    for staves in staves_perPart:
-        if len(staves)==0:
-            stavesAreValid = False
-            break
 
     staves_sorted = sorted([s for staves in staves_perPart for s in staves])
 
@@ -927,6 +959,7 @@ def exportToMEI(parts, autoBeaming=True):
         i+=1
 
     staves_perPart_backup = staves_perPart
+
     if not stavesAreValid:
         staves_sorted = []
         staves_perPart = []
@@ -980,16 +1013,10 @@ def exportToMEI(parts, autoBeaming=True):
 
     scoreDef = createScoreDef(measures, 0, parts, mei_score)
 
+    scoreDef_setup = scoreDef
+
     if scoreDef==None:
-        scoreDef = addChild(mei_score,"scoreDef")
-        # might want to count staff numbers during processing and update staffGrp if count isn't consistent with clefs
-        staffGrp = addChild(scoreDef,"staffGrp")
-        scoreDef = None
-    else:
-        # might want to count staff numbers during processing and update staffGrp if count isn't consistent with clefs
-        staffGrp = addChild(scoreDef,"staffGrp")
-
-
+        scoreDef_setup = addChild(mei_score,"scoreDef")
 
     clefs_perPart=firstInstances_perPart(score.Clef, parts)
 
@@ -998,23 +1025,25 @@ def exportToMEI(parts, autoBeaming=True):
     for i in idx(clefs_perPart):
         clefs_perPart[i] = partition_handleNone(lambda c:c.number, clefs_perPart[i], "number")
 
-    if len(clefs_perPart)==0 and len(staves_sorted)==0:
+    if len(clefs_perPart)==0:
         create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=1, octave_change=0))
     else:
-        for s in staves_sorted:
-            clefs = None
+        for staves in staves_perPart:
+            staffGrp = addChild(scoreDef_setup,"staffGrp")
+            for s in staves:
+                clefs = None
 
-            for clefs_perStaff in clefs_perPart:
-                if s in clefs_perStaff.keys():
-                    clefs = clefs_perStaff[s]
-                    break
+                for clefs_perStaff in clefs_perPart:
+                    if s in clefs_perStaff.keys():
+                        clefs = clefs_perStaff[s]
+                        break
 
-            if clefs!=None:
-                clef = clefs[0]
-                assert len(clefs)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
-                create_staffDef(staffGrp, clef)
-            else:
-                create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=s, octave_change=0))
+                if clefs!=None:
+                    clef = clefs[0]
+                    assert len(clefs)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
+                    create_staffDef(staffGrp, clef)
+                else:
+                    create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=s, octave_change=0))
 
 
     section = addChild(mei_score,"section")
@@ -1346,5 +1375,8 @@ def testExport():
     #partitura.render(parts)
     exportToMEI(parts)
 
+
+#     url = 'file://' + os.path.realpath("testSite.html")
+#     webbrowser.open(url,new=2)
 
 testExport()
