@@ -883,13 +883,19 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
             d = addChild(measure, "hairpin")
             form = ("cres" if isinstance(dynam, score.IncreasingLoudnessDirection) else "dim")
             setAttributes(d, ("form",form))
+
+            # duration can also matter for other dynamics, might want to move this out of branch
+            if tstamp2!=None:
+                setAttributes(d,("tstamp2",tstamp2))
         else:
             d = addChild(measure, "dynam")
             d.text = dynam.text
 
         setAttributes(d,("staff",dynam.staff),("tstamp",tstamp))
-        if tstamp2!=None:
-            setAttributes(d,("tstamp2",tstamp2))
+
+
+
+
 
 
 
@@ -983,8 +989,7 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult.mei"):
             if clef.number != None and not clef.number in staves_perPart[-1]:
                 staves_perPart[-1].append(clef.number)
 
-        for ferm in p.iter_all(score.Fermata):
-            print(ferm)
+        
 
 
     staves_sorted = sorted([s for staves in staves_perPart for s in staves])
