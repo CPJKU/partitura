@@ -71,7 +71,7 @@ def load_performance_midi(fn, default_bpm=120):
 
             if msg.type == 'set_tempo':
 
-                mpq = msg.tempo/10**6
+                mpq = msg.tempo
 
             elif msg.type == 'control_change':
 
