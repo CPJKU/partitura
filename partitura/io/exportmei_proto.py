@@ -577,7 +577,7 @@ def createScoreDef(measures, measure_i, parts, parent):
 
 
 class MeasureContent:
-    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs","dynams"]
+    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs","dynams","tempii"]
 
     def __init__(self):
         self.ties_perStaff = {}
@@ -590,6 +590,7 @@ class MeasureContent:
         self.slurs = []
         self.dirs=[]
         self.dynams=[]
+        self.tempii=[]
 
 
 def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, notes_withinMeasure_perStaff):
@@ -626,6 +627,11 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
         for w in cls_withinMeasure(part, score.Words, m):
             tstamp=calc_tstamp(beat_map, w.start.t, m)
             currentMeasureContent.dirs.append((tstamp,w))
+
+        for tempo in cls_withinMeasure(part, score.Tempo, m):
+            tstamp=calc_tstamp(beat_map, tempo.start.t, m)
+            currentMeasureContent.tempii.append((tstamp,staves_perPart[part_i][0],tempo))
+
 
         for dynam in cls_withinMeasure(part, score.Direction, m, True):
             tstamp=calc_tstamp(beat_map, dynam.start.t, m)
@@ -851,6 +857,27 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
         setAttributes(d,("staff",word.staff),("tstamp",tstamp))
         d.text = word.text
 
+    metronomeCodes = {
+        'breve': "D0",
+        'whole': "D2",
+        'half': "D3",
+        'h': "D3",
+        'quarter': "D5",
+        'q': "D5",
+        'eighth': "D7",
+        'e': "D5",
+        '16th': "D9",
+        '32nd': "DB",
+        '64th': "DD",
+        '128th': "DF",
+        '256th': "E1"
+    }
+
+    for tstamp, staff, tempo in currentMeasureContent.tempii:
+        t = addChild(measure, "tempo")
+        setAttributes(t, ("staff",staff),("tstamp",tstamp))
+        t.text = " <rend fontname=\"VerovioText\">&#xE1"+metronomeCodes[tempo.unit or "q"]+";</rend> = "+str(tempo.bpm)
+
     for tstamp,tstamp2,dynam in currentMeasureContent.dynams:
         if isinstance(dynam, score.DynamicLoudnessDirection):
             d = addChild(measure, "hairpin")
@@ -900,7 +927,7 @@ def unpackPartGroup(partGrp, parts=[]):
 
 # parts is either a Part, a PartGroup or a list of Parts
 
-def exportToMEI(parts, autoBeaming=True):
+def exportToMEI(parts, autoBeaming=True, fileName = "testResult.mei"):
 
 
     print("begin export")
@@ -956,6 +983,8 @@ def exportToMEI(parts, autoBeaming=True):
             if clef.number != None and not clef.number in staves_perPart[-1]:
                 staves_perPart[-1].append(clef.number)
 
+        for ferm in p.iter_all(score.Fermata):
+            print(ferm)
 
 
     staves_sorted = sorted([s for staves in staves_perPart for s in staves])
@@ -1167,8 +1196,38 @@ def exportToMEI(parts, autoBeaming=True):
 
 
 
-    (etree.ElementTree(mei)).write("testResult.mei",pretty_print=True)
+    (etree.ElementTree(mei)).write(fileName,pretty_print=True)
 
+    # post processing step necessary
+    # etree won't write <,> and & into an element's text
+    with open(fileName) as result:
+        text = list(result.read())
+        newText=[]
+
+        i=0
+        while i<len(text):
+            ch=text[i]
+            if ch=="&":
+                if text[i+1:i+4]==["l","t",";"]:
+                    ch="<"
+                    i+=4
+                elif text[i+1:i+4]==["g","t",";"]:
+                    ch=">"
+                    i+=4
+                elif text[i+1:i+5]==["a","m","p",";"]:
+                    i+=5
+                else:
+                    i+=1
+            else:
+                i+=1
+
+            newText.append(ch)
+
+        newText="".join(newText)
+
+
+    with open(fileName,"w") as result:
+        result.write(newText)
 
 
 def testExport():
@@ -1384,7 +1443,11 @@ def testExport():
     #parts = partitura.load_musicxml("The_Video_Game_Epic_Medley_For_Orchestra.xml", force_note_ids=True)
     parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
     #partitura.render(parts)
+
+    parts.add(score.Tempo(90),start=0)
+
     exportToMEI(parts)
+
 
 
 #     url = 'file://' + os.path.realpath("testSite.html")
