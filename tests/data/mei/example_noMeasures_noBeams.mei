@@ -1,0 +1,53 @@
+<mei>
+  <meiHead xmlns="http://www.music-encoding.org/ns/mei">
+    <fileDesc>
+      <titleStmt>
+        <title type="main">TEST</title>
+      </titleStmt>
+      <pubStmt/>
+    </fileDesc>
+  </meiHead>
+  <music>
+    <body>
+      <mdiv>
+        <score>
+          <scoreDef>
+            <staffGrp>
+              <staffDef n="1" lines="5" clef.shape="G" clef.line="2"/>
+              <staffDef n="2" lines="5" clef.shape="F" clef.line="4"/>
+            </staffGrp>
+          </scoreDef>
+          <section>
+            <staff n="1">
+              <layer>
+                <barLine/>
+                <chord dur="8" dots="0">
+                  <note xml:id="n4s2s" pname="f" oct="4"/>
+                  <note xml:id="n4s22s" pname="a" oct="4"/>
+                </chord>
+                <chord dur="8" dots="0">
+                  <note xml:id="n5s2" pname="d" oct="4"/>
+                  <note xml:id="n5s22" pname="f" oct="4"/>
+                </chord>
+                <chord dur="2" dots="1">
+                  <note xml:id="n6s2" pname="a" oct="4"/>
+                  <note xml:id="n6s22" pname="c" oct="5"/>
+                </chord>
+                <barLine/>
+              </layer>
+            </staff>
+            <staff n="2">
+              <layer>
+                <barLine/>
+                <note xml:id="n4s" pname="d" oct="2" dur="4" dots="0"/>
+                <note xml:id="n5" pname="f" oct="2" dur="4" dots="1"/>
+                <note xml:id="n6" pname="a" oct="2" dur="4" dots="1"/>
+                <barLine/>
+              </layer>
+            </staff>
+          </section>
+        </score>
+      </mdiv>
+    </body>
+  </music>
+</mei>
