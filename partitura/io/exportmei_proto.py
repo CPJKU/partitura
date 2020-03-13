@@ -401,7 +401,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
         if not autoBeaming and not openBeam and rep.beam!=None:
             openBeam = handleBeam(True,parents)
 
-        def conditional_gracify(elem, rep):
+        def conditional_gracify(elem, rep, chord_i, chords):
             if isinstance(rep,score.GraceNote):
                 grace = "unacc"
 
@@ -413,9 +413,11 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
                 if rep.steal_proportion != None:
                     setAttributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
 
+                if chord_i==0 or not isinstance(chordRep(chords,chord_i-1), score.GraceNote):
+                    for n in chords[chord_i]:
+                        n.tie_next = n.main_note
+
         def createNote(parent, n, id, lastKeySig, noteAlterations):
-
-
             note=addChild(parent,"note")
 
             step = n.step.lower()
@@ -426,9 +428,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
             staffPos = step+str(n.octave)
 
-            alter = n.alter
-            if alter==None:
-                alter=0
+            alter = n.alter or 0
 
             def setAccid(note, acc, noteAlterations, staffPos, alter):
                 if staffPos in noteAlterations.keys() and alter==noteAlterations[staffPos]:
@@ -456,7 +456,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             chord = addChild(parents[-1],"chord")
             setAttributes(chord,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-            conditional_gracify(chord, rep)
+            conditional_gracify(chord, rep, chord_i, chords)
 
             for n in chordNotes:
                 createNote(chord, n, n.id, lastKeySig, noteAlterations)
@@ -466,7 +466,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             note=createNote(parents[-1], rep, rep.id, lastKeySig, noteAlterations)
             setAttributes(note,("dur",dur_dots[0][0]),("dots",dur_dots[0][1]))
 
-            conditional_gracify(note,rep)
+            conditional_gracify(note,rep, chord_i, chords)
 
         if len(dur_dots)>1:
             for n in chordNotes:
@@ -848,6 +848,8 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
         ties_perStaff[s]=ties_perStaff_perVoice
 
+
+
     for slur in currentMeasureContent.slurs:
         s = addChild(measure,"slur")
         setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
@@ -989,7 +991,7 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult.mei"):
             if clef.number != None and not clef.number in staves_perPart[-1]:
                 staves_perPart[-1].append(clef.number)
 
-        
+
 
 
     staves_sorted = sorted([s for staves in staves_perPart for s in staves])
@@ -1449,7 +1451,7 @@ def testExport():
     parts = partitura.load_musicxml("musicxml_cleaned.xml", force_note_ids=True)
     #partitura.render(parts)
 
-    parts.add(score.Tempo(90),start=0)
+    #parts = partitura.load_musicxml("../../tests/basismixer_parts/beethoven_op002_no2_mv1.xml", force_note_ids=True)
 
     exportToMEI(parts)
 
