@@ -207,9 +207,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x)
+            return interp1d(y, x, bounds_error=False, fill_value='extrapolate')
         else:
-            return interp1d(x, y)
+            return interp1d(x, y, bounds_error=False, fill_value='extrapolate')
 
     @property
     def beat_map(self):
