@@ -205,8 +205,8 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
     else:
         partlist = []
 
-    if force_note_ids:
-        assign_note_ids(partlist)
+    if force_note_ids is True or force_note_ids == 'keep':
+        assign_note_ids(partlist, force_note_ids == 'keep')
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -214,14 +214,23 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
         return partlist
 
 
-def assign_note_ids(parts):
-    # assign note ids to ensure uniqueness across all parts, discarding any
-    # existing note ids
-    i = 0
-    for part in score.iter_parts(parts):
-        for n in part.notes:
-            n.id = 'n{}'.format(i)
-            i += 1
+def assign_note_ids(parts, keep=False):
+
+    if keep:
+        # Keep existing note id's
+        for p, part in enumerate(score.iter_parts(parts)):
+            for ni, n in enumerate(part.notes):
+                n.id = 'p{0}n{1}'.format(p, ni) if n.id is None else n.id
+                
+    else:
+        # assign note ids to ensure uniqueness across all parts, discarding any
+        # existing note ids
+        i = 0
+        for part in score.iter_parts(parts):
+
+            for n in part.notes:
+                n.id = 'n{}'.format(i)
+                i += 1
 
 
 def _parse_parts(document, part_dict):
