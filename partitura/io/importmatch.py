@@ -1192,14 +1192,13 @@ def part_from_matchfile(mf):
 
     Parameters
     ----------
-    mf : :class:`MatchFile` 
-        A matchfile object
+    mf : MatchFile
+        An instance of `MatchFile`
 
     Returns
     -------
-    part : :class:`Part`
-        A score part object
-
+    part : partitura.score.Part
+        An instance of `Part` containing score information.
 
     """
     part = score.Part('P1', mf.info('piece'))

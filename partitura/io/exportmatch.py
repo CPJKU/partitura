@@ -77,7 +77,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
     Parameters
     ----------
     alignment : list
-        A list of dictionaries containing alignment information. 
+        A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
     ppart : partitura.performance.PerformedPart
         An instance of `PerformedPart` containing performance information.
@@ -134,15 +134,15 @@ def matchfile_from_alignment(alignment, ppart, spart,
         # used in the definition of MatchFiles)
         snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
-        
+
         # ____ does this really give the full measure? or just the first note? it seems like it returns the first note.
-        
         bar_start = float(spart.beat_map(m.start.t))
-        
-        
+
+
         for n in snotes:
             # Get note information
             # TODO: preserve symbolic durations?
+            # TODO: correct beat and moffset calculation
             bar = int(m.number)
             onset, offset = spart.beat_map([n.start.t, n.start.t+n.duration_tied])
             duration = offset-onset
@@ -164,7 +164,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
 
     # Create MatchNotes from performance informaton
     perf_info = dict()
-    
+
     for pn in ppart.notes:
         note_name, modifier, octave = midi_pitch_to_pitch_spelling(pn['midi_pitch'])
         onset = seconds_to_midi_ticks(pn['note_on'], mpq=mpq, ppq=ppq)
@@ -191,7 +191,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
             # quirk from Magaloff/Zeilinger
             al_note['score_id'] = al_note['score_id'].split('-')[0]
             snote = score_info[al_note['score_id']]
-            
+
             pnote = perf_info[al_note['performance_id']]
             snote_note_line = MatchSnoteNote(snote=snote, note=pnote)
             note_lines.append(snote_note_line)
@@ -225,7 +225,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
                                                   note=note)
 
             note_lines.append(ornament_line)
-                
+
         else:
             print('unprocessed line {0}'.format(label))
             print(str(al_note))
@@ -304,7 +304,7 @@ def save_match(alignment, ppart, spart, out,
     Parameters
     ----------
     alignment : list
-        A list of dictionaries containing alignment information. 
+        A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
     ppart : partitura.performance.PerformedPart
         An instance of `PerformedPart` containing performance information.
