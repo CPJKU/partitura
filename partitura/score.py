@@ -142,6 +142,9 @@ class Part(object):
                 tN = self.last_point.t
             tss = np.array([(t0, beats, beat_type),
                             (tN, beats, beat_type)])
+        elif len(tss) == 1:
+            # If there is only a single time signature
+            return lambda x: np.array([tss[0, 1], tss[0, 2]])
         elif tss[0, 0] > self.first_point.t:
             tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
                              tss))
@@ -206,9 +209,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x)
+            return interp1d(y, x, bounds_error=False, fill_value='extrapolate')
         else:
-            return interp1d(x, y)
+            return interp1d(x, y, bounds_error=False, fill_value='extrapolate')
 
     @property
     def beat_map(self):
@@ -2044,6 +2047,50 @@ class PartGroup(object):
 
         """
         return '\n'.join(self._pp(PrettyPrintTree()))
+
+    @property
+    def note_array(self):
+        """A structured array containing pitch, onset, duration, voice
+        and id for each note in each part of the PartGroup.
+        The note ids in this array include the number of the part
+        to which they belong.
+        """
+
+        fields = [('onset', 'f4'),
+                  ('duration', 'f4'),
+                  ('pitch', 'i4'),
+                  ('voice', 'i4'),
+                  ('id', 'U256')]
+
+        note_arrays = [part.note_array for part in self.children]
+        onset = np.hstack([na['onset'] for na in note_arrays])
+        duration = np.hstack([na['duration'] for na in note_arrays])
+        pitch = np.hstack([na['pitch'] for na in note_arrays])
+        voice =  np.hstack([na['voice'] for na in note_arrays])
+        ids = []
+        for j, na in enumerate(note_arrays):
+            # add part number at the begining of note ID
+            id = np.array(['P{0:02d}_'.format(j) + i for i in na['id']],
+                           dtype=na['id'].dtype)
+            ids.append(id)
+        ids = np.hstack(ids)
+
+        # Make structured array
+        note_array = np.array(
+            [(o, d, p, v, i) for o, d, p, v, i in zip(onset, duration, pitch, voice, ids)],
+            dtype=fields)
+
+
+        # sort by onset and pitch
+        pitch_sort_idx = np.argsort(note_array['pitch'])
+        note_array = note_array[pitch_sort_idx]
+        onset_sort_idx = np.argsort(note_array['onset'], kind='mergesort')
+        note_array = note_array[onset_sort_idx]
+
+        return note_array
+
+
+
 
 
 class ScoreVariant(object):
