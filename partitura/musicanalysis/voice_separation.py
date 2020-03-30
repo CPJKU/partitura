@@ -444,13 +444,14 @@ class Voice(object):
         elif isinstance(stream_or_streams, NoteStream):
             self.streams = [stream_or_streams]
 
+        self._voice = voice
+
         if len(self.streams) > 0:
             self._setup_voice()
 
         else:
             self.notes = []
 
-        self._voice = voice
 
     def _setup_voice(self):
 

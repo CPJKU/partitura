@@ -205,8 +205,8 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
     else:
         partlist = []
 
-    if force_note_ids:
-        assign_note_ids(partlist)
+    if force_note_ids is True or force_note_ids == 'keep':
+        assign_note_ids(partlist, force_note_ids == 'keep')
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -214,20 +214,30 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
         return partlist
 
 
-# CHANGED TO ALSO INCLUDE REST
-def assign_note_ids(parts):
-    # assign note ids to ensure uniqueness across all parts, discarding any
-    # existing note ids
-    ni = 0
-    ri = 0
-    for part in score.iter_parts(parts):
-        for n in part.iter_all(score.GenericNote, include_subclasses=True):
-            if isinstance(n,score.Rest):
-                n.id = 'r{}'.format(ri)
-                ri+=1
-            else:
-                n.id = 'n{}'.format(ni)
-                ni+=1
+def assign_note_ids(parts, keep=False):
+
+    if keep:
+        # Keep existing note id's
+        for p, part in enumerate(score.iter_parts(parts)):
+            for ni, n in part.iter_all(score.GenericNote, include_subclasses=True):
+                if isinstance(n, score.Rest):
+                    n.id = 'p{0}r{1}'.format(p, ni) if n.id is None else n.id
+                else:
+                    n.id = 'p{0}n{1}'.format(p, ni) if n.id is None else n.id
+                
+    else:
+        # assign note ids to ensure uniqueness across all parts, discarding any
+        # existing note ids
+        ni = 0
+        ri = 0
+        for part in score.iter_parts(parts):
+            for n in part.iter_all(score.GenericNote, include_subclasses=True):
+                if isinstance(n,score.Rest):
+                    n.id = 'r{}'.format(ri)
+                    ri+=1
+                else:
+                    n.id = 'n{}'.format(ni)
+                    ni+=1
 
 
 def _parse_parts(document, part_dict):
