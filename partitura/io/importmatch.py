@@ -1187,30 +1187,19 @@ def sort_snotes(snotes):
 
 
 def part_from_matchfile(mf):
-    """Load a matchfile.
+    """
+    Create a score part from a matchfile.
 
     Parameters
     ----------
-    fn : str
-        The matchfile
-    create_part : bool, optional
-        When True create a Part object from the snote information in
-        the match file. Defaults to False.
-    pedal_threshold : int, optional
-        Threshold for adjusting sound off of the performed notes using
-        pedal information. Defaults to 64.
-    first_note_at_zero : bool, optional
-        When True the note_on and note_off times in the performance
-        are shifted to make the first note_on time equal zero.
+    mf : :class:`MatchFile` 
+        A matchfile object
 
     Returns
     -------
-    ppart : list
-        The performed part, a list of dictionaries
-    alignment : list
-        The score--performance alignment, a list of dictionaries
-    spart : Part
-        The score part. This item is only returned when `create_part` = True.
+    part : :class:`Part`
+        A score part object
+
 
     """
     part = score.Part('P1', mf.info('piece'))
@@ -1302,7 +1291,6 @@ def part_from_matchfile(mf):
             prev_part_note = None
 
             for i, (num, den, tuple_div) in enumerate(note.Duration.add_components):
-
                 # when we add multiple notes that are tied, the first note will
                 # get the original note id, and subsequent notes will get a
                 # derived note id (by appending, 'a', 'b', 'c',...)
@@ -1312,14 +1300,10 @@ def part_from_matchfile(mf):
 
                 part_note = score.Note(**note_attributes)
 
-                # duration_divs relative to local beats --> 4/beat_type_map(bar_start)
-
+                # duration_divs from local beats --> 4/beat_type_map(bar_start)
                 duration_divs = int(divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
-
                 assert duration_divs > 0
-
                 offset_divs = onset_divs + duration_divs
-
                 part.add(part_note, onset_divs, offset_divs)
 
                 if prev_part_note:
@@ -1329,34 +1313,26 @@ def part_from_matchfile(mf):
                 onset_divs = offset_divs
 
         else:
-
             num = note.Duration.numerator
             den = note.Duration.denominator
             tuple_div = note.Duration.tuple_div
 
-            # ___ should duration_divs not be relative to local beats? 4 -> 4/beat_type_map(bar_start)
-
+            # duration_divs from local beats --> 4/beat_type_map(bar_start)
             duration_divs = int(divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
-
             offset_divs = onset_divs + duration_divs
 
             # notes with duration 0, are also treated as grace notes, even if
             # they do not have a 'grace' score attribute
-            if ('grace' in note.ScoreAttributesList or
-                    note.Duration.numerator == 0):
-
+            if ('grace' in note.ScoreAttributesList or note.Duration.numerator == 0):
                 part_note = score.GraceNote(grace_type='appoggiatura', **note_attributes)
 
             else:
-
                 part_note = score.Note(**note_attributes)
 
             part.add(part_note, onset_divs, offset_divs)
 
-
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
-
         bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
         bar_start_divs = max(0,bar_start_divs)
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
@@ -1364,7 +1340,6 @@ def part_from_matchfile(mf):
 
     # add key signatures
     for (ks_beat_time, ks_bar, keys) in mf.key_signatures:
-
         if len(keys) > 1:
             # there are multple equivalent keys, so we check which one is most
             # likely according to the key estimator
@@ -1396,7 +1371,8 @@ def part_from_matchfile(mf):
 
     if not all([n.voice for n in part.notes_tied]):
         # print('notes without voice detected')
-        # ____ deactivate for now as I get a error VoSA, line 798; the +1 gives an index outside the list length
+        # TODO: fix this!
+        # ____ deactivate add_voices(part) for now as I get a error VoSA, line 798; the +1 gives an index outside the list length
         # add_voices(part)
         for note in part.notes_tied:
             if note.voice == None:
@@ -1506,12 +1482,10 @@ def add_staffs_v1(part):
     # partition(attrgetter('staff'), part.notes_tied)
     # **estimate_clef_properties([n.midi_pitch for n in notes])
 
-
 def add_clefs(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
     for staff, notes in by_staff.items():
         part.add(score.Clef(number=staff, **estimate_clef_properties([n.midi_pitch for n in notes])), 0)
-
 
 def add_voices(part):
     by_staff = partition(attrgetter('staff'), part.notes_tied)
@@ -1540,8 +1514,6 @@ def add_voices(part):
             if n.voice is None:
                 n.voice = max_voice + ev
                 ev += 1
-        # import pdb
-        # pdb.set_trace()
 
 
 # PERFORMANCE PART FROM MATCHFILE stuff
