@@ -108,7 +108,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
                                               Value=performer)
     if piece is not None:
         header_lines['piece'] = MatchInfo(Attribute='piece',
-                                          Value=ppart.part_name)
+                                          Value=piece)
     if composer is not None:
         header_lines['composer'] = MatchInfo(Attribute='composer',
                                              Value=composer)
