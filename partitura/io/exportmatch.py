@@ -134,7 +134,12 @@ def matchfile_from_alignment(alignment, ppart, spart,
         # used in the definition of MatchFiles)
         snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
+        
+        # ____ does this really give the full measure? or just the first note? it seems like it returns the first note.
+        
         bar_start = float(spart.beat_map(m.start.t))
+        
+        
         for n in snotes:
             # Get note information
             # TODO: preserve symbolic durations?

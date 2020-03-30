@@ -856,6 +856,13 @@ def match_note_arrays(input_note_array, target_note_array,
         # candidate onset idxs (between o - epsilon and o + epsilon)
         coix = np.where(np.logical_and(i_onsets >= o - epsilon,
                                        i_onsets <= o + epsilon))[0]
+        # if len(coix) > 0:
+        #     print(coix, "IDENTICAL ONSETSSSS?????")
+        #     print(input_note_array[i_sort_idx[coix[:]]])
+        #     print(target_note_array[i] )
+        #     print(i_onsets)
+        #     print(o)
+        #     print(epsilon)
         if len(coix) > 0:
             # index of the note with the same pitch
             cpix = np.where(i_pitch[coix] == p)[0]

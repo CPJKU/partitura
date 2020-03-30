@@ -1,0 +1,6 @@
+numpy
+scipy
+lxml
+lark-parser
+xmlschema
+mido
