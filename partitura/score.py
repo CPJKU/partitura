@@ -209,9 +209,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x)
+            return interp1d(y, x, bounds_error=False, fill_value='extrapolate')
         else:
-            return interp1d(x, y)
+            return interp1d(x, y, bounds_error=False, fill_value='extrapolate')
 
     @property
     def beat_map(self):
@@ -647,7 +647,7 @@ class Part(object):
             note_dur = note_off - note_on
             note_array.append((note_on, note_dur, note.midi_pitch,
                                note.voice, note.id))
-
+            
         return np.array(note_array, dtype=fields)
 
     # @property
@@ -939,12 +939,12 @@ class TimePoint(ComparableMixin):
             result.append('{}'.format(tree).rstrip())
 
             for i, item in enumerate(starting_items):
-
+                
                 if i == (len(starting_items) - 1):
                     tree.last_item()
                 else:
                     tree.next_item()
-
+                print(type(result),type(tree),type(item))
                 result.append('{}{}'.format(tree, item))
 
             tree.pop()
@@ -1931,9 +1931,9 @@ class Direction(TimedObject):
 
     """
 
-    def __init__(self, text, raw_text=None, staff=None):
+    def __init__(self, text=None, raw_text=None, staff=None):
         super().__init__()
-        self.text = text
+        self.text = "default_text" #text
         self.raw_text = raw_text
         self.staff = staff
 
@@ -1941,8 +1941,8 @@ class Direction(TimedObject):
         if self.raw_text is not None:
             return '{} "{}" raw_text="{}"'.format(type(self).__name__, self.text, self.raw_text)
         else:
-            return '{} "{}"'.format(type(self).__name__, self.text)
-
+            #return '{} "{}"'.format(type(self).__name__, self.text)
+            return '{} '.format( self.text)
 
 
 class LoudnessDirection(Direction): pass
@@ -1965,7 +1965,7 @@ class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
         if self.wedge:
             return '{} wedge'.format(super().__str__())
         else:
-            return super().__init__()
+            return super().__str__()
 
 class DynamicTempoDirection(DynamicDirection, TempoDirection): pass
 
@@ -2408,7 +2408,9 @@ def add_measures(part):
     ts_start_times = timesigs[:, 0]
     beats_per_measure = timesigs[:, 1]
     ts_end_times = ts_start_times[1:]
-
+    
+    
+    
     # make sure we cover time until the end of the timeline
     if len(ts_end_times) == 0 or ts_end_times[-1] < end:
         ts_end_times = np.r_[ts_end_times, end]
@@ -2418,7 +2420,7 @@ def add_measures(part):
     beat_map = part.beat_map
     inv_beat_map = part.inv_beat_map
     mcounter = 1
-
+    
     for ts_start, ts_end, measure_dur in zip(ts_start_times, ts_end_times, beats_per_measure):
         pos = ts_start
 
@@ -2430,7 +2432,6 @@ def add_measures(part):
 
             # any existing measures between measure_start and measure_end
             existing_measure = next(part.iter_all(Measure, measure_start, measure_end), None)
-
             if existing_measure:
                 if existing_measure.start.t == measure_start:
                     assert existing_measure.end.t > pos

@@ -60,6 +60,7 @@ class FractionalSymbolicDuration(object):
         self.denominator = denominator
         self.tuple_div = tuple_div
         self.add_components = add_components
+        self.bound_integers(1024)
 
     def _str(self, numerator, denominator, tuple_div):
         if denominator == 1 and tuple_div is None:
@@ -72,7 +73,29 @@ class FractionalSymbolicDuration(object):
                 return '{0}/{1}/{2}'.format(numerator,
                                             denominator,
                                             tuple_div)
-
+    
+    def bound_integers(self, bound):       
+        denominators = [2,3,4,5,6,7,8,9,10,12,14,16,18,20,22,24,28,32,48,64,96,128]
+        if self.numerator > bound or self.denominator > bound:
+            val = float(self.numerator/self.denominator)
+            dif = []
+            for den in denominators:
+                if np.round(val*den) > 0.9:
+                    dif.append(np.abs(np.round(val*den)-val*den))
+                else:
+                    dif.append(np.abs(1-val*den))
+            
+            difn = np.array(dif)
+            min_idx = int(np.argmin(difn))
+            
+            self.denominator = denominators[min_idx]
+            if int(np.round(val*self.denominator)) < 1:
+                self.numerator = 1
+            else:
+                self.numerator = int(np.round(val*self.denominator))
+            
+            # print(self.numerator, self.denominator)
+            
     def __str__(self):
 
         if self.add_components is None:
@@ -953,8 +976,10 @@ class MatchFile(object):
              tspat.findall(self.info('timeSignature'))]
         _timeSigs = []
         if len(m) > 0:
+            
             _timeSigs.append((self.first_onset, self.first_bar, m[0]))
         for l in self.time_sig_lines:
+            
             _timeSigs.append((float(l.TimeInBeats), int(l.Bar), [
                             (int(x[0]), int(x[1])) for x in tspat.findall(l.Value)][0]))
         _timeSigs = list(set(_timeSigs))
@@ -1152,22 +1177,41 @@ def part_from_matchfile(mf):
     part = score.Part('P1', mf.info('piece'))
     # snotes = sorted(mf.snotes, key=attrgetter('OnsetInBeats'))
     snotes = sort_snotes(mf.snotes)
-    divs = np.lcm.reduce(np.unique([note.Offset.denominator * (note.Offset.tuple_div or 1)
+    
+    # ___ these divs are relative to beats; 
+    
+    divs_beat = np.lcm.reduce(np.unique([note.Offset.denominator * (note.Offset.tuple_div or 1)
                                     for note in snotes]))
-    part.set_quarter_duration(0, divs)
-    min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
-    max_time = max(n.OffsetInBeats for n in snotes)
 
     ts = mf.time_signatures
-
+    min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
+    max_time = max(n.OffsetInBeats for n in snotes)  
     beats_map, beat_type_map, min_time_q, max_time_q = make_timesig_maps(ts, max_time)
+    
+    # ___ these divs are relative to quarters;
+    divs = np.lcm.reduce(np.unique([max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Offset.denominator * (note.Offset.tuple_div or 1)
+                                    for note in snotes]))
+    
+    part.set_quarter_duration(0, divs)
 
+    
     bars = np.unique([n.Bar for n in snotes])
     t = min_time
     t = t * 4 / beat_type_map(min_time_q)
     offset = t
+    
+    # there are a number of inconsistencies with the bar, beat, and offset computation for onset_divs
+    # see also exportmatch.py line 144 ff. :
+    # the start of the measure in the beat_map can be the first note, not the full bar length before the next bar
+    # so this mixed up some upbeats in the conversion: -> use OnsetInBeats
+    
     # bar map: bar_number-> start in quarters
     bar_times = {}
+    
+    # ____ positive offsets are ignored? if a piece starts 1 (Bach_Fugue_bwv_857_YuP01.match), the bar times will be offset by 1 throughout
+    
+    if t > 0:
+        t = 0
     for b0, b1 in iter_current_next(bars, start=0):
 
         bar_times.setdefault(b1, t)
@@ -1184,19 +1228,41 @@ def part_from_matchfile(mf):
         bar_start = bar_times[note.Bar]
 
         # offset within bar in quarter units
-        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
+        
+        # ____ why is there a minus 1? (note.Beat-1) replaced by note.Beat -> starts at 0
+        
+        bar_offset = (note.Beat) * 4 / beat_type_map(bar_start) 
+        
         # offset within beat in quarter units
-        beat_offset = (4 * note.Offset.numerator
+        
+        # ____ why not adjusted for different time signatures? 4 -> 4 / beat_type_map(bar_start)
+        
+        beat_offset = (4 / beat_type_map(bar_start) * note.Offset.numerator
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # # anacrusis
-        if bar_start < 0:
+        
+        # ____ is it possible to have negative beats instead of reset bar numbering? if not, delete second condition
+        
+        if bar_start < 0 or bar_offset < 0:  
             # in case of anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
             bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
+        
+        if bar_start < 0 and bar_offset == 0:  
+            print("Negative Bar Start (Anacrusis) with Zero Bar Offset. Why isn't this just the first bar?")
+            print("!!!!!!! Check file___: ", mf.name)
 
         # note onset in divs
+        
+        # print(bar_start , bar_offset , beat_offset , note.OnsetInBeats*(4/beat_type_map(bar_start)), offset)
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
+        onset_divs = max(0,onset_divs)
+        
+#        if onset_divs < 0:
+#            onset_divs = int(divs * (note.OnsetInBeats*(4/beat_type_map(bar_start)) - offset)) 
+        # onset_divs2 = int(divs * (note.OnsetInBeats*(4/beat_type_map(bar_start)) - offset))
+        # print(onset_divs, onset_divs2)
         # print(note.Anchor, onset_divs, bar_start, bar_offset, beat_offset, offset)
 
         articulations = set()
@@ -1239,8 +1305,10 @@ def part_from_matchfile(mf):
                     note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
 
                 part_note = score.Note(**note_attributes)
-
-                duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
+                
+                # ___ should duration_divs not be relative to local beats? 4 -> 4/beat_type_map(bar_start)
+                
+                duration_divs = int(divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
 
                 assert duration_divs > 0
 
@@ -1259,7 +1327,10 @@ def part_from_matchfile(mf):
             num = note.Duration.numerator
             den = note.Duration.denominator
             tuple_div = note.Duration.tuple_div
-            duration_divs = int(divs * 4 * num / (den * (tuple_div or 1)))
+            
+            # ___ should duration_divs not be relative to local beats? 4 -> 4/beat_type_map(bar_start)
+            
+            duration_divs = int(divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
 
             offset_divs = onset_divs + duration_divs
 
@@ -1274,14 +1345,18 @@ def part_from_matchfile(mf):
 
                 part_note = score.Note(**note_attributes)
 
+            #import pdb; pdb.set_trace()
             part.add(part_note, onset_divs, offset_divs)
+            
 
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
-
+        
         bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
+        bar_start_divs = max(0,bar_start_divs)
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
-
+    
+    
     # add key signatures
     for (ks_beat_time, ks_bar, keys) in mf.key_signatures:
 
@@ -1298,8 +1373,10 @@ def part_from_matchfile(mf):
             key_name = keys[0]
 
         fifths, mode = key_name_to_fifths_mode(key_name)
+        
         part.add(score.KeySignature(fifths, mode), 0)
 
+    
     add_staffs(part)
     # add_clefs(part)
 
@@ -1310,17 +1387,22 @@ def part_from_matchfile(mf):
         part.add(score.Measure(number=1), 0, int(-offset * divs))
 
     # add the rest of the measures automatically
+    # import pdb; pdb.set_trace()
     score.add_measures(part)
     # print(part.pretty())
     score.tie_notes(part)
     score.find_tuplets(part)
 
+    
     if not all([n.voice for n in part.notes_tied]):
         # print('notes without voice detected')
-        add_voices(part)
+        # ____ deactivate for now as I get a error VoSA, line 798; the +1 gives an index outside the list length
+        # add_voices(part)
+        for note in part.notes_tied:
+            if note.voice == None:
+                note.voice = 1
 
     return part
-
 
 def make_timesig_maps(ts_orig, max_time):
     # TODO: make sure that ts_orig covers range from min_time
@@ -1337,14 +1419,15 @@ def make_timesig_maps(ts_orig, max_time):
     start_q = x[0] * 4 / y[0, 1]
     x_q = np.cumsum(np.r_[start_q, 4 * np.diff(x) / y[:-1, 1]])
     end_q = x_q[-1]
-
+    
+    
     # TODO: fix error with bounds
-    beats_map = interp1d(x_q, y[:, 0], kind='previous',)
-                         # bounds_error=False,
-                         # fill_value=(y[0, 0], y[-1, 0]))
-    beat_type_map = interp1d(x_q, y[:, 1], kind='previous',)
-                             # bounds_error=False,
-                             # fill_value=(y[0, 1], y[-1, 1]))
+    beats_map = interp1d(x_q, y[:, 0], kind='previous',
+                         bounds_error=False,
+                         fill_value=(y[0, 0], y[-1, 0]))
+    beat_type_map = interp1d(x_q, y[:, 1], kind='previous',
+                             bounds_error=False,
+                             fill_value=(y[0, 1], y[-1, 1]))
 
     return beats_map, beat_type_map, start_q, end_q
 
