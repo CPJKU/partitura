@@ -460,6 +460,7 @@ from partitura.utils import match_note_arrays
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.importmidi import load_performance_midi
 from partitura.io.exportmatch import matchfile_from_alignment
+from partitura.score import PartGroup
 
 def alignment_from_corresp_pipeline(corresp_file, 
                                     performance_midi, 
@@ -471,9 +472,24 @@ def alignment_from_corresp_pipeline(corresp_file,
     """
     
     part_musicxml = load_musicxml(musicxml, force_note_ids=True)
-    score_xml_note_array = part_musicxml.note_array
+    if isinstance(part_musicxml, PartGroup):  
+        print("LIST OF PARTS (PARTGROUP.CHILDREN): ", part_musicxml.children)
+        
+        score_xml_note_array0 = [part.note_array for part in part_musicxml.children]
+        score_xml_note_array = np.concatenate(score_xml_note_array0)
+        
+        if len(part_musicxml.children) > 1:
+            
+            raise ValueError('MANY PARTS IN PARTGROUP; BEWARE!')
+        part_musicxml = part_musicxml.children[0]
+        
+    elif isinstance(part_musicxml, list):
+        print("LIST OF PARTS: ", part_musicxml)
+        raise ValueError('MANY PARTS IN LIST; BEWARE!')
+    else:
+        score_xml_note_array = part_musicxml.note_array
     # subtract anacrusis to start from zero
-    score_xml_note_array["onset"] -= score_xml_note_array["onset"][0] 
+    score_xml_note_array["onset"] -= score_xml_note_array["onset"].min()
     
     ppart_midi_quart = load_performance_midi(score_midi, merge_tracks=True, time_in_quarter=True)
     score_midi_note_array = ppart_midi_quart.note_array
@@ -506,13 +522,11 @@ def alignment_from_corresp_pipeline(corresp_file,
     ppart_midi_note_array.dtype = new_fields
     
     
-    
     match_quarter, match_quarter_note = match_note_arrays(score_xml_note_array, score_midi_note_array,
                       array_type='score', epsilon=0.01,
                       first_note_at_zero=True,
                       check_duration=False,
                       return_note_idxs=True)
-    
     
     # a small epsilon gives good results but misses all the acciaccaturas and broken chords, etc
     # take the missed notes and do it again, more generously:
