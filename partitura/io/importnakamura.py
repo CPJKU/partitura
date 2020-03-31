@@ -476,8 +476,6 @@ def alignment_from_corresp_pipeline(corresp_file,
 
     """
 
-    """
-
     part_musicxml = load_musicxml(musicxml, force_note_ids=True)
     if isinstance(part_musicxml, PartGroup):
         print("LIST OF PARTS (PARTGROUP.CHILDREN): ", part_musicxml.children)
