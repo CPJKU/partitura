@@ -1,19 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This module contains methods for parsing nakamura matchfiles
+This module contains methods for parsing score-to-performance alignments
+in Nakamura et al.'s [1]_ format.
+
+References
+----------
+.. [1] Nakamura, E., Yoshii, K. and Katayose, H. (2017) "Performance Error
+       Detection and Post-Processing for Fast and Accurate Symbolic Music
+       Alignment"
 """
-import re
-from fractions import Fraction
 from collections import defaultdict
-from operator import attrgetter, itemgetter
+from fractions import Fraction
 import logging
+from operator import attrgetter, itemgetter
+import re
 import warnings
-import numpy as np
 
 import numpy as np
 from scipy.interpolate import interp1d
 
+from partitura.io.exportmatch import matchfile_from_alignment
+from partitura.io.importmidi import load_performance_midi
+from partitura.io.importmusicxml import load_musicxml
+from partitura.performance import PerformedPart
+from partitura.score import PartGroup
+import partitura.score as score
 from partitura.utils import (
     pitch_spelling_to_midi_pitch,
     ensure_pitch_spelling_format,
@@ -22,11 +34,10 @@ from partitura.utils import (
     iter_current_next,
     partition,
     estimate_clef_properties,
-    notes_to_notearray
+    notes_to_notearray,
+    match_note_arrays
 )
 
-from partitura.performance import PerformedPart
-import partitura.score as score
 
 
 class MatchError(Exception):
@@ -195,13 +206,6 @@ def performed_part_from_nakamuramatch(mf, pedal_threshold=64, first_note_at_zero
                           notes=notes,
                           sustain_pedal_threshold=pedal_threshold)
     return ppart
-
-
-
-
-
-
-
 
 
 # NAKAMURA CORRESP FILES FROM MIDI TO MIDI ALIGNMENT
@@ -379,15 +383,6 @@ def load_nakamuracorresp(fn, pedal_threshold=64, first_note_at_zero=False):
     return array_performance, array_score, alignment
 
 
-
-
-
-
-
-
-
-
-
 def note_name_to_midi_pitch(notename):
     """
     Utility function to convert the Nakamura pitch spelling to MIDI pitches
@@ -426,20 +421,6 @@ def match_by_pitch_and_position(dicts_0, dicts_1,
 
     return alignment
 
-
-
-
-
-
-
-
-
-
-from partitura.utils import match_note_arrays
-from partitura.io.importmusicxml import load_musicxml
-from partitura.io.importmidi import load_performance_midi
-from partitura.io.exportmatch import matchfile_from_alignment
-from partitura.score import PartGroup
 
 def alignment_from_corresp_pipeline(corresp_file,
                                     performance_midi,
@@ -562,7 +543,6 @@ def alignment_from_corresp_pipeline(corresp_file,
                       first_note_at_zero=True,
                       check_duration=False,
                       return_note_idxs=True)
-
 
     for note in alignment:
         name_in_score_corresp = note['score_id']
