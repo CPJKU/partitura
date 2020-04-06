@@ -129,7 +129,6 @@ class Part(object):
         tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
                         for ts in self.iter_all(TimeSignature)])
 
-        print(tss)
         if len(tss) == 0:
             # default time sig
             beats, beat_type = 4, 4

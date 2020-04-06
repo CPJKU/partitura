@@ -1295,7 +1295,7 @@ def part_from_matchfile(mf):
                 # derived note id (by appending, 'a', 'b', 'c',...)
                 if i > 0:
                     # tnote_id = 'n{}_{}'.format(note.Anchor, i)
-                    note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
+                    note_attributes['id'] = score._make_tied_note_id(note_attributes['id'])
 
                 part_note = score.Note(**note_attributes)
 
