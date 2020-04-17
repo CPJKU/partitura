@@ -631,15 +631,23 @@ class Part(object):
 
     @property
     def note_array(self):
-        """A structured array containing pitch, onset, duration, voice
+        """A structured array containing pitch, onset (in beats), duration (in beats), voice
         and id for each note
         """
+        return self._note_array(self.beat_map)
+
+    @property
+    def note_array_quarters(self):
+        """A structured array containing pitch, onset (in quarters), duration, voice
+        and id for each note"""
+        return self._note_array(self.quarter_map)
+    
+    def _note_array(self, beat_map):
         fields = [('onset', 'f4'),
                   ('duration', 'f4'),
                   ('pitch', 'i4'),
                   ('voice', 'i4'),
                   ('id', 'U256')]
-        beat_map = self.quarter_map
         note_array = []
         for note in self.notes_tied:
             note_on, note_off = beat_map([note.start.t, note.start.t + note.duration_tied])
@@ -1932,7 +1940,8 @@ class Direction(TimedObject):
 
     def __init__(self, text=None, raw_text=None, staff=None):
         super().__init__()
-        self.text = "default_text" #text
+        # I'm not sure why we need a default text here
+        self.text =  text if text is not None else 'default_text'
         self.raw_text = raw_text
         self.staff = staff
 
