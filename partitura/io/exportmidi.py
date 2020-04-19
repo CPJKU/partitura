@@ -221,8 +221,9 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
             # key is a tuple (part_group, part, voice) that will be converted into a (track, channel) pair.
             key = (pg, part, note.voice)
             events[key][to_ppq(note.start.t)].append(Message('note_on', note=note.midi_pitch))
-            events[key][to_ppq(note.end_tied.t)].append(Message('note_off', note=note.midi_pitch))
-
+            # TODO: Fix issues with end_tied
+            # events[key][to_ppq(note.end_tied.t)].append(Message('note_off', note=note.midi_pitch))
+            events[key][to_ppq(note.start.t + note.duration_tied)].append(Message('note_off', note=note.midi_pitch))
             event_keys[key] = True
 
     tr_ch_map = map_to_track_channel(list(event_keys.keys()),
