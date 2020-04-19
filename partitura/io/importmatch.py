@@ -330,14 +330,10 @@ class MatchSnote(MatchLine):
         self.Bar = Bar
         self.Beat = Beat
 
-        # import pdb
-        # pdb.set_trace()
         if isinstance(Offset, int):
             self.Offset = FractionalSymbolicDuration(Offset, 1)
         elif isinstance(Offset, float):
             _offset = Fraction.from_float(Offset)
-            # import pdb
-            # pdb.set_trace()
             self.Offset = FractionalSymbolicDuration(_offset.numerator,
                                                      _offset.denominator)
         elif isinstance(Offset, (list, tuple)):
@@ -1258,7 +1254,6 @@ def part_from_matchfile(mf):
         # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
         onset_divs = max(0,onset_divs)
-
         articulations = set()
         if 'staccato' in note.ScoreAttributesList:
             articulations.add('staccato')
@@ -1293,14 +1288,14 @@ def part_from_matchfile(mf):
                 # when we add multiple notes that are tied, the first note will
                 # get the original note id, and subsequent notes will get a
                 # derived note id (by appending, 'a', 'b', 'c',...)
-                if i > 0:
+                # if i > 0:
                     # tnote_id = 'n{}_{}'.format(note.Anchor, i)
-                    note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
+                    #note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
 
                 part_note = score.Note(**note_attributes)
 
                 # duration_divs from local beats --> 4/beat_type_map(bar_start)
-                duration_divs = int(divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
+                duration_divs = int(divs * 4/ beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
                 assert duration_divs > 0
                 offset_divs = onset_divs + duration_divs
                 part.add(part_note, onset_divs, offset_divs)
