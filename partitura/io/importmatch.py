@@ -1089,7 +1089,7 @@ class MatchFile(object):
         return matchfile
 
 
-def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False):
+def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False, old_part_generator=False):
     """Load a matchfile.
 
     Parameters
@@ -1123,7 +1123,10 @@ def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=Fal
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
     ####### Generate Part ######
     if create_part:
-        spart = part_from_matchfile(mf)
+        if old_part_generator:
+            spart = part_from_matchfile_old(mf)
+        else:
+            spart = part_from_matchfile(mf)
     ###### Alignment ########
     alignment = alignment_from_matchfile(mf)
 
@@ -1211,7 +1214,7 @@ def part_from_matchfile(mf):
     divs_arg += [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Duration.denominator * (note.Duration.tuple_div or 1)
                  for note in snotes]
 
-    
+
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
 
@@ -1224,7 +1227,7 @@ def part_from_matchfile(mf):
     onset_in_quarters = np.r_[beat_to_quarter[0] * onset_in_beats[0],
                               np.cumsum((4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats)]
     iois_in_quarters = np.diff(onset_in_quarters)
-    
+
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
     onset_in_quarters = onset_in_quarters[inv_idxs]
@@ -1234,7 +1237,7 @@ def part_from_matchfile(mf):
     duration_in_beats = np.array([note.DurationInBeats for note in snotes])
     duration_in_quarters = duration_in_beats * beat_to_quarter
     duration_in_divs = np.round(duration_in_quarters * divs).astype(np.int)
-    
+
 
     part.set_quarter_duration(0, divs)
 
@@ -1242,7 +1245,7 @@ def part_from_matchfile(mf):
     bar_times = []
     bars = []
     for ts0, ts1 in iter_current_next(ts, end='end_of_piece'):
-        
+
         ts_start = max(0, ts0[0])
         ts_end = None if ts1 == 'end_of_piece' else ts1[0]
 
@@ -1263,10 +1266,9 @@ def part_from_matchfile(mf):
         else:
             bars += list(range(max(bars) + 1, max(bars) + 1 + n_bars))
             bar_times += list(np.cumsum(np.ones(n_bars) * beats_map(ts_start)/ beat_type_map(ts_start) * 4) + max(bar_times))
-                       
+
 
     bar_times = dict(zip(bars, bar_times))
-
     bars = np.array(bars)
 
     t = min_time
@@ -1278,7 +1280,7 @@ def part_from_matchfile(mf):
         onset_divs = onset_in_divs[ni]
         duration_divs = duration_in_divs[ni]
         offset_divs = onset_divs + duration_divs
-        
+
         articulations = set()
         if 'staccato' in note.ScoreAttributesList or 'stac' in note.ScoreAttributesList:
             articulations.add('staccato')
@@ -1321,6 +1323,7 @@ def part_from_matchfile(mf):
 
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
+        #import pdb; pdb.set_trace()
         bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
         bar_start_divs = max(0,bar_start_divs)
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
@@ -1369,8 +1372,8 @@ def part_from_matchfile(mf):
     return part
 
 
-    
-def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
+
+def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     """
     Create a score part from a matchfile.
 
@@ -1404,10 +1407,13 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
 
     iois_in_beats = np.diff(unique_onsets)
     beat_to_quarter = 4 / beat_type_map(onset_in_beats)
-    onset_in_quarters = np.r_[beat_to_quarter[0] * onset_in_beats[0],
-                              np.cumsum((4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats)]
+    #onset_in_quarters = np.r_[beat_to_quarter[0] * onset_in_beats[0],
+    #                          np.cumsum((4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats)]
+    iois_in_quarters_offset = np.r_[beat_to_quarter[0] * onset_in_beats[0],
+                              (4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats]
+    onset_in_quarters = np.cumsum(iois_in_quarters_offset)
     iois_in_quarters = np.diff(onset_in_quarters)
-    
+
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
     onset_in_divs = np.r_[0, np.cumsum(divs*iois_in_quarters)][inv_idxs]
@@ -1419,18 +1425,22 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
     print('divs', divs)
 
     on_off_scale = 1
+    # on_off_scale = 1 means 
     if match_offset_duration_in_whole:
         on_off_scale = 4
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Bar for n in snotes])
     t = min_time
-    t = t * 4 / beat_type_map(min_time_q)
+    t = t * 4 / beat_type_map(min_time)
     offset = t
     bar_times = {}
 
     if t > 0:
         t = 0
+        # hack for matchfile recorvery. need to start the first bar at zero however
+        offset = 0
+        
     for b0, b1 in iter_current_next(bars, start=0):
 
         bar_times.setdefault(b1, t)
@@ -1443,16 +1453,24 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
                 t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
     for ni, note in enumerate(snotes):
-        print(note)
+        #print(note)
+        #if ni > 10:
+        #    
+        
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
+        
+        on_off_scale = 1
+        # on_off_scale = 1 means duration and beat offset are given in whole notes, else they're given in beats
+        if not match_offset_duration_in_whole:
+            on_off_scale = beat_type_map(bar_start)
 
         # offset within bar in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
-        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
+        bar_offset = (note.Beat) * 4 / beat_type_map(bar_start)
 
         # offset within beat in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
-        beat_offset = (4 / beat_type_map(bar_start) * note.Offset.numerator
-                       / (note.Offset.denominator * (note.Offset.tuple_div or 1))) * on_off_scale * (beat_type_map(bar_start) / 4)
+        beat_offset = (4 / on_off_scale * note.Offset.numerator
+                       / (note.Offset.denominator * (note.Offset.tuple_div or 1))) 
 
         # anacrusis
         if bar_start < 0:
@@ -1470,7 +1488,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
         onset_divs = max(0,onset_divs)
 
 
-        print('onset', onset_divs, onset_in_divs[ni])
+        #print('onset', onset_divs, onset_in_divs[ni])
 
         if not np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
             pass
@@ -1524,8 +1542,8 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
 
                 # duration_divs from local beats --> 4/beat_type_map(bar_start)
 
-                duration_divs = int(on_off_scale * (beat_type_map(bar_start) / 4) * divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
-                
+                duration_divs = int((4/on_off_scale) * divs * num / (den * (tuple_div or 1)))
+
                 assert duration_divs > 0
                 offset_divs = onset_divs + duration_divs
                 part.add(part_note, onset_divs, offset_divs)
@@ -1542,10 +1560,10 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
             tuple_div = note.Duration.tuple_div
 
             # duration_divs from local beats --> 4/beat_type_map(bar_start)
-            duration_divs = int(on_off_scale * (beat_type_map(bar_start) / 4) * divs * 4/beat_type_map(bar_start) * num / (den * (tuple_div or 1)))
+            duration_divs = int(divs * 4/on_off_scale * num / (den * (tuple_div or 1)))
             offset_divs = onset_divs + duration_divs
 
-            print('duration:', duration_divs, duration_in_divs[ni])
+            #print('duration:', duration_divs, duration_in_divs[ni])
 
             if not np.isclose(duration_divs, duration_in_divs[ni], atol=divs * 0.01):
                 pass
@@ -1561,7 +1579,8 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
                 part_note = score.Note(**note_attributes)
 
             part.add(part_note, onset_divs, offset_divs)
-
+            
+            
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
         bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
@@ -1592,7 +1611,10 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
     # add incomplete measure if necessary
     if offset < 0:
         # TODO: check measure number!!
-        part.add(score.Measure(number=1), 0, int(-offset * divs))
+        part.add(score.Measure(number=0), 0, int(-offset * divs))
+    # add incomplete measure if necessary
+    if offset > 0:
+        part.add(score.Measure(number=1), 0, int((bar_times[2]-offset) * divs))
 
     # add the rest of the measures automatically
     score.add_measures(part)
@@ -1608,7 +1630,6 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=True):
         # for note in part.notes_tied:
         #     if note.voice == None:
         #         note.voice = 1
-
     return part
 
 def make_timesig_maps(ts_orig, max_time):
@@ -1633,7 +1654,7 @@ def make_timesig_maps(ts_orig, max_time):
                          fill_value=(y[0, 0], y[-1, 0]))
     qbeat_type_map = interp1d(x_q, y[:, 1], kind='previous',
                               bounds_error=False,
-                              fill_value=(y[0, 1], y[-1, 1]))    
+                              fill_value=(y[0, 1], y[-1, 1]))
     beats_map = interp1d(x, y[:, 0], kind='previous',
                          bounds_error=False,
                          fill_value=(y[0, 0], y[-1, 0]))
