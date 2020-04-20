@@ -79,7 +79,7 @@ class FractionalSymbolicDuration(object):
         sign = np.sign(self.numerator)*np.sign(self.denominator)
         self.numerator = np.abs(self.numerator)
         self.denominator = np.abs(self.denominator)
-        print(self.numerator,self.denominator, sign)
+        #print(self.numerator,self.denominator, sign)
         if self.numerator > bound or self.denominator > bound:
             val = float(self.numerator/self.denominator)
             dif = []
