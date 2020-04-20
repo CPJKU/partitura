@@ -138,7 +138,6 @@ def matchfile_from_alignment(alignment, ppart, spart,
         # ____ does this really give the full measure? or just the first note? it seems like it returns the first note.
         bar_start = float(spart.beat_map(m.start.t))
 
-
         for n in snotes:
             # Get note information
             # TODO: preserve symbolic durations?
@@ -146,9 +145,11 @@ def matchfile_from_alignment(alignment, ppart, spart,
             bar = int(m.number)
             onset, offset = spart.beat_map([n.start.t, n.start.t+n.duration_tied])
             duration = offset - onset
-            beat = (onset - bar_start) // 1 + 1
-            moffset = onset - bar_start - beat
-            offset = onset + duration
+            beat = (onset - bar_start) // 1
+            ts_num, ts_den = spart.time_signature_map(n.start.t)
+            # In metrical offset in whole notes
+            moffset = (onset - bar_start - beat) / ts_den
+            # offset = onset + duration
             #print("DURATION", duration, n.duration_tied)
             score_info[n.id] = MatchSnote(
                 Anchor=n.id,
@@ -156,9 +157,9 @@ def matchfile_from_alignment(alignment, ppart, spart,
                 Modifier=n.alter if n.alter is not None else 0,
                 Octave=n.octave,
                 Bar=int(bar),
-                Beat=float(beat),
+                Beat=float(beat) + 1,
                 Offset=float(moffset),
-                Duration=float(duration),
+                Duration=float(duration) / ts_den,
                 OnsetInBeats=float(onset),
                 OffsetInBeats=float(offset))
 
