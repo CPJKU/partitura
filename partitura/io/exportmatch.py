@@ -145,8 +145,8 @@ def matchfile_from_alignment(alignment, ppart, spart,
             # TODO: correct beat and moffset calculation
             bar = int(m.number)
             onset, offset = spart.beat_map([n.start.t, n.start.t+n.duration_tied])
-            duration = offset-onset
-            beat = (onset - bar_start) // 1
+            duration = offset - onset
+            beat = (onset - bar_start) // 1 + 1
             moffset = onset - bar_start - beat
             offset = onset + duration
             #print("DURATION", duration, n.duration_tied)
