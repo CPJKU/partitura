@@ -76,6 +76,10 @@ class FractionalSymbolicDuration(object):
 
     def bound_integers(self, bound):
         denominators = [2,3,4,5,6,7,8,9,10,12,14,16,18,20,22,24,28,32,48,64,96,128]
+        sign = np.sign(self.numerator)*np.sign(self.denominator)
+        self.numerator = np.abs(self.numerator)
+        self.denominator = np.abs(self.denominator)
+        print(self.numerator,self.denominator, sign)
         if self.numerator > bound or self.denominator > bound:
             val = float(self.numerator/self.denominator)
             dif = []
@@ -90,9 +94,9 @@ class FractionalSymbolicDuration(object):
 
             self.denominator = denominators[min_idx]
             if int(np.round(val*self.denominator)) < 1:
-                self.numerator = 1
+                self.numerator = sign*1
             else:
-                self.numerator = int(np.round(val*self.denominator))
+                self.numerator = sign*int(np.round(val*self.denominator))
 
             # print(self.numerator, self.denominator)
 
@@ -1425,7 +1429,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     print('divs', divs)
 
     on_off_scale = 1
-    # on_off_scale = 1 means 
+    # on_off_scale = 1 means
     if match_offset_duration_in_whole:
         on_off_scale = 4
 
@@ -1440,7 +1444,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
         t = 0
         # hack for matchfile recorvery. need to start the first bar at zero however
         offset = 0
-        
+
     for b0, b1 in iter_current_next(bars, start=0):
 
         bar_times.setdefault(b1, t)
@@ -1455,11 +1459,11 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     for ni, note in enumerate(snotes):
         #print(note)
         #if ni > 10:
-        #    
-        
+        #
+
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
-        
+
         on_off_scale = 1
         # on_off_scale = 1 means duration and beat offset are given in whole notes, else they're given in beats
         if not match_offset_duration_in_whole:
@@ -1470,7 +1474,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
 
         # offset within beat in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
         beat_offset = (4 / on_off_scale * note.Offset.numerator
-                       / (note.Offset.denominator * (note.Offset.tuple_div or 1))) 
+                       / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # anacrusis
         if bar_start < 0:
@@ -1579,8 +1583,8 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
                 part_note = score.Note(**note_attributes)
 
             part.add(part_note, onset_divs, offset_divs)
-            
-            
+
+
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
         bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
