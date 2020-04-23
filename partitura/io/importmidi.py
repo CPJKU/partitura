@@ -65,6 +65,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
 
     notes = []
     controls = []
+    programs = []
     if merge_tracks:
         mid_merge= mido.merge_tracks(mid.tracks)
         tracks = [(0, mid_merge)]
@@ -106,6 +107,15 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
                     track=i,
                     channel=msg.channel))
 
+            elif msg.type == 'program_change':
+                
+                programs.append(dict(
+                    time=t,
+                    program=msg.program,
+                    track=i,
+                    channel=msg.channel))
+                    
+
             else:
 
                 note_on = msg.type == 'note_on'
@@ -145,7 +155,8 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes, controls=controls)
+    return performance.PerformedPart(notes, controls=controls,
+                                     programs=programs)
 
 
 def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
