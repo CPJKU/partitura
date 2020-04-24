@@ -62,13 +62,15 @@ class PerformedPart(object):
     """
 
     def __init__(self, notes, id=None, part_name=None,
-                 controls=None, sustain_pedal_threshold=64):
+                 controls=None, programs=None,
+                 sustain_pedal_threshold=64):
         super().__init__()
         self.id = id
         self.part_name = part_name
 
         self.notes = notes
         self.controls = controls or []
+        self.programs = programs or []
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
@@ -164,6 +166,8 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
                       if x['type'] == 'sustain_pedal'])
 
     if len(pedal) == 0:
+        for note in notes:
+            note["sound_off"] = note["note_off"]
         return
 
     # sort, just in case
