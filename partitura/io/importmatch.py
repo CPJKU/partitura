@@ -557,7 +557,7 @@ class MatchSnoteNote(MatchLine):
     field_names = MatchSnote.field_names + MatchNote.field_names
 
     # for version 1
-    pattern_v1 = MatchNote.pattern + '-' + MatchNote.pattern_v1
+    pattern_v1 = MatchSnote.pattern + '-' + MatchNote.pattern_v1
     re_obj_v1 = re.compile(pattern_v1)
     field_names_v1 = MatchSnote.field_names + MatchNote.field_names_v1
 
