@@ -12,6 +12,17 @@ nameSpace = "http://www.music-encoding.org/ns/mei"
 xmlIdString = "{http://www.w3.org/XML/1998/namespace}id"
 
 def extendKey(dictOfLists, key, value):
+    """extend or create a list at the given key in the given dictionary
+
+    Parameters
+    ----------
+    dictOfLists:    dictionary
+        where all values are lists
+    key:            self explanatory
+    value:          self explanatory
+
+    """
+
     if key in dictOfLists.keys():
         if isinstance(value, list):
             dictOfLists[key].extend(value)
@@ -24,6 +35,34 @@ def extendKey(dictOfLists, key, value):
 
 
 def calc_dur_dots_splitNotes_firstTempDur(note, measure, numToNumbase_ratio=1):
+    """
+    Notes have to be represented as a string of elemental notes (there is no notation for arbitrary durations)
+    This function calculates this string (the durations of the elemental notes and their dot counts),
+    whether the note crosses the measure and the temporal duration of the first elemental note
+
+    Parameters
+    ----------
+    note:               score.GenericNote
+        The note whose representation as a string of elemental notes is calculated
+    measure:            score.Measure
+        The measure which contains note
+    numToNumbase_ratio: float, optional
+        scales the duration of note according to whether or not it belongs to a tuplet and which one
+
+
+    Returns
+    -------
+    dur_dots:       list of int pairs
+        this describes the string of elemental notes that represent the note notationally
+        every pair in the list contains the duration and the dot count of an elemental note and
+        the list is ordered by duration in decreasing order
+    splitNotes:     list or None
+        an empty list if note crosses measure
+        None if it doesn't
+    firstTempDur:   int or None
+        duration of first elemental note in partitura time
+    """
+
     if measure=="pad":
         return [], None, None
 
@@ -96,6 +135,20 @@ def calc_dur_dots_splitNotes_firstTempDur(note, measure, numToNumbase_ratio=1):
 
 
 def insertElem_check(t, inbetweenNotesElems):
+    """Check if something like a clef etc appears before time t
+
+    Parameters
+    ----------
+    t:                      int
+        time from a Timepoint
+    inbetweenNotesElems:    list of InbetweenNotesElements
+        a list of objects describing things like clefs etc
+
+    Returns
+    -------
+    True if something like a clef etc appears before time t
+    """
+
     for ine in inbetweenNotesElems:
         if ine.elem!=None and ine.elem.start.t<=t:
             return True
@@ -136,7 +189,25 @@ def setAttributes(elem, *list_attrib_val):
     for attrib_val in list_attrib_val:
         elem.set(attrib_val[0],str(attrib_val[1]))
 
+
 def attribsOf_keySig(ks):
+    """
+    Returns values of a score.KeySignature object necessary for a MEI document
+
+    Parameters
+    ----------
+    ks: score.KeySignature
+
+    Returns
+    -------
+    fifths: string
+        describes the circle of fifths
+    mode:   string
+        "major" or "minor"
+    pname:  string
+        pitch letter
+    """
+
     key = ks.name
     pname = key[0].lower()
     mode = "major"
@@ -154,6 +225,24 @@ def attribsOf_keySig(ks):
     return fifths, mode, pname
 
 def firstInstances_perPart(cls, parts, start=score.TimePoint(0), end=score.TimePoint(1)):
+    """
+    Returns the first instances of a class (multiple objects with same start time are possible) in each part
+
+    Parameters
+    ----------
+    cls:    class
+    parts:  list of score.Part
+    start:  score.TimePoint, optional
+        start of the range to search in
+    end:    score.TimePoint, optional
+        end of the range to search in
+
+    Returns
+    -------
+    instances_perPart: list of list of instances of cls
+        sublists might be empty
+        if all sublists are empty, instances_perPart is empty
+    """
     if not isinstance(start, list):
         start = [start]*len(parts)
     else:
@@ -187,6 +276,24 @@ def firstInstances_perPart(cls, parts, start=score.TimePoint(0), end=score.TimeP
     return []
 
 def firstInstance_perPart(cls, parts, start=score.TimePoint(0), end=score.TimePoint(1)):
+    """
+    Reduce the result of firstInstances_perPart, a 2D list, to a 1D list
+    If there are multiple first instances then program aborts with error message
+
+    Parameters
+    ----------
+    cls:    class
+    parts:  list of score.Part
+    start:  score.TimePoint, optional
+        start of the range to search in
+    end:    score.TimePoint, optional
+        end of the range to search in
+
+    Returns
+    -------
+    fipp: list of instances of cls
+        elements might be None
+    """
     fispp = firstInstances_perPart(cls, parts, start, end)
 
     fipp = []
@@ -204,6 +311,23 @@ def firstInstance_perPart(cls, parts, start=score.TimePoint(0), end=score.TimePo
     return fipp
 
 def firstInstances(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
+    """
+    Returns the first instances of a class (multiple objects with same start time are possible) in the part
+
+    Parameters
+    ----------
+    cls:    class
+    part:   score.Part
+    start:  score.TimePoint, optional
+        start of the range to search in
+    end:    score.TimePoint, optional
+        end of the range to search in
+
+    Returns
+    -------
+    fis: list of instances of cls
+        might be empty
+    """
     fis = firstInstances_perPart(cls, [part], start, end)
 
     if len(fis)==0:
@@ -212,6 +336,23 @@ def firstInstances(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
     return fis[0]
 
 def firstInstance(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
+    """
+    Reduce the result of firstInstance_perPart, a 1D list, to an element
+    If there are multiple first instances then program aborts with error message
+
+    Parameters
+    ----------
+    cls:    class
+    part:   score.Part
+    start:  score.TimePoint, optional
+        start of the range to search in
+    end:    score.TimePoint, optional
+        end of the range to search in
+
+    Returns
+    -------
+    fi: instance of cls or None
+    """
     fi = firstInstance_perPart(cls, [part], start, end)
 
     if len(fi)==0:
@@ -221,6 +362,23 @@ def firstInstance(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
 
 
 def commonSignature(cls, sig_eql, parts, currentMeasures=None):
+    """
+    Calculate whether a list of parts has a common signature (as in key or time signature)
+
+    Parameters
+    ----------
+    cls:                score.KeySignature or score.TimeSignature
+    sig_eql:            function
+        takes 2 signature objects as input and returns whether they are equivalent (in some sense)
+    parts:              list of score.Part
+    currentMeasures:    list of score.Measure, optional
+        current as in the measures of the parts that are played at the same time and are processed
+
+    Returns
+    -------
+    commonSig:  instance of cls
+        might be None if there is no commonality between parts
+    """
     sigs = None
     if currentMeasures!=None:
         sigs = firstInstance_perPart(cls, parts, start=[cm.start for cm in currentMeasures], end=[cm.end for cm in currentMeasures])
@@ -238,8 +396,11 @@ def commonSignature(cls, sig_eql, parts, currentMeasures=None):
 
     return commonSig
 
-# all sublists of list_2d have to have len > index
 def verticalSlice(list_2d, index):
+    """
+    Returns elements of the sublists at index in a 1D list
+    all sublists of list_2d have to have len > index
+    """
     vslice = []
 
     for list_1d in list_2d:
@@ -248,15 +409,35 @@ def verticalSlice(list_2d, index):
     return vslice
 
 def timeSig_eql(ts1,ts2):
+    """
+    equivalence function for score.TimeSignature objects
+    """
     return ts1.beats==ts2.beats and ts1.beat_type==ts2.beat_type
 
 def keySig_eql(ks1,ks2):
+    """
+    equivalence function for score.KeySignature objects
+    """
     return ks1.name==ks2.name and ks1.fifths==ks2.fifths
 
 def idx(len_obj):
     return range(len(len_obj))
 
 def attribsOf_Clef(clef):
+    """
+    Returns values of a score.Clef object necessary for a MEI document
+
+    Parameters
+    ----------
+    clef: score.Clef
+
+    Returns
+    -------
+    sign: string
+        shape of clef (F,G, etc)
+    line:
+        which line to place clef on
+    """
     sign = clef.sign
 
     if sign=="percussion":
@@ -273,6 +454,13 @@ def attribsOf_Clef(clef):
     return sign, clef.line
 
 def create_staffDef(staffGrp, clef):
+    """
+
+    Parameters
+    ----------
+    staffGrp:   etree.SubElement
+    clef:       score.Clef
+    """
     staffDef = addChild(staffGrp,"staffDef")
 
     attribs = attribsOf_Clef(clef)
@@ -284,6 +472,23 @@ def create_staffDef(staffGrp, clef):
 
 
 def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount):
+    """
+    Adds a fake measure ("pad") to the measures of the staff s and a score.Rest object to the notes
+
+    Parameters
+    ----------
+    s:                              int
+        staff number
+    measure_perStaff:               dict of score.Measure objects
+    notes_withinMeasure_perStaff:   dict of lists of score.GenericNote objects
+    autoRestCount:                  int
+        a counter for all the score.Rest objects that are created automatically
+
+    Returns
+    -------
+    incremented auto rest counter
+    """
+
     measure_perStaff[s]="pad"
     r = score.Rest(id="pR"+str(autoRestCount), voice=1)
     r.start = score.TimePoint(0)
@@ -296,6 +501,40 @@ def padMeasure(s, measure_perStaff, notes_withinMeasure_perStaff, autoRestCount)
 
 
 class InbetweenNotesElement:
+    """
+    InbetweenNotesElements contain information on objects like clefs, keysignatures, etc
+    within the score and how to process them
+
+    Parameters
+    ----------
+    name:           string
+        name of the element used in MEI
+    attribNames:    list of strings
+        names of the attributes of the MEI element
+    attribValsOf:   function
+        a function that returns the attribute values of elem
+    container_dict: dict of lists of partitura objects
+        the container containing the required elements is at staff
+    staff:          int
+        staff number
+    skipIndex:      int
+        init value for the cursor i (might skip 0)
+
+    Attributes
+    ----------
+    name:           string
+        name of the element used in MEI
+    attribNames:    list of strings
+        names of the attributes of the MEI element
+    elem:           instance of partitura object
+    attribValsOf:   function
+        a function that returns the attribute values of elem
+    container:      list of partitura objects
+        the container where elem gets its values from
+    i:              int
+        cursor that keeps track of position in container
+    """
+
     __slots__ = ["name","attribNames","attribValsOf","container","i","elem"]
 
     def __init__(self, name, attribNames, attribValsOf, container_dict, staff, skipIndex):
@@ -310,6 +549,7 @@ class InbetweenNotesElement:
             self.container = container_dict[staff]
             if len(self.container)>skipIndex:
                 self.elem = self.container[skipIndex]
+                self.i=skipIndex
         else:
             self.container=[]
 
@@ -317,6 +557,20 @@ def chordRep(chords,chord_i):
         return chords[chord_i][0]
 
 def handleBeam(openUp, parents):
+    """
+    Using a stack of MEI elements, opens and closes beams
+
+    Parameters
+    ----------
+    openUp:     boolean
+        flag that indicates whether to open or close recent beam
+    parents:    list of etree.SubElement
+        stack of MEI elements that contain the beam element
+
+    Returns
+    -------
+    unchanged openUp value
+    """
     if openUp:
         parents.append(addChild(parents[-1],"beam"))
     else:
@@ -327,6 +581,20 @@ def handleBeam(openUp, parents):
 
 
 def isChordInTuplet(chord_i, tupletIndices):
+    """
+    check if chord falls in the range of a tuplet
+
+    Parameters
+    ----------
+    chord_i:        int
+        index of chord within chords array
+    tupletIndices:  list of int pairs
+        contains the index ranges of all the tuplets in a measure of a staff
+
+    Returns
+    -------
+    whether chord falls in the range of a tuplet
+    """
     for start, stop in tupletIndices:
         if start<=chord_i and chord_i<=stop:
             return True
@@ -334,6 +602,22 @@ def isChordInTuplet(chord_i, tupletIndices):
     return False
 
 def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
+    """
+    calculates how to scale a notes duration with regard to the tuplet it is in
+
+    Parameters
+    ----------
+    chord_i:        int
+        index of chord within chords array
+    chords:         list of list of score.GenericNote
+        array of chords (which are lists of notes)
+    tupletIndices:  list of int pairs
+        contains the index ranges of all the tuplets in a measure of a staff
+
+    Returns
+    -------
+    the num to numbase ratio of a tuplet (eg. 3 in 2 tuplet is 1.5)
+    """
     if isChordInTuplet(chord_i, tupletIndices):
         rep = chords[chord_i][0]
         return rep.symbolic_duration["actual_notes"]/rep.symbolic_duration["normal_notes"]
@@ -341,6 +625,61 @@ def calcNumToNumbaseRatio(chord_i, chords, tupletIndices):
     return 1
 
 def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, measure, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, notes_nextMeasure_perStaff, next_dur_dots=None):
+    """
+    creates <note>, <chord>, <rest>, etc elements from chords
+    also creates <beam>, <tuplet>, etc elements if necessary for chords objects
+    also creates <clef>, <keySig>, etc elements before chord objects from inbetweenNotesElements
+
+    Parameters
+    ----------
+    chord_i:                    int
+        index of chord within chords array
+    chords:                     list of list of score.GenericNote
+        chord array
+    inbetweenNotesElements:     list of InbetweenNotesElements
+        check this to see if something like clef needs to get inserted before chord
+    openBeam:                   boolean
+        flag that indicates whether a beam is currently open
+    autoBeaming:                boolean
+        flag that determines if automatic beams should be created or if it is kept manual
+    parents:                    list of etree.SubElement
+        stack of MEI elements that contain the most recent beam element
+    dur_dots:                   list of int pairs
+        
+    splitNotes:                 list
+
+    firstTempDur:               int
+
+    tupletIndices:              list of int pairs
+
+    ties:                       list(?)
+
+    measure:                    score.Measure
+
+    layer:                      etree.SubElement
+
+    tuplet_idCounter:           int
+
+    openTuplet:                 boolean
+
+    lastKeySig:                 score.KeySignature
+
+    noteAlterations:            dict
+
+    notes_nextMeasure_perStaff: dict of lists of score.GenericNote
+
+    next_dur_dots:              list of int pairs, optional
+
+    Returns
+    -------
+    tupletIdCounter:    int
+        incremented if tuplet created
+    openBeam:           boolean
+        eventually modified if beam opened or closed
+    openTuplet:         boolean
+        eventually modified if tuplet opened or closed
+    """
+
     chordNotes = chords[chord_i]
     rep = chordNotes[0]
 
@@ -555,6 +894,18 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
 
 def createScoreDef(measures, measure_i, parts, parent):
+    """
+    creates <scoreDef>
+
+    Parameters
+    ----------
+    measures:   list of score.Measure
+    measure_i:  int
+        index of measure currently processed within measures
+    parts:      list of score.Part
+    parent:     etree.SubElement
+        parent of <scoreDef>
+    """
     referenceMeasures = verticalSlice(measures,measure_i)
 
     commonKeySig = commonSignature(score.KeySignature, keySig_eql, parts, referenceMeasures)
@@ -577,6 +928,22 @@ def createScoreDef(measures, measure_i, parts, parent):
 
 
 class MeasureContent:
+    """
+    Simply a bundle for all the data of a measure that needs to be processed for a MEI document
+
+    Attributes
+    ----------
+    ties_perStaff:      dict of lists
+    clefs_perStaff:     dict of lists
+    keySigs_perStaff:   dict of lists
+    timeSigs_perStaff:  dict of lists
+    measure_perStaff:   dict of lists
+    tuplets_perStaff:   dict of lists
+    slurs:              list
+    dirs:               list
+    dynams:             list
+    tempii:             list
+    """
     __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs","dynams","tempii"]
 
     def __init__(self):
@@ -594,6 +961,30 @@ class MeasureContent:
 
 
 def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, notes_withinMeasure_perStaff):
+    """
+    Returns a bundle of data regarding the measure currently processed, things like notes, key signatures, etc
+    Also creates padding measures, necessary for example, for staves of instruments which do not play in the current measure
+
+    Parameters
+    ----------
+    parts:                          list of score.Part
+    measures:                       list of score.Measure
+    measure_i:                      int
+        index of current measure within measures
+    staves_perPart:                 dict of list of ints
+        staff enumeration partitioned by part
+    autoRestCount:                  int
+        counter for the IDs of automatically generated rests
+    notes_withinMeasure_perStaff:   dict of lists of score.GenericNote
+        in and out parameter, might contain note objects that have crossed from previous measure into current one
+
+    Returns
+    -------
+    autoRestCount:                  int
+        incremented if score.Rest created
+    currentMeasureContent:          MeasureContent
+        bundle for all the data that is extracted from the currently processed measure
+    """
     currentMeasureContent = MeasureContent()
 
     for part_i, part in enumerate(parts):
@@ -673,6 +1064,38 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
     return autoRestCount, currentMeasureContent
 
 def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaff, scoreDef, tuplet_idCounter, autoBeaming, lastKeySig_perStaff, currentMeasureContent):
+    """
+    creates a <measure> element within <section>
+    also returns an updated id counter for tuplets and a dictionary of notes that cross into the next measure
+
+    Parameters
+    ----------
+    section:                        etree.SubElement
+    measure_i:                      int
+        index of the measure created
+    staves_sorted:                  list of ints
+        a sorted list of the proper staff enumeration of the score
+    notes_withinMeasure_perStaff:   dict of lists of score.GenericNote
+        contains score.Note, score.Rest, etc objects of the current measure, partitioned by staff enumeration
+        will be further partitioned and sorted by voice, time and type (score.GraceNote) and eventually gathered into
+        a list of equivalence classes called chords
+    scoreDef:                       etree.SubElement
+    tuplet_idCounter:               int
+        tuplets usually don't come with IDs, so an automatic counter takes care of that
+    autoBeaming:                    boolean
+        enables automatic beaming
+    lastKeySig_perStaff:            dict of score.KeySignature
+        keeps track of the keysignature each staff is currently in
+    currentMeasureContent:          MeasureContent
+        contains all sorts of data for the measure like tuplets, slurs, etc
+
+    Returns
+    -------
+    tuplet_idCounter:               int
+        incremented if tuplet created
+    notes_nextMeasure_perStaff:     dict of lists of score.GenericNote
+        score.GenericNote objects that cross into the next measure
+    """
     measure=addChild(section,"measure")
     setAttributes(measure,("n",measure_i+1))
 
@@ -921,6 +1344,18 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
     return tuplet_idCounter, notes_nextMeasure_perStaff
 
 def unpackPartGroup(partGrp, parts=[]):
+    """
+    Recursively gather individual parts into a list, flattening the tree of parts so to say
+
+    Parameters
+    ----------
+    partGrp:    score.PartGroup
+    parts:      list of score.Part, optional
+
+    Returns
+    -------
+    parts:      list of score.Part
+    """
     for c in partGrp.children:
         if isinstance(c, score.PartGroup):
             unpackPartGroup(c, parts)
@@ -933,10 +1368,21 @@ def unpackPartGroup(partGrp, parts=[]):
 
 
 
-# parts is either a Part, a PartGroup or a list of Parts
-
 def exportToMEI(parts, autoBeaming=True, fileName = "testResult.mei"):
+    """
+    creates an MEI document based on the parts provided
+    So far only <score> is used and not <part> which means all the parts are gathered in one whole score and
+    no individual scores are defined for individual parts
 
+    Parameters
+    ----------
+    parts:          score.Part, score.PartGroup or list of score.Part
+    autoBeaming:    boolean, optional
+        if all beaming has been done manually then set to False
+        otherwise this flag can be used to enable automatic beaming (beaming rules are still in progess)
+    fileName:       string, optional
+
+    """
 
     print("begin export")
     if isinstance(parts, score.PartGroup):
@@ -1156,8 +1602,6 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult.mei"):
 
     if measuresAreAligned:
         timeOffset = [0]*len(measures)
-
-        measurePad = score.Measure
 
         if paddingRequired:
             for i, mp in enumerate(measures):
