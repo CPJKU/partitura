@@ -645,30 +645,34 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
     parents:                    list of etree.SubElement
         stack of MEI elements that contain the most recent beam element
     dur_dots:                   list of int pairs
-        
+        describes how the chord actually gets notated via tied notes, each pair contains the duration of the notated note and its dot count
     splitNotes:                 list
-
+        this is either empty or None
+        if None, nothing is done with this
+        if an empty list, that means this chord crosses into the next measure and a chord is created for the next measure which is tied to this one
     firstTempDur:               int
-
+        amount of ticks (as in partitura) of the first notated note
     tupletIndices:              list of int pairs
-
-    ties:                       list(?)
-
+        the ranges of tuplets within the chords array
+    ties:                       dict
+        out parameter, contains pairs of IDs which need to be connected via ties
+        this function also adds to that
     measure:                    score.Measure
 
     layer:                      etree.SubElement
-
+        the parent element of the elements created here
     tuplet_idCounter:           int
 
     openTuplet:                 boolean
-
+        describes if a tuplet is open or not
     lastKeySig:                 score.KeySignature
-
+        the key signature this chord should be interpeted in
     noteAlterations:            dict
-
+        contains the alterations of staff positions (notes) that are relevant for this chord
     notes_nextMeasure_perStaff: dict of lists of score.GenericNote
-
+        out parameter, add the result of splitNotes into this
     next_dur_dots:              list of int pairs, optional
+        needed for proper beaming
 
     Returns
     -------
