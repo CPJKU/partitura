@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from collections import defaultdict
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
@@ -692,11 +692,11 @@ def _notearray_to_pianoroll(note_info, onset_only=False,
 
     # Determine the non-zero indices of the piano roll
     if onset_only:
-        idx_fill = np.column_stack([pr_pitch, pr_onset])
+        _idx_fill = np.column_stack([pr_pitch, pr_onset, pr_velocity])
     else:
         pr_offset = np.maximum(pr_onset + 1,
                                pr_offset - (1 if note_separation else 0))
-        idx_fill = np.vstack([np.column_stack((np.zeros(off - on) + pitch,
+        _idx_fill = np.vstack([np.column_stack((np.zeros(off - on) + pitch,
                                                np.arange(on, off),
                                                np.zeros(off - on) + vel))
                               for on, off, pitch, vel in zip(pr_onset,
@@ -705,6 +705,16 @@ def _notearray_to_pianoroll(note_info, onset_only=False,
                                                              pr_velocity)
                               if off <= N])
 
+    # Fix multiple notes with the same pitch and onset
+    fill_dict = defaultdict(list)
+    for row, col, vel in _idx_fill:
+        key = (int(row), int(col))
+        fill_dict[key].append(vel)
+
+    idx_fill = np.zeros((len(fill_dict), 3))
+    for i, ((row, column), vel) in enumerate(fill_dict.items()):
+        idx_fill[i] = np.array([row, column, max(vel)])
+    
     # Fill piano roll
     pianoroll = csc_matrix((idx_fill[:, 2],
                             (idx_fill[:, 0], idx_fill[:, 1])),
