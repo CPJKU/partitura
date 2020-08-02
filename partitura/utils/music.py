@@ -193,7 +193,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     ----------
     fifths : int
         Number of fifths
-    mode : {'major', 'minor', None}
+    mode : {'major', 'minor', None, -1, 1}
         Mode of the key signature
 
     Returns
@@ -209,14 +209,16 @@ def fifths_mode_to_key_name(fifths, mode=None):
     'C'
     >>> fifths_mode_to_key_name(3, 'major')
     'A'
+    >>> fifths_mode_to_key_name(-1, 1)
+    'F'
 
     """
     global MAJOR_KEYS, MINOR_KEYS
 
-    if mode == 'minor':
+    if mode in ('minor', -1):
         keylist = MINOR_KEYS
         suffix = 'm'
-    elif mode in ('major', None):
+    elif mode in ('major', None, 1):
         keylist = MAJOR_KEYS
         suffix = ''
     else:
@@ -272,6 +274,49 @@ def key_name_to_fifths_mode(name):
         raise Exception('Unknown key signature {}'.format(name))
 
     return fifths, mode
+
+def key_mode_to_int(mode):
+    """
+    Return the mode of a key as an integer (1 for major and -1
+    for minor).
+
+    Parameters
+    ----------
+    mode : {'major', 'minor', None, 1, -1}
+        Mode of the key
+
+    Returns
+    -------
+    int
+       Integer representation of the mode.
+    """
+    if mode in ('minor', -1):
+        return -1
+    elif mode in ('major', None, 1):
+        return 1
+    else:
+        raise ValueError('Unknown mode {}'.format(mode))
+
+def key_int_to_mode(mode):
+    """
+    Return the mode of a key as a string ('major' or 'minor')
+
+    Parameters
+    ----------
+    mode : {'major', 'minor', None, 1, -1}
+        Mode of the key
+
+    Returns
+    -------
+    int
+       Integer representation of the mode.
+    """
+    if mode in ('minor', -1):
+        return 'minor'
+    elif mode in ('major', None, 1):
+        return 'major'
+    else:
+        raise ValueError('Unknown mode {}'.format(mode))
 
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):
