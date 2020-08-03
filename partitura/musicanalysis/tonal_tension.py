@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Spiral array representation
+Spiral array representation and tonal tension profiles using Herreman and Chew's tension ribbons
+
+References
+----------
+
+.. [1] D. Herremans and E. Chew (2016) Tension ribbons: Quantifying and visualising tonal tension.
+       Proceedings of the Second International Conference on Technologies for Music Notation and
+       Representation (TENOR), Cambridge, UK.
 """
 import numpy as np
 import scipy.spatial.distance as distance
 
 from partitura.score import Part, PartGroup
+from partitura.utils.music import key_int_to_mode
 
-# 
+# Scaling factors
 A = np.sqrt(2. / 15.) * np.pi / 2.0
 R = 1.0
 
@@ -22,33 +30,6 @@ STEPS_BY_FIFTHS = ['F', 'C', 'G', 'D', 'A', 'E', 'B']
 NOTES_BY_FIFTHS = []
 for alt in range(-4, 5):
     NOTES_BY_FIFTHS += [(step, alt) for step in STEPS_BY_FIFTHS]
-
-# # Circle of fifths
-# NOTES_BY_FIFTHS = [
-#     'Cbb', 'Gbb', 'Dbb', 'Abb', 'Ebb', 'Bbb', 'Fb',
-#     'Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F',
-#     'C', 'G', 'D', 'A', 'E', 'B', 'F#',
-#     'C#', 'G#', 'D#', 'A#', 'E#', 'B#', 'F##',
-#     'C##', 'G##', 'D##', 'A##', 'E##', 'B##', 'F###']
-
-# PRETTY_NAMES = dict()
-
-# for n in NOTES_BY_FIFTHS:
-#     if 'bb' in n:
-#         # PRETTY_NAMES[n] = '{0}$bb$'.format(n[0])
-#         PRETTY_NAMES[n] = '{0}$\\flat\\kern-1.4pt\\flat$'.format(n[0])
-#         # PRETTY_NAMES[n] = '{0}$\\flatflat$'.format(n[0])
-
-#     elif 'b' in n and 'bb' not in n:
-#         PRETTY_NAMES[n] = '{0}$\\flat$'.format(n[0])
-
-#     elif '##' in n:
-#         PRETTY_NAMES[n] = '{0}'.format(n[0]) + u"$_\\mathbf{x}$"
-#     elif '#' in n and '##' not in n:
-#         PRETTY_NAMES[n] = '{0}$\\sharp$'.format(n[0])
-#     else:
-#         PRETTY_NAMES[n] = n[0]
-
 
 # Index of C
 C_IDX = NOTES_BY_FIFTHS.index(('C', 0))
@@ -74,6 +55,9 @@ def helical_to_cartesian(t, r=R, a=A):
     return x, y, z
 
 def ensure_norm(x):
+    """
+    Ensure that vectors are normalized
+    """
     if not np.isclose(x.sum(), 1):
         return x / x.sum()
     else:
@@ -85,13 +69,15 @@ PITCH_COORDINATES = np.column_stack((X, Y, Z))
 MAJOR_IDXS = np.array([0, 1, 4], dtype=int)
 MINOR_IDXS = np.array([0, 1, -3], dtype=int)
 
+# The scaling factor is the distance between C and B#, as used
+# in Cancino-Chacón and Grachten (2018)
 SCALE_FACTOR = 1.0 / e_distance(PITCH_COORDINATES[C_IDX],
                                 PITCH_COORDINATES[NOTES_BY_FIFTHS.index(('B', 1))])
 
 
 def major_chord(tonic_idx, w=DEFAULT_WEIGHTS):
     """
-    Major chord representation in the spiral array space
+    Major chord representation in the spiral array space.
 
     Parameters
     ----------
@@ -110,7 +96,7 @@ def major_chord(tonic_idx, w=DEFAULT_WEIGHTS):
 
 def minor_chord(tonic_idx, w=DEFAULT_WEIGHTS):
     """
-    Minor chord representation in the spiral array space
+    Minor chord representation in the spiral array space.
 
     Parameters
     ----------
@@ -129,7 +115,7 @@ def minor_chord(tonic_idx, w=DEFAULT_WEIGHTS):
 
 def major_key(tonic_idx, w=DEFAULT_WEIGHTS):
     """
-    Major key representation in the spiral array space
+    Major key representation in the spiral array space.
 
     Parameters
     ----------
@@ -178,9 +164,6 @@ def minor_key(tonic_idx, w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA):
     if beta > 1.0 or beta < 0:
         raise ValueError('`beta` should be between 0 and 1.')
 
-    if not np.isclose(w.sum(), 1):
-        w = w / w.sum()
-
     chords = np.array([
         minor_chord(tonic_idx, w),
         (alpha * major_chord(tonic_idx + 1, w) +
@@ -188,7 +171,7 @@ def minor_key(tonic_idx, w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA):
         (beta * minor_chord(tonic_idx - 1, w) +
          (1 - beta) * major_chord(tonic_idx - 1, w))])
 
-    return np.dot(w, chords)
+    return np.dot(ensure_norm(w), chords)
 
 
 def cloud_diameter(cloud):
@@ -255,7 +238,7 @@ class TensileStrain(TonalTension):
     """
     Compute tensile strain
     """
-    def __init__(self, tonic_idx, mode, w=DEFAULT_WEIGHTS,
+    def __init__(self, tonic_idx=0, mode='major', w=DEFAULT_WEIGHTS,
                  alpha=ALPHA, beta=BETA):
 
         self.update_key(tonic_idx, mode, w, alpha, beta)
@@ -268,7 +251,6 @@ class TensileStrain(TonalTension):
 
         cloud_ce = center_of_effect(cloud, duration)
 
-        # return np.sqrt(sum((cloud_ce - self.key_ce) ** 2))
         return e_distance(cloud_ce, self.key_ce) * scale_factor
 
     def update_key(self, tonic_idx, mode, w=DEFAULT_WEIGHTS,
@@ -287,7 +269,7 @@ class CloudMomentum(TonalTension):
     """
     def __init__(self):
         self.prev_ce = None
-        
+
     def compute_tension(self, cloud, duration, reset=False,
                         scale_factor=SCALE_FACTOR, *args, **kwargs):
 
@@ -299,7 +281,6 @@ class CloudMomentum(TonalTension):
         cloud_ce = center_of_effect(cloud, duration)
 
         if self.prev_ce is not None:
-            # tension = np.sqrt(sum((cloud_ce - self.prev_ce) ** 2))
             tension = e_distance(cloud_ce, self.prev_ce) * scale_factor
 
         else:
@@ -311,71 +292,85 @@ class CloudMomentum(TonalTension):
 
 
 def notes_to_idx(note_array):
+    """
+    Index of the note names in the spiral array
+    """
     note_idxs = np.array([NOTES_BY_FIFTHS.index((n['step'], n['alter']))
                           for n in note_array], dtype=np.int)
     return note_idxs
 
+def prepare_notearray(part_partgroup_list):
+    """Prepare a note array with score information for computing
+    tonal tension
+    """
+    fields = [('onset', 'f4'),
+              ('duration', 'f4'),
+              ('pitch', 'i4'),
+              ('voice', 'i4'),
+              ('id', 'U256'),
+              ('step', 'U256'),
+              ('alter', 'i4'),
+              ('octave', 'i4'),
+              ('ks_fifths', 'i4'),
+              ('ks_mode', 'i4')]
 
-def compute_tension_segmentwise(score, key, ws=1.0):
-    score_onset = score['onset'] - score['onset'].min()
-    score_offset = score_onset + score['duration']
+    def notelist_from_part(part, pid=''):
 
-    note_idxs = notes_to_idx(score)
+        pnotes = part.notes_tied
+        bm = part.beat_map
+        km = part.key_signature_map
 
-    piece_coordinates = PITCH_COORDINATES[note_idxs]
+        on_off = np.array([bm([n.start.t, n.start.t + n.duration_tied]) for n in pnotes])
+        onset = on_off[:, 0]
+        duration = on_off[:, 1] - on_off[:, 0]
+        pitch = np.array([n.midi_pitch for n in pnotes])
+        step = np.array([n.step for n in pnotes])
+        alter = np.array([n.alter if n.alter is not None else 0 for n in pnotes])
+        octave = np.array([n.octave for n in pnotes])
+        voice = np.array([n.voice for n in pnotes])
+        key_signature = np.array([km(n.start.t) for n in pnotes])
+        ids = np.array(['{0}{1}'.format(pid, n.id) for n in pnotes])
 
-    cd = CloudDiameter()
-    cm = CloudMomentum()
-    ts = TensileStrain(tonic_idx=NOTES_BY_FIFTHS.index(key[0]), mode=key[1])
+        notelist = [(o, d, p, v, i, s, a, oc, f, m)
+                    for o, d, p, v, i, s, a, oc, (f, m) in zip(onset, duration, pitch,
+                                                               voice, ids, step, alter,
+                                                               octave, key_signature)]
+        return notelist
 
-    n_windows = int(
-        np.ceil(score_offset.max() / ws))
-
-    cloud_diameter = np.zeros(n_windows)
-    cloud_momentum = np.zeros(n_windows)
-    tensile_strain = np.zeros(n_windows)
-
-    continuing_notes = np.array([], dtype=np.int)
-    for i in range(n_windows):
-
-        if i == n_windows - 1:
-            s_idx = np.where(
-                np.logical_and(
-                    score_onset >= i * ws, score_onset <= (i + 1) * ws))[0]
+    if isinstance(part_partgroup_list, Part):
+        notelist = notelist_from_part(part, pid='')
+    else:
+        if isinstance(part_partgroup_list, PartGroup):
+            parts = PartGroup.children
+        elif isinstance(part_partgroup_list, (list, tuple)):
+            parts = part_partgroup_list
         else:
-            s_idx = np.where(
-                np.logical_and(
-                    score_onset >= i * ws, score_onset < (i + 1) * ws))[0]
+            raise ValueError('`part_partgroup_list` should be a `partitura.score.Part`,'
+                             ' a `partitura.score.PartGroup` or a list of '
+                             '`partitura.score.Part` objetcts')
+        notelist = []
+        for i, part in enumerate(parts):
+            notelist += notelist_from_part(part, pid='P{0:02d}_'.format(i))
 
-        active_idx = np.r_[s_idx, continuing_notes].astype(np.int)
-        offsets = score_offset[s_idx]
+    notearray = np.array(notelist, dtype=fields)
 
-        c_n_offset = score_offset[continuing_notes]
-        c_n_ix = np.where(c_n_offset > (i + 1) * ws)[0]
+    return notearray
 
-        continuing_notes = np.r_[
-            s_idx[np.where(offsets > (i + 1) * ws)[0]],
-            continuing_notes[c_n_ix]]
+def estimate_tension(notearray, key, ws=1.0, ss='onset'):
 
-        duration = (np.minimum((i + 1) * ws, score_offset[active_idx]) -
-                    np.maximum(ws, score_onset[active_idx]))
+    score_onset = notearray['onset']
+    score_offset = score_onset + notearray['duration']
 
-        cloud = piece_coordinates[active_idx]
+    if isinstance(ss, (float, int, np.int, np.float)):
+        unique_onsets = np.arange(score_onset.min(), score_offset.max() + ws * 0.5 , step=ss)
+    elif isinstance(ss, np.ndarray):
+        unique_onsets = ss
+    elif ss == 'onset':
+        unique_onsets = np.unique(score_onset)
+    else:
+        raise ValueError('`ss` has to be a `float`, `int`, a numpy array or "onsets"')
 
-        cloud_diameter[i] = cd.compute_tension(cloud)
-        cloud_momentum[i] = cm.compute_tension(cloud, duration)
-        tensile_strain[i] = ts.compute_tension(cloud, duration)
-
-    return cloud_diameter, cloud_momentum, tensile_strain
-
-
-def compute_tension_onsetwise(score, key, ws=1.0):
-    score_onset = score['onset'] - score['onset'].min()
-    score_offset = score_onset + score['duration']
-
-    unique_onsets = np.unique(score_onset)
-
-    note_idxs = notes_to_idx(score)
+    note_idxs = notes_to_idx(notearray)
 
     piece_coordinates = PITCH_COORDINATES[note_idxs]
 
@@ -385,12 +380,14 @@ def compute_tension_onsetwise(score, key, ws=1.0):
 
     n_windows = len(unique_onsets)
 
-    cloud_diameter = np.zeros(n_windows)
-    cloud_momentum = np.zeros(n_windows)
-    tensile_strain = np.zeros(n_windows)
+    tonal_tension = np.zeros(n_windows,
+                             dtype=[('onset', 'f4'),
+                                    ('cloud_diameter', 'f4'),
+                                    ('cloud_momentum', 'f4'),
+                                    ('tensile_strain', 'f4')])
+    tonal_tension['onset'] = unique_onsets
 
     for i, o in enumerate(unique_onsets):
-
         max_time = o + (ws * 0.5)
         min_time = o - (ws * 0.5)
 
@@ -407,80 +404,21 @@ def compute_tension_onsetwise(score, key, ws=1.0):
         cloud = piece_coordinates[active_idx]
         duration = (np.minimum(max_time, score_offset[active_idx]) -
                     np.maximum(min_time, score_onset[active_idx]))
-        cloud_diameter[i] = cd.compute_tension(cloud)
-        cloud_momentum[i] = cm.compute_tension(cloud, duration)
-        tensile_strain[i] = ts.compute_tension(cloud, duration)
 
-    return cloud_diameter, cloud_momentum, tensile_strain
+        tonal_tension['cloud_diameter'][i] = cd.compute_tension(cloud)
+        tonal_tension['cloud_momentum'][i] = cm.compute_tension(cloud, duration)
+        tonal_tension['tensile_strain'][i] = ts.compute_tension(cloud, duration)
 
-
+    return tonal_tension
 
 if __name__ == '__main__':
-
-    import partitura
-    # import matplotlib.pyplot as plt
-    
-
-    fn = '/Users/aae/Downloads/op76n4-01.musicxml'
-
-    score = partitura.load_musicxml(fn, force_note_ids=True)
-
-    if isinstance(score, list):
-        n_notes = sum([len(p.notes_tied) for p in score])
-
-        note_array = []
-
-        fields = [('onset', 'f4'),
-                  ('duration', 'f4'),
-                  ('pitch', 'i4'),
-                  ('voice', 'i4'),
-                  ('id', 'U256'),
-                  ('step', 'U256'),
-                  ('alter', 'i4'),
-                  ('octave', 'i4')]
+    pass
 
 
-        for j, part in enumerate(score):
 
-            pnotes = part.notes_tied
-            bm = part.beat_map
 
-            on_off = np.array([bm([n.start.t, n.start.t + n.duration_tied]) for n in pnotes])
-            onset = on_off[:, 0]
-            duration = on_off[:, 1] - on_off[:, 0]
-            pitch = np.array([n.midi_pitch for n in pnotes])
-            step = np.array([n.step for n in pnotes])
-            alter = np.array([n.alter if n.alter is not None else 0 for n in pnotes])
-            octave = np.array([n.octave for n in pnotes])
-            voice = np.array([n.voice for n in pnotes])
-            ids = np.array(['P{0:02d}_'.format(j) + n.id for n in pnotes])
 
-            note_array += [(o, d, p, v, i, s, a, oc)
-                           for o, d, p, v, i, s, a, oc in zip(onset, duration, pitch,
-                                                              voice, ids, step, alter,
-                                                              octave)]
 
-        note_array = np.array([ninfo for ninfo in note_array],
-                              dtype=fields)
 
-        
 
-    cloud_diameter, cloud_momentum, tensile_strain = compute_tension_segmentwise(note_array, key=(('F', 0), 'major'))
-            
 
-    # fig, axes = plt.subplots(3, sharex=True)
-
-    # axes[0].plot(cloud_diameter)
-    # axes[1].plot(cloud_momentum)
-    # axes[2].plot(tensile_strain)
-
-    # plt.show()
-            
-            
-            
-            
-        
-        
-
-    
-    
