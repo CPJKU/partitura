@@ -362,36 +362,89 @@ def prepare_notearray(part_partgroup_list):
     return notearray
 
 def key_map_from_keysignature(notearray):
+    """
+    Helper method to get the key map from the key signature information
+    in note arrays generated with `prepare_notearray`.
 
+    Parameters
+    ----------
+    notearray : structured array
+        Structured array with score information. Required fields are
+        `ks_fifths`, `ks_mode` and `onset`.
+
+    Returns
+    -------
+    km : function
+        Function that maps onset time in beats to the key signature
+        in the score.
+    """
     onsets = notearray['onset']
 
     unique_onsets = np.unique(onsets)
     unique_onset_idxs = [np.where(onsets == u)[0] for u in unique_onsets]
 
-    # Deal with potential multiple key singatures in the same onset?
 
     kss = np.zeros((len(unique_onsets), 2), dtype=np.int)
 
-    # import pdb
-    # pdb.set_trace()
     for i, uix in enumerate(unique_onset_idxs):
+        # Deal with potential multiple key singatures in the same onset?
         ks = np.unique(np.column_stack((notearray['ks_fifths'][uix],
                                         notearray['ks_mode'][uix])),
                        axis=0)
-
         if len(ks) > 1:
             LOGGER.warn('Multiple Key signtures detected at score position. '
                         'Taking the first one.')
         kss[i] = ks[0]
 
     return interp1d(unique_onsets, kss, axis=0, kind='previous',
-                    bounds_error=False, fill_value='extrapolate')    
+                    bounds_error=False, fill_value='extrapolate')
 
-def estimate_tension(notearray, ws=1.0, ss='onset'):
+def estimate_tonal_tension(notearray, ws=1.0, ss='onset'):
+    """
+    Compute tonal tension ribbons defined in [1]_
 
+    Parameters
+    ----------
+    notearray : structured array
+        Structured array with score information. In addition to the onset and
+        duration information of each note in the score, it requires pitch
+        spelling and key signature information (in fields `step`, `alter`,
+        `ks_fifths` and `ks_mode`, respectively). Note that method requieres
+        extra information not included in the usual `note_array` attributes
+        of `partitura.score.Part` objects. We include a helper method
+        `prepare_notearray` to extract the necessary information from a `Part`
+        object.
+    ws : {int, float, np.array}, optional
+        Window size for computing the tonal tension. If a number, it determines
+        the size of the window centered at each specified score position (see
+        `ss` below). If a numpy array, a 2D array of shape (`len(ss)`, 2)
+        specifying the left and right distance from each score position in `ss`.
+        Default is 1 beat.
+    ss : {float, int, np.array, 'onset'}, optional.
+        Step size or score position for computing the tonal tension features.
+        If a number, this parameter determines the size of the step (in beats)
+        starting from the first score position. If an array, it specifies the
+        score positions at which the tonal tension is estimated. If 'onset',
+        it computes the tension at each unique score position (i.e., all notes
+        in a chord have the same score position). Default is 'onset'.
+
+    Returns
+    -------
+    tonal_tension : structured array
+        Array containing the tonal tension features. It contains the fields
+        `cloud_diameter`, `cloud_momentum`, `tensile_strain` and `onset`.
+
+    References
+    ----------
+    .. [1] D. Herremans and E. Chew (2016) Tension ribbons: Quantifying and
+           visualising tonal tension. Proceedings of the Second International
+           Conference on Technologies for Music Notation and Representation
+           (TENOR), Cambridge, UK.
+    """
     score_onset = notearray['onset']
     score_offset = score_onset + notearray['duration']
 
+    # Determine the score position
     if isinstance(ss, (float, int, np.int, np.float)):
         unique_onsets = np.arange(score_onset.min(), score_offset.max() + ws * 0.5 , step=ss)
     elif isinstance(ss, np.ndarray):
@@ -401,6 +454,7 @@ def estimate_tension(notearray, ws=1.0, ss='onset'):
     else:
         raise ValueError('`ss` has to be a `float`, `int`, a numpy array or "onsets"')
 
+    # Determine the window sizes for each score position
     if isinstance(ws, (float, int, np.int, np.float)):
         ws = np.ones((len(unique_onsets), 2)) * 0.5 * ws
     elif isinstance(ws, np.ndarray):
@@ -411,17 +465,21 @@ def estimate_tension(notearray, ws=1.0, ss='onset'):
 
     note_idxs = notes_to_idx(notearray)
 
+    # Get coordinates of the notes in the piece in the spiral array space
     piece_coordinates = PITCH_COORDINATES[note_idxs]
 
+    # Initialize classes for computing tonal tension
     cd = CloudDiameter()
     cm = CloudMomentum()
 
+    # Get key of the piece from key signature information
+    # Perhaps add an automatic method in the future (for
+    # inferring modulations?)
     km = key_map_from_keysignature(notearray)
-
     fifths, mode = km(unique_onsets.min()).astype(np.int)
     ts = TensileStrain(tonic_idx=C_IDX + fifths,
                        mode=mode)
-
+    # Initialize array for holding the tonal tension
     n_windows = len(unique_onsets)
 
     tonal_tension = np.zeros(n_windows,
@@ -431,6 +489,7 @@ def estimate_tension(notearray, ws=1.0, ss='onset'):
                                     ('tensile_strain', 'f4')])
     tonal_tension['onset'] = unique_onsets
 
+    # Main loop for computing tension information
     for i, (o, (wlo, whi)) in enumerate(zip(unique_onsets, ws)):
         max_time = o + whi
         min_time = o - wlo
@@ -448,9 +507,9 @@ def estimate_tension(notearray, ws=1.0, ss='onset'):
         cloud = piece_coordinates[active_idx]
         duration = (np.minimum(max_time, score_offset[active_idx]) -
                     np.maximum(min_time, score_onset[active_idx]))
-        
+
+        # Update key information
         if not np.all([fifths, mode] == km(o)):
-            import pdb.set_trace
             fifths, mode = km(o).astype(np.int)
             ts.update_key(tonic_idx=C_IDX + fifths,
                           mode=mode)
