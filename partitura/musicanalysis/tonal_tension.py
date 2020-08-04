@@ -19,6 +19,8 @@ from scipy.interpolate import interp1d
 from partitura.score import Part, PartGroup
 from partitura.utils.music import key_int_to_mode
 
+__all__ = ['estimate_tonaltension']
+
 LOGGER = logging.getLogger(__name__)
 
 # Scaling factors
@@ -399,7 +401,7 @@ def key_map_from_keysignature(notearray):
     return interp1d(unique_onsets, kss, axis=0, kind='previous',
                     bounds_error=False, fill_value='extrapolate')
 
-def estimate_tonal_tension(notearray, ws=1.0, ss='onset'):
+def estimate_tonaltension(notearray, ws=1.0, ss='onset'):
     """
     Compute tonal tension ribbons defined in [1]_
 
