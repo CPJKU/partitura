@@ -348,7 +348,7 @@ def prepare_notearray(part_partgroup_list):
         notelist = notelist_from_part(part, pid='')
     else:
         if isinstance(part_partgroup_list, PartGroup):
-            parts = PartGroup.children
+            parts = part_partgroup_list.children
         elif isinstance(part_partgroup_list, (list, tuple)):
             parts = part_partgroup_list
         else:
