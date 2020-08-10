@@ -676,7 +676,7 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
 
     Returns
     -------
-    tupletIdCounter:    int
+    tuplet_idCounter:    int
         incremented if tuplet created
     openBeam:           boolean
         eventually modified if beam opened or closed
