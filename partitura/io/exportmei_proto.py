@@ -766,6 +766,24 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             step = n.step.lower()
             setAttributes(note,(xmlIdString,id),("pname",step),("oct",n.octave))
 
+            if n.articulations!=None and len(n.articulations)>0:
+                artics = []
+
+                translation={
+                    "accent":           "acc",
+                    "staccato":         "stacc",
+                    "tenuto":           "ten",
+                    "staccatissimo":    "stacciss",
+                    'spiccato':         "spicc",
+                     'scoop':           "scoop",
+                     'plop':            "plop",
+                     'doit':            "doit"
+                }
+
+                for a in n.articulations:
+                    artics.append(translation[a])
+                setAttributes(note,("artic"," ".join(artics)))
+
             sharps=['f','c','g','d','a','e','b']
             flats=list(reversed(sharps))
 
@@ -947,8 +965,9 @@ class MeasureContent:
     dirs:               list
     dynams:             list
     tempii:             list
+    fermatas:           list
     """
-    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs","dynams","tempii"]
+    __slots__ = ["ties_perStaff","clefs_perStaff","keySigs_perStaff","timeSigs_perStaff","measure_perStaff","tuplets_perStaff","slurs","dirs","dynams","tempii","fermatas"]
 
     def __init__(self):
         self.ties_perStaff = {}
@@ -962,6 +981,7 @@ class MeasureContent:
         self.dirs=[]
         self.dynams=[]
         self.tempii=[]
+        self.fermatas=[]
 
 
 def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, notes_withinMeasure_perStaff):
@@ -1027,6 +1047,9 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
             tstamp=calc_tstamp(beat_map, tempo.start.t, m)
             currentMeasureContent.tempii.append((tstamp,staves_perPart[part_i][0],tempo))
 
+        for fermata in cls_withinMeasure(part,score.Fermata,m):
+            tstamp=calc_tstamp(beat_map,fermata.start.t,m)
+            currentMeasureContent.fermatas.append((tstamp,fermata.ref.staff))
 
         for dynam in cls_withinMeasure(part, score.Direction, m, True):
             tstamp=calc_tstamp(beat_map, dynam.start.t, m)
@@ -1275,7 +1298,12 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
         ties_perStaff[s]=ties_perStaff_perVoice
 
+    for fermata in currentMeasureContent.fermatas:
+        tstamp=fermata[0]
+        fermata_staff=fermata[1]
 
+        f=addChild(measure,"fermata")
+        setAttributes(f,("staff",fermata_staff),("tstamp",tstamp))
 
     for slur in currentMeasureContent.slurs:
         s = addChild(measure,"slur")
