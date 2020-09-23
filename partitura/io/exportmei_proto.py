@@ -1457,7 +1457,10 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None
         if all beaming has been done manually then set to False
         otherwise this flag can be used to enable automatic beaming (beaming rules are still in progess)
     fileName:       string, optional
-
+        should not contain file extension, .mei will be added automatically
+    titleText:      string, optional
+        name of the piece, e.g. "Klaviersonate Nr. 14" or "WAP"
+        if not provided, a title will be derived from fileName
     """
 
     if isinstance(parts, score.PartGroup):
