@@ -401,7 +401,10 @@ def key_map_from_keysignature(notearray):
     return interp1d(unique_onsets, kss, axis=0, kind='previous',
                     bounds_error=False, fill_value='extrapolate')
 
-def estimate_tonaltension(notearray, ws=1.0, ss='onset'):
+def estimate_tonaltension(notearray, ws=1.0, ss='onset',
+                          scale_factor=SCALE_FACTOR,
+                          w=DEFAULT_WEIGHTS,
+                          alpha=ALPHA, beta=BETA):
     """
     Compute tonal tension ribbons defined in [1]_
 
@@ -448,7 +451,9 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset'):
 
     # Determine the score position
     if isinstance(ss, (float, int, np.int, np.float)):
-        unique_onsets = np.arange(score_onset.min(), score_offset.max() + ws * 0.5 , step=ss)
+        unique_onsets = np.arange(score_onset.min(),
+                                  score_offset.max() + (ss * 0.5),
+                                  step=ss)
     elif isinstance(ss, np.ndarray):
         unique_onsets = ss
     elif ss == 'onset':
