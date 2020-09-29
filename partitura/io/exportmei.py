@@ -3,9 +3,6 @@ import partitura.score as score
 from lxml import etree
 from partitura.utils.generic import partition
 from partitura.utils.music import estimate_symbolic_duration
-import sys
-import webbrowser
-import os
 from copy import copy
 
 
@@ -76,6 +73,7 @@ def calc_dur_dots_splitNotes_firstTempDur(note, measure, numToNumbase_ratio=1):
             dur_dots = [(2*dur_dots[0][0], dur_dots[0][1])]
         else:
             dur_dots = [(8,0)]
+            note.id+="_missing_main_note"
         return dur_dots, None, None
 
     note_duration = note.duration
@@ -166,28 +164,13 @@ def insertElem_check(t, inbetweenNotesElems):
 
 
 
-def errorPrint(*list_errorMsg):
-    for msg in list_errorMsg:
-        print(msg)
-
-    sys.exit()
-
 def partition_handleNone(func, iter, partitionAttrib):
     p = partition(func,iter)
     newKey = None
 
 
     if None in p.keys():
-        errorPrint("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
-
-#         # for testing purposes, introduce phantom staff, however, return to error when done testing
-#         newKey = 1
-#
-#         for k in p.keys():
-#             if k!=None and k>newKey:
-#                 newKey=k
-#         p[newKey]=p[None]
-#         del p[None]
+        raise KeyError("PARTITION ERROR: some elements of set do not have partition attribute \""+partitionAttrib+"\"")
 
     return p
 
@@ -254,13 +237,13 @@ def firstInstances_perPart(cls, parts, start=score.TimePoint(0), end=score.TimeP
     """
     if not isinstance(start, list):
         start = [start]*len(parts)
-    else:
-        assert len(parts)==len(start), "ERROR at firstInstances_perPart: start times are given as list with different size to parts list"
+    elif not len(parts)==len(start):
+        raise ValueError("ERROR at firstInstances_perPart: start times are given as list with different size to parts list")
 
     if not isinstance(end, list):
         end = [end]*len(parts)
-    else:
-        assert len(parts)==len(end), "ERROR at firstInstances_perPart: end times are given as list with different size to parts list"
+    elif not len(parts)==len(end):
+        raise ValueError("ERROR at firstInstances_perPart: end times are given as list with different size to parts list")
 
     instances_perPart=[]
 
@@ -313,7 +296,7 @@ def firstInstance_perPart(cls, parts, start=score.TimePoint(0), end=score.TimePo
         elif len(fis)==1:
             fipp.append(fis[0])
         else:
-            errorPrint("Part "+parts[i].name,
+            raise ValueError("Part "+parts[i].name,
             "ID "+parts[i].id,
             "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
 
@@ -707,7 +690,8 @@ def processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming,
             if ine.name=="keySig":
                 lastKeySig = ine.elem
 
-            assert len(ine.attribNames)>=len(attribVals), "ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name
+            if len(ine.attribNames)<len(attribVals):
+                raise ValueError("ERROR at insertion of inbetweenNotesElements: there are more attribute values than there are attribute names for xml element "+ine.name)
 
             for nv in zip(ine.attribNames[:len(attribVals)], attribVals):
                 setAttributes(xmlElem,nv)
@@ -1211,7 +1195,8 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
                         start = scanBackwards(gns)
 
                         def processGraceNote(n, gns):
-                            assert n in gns, "Error at forward scan of GraceNotes: a grace_next has either different staff, voice or starting time than GraceNote chain"
+                            if not n in gns:
+                                raise ValueError("Error at forward scan of GraceNotes: a grace_next has either different staff, voice or starting time than GraceNote chain")
                             gns.remove(n)
                             return n.grace_next
 
@@ -1224,19 +1209,24 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
                             i=0
                             while isinstance(start, score.GraceNote):
-                                assert i<len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
+                                if i>=len(gn_chords):
+                                    raise IndexError("ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes")
                                 gn_chords[i].append(start)
                                 start = processGraceNote(start, gns)
                                 i+=1
 
-                            assert i==len(gn_chords), "ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes"
+                            if not i==len(gn_chords):
+                                raise IndexError("ERROR at GraceNote-forward scanning: Difference in lengths of grace note sequences for different chord notes")
 
                         for gnc in gn_chords:
                             chords.append(gnc)
 
-                    assert False in type_partition.keys(), "ERROR at ChordNotes-grouping: GraceNotes detected without additional regular Notes at same time; staff "+str(s)
+                    if not False in type_partition.keys():
+                        raise KeyError("ERROR at ChordNotes-grouping: GraceNotes detected without additional regular Notes at same time; staff "+str(s))
 
                     regNotes =type_partition[False]
+
+
 
                     rep = regNotes[0]
 
@@ -1244,7 +1234,7 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
                         n = regNotes[i]
 
                         if n.duration!=rep.duration:
-                            errorPrint("In staff "+str(s)+",",
+                            raise ValueError("In staff "+str(s)+",",
                             "in measure "+str(m.number)+",",
                             "for voice "+str(voice)+",",
                             "2 notes start at time "+str(n.start.t)+",",
@@ -1280,7 +1270,7 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
                     if start>=0 and stop>=0:
                         if not start<=stop:
-                            errorPrint("In measure "+str(measure_i+1)+",",
+                            raise ValueError("In measure "+str(measure_i+1)+",",
                             "in staff "+str(s)+",",
                             "["+str(tuplet)+"] stops before it starts?",
                             "start="+str(start+1)+"; stop="+str(stop+1))
@@ -1334,6 +1324,8 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
 
     for slur in currentMeasureContent.slurs:
         s = addChild(measure,"slur")
+        if slur.start_note==None or slur.end_note==None:
+            raise ValueError("Slur is missing start or end")
         setAttributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
 
     for tstamp,word in currentMeasureContent.dirs:
@@ -1444,7 +1436,7 @@ def unpackPartGroup(partGrp, parts=[]):
 
 
 
-def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None):
+def save_mei(parts, autoBeaming=True, fileName = "testResult", titleText=None):
     """
     creates an MEI document based on the parts provided
     So far only <score> is used and not <part> which means all the parts are gathered in one whole score and
@@ -1483,8 +1475,13 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None
     title=addChild(titleStmt,"title")
     title.set("type","main")
 
+    #derive a title for the piece from the fileName
     if titleText==None:
-        tmp = fileName.split("_")
+        cursor=len(fileName)-1
+        while cursor>=0 and fileName[cursor]!="/":
+            cursor-=1
+
+        tmp = fileName[cursor+1:].split("_")
         tmp = [s[:1].upper()+s[1:] for s in tmp]
         title.text = " ".join(tmp)
     else:
@@ -1504,68 +1501,65 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None
     stavesAreValid = True
 
     for p in parts:
-        staves_perPart.append([])
+        tmp = {staffedObj.staff for cls in classesWithStaff for staffedObj in p.iter_all(cls,include_subclasses=True)}
+        tmp = tmp.union({clef.number for clef in p.iter_all(score.Clef)})
+        staves_perPart.append(list(tmp))
 
-        for cls in classesWithStaff:
-            for staffedObj in p.iter_all(cls, include_subclasses=True):
-                if staffedObj.staff!=None and not staffedObj.staff in staves_perPart[-1]:
-                    staves_perPart[-1].append(staffedObj.staff)
-
-                if staffedObj.staff==None and len(staves_perPart[-1])!=0:
-                    stavesAreValid = False
-
-        if len(staves_perPart[-1])==0:
-            stavesAreValid = False
-
-        for clef in p.iter_all(score.Clef):
-            if clef.number != None and not clef.number in staves_perPart[-1]:
-                staves_perPart[-1].append(clef.number)
-
-
-
-
-    staves_sorted = sorted([s for staves in staves_perPart for s in staves])
-
-    i=0
-
-    while i+1<len(staves_sorted):
-        if staves_sorted[i]==staves_sorted[i+1]:
+        if None in staves_perPart[-1]:
             stavesAreValid=False
-            break
+            staves_perPart[-1].remove(None)
 
-        i+=1
+            staves_perPart[-1].append((max(staves_perPart[-1]) if len(staves_perPart[-1])>0 else 0)+1)
 
-    staves_perPart_backup = staves_perPart
+        staves_perPart[-1].sort()
+
+    if stavesAreValid:
+        staves_sorted = sorted([s for staves in staves_perPart for s in staves])
+
+        i=0
+
+        while i+1<len(staves_sorted):
+            if staves_sorted[i]==staves_sorted[i+1]:
+                stavesAreValid=False
+                break
+
+            i+=1
+
+
 
     if not stavesAreValid:
+        staves_perPart_backup = staves_perPart
+
         staves_sorted = []
         staves_perPart = []
 
+
+        #ASSUMPTION: staves are >0
         maxStaff = 0
         for staves in staves_perPart_backup:
-            shift = [s+maxStaff for s in staves]
-
-            if len(shift)==0:
-                shift=[maxStaff+1]
-                maxStaff+=1
+            if len(staves)==0:
+                staves_perPart.append([])
             else:
+                shift = [s+maxStaff for s in staves]
+
                 maxStaff+=max(staves)
 
-            staves_sorted.extend(shift)
-            staves_perPart.append(shift)
+                staves_sorted.extend(shift)
+                staves_perPart.append(shift)
 
-        staves_sorted.sort()
+
+        #staves_sorted.sort()
 
         maxStaff = 0
         for i,p in enumerate(parts):
             for cls in classesWithStaff:
                 for staffObj in p.iter_all(cls,include_subclasses=True):
-                    staffObj.staff = maxStaff + (staffObj.staff if staffObj.staff!=None else 1)
+                    staffObj.staff = maxStaff + (staffObj.staff if staffObj.staff!=None else max(staves_perPart_backup[i]))
 
             for clef in p.iter_all(score.Clef):
-                clef.number=maxStaff + (clef.number if clef.number!=None else 1)
+                clef.number=maxStaff + (clef.number if clef.number!=None else max(staves_perPart_backup[i]))
 
-            maxStaff+=(max(staves_perPart_backup[i]) if len(staves_perPart_backup[i])>0 else 1)
+            maxStaff+=(max(staves_perPart_backup[i]) if len(staves_perPart_backup[i])>0 else 0)
 
     measures = [list(parts[0].iter_all(score.Measure))]
     paddingRequired = False
@@ -1617,7 +1611,8 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None
 
                 if clefs!=None:
                     clef = clefs[0]
-                    assert len(clefs)==1, "ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0"
+                    if len(clefs)!=1:
+                        raise ValueError("ERROR at staffDef creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0")
                     create_staffDef(staffGrp, clef)
                 else:
                     create_staffDef(staffGrp, score.Clef(sign="G",line=2, number=s, octave_change=0))
@@ -1715,7 +1710,6 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None
 
 
         for measure_i in range(1,len(measures[0])):
-            myDebugPrint("measure ",measures[0][measure_i].number)
             notes_withinMeasure_perStaff = notes_lastMeasure_perStaff
 
             autoRestCount, currentMeasureContent=extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCount, notes_withinMeasure_perStaff)
@@ -1764,3 +1758,6 @@ def exportToMEI(parts, autoBeaming=True, fileName = "testResult", titleText=None
 
     with open(fileName+".mei","w") as result:
         result.write(newText)
+
+
+
