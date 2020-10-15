@@ -245,6 +245,10 @@ def firstInstances_perPart(cls, parts, start=score.TimePoint(0), end=score.TimeP
     elif not len(parts)==len(end):
         raise ValueError("ERROR at firstInstances_perPart: end times are given as list with different size to parts list")
 
+    for i in range(len(parts)):
+        if start[i]==None and end[i]!=None or start[i]!=None and end[i]==None:
+            raise ValueError("ERROR at firstInstances_perPart: (start==None) != (end==None) (None elements in start have to be at same position as in end and vice versa)")
+
     instances_perPart=[]
 
     nonEmpty = False
@@ -252,6 +256,11 @@ def firstInstances_perPart(cls, parts, start=score.TimePoint(0), end=score.TimeP
     for i,p in enumerate(parts):
         s = start[i]
         e = end[i]
+
+        if s==None:
+            instances_perPart.append([])
+            continue
+
         instances = list(p.iter_all(cls,s,e))
 
         if len(instances)==0:
@@ -373,7 +382,8 @@ def commonSignature(cls, sig_eql, parts, currentMeasures=None):
     """
     sigs = None
     if currentMeasures!=None:
-        sigs = firstInstance_perPart(cls, parts, start=[cm.start for cm in currentMeasures], end=[cm.end for cm in currentMeasures])
+        #HACK:  measures should probably not contain "pad" at this point, but an actual dummy measure with start and end times?
+        sigs = firstInstance_perPart(cls, parts, start=[cm.start if cm!='pad' else None for cm in currentMeasures], end=[cm.end if cm!='pad' else None for cm in currentMeasures])
     else:
         sigs = firstInstance_perPart(cls, parts)
 
@@ -941,6 +951,8 @@ def createScoreDef(measures, measure_i, parts, parent):
     """
     referenceMeasures = verticalSlice(measures,measure_i)
 
+
+
     commonKeySig = commonSignature(score.KeySignature, keySig_eql, parts, referenceMeasures)
     commonTimeSig = commonSignature(score.TimeSignature, timeSig_eql,parts, referenceMeasures)
 
@@ -1067,17 +1079,18 @@ def extractFromMeasures(parts, measures, measure_i, staves_perPart, autoRestCoun
             tstamp2=None
 
             if dynam.end!=None:
-                measureCounter=1+measure_i
-                while measureCounter<len(measures[part_i]):
-                    if dynam.end.t>=measures[part_i][measureCounter].start.t:
-                        measureCounter+=1
-                    else:
-                        measureCounter-=1
+                measureCounter = measure_i
+                while True:
+                    if dynam.end.t<=measures[part_i][measureCounter].end.t:
                         tstamp2 = calc_tstamp(beat_map, dynam.end.t, measures[part_i][measureCounter])
 
                         tstamp2 = str(measureCounter-measure_i)+"m+"+str(tstamp2)
 
                         break
+                    elif measureCounter+1>=len(measures[part_i]) or measures[part_i][measureCounter+1]=='pad':
+                        raise ValueError("A score.Direction instance has an end time that exceeds actual non-padded measures")
+                    else:
+                        measureCounter+=1
 
             currentMeasureContent.dynams.append((tstamp,tstamp2,dynam))
 
@@ -1302,7 +1315,6 @@ def createMeasure(section, measure_i, staves_sorted, notes_withinMeasure_perStaf
             for chord_i in range(len(chords)-1):
                 dur_dots,splitNotes, firstTempDur = next_dur_dots, next_splitNotes, next_firstTempDur
                 next_dur_dots, next_splitNotes, next_firstTempDur = calc_dur_dots_splitNotes_firstTempDur(chordRep(chords,chord_i+1), m, calcNumToNumbaseRatio(chord_i+1, chords, tupletIndices))
-
                 tuplet_idCounter, openBeam, openTuplet=processChord(chord_i, chords, inbetweenNotesElements, openBeam, autoBeaming, parents, dur_dots, splitNotes, firstTempDur, tupletIndices, ties, m, layer, tuplet_idCounter, openTuplet, lastKeySig, noteAlterations, notes_nextMeasure_perStaff, next_dur_dots)
 
 
