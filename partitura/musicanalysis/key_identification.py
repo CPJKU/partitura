@@ -150,6 +150,35 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER, return_sorted_keys=False)
             raise ValueError('Invalid key_profiles. '
                              'Valid options are "ks", "cmbs" or "kp"')
 
+    # # Get pitch classes
+    # pitch_classes = np.mod(note_array['pitch'], 12)
+
+    # # Compute weighted key distribution
+    # pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
+    #                                for pc in range(12)])
+
+    # # normalizing is unnecessary for computing the corrcoef with the profiles:
+    # # pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
+
+    # # Compute correlation with key profiles
+    # corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]
+    #                   for kp in key_profiles])
+
+    corrs = _similarity_with_pitch_profile(note_array=note_array,
+                                           key_profiles=key_profiles,
+                                           similarity_func=corr)
+
+    if return_sorted_keys:
+        return [format_key(*KEYS[i]) for i in np.argsort(corrs)[::-1]]
+    else:
+        return format_key(*KEYS[corrs.argmax()])
+
+def corr(x, y):
+    return np.corrcoef(x, y)[0, 1]
+
+def _similarity_with_pitch_profile(note_array, key_profiles=KRUMHANSL_KESSLER, similarity_func=corr,
+                                   normalize_distribution=False):
+    
     # Get pitch classes
     pitch_classes = np.mod(note_array['pitch'], 12)
 
@@ -157,14 +186,13 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER, return_sorted_keys=False)
     pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
                                    for pc in range(12)])
 
-    # normalizing is unnecessary for computing the corrcoef with the profiles:
-    # pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
+    if normalize_distribution:
+        # normalizing is unnecessary for computing the corrcoef, but might be necessary
+        # for other similarity metrics
+        pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
 
     # Compute correlation with key profiles
-    corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]
+    similarity = np.array([similarity_func(pitch_distribution, kp)
                       for kp in key_profiles])
 
-    if return_sorted_keys:
-        return [format_key(*KEYS[i]) for i in np.argsort(corrs)[::-1]]
-    else:
-        return format_key(*KEYS[corrs.argmax()])
+    return similarity

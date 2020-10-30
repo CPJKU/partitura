@@ -25,7 +25,7 @@ def note_hash(channel, pitch):
     return channel * 128 + pitch
 
 
-def load_performance_midi(fn, default_bpm=120):
+def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quarter=False):
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -50,28 +50,48 @@ def load_performance_midi(fn, default_bpm=120):
     -------
     :class:`partitura.performance.PerformedPart`
         A PerformedPart instance.
-    
+
     """
-    mid = mido.MidiFile(fn)
+    mid = mido.MidiFile(fn,)
     # parts per quarter
     ppq = mid.ticks_per_beat
-    
+    # microseconds per quarter
+    mpq = 60 * (10**6 / default_bpm)
+
+    if time_in_quarter:
+        time_conversion_factor = 1/ppq
+    else:
+        time_conversion_factor = mpq/(ppq*10**6)
+
     notes = []
     controls = []
-    for i, track in enumerate(mid.tracks):
+    programs = []
+    if merge_tracks:
+        mid_merge= mido.merge_tracks(mid.tracks)
+        tracks = [(0, mid_merge)]
+    else:
+        tracks = [(i,u) for i, u in enumerate(mid.tracks)]
+    for i, track in tracks:
 
-        # microseconds per quarter
-        mpq = 60 * (10**6 / default_bpm)
+
         t = 0
         sounding_notes = {}
 
         for msg in track:
 
-            t = t + msg.time
+            # update time deltas when they arrive
+            t = t + msg.time * time_conversion_factor
 
             if msg.type == 'set_tempo':
 
                 mpq = msg.tempo
+
+                if time_in_quarter:
+                    time_conversion_factor = 1/ppq
+                else:
+                    time_conversion_factor = mpq/(ppq*10**6)
+
+                print("change of Tempo: ", mpq, time_conversion_factor, "at time: ", t, " in quarter?", time_in_quarter)
 
             elif msg.type == 'control_change':
 
@@ -81,11 +101,20 @@ def load_performance_midi(fn, default_bpm=120):
                     continue
 
                 controls.append(dict(
-                    time=(mpq*(t/ppq))/10**6,
+                    time=t,
                     type=MIDI_CONTROL_TYPES[msg.control],
                     value=msg.value,
                     track=i,
                     channel=msg.channel))
+
+            elif msg.type == 'program_change':
+                
+                programs.append(dict(
+                    time=t,
+                    program=msg.program,
+                    track=i,
+                    channel=msg.channel))
+                    
 
             else:
 
@@ -110,23 +139,26 @@ def load_performance_midi(fn, default_bpm=120):
                     if note not in sounding_notes:
                         warnings.warn('ignoring MIDI message %s' % msg)
                         continue
-                    
+
                     # append the note to the list associated with the channel
+
                     notes.append(dict(
-                        id=len(notes),
-                        midi_pitch=msg.note,
-                        note_on=(mpq*(sounding_notes[note][0]/ppq))/10**6,
-                        note_off=(mpq*(t/ppq))/10**6,
-                        track=i,
-                        channel=msg.channel,
-                        velocity=sounding_notes[note][1]))
+                       id=len(notes),
+                       midi_pitch=msg.note,
+                       note_on=(sounding_notes[note][0]),
+                       note_off=(t),
+                       track=i,
+                       channel=msg.channel,
+                       velocity=sounding_notes[note][1]))
+
 
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes, controls=controls)
-    
-    
+    return performance.PerformedPart(notes, controls=controls,
+                                     programs=programs)
+
+
 def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                     quantization_unit=None, estimate_voice_info=True,
                     estimate_key=False, assign_note_ids=True):
@@ -175,7 +207,7 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     ensure_list : bool, optional
         When True, return a list independent of how many part or partgroup
         elements were created from the MIDI file. By default, when the
-        return value of `load_score_midi` produces a single 
+        return value of `load_score_midi` produces a single
         :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
         element, the element itself is returned instead of a list
         containing the element. Defaults to False.
@@ -202,11 +234,11 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
     References
     ----------
-    .. [1] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal 
+    .. [1] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal
            of New Music Research, 35(2):121.
     .. [2] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
-           Polyphonic Music: A Contig Mapping Approach". In Uffe Kock, 
-           editor, Computer Music Modeling and Retrieval (CMMR), pp. 1–20, 
+           Polyphonic Music: A Contig Mapping Approach". In Uffe Kock,
+           editor, Computer Music Modeling and Retrieval (CMMR), pp. 1–20,
            Springer Berlin Heidelberg.
     .. [3] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
            Oxford University Press, New York.
@@ -313,7 +345,7 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         part_voice_assign_mode,
         tr_ch_keys,
         track_names_by_track)
-    
+
     # for key and time sigs:
     track_to_part_mapping = make_track_to_part_mapping(
         tr_ch_keys,
@@ -342,7 +374,7 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
         LOGGER.debug('voice estimation')
         # TODO: deal with zero duration notes in note_array. Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
-        assert len(part_voice_list) == len(estimated_voices) 
+        assert len(part_voice_list) == len(estimated_voices)
         for part_voice, voice_est in zip(part_voice_list, estimated_voices):
             if part_voice[1] is None:
                 part_voice[1] = voice_est
@@ -393,7 +425,7 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
     partlist = []
     part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
-    part_groups = {} 
+    part_groups = {}
     for part_nr, note_info in notes_by_part.items():
         notes, voices, spellings, note_ids = zip(*note_info)
         part = create_part(divs, notes, spellings, voices, note_ids,
@@ -535,7 +567,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     # this is the old way to add measures. Since part comes from MIDI we
     # only have a single global divs value, which makes add it easier to compute
     # measure durations:
-    
+
     # measure_counter = 1
     # # we call item() on numpy numbers to get the value in the equivalent python type
     # for ts_start, num, den, ts_end in time_sigs:

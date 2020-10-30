@@ -41,7 +41,8 @@ from partitura.utils import (
     symbolic_to_numeric_duration,
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch,
-    to_quarter_tempo
+    to_quarter_tempo,
+    key_mode_to_int
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -128,6 +129,7 @@ class Part(object):
         """
         tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
                         for ts in self.iter_all(TimeSignature)])
+
         if len(tss) == 0:
             # default time sig
             beats, beat_type = 4, 4
@@ -148,6 +150,43 @@ class Part(object):
                              tss))
 
         return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous',
+                        bounds_error=False, fill_value='extrapolate')
+
+    @property
+    def key_signature_map(self):
+        """A function mappting timeline times to the key and mode of
+        the key signature at that time. The function can take scalar
+        values or lists/arrays of values
+
+        Returns
+        -------
+        function
+            The mapping function
+        """
+        kss = np.array([(ks.start.t, ks.fifths, key_mode_to_int(ks.mode))
+                        for ks in self.iter_all(KeySignature)])
+
+        if len(kss) == 0:
+            # default key signature
+            fifths, mode = 0, 1
+            LOGGER.warning('No key signature found, assuming C major')
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.first_point.t
+
+            kss = np.array([(t0, fifths, mode),
+                            (tN, fifths, mode)])
+
+        elif len(kss) == 1:
+            # if there is only a single key signature
+            return lambda x: np.array([kss[0, 1], kss[0, 2]])
+        elif kss[0, 0] > self.first_point.t:
+            kss = np.vstack(((self.first_point.t, kss[0, 1], kss[0, 2]),
+                             kss))
+
+        return interp1d(kss[:, 0], kss[:, 1:], axis=0, kind='previous',
                         bounds_error=False, fill_value='extrapolate')
 
     def _time_interpolator(self, quarter=False, inv=False):
@@ -199,7 +238,7 @@ class Part(object):
 
                 normal_dur = ts.beats
                 if quarter:
-                    normal_dur *= ts.beat_type / 4
+                    normal_dur *=  4 / ts.beat_type
                 if actual_dur < normal_dur:
                     y -= actual_dur
             else:
@@ -207,9 +246,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x)
+            return interp1d(y, x)# , bounds_error=False, fill_value='extrapolate')
         else:
-            return interp1d(x, y)
+            return interp1d(x, y)# , bounds_error=False, fill_value='extrapolate')
 
     @property
     def beat_map(self):
@@ -630,23 +669,30 @@ class Part(object):
 
     @property
     def note_array(self):
-        """A structured array containing pitch, onset, duration, voice
+        """A structured array containing pitch, onset (in beats), duration (in beats), voice
         and id for each note
-
         """
+        return self._note_array(self.beat_map)
+
+    @property
+    def note_array_quarters(self):
+        """A structured array containing pitch, onset (in quarters), duration, voice
+        and id for each note"""
+        return self._note_array(self.quarter_map)
+    
+    def _note_array(self, beat_map):
         fields = [('onset', 'f4'),
                   ('duration', 'f4'),
                   ('pitch', 'i4'),
                   ('voice', 'i4'),
                   ('id', 'U256')]
-        beat_map = self.beat_map
         note_array = []
         for note in self.notes_tied:
             note_on, note_off = beat_map([note.start.t, note.start.t + note.duration_tied])
             note_dur = note_off - note_on
             note_array.append((note_on, note_dur, note.midi_pitch,
                                note.voice, note.id))
-
+            
         return np.array(note_array, dtype=fields)
 
     # @property
@@ -938,12 +984,12 @@ class TimePoint(ComparableMixin):
             result.append('{}'.format(tree).rstrip())
 
             for i, item in enumerate(starting_items):
-
+                
                 if i == (len(starting_items) - 1):
                     tree.last_item()
                 else:
                     tree.next_item()
-
+                print(type(result),type(tree),type(item))
                 result.append('{}{}'.format(tree, item))
 
             tree.pop()
@@ -983,7 +1029,7 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, do_idx=None):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -991,6 +1037,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
+        self.do_idx = do_idx
 
         # these attributes are set after the instance is constructed
         self.fermata = None
@@ -1254,7 +1301,7 @@ class Note(GenericNote):
             except:
                 import pdb
                 pdb.set_trace()
-        
+
 
     def __str__(self):
         return ' '.join((super().__str__(),
@@ -1313,7 +1360,7 @@ class Beam(TimedObject):
 
         self.start = self.notes[start_idx].start
         self.end = self.notes[end_idx].end
-        
+
 
 
 class GraceNote(Note):
@@ -1929,9 +1976,10 @@ class Direction(TimedObject):
 
     """
 
-    def __init__(self, text, raw_text=None, staff=None):
+    def __init__(self, text=None, raw_text=None, staff=None):
         super().__init__()
-        self.text = text
+        # I'm not sure why we need a default text here
+        self.text =  text if text is not None else 'default_text'
         self.raw_text = raw_text
         self.staff = staff
 
@@ -1939,8 +1987,8 @@ class Direction(TimedObject):
         if self.raw_text is not None:
             return '{} "{}" raw_text="{}"'.format(type(self).__name__, self.text, self.raw_text)
         else:
-            return '{} "{}"'.format(type(self).__name__, self.text)
-
+            #return '{} "{}"'.format(type(self).__name__, self.text)
+            return '{} '.format( self.text)
 
 
 class LoudnessDirection(Direction): pass
@@ -1963,7 +2011,7 @@ class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
         if self.wedge:
             return '{} wedge'.format(super().__str__())
         else:
-            return super().__init__()
+            return super().__str__()
 
 class DynamicTempoDirection(DynamicDirection, TempoDirection): pass
 
@@ -2406,7 +2454,9 @@ def add_measures(part):
     ts_start_times = timesigs[:, 0]
     beats_per_measure = timesigs[:, 1]
     ts_end_times = ts_start_times[1:]
-
+    
+    
+    
     # make sure we cover time until the end of the timeline
     if len(ts_end_times) == 0 or ts_end_times[-1] < end:
         ts_end_times = np.r_[ts_end_times, end]
@@ -2416,7 +2466,7 @@ def add_measures(part):
     beat_map = part.beat_map
     inv_beat_map = part.inv_beat_map
     mcounter = 1
-
+    
     for ts_start, ts_end, measure_dur in zip(ts_start_times, ts_end_times, beats_per_measure):
         pos = ts_start
 
@@ -2428,7 +2478,6 @@ def add_measures(part):
 
             # any existing measures between measure_start and measure_end
             existing_measure = next(part.iter_all(Measure, measure_start, measure_end), None)
-
             if existing_measure:
                 if existing_measure.start.t == measure_start:
                     assert existing_measure.end.t > pos
@@ -2851,10 +2900,12 @@ def find_tuplets(part):
                             tup_start += 1
 
 
-class InvalidTimePointException():
+class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number.
 
     """
+    def __init__(self, message=None):
+        super().__init__(message)
 
 if __name__ == '__main__':
     import doctest

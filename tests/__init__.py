@@ -10,6 +10,7 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, 'data')
 MUSICXML_PATH = os.path.join(DATA_PATH, 'musicxml')
 MATCH_PATH = os.path.join(DATA_PATH, 'match')
+NAKAMURA_PATH = os.path.join(DATA_PATH, 'nakamuramatch')
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -26,3 +27,13 @@ VOSA_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
 
 
 MATCH_IMPORT_EXPORT_TESTFILES = [os.path.join(MATCH_PATH, fn) for fn in ['test_fuer_elise.match']]
+
+<<<<<<< HEAD
+NAKAMURA_PATH_IMPORT_TESTFILES = [(os.path.join(NAKAMURA_PATH, fn) for fn in piece)
+                                  for piece in [('chopin_op23_corresp.txt', 'chopin_op23_performance.mid',
+                                                 'chopin_op23_score.mid', 'chopin_op23.musicxml')]]
+=======
+# NAKAMURA_PATH_IMPORT_TESTFILES = [(os.path.join(NAKAMURA_PATH, fn) for fn in piece)
+#                                   for piece in [('test_corresp.txt', 'test_performance.mid',
+#                                                  'test_score.mid', 'chopin_op23.musicxml')]]
+>>>>>>> develop
