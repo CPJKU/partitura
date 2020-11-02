@@ -112,3 +112,11 @@ Mailing list
 The `mailing list <https://groups.google.com/d/forum/partitura-users>`_ should be
 used to get in touch with the developers and other users.
 
+Acknowledgments
+===============
+
+This research has received support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme under grant agreement No. 670035 (project `"Con Espressione" <https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/>`_::)
+
+.. image:: https://www.jku.at/fileadmin/_processed_/4/3/csm_erc_eu_8b7e33136b.png
+   :width: 600
+
