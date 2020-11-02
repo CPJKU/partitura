@@ -100,6 +100,7 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
     track_events = defaultdict(lambda: defaultdict(list))
 
     ct_to_int = dict((v, k) for k, v in MIDI_CONTROL_TYPES.items())
+
     for c in performed_part.controls:
         track = c.get('track', 0)
         ch = c.get('channel', 1)
@@ -107,6 +108,7 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
         track_events[track][t].append(
             Message('control_change', control=ct_to_int[c['type']], value=c['value'], channel=ch))
 
+    
     for n in performed_part.notes:
         track = n.get('track', 0)
         ch = n.get('channel', 1)
@@ -118,6 +120,34 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
         track_events[track][t_off].append(
             Message('note_off', note=n['midi_pitch'], velocity=0, channel=ch))
 
+    for p in performed_part.programs:
+        track = p.get('track', 0)
+        ch = p.get('channel', 1)
+        t = int(np.round(10**6*ppq*p['time']/mpq))
+        track_events[track][t].append(
+            Message('program_change', program=int(p['program']),
+                    channel=ch))
+
+    if len(performed_part.programs) == 0:
+        # Add default program (to each track/channel)
+        channels_and_tracks = np.array(list(set([(c.get('channel', 1), c.get('track', 0))
+                                                 for c in performed_part.controls] +
+                                           [(n.get('channel', 1), n.get('track', 0))
+                                            for n in performed_part.notes])),
+                                       dtype=np.int)
+
+        timepoints = []
+        for tr in track_events.keys():
+            timepoints += list(track_events[tr].keys())
+        timepoints = list(set(timepoints))
+
+        for tr in np.unique(channels_and_tracks[:, 1]):
+            channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
+            track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
+            for ch in track_channels:
+                track_events[tr][min(timepoints)].append(
+                    Message('program_change', program=0,
+                            channel=ch))
 
     midi_type = 0 if len(track_events) == 1 else 1
     

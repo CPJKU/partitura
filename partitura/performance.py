@@ -62,13 +62,15 @@ class PerformedPart(object):
     """
 
     def __init__(self, notes, id=None, part_name=None,
-                 controls=None, sustain_pedal_threshold=64):
+                 controls=None, programs=None,
+                 sustain_pedal_threshold=64):
         super().__init__()
         self.id = id
         self.part_name = part_name
 
         self.notes = notes
         self.controls = controls or []
+        self.programs = programs or []
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
