@@ -1,17 +1,14 @@
 #!/usr/bin/env python
-import argparse
 import numpy as np
 from collections import defaultdict
 import warnings
 import logging
-from scipy.interpolate import interp1d
 
 import mido
 
 import partitura.score as score
 import partitura.performance as performance
-from partitura import save_musicxml
-from partitura.utils import partition, estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties, MIDI_CONTROL_TYPES
+from partitura.utils import estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties, MIDI_CONTROL_TYPES
 import partitura.musicanalysis as analysis
 
 __all__ = ['load_score_midi', 'load_performance_midi']
@@ -257,7 +254,6 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     # for tracks that contain notes)
     time_sigs_by_track = {}
     key_sigs_by_track = {}
-    tempos_by_track = {}
     track_names_by_track = {}
     # notes are indexed by (track, channel) tuples
     notes_by_track_ch = {}

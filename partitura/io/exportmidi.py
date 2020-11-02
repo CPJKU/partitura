@@ -2,7 +2,6 @@
 
 import logging
 import numpy as np
-from operator import itemgetter
 
 from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message, MetaMessage
@@ -229,7 +228,6 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
 
         notes = part.notes_tied
         qm = part.quarter_map
-        q_offset = qm(part.first_point.t)
 
         def to_ppq(t):
             # convert div times to new ppq
@@ -286,7 +284,6 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     # tempo events are handled differently from key/time sigs because the have a
     # global effect. Instead of adding to each relevant track, like the key/time
     # sig events, we add them only to the first track
-    track0_events = events[0]
     for t, tp in tempos.items():
         events[0][t].insert(0, tp)
 
