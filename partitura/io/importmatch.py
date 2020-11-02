@@ -1128,9 +1128,9 @@ def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=Fal
     ####### Generate Part ######
     if create_part:
         if old_part_generator:
-            spart = part_from_matchfile_old(mf)
+            spart = part_from_matchfile_old(mf, match_offset_duration_in_whole= True)
         else:
-            spart = part_from_matchfile(mf)
+            spart = part_from_matchfile_old(mf, match_offset_duration_in_whole= False)
     ###### Alignment ########
     alignment = alignment_from_matchfile(mf)
 
@@ -1394,16 +1394,17 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     """
     part = score.Part('P1', mf.info('piece'))
     snotes = sort_snotes(mf.snotes)
-
+    #has = [(note.Anchor, note.OnsetInBeats, note.Offset.denominator) for note in snotes if note.Offset.denominator > 6]
     ts = mf.time_signatures
     min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
     max_time = max(n.OffsetInBeats for n in snotes)
     _, beats_map, _, beat_type_map, min_time_q, max_time_q = make_timesig_maps(ts, max_time)
 
-    # divs_arg = [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Offset.denominator * (note.Offset.tuple_div or 1)
-    #             for note in snotes]
-    divs_arg = [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Duration.denominator * (note.Duration.tuple_div or 1)
+    divs_arg = [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Offset.denominator * (note.Offset.tuple_div or 1)
                 for note in snotes]
+    divs_arg += [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Duration.denominator * (note.Duration.tuple_div or 1)
+                for note in snotes]
+    print("divs arg", np.unique(divs_arg))
 
     onset_in_beats = np.array([note.OnsetInBeats for note in snotes])
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
@@ -1428,10 +1429,10 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     duration_in_divs = duration_in_quarters * divs
     print('divs', divs)
 
-    on_off_scale = 1
-    # on_off_scale = 1 means
-    if match_offset_duration_in_whole:
-        on_off_scale = 4
+    # on_off_scale = 1
+    # # on_off_scale = 1 means
+    # if match_offset_duration_in_whole:
+    #     on_off_scale = 4
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Bar for n in snotes])
@@ -1445,9 +1446,20 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
         # hack for matchfile recorvery. need to start the first bar at zero however
         offset = 0
 
-    for b0, b1 in iter_current_next(bars, start=0):
+    # for b0, b1 in iter_current_next(bars, start=0):
 
-        bar_times.setdefault(b1, t)
+    #     bar_times.setdefault(b1, t)
+    #     if t < 0:
+    #         t = 0
+    #     else:
+    #         # multiply by diff between consecutive bar numbers
+    #         n_bars = b1 - b0
+    #         if t <= max_time_q:
+    #             t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
+
+    for b0, b1 in iter_current_next(bars, end = bars[-1]+1):
+
+        bar_times.setdefault(b0, t)
         if t < 0:
             t = 0
         else:
@@ -1457,7 +1469,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
                 t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
     for ni, note in enumerate(snotes):
-        #print(note)
+        #print(note.Anchor)
         #if ni > 10:
         #
 
@@ -1465,7 +1477,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
         bar_start = bar_times[note.Bar]
 
         on_off_scale = 1
-        # on_off_scale = 1 means duration and beat offset are given in whole notes, else they're given in beats
+        # on_off_scale = 1 means duration and beat offset are given in whole notes, else they're given in beats (as in the kaist data)
         if not match_offset_duration_in_whole:
             on_off_scale = beat_type_map(bar_start)
 
@@ -1483,9 +1495,9 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
             bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
 
         # a warning in case of the bar 0 bar offset 0 error
-        if bar_start < 0 and bar_offset == 0:
-            print("Negative Bar Start (Anacrusis) with Zero Bar Offset. Why isn't this just the first bar?")
-            print("---> Check file ___ : ", mf.name)
+        # if bar_start < 0 and bar_offset == 0:
+        #     print("Negative Bar Start (Anacrusis) with Zero Bar Offset. Why isn't this just the first bar?")
+        #     print("---> Check file ___ : ", mf.name)
 
         # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
@@ -1581,10 +1593,11 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
 
             else:
                 part_note = score.Note(**note_attributes)
-
+            
+            # if note.Anchor == "n6590":
+            #     import pdb; pdb.set_trace()
             part.add(part_note, onset_divs, offset_divs)
-
-
+    
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
         bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
@@ -1620,6 +1633,8 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     if offset > 0:
         part.add(score.Measure(number=1), 0, int((bar_times[2]-offset) * divs))
 
+
+
     # add the rest of the measures automatically
     score.add_measures(part)
     score.tie_notes(part)
@@ -1630,10 +1645,12 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
         # print('notes without voice detected')
         # TODO: fix this!
         # ____ deactivate add_voices(part) for now as I get a error VoSA, line 798; the +1 gives an index outside the list length
-        add_voices(part)
-        # for note in part.notes_tied:
-        #     if note.voice == None:
-        #         note.voice = 1
+        # add_voices(part)
+        for note in part.notes_tied:
+            if note.voice == None:
+                note.voice = 1
+
+
     return part
 
 def make_timesig_maps(ts_orig, max_time):
