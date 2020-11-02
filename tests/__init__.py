@@ -27,7 +27,3 @@ VOSA_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
 
 
 MATCH_IMPORT_EXPORT_TESTFILES = [os.path.join(MATCH_PATH, fn) for fn in ['test_fuer_elise.match']]
-
-# NAKAMURA_PATH_IMPORT_TESTFILES = [(os.path.join(NAKAMURA_PATH, fn) for fn in piece)
-#                                   for piece in [('test_corresp.txt', 'test_performance.mid',
-#                                                  'test_score.mid', 'chopin_op23.musicxml')]]
