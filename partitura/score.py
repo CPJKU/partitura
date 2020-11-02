@@ -11,15 +11,9 @@ are registered in terms of their start and end times.
 
 """
 
-import string
-import re
 from copy import copy
-from textwrap import dedent
 from collections import defaultdict
-import warnings
 import logging
-import operator
-import itertools
 from numbers import Number
 
 import numpy as np
@@ -28,12 +22,10 @@ from scipy.interpolate import interp1d
 from partitura.utils import (
     ComparableMixin,
     ReplaceRefMixin,
-    partition,
     iter_subclasses,
     iter_current_next,
     sorted_dict_items,
     PrettyPrintTree,
-    MIDI_BASE_CLASS,
     ALTER_SIGNS,
     find_tie_split,
     format_symbolic_duration,
@@ -426,13 +418,11 @@ class Part(object):
             # add or replace
             if i == len(times) or times[i] != t:
                 # add
-                orig_quarter = 1 if i == 0 else quarters[i - 1]
                 times.insert(i, t)
                 quarters.insert(i, quarter)
                 changed = True
             elif quarters[i] != quarter:
                 # replace
-                orig_quarter = quarters[i]
                 quarters[i] = quarter
                 changed = True
             else:
@@ -1277,7 +1267,6 @@ class GenericNote(TimedObject):
             s += ' articulations=({})'.format(", ".join(self.articulations))
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
-            tied_dur = '+'.join(format_symbolic_duration(n.symbolic_duration) for n in all_tied)
             tied_id = '+'.join(n.id or 'None' for n in all_tied)
             return s + ' tie_group={}'.format(tied_id)
         else:
@@ -2774,7 +2763,6 @@ def split_note(part, note, splits):
     # TODO: we shouldn't do this, but for now it's a good sanity check
     assert note.symbolic_duration is None
     part.remove(note)
-    divs_map = part.quarter_duration_map
     orig_tie_next = note.tie_next
     slur_stops = note.slur_stops
     cur_note = note
@@ -2882,7 +2870,6 @@ def find_tuplets(part):
                         # estimate duration type
                         dur_type = estimate_symbolic_duration(total_dur // normal_notes,
                                                               note_tuplet[0].start.quarter)
-                        # int(divs_map(start)))
 
                         if dur_type and dur_type.get('dots', 0) == 0:
                             # recognized duration without dots
