@@ -41,7 +41,8 @@ from partitura.utils import (
     symbolic_to_numeric_duration,
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch,
-    to_quarter_tempo
+    to_quarter_tempo,
+    key_mode_to_int
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -151,6 +152,43 @@ class Part(object):
         return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous',
                         bounds_error=False, fill_value='extrapolate')
 
+    @property
+    def key_signature_map(self):
+        """A function mappting timeline times to the key and mode of
+        the key signature at that time. The function can take scalar
+        values or lists/arrays of values
+
+        Returns
+        -------
+        function
+            The mapping function
+        """
+        kss = np.array([(ks.start.t, ks.fifths, key_mode_to_int(ks.mode))
+                        for ks in self.iter_all(KeySignature)])
+
+        if len(kss) == 0:
+            # default key signature
+            fifths, mode = 0, 1
+            LOGGER.warning('No key signature found, assuming C major')
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.first_point.t
+
+            kss = np.array([(t0, fifths, mode),
+                            (tN, fifths, mode)])
+
+        elif len(kss) == 1:
+            # if there is only a single key signature
+            return lambda x: np.array([kss[0, 1], kss[0, 2]])
+        elif kss[0, 0] > self.first_point.t:
+            kss = np.vstack(((self.first_point.t, kss[0, 1], kss[0, 2]),
+                             kss))
+
+        return interp1d(kss[:, 0], kss[:, 1:], axis=0, kind='previous',
+                        bounds_error=False, fill_value='extrapolate')
+
     def _time_interpolator(self, quarter=False, inv=False):
 
         if len(self._points) < 2:
@@ -208,9 +246,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x, bounds_error=False, fill_value='extrapolate')
+            return interp1d(y, x)# , bounds_error=False, fill_value='extrapolate')
         else:
-            return interp1d(x, y, bounds_error=False, fill_value='extrapolate')
+            return interp1d(x, y)# , bounds_error=False, fill_value='extrapolate')
 
     @property
     def beat_map(self):

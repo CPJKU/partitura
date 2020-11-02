@@ -34,11 +34,12 @@ def validate_mei(mei, debug=False):
         rng_doc = etree.parse(_MEI_SCHEMA)
         _MEI_VALIDATOR = etree.RelaxNG(rng_doc)
 
+    mei = etree.parse(mei)
     is_valid = _MEI_VALIDATOR.validate(mei)
     if debug:
         return _MEI_VALIDATOR.assertValid(mei)
     else:
-        return _MEI_VALIDATOR.validate(mei)
+        return is_valid
 
 def el_tag(el):
     """
