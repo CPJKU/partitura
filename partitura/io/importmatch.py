@@ -79,7 +79,7 @@ class FractionalSymbolicDuration(object):
         sign = np.sign(self.numerator)*np.sign(self.denominator)
         self.numerator = np.abs(self.numerator)
         self.denominator = np.abs(self.denominator)
-        # print(self.numerator,self.denominator, sign)
+        #print(self.numerator,self.denominator, sign)
         if self.numerator > bound or self.denominator > bound:
             val = float(self.numerator/self.denominator)
             dif = []
@@ -1427,7 +1427,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     duration_in_beats = np.array([note.DurationInBeats for note in snotes])
     duration_in_quarters = duration_in_beats * beat_to_quarter
     duration_in_divs = duration_in_quarters * divs
-    # print('divs', divs)
+    print('divs', divs)
 
     # on_off_scale = 1
     # # on_off_scale = 1 means
@@ -1821,8 +1821,8 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
 
     """
     # Get midi time units
-    mpq = mf.info('midiClockRate')
-    ppq = mf.info('midiClockUnits')
+    mpq = mf.info('midiClockRate') #500000 -> microseconds per quarter
+    ppq = mf.info('midiClockUnits') #500 -> parts per quarter
 
     # PerformedNote instances for all MatchNotes
     notes = []
