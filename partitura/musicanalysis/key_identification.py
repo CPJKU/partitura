@@ -102,13 +102,11 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
 
     Returns
     -------
-    root : str
-        Root of the key (key name)
-    mode : str
-        Mode of the key ('major' or 'minor')
-    fifths : int
-        Position in the circle of fifths
-    
+    str
+       String representing the key name (i.e., Root(alteration)(m if minor)). 
+       See `partitura.utils.music.key_name_to_fifths_mode` and 
+       `partitura.utils.music.fifths_mode_to_key_name`.
+
     References
     ----------
     .. [2] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
