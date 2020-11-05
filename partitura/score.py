@@ -979,7 +979,6 @@ class TimePoint(ComparableMixin):
                     tree.last_item()
                 else:
                     tree.next_item()
-                print(type(result),type(tree),type(item))
                 result.append('{}{}'.format(tree, item))
 
             tree.pop()
@@ -1009,13 +1008,26 @@ class TimedObject(ReplaceRefMixin):
 
 
 class GenericNote(TimedObject):
-    """Represents the common aspects of notes and rests (and in the future
-    unpitched notes)
+    """Represents the common aspects of notes, rests, and unpitched
+    notes.
 
     Parameters
     ----------
-    voice : integer, optional (default: None)
-    id : integer, optional (default: None)
+    id : str, optional (default: None)
+        A string identifying the note. To be compatible with the
+        MusicXML format, the id must be unique within a part and
+        must not start with a number.
+    voice : int, optional
+        An integer representing the voice to which the note belongs.
+        Defaults to None.
+    staff : str, optional
+        An integer representing the staff to which the note belongs.
+        Defaults to None.
+    do_idx : int, optional
+        The document order index (zero-based), expressing the order of
+        appearance of this note (with respect to other notes) in the
+        document in case the Note belongs to a part that was imported
+        from MusicXML. Defaults to None.
 
     """
 
@@ -1274,6 +1286,32 @@ class GenericNote(TimedObject):
 
 
 class Note(GenericNote):
+    """Subclass of GenericNote representing pitched notes.
+
+    Parameters
+    ----------
+    step : {'c', 'd', 'e', 'f', 'g', 'a', 'b'}
+        The note name of the pitch.
+    octave : int
+        An integer representing the octave of the pitch
+    alter : int, optional
+        An integer (or None) representing the alteration of the pitch as
+        follows:
+
+        -2
+            double flat
+        -1
+            flat
+        0 or None
+            unaltered
+        1
+            sharp
+        2
+            double sharp
+
+        Defaults to None.
+
+    """
     def __init__(self, step, octave, alter=None, beam=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.step = step
@@ -1311,8 +1349,6 @@ class Note(GenericNote):
                                             octave=self.octave,
                                             alter=self.alter)
 
-    # TODO: include morphetic pitch method based in code in musicanalysis package
-
     @property
     def alter_sign(self):
         """The alteration of the note
@@ -1326,6 +1362,9 @@ class Note(GenericNote):
 
 
 class Rest(GenericNote):
+    """A subclass of GenericNote representing a rest.
+
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -1353,6 +1392,27 @@ class Beam(TimedObject):
 
 
 class GraceNote(Note):
+    """A subclass of Note representing a grace note.
+
+    Parameters
+    ----------
+    grace_type : {'grace', 'acciaccatura', 'appoggiatura'}
+        The type of grace note. Use 'grace' for a unspecified grace
+        note type.
+    steal_proportion : float, optional
+        The proportion of the previous (acciaccatura) or next
+        (appoggiatura) note duration that is occupied by the grace
+        note. Defaults to None.
+
+    Attributes
+    ----------
+    main_note : :class:`Note`
+        The (non-grace) note to which this grace note belongs.
+    grace_seq_len : list
+        The length of the sequence of grace notes to which this grace
+        note belongs.
+
+    """
     def __init__(self, grace_type, *args, steal_proportion=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.grace_type = grace_type
@@ -1406,8 +1466,6 @@ class GraceNote(Note):
         s = ' '.join(
             (super().__str__(),
              'main_note={}'.format(self.main_note and self.main_note.id)))
-             # 'grace_prev={}'.format(self.grace_prev.id if self.grace_prev else None),
-             # 'grace_next={}'.format(self.grace_next.id if self.grace_next else None)),
         return s
 
 
