@@ -283,10 +283,12 @@ def _parse_parts(document, part_dict):
                 
                 for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
                     if no.voice == gn.voice:
-                        print(no)
                         gn.last_grace_note_in_seq.grace_next = no
 
-                
+            if gn.main_note is None:
+                print("grace note without recoverable same voice main note: {}".format(gn))
+                print("might be cadenza notation")
+             
                 
 
         # set end times for various musical elements that only have a start time
