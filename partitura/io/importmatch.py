@@ -1201,6 +1201,11 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     ----------
     mf : MatchFile
         An instance of `MatchFile`
+    
+    match_offset_duration_in_whole: Boolean
+        A flag for the type of offset and duration given in the matchfile. 
+        When true, the function expects the values to be given in whole notes (e.g. 1/4 for a quarter note) independet of time signature.
+    
 
     Returns
     -------
@@ -1210,17 +1215,18 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     """
     part = score.Part('P1', mf.info('piece'))
     snotes = sort_snotes(mf.snotes)
-    #has = [(note.Anchor, note.OnsetInBeats, note.Offset.denominator) for note in snotes if note.Offset.denominator > 6]
+
     ts = mf.time_signatures
     min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
     max_time = max(n.OffsetInBeats for n in snotes)
     _, beats_map, _, beat_type_map, min_time_q, max_time_q = make_timesig_maps(ts, max_time)
 
+    # compute necessary divs based on the types of notes in the match snotes: CHECK THIS
     divs_arg = [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Offset.denominator * (note.Offset.tuple_div or 1)
                 for note in snotes]
     divs_arg += [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Duration.denominator * (note.Duration.tuple_div or 1)
                 for note in snotes]
-    print("divs arg", np.unique(divs_arg))
+    #print("divs arg", np.unique(divs_arg))
 
     onset_in_beats = np.array([note.OnsetInBeats for note in snotes])
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
@@ -1240,15 +1246,11 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     onset_in_divs = np.r_[0, np.cumsum(divs*iois_in_quarters)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
+
     duration_in_beats = np.array([note.DurationInBeats for note in snotes])
     duration_in_quarters = duration_in_beats * beat_to_quarter
     duration_in_divs = duration_in_quarters * divs
     print('divs', divs)
-
-    # on_off_scale = 1
-    # # on_off_scale = 1 means
-    # if match_offset_duration_in_whole:
-    #     on_off_scale = 4
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Bar for n in snotes])
@@ -1262,17 +1264,6 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
         # hack for matchfile recorvery. need to start the first bar at zero however
         offset = 0
 
-    # for b0, b1 in iter_current_next(bars, start=0):
-
-    #     bar_times.setdefault(b1, t)
-    #     if t < 0:
-    #         t = 0
-    #     else:
-    #         # multiply by diff between consecutive bar numbers
-    #         n_bars = b1 - b0
-    #         if t <= max_time_q:
-    #             t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
-
     for b0, b1 in iter_current_next(bars, end = bars[-1]+1):
 
         bar_times.setdefault(b0, t)
@@ -1285,10 +1276,6 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
                 t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
     for ni, note in enumerate(snotes):
-        #print(note.Anchor)
-        #if ni > 10:
-        #
-
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
 
@@ -1612,9 +1599,6 @@ def add_voices(part):
             if n.voice is None:
                 n.voice = max_voice + ev
                 ev += 1
-
-
-# PERFORMANCE PART FROM MATCHFILE stuff
 
 def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
     """Make PerformedPart from performance info in a MatchFile
