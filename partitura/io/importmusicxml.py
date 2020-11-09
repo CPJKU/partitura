@@ -279,15 +279,13 @@ def _parse_parts(document, part_dict):
 
         # check whether all grace notes have a main note
         for gn in part.iter_all(score.GraceNote):
-            #print(gn)
-            #import pdb; pdb.set_trace()
             if gn.main_note is None:
-                print(gn)
+                
                 for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
                     if no.voice == gn.voice:
                         print(no)
                         gn.last_grace_note_in_seq.grace_next = no
-                print(gn)
+
                 
                 
 

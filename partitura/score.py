@@ -1473,7 +1473,7 @@ class GraceNote(Note):
     def __str__(self):
         s = ' '.join(
             (super().__str__(),
-             'main_note={}'.format(self.main_note and self.main_note.id)))
+             'main_note={}'.format(self.main_note.id if self.main_note.id else self.main_note)))
         return s
 
 
