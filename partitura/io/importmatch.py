@@ -1093,7 +1093,7 @@ class MatchFile(object):
         return matchfile
 
 
-def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False, old_part_generator=False):
+def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False, offset_duration_whole=True):
     """Load a matchfile.
 
     Parameters
@@ -1127,10 +1127,10 @@ def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=Fal
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
     ####### Generate Part ######
     if create_part:
-        if old_part_generator:
-            spart = part_from_matchfile_old(mf, match_offset_duration_in_whole= True)
+        if offset_duration_whole:
+            spart = part_from_matchfile(mf, match_offset_duration_in_whole= True)
         else:
-            spart = part_from_matchfile_old(mf, match_offset_duration_in_whole= False)
+            spart = part_from_matchfile(mf, match_offset_duration_in_whole= False)
     ###### Alignment ########
     alignment = alignment_from_matchfile(mf)
 
@@ -1193,7 +1193,7 @@ def sort_snotes(snotes):
 
 
 
-def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
+def part_from_matchfile(mf, match_offset_duration_in_whole=False):
     """
     Create a score part from a matchfile.
 
@@ -1221,12 +1221,11 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     max_time = max(n.OffsetInBeats for n in snotes)
     _, beats_map, _, beat_type_map, min_time_q, max_time_q = make_timesig_maps(ts, max_time)
 
-    # compute necessary divs based on the types of notes in the match snotes: CHECK THIS
+    # compute necessary divs based on the types of notes in the match snotes (only integers)
     divs_arg = [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Offset.denominator * (note.Offset.tuple_div or 1)
                 for note in snotes]
     divs_arg += [max(int((beat_type_map(note.OnsetInBeats)/4)),1)*note.Duration.denominator * (note.Duration.tuple_div or 1)
                 for note in snotes]
-    #print("divs arg", np.unique(divs_arg))
 
     onset_in_beats = np.array([note.OnsetInBeats for note in snotes])
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
@@ -1234,8 +1233,8 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
 
     iois_in_beats = np.diff(unique_onsets)
     beat_to_quarter = 4 / beat_type_map(onset_in_beats)
-    #onset_in_quarters = np.r_[beat_to_quarter[0] * onset_in_beats[0],
-    #                          np.cumsum((4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats)]
+
+
     iois_in_quarters_offset = np.r_[beat_to_quarter[0] * onset_in_beats[0],
                               (4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats]
     onset_in_quarters = np.cumsum(iois_in_quarters_offset)
@@ -1250,7 +1249,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     duration_in_beats = np.array([note.DurationInBeats for note in snotes])
     duration_in_quarters = duration_in_beats * beat_to_quarter
     duration_in_divs = duration_in_quarters * divs
-    print('divs', divs)
+    #print('divs', divs)
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Bar for n in snotes])
@@ -1260,8 +1259,10 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
     bar_times = {}
 
     if t > 0:
+        # if we have an incomplete first measure, that isn't an anacrusis measure, add a rest
         t = 0
-        # hack for matchfile recorvery. need to start the first bar at zero however
+        rest = score.Rest()
+        part.add(rest, start=t, end=offset)
         offset = 0
 
     for b0, b1 in iter_current_next(bars, end = bars[-1]+1):
@@ -1275,6 +1276,7 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
             if t <= max_time_q:
                 t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
+
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
@@ -1285,34 +1287,25 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
             on_off_scale = beat_type_map(bar_start)
 
         # offset within bar in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
-        bar_offset = (note.Beat) * 4 / beat_type_map(bar_start)
+        bar_offset = (note.Beat-1) * 4 / beat_type_map(bar_start)
 
         # offset within beat in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
         beat_offset = (4 / on_off_scale * note.Offset.numerator
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # anacrusis
-        if bar_start < 0:
+        #if bar_start < 0:
             # in case of anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
-            bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
-
-        # a warning in case of the bar 0 bar offset 0 error
-        # if bar_start < 0 and bar_offset == 0:
-        #     print("Negative Bar Start (Anacrusis) with Zero Bar Offset. Why isn't this just the first bar?")
-        #     print("---> Check file ___ : ", mf.name)
+            # DEACTIVATE FOR SHORTENED ANACRUSIS MEASURES
+            # bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
 
         # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
-        onset_divs = max(0,onset_divs)
+        
+        assert onset_divs >= 0
 
-
-        #print('onset', onset_divs, onset_in_divs[ni])
-
-        if not np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
-            pass
-            # import pdb
-            # pdb.set_trace()
+        assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
 
         articulations = set()
         if 'staccato' in note.ScoreAttributesList or 'stac' in note.ScoreAttributesList:
@@ -1382,13 +1375,6 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
             duration_divs = int(divs * 4/on_off_scale * num / (den * (tuple_div or 1)))
             offset_divs = onset_divs + duration_divs
 
-            #print('duration:', duration_divs, duration_in_divs[ni])
-
-            if not np.isclose(duration_divs, duration_in_divs[ni], atol=divs * 0.01):
-                pass
-                # import pdb
-                # pdb.set_trace()
-
             # notes with duration 0, are also treated as grace notes, even if
             # they do not have a 'grace' score attribute
             if ('grace' in note.ScoreAttributesList or note.Duration.numerator == 0):
@@ -1397,8 +1383,6 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
             else:
                 part_note = score.Note(**note_attributes)
             
-            # if note.Anchor == "n6590":
-            #     import pdb; pdb.set_trace()
             part.add(part_note, onset_divs, offset_divs)
     
     # add time signatures
@@ -1430,7 +1414,6 @@ def part_from_matchfile_old(mf, match_offset_duration_in_whole=False):
 
     # add incomplete measure if necessary
     if offset < 0:
-        # TODO: check measure number!!
         part.add(score.Measure(number=0), 0, int(-offset * divs))
     # add incomplete measure if necessary
     if offset > 0:
