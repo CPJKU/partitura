@@ -1191,9 +1191,7 @@ def sort_snotes(snotes):
 
 
 
-
-
-def part_from_matchfile(mf, match_offset_duration_in_whole=False):
+def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     """
     Create a score part from a matchfile.
 
