@@ -278,6 +278,20 @@ def _parse_parts(document, part_dict):
                 else:
                     part.remove(o)
 
+        # check whether all grace notes have a main note
+        for gn in part.iter_all(score.GraceNote):
+            if gn.main_note is None:
+                
+                for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                    if no.voice == gn.voice:
+                        gn.last_grace_note_in_seq.grace_next = no
+
+            if gn.main_note is None:
+                print("grace note without recoverable same voice main note: {}".format(gn))
+                print("might be cadenza notation")
+             
+                
+
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
         score.set_end_times(part)
@@ -846,7 +860,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
     staff = get_value_from_tag(e, 'staff', int) or None
     voice = get_value_from_tag(e, 'voice', int) or None
 
-    note_id = get_value_from_attribute(e, 'id', str)
+    # add support of uppercase "ID" tags
+    note_id = get_value_from_attribute(e, 'id', str)  if get_value_from_attribute(e, 'id', str) else get_value_from_attribute(e, 'ID', str)
 
     symbolic_duration = {}
     dur_type = get_value_from_tag(e, 'type', str)

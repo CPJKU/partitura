@@ -1859,3 +1859,4 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
                           controls=sustain_pedal,
                           sustain_pedal_threshold=pedal_threshold)
     return ppart
+

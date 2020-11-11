@@ -1434,6 +1434,14 @@ class GraceNote(Note):
                 + sum(1 for _ in self.iter_grace_seq())
                 - 1) # subtract one because self is counted twice
 
+    @property
+    def last_grace_note_in_seq(self):
+        n = self
+        while n.grace_next is not None:
+            n = n.grace_next
+        return n
+
+
     def iter_grace_seq(self, backwards=False):
         """Iterate over this and all subsequent/preceding grace notes,
         excluding the main note.
@@ -1465,7 +1473,7 @@ class GraceNote(Note):
     def __str__(self):
         s = ' '.join(
             (super().__str__(),
-             'main_note={}'.format(self.main_note and self.main_note.id)))
+             'main_note={}'.format(self.main_note.id if self.main_note.id else self.main_note)))
         return s
 
 
