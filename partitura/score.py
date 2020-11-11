@@ -2524,27 +2524,31 @@ def add_measures(part):
     
     for ts_start, ts_end, measure_dur in zip(ts_start_times, ts_end_times, beats_per_measure):
         pos = ts_start
+        
 
         while pos < ts_end:
 
             measure_start = pos
             measure_end_beats = min(beat_map(pos) + measure_dur, beat_map(end))
             measure_end = min(ts_end, inv_beat_map(measure_end_beats))
-
             # any existing measures between measure_start and measure_end
             existing_measure = next(part.iter_all(Measure, measure_start, measure_end), None)
             if existing_measure:
                 if existing_measure.start.t == measure_start:
                     assert existing_measure.end.t > pos
-                    pos += existing_measure.end.t
-                    existing_measure.number = mcounter
-                    mcounter += 1
+                    pos = existing_measure.end.t
+                    if existing_measure.number != 0:
+                        # if existing_measure is a match anacrusis measure, keep number 0
+                        existing_measure.number = mcounter
+                        mcounter += 1
                     continue
+
                 else:
                     measure_end = existing_measure.start.t
 
             part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
-
+            
+            # if measure exists but was not at measure_start, a filler measure is added with number mcounter
             if existing_measure:
                 pos = existing_measure.end.t
                 existing_measure.number = mcounter + 1
@@ -2552,7 +2556,7 @@ def add_measures(part):
             else:
                 pos = measure_end
                 mcounter += 1
-
+            
 
 def remove_grace_notes(part):
     """Remove all grace notes from a timeline.

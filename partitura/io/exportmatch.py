@@ -69,7 +69,8 @@ def matchfile_from_alignment(alignment, ppart, spart,
                              mpq=500000, ppq=480,
                              performer=None,
                              composer=None,
-                             piece=None):
+                             piece=None,
+                             magaloff_zeilinger_quirk=False):
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
     a Part
@@ -190,7 +191,8 @@ def matchfile_from_alignment(alignment, ppart, spart,
         # Create match line for matched score and performed notes
         if label == 'match':
             # quirk from Magaloff/Zeilinger
-            al_note['score_id'] = al_note['score_id'].split('-')[0]
+            if magaloff_zeilinger_quirk:
+                al_note['score_id'] = al_note['score_id'].split('-')[0]
             snote = score_info[al_note['score_id']]
 
             pnote = perf_info[al_note['performance_id']]
@@ -200,7 +202,8 @@ def matchfile_from_alignment(alignment, ppart, spart,
         # Matchline for deleted notes
         elif label == 'deletion':
             # Quirk for Magaloff/Zeilinger
-            al_note['score_id'] = al_note['score_id'].split('-')[0]
+            if magaloff_zeilinger_quirk:
+                al_note['score_id'] = al_note['score_id'].split('-')[0]
             snote = score_info[al_note['score_id']]
             deletion_line = MatchSnoteDeletion(snote)
             note_lines.append(deletion_line)
@@ -214,7 +217,9 @@ def matchfile_from_alignment(alignment, ppart, spart,
         elif label == 'ornament':
             ornament_type = al_note['type']
             # Quirk for Magaloff/Zeilinger
-            al_note['score_id'] = 'n' + al_note['score_id'].split('-')[0]
+            if magaloff_zeilinger_quirk:
+                al_note['score_id'] = al_note['score_id'].split('-')[0]
+                # al_note['score_id'] = 'n' + al_note['score_id'].split('-')[0]
             snote = score_info[al_note['score_id']]
             note = perf_info[al_note['performance_id']]
             if ornament_type == 'trill':
