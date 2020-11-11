@@ -168,10 +168,11 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
         MusicXML 3.1 specification before loading the file. An
         exception will be raised when the MusicXML is invalid.
         Defaults to False.
-    force_note_ids : bool, optional.
+    force_note_ids : (bool, 'keep') optional.
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
-        the MusicXML will be discarded.
+        the MusicXML will be discarded. If 'keep', only notes without
+        a note id will be assigned one.
 
     Returns
     -------
