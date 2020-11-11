@@ -1247,7 +1247,6 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     duration_in_beats = np.array([note.DurationInBeats for note in snotes])
     duration_in_quarters = duration_in_beats * beat_to_quarter
     duration_in_divs = duration_in_quarters * divs
-    #print('divs', divs)
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Bar for n in snotes])
@@ -1257,7 +1256,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     bar_times = {}
 
     if t > 0:
-        # if we have an incomplete first measure, that isn't an anacrusis measure, add a rest
+        # if we have an incomplete first measure that isn't an anacrusis measure, add a rest (dummy)
         t = 0
         rest = score.Rest()
         part.add(rest, start=t, end=offset)
@@ -1292,11 +1291,11 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # anacrusis
-        #if bar_start < 0:
-            # in case of anacrusis we set the bar_start to -bar_duration (in
+        if bar_start < 0 and bar_offset != 0 and beat_offset != 0:
+            # in case of fully counted anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
-            # DEACTIVATE FOR SHORTENED ANACRUSIS MEASURES
-            # bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
+            # not active for shortened anacrusis measures
+            bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
 
         # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
         onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
@@ -1413,9 +1412,9 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     # add incomplete measure if necessary
     if offset < 0:
         part.add(score.Measure(number=0), 0, int(-offset * divs))
-    # add incomplete measure if necessary
-    if offset > 0:
-        part.add(score.Measure(number=1), 0, int((bar_times[2]-offset) * divs))
+    # add incomplete measure if necessary -> solved with dummy rest
+    # if offset > 0:
+    #    part.add(score.Measure(number=1), 0, int((bar_times[2]-offset) * divs))
 
 
 

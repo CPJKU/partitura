@@ -219,8 +219,7 @@ def matchfile_from_alignment(alignment, ppart, spart,
             # Quirk for Magaloff/Zeilinger
             if magaloff_zeilinger_quirk:
                 al_note['score_id'] = al_note['score_id'].split('-')[0]
-                # why should we add a "n" here? are trills etc anchored with n-ids?
-                al_note['score_id'] = 'n' + al_note['score_id'].split('-')[0]
+                # al_note['score_id'] = 'n' + al_note['score_id'].split('-')[0]
             snote = score_info[al_note['score_id']]
             note = perf_info[al_note['performance_id']]
             if ornament_type == 'trill':
