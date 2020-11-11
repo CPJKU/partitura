@@ -1298,11 +1298,10 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             bar_start = - beats_map(bar_start) * 4 / beat_type_map(bar_start)
 
         # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
-        onset_divs = int(divs * (bar_start + bar_offset + beat_offset - offset))
+        onset_divs = int(round(divs * (bar_start + bar_offset + beat_offset - offset)))
         
         assert onset_divs >= 0
-
-        assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
+        assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
 
         articulations = set()
         if 'staccato' in note.ScoreAttributesList or 'stac' in note.ScoreAttributesList:
