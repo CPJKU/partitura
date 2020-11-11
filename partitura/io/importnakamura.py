@@ -212,17 +212,27 @@ class NakamuraCorrespLine(object):
     field_names = ["alignID", "alignOntime", "alignSitch",
                     "alignPitch", "alignOnvel", "refID",
                     "refOntime", "refSitch", "refPitch", "refOnvel"]
+    
+    out_pattern = '{alignID}\t{alignOntime}\t{alignSitch}'\
+                      '\t{alignPitch}\t{alignOnvel}'\
+                      '\t{refID}\t{refOntime}'\
+                      '\t{refSitch}\t{refPitch}\t{refOnvel}'
+
     def __init__(self, alignID, alignOntime, alignSitch,
                     alignPitch, alignOnvel, refID,
                     refOntime, refSitch, refPitch, refOnvel):
-
+        
         self.id0 = str(alignID)
         self.onset0 = float(alignOntime)
         self.pitch0 = int(alignPitch)
+        self.alignSitch = str(alignSitch)
+        self.alignOnvel = int(alignOnvel)
 
         self.id1 = str(refID)
         self.onset1 = float(refOntime)
         self.pitch1 = int(refPitch)
+        self.refSitch = str(refSitch)
+        self.refOnvel = int(refOnvel)
 
     @classmethod
     def from_line(cls, correspline, pos=0):
@@ -233,8 +243,24 @@ class NakamuraCorrespLine(object):
             return None
         else:
             kwargs = dict(zip(cls.field_names, line_split))
-            match_line = cls(**kwargs)
-            return match_line
+            corresp_line = cls(**kwargs)
+            return corresp_line
+    
+    @property
+    def corresp_line(self):
+        self.out_pattern.format(
+        alignID = self.id0,
+        alignOntime = self.onset0,
+        alignPitch = self.pitch0,
+        alignSitch = self.alignSitch,
+        alignOnvel = self.alignOnvel,
+        refID = self.id1,
+        refOntime = self.onset1,
+        refPitch = self.pitch1,
+        refSitch = self.refSitch,
+        refOnvel = self.refOnvel
+        )
+        
 
 def parse_nakamuracorrespline(l):
     """

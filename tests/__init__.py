@@ -29,5 +29,4 @@ VOSA_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
 MATCH_IMPORT_EXPORT_TESTFILES = [os.path.join(MATCH_PATH, fn) for fn in ['test_fuer_elise.match']]
 
 # This is a list of files for testing Nakamura et al.'s corresp and match file loading
-NAKAMURA_IMPORT_TESTFILES = [(os.path.join(NAKAMURA_PATH, fn) for fn in piece)
-                                  for piece in [('Shi05_infer_corresp.txt', 'Shi05_infer_corresp.txt')]]
+NAKAMURA_IMPORT_TESTFILES = [os.path.join(NAKAMURA_PATH, fn) for fn in ['Shi05_infer_corresp.txt', 'Shi05_infer_corresp.txt']]
