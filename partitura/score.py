@@ -701,6 +701,28 @@ class Part(object):
     #             yield '  '.join(chunks)
     #         pg = pg.parent
 
+    def sanitize(self):
+        """
+        Find and remove incomplete structures such as Tuplets and Slurs without start or end 
+        and grace notes without a main note.
+        """
+        for gn in self.iter_all(GraceNote):
+            if gn.main_note is None:
+                for no in self.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                    if no.voice == gn.voice:
+                        gn.last_grace_note_in_seq.grace_next = no
+
+            if gn.main_note is None:
+                self.remove(gn)
+        
+        for tp in self.iter_all(Tuplet):
+            if tp.end_note is None or tp.start_note is None:
+                self.remove(tp)
+
+        for sl in self.iter_all(Slur):
+            if sl.end_note is None or sl.start_note is None:
+                self.remove(sl)
+
 
 class TimePoint(ComparableMixin):
 
