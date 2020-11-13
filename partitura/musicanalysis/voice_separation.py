@@ -444,13 +444,14 @@ class Voice(object):
         elif isinstance(stream_or_streams, NoteStream):
             self.streams = [stream_or_streams]
 
+        self._voice = voice
+
         if len(self.streams) > 0:
             self._setup_voice()
 
         else:
             self.notes = []
 
-        self._voice = voice
 
     def _setup_voice(self):
 
@@ -794,6 +795,7 @@ class VoSA(VSBaseScore):
 
                 if len(candidate_note_idxs) == 0:
                     next_onset_idx = int(np.where(unique_onsets == grace_note['onset'])[0] + 1)
+                    # import pdb; pdb.set_trace()
                     candidate_note_idxs = unique_onset_idxs[next_onset_idx]
 
                 candidate_notes = self.score[candidate_note_idxs]

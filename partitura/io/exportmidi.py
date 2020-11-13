@@ -2,7 +2,6 @@
 
 import logging
 import numpy as np
-from operator import itemgetter
 
 from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message, MetaMessage
@@ -100,6 +99,7 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
     track_events = defaultdict(lambda: defaultdict(list))
 
     ct_to_int = dict((v, k) for k, v in MIDI_CONTROL_TYPES.items())
+
     for c in performed_part.controls:
         track = c.get('track', 0)
         ch = c.get('channel', 1)
@@ -107,6 +107,7 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
         track_events[track][t].append(
             Message('control_change', control=ct_to_int[c['type']], value=c['value'], channel=ch))
 
+    
     for n in performed_part.notes:
         track = n.get('track', 0)
         ch = n.get('channel', 1)
@@ -118,6 +119,34 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
         track_events[track][t_off].append(
             Message('note_off', note=n['midi_pitch'], velocity=0, channel=ch))
 
+    for p in performed_part.programs:
+        track = p.get('track', 0)
+        ch = p.get('channel', 1)
+        t = int(np.round(10**6*ppq*p['time']/mpq))
+        track_events[track][t].append(
+            Message('program_change', program=int(p['program']),
+                    channel=ch))
+
+    if len(performed_part.programs) == 0:
+        # Add default program (to each track/channel)
+        channels_and_tracks = np.array(list(set([(c.get('channel', 1), c.get('track', 0))
+                                                 for c in performed_part.controls] +
+                                           [(n.get('channel', 1), n.get('track', 0))
+                                            for n in performed_part.notes])),
+                                       dtype=np.int)
+
+        timepoints = []
+        for tr in track_events.keys():
+            timepoints += list(track_events[tr].keys())
+        timepoints = list(set(timepoints))
+
+        for tr in np.unique(channels_and_tracks[:, 1]):
+            channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
+            track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
+            for ch in track_channels:
+                track_events[tr][min(timepoints)].append(
+                    Message('program_change', program=0,
+                            channel=ch))
 
     midi_type = 0 if len(track_events) == 1 else 1
     
@@ -199,7 +228,6 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
 
         notes = part.notes_tied
         qm = part.quarter_map
-        q_offset = qm(part.first_point.t)
 
         def to_ppq(t):
             # convert div times to new ppq
@@ -221,8 +249,9 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
             # key is a tuple (part_group, part, voice) that will be converted into a (track, channel) pair.
             key = (pg, part, note.voice)
             events[key][to_ppq(note.start.t)].append(Message('note_on', note=note.midi_pitch))
-            events[key][to_ppq(note.end_tied.t)].append(Message('note_off', note=note.midi_pitch))
-
+            # TODO: Fix issues with end_tied
+            # events[key][to_ppq(note.end_tied.t)].append(Message('note_off', note=note.midi_pitch))
+            events[key][to_ppq(note.start.t + note.duration_tied)].append(Message('note_off', note=note.midi_pitch))
             event_keys[key] = True
 
     tr_ch_map = map_to_track_channel(list(event_keys.keys()),
@@ -255,7 +284,6 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     # tempo events are handled differently from key/time sigs because the have a
     # global effect. Instead of adding to each relevant track, like the key/time
     # sig events, we add them only to the first track
-    track0_events = events[0]
     for t, tp in tempos.items():
         events[0][t].insert(0, tp)
 

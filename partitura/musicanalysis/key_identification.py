@@ -37,6 +37,13 @@ KEYS = [('C', 'major', 0),
         ('Bb', 'minor', -5),
         ('B', 'minor', 2)]
 
+VALID_KEY_PROFILES = ['krumhansl_kessler',
+                      'kk',
+                      'temperley',
+                      'tp',
+                      'kostka_payne',
+                      'kp']
+
 
 ################ Krumhansl--Kessler Key Profiles ########################
 
@@ -95,20 +102,19 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
     ----------
     note_array : structured array
         Array containing the score
-    method : {'krumhansl', 'temperley'}
-        Method for estimating the key. Default is 'krumhansl'.
+    method : {'krumhansl'}
+        Method for estimating the key. For now 'krumhansl' is the only supported
+        method.
     args, kwargs
         Positional and Keyword arguments for the key estimation method
 
     Returns
     -------
-    root : str
-        Root of the key (key name)
-    mode : str
-        Mode of the key ('major' or 'minor')
-    fifths : int
-        Position in the circle of fifths
-    
+    str
+       String representing the key name (i.e., Root(alteration)(m if minor)). 
+       See `partitura.utils.music.key_name_to_fifths_mode` and 
+       `partitura.utils.music.fifths_mode_to_key_name`.
+
     References
     ----------
     .. [2] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
@@ -123,10 +129,13 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
 
     if method == 'krumhansl':
         kid = ks_kid
-    if method == 'temperley':
-        kid = ks_kid
+
         if 'key_profiles' not in kwargs:
-            kwargs['key_profiles'] = 'temperley'
+            kwargs['key_profiles'] = 'krumhansl_kessler'
+        else:
+            if kwargs['key_profiles'] not in VALID_KEY_PROFILES:
+                raise ValueError('Invalid key_profiles. '
+                                 'Valid options are "ks", "cmbs" or "kp"')
 
     return kid(note_array, *args, **kwargs)
 
@@ -150,6 +159,35 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER, return_sorted_keys=False)
             raise ValueError('Invalid key_profiles. '
                              'Valid options are "ks", "cmbs" or "kp"')
 
+    # # Get pitch classes
+    # pitch_classes = np.mod(note_array['pitch'], 12)
+
+    # # Compute weighted key distribution
+    # pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
+    #                                for pc in range(12)])
+
+    # # normalizing is unnecessary for computing the corrcoef with the profiles:
+    # # pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
+
+    # # Compute correlation with key profiles
+    # corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]
+    #                   for kp in key_profiles])
+
+    corrs = _similarity_with_pitch_profile(note_array=note_array,
+                                           key_profiles=key_profiles,
+                                           similarity_func=corr)
+
+    if return_sorted_keys:
+        return [format_key(*KEYS[i]) for i in np.argsort(corrs)[::-1]]
+    else:
+        return format_key(*KEYS[corrs.argmax()])
+
+def corr(x, y):
+    return np.corrcoef(x, y)[0, 1]
+
+def _similarity_with_pitch_profile(note_array, key_profiles=KRUMHANSL_KESSLER, similarity_func=corr,
+                                   normalize_distribution=False):
+    
     # Get pitch classes
     pitch_classes = np.mod(note_array['pitch'], 12)
 
@@ -157,14 +195,13 @@ def ks_kid(note_array, key_profiles=KRUMHANSL_KESSLER, return_sorted_keys=False)
     pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
                                    for pc in range(12)])
 
-    # normalizing is unnecessary for computing the corrcoef with the profiles:
-    # pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
+    if normalize_distribution:
+        # normalizing is unnecessary for computing the corrcoef, but might be necessary
+        # for other similarity metrics
+        pitch_distribution = pitch_distribution/float(pitch_distribution.sum())
 
     # Compute correlation with key profiles
-    corrs = np.array([np.corrcoef(pitch_distribution, kp)[0, 1]
+    similarity = np.array([similarity_func(pitch_distribution, kp)
                       for kp in key_profiles])
 
-    if return_sorted_keys:
-        return [format_key(*KEYS[i]) for i in np.argsort(corrs)[::-1]]
-    else:
-        return format_key(*KEYS[corrs.argmax()])
+    return similarity

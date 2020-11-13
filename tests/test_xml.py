@@ -8,7 +8,7 @@ import logging
 import unittest
 from tempfile import TemporaryFile
 
-from . import MUSICXML_PATH, MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
+from . import MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
 
 from partitura import load_musicxml, save_musicxml
 from partitura.directions import parse_direction

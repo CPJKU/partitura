@@ -28,7 +28,9 @@ from .music import (
     ensure_pitch_spelling_format,
     notes_to_notearray,
     notearray_to_pianoroll,
-    pianoroll_to_notearray
+    pianoroll_to_notearray,
+    match_note_arrays,
+    key_mode_to_int
 )
 
 

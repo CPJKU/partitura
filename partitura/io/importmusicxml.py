@@ -168,10 +168,11 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
         MusicXML 3.1 specification before loading the file. An
         exception will be raised when the MusicXML is invalid.
         Defaults to False.
-    force_note_ids : bool, optional.
+    force_note_ids : (bool, 'keep') optional.
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
-        the MusicXML will be discarded.
+        the MusicXML will be discarded. If 'keep', only notes without
+        a note id will be assigned one.
 
     Returns
     -------
@@ -205,8 +206,8 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
     else:
         partlist = []
 
-    if force_note_ids:
-        assign_note_ids(partlist)
+    if force_note_ids is True or force_note_ids == 'keep':
+        assign_note_ids(partlist, force_note_ids == 'keep')
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -214,14 +215,29 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
         return partlist
 
 
-def assign_note_ids(parts):
-    # assign note ids to ensure uniqueness across all parts, discarding any
-    # existing note ids
-    i = 0
-    for part in score.iter_parts(parts):
-        for n in part.notes:
-            n.id = 'n{}'.format(i)
-            i += 1
+def assign_note_ids(parts, keep=False):
+    if keep:
+        # Keep existing note id's
+        for p, part in enumerate(score.iter_parts(parts)):
+            for ni, n in enumerate(part.iter_all(score.GenericNote, include_subclasses=True)):
+                if isinstance(n, score.Rest):
+                    n.id = 'p{0}r{1}'.format(p, ni) if n.id is None else n.id
+                else:
+                    n.id = 'p{0}n{1}'.format(p, ni) if n.id is None else n.id
+                
+    else:
+        # assign note ids to ensure uniqueness across all parts, discarding any
+        # existing note ids
+        ni = 0
+        ri = 0
+        for part in score.iter_parts(parts):
+            for n in part.iter_all(score.GenericNote, include_subclasses=True):
+                if isinstance(n,score.Rest):
+                    n.id = 'r{}'.format(ri)
+                    ri+=1
+                else:
+                    n.id = 'n{}'.format(ni)
+                    ni+=1
 
 
 def _parse_parts(document, part_dict):
@@ -261,6 +277,20 @@ def _parse_parts(document, part_dict):
                         part.remove(o_i)
                 else:
                     part.remove(o)
+
+        # check whether all grace notes have a main note
+        for gn in part.iter_all(score.GraceNote):
+            if gn.main_note is None:
+                
+                for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                    if no.voice == gn.voice:
+                        gn.last_grace_note_in_seq.grace_next = no
+
+            if gn.main_note is None:
+                print("grace note without recoverable same voice main note: {}".format(gn))
+                print("might be cadenza notation")
+             
+                
 
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
@@ -842,6 +872,12 @@ def _handle_sound(e, position, part):
 
 def _handle_note(e, position, part, ongoing, prev_note):
 
+    # get all generic notes (which have a document order index)
+    generic_notes = list(part.iter_all(score.GenericNote, include_subclasses=True))
+    if len(generic_notes) == 0:
+        do_idx = 0
+    else:
+        do_idx = max([gn.do_idx for gn in generic_notes]) + 1
     # prev_note is used when the current note has a <chord/> tag
 
     # get some common features of element if available
@@ -851,7 +887,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
     staff = get_value_from_tag(e, 'staff', int) or None
     voice = get_value_from_tag(e, 'voice', int) or None
 
-    note_id = get_value_from_attribute(e, 'id', str)
+    # add support of uppercase "ID" tags
+    note_id = get_value_from_attribute(e, 'id', str)  if get_value_from_attribute(e, 'id', str) else get_value_from_attribute(e, 'ID', str)
 
     symbolic_duration = {}
     dur_type = get_value_from_tag(e, 'type', str)
@@ -894,29 +931,33 @@ def _handle_note(e, position, part, ongoing, prev_note):
 
         if grace is not None:
             grace_type, steal_proportion = get_grace_info(grace)
-            note = score.GraceNote(grace_type, step, octave, alter,
-                                   note_id, voice=voice, staff=staff,
+            note = score.GraceNote(grace_type=grace_type, step=step,
+                                   octave=octave, alter=alter,
+                                   id=note_id, voice=voice, staff=staff,
                                    symbolic_duration=symbolic_duration,
                                    articulations=articulations,
-                                   steal_proportion=steal_proportion)
+                                   steal_proportion=steal_proportion,
+                                   do_idx=do_idx)
             if (isinstance(prev_note, score.GraceNote)
                 and prev_note.voice == voice):
                 note.grace_prev = prev_note
         else:
-
-            note = score.Note(step, octave, alter, note_id,
+            note = score.Note(step=step, octave=octave,
+                              alter=alter, id=note_id,
                               voice=voice, staff=staff,
                               symbolic_duration=symbolic_duration,
-                              articulations=articulations)
+                              articulations=articulations,
+                              do_idx=do_idx)
 
         if (isinstance(prev_note, score.GraceNote)
             and prev_note.voice == voice):
             prev_note.grace_next = note
     else:
         # note element is a rest
-        note = score.Rest(note_id, voice=voice, staff=staff,
+        note = score.Rest(id=note_id, voice=voice, staff=staff,
                           symbolic_duration=symbolic_duration,
-                          articulations=articulations)
+                          articulations=articulations,
+                          do_idx=do_idx)
 
     part.add(note, position, position+duration)
 
@@ -1031,13 +1072,14 @@ def handle_tuplets(notations, ongoing, note):
     return starting_tuplets, stopping_tuplets
 
 
+
 def handle_slurs(notations, ongoing, note, position):
     # we need position here to check for erroneous slurs: sometimes a slur stop
     # is encountered before the corresponding slur start. This is a valid use
     # case (e.g. slur starts in staff 2 and ends in staff 1). However, if the
     # stop is before the start in time, then it is just a MusicXML encoding
     # error.
-    
+
     starting_slurs = []
     stopping_slurs = []
     slurs = notations.findall('slur')
@@ -1186,7 +1228,7 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     score : structured array or list of structured arrays
         Structured array containing the score. The fields are 'pitch',
         'onset' and 'duration'.
-    
+
     """
 
     if not isinstance(expand_grace_notes, (bool, str)):
