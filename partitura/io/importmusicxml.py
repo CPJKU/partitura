@@ -863,6 +863,8 @@ def _handle_note(e, position, part, ongoing, prev_note):
     # add support of uppercase "ID" tags
     note_id = get_value_from_attribute(e, 'id', str)  if get_value_from_attribute(e, 'id', str) else get_value_from_attribute(e, 'ID', str)
 
+
+
     symbolic_duration = {}
     dur_type = get_value_from_tag(e, 'type', str)
     if dur_type:
@@ -986,6 +988,7 @@ def _handle_note(e, position, part, ongoing, prev_note):
 
     new_position = position + duration
 
+
     return new_position, note
 
 
@@ -1003,11 +1006,11 @@ def handle_tuplets(notations, ongoing, note):
     # by their numbers; First note that tuplets do not always
     # have a number attribute, then 1 is implied.
     tuplets.sort(key=lambda x: get_value_from_attribute(
-        x, 'number', int) or 1)
+        x, 'number', int) or (note.voice or 1))
 
     for tuplet_e in tuplets:
 
-        tuplet_number = get_value_from_attribute(tuplet_e, 'number', int)
+        tuplet_number = get_value_from_attribute(tuplet_e, 'number', int) or note.voice
         tuplet_type = get_value_from_attribute(tuplet_e, 'type', str)
         start_tuplet_key = ('start_tuplet', tuplet_number)
         stop_tuplet_key = ('stop_tuplet', tuplet_number)
@@ -1017,6 +1020,7 @@ def handle_tuplets(notations, ongoing, note):
             # check if we have a stopped_tuplet in ongoing that corresponds to
             # this start
             tuplet = ongoing.pop(stop_tuplet_key, None)
+
 
             if tuplet is None:
 
