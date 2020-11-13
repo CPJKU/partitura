@@ -289,8 +289,16 @@ def _parse_parts(document, part_dict):
             if gn.main_note is None:
                 print("grace note without recoverable same voice main note: {}".format(gn))
                 print("might be cadenza notation")
-             
-                
+        
+        # check whether all tuplets have beginning and end
+        for tp in part.iter_all(score.Tuplet):
+            if tp.end_note is None or tp.start_note is None:
+                part.remove(tp)
+
+        # check whether all slurs have beginning and end
+        for sl in part.iter_all(score.Slur):
+            if sl.end_note is None or sl.start_note is None:
+                part.remove(sl)
 
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
@@ -1006,7 +1014,7 @@ def handle_tuplets(notations, ongoing, note):
     # by their numbers; First note that tuplets do not always
     # have a number attribute, then 1 is implied.
     tuplets.sort(key=lambda x: get_value_from_attribute(
-        x, 'number', int) or (note.voice or 1))
+        x, 'number', int) or note.voice or 1)
 
     for tuplet_e in tuplets:
 
@@ -1070,11 +1078,11 @@ def handle_slurs(notations, ongoing, note, position):
     # by their numbers; First note that slurs do not always
     # have a number attribute, then 1 is implied.
     slurs.sort(key=lambda x: get_value_from_attribute(
-        x, 'number', int) or 1)
+        x, 'number', int) or note.voice or 1)
 
     for slur_e in slurs:
 
-        slur_number = get_value_from_attribute(slur_e, 'number', int)
+        slur_number = get_value_from_attribute(slur_e, 'number', int) or note.voice
         slur_type = get_value_from_attribute(slur_e, 'type', str)
         start_slur_key = ('start_slur', slur_number)
         stop_slur_key = ('stop_slur', slur_number)
