@@ -37,6 +37,13 @@ KEYS = [('C', 'major', 0),
         ('Bb', 'minor', -5),
         ('B', 'minor', 2)]
 
+VALID_KEY_PROFILES = ['krumhansl_kessler',
+                      'kk',
+                      'temperley',
+                      'tp',
+                      'kostka_payne',
+                      'kp']
+
 
 ################ Krumhansl--Kessler Key Profiles ########################
 
@@ -95,8 +102,9 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
     ----------
     note_array : structured array
         Array containing the score
-    method : {'krumhansl', 'temperley'}
-        Method for estimating the key. Default is 'krumhansl'.
+    method : {'krumhansl'}
+        Method for estimating the key. For now 'krumhansl' is the only supported
+        method.
     args, kwargs
         Positional and Keyword arguments for the key estimation method
 
@@ -121,10 +129,13 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
 
     if method == 'krumhansl':
         kid = ks_kid
-    if method == 'temperley':
-        kid = ks_kid
+
         if 'key_profiles' not in kwargs:
-            kwargs['key_profiles'] = 'temperley'
+            kwargs['key_profiles'] = 'krumhansl_kessler'
+        else:
+            if kwargs['key_profiles'] not in VALID_KEY_PROFILES:
+                raise ValueError('Invalid key_profiles. '
+                                 'Valid options are "ks", "cmbs" or "kp"')
 
     return kid(note_array, *args, **kwargs)
 
