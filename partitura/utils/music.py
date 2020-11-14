@@ -236,12 +236,13 @@ def key_name_to_fifths_mode(name):
     ----------
     name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C", "C#",
         "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb", "Ebm",
-        "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"} Name of
-        the key signature
+        "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
+        Name of the key signature
 
     Returns
     -------
-
+    (int, str)
+        Tuple containing the number of fifths and the mode 
 
     Examples
     --------

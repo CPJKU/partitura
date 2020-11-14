@@ -11,7 +11,8 @@ from .generic import (
     find_nearest,
     add_field,
     show_diff,
-    search)
+    search,
+)
 from .music import (
     MIDI_BASE_CLASS,
     MIDI_CONTROL_TYPES,
@@ -30,8 +31,7 @@ from .music import (
     notearray_to_pianoroll,
     pianoroll_to_notearray,
     match_note_arrays,
-    key_mode_to_int
+    key_mode_to_int,
 )
 
-
-# __all__ = []
+__all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]

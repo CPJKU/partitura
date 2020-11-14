@@ -112,8 +112,8 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
     -------
     str
        String representing the key name (i.e., Root(alteration)(m if minor)). 
-       See `partitura.utils.music.key_name_to_fifths_mode` and 
-       `partitura.utils.music.fifths_mode_to_key_name`.
+       See `partitura.utils.key_name_to_fifths_mode` and 
+       `partitura.utils.fifths_mode_to_key_name`.
 
     References
     ----------

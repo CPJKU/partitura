@@ -429,3 +429,18 @@ measure instances that were added using the
 ...     part.remove(measure)
 
 
+Music Analysis
+==============
+
+The package offers tools for different types music analysis, including key
+estimation, tonal tension estimation, voice separation, and pitch spelling. To facilitate the use of this functionality without imposing the musical ontology, the functions take the score information in the form of a `structured numpy array<https://numpy.org/doc/stable/user/basics.rec.html>`_ specifying pi
+
+Key Estimation
+--------------
+
+Key estimation is performed by the function
+:func:`~partitura.musicanalysis.estimate_key`. The function
+
+>>> note_array = partitura.utils.music.notes_to_notearray(score.notes)
+    key = partitura.musicanalysis.estimate_key(note_array)
+
