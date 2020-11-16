@@ -1022,7 +1022,7 @@ class GenericNote(TimedObject):
     staff : str, optional
         An integer representing the staff to which the note belongs.
         Defaults to None.
-    do_idx : int, optional
+    doc_order : int, optional
         The document order index (zero-based), expressing the order of
         appearance of this note (with respect to other notes) in the
         document in case the Note belongs to a part that was imported
@@ -1030,7 +1030,7 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, do_idx=None):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, doc_order=None):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -1038,7 +1038,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
-        self.do_idx = do_idx
+        self.doc_order = doc_order
 
         # these attributes are set after the instance is constructed
         self.fermata = None

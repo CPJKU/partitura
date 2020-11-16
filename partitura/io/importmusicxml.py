@@ -261,14 +261,14 @@ def _parse_parts(document, part_dict):
 
         position = 0
         ongoing = {}
-        doc_order_idx = 0
+        doc_order = 0
         # add new page and system at start of part
         _handle_new_page(position, part, ongoing)
         _handle_new_system(position, part, ongoing)
 
         for measure_el in part_el.xpath('measure'):
-            position, doc_order_idx = _handle_measure(measure_el, position, part,
-                                       ongoing, doc_order_idx)
+            position, doc_order = _handle_measure(measure_el, position, part,
+                                       ongoing, doc_order)
 
         # remove unfinished elements from the timeline
         for k, o in ongoing.items():
@@ -306,7 +306,7 @@ def _parse_parts(document, part_dict):
         score.set_end_times(part)
 
 
-def _handle_measure(measure_el, position, part, ongoing, doc_order_idx):
+def _handle_measure(measure_el, position, part, ongoing, doc_order):
     """
     Parse a <measure>...</measure> element, adding it and its contents to the
     part.
@@ -373,8 +373,8 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order_idx):
 
         elif e.tag == 'note':
             (position, prev_note) = _handle_note(
-                e, position, part, ongoing, prev_note, doc_order_idx)
-            doc_order_idx += 1
+                e, position, part, ongoing, prev_note, doc_order)
+            doc_order += 1
             measure_maxtime = max(measure_maxtime, position)
 
         elif e.tag == 'barline':
@@ -418,7 +418,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order_idx):
     # add end time of measure
     part.add(measure, None, measure_maxtime)
 
-    return measure_maxtime, doc_order_idx
+    return measure_maxtime, doc_order
 
 
 def _handle_repeat(e, position, part, ongoing):
@@ -853,7 +853,7 @@ def _handle_sound(e, position, part):
         # part.add_starting_object(position, tempo)
         _add_tempo_if_unique(position, part, tempo)
 
-def _handle_note(e, position, part, ongoing, prev_note, do_idx):
+def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
     # get some common features of element if available
     duration = get_value_from_tag(e, 'duration', int) or 0
@@ -914,7 +914,7 @@ def _handle_note(e, position, part, ongoing, prev_note, do_idx):
                                    symbolic_duration=symbolic_duration,
                                    articulations=articulations,
                                    steal_proportion=steal_proportion,
-                                   do_idx=do_idx)
+                                   doc_order=doc_order)
             if (isinstance(prev_note, score.GraceNote)
                 and prev_note.voice == voice):
                 note.grace_prev = prev_note
@@ -924,7 +924,7 @@ def _handle_note(e, position, part, ongoing, prev_note, do_idx):
                               voice=voice, staff=staff,
                               symbolic_duration=symbolic_duration,
                               articulations=articulations,
-                              do_idx=do_idx)
+                              doc_order=doc_order)
 
         if (isinstance(prev_note, score.GraceNote)
             and prev_note.voice == voice):
@@ -934,7 +934,7 @@ def _handle_note(e, position, part, ongoing, prev_note, do_idx):
         note = score.Rest(id=note_id, voice=voice, staff=staff,
                           symbolic_duration=symbolic_duration,
                           articulations=articulations,
-                          do_idx=do_idx)
+                          doc_order=doc_order)
 
     part.add(note, position, position+duration)
 
