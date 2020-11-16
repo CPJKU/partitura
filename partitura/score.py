@@ -1459,7 +1459,7 @@ class GraceNote(Note):
     @property
     def last_grace_note_in_seq(self):
         n = self
-        while n.grace_next is not None:
+        while isinstance(n.grace_next, GraceNote):
             n = n.grace_next
         return n
 
@@ -1495,7 +1495,7 @@ class GraceNote(Note):
     def __str__(self):
         s = ' '.join(
             (super().__str__(),
-             'main_note={}'.format(self.main_note.id if self.main_note.id else self.main_note)))
+             'main_note={}'.format(self.main_note)))
         return s
 
 
