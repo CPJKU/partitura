@@ -7,7 +7,7 @@ import logging
 import partitura.score as score
 from operator import itemgetter
 
-from .importmusicxml import DYN_DIRECTIONS
+from .importmusicxml import DYN_DIRECTIONS, PEDAL_DIRECTIONS
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
 
 __all__ = ["save_musicxml"]
@@ -761,6 +761,18 @@ def do_directions(part, start, end, counter):
             e2 = etree.SubElement(e1, "dynamics")
             etree.SubElement(e2, text)
 
+        # if text in PEDAL_DIRECTIONS:
+
+        #     dir_type = "start"
+        #     if start.t > direction.start.t:
+        #         dir_type = "end"
+
+        #     if isinstance(direction, score.SustainPedalDirection):
+        #         pedal_line = "yes" if direction.line else "no"
+        #         e2 = etree.SubElement(e1, "pedal",
+        #                               line=pedal_line)
+                
+
         elif getattr(direction, "wedge", False):
 
             if isinstance(direction, score.IncreasingLoudnessDirection):
@@ -791,6 +803,7 @@ def do_directions(part, start, end, counter):
 
         elem = (direction.start.t, None, e0)
         result.append(elem)
+
 
     return result
 

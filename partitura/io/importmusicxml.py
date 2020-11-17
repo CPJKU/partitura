@@ -47,6 +47,10 @@ DYN_DIRECTIONS = {
     'sfz': score.ImpulsiveLoudnessDirection,
 }
 
+PEDAL_DIRECTIONS = {
+    'sustain_pedal': score.SustainPedalDirection,
+}
+
 def validate_musicxml(xml, debug=False):
     """
     Validate an XML file against an XSD.
@@ -675,10 +679,13 @@ def _handle_direction(e, position, part, ongoing):
 
             #start/stop
             pedal_type = get_value_from_attribute(dt, 'type', str)
+            pedal_line = get_value_from_attribute(dt, 'line', str) == 'yes'
+            
             number = get_value_from_attribute(dt, 'number', int) or 1
             key = ('pedal', number)
             if pedal_type == 'start':
-                o = score.SustainPedalDirection(staff=staff)
+                o = score.SustainPedalDirection(staff=staff,
+                                                line=pedal_line)
 
                 starting_directions.append(o)
 

@@ -2081,8 +2081,12 @@ class DecreasingTempoDirection(DynamicTempoDirection): pass
 class ImpulsiveLoudnessDirection(ImpulsiveDirection, LoudnessDirection): pass
 
 class SustainPedalDirection(PedalDirection):
-    def __init__(self, *args, **kwargs):
+    """Represents a Sustain Pedal Direction
+    """
+    def __init__(self, line=False, *args, **kwargs):
         super().__init__('sustain_pedal', *args, **kwargs)
+        # If pedal direction is a line or 'Ped'
+        self.line = line
 
 class ResetTempoDirection(ConstantTempoDirection):
     @property
