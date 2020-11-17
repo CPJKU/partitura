@@ -702,6 +702,8 @@ class Part(object):
     #         pg = pg.parent
 
 
+
+
 class TimePoint(ComparableMixin):
 
     """A TimePoint represents a temporal position within a
@@ -1023,7 +1025,7 @@ class GenericNote(TimedObject):
     staff : str, optional
         An integer representing the staff to which the note belongs.
         Defaults to None.
-    do_idx : int, optional
+    doc_order : int, optional
         The document order index (zero-based), expressing the order of
         appearance of this note (with respect to other notes) in the
         document in case the Note belongs to a part that was imported
@@ -1031,7 +1033,7 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, do_idx=None):
+    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, doc_order=None):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -1039,7 +1041,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
-        self.do_idx = do_idx
+        self.doc_order = doc_order
 
         # these attributes are set after the instance is constructed
         self.fermata = None
@@ -1437,7 +1439,7 @@ class GraceNote(Note):
     @property
     def last_grace_note_in_seq(self):
         n = self
-        while n.grace_next is not None:
+        while isinstance(n.grace_next, GraceNote):
             n = n.grace_next
         return n
 
@@ -1473,7 +1475,7 @@ class GraceNote(Note):
     def __str__(self):
         s = ' '.join(
             (super().__str__(),
-             'main_note={}'.format(self.main_note.id if self.main_note.id else self.main_note)))
+             'main_note={}'.format(self.main_note)))
         return s
 
 
@@ -2960,6 +2962,30 @@ def find_tuplets(part):
 
                         else:
                             tup_start += 1
+
+
+    def sanitize_part(part):
+        """
+        Find and remove incomplete structures in a part such as Tuplets and Slurs without start or end 
+        and grace notes without a main note.
+        """
+        for gn in part.iter_all(GraceNote):
+            if gn.main_note is None:
+                for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                    if no.voice == gn.voice:
+                        gn.last_grace_note_in_seq.grace_next = no
+
+            if gn.main_note is None:
+                part.remove(gn)
+        
+        for tp in part.iter_all(Tuplet):
+            if tp.end_note is None or tp.start_note is None:
+                part.remove(tp)
+
+        for sl in part.iter_all(Slur):
+            if sl.end_note is None or sl.start_note is None:
+                part.remove(sl)
+
 
 
 class InvalidTimePointException(Exception):
