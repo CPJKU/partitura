@@ -705,6 +705,12 @@ def _handle_direction(e, position, part, ongoing):
                 else:
                     LOGGER.warning(
                         'Did not find a pedal start element for pedal stop!')
+
+            else:
+                if pedal_type in ('change', 'continue'):
+                    LOGGER.warning('pedal types "change" and "continue" are '
+                                   'not supported. Ignoring direction.')
+                    
             
         else:
             LOGGER.warning('ignoring direction type: {} {}'.format(

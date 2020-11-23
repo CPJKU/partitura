@@ -758,11 +758,14 @@ def do_directions(part, start, end, counter):
             # Pedal directions create an element for start
             # and an element for ending
 
+            # Use end of the segment as ending of the pedal sign
             ped_end = end if direction.end is None else direction.end
+
+            # Create a pedal start element
             if direction.start.t >= start.t:
                 e0s = etree.Element("direction", placement="below")
                 e1s = etree.SubElement(e0s, "direction-type")
-
+                # For sustain pedals
                 if isinstance(direction, score.SustainPedalDirection):
                     pedal_kwargs = {}
                     if direction.line:
