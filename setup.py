@@ -12,9 +12,9 @@ from setuptools import find_packages, setup, Command
 NAME = 'partitura'
 DESCRIPTION = 'A package for handling symbolic musical information'
 KEYWORDS = 'music notation musicxml midi'
-URL = 'https://github.com/mgrachten/partitura'
+URL = 'https://github.com/OFAI/partitura'
 EMAIL = 'partitura-users@googlegroups.com'
-AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
+AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, Thassilo Gadermaier, Silvan Peter and Nimrod Varga'
 REQUIRES_PYTHON = '>=3.5'
 VERSION = '0.4.0'
 
