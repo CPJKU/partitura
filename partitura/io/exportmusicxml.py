@@ -753,56 +753,82 @@ def do_directions(part, start, end, counter):
     for direction in directions:
 
         text = direction.raw_text or direction.text
-        e0 = etree.Element("direction")
-        e1 = etree.SubElement(e0, "direction-type")
 
-        if text in DYN_DIRECTIONS:
+        if text in PEDAL_DIRECTIONS:
+            # Pedal directions create an element for start
+            # and an element for ending
 
-            e2 = etree.SubElement(e1, "dynamics")
-            etree.SubElement(e2, text)
+            ped_end = end if direction.end is None else direction.end
+            if direction.start.t >= start.t:
+                e0s = etree.Element("direction", placement="below")
+                e1s = etree.SubElement(e0s, "direction-type")
 
-        # if text in PEDAL_DIRECTIONS:
-
-        #     dir_type = "start"
-        #     if start.t > direction.start.t:
-        #         dir_type = "end"
-
-        #     if isinstance(direction, score.SustainPedalDirection):
-        #         pedal_line = "yes" if direction.line else "no"
-        #         e2 = etree.SubElement(e1, "pedal",
-        #                               line=pedal_line)
-                
-
-        elif getattr(direction, "wedge", False):
-
-            if isinstance(direction, score.IncreasingLoudnessDirection):
-                wtype = "crescendo"
-            else:
-                wtype = "diminuendo"
-
-            number = range_number_from_counter(direction, "wedge", counter)
-            e2 = etree.SubElement(e1, "wedge", number="{}".format(number), type=wtype)
-
+                if isinstance(direction, score.SustainPedalDirection):
+                    pedal_kwargs = {}
+                    if direction.line:
+                        pedal_kwargs['line'] = "yes"
+                    e2s = etree.SubElement(e1s, "pedal", type="start",
+                                           **pedal_kwargs)
+                if direction.staff is not None:
+                    e3s = etree.SubElement(e0s, "staff")
+                    e3s.text = str(direction.staff)
+                elem = (direction.start.t, None, e0s)
+                result.append(elem)
+            if ped_end.t <= end.t:
+                e0e = etree.Element("direction", placement="below")
+                e1e = etree.SubElement(e0e, "direction-type")
+                if isinstance(direction, score.SustainPedalDirection):
+                    pedal_kwargs = {}
+                    if direction.line:
+                        pedal_kwargs['line'] = "yes"
+                    else:
+                        pedal_kwargs['sign'] = "yes"
+                    e2e = etree.SubElement(e1e, "pedal", type="end",
+                                           **pedal_kwargs)
+                if direction.staff is not None:
+                    e3e = etree.SubElement(e0e, "staff")
+                    e3e.text = str(direction.staff)
+                elem = (ped_end.t, None, e0e)
+                result.append(elem)
         else:
+            e0 = etree.Element("direction")
+            e1 = etree.SubElement(e0, "direction-type")
 
-            e2 = etree.SubElement(e1, "words")
-            e2.text = filter_string(text)
+            if text in DYN_DIRECTIONS:
 
-            if (
-                isinstance(direction, score.DynamicDirection)
-                and direction.end is not None
-            ):
-                e3 = etree.SubElement(e0, "direction-type")
-                number = range_number_from_counter(direction, "dashes", counter)
-                etree.SubElement(e3, "dashes", number="{}".format(number), type="start")
+                e2 = etree.SubElement(e1, "dynamics")
+                etree.SubElement(e2, text)
 
-        if direction.staff is not None:
+            elif getattr(direction, "wedge", False):
 
-            e5 = etree.SubElement(e0, "staff")
-            e5.text = str(direction.staff)
+                if isinstance(direction, score.IncreasingLoudnessDirection):
+                    wtype = "crescendo"
+                else:
+                    wtype = "diminuendo"
 
-        elem = (direction.start.t, None, e0)
-        result.append(elem)
+                number = range_number_from_counter(direction, "wedge", counter)
+                e2 = etree.SubElement(e1, "wedge", number="{}".format(number), type=wtype)
+
+            else:
+
+                e2 = etree.SubElement(e1, "words")
+                e2.text = filter_string(text)
+
+                if (
+                    isinstance(direction, score.DynamicDirection)
+                    and direction.end is not None
+                ):
+                    e3 = etree.SubElement(e0, "direction-type")
+                    number = range_number_from_counter(direction, "dashes", counter)
+                    etree.SubElement(e3, "dashes", number="{}".format(number), type="start")
+
+            if direction.staff is not None:
+
+                e5 = etree.SubElement(e0, "staff")
+                e5.text = str(direction.staff)
+
+            elem = (direction.start.t, None, e0)
+            result.append(elem)
 
 
     return result

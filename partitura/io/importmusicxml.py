@@ -151,7 +151,7 @@ def _parse_partlist(partlist):
     return structure, part_dict
 
 
-def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=False):
+def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
     """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
@@ -684,6 +684,10 @@ def _handle_direction(e, position, part, ongoing):
             number = get_value_from_attribute(dt, 'number', int) or 1
             key = ('pedal', number)
             if pedal_type == 'start':
+                if key in ongoing:
+                    eo = ongoing.pop(key)
+                    ending_directions.append(eo)                    
+
                 o = score.SustainPedalDirection(staff=staff,
                                                 line=pedal_line)
 
