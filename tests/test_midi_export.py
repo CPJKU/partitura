@@ -2,7 +2,6 @@
 
 import logging
 from collections import defaultdict, Counter, OrderedDict
-from operator import itemgetter
 import unittest
 from tempfile import TemporaryFile
 import mido
@@ -130,7 +129,6 @@ class TestMIDIExportModes(unittest.TestCase):
             
             msg = ('Track channels should have {} notes respectively, '
                    'but they have {}'.format(vc_list, ch_list))
-
             self.assertEqual(vc_list, ch_list, msg)
 
             ts_part = sum(1 for _  in part.iter_all(score.TimeSignature))

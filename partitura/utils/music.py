@@ -4,7 +4,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 
-from . import find_nearest, search, iter_current_next, add_field
+from partitura.utils.generic import find_nearest, search, iter_current_next
 
 MIDI_CONTROL_TYPES = {
     64: 'sustain_pedal',
@@ -136,7 +136,6 @@ def midi_pitch_to_pitch_spelling(midi_pitch):
     octave = midi_pitch // 12 - 1
     step, alter = DUMMY_PS_BASE_CLASS[np.mod(midi_pitch, 12)]
     return ensure_pitch_spelling_format(step, alter, octave)
-
 
 
 SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, '##': 2, '###': 3,
@@ -560,9 +559,21 @@ def estimate_clef_properties(pitches):
 
 
 def notes_to_notearray(notes):
-    # create a structured array with fields pitch, onset and duration for a
-    # given list of notes
-    return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
+    """Convert a list of :class:`partitura.score.Note` objects to a
+    structured numpy array with fields pitch, onset, and duration.
+
+    Parameters
+    ----------
+    notes : list of :class:`partitura.score.Note`
+
+    Returns
+    -------
+    np.ndarray
+        Structured array containing integer fields pitch, onset, 
+        and duration
+
+    """
+    return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes if n.tie_prev is None],
                     dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
 
 

@@ -54,6 +54,10 @@ class Part(object):
         Name for the part. Defaults to None
     part_abbreviation : str or None, optional
         Abbreviated name for part
+    quarter_duration : int, optional
+        The default quarter duration. See
+        :meth:`~partitura.score.Part.set_quarter_duration` for
+        details.
 
     Attributes
     ----------
@@ -66,7 +70,8 @@ class Part(object):
 
     """
 
-    def __init__(self, id, part_name=None, part_abbreviation=None):
+    def __init__(self, id, part_name=None, part_abbreviation=None,
+                 quarter_duration=1):
         super().__init__()
         self.id = id
         self.parent = None
@@ -76,7 +81,7 @@ class Part(object):
         # timeline init
         self._points = np.array([], dtype=TimePoint)
         self._quarter_times = [0]
-        self._quarter_durations = [1]
+        self._quarter_durations = [quarter_duration]
         self._quarter_map = self.quarter_duration_map
 
     def __str__(self):
@@ -309,25 +314,41 @@ class Part(object):
 
     @property
     def notes_tied(self):
-        """Return a list of all Note objects in the part that are either not
-        tied, or the first note of a group of tied notes. This list
-        includes GraceNote objects but not Rest objects.
+        """Return a list of all Note objects in the part that are
+        either not tied, or the first note of a group of tied notes.
+        This list includes GraceNote objects but not Rest objects.
 
         Returns
         -------
         list
-            list of Note objects
+            List of Note objects
 
         """
         return [note for note in self.iter_all(Note, include_subclasses=True)
                 if note.tie_prev is None]
 
-    def quarter_durations(self, start=None, end=None):
-        """Return an Nx2 array with quarter duration (second column) and
-        their respective times (first column).
+    @property
+    def notearray(self):
+        """Return a numpy array with pitch, onset and duration
+        information of the notes.
 
-        When a start and or end time is specified, the returned array
-        will contain only the entries within those bounds.
+        Returns
+        -------
+        np.ndarray
+            Bla bla
+
+        """
+        
+        return np.array([(n.midi_pitch, n.start.t, n.duration_tied)
+                         for n in self.iter_all(Note, include_subclasses=True)
+                         if n.tie_prev is None], dtype=np.int)
+
+    def quarter_durations(self, start=None, end=None):
+        """Return an Nx2 array with quarter duration (second column)
+        and their respective times (first column).
+
+        When a start and or end time is specified, the returned
+        array will contain only the entries within those bounds.
 
         Parameters
         ----------
@@ -472,8 +493,8 @@ class Part(object):
                 self._points[i + 1].prev = self._points[i]
 
     def get_point(self, t):
-        """Return the `TimePoint` object with time `t`, or None if there is no
-        such object.
+        """Return the `TimePoint` object with time `t`, or None if
+        there is no such object.
 
         """
         if t < 0:
@@ -493,7 +514,7 @@ class Part(object):
         Parameters
         ----------
         t : int
-            time value `t`
+            Time value `t`
 
         Returns
         -------
@@ -577,17 +598,18 @@ class Part(object):
             sum(len(oo) for oo in tp.ending_objects.values())) == 0:
             self._remove_point(tp)
 
-    def iter_all(self, cls, start=None, end=None,
+    def iter_all(self, cls=None, start=None, end=None,
                  include_subclasses=False, mode='starting'):
-        """Iterate (in direction of increasing time) over all instances
-        of `cls` that either start or end (depending on `mode`) in the
-        interval `start` to `end`.  When `start` and `end` are
-        omitted, the whole timeline is searched.
+        """Iterate (in direction of increasing time) over all
+        instances of `cls` that either start or end (depending on
+        `mode`) in the interval `start` to `end`.  When `start` and
+        `end` are omitted, the whole timeline is searched.
 
         Parameters
         ----------
-        cls : class
-            The class to search for
+        cls : class, optional
+            The class of objects to iterate over. If omitted, iterate
+            over all objects in the part.
         start : :class:`TimePoint`, optional
             The start of the interval to search. If omitted or None,
             the search starts at the start of the timeline. Defaults
@@ -603,9 +625,9 @@ class Part(object):
             objects. Defaults to 'starting'.
 
         Yields
-        -------
-        `cls`
-            Instances of type `cls`
+        ------
+        object
+            Instances of the specified type.
 
         """
         if not mode in ('starting', 'ending'):
@@ -626,6 +648,10 @@ class Part(object):
                 end = TimePoint(end)
             end_idx = np.searchsorted(self._points, end)
 
+        if cls is None:
+            cls = object
+            include_subclasses = True
+
         if mode == 'ending':
             for tp in self._points[start_idx: end_idx]:
                 yield from tp.iter_ending(cls, include_subclasses)
@@ -636,8 +662,8 @@ class Part(object):
 
     @property
     def last_point(self):
-        """The last TimePoint on the timeline, or None if the timeline is
-        empty.
+        """The last TimePoint on the timeline, or None if the timeline
+        is empty.
 
         Returns
         -------
@@ -648,26 +674,30 @@ class Part(object):
 
     @property
     def first_point(self):
-        """The first TimePoint on the timeline, or None if the timeline
-        is empty.
+        """The first TimePoint on the timeline, or None if the
+        timeline is empty.
 
         Returns
         -------
         :class:`TimePoint`
+
         """
         return self._points[0] if len(self._points) > 0 else None
 
     @property
     def note_array(self):
-        """A structured array containing pitch, onset (in beats), duration (in beats), voice
-        and id for each note
+        """A structured array containing pitch, onset (in beats),
+        duration (in beats), voice and id for each note
+
         """
         return self._note_array(self.beat_map)
 
     @property
     def note_array_quarters(self):
-        """A structured array containing pitch, onset (in quarters), duration, voice
-        and id for each note"""
+        """A structured array containing pitch, onset (in quarters),
+        duration, voice and id for each note
+
+        """
         return self._note_array(self.quarter_map)
     
     def _note_array(self, beat_map):
@@ -702,6 +732,12 @@ class Part(object):
     #         pg = pg.parent
 
 
+
+class _OrderedSet(dict):
+    def add(self, x):
+        self[x] = None
+    def remove(self, x):
+        self.pop(x, None)
 
 
 class TimePoint(ComparableMixin):
@@ -745,8 +781,8 @@ class TimePoint(ComparableMixin):
     def __init__(self, t, quarter=None):
         self.t = t
         self.quarter = quarter
-        self.starting_objects = defaultdict(list)
-        self.ending_objects = defaultdict(list)
+        self.starting_objects = defaultdict(_OrderedSet)
+        self.ending_objects = defaultdict(_OrderedSet)
         # prev and next are dynamically updated once the timepoint is part of a timeline
         self.next = None
         self.prev = None
@@ -782,7 +818,7 @@ class TimePoint(ComparableMixin):
 
         """
         obj.start = self
-        self.starting_objects[type(obj)].append(obj)
+        self.starting_objects[type(obj)].add(obj)
 
     def remove_starting_object(self, obj):
         """Remove object `obj` from the list of starting objects.
@@ -815,7 +851,7 @@ class TimePoint(ComparableMixin):
 
         """
         obj.end = self
-        self.ending_objects[type(obj)].append(obj)
+        self.ending_objects[type(obj)].add(obj)
 
     def iter_starting(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that start at this
@@ -853,7 +889,7 @@ class TimePoint(ComparableMixin):
             in the iteration. Defaults to False.
 
         Yields
-        -------
+        ------
         cls
             Instance of type `cls`
 
@@ -940,9 +976,14 @@ class TimePoint(ComparableMixin):
         starting_items_lists = sorted_dict_items(self.starting_objects.items(),
                                                  key=lambda x: x[0].__name__)
 
-        ending_items = [o for _, oo in ending_items_lists for o in oo]
-        starting_items = [o for _, oo in starting_items_lists for o in oo]
-
+        # ending_items = [o for _, oo in ending_items_lists for o in oo]
+        # starting_items = [o for _, oo in starting_items_lists for o in oo]
+        ending_items = [o for _, oo in ending_items_lists for o in sorted(oo, key=lambda x: x.duration or -1, reverse=True)]
+        starting_items = [o for _, oo in starting_items_lists for o in sorted(oo, key=lambda x: x.duration or -1)]
+        
+        # import ipdb
+        # ipdb.set_trace()
+        
         if ending_items:
 
             result.append('{}'.format(tree).rstrip())
@@ -993,7 +1034,8 @@ class TimedObject(ReplaceRefMixin):
     """This is the base class of all classes that have a start and end
     point. The start and end attributes initialized to None, and are
     set/unset when the object is added to/removed from a Part, using
-    its :meth:`~Part.add` and :meth:`~Part.remove` methods, respectively.
+    its :meth:`~Part.add` and :meth:`~Part.remove` methods,
+    respectively.
 
     Attributes
     ----------
@@ -1008,6 +1050,27 @@ class TimedObject(ReplaceRefMixin):
         self.start = None
         self.end = None
 
+    def __str__(self):
+        start = '' if self.start is None else f'{self.start.t}'
+        end = '' if self.end is None else f'{self.end.t}'
+        return start + '--' + end + ' ' + type(self).__name__
+
+    @property
+    def duration(self):
+        """The duration of the timed object in divisions. When either
+        the start or the end property of the object are None, the
+        duration is None.
+
+        Returns
+        -------
+        int or None
+
+        """
+        if self.start is None or self.end is None:
+            return None
+        else:
+            return self.end.t - self.start.t
+    
 
 class GenericNote(TimedObject):
     """Represents the common aspects of notes, rests, and unpitched
@@ -1017,8 +1080,8 @@ class GenericNote(TimedObject):
     ----------
     id : str, optional (default: None)
         A string identifying the note. To be compatible with the
-        MusicXML format, the id must be unique within a part and
-        must not start with a number.
+        MusicXML format, the id must be unique within a part and must
+        not start with a number.
     voice : int, optional
         An integer representing the voice to which the note belongs.
         Defaults to None.
@@ -1059,8 +1122,7 @@ class GenericNote(TimedObject):
 
     @property
     def symbolic_duration(self):
-        """
-        The symbolic duration of the note.
+        """The symbolic duration of the note.
 
         This property returns a dictionary specifying the symbolic
         duration of the note. The dictionary may have the following
@@ -1068,28 +1130,28 @@ class GenericNote(TimedObject):
 
         * type : the note type as a string, e.g. 'quarter', 'half'
 
-        * dots : an integer specifying the number of dots. When this
-          key is missing it means there are no dots.
+        * dots : an integer specifying the number of dots. When
+          this key is missing it means there are no dots.
 
         * actual_notes : Specifies the number of actual notes in a
           rhythmical tuplet. Used in conjunction with `normal_notes`.
 
         * normal_notes : Specifies the normal number of notes in a
-          rhythmical tuplet. For example a triplet of eights in the time
-          of two eights would correspond to actual_notes=3,
+          rhythmical tuplet. For example a triplet of eights in the
+          time of two eights would correspond to actual_notes=3,
           normal_notes=2.
 
-        The symbolic duration dictionary of a note can either be set
-        manually (for example by specifying the `symbolic_duration`
-        constructor keyword argument), or left unspecified (i.e.
-        None). In the latter case the symbolic duration is estimated
-        dynamically based on the note start and end times. Note that
-        this latter case is generally preferrable because it ensures
-        that the symbolic duration is consistent with the numeric
-        duration.
+        The symbolic duration dictionary of a note can either be
+        set manually (for example by specifying the
+        `symbolic_duration` constructor keyword argument), or left
+        unspecified (i.e. None). In the latter case the symbolic
+        duration is estimated dynamically based on the note start and
+        end times. Note that this latter case is generally preferrable
+        because it ensures that the symbolic duration is consistent
+        with the numeric duration.
 
-        If the symbolic duration cannot be estimated from the numeric
-        duration None is returned.
+        If the symbolic duration cannot be estimated from the
+        numeric duration None is returned.
 
         Returns
         -------
@@ -1117,26 +1179,10 @@ class GenericNote(TimedObject):
         self._sym_dur = v
 
     @property
-    def duration(self):
-        """The duration of the note in divisions
-
-        Returns
-        -------
-        int
-
-        """
-
-        try:
-            return self.end.t - self.start.t
-        except:
-            LOGGER.warn('no end time found for note')
-            return 0
-
-    @property
     def end_tied(self):
-        """The `Timepoint` corresponding to the end of the note, or---when
-        this note belongs to a group of tied notes---the end of the last
-        note in the group.
+        """The `Timepoint` corresponding to the end of the note, or---
+        when this note belongs to a group of tied notes---the end of
+        the last note in the group.
 
         Returns
         -------
@@ -1151,9 +1197,9 @@ class GenericNote(TimedObject):
 
     @property
     def duration_tied(self):
-        """Time difference of the start of the note to the end of the note,
-        or---when  this note belongs to a group of tied notes---the end of
-        the last note in the group.
+        """Time difference of the start of the note to the end of the
+        note, or---when  this note belongs to a group of tied notes---
+        the end of the last note in the group.
 
         Returns
         -------
@@ -1168,12 +1214,13 @@ class GenericNote(TimedObject):
 
     @property
     def duration_from_symbolic(self):
-        """Return the numeric duration given the symbolic duration of the
-        note and the quarter_duration in effect.
+        """Return the numeric duration given the symbolic duration of
+        the note and the quarter_duration in effect.
 
         Returns
         -------
         int or None
+
         """
 
         if self.symbolic_duration:
@@ -1274,8 +1321,11 @@ class GenericNote(TimedObject):
                 yield n
 
     def __str__(self):
+        # s = ('{} id={} voice={} staff={} type={}'
+        #      .format(type(self).__name__, self.id, self.voice, self.staff,
+        #              format_symbolic_duration(self.symbolic_duration)))
         s = ('{} id={} voice={} staff={} type={}'
-             .format(type(self).__name__, self.id, self.voice, self.staff,
+             .format(super().__str__(), self.id, self.voice, self.staff,
                      format_symbolic_duration(self.symbolic_duration)))
         if self.articulations:
             s += ' articulations=({})'.format(", ".join(self.articulations))
@@ -1338,8 +1388,8 @@ class Note(GenericNote):
 
     @property
     def midi_pitch(self):
-        """The midi pitch value of the note (MIDI note number). C4 (middle C,
-        in german: c') is note number 60.
+        """The midi pitch value of the note (MIDI note number). C4
+        (middle C, in german: c') is note number 60.
 
         Returns
         -------
@@ -1371,8 +1421,8 @@ class Rest(GenericNote):
         super().__init__(*args, **kwargs)
 
 class Beam(TimedObject):
-    """
-    Represent beams (for MEI)
+    """Represent beams (for MEI)
+
     """
     def __init__(self, id=None):
         super().__init__()
@@ -1473,10 +1523,8 @@ class GraceNote(Note):
                 n = n.grace_next
 
     def __str__(self):
-        s = ' '.join(
-            (super().__str__(),
-             'main_note={}'.format(self.main_note)))
-        return s
+        return f'{super().__str__()} main_note={self.main_note}'
+
 
 
 class Page(TimedObject):
@@ -1499,12 +1547,12 @@ class Page(TimedObject):
         self.number = number
 
     def __str__(self):
-        return 'Page number={}'.format(self.number)
+        return f'{super().__str__()} number={self.number}'
 
 
 class System(TimedObject):
-    """A system in a musical score. Its start and end times describe the
-    range of musical time that is spanned by the system.
+    """A system in a musical score. Its start and end times describe
+    the range of musical time that is spanned by the system.
 
     Parameters
     ----------
@@ -1523,13 +1571,11 @@ class System(TimedObject):
         self.number = number
 
     def __str__(self):
-        return 'System number={}'.format(self.number)
+        return f'{super().__str__()} number={self.number}'
 
 
 class Clef(TimedObject):
-    """A clef.
-
-    Clefs associate the lines of a staff to musical pitches.
+    """Clefs associate the lines of a staff to musical pitches.
 
     Parameters
     ----------
@@ -1565,13 +1611,11 @@ class Clef(TimedObject):
         self.octave_change = octave_change
 
     def __str__(self):
-        return 'Clef sign={} line={} number={}'.format(self.sign, self.line, self.number)
+        return f'{super().__str__()} sign={self.sign} line={self.line} number={self.number}'
 
 
 class Slur(TimedObject):
-    """A slur.
-
-    Slurs indicate musical grouping across notes.
+    """Slurs indicate musical grouping across notes.
 
     Parameters
     ----------
@@ -1607,12 +1651,12 @@ class Slur(TimedObject):
     def start_note(self, note):
         # make sure we received a note
         if note:
-            if note.start:
+            if self.start:
                 #  remove the slur from the current start time
-                if self.start_note and self.start_note.start:
-                    self.start_note.start.remove_starting_object(self)
-            # else:
-            #     LOGGER.warning('Note has no start time')
+                self.start.remove_starting_object(self)
+            # if note.start:
+            #     # add the slur to the start time of the new start note
+            #     note.start.add_starting_object(self)
             note.slur_starts.append(self)
         self._start_note = note
 
@@ -1624,12 +1668,12 @@ class Slur(TimedObject):
     def end_note(self, note):
         # make sure we received a note
         if note:
+            if self.end:
+                #  remove the slur from the current end time
+                self.end.remove_ending_object(self)
             if note.end:
-                if self.end_note and self.end_note.end:
-                    #  remove the slur from the currentend time
-                    self.end_note.end.remove_ending_object(self)
-            # else:
-            #     LOGGER.warning('Note has no end time')
+                # add it to the end time of the new end note
+                note.end.add_ending_object(self)
             note.slur_stops.append(self)
         self._end_note = note
 
@@ -1637,13 +1681,11 @@ class Slur(TimedObject):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
         start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
         end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
-        return ' '.join(('Slur', start, end)).strip()
+        return ' '.join((super().__str__(), start, end)).strip()
 
 
 class Tuplet(TimedObject):
-    """A tuplet.
-
-    Tuplets indicate musical grouping across notes.
+    """Tuplets indicate musical grouping across notes.
 
     Parameters
     ----------
@@ -1658,7 +1700,6 @@ class Tuplet(TimedObject):
         See parameters
     end_note : :class:`Note` or None
         See parameters
-
 
     """
 
@@ -1709,21 +1750,19 @@ class Tuplet(TimedObject):
     def __str__(self):
         start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
         end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
-        return ' '.join(('Tuplet', start, end)).strip()
+        return ' '.join((super().__str__(), start, end)).strip()
 
 
 class Repeat(TimedObject):
-    """A repeat.
-
-    This class represents a repeated section in the score, designated
+    """Repeats represent a repeated section in the score, designated
     by its start and end times.
 
     """
     def __init__(self):
         super().__init__()
 
-    def __str__(self):
-        return 'Repeat (from {0} to {1})'.format(self.start and self.start.t, self.end and self.end.t)
+    # def __str__(self):
+    #     return 'Repeat (from {0} to {1})'.format(self.start and self.start.t, self.end and self.end.t)
 
 
 class DaCapo(TimedObject):
@@ -1731,8 +1770,8 @@ class DaCapo(TimedObject):
 
     """
 
-    def __str__(self):
-        return u'Dacapo'
+    # def __str__(self):
+    #     return u'Dacapo'
 
 
 class Fine(TimedObject):
@@ -1740,8 +1779,8 @@ class Fine(TimedObject):
 
     """
 
-    def __str__(self):
-        return 'Fine'
+    # def __str__(self):
+    #     return 'Fine'
 
 
 class Fermata(TimedObject):
@@ -1766,13 +1805,12 @@ class Fermata(TimedObject):
         self.ref = ref
 
     def __str__(self):
-        return 'Fermata ref={}'.format(self.ref)
+        return f'{super().__str__()} ref={self.ref}'
 
 
 class Ending(TimedObject):
-
-    """Class that represents one part of a 1---2--- type ending of a musical
-    passage (a.k.a Volta brackets).
+    """Class that represents one part of a 1---2--- type ending of a
+    musical passage (a.k.a Volta brackets).
 
     Parameters
     ----------
@@ -1790,13 +1828,12 @@ class Ending(TimedObject):
         super().__init__()
         self.number = number
 
-    def __str__(self):
-        return 'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
+    # def __str__(self):
+    #     return 'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
 
 
 class Measure(TimedObject):
-
-    """A measure.
+    """A measure
 
     Parameters
     ----------
@@ -1815,8 +1852,7 @@ class Measure(TimedObject):
         self.number = number
 
     def __str__(self):
-        # return 'Measure {0} at page {1}, system {2}'.format(self.number, self.page, self.system)
-        return 'Measure number={0}'.format(self.number)
+        return f'{super().__str__()} number={self.number}'
 
     @property
     def page(self):
@@ -1879,7 +1915,7 @@ class TimeSignature(TimedObject):
         self.beat_type = beat_type
 
     def __str__(self):
-        return 'TimeSignature {0}/{1}'.format(self.beats, self.beat_type)
+        return f'{super().__str__()} {self.beats}/{self.beat_type}'
 
 
 class Tempo(TimedObject):
@@ -1923,9 +1959,9 @@ class Tempo(TimedObject):
 
     def __str__(self):
         if self.unit:
-            return 'Tempo {}={}'.format(self.unit, self.bpm)
+            return f'{super().__str__()} {self.unit}={self.bpm}'
         else:
-            return 'Tempo bpm={0}'.format(self.bpm)
+            return f'{super().__str__()} bpm={self.bpm}'
 
 
 class KeySignature(TimedObject):
@@ -1966,21 +2002,21 @@ class KeySignature(TimedObject):
         return fifths_mode_to_key_name(self.fifths, self.mode)
 
     def __str__(self):
-        return ('Key signature fifths={}, mode={} ({})'
-                .format(self.fifths, self.mode, self.name))
+        return f'{super().__str__()} fifths={self.fifths}, mode={self.mode} ({self.name})'
 
 
 class Transposition(TimedObject):
-
-    """Represents a <transpose> tag that tells how to change all (following)
-    pitches of that part to put it to concert pitch (i.e. sounding pitch).
+    """Represents a <transpose> tag that tells how to change all
+    (following) pitches of that part to put it to concert pitch (i.e.
+    sounding pitch).
 
     Parameters
     ----------
     diatonic : int
+        TODO
     chromatic : int
-        The number of semi-tone steps to add or subtract to the pitch to
-        get to the (sounding) concert pitch.
+        The number of semi-tone steps to add or subtract to the pitch
+        to get to the (sounding) concert pitch.
 
     Attributes
     ----------
@@ -1997,7 +2033,7 @@ class Transposition(TimedObject):
         self.chromatic = chromatic
 
     def __str__(self):
-        return 'Transposition diatonic={0}, chromatic={1}'.format(self.diatonic, self.chromatic)
+        return f'{super().__str__()} diatonic={self.diatonic}, chromatic={self.chromatic}'
 
 
 class Words(TimedObject):
@@ -2025,7 +2061,7 @@ class Words(TimedObject):
         self.staff = staff
 
     def __str__(self):
-        return '{} "{}"'.format(type(self).__name__, self.text)
+        return f'{super().__str__()} "{self.text}"'
 
 
 class Direction(TimedObject):
@@ -2042,10 +2078,9 @@ class Direction(TimedObject):
 
     def __str__(self):
         if self.raw_text is not None:
-            return '{} "{}" raw_text="{}"'.format(type(self).__name__, self.text, self.raw_text)
+            return f'{super().__str__()} "{self.text}" raw_text="{self.raw_text}"'
         else:
-            #return '{} "{}"'.format(type(self).__name__, self.text)
-            return '{} '.format( self.text)
+            return f'{super().__str__()} "{self.text}"'
 
 
 class LoudnessDirection(Direction): pass
@@ -2067,7 +2102,7 @@ class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
         self.wedge = wedge
     def __str__(self):
         if self.wedge:
-            return '{} wedge'.format(super().__str__())
+            return f'{super().__str__()} wedge'
         else:
             return super().__str__()
 
@@ -2098,10 +2133,10 @@ class ResetTempoDirection(ConstantTempoDirection):
 
 
 class PartGroup(object):
-    """Represents a grouping of several instruments, usually named, and
-    expressed in the score with a group symbol such as a brace or a
-    bracket. In symphonic scores, bracketed part groups usually group
-    families of instruments, such as woodwinds or brass, whereas
+    """Represents a grouping of several instruments, usually named,
+    and expressed in the score with a group symbol such as a brace or
+    a bracket. In symphonic scores, bracketed part groups usually
+    group families of instruments, such as woodwinds or brass, whereas
     braces are often used to group multiple instances of the same
     instrument. See the `MusicXML documentation
     <https://usermanuals.musicxml.com/MusicXML/Content/ST-MusicXML-
@@ -2123,7 +2158,6 @@ class PartGroup(object):
     parent : PartGroup or None
 
     children : list of Part or PartGroup objects
-
 
     """
 
@@ -2163,9 +2197,10 @@ class PartGroup(object):
     @property
     def note_array(self):
         """A structured array containing pitch, onset, duration, voice
-        and id for each note in each part of the PartGroup.
-        The note ids in this array include the number of the part
-        to which they belong.
+        and id for each note in each part of the PartGroup. The note
+        ids in this array include the number of the part to which they
+        belong.
+
         """
 
         fields = [('onset', 'f4'),
@@ -2226,7 +2261,7 @@ class ScoreVariant(object):
         return [(s.t, e.t, o) for (s, e, o) in self.segments]
 
     def __str__(self):
-        return 'Segment {}'.format(self.segment_times)
+        return f'{super().__str__()} {self.segment_times}'
 
     def clone(self):
         """
@@ -2728,9 +2763,8 @@ def tie_notes(part):
         Description of `part`
 
     """
-
     # split and tie notes at measure boundaries
-    for note in part.iter_all(Note):
+    for note in list(part.iter_all(Note)):
         next_measure = next(note.start.iter_next(Measure), None)
         cur_note = note
         note_end = cur_note.end
@@ -2767,12 +2801,10 @@ def tie_notes(part):
 
     # then split/tie any notes that do not have a fractional/dot duration
     divs_map = part.quarter_duration_map
-    notes = part.iter_all(Note)
-
     max_splits = 3
     failed = 0
     succeeded = 0
-    for i, note in enumerate(notes):
+    for i, note in enumerate(list(part.iter_all(Note))):
         if note.symbolic_duration is None:
 
             splits = find_tie_split(note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits)
@@ -2850,10 +2882,9 @@ def split_note(part, note, splits):
     start, end, sym_dur = splits.pop(0)
     cur_note.symbolic_duration = sym_dur
     part.add(cur_note, start, end)
-
     while splits:
         note.slur_stops = []
-
+        
         if cur_note.id is not None:
             note_id = _make_tied_note_id(cur_note.id)
         else:
@@ -2968,28 +2999,27 @@ def find_tuplets(part):
                             tup_start += 1
 
 
-    def sanitize_part(part):
-        """
-        Find and remove incomplete structures in a part such as Tuplets and Slurs without start or end 
-        and grace notes without a main note.
-        """
-        for gn in part.iter_all(GraceNote):
-            if gn.main_note is None:
-                for no in part.iter_all(Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
-                    if no.voice == gn.voice:
-                        gn.last_grace_note_in_seq.grace_next = no
+def sanitize_part(part):
+    """
+    Find and remove incomplete structures in a part such as Tuplets and Slurs without start or end 
+    and grace notes without a main note.
+    """
+    for gn in part.iter_all(GraceNote):
+        if gn.main_note is None:
+            for no in part.iter_all(Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                if no.voice == gn.voice:
+                    gn.last_grace_note_in_seq.grace_next = no
 
-            if gn.main_note is None:
-                part.remove(gn)
-        
-        for tp in part.iter_all(Tuplet):
-            if tp.end_note is None or tp.start_note is None:
-                part.remove(tp)
+        if gn.main_note is None:
+            part.remove(gn)
+    
+    for tp in part.iter_all(Tuplet):
+        if tp.end_note is None or tp.start_note is None:
+            part.remove(tp)
 
-        for sl in part.iter_all(Slur):
-            if sl.end_note is None or sl.start_note is None:
-                part.remove(sl)
-
+    for sl in part.iter_all(Slur):
+        if sl.end_note is None or sl.start_note is None:
+            part.remove(sl)
 
 
 class InvalidTimePointException(Exception):

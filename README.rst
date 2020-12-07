@@ -2,7 +2,7 @@
 Partitura
 =========
 
-Partitura is a Python 3 package for handling symbolic musical information. It
+Partitura is a Python package for handling symbolic musical information. It
 supports loading from and exporting to *MusicXML* and *MIDI* files.
 
 The full documentation for `partitura` is available online at `readthedocs.org
