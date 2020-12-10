@@ -34,7 +34,8 @@ from partitura.utils import (
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch,
     to_quarter_tempo,
-    key_mode_to_int
+    key_mode_to_int,
+    _OrderedSet
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -730,14 +731,6 @@ class Part(object):
     #             chunks.insert(0, pg.group_name)
     #             yield '  '.join(chunks)
     #         pg = pg.parent
-
-
-
-class _OrderedSet(dict):
-    def add(self, x):
-        self[x] = None
-    def remove(self, x):
-        self.pop(x, None)
 
 
 class TimePoint(ComparableMixin):
@@ -2819,14 +2812,17 @@ def tie_notes(part):
 
 def set_end_times(parts):
     # non-public
-    """
-    Set missing end times of musical elements in a part to equal the start times
-    of the subsequent element of the same class. This is useful for some classes
+    """Set missing end times of musical elements in a part to equal
+    the start times of the subsequent element of the same class. This
+    is useful for some classes
+
+    This function modifies the parts in place.
 
     Parameters
     ----------
-    part: Part or PartGroup, or list of these
+    part : Part or PartGroup, or list of these
         Parts to be processed
+
     """
     for part in iter_parts(parts):
         # page, system, loudnessdirection, tempodirection
@@ -2913,8 +2909,10 @@ def find_tuplets(part):
     """Identify tuplets in `part` and set their symbolic durations
     explicitly.
 
-    This function adds `actual_notes` and `normal_notes` keys to the
-    symbolic duration of tuplet notes.
+    This function adds `actual_notes` and `normal_notes` keys to
+    the symbolic duration of tuplet notes.
+
+    This function modifies the part in place.
 
     Parameters
     ----------
@@ -3000,9 +2998,17 @@ def find_tuplets(part):
 
 
 def sanitize_part(part):
-    """
-    Find and remove incomplete structures in a part such as Tuplets and Slurs without start or end 
-    and grace notes without a main note.
+    """Find and remove incomplete structures in a part such as Tuplets
+    and Slurs without start or end and grace notes without a main
+    note.
+
+    This function modifies the part in place.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        Part instance
+
     """
     for gn in part.iter_all(GraceNote):
         if gn.main_note is None:

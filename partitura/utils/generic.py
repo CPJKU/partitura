@@ -10,6 +10,13 @@ LOGGER = logging.getLogger(__name__)
 __all__ = ['find_nearest', 'iter_current_next', 'partition', 'iter_subclasses']
 
 
+class _OrderedSet(dict):
+    def add(self, x):
+        self[x] = None
+    def remove(self, x):
+        self.pop(x, None)
+
+
 def find_nearest(array, value):
     """
     Return the index of the value in `array` that is closest to `value`.

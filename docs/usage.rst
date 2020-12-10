@@ -118,15 +118,20 @@ The notes in this part can be accessed through the property
   [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
   <partitura.score.Note object at 0x...>]
 
-To create a piano roll extract from the part as a numpy array you would do
-the following:
+`structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_
 
->>> import numpy as np
->>> pianoroll = np.array([(n.start.t, n.end.t, n.midi_pitch) for n in part.notes])
->>> print(pianoroll)
-[[ 0 48 69]
- [24 48 72]
- [24 48 76]]
+.. doctest::
+
+  >>> arr = part.note_array
+  >>> arr.dtype # doctest: +NORMALIZE_WHITESPACE
+  dtype([('onset', '<f4'), ('duration', '<f4'), ('pitch', '<i4'),
+  ('voice', '<i4'), ('id', '<U256')])
+
+>>> for pitch, onset, duration in zip(arr["pitch"], arr["onset"], arr["duration"]):
+...     print(pitch, onset, duration)
+69 0.0 4.0
+72 2.0 2.0
+76 2.0 2.0
 
 The note start and end times are in the units specificied by the
 `divisions` element of the MusicXML file. This element specifies the
@@ -138,11 +143,12 @@ The part object has a property :attr:`part.beat_map
 <partitura.score.Part.beat_map>` that converts timeline times into beat
 times:
 
->>> beat_map = part.beat_map
->>> print(beat_map(pianoroll[:, 0]))
-[0. 2. 2.]
->>> print(beat_map(pianoroll[:, 1]))
-[4. 4. 4.]
+..
+    >>> beat_map = part.beat_map
+    >>> print(beat_map(pianoroll[:, 0]))
+    [0. 2. 2.]
+    >>> print(beat_map(pianoroll[:, 1]))
+    [4. 4. 4.]
 
 
 Iterating over arbitrary musical objects
@@ -432,16 +438,11 @@ measure instances that were added using the
 
 Note that we create a list of all measures in `part` before we remove them. This is necessary to avoid changing the contents of `part` while we iterate over it.
 
+
 Music Analysis
 ==============
 
-The package offers tools for various types music analysis, including key
-estimation, tonal tension estimation, voice separation, and pitch spelling. To facilitate the use of this functionality without imposing the musical ontology, the functions take the score information in the form of a `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_ specifying pitch, onset, and duration. A convenience function :func:`~partitura.utils.notes_to_notearray` can be used to create a structured numpy array from a :class:`~partitura.score.Part`:
-
->>> note_array = partitura.utils.notes_to_notearray(part.notes)
->>> note_array
-array([(69,  0, 10), (73,  0, 10), (73, 10, 30)],
-      dtype=[('pitch', '<i4'), ('onset', '<i4'), ('duration', '<i4')])
+The package offers tools for various types music analysis, including key estimation, tonal tension estimation, voice separation, and pitch spelling. The functions take the note information of in the form of a  `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_, as returned by the :attr:`~partitura.score.Part.note_array` attribute.
 
 Key Estimation
 --------------
@@ -449,7 +450,7 @@ Key Estimation
 Key estimation is performed by the function
 :func:`~partitura.musicanalysis.estimate_key`. The function returns a string representation of the root and mode of the key:
 
->>> key_name = partitura.musicanalysis.estimate_key(note_array)
+>>> key_name = partitura.musicanalysis.estimate_key(part.note_array)
 >>> print(key_name)
 C#m
 

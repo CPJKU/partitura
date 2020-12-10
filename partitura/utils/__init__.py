@@ -12,6 +12,7 @@ from partitura.utils.generic import (
     add_field,
     show_diff,
     search,
+    _OrderedSet,
 )
 from partitura.utils.music import (
     MIDI_BASE_CLASS,
@@ -34,4 +35,4 @@ from partitura.utils.music import (
     key_mode_to_int,
 )
 
-# __all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name", "notes_to_notearray"]
+__all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]
