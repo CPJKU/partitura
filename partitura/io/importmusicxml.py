@@ -294,16 +294,6 @@ def _parse_parts(document, part_dict):
             if gn.main_note is None:
                 print("grace note without recoverable same voice main note: {}".format(gn))
                 print("might be cadenza notation")
-        
-        # check whether all tuplets have beginning and end
-        for tp in part.iter_all(score.Tuplet):
-            if tp.end_note is None or tp.start_note is None:
-                part.remove(tp)
-
-        # check whether all slurs have beginning and end
-        for sl in part.iter_all(score.Slur):
-            if sl.end_note is None or sl.start_note is None:
-                part.remove(sl)
 
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML

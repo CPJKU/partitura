@@ -2975,7 +2975,7 @@ def find_tuplets(part):
         """
         for gn in part.iter_all(GraceNote):
             if gn.main_note is None:
-                for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                for no in part.iter_all(Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
                     if no.voice == gn.voice:
                         gn.last_grace_note_in_seq.grace_next = no
 
