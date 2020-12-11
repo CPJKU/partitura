@@ -1513,7 +1513,7 @@ def save_mei(parts, autoBeaming=True, fileName = "testResult", titleText=None):
     stavesAreValid = True
 
     for p in parts:
-        p.sanitize_part()
+        score.sanitize_part(p)
 
         tmp = {staffedObj.staff for cls in classesWithStaff for staffedObj in p.iter_all(cls,include_subclasses=True)}
         tmp = tmp.union({clef.number for clef in p.iter_all(score.Clef)})
