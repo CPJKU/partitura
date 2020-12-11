@@ -61,12 +61,14 @@ class PerformedPart(object):
 
     """
 
-    def __init__(self, notes, id=None, part_name=None,
+    def __init__(self, notes, ppq=480, id=None, part_name=None,
                  controls=None, programs=None,
                  sustain_pedal_threshold=64):
         super().__init__()
         self.id = id
+        self.ppq = ppq
         self.part_name = part_name
+
 
         self.notes = notes
         self.controls = controls or []
@@ -120,12 +122,14 @@ class PerformedPart(object):
                   ('id', 'U256')]
         note_array = []
         for n in self.notes:
+            note_on_div = self.ppq*n['note_on']
             offset = n.get('sound_off', n['note_off'])
-            duration_div = offset - n['note_on']
+            duration = offset - n['note_on']
+            duration_div = self.ppq*duration
             duration_sec = n['note_off_sec']-n['note_on_sec']
             note_array.append((n['note_on_sec'],
                                duration_sec,
-                               n['note_on'],
+                               note_on_div,
                                duration_div,
                                n['midi_pitch'],
                                n['velocity'],

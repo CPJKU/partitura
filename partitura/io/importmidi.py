@@ -22,7 +22,7 @@ def note_hash(channel, pitch):
     return channel * 128 + pitch
 
 
-def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quarter=False):
+def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -149,7 +149,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes, controls=controls,
+    return performance.PerformedPart(notes, ppq = ppq, controls=controls,
                                      programs=programs)
 
 
