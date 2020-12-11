@@ -569,7 +569,7 @@ def _handle_direction(e, position, part, ongoing):
     #     %direction;
     # >
 
-    staff = get_value_from_tag(e, 'staff', int) or 1
+    staff = get_value_from_tag(e, 'staff', int) or None
 
     if get_value_from_attribute(e, 'sound/fine', str) == 'yes':
         part.add(score.Fine(), position)
