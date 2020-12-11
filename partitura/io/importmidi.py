@@ -8,7 +8,7 @@ import mido
 
 import partitura.score as score
 import partitura.performance as performance
-from partitura.utils import estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties, MIDI_CONTROL_TYPES
+from partitura.utils import estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties
 import partitura.musicanalysis as analysis
 
 __all__ = ['load_score_midi', 'load_performance_midi']
@@ -92,14 +92,9 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
 
             elif msg.type == 'control_change':
 
-                if msg.control not in MIDI_CONTROL_TYPES:
-
-                    LOGGER.warning('ignoring unknown MIDI control type {}'.format(msg.control))
-                    continue
-
                 controls.append(dict(
                     time=t,
-                    type=MIDI_CONTROL_TYPES[msg.control],
+                    number=msg.control,
                     value=msg.value,
                     track=i,
                     channel=msg.channel))
