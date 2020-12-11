@@ -684,35 +684,33 @@ class Part(object):
 
         """
         return self._points[0] if len(self._points) > 0 else None
-
+    
     @property
     def note_array(self):
-        """A structured array containing pitch, onset (in beats),
-        duration (in beats), voice and id for each note
-
-        """
-        return self._note_array(self.beat_map)
-
-    @property
-    def note_array_quarters(self):
-        """A structured array containing pitch, onset (in quarters),
-        duration, voice and id for each note
-
-        """
-        return self._note_array(self.quarter_map)
-    
-    def _note_array(self, beat_map):
-        fields = [('onset', 'f4'),
-                  ('duration', 'f4'),
+        fields = [('onset_beat', 'f4'),
+                  ('duration_beat', 'f4'),
+                  ('onset_quarter', 'f4'),
+                  ('duration_quarter', 'f4'),
+                  ('onset_div', 'f4'),
+                  ('duration_div', 'f4'),
                   ('pitch', 'i4'),
                   ('voice', 'i4'),
                   ('id', 'U256')]
         note_array = []
         for note in self.notes_tied:
-            note_on, note_off = beat_map([note.start.t, note.start.t + note.duration_tied])
-            note_dur = note_off - note_on
-            note_array.append((note_on, note_dur, note.midi_pitch,
-                               note.voice, note.id))
+            note_on_div = note.start.t
+            note_off_div = note.start.t + note.duration_tied
+            note_dur_div = note_off_div - note_on_div
+            note_on_beat, note_off_beat = self.beat_map([note_on_div, note_off_div])
+            note_dur_beat = note_off_beat - note_on_beat
+            note_on_quarter, note_off_quarter = self.quarter_map([note_on_div, note_off_div])
+            note_dur_quarter = note_off_quarter - note_on_quarter
+            
+            note_array.append((note_on_beat, note_dur_beat, 
+                                note_on_quarter, note_dur_quarter, 
+                                note_on_div, note_dur_div, 
+                                note.midi_pitch,
+                                note.voice, note.id))
             
         return np.array(note_array, dtype=fields)
 
