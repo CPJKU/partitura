@@ -3010,6 +3010,7 @@ def sanitize_part(part):
         Part instance
 
     """
+    remove_grace_counter = 0
     for gn in part.iter_all(GraceNote):
         if gn.main_note is None:
             for no in part.iter_all(Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
@@ -3018,15 +3019,21 @@ def sanitize_part(part):
 
         if gn.main_note is None:
             part.remove(gn)
+            remove_grace_counter += 1
     
+    remove_tuplet_counter = 0
     for tp in part.iter_all(Tuplet):
         if tp.end_note is None or tp.start_note is None:
             part.remove(tp)
+            remove_tuplet_counter += 1
 
+    remove_slur_counter = 0
     for sl in part.iter_all(Slur):
         if sl.end_note is None or sl.start_note is None:
             part.remove(sl)
+            remove_slur_counter += 1
 
+    print("part_sanitize removed {} incomplete tuplets, {} incomplete slurs, and {} incomplete grace notes".format(remove_tuplet_counter, remove_slur_counter, remove_grace_counter))
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number.
