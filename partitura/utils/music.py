@@ -6,10 +6,6 @@ from scipy.sparse import csc_matrix
 
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
-MIDI_CONTROL_TYPES = {
-    64: 'sustain_pedal',
-    67: 'soft_pedal'
-    }
 MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 # _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 # _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
