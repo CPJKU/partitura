@@ -107,23 +107,29 @@ class PerformedPart(object):
     @property
     def note_array(self):
         """Structured array containing performance information.
-        The fields are 'id', 'pitch', 'p_onset', 'p_duration' and
-        'velocity'.
+        The fields are 'id', 'pitch', 'onset_div', 'duration_div',
+        'onset_sec', 'duration_sec' and 'velocity'.
         """
-        fields = [('id', 'U256'),
+
+        fields = [('onset_sec', 'f4'),
+                  ('duration_sec', 'f4'),
+                  ('onset_div', 'f4'),
+                  ('duration_div', 'f4'),
                   ('pitch', 'i4'),
-                  ('p_onset', 'f4'),
-                  ('p_duration', 'f4'),
-                  ('velocity', 'i4')]
+                  ('velocity', 'i4'),
+                  ('id', 'U256')]
         note_array = []
         for n in self.notes:
             offset = n.get('sound_off', n['note_off'])
-            p_duration = offset - n['note_on']
-            note_array.append((n['id'],
-                               n['midi_pitch'],
+            duration_div = offset - n['note_on']
+            duration_sec = n['note_off_sec']-n['note_on_sec']
+            note_array.append((n['note_on_sec'],
+                               duration_sec,
                                n['note_on'],
-                               p_duration,
-                               n['velocity']))
+                               duration_div,
+                               n['midi_pitch'],
+                               n['velocity'],
+                               n['id']))
 
         return np.array(note_array, dtype=fields)
 
