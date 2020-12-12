@@ -293,10 +293,8 @@ def key_name_to_fifths_mode(name):
     --------
     >>> key_name_to_fifths_mode('Am')
     (0, 'minor')
-
     >>> key_name_to_fifths_mode('C')
     (0, 'major')
-
     >>> key_name_to_fifths_mode('A')
     (3, 'major')
 
