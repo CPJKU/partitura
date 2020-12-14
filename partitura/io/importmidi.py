@@ -56,8 +56,8 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     mpq = 60 * (10**6 / default_bpm)
 
 
-    time_conversion_factor = 1/ppq
-    time_conversion_factor_sec = mpq/(ppq*10**6)
+    # convert MIDI ticks in seconds
+    time_conversion_factor = mpq/(ppq*10**6) 
 
     notes = []
     controls = []
@@ -69,30 +69,26 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         tracks = [(i,u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
 
-
         t = 0
-        t_sec = 0
         sounding_notes = {}
 
         for msg in track:
 
             # update time deltas when they arrive
-            t = t + msg.time * time_conversion_factor
-            t_sec = t_sec + msg.time * time_conversion_factor
+            t = t + msg.time * time_conversion_factor    
 
             if msg.type == 'set_tempo':
 
                 mpq = msg.tempo
-                time_conversion_factor = 1/ppq
-                time_conversion_factor_sec = mpq/(ppq*10**6)
+                
+                time_conversion_factor = mpq/(ppq*10**6)
 
-                print("change of Tempo: ", mpq, time_conversion_factor, "at time: ", t, " in quarter?", time_in_quarter)
+                print("change of Tempo: ", mpq, time_conversion_factor, "at time: ", t)
 
             elif msg.type == 'control_change':
 
                 controls.append(dict(
                     time=t,
-                    time_sec=t_sec,
                     number=msg.control,
                     value=msg.value,
                     track=i,
@@ -102,7 +98,6 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                 
                 programs.append(dict(
                     time=t,
-                    time_sec=t_sec,
                     program=msg.program,
                     track=i,
                     channel=msg.channel))
@@ -123,7 +118,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                 if note_on and msg.velocity > 0:
 
                     # save the onset time and velocity
-                    sounding_notes[note] = (t, t_sec, msg.velocity)
+                    sounding_notes[note] = (t, msg.velocity)
 
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
@@ -139,17 +134,16 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                        midi_pitch=msg.note,
                        note_on=(sounding_notes[note][0]),
                        note_off=(t),
-                       note_on_sec=(sounding_notes[note][1]),
-                       note_off_sec=(t_sec),
                        track=i,
                        channel=msg.channel,
-                       velocity=sounding_notes[note][2]))
+                       velocity=sounding_notes[note][1]))
 
 
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes, ppq = ppq, controls=controls,
+    return performance.PerformedPart(notes,
+                                     controls=controls,
                                      programs=programs)
 
 

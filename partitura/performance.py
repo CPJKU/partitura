@@ -61,12 +61,11 @@ class PerformedPart(object):
 
     """
 
-    def __init__(self, notes, ppq=480, id=None, part_name=None,
+    def __init__(self, notes, id=None, part_name=None,
                  controls=None, programs=None,
                  sustain_pedal_threshold=64):
         super().__init__()
         self.id = id
-        self.ppq = ppq
         self.part_name = part_name
 
 
@@ -115,22 +114,16 @@ class PerformedPart(object):
 
         fields = [('onset_sec', 'f4'),
                   ('duration_sec', 'f4'),
-                  ('onset_div', 'f4'),
-                  ('duration_div', 'f4'),
                   ('pitch', 'i4'),
                   ('velocity', 'i4'),
                   ('id', 'U256')]
         note_array = []
         for n in self.notes:
-            note_on_div = self.ppq*n['note_on']
+            note_on_sec = n['note_on']
             offset = n.get('sound_off', n['note_off'])
-            duration = offset - n['note_on']
-            duration_div = self.ppq*duration
-            duration_sec = n['note_off_sec']-n['note_on_sec']
-            note_array.append((n['note_on_sec'],
+            duration_sec = offset - note_on_sec
+            note_array.append((note_on_sec,
                                duration_sec,
-                               note_on_div,
-                               duration_div,
                                n['midi_pitch'],
                                n['velocity'],
                                n['id']))
@@ -153,9 +146,9 @@ class PerformedPart(object):
         for nid, note in zip(n_ids, note_array):
             notes.append(dict(id=nid,
                               midi_pitch=note['pitch'],
-                              note_on=note['p_onset'],
-                              note_off=note['p_onset'] + note['p_duration'],
-                              sound_off=note['p_onset'] + note['p_duration'],
+                              note_on=note['onset_sec'],
+                              note_off=note['onset_sec'] + note['duration_sec'],
+                              sound_off=note['onset_sec'] + note['duration_sec'],
                               velocity=note['velocity']))
 
         return cls(id=id,

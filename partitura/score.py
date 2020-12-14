@@ -328,21 +328,6 @@ class Part(object):
         return [note for note in self.iter_all(Note, include_subclasses=True)
                 if note.tie_prev is None]
 
-    @property
-    def notearray(self):
-        """Return a numpy array with pitch, onset and duration
-        information of the notes.
-
-        Returns
-        -------
-        np.ndarray
-            Bla bla
-
-        """
-        
-        return np.array([(n.midi_pitch, n.start.t, n.duration_tied)
-                         for n in self.iter_all(Note, include_subclasses=True)
-                         if n.tie_prev is None], dtype=np.int)
 
     def quarter_durations(self, start=None, end=None):
         """Return an Nx2 array with quarter duration (second column)
@@ -691,8 +676,8 @@ class Part(object):
                   ('duration_beat', 'f4'),
                   ('onset_quarter', 'f4'),
                   ('duration_quarter', 'f4'),
-                  ('onset_div', 'f4'),
-                  ('duration_div', 'f4'),
+                  ('onset_div', 'i4'),
+                  ('duration_div', 'i4'),
                   ('pitch', 'i4'),
                   ('voice', 'i4'),
                   ('id', 'U256')]
@@ -2194,15 +2179,23 @@ class PartGroup(object):
 
         """
 
-        fields = [('onset', 'f4'),
-                  ('duration', 'f4'),
+        fields = [('onset_beat', 'f4'),
+                  ('duration_beat', 'f4'),
+                  ('onset_quarter', 'f4'),
+                  ('duration_quarter', 'f4'),
+                  ('onset_div', 'i4'),
+                  ('duration_div', 'i4'),
                   ('pitch', 'i4'),
                   ('voice', 'i4'),
                   ('id', 'U256')]
 
         note_arrays = [part.note_array for part in self.children]
-        onset = np.hstack([na['onset'] for na in note_arrays])
-        duration = np.hstack([na['duration'] for na in note_arrays])
+        onset_beat = np.hstack([na['onset_beat'] for na in note_arrays])
+        duration_beat = np.hstack([na['duration_beat'] for na in note_arrays])
+        onset_quarter = np.hstack([na['onset_quarter'] for na in note_arrays])
+        duration_quarter = np.hstack([na['duration_quarter'] for na in note_arrays])
+        onset_div = np.hstack([na['onset_div'] for na in note_arrays])
+        duration_div = np.hstack([na['duration_div'] for na in note_arrays])
         pitch = np.hstack([na['pitch'] for na in note_arrays])
         voice =  np.hstack([na['voice'] for na in note_arrays])
         ids = []
@@ -2215,14 +2208,17 @@ class PartGroup(object):
 
         # Make structured array
         note_array = np.array(
-            [(o, d, p, v, i) for o, d, p, v, i in zip(onset, duration, pitch, voice, ids)],
+            [(ob, db, oq, dq, od, dd, p, v, i) for ob, db, oq, dq, od, dd, p, v, i in zip(onset_beat, duration_beat, 
+            onset_quarter, duration_quarter, 
+            onset_div, duration_div
+            pitch, voice, ids)],
             dtype=fields)
 
 
         # sort by onset and pitch
         pitch_sort_idx = np.argsort(note_array['pitch'])
         note_array = note_array[pitch_sort_idx]
-        onset_sort_idx = np.argsort(note_array['onset'], kind='mergesort')
+        onset_sort_idx = np.argsort(note_array['onset_div'], kind='mergesort')
         note_array = note_array[onset_sort_idx]
 
         return note_array
