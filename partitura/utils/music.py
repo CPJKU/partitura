@@ -902,11 +902,15 @@ def pianoroll_to_notearray(pianoroll, time_div=8):
     return note_array
 
 def match_note_arrays(input_note_array, target_note_array,
-                      array_type='performance', epsilon=0.01,
+                      fields=None, epsilon=0.01,
                       first_note_at_zero=False,
                       check_duration=True,
                       return_note_idxs=False):
-    """Get indices of the notes from an input note array corresponding
+    """ Compute a greedy matching of the notes of two note_arrays based on onset, pitch
+    and (optionally) duration. Returns an array of matched note_array indices and 
+    (optionally) an array of the corresponding matched note indices.
+    
+    Get an array of note_array indices of the notes from an input note array corresponding
     to a reference note array.
 
     Parameters
@@ -916,8 +920,8 @@ def match_note_arrays(input_note_array, target_note_array,
     target_note_arr : structured array
         Array containing performance/score information, which which we
         want to match the input.
-    array_type : 'performance' or 'score'
-        Whether the structured arrays contain a performance or a score
+    fields : tuplet of strings
+        Field names to use for onset and duration in note_arrays. If None defaults to beats or seconds, respectively.
     epsilon : float
         Epsilon for comparison of onset times.
     first_note_at_zero : bool
@@ -931,16 +935,22 @@ def match_note_arrays(input_note_array, target_note_array,
     Notes
     -----
     This is a greedy method. This method is useful to compare the
-    *same performance* in different formats (e.g., in a match file and
-    MIDI), or the *same score* (e.g., a MIDI file generated from a
-    MusicXML file). It will not produce meaningful results between a
+    *same performance* in different formats or versions (e.g., in a 
+    match file and MIDI), or the *same score* (e.g., a MIDI file generated 
+    from a MusicXML file). It will not produce meaningful results between a
     score and a performance.
 
     """
-    if array_type == 'performance':
-        onset_key, duration_key = ('p_onset', 'p_duration')
-    elif array_type == 'score':
-        onset_key, duration_key = ('onset', 'duration')
+    input_note_array = ensure_notearray(input_note_array)
+    target_note_array = ensure_notearray(target_note_array)
+
+    if fields != None:
+        onset_key, duration_key = fields
+    else:
+        onset_key, duration_key = get_time_units_from_note_array(input_note_array)
+        onset_key_check, _ = get_time_units_from_note_array(target_note_array)
+        if onset_key_check != onset_key:
+            raise ValueError('Input and target arrays have different field names!')
 
     if first_note_at_zero:
         i_start = input_note_array[onset_key].min()
@@ -965,7 +975,7 @@ def match_note_arrays(input_note_array, target_note_array,
 
     matched_idxs = []
     matched_note_idxs = []
-    count_double = 0
+
     for t, (i, o, p) in enumerate(zip(t_sort_idx, t_onsets, t_pitch)):
         # candidate onset idxs (between o - epsilon and o + epsilon)
         coix = np.where(np.logical_and(i_onsets >= o - epsilon,
@@ -983,9 +993,10 @@ def match_note_arrays(input_note_array, target_note_array,
                 matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
 
     matched_idxs = np.array(matched_idxs)
-    print("LENGTH OF MATCHED IDXS: ", len(matched_idxs),
-          "LENGTH OF INPUT: ", len(input_note_array),
-          "LENGTH OF TARGET: ", len(target_note_array))
+
+    print("Length of matched idxs: ", len(matched_idxs))
+    print("Length of input note_array: ", len(input_note_array))
+    print("Length of target note_array: ", len(target_note_array))
     
     if return_note_idxs:
         if len(matched_idxs) > 0:

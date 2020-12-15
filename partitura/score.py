@@ -2210,10 +2210,9 @@ class PartGroup(object):
         note_array = np.array(
             [(ob, db, oq, dq, od, dd, p, v, i) for ob, db, oq, dq, od, dd, p, v, i in zip(onset_beat, duration_beat, 
             onset_quarter, duration_quarter, 
-            onset_div, duration_div
+            onset_div, duration_div, 
             pitch, voice, ids)],
             dtype=fields)
-
 
         # sort by onset and pitch
         pitch_sort_idx = np.argsort(note_array['pitch'])
