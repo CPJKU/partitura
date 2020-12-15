@@ -122,11 +122,43 @@ MAJOR_KEYS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 
 MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#']
 
 
+def ensure_notearray(notearray_or_part):
+    """
+    Ensures to get a structured note array from the input.
+
+    Parameters
+    ----------
+    notearray_or_part : structured ndarray, `Part` or `PerformedPart`
+        Input score information
+
+    Returns
+    -------
+    structured ndarray
+        Structured array containing score information.
+    """
+    from partitura.score import Part, PartGroup
+    from partitura.performance import PerformedPart
+
+    if isinstance(notearray_or_part, np.ndarray):
+        if notearray_or_part.dtype.fields is not None:
+            return notearray_or_part
+        else:
+            raise ValueError('Input array is not a structured array!')
+    elif isinstance(notearray_or_part, (Part, PartGroup, PerformedPart)):
+        return notearray_or_part.note_array
+    else:
+        raise ValueError('`notearray_or_part` should be a structured '
+                         'numpy array, a `Part`, `PartGroup` or a '
+                         '`PerformedPart`, but '
+                         'is {0}'.format(type(notearray_or_part)))
+
+
 def pitch_spelling_to_midi_pitch(step, alter, octave):
     midi_pitch = ((octave + 1) * 12 +
                   MIDI_BASE_CLASS[step.lower()] +
                   (alter or 0))
     return midi_pitch
+
 
 def midi_pitch_to_pitch_spelling(midi_pitch):
     octave = midi_pitch // 12 - 1
