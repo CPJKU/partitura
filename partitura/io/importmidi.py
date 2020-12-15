@@ -83,7 +83,9 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                 
                 time_conversion_factor = mpq/(ppq*10**6)
 
-                print("change of Tempo: ", mpq, time_conversion_factor, "at time: ", t)
+                print("change of Tempo to mpq = ", mpq, 
+                " and resulting seconds per tick = ", time_conversion_factor, 
+                "at time: ", t)
 
             elif msg.type == 'control_change':
 

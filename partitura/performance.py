@@ -166,7 +166,7 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
     # Get pedal times
     pedal = np.array([(x['time'], x['value'] > threshold)
                       for x in controls
-                      if x['type'] == 'sustain_pedal'])
+                      if x['number'] == 64])
 
     if len(pedal) == 0:
         for note in notes:
