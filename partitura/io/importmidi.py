@@ -22,7 +22,7 @@ def note_hash(channel, pitch):
     return channel * 128 + pitch
 
 
-def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quarter=False):
+def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -55,10 +55,9 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
     # microseconds per quarter
     mpq = 60 * (10**6 / default_bpm)
 
-    if time_in_quarter:
-        time_conversion_factor = 1/ppq
-    else:
-        time_conversion_factor = mpq/(ppq*10**6)
+
+    # convert MIDI ticks in seconds
+    time_conversion_factor = mpq/(ppq*10**6) 
 
     notes = []
     controls = []
@@ -70,25 +69,23 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
         tracks = [(i,u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
 
-
         t = 0
         sounding_notes = {}
 
         for msg in track:
 
             # update time deltas when they arrive
-            t = t + msg.time * time_conversion_factor
+            t = t + msg.time * time_conversion_factor    
 
             if msg.type == 'set_tempo':
 
                 mpq = msg.tempo
+                
+                time_conversion_factor = mpq/(ppq*10**6)
 
-                if time_in_quarter:
-                    time_conversion_factor = 1/ppq
-                else:
-                    time_conversion_factor = mpq/(ppq*10**6)
-
-                print("change of Tempo: ", mpq, time_conversion_factor, "at time: ", t, " in quarter?", time_in_quarter)
+                print("change of Tempo to mpq = ", mpq, 
+                " and resulting seconds per tick = ", time_conversion_factor, 
+                "at time: ", t)
 
             elif msg.type == 'control_change':
 
@@ -147,7 +144,8 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False, time_in_quart
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes, controls=controls,
+    return performance.PerformedPart(notes,
+                                     controls=controls,
                                      programs=programs)
 
 
