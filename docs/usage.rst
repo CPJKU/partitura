@@ -459,3 +459,15 @@ The number of sharps/flats and the mode can be inferred from the key name using 
 >>> partitura.utils.key_name_to_fifths_mode(key_name)
 (4, 'minor')
 
+
+
+Loading MIDI files
+==================
+
+Partitura contains three functions to load MIDI files: 
+:func:`~partitura.load_midi`:
+:func:`~partitura.load_performance_midi`:
+:func:`~partitura.load_score_midi`:
+
+The first and easiest function is :func:`~partitura.load_midi`:. It loads a MIDI file into 
+a structured array of MIDI notes given by onset and duration (in seconds), pitch, velocity, and ID.
