@@ -153,6 +153,25 @@ def ensure_notearray(notearray_or_part):
                          'is {0}'.format(type(notearray_or_part)))
 
 
+def get_time_units_from_note_array(note_array):
+    fields = set(note_array.dtype.fields)
+
+    if fields is None:
+        raise ValueError('Input array is not a structured array!')
+
+    score_units = set(('onset_beat', 'onset_quarter', 'onset_div'))
+    performance_units = set(('onset_sec', ))
+
+    if len(score_units.intersection(fields))  > 0:
+        return ('onset_beat', 'duration_beat')
+    elif len(performance_units.intersection(fields)) > 0:
+        return ('onset_sec', 'duration_sec')
+    else:
+        raise ValueError('Input array does not contain the expected time-units')
+
+    
+
+
 def pitch_spelling_to_midi_pitch(step, alter, octave):
     midi_pitch = ((octave + 1) * 12 +
                   MIDI_BASE_CLASS[step.lower()] +
