@@ -115,8 +115,9 @@ The notes in this part can be accessed through the property
 .. doctest::
 
   >>> part.notes # doctest: +NORMALIZE_WHITESPACE
-  [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
-  <partitura.score.Note object at 0x...>]
+  [<partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>, 
+   <partitura.score.Note object at 0x...>]
 
 `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_
 
@@ -126,8 +127,8 @@ The notes in this part can be accessed through the property
   >>> arr.dtype # doctest: +NORMALIZE_WHITESPACE
   dtype([('onset_beat', '<f4'), ('duration_beat', '<f4'),
          ('onset_quarter', '<f4'), ('duration_quarter', '<f4'),
-		 ('onset_div', '<i4'), ('duration_div', '<i4'),
-		 ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
+         ('onset_div', '<i4'), ('duration_div', '<i4'),
+         ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
 
 >>> for pitch, onset, duration in zip(arr["pitch"], arr["onset_beat"], arr["duration_beat"]):
 ...     print(pitch, onset, duration)
@@ -145,13 +146,6 @@ The part object has a property :attr:`part.beat_map
 <partitura.score.Part.beat_map>` that converts timeline times into beat
 times:
 
-..
-    >>> beat_map = part.beat_map
-    >>> print(beat_map(pianoroll[:, 0]))
-    [0. 2. 2.]
-    >>> print(beat_map(pianoroll[:, 1]))
-    [4. 4. 4.]
-
 
 Iterating over arbitrary musical objects
 ========================================
@@ -163,8 +157,9 @@ This property is a short cut for the following statement:
 .. doctest::
 
   >>> list(part.iter_all(partitura.score.Note)) # doctest: +NORMALIZE_WHITESPACE
-  [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
-  <partitura.score.Note object at 0x...>]
+  [<partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>]
 
 Here we access the :meth:`~partitura.score.Part.iter_all` method. Given a
 class, it iterates over all instances of that class that occur in the part:
