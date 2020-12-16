@@ -124,10 +124,12 @@ The notes in this part can be accessed through the property
 
   >>> arr = part.note_array
   >>> arr.dtype # doctest: +NORMALIZE_WHITESPACE
-  dtype([('onset', '<f4'), ('duration', '<f4'), ('pitch', '<i4'),
-  ('voice', '<i4'), ('id', '<U256')])
+  dtype([('onset_beat', '<f4'), ('duration_beat', '<f4'),
+         ('onset_quarter', '<f4'), ('duration_quarter', '<f4'),
+		 ('onset_div', '<i4'), ('duration_div', '<i4'),
+		 ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
 
->>> for pitch, onset, duration in zip(arr["pitch"], arr["onset"], arr["duration"]):
+>>> for pitch, onset, duration in zip(arr["pitch"], arr["onset_beat"], arr["duration_beat"]):
 ...     print(pitch, onset, duration)
 69 0.0 4.0
 72 2.0 2.0
