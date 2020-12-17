@@ -9,6 +9,7 @@ import pkg_resources
 from .io.musescore import load_via_musescore
 from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
+from .io.exportmei import save_mei
 from .io.importmidi import load_score_midi, load_performance_midi
 from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
@@ -26,7 +27,7 @@ from . import musicanalysis
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename("partitura", 'assets/score_example.musicxml')
 
-__all__ = ['load_musicxml', 'save_musicxml', 'musicxml_to_notearray',
+__all__ = ['load_musicxml', 'save_musicxml', 'save_mei', 'musicxml_to_notearray',
            'load_score_midi', 'save_score_midi', 'load_via_musescore',
            'load_performance_midi', 'save_performance_midi',
            'load_match', 'save_match',

@@ -1521,7 +1521,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
     staves_are_valid = True
 
     for p in parts:
-        tmp = {staffedObj.staff for cls in classesWithStaff for staffedObj in p.iter_all(cls,include_subclasses=True)}
+        tmp = {staffed_obj.staff for cls in classes_with_staff for staffed_obj in p.iter_all(cls,include_subclasses=True)}
         tmp = tmp.union({clef.number for clef in p.iter_all(score.Clef)})
         staves_per_part.append(list(tmp))
 
@@ -1713,10 +1713,10 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
                     mp.append("pad")
                     ii+=1
 
-        notes_lastMeasure_per_staff = {}
+        notes_last_measure_per_staff = {}
         auto_rest_count = 0
 
-        notes_within_measure_per_staff = notes_lastMeasure_per_staff
+        notes_within_measure_per_staff = notes_last_measure_per_staff
 
 
 
@@ -1728,18 +1728,18 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
         for s,k in current_measure_content.key_sigs_per_staff.items():
             last_key_sig_per_staff[s]= (min(k,key=lambda k:k.start.t) if len(k)>0 else None)
 
-        tuplet_id_counter, notes_lastMeasure_per_staff =create_measure(section, 0, staves_sorted, notes_within_measure_per_staff, score_def, tuplet_id_counter, auto_beaming, last_key_sig_per_staff, current_measure_content)
+        tuplet_id_counter, notes_last_measure_per_staff =create_measure(section, 0, staves_sorted, notes_within_measure_per_staff, score_def, tuplet_id_counter, auto_beaming, last_key_sig_per_staff, current_measure_content)
 
 
 
         for measure_i in range(1,len(measures[0])):
-            notes_within_measure_per_staff = notes_lastMeasure_per_staff
+            notes_within_measure_per_staff = notes_last_measure_per_staff
 
             auto_rest_count, current_measure_content=extract_from_measures(parts, measures, measure_i, staves_per_part, auto_rest_count, notes_within_measure_per_staff)
 
             score_def=create_score_def(measures, measure_i, parts, section)
 
-            tuplet_id_counter, notes_lastMeasure_per_staff = create_measure(section, measure_i, staves_sorted, notes_within_measure_per_staff, score_def, tuplet_id_counter, auto_beaming, last_key_sig_per_staff, current_measure_content)
+            tuplet_id_counter, notes_last_measure_per_staff = create_measure(section, measure_i, staves_sorted, notes_within_measure_per_staff, score_def, tuplet_id_counter, auto_beaming, last_key_sig_per_staff, current_measure_content)
 
 
 
