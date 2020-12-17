@@ -2968,27 +2968,27 @@ def find_tuplets(part):
                             tup_start += 1
 
 
-    def sanitize_part(part):
-        """
-        Find and remove incomplete structures in a part such as Tuplets and Slurs without start or end 
-        and grace notes without a main note.
-        """
-        for gn in part.iter_all(GraceNote):
-            if gn.main_note is None:
-                for no in part.iter_all(Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
-                    if no.voice == gn.voice:
-                        gn.last_grace_note_in_seq.grace_next = no
+def sanitize_part(part):
+    """
+    Find and remove incomplete structures in a part such as Tuplets and Slurs without start or end 
+    and grace notes without a main note.
+    """
+    for gn in part.iter_all(GraceNote):
+        if gn.main_note is None:
+            for no in part.iter_all(Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+                if no.voice == gn.voice:
+                    gn.last_grace_note_in_seq.grace_next = no
 
-            if gn.main_note is None:
-                part.remove(gn)
-        
-        for tp in part.iter_all(Tuplet):
-            if tp.end_note is None or tp.start_note is None:
-                part.remove(tp)
+        if gn.main_note is None:
+            part.remove(gn)
+    
+    for tp in part.iter_all(Tuplet):
+        if tp.end_note is None or tp.start_note is None:
+            part.remove(tp)
 
-        for sl in part.iter_all(Slur):
-            if sl.end_note is None or sl.start_note is None:
-                part.remove(sl)
+    for sl in part.iter_all(Slur):
+        if sl.end_note is None or sl.start_note is None:
+            part.remove(sl)
 
 
 

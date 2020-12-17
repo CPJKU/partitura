@@ -1479,7 +1479,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
         parts = [parts]
 
     for p in parts:
-        p.sanitize_part()
+        score.sanitize_part(p)
 
     mei = etree.Element("mei")
 
