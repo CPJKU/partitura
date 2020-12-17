@@ -1521,7 +1521,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
     staves_are_valid = True
 
     for p in parts:
-        tmp = {staffedObj.staff for cls in classes_with_staff for staffedObj in p.iter_all(cls,include_subclasses=True)}
+        tmp = {staffedObj.staff for cls in classesWithStaff for staffedObj in p.iter_all(cls,include_subclasses=True)}
         tmp = tmp.union({clef.number for clef in p.iter_all(score.Clef)})
         staves_per_part.append(list(tmp))
 

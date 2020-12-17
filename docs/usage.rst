@@ -71,32 +71,34 @@ Part id="P1" name="Piano"
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Measure number=1
- │       ├─ Note id=n01 voice=1 staff=2 type=whole pitch=A4
- │       ├─ Page number=1
- │       ├─ Rest id=r01 voice=2 staff=1 type=half
- │       ├─ System number=1
- │       └─ TimeSignature 4/4
+ │       ├─ 0--48 Measure number=1
+ │       ├─ 0--48 Note id=n01 voice=1 staff=2 type=whole pitch=A4
+ │       ├─ 0--48 Page number=1
+ │       ├─ 0--24 Rest id=r01 voice=2 staff=1 type=half
+ │       ├─ 0--48 System number=1
+ │       └─ 0-- TimeSignature 4/4
  │
  ├─ TimePoint t=24 quarter=12
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   └─ Rest id=r01 voice=2 staff=1 type=half
+ │   │   └─ 0--24 Rest id=r01 voice=2 staff=1 type=half
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Note id=n02 voice=2 staff=1 type=half pitch=C5
- │       └─ Note id=n03 voice=2 staff=1 type=half pitch=E5
+ │       ├─ 24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
+ │       └─ 24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
  │
  └─ TimePoint t=48 quarter=12
      │
      └─ ending objects
          │
-         ├─ Measure number=1
-         ├─ Note id=n01 voice=1 staff=2 type=whole pitch=A4
-         ├─ Note id=n02 voice=2 staff=1 type=half pitch=C5
-         └─ Note id=n03 voice=2 staff=1 type=half pitch=E5
+         ├─ 0--48 Measure number=1
+         ├─ 0--48 Note id=n01 voice=1 staff=2 type=whole pitch=A4
+         ├─ 24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
+         ├─ 24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
+         ├─ 0--48 Page number=1
+         └─ 0--48 System number=1
 
 This reveals that the part has three time points at which one or more musical
 objects start or end. At `t=0` there are several starting objects, including a
@@ -116,15 +118,22 @@ The notes in this part can be accessed through the property
   [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
   <partitura.score.Note object at 0x...>]
 
-To create a piano roll extract from the part as a numpy array you would do
-the following:
+`structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_
 
->>> import numpy as np
->>> pianoroll = np.array([(n.start.t, n.end.t, n.midi_pitch) for n in part.notes])
->>> print(pianoroll)
-[[ 0 48 69]
- [24 48 72]
- [24 48 76]]
+.. doctest::
+
+  >>> arr = part.note_array
+  >>> arr.dtype # doctest: +NORMALIZE_WHITESPACE
+  dtype([('onset_beat', '<f4'), ('duration_beat', '<f4'),
+         ('onset_quarter', '<f4'), ('duration_quarter', '<f4'),
+		 ('onset_div', '<i4'), ('duration_div', '<i4'),
+		 ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
+
+>>> for pitch, onset, duration in zip(arr["pitch"], arr["onset_beat"], arr["duration_beat"]):
+...     print(pitch, onset, duration)
+69 0.0 4.0
+72 2.0 2.0
+76 2.0 2.0
 
 The note start and end times are in the units specificied by the
 `divisions` element of the MusicXML file. This element specifies the
@@ -136,11 +145,12 @@ The part object has a property :attr:`part.beat_map
 <partitura.score.Part.beat_map>` that converts timeline times into beat
 times:
 
->>> beat_map = part.beat_map
->>> print(beat_map(pianoroll[:, 0]))
-[0. 2. 2.]
->>> print(beat_map(pianoroll[:, 1]))
-[4. 4. 4.]
+..
+    >>> beat_map = part.beat_map
+    >>> print(beat_map(pianoroll[:, 0]))
+    [0. 2. 2.]
+    >>> print(beat_map(pianoroll[:, 1]))
+    [4. 4. 4.]
 
 
 Iterating over arbitrary musical objects
@@ -161,7 +171,7 @@ class, it iterates over all instances of that class that occur in the part:
 
 >>> for m in part.iter_all(partitura.score.Measure):
 ...     print(m)
-Measure number=1
+0--48 Measure number=1
 
 The :meth:`~partitura.score.Part.iter_all` method has a keyword
 `include_subclasses` that indicates that we are also interested in any
@@ -170,14 +180,15 @@ iterates over all objects in the part:
 
 >>> for m in part.iter_all(object, include_subclasses=True):
 ...     print(m)
-Page number=1
-System number=1
-Measure number=1
-TimeSignature 4/4
-Note id=n01 voice=1 staff=2 type=whole pitch=A4
-Rest id=r01 voice=2 staff=1 type=half
-Note id=n02 voice=2 staff=1 type=half pitch=C5
-Note id=n03 voice=2 staff=1 type=half pitch=E5
+0--48 Note id=n01 voice=1 staff=2 type=whole pitch=A4
+0--24 Rest id=r01 voice=2 staff=1 type=half
+0--48 Page number=1
+0--48 System number=1
+0--48 Measure number=1
+0-- TimeSignature 4/4
+24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
+24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
+
 
 This approach is useful for example when we want to retrieve rests in
 addition to notes. Since rests and notes are both subclassess of
@@ -185,10 +196,10 @@ addition to notes. Since rests and notes are both subclassess of
 
 >>> for m in part.iter_all(partitura.score.GenericNote, include_subclasses=True):
 ...     print(m)
-Note id=n01 voice=1 staff=2 type=whole pitch=A4
-Rest id=r01 voice=2 staff=1 type=half
-Note id=n02 voice=2 staff=1 type=half pitch=C5
-Note id=n03 voice=2 staff=1 type=half pitch=E5
+0--48 Note id=n01 voice=1 staff=2 type=whole pitch=A4
+0--24 Rest id=r01 voice=2 staff=1 type=half
+24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
+24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
 
 By default, `include_subclasses` is False.
 
@@ -208,11 +219,10 @@ start by renaming the `partitura.score` module to `score`, for convenience:
 >>> import partitura.score as score
 
 Then we create an empty part with id 'P0' and name 'My Part' (the name is
-optional, the id is mandatory), and at t=0 specify that a quarter note
-duration equals a time interval of 10.
+optional, the id is mandatory), and a quarter note
+duration of 10 units.
 
->>> part = score.Part('P0', 'My Part')
->>> part.set_quarter_duration(0, 10)
+>>> part = score.Part('P0', 'My Part', quarter_duration=10)
 
 Adding elements to the part is done by the
 :meth:`~partitura.score.Part.add` method, which takes a musical element,
@@ -240,26 +250,26 @@ Part id="P0" name="My Part"
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Note id=n0 voice=1 staff=None type=quarter pitch=A4
- │       ├─ Note id=n1 voice=2 staff=None type=quarter pitch=C#5
- │       └─ TimeSignature 3/4
+ │       ├─ 0--10 Note id=n0 voice=1 staff=None type=quarter pitch=A4
+ │       ├─ 0--10 Note id=n1 voice=2 staff=None type=quarter pitch=C#5
+ │       └─ 0-- TimeSignature 3/4
  │
  ├─ TimePoint t=10 quarter=10
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   ├─ Note id=n0 voice=1 staff=None type=quarter pitch=A4
- │   │   └─ Note id=n1 voice=2 staff=None type=quarter pitch=C#5
+ │   │   ├─ 0--10 Note id=n0 voice=1 staff=None type=quarter pitch=A4
+ │   │   └─ 0--10 Note id=n1 voice=2 staff=None type=quarter pitch=C#5
  │   │
  │   └─ starting objects
  │       │
- │       └─ Note id=n2 voice=2 staff=None type=half. pitch=C#5
+ │       └─ 10--40 Note id=n2 voice=2 staff=None type=half. pitch=C#5
  │
  └─ TimePoint t=40 quarter=10
      │
      └─ ending objects
          │
-         └─ Note id=n2 voice=2 staff=None type=half. pitch=C#5
+         └─ 10--40 Note id=n2 voice=2 staff=None type=half. pitch=C#5
 
 We see that the notes n0, n1, and n2 have been correctly recognized as
 quarter, quarter, and dotted half, respectively.
@@ -310,40 +320,40 @@ Part id="P0" name="My Part"
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Measure number=1
- │       ├─ Note id=n0 voice=1 staff=None type=quarter pitch=A4
- │       ├─ Note id=n1 voice=2 staff=None type=quarter pitch=C#5
- │       └─ TimeSignature 3/4
+ │       ├─ 0--30 Measure number=1
+ │       ├─ 0--10 Note id=n0 voice=1 staff=None type=quarter pitch=A4
+ │       ├─ 0--10 Note id=n1 voice=2 staff=None type=quarter pitch=C#5
+ │       └─ 0-- TimeSignature 3/4
  │
  ├─ TimePoint t=10 quarter=10
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   ├─ Note id=n0 voice=1 staff=None type=quarter pitch=A4
- │   │   └─ Note id=n1 voice=2 staff=None type=quarter pitch=C#5
+ │   │   ├─ 0--10 Note id=n0 voice=1 staff=None type=quarter pitch=A4
+ │   │   └─ 0--10 Note id=n1 voice=2 staff=None type=quarter pitch=C#5
  │   │
  │   └─ starting objects
  │       │
- │       └─ Note id=n2 voice=2 staff=None type=half. pitch=C#5
+ │       └─ 10--40 Note id=n2 voice=2 staff=None type=half. pitch=C#5
  │
  ├─ TimePoint t=30 quarter=10
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   └─ Measure number=1
+ │   │   └─ 0--30 Measure number=1
  │   │
  │   └─ starting objects
  │       │
- │       └─ Measure number=2
+ │       └─ 30--40 Measure number=2
  │
  └─ TimePoint t=40 quarter=10
      │
      └─ ending objects
          │
-         ├─ Measure number=2
-         └─ Note id=n2 voice=2 staff=None type=half. pitch=C#5
+         ├─ 30--40 Measure number=2
+         └─ 10--40 Note id=n2 voice=2 staff=None type=half. pitch=C#5
 
-Let' see what our part with measures looks like in typeset form:
+Let's see what our part with measures looks like in typeset form:
          
 >>> partitura.render(part)
 
@@ -381,40 +391,40 @@ Part id="P0" name="My Part"
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Measure number=1
- │       ├─ Note id=n0 voice=1 staff=None type=quarter pitch=A4
- │       ├─ Note id=n1 voice=2 staff=None type=quarter pitch=C#5
- │       └─ TimeSignature 3/4
+ │       ├─ 0--30 Measure number=1
+ │       ├─ 0--10 Note id=n0 voice=1 staff=None type=quarter pitch=A4
+ │       ├─ 0--10 Note id=n1 voice=2 staff=None type=quarter pitch=C#5
+ │       └─ 0-- TimeSignature 3/4
  │
  ├─ TimePoint t=10 quarter=10
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   ├─ Note id=n0 voice=1 staff=None type=quarter pitch=A4
- │   │   └─ Note id=n1 voice=2 staff=None type=quarter pitch=C#5
+ │   │   ├─ 0--10 Note id=n0 voice=1 staff=None type=quarter pitch=A4
+ │   │   └─ 0--10 Note id=n1 voice=2 staff=None type=quarter pitch=C#5
  │   │
  │   └─ starting objects
  │       │
- │       └─ Note id=n2 voice=2 staff=None type=half tie_group=n2+n2a pitch=C#5
+ │       └─ 10--30 Note id=n2 voice=2 staff=None type=half tie_group=n2+n2a pitch=C#5
  │
  ├─ TimePoint t=30 quarter=10
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   ├─ Measure number=1
- │   │   └─ Note id=n2 voice=2 staff=None type=half tie_group=n2+n2a pitch=C#5
+ │   │   ├─ 0--30 Measure number=1
+ │   │   └─ 10--30 Note id=n2 voice=2 staff=None type=half tie_group=n2+n2a pitch=C#5
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Measure number=2
- │       └─ Note id=n2a voice=2 staff=None type=quarter tie_group=n2+n2a pitch=C#5
+ │       ├─ 30--40 Measure number=2
+ │       └─ 30--40 Note id=n2a voice=2 staff=None type=quarter tie_group=n2+n2a pitch=C#5
  │
  └─ TimePoint t=40 quarter=10
      │
      └─ ending objects
          │
-         ├─ Measure number=2
-         └─ Note id=n2a voice=2 staff=None type=quarter tie_group=n2+n2a pitch=C#5
+         ├─ 30--40 Measure number=2
+         └─ 30--40 Note id=n2a voice=2 staff=None type=quarter tie_group=n2+n2a pitch=C#5
 
 
 Removing elements
@@ -425,7 +435,29 @@ Just like we can add elements to a part, we can also remove them, using the
 measure instances that were added using the
 :func:`~partitura.score.add_measures` function:
 
->>> for measure in part.iter_all(score.Measure):
+>>> for measure in list(part.iter_all(score.Measure)):
 ...     part.remove(measure)
 
+Note that we create a list of all measures in `part` before we remove them. This is necessary to avoid changing the contents of `part` while we iterate over it.
+
+
+Music Analysis
+==============
+
+The package offers tools for various types music analysis, including key estimation, tonal tension estimation, voice separation, and pitch spelling. The functions take the note information of in the form of a  `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_, as returned by the :attr:`~partitura.score.Part.note_array` attribute.
+
+Key Estimation
+--------------
+
+Key estimation is performed by the function
+:func:`~partitura.musicanalysis.estimate_key`. The function returns a string representation of the root and mode of the key:
+
+>>> key_name = partitura.musicanalysis.estimate_key(part.note_array)
+>>> print(key_name)
+C#m
+
+The number of sharps/flats and the mode can be inferred from the key name using the convenience function :func:`~partitura.utils.key_name_to_fifths_mode`:
+
+>>> partitura.utils.key_name_to_fifths_mode(key_name)
+(4, 'minor')
 

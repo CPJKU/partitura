@@ -23,6 +23,7 @@ Partitura documentation
    modules/partitura.score
    modules/partitura.performance
    modules/partitura.musicanalysis
+   modules/partitura.utils
 
 
 Indices and tables

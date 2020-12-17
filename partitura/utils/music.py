@@ -4,12 +4,8 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 
-from . import find_nearest, search, iter_current_next, add_field
+from partitura.utils.generic import find_nearest, search, iter_current_next
 
-MIDI_CONTROL_TYPES = {
-    64: 'sustain_pedal',
-    67: 'soft_pedal'
-    }
 MIDI_BASE_CLASS = {'c': 0, 'd': 2, 'e': 4, 'f': 5, 'g': 7, 'a': 9, 'b': 11}
 # _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
 # _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
@@ -126,17 +122,67 @@ MAJOR_KEYS = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 
 MINOR_KEYS = ['Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#']
 
 
+def ensure_notearray(notearray_or_part):
+    """
+    Ensures to get a structured note array from the input.
+
+    Parameters
+    ----------
+    notearray_or_part : structured ndarray, `Part` or `PerformedPart`
+        Input score information
+
+    Returns
+    -------
+    structured ndarray
+        Structured array containing score information.
+    """
+    from partitura.score import Part, PartGroup
+    from partitura.performance import PerformedPart
+
+    if isinstance(notearray_or_part, np.ndarray):
+        if notearray_or_part.dtype.fields is not None:
+            return notearray_or_part
+        else:
+            raise ValueError('Input array is not a structured array!')
+    elif isinstance(notearray_or_part, (Part, PartGroup, PerformedPart)):
+        return notearray_or_part.note_array
+    else:
+        raise ValueError('`notearray_or_part` should be a structured '
+                         'numpy array, a `Part`, `PartGroup` or a '
+                         '`PerformedPart`, but '
+                         'is {0}'.format(type(notearray_or_part)))
+
+
+def get_time_units_from_note_array(note_array):
+    fields = set(note_array.dtype.fields)
+
+    if fields is None:
+        raise ValueError('Input array is not a structured array!')
+
+    score_units = set(('onset_beat', 'onset_quarter', 'onset_div'))
+    performance_units = set(('onset_sec', ))
+
+    if len(score_units.intersection(fields))  > 0:
+        return ('onset_beat', 'duration_beat')
+    elif len(performance_units.intersection(fields)) > 0:
+        return ('onset_sec', 'duration_sec')
+    else:
+        raise ValueError('Input array does not contain the expected time-units')
+
+    
+
+
 def pitch_spelling_to_midi_pitch(step, alter, octave):
     midi_pitch = ((octave + 1) * 12 +
                   MIDI_BASE_CLASS[step.lower()] +
                   (alter or 0))
     return midi_pitch
 
+
 def midi_pitch_to_pitch_spelling(midi_pitch):
     octave = midi_pitch // 12 - 1
     step, alter = DUMMY_PS_BASE_CLASS[np.mod(midi_pitch, 12)]
     return ensure_pitch_spelling_format(step, alter, octave)
-
 
 
 SIGN_TO_ALTER = {'n': 0, '#': 1, 'x': 2, '##': 2, '###': 3,
@@ -234,13 +280,13 @@ def key_name_to_fifths_mode(name):
 
     Parameters
     ----------
-    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C", "C#",
-        "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb", "Ebm",
-        "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"} Name of
-        the key signature
+    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C", "C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb", "Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
+        Name of the key signature
 
     Returns
     -------
+    (int, str)
+        Tuple containing the number of fifths and the mode 
 
 
     Examples
@@ -270,9 +316,8 @@ def key_name_to_fifths_mode(name):
     return fifths, mode
 
 def key_mode_to_int(mode):
-    """
-    Return the mode of a key as an integer (1 for major and -1
-    for minor).
+    """Return the mode of a key as an integer (1 for major and -1 for
+    minor).
 
     Parameters
     ----------
@@ -282,7 +327,8 @@ def key_mode_to_int(mode):
     Returns
     -------
     int
-       Integer representation of the mode.
+        Integer representation of the mode.
+
     """
     if mode in ('minor', -1):
         return -1
@@ -292,8 +338,7 @@ def key_mode_to_int(mode):
         raise ValueError('Unknown mode {}'.format(mode))
 
 def key_int_to_mode(mode):
-    """
-    Return the mode of a key as a string ('major' or 'minor')
+    """Return the mode of a key as a string ('major' or 'minor')
 
     Parameters
     ----------
@@ -303,7 +348,8 @@ def key_int_to_mode(mode):
     Returns
     -------
     int
-       Integer representation of the mode.
+        Integer representation of the mode.
+
     """
     if mode in ('minor', -1):
         return 'minor'
@@ -343,6 +389,7 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     --------
     >>> estimate_symbolic_duration(24, 16)
     {'type': 'quarter', 'dots': 1}
+
     >>> estimate_symbolic_duration(15, 10)
     {'type': 'quarter', 'dots': 1}
 
@@ -361,16 +408,15 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
 
 
 def to_quarter_tempo(unit, tempo):
-    """
-    Given a string `unit` (e.g. 'q', 'q.' or 'h') and a number `tempo`, return
-    the corresponding tempo in quarter notes. This is useful to convert textual
-    tempo directions like h=100.
+    """Given a string `unit` (e.g. 'q', 'q.' or 'h') and a number
+    `tempo`, return the corresponding tempo in quarter notes. This is
+    useful to convert textual tempo directions like h=100.
 
     Parameters
     ----------
-    unit: str
+    unit : str
         Tempo unit
-    tempo: number
+    tempo : number
         Tempo value
 
     Returns
@@ -382,10 +428,13 @@ def to_quarter_tempo(unit, tempo):
     --------
     >>> to_quarter_tempo('q', 100)
     100.0
+
     >>> to_quarter_tempo('h', 100)
     200.0
+
     >>> to_quarter_tempo('h.', 50)
     150.0
+
     """
     dots = unit.count('.')
     unit = unit.strip().rstrip('.')
@@ -393,27 +442,27 @@ def to_quarter_tempo(unit, tempo):
 
 
 def format_symbolic_duration(symbolic_dur):
-    """
-    Create a string representation of the symbolic duration encoded in the
-    dictionary `symbolic_dur`.
-
-    Examples
-    --------
-    >>> format_symbolic_duration({'type': 'q', 'dots': 2})
-    'q..'
-    >>> format_symbolic_duration({'type': '16th'})
-    '16th'
-
+    """Create a string representation of the symbolic duration encoded
+    in the dictionary `symbolic_dur`.
 
     Parameters
     ----------
-    symbolic_dur: dict
+    symbolic_dur : dict
         Dictionary with keys 'type' and 'dots'
 
     Returns
     -------
     str
         A string representation of the specified symbolic duration
+
+    Examples
+    --------
+    >>> format_symbolic_duration({'type': 'q', 'dots': 2})
+    'q..'
+
+    >>> format_symbolic_duration({'type': '16th'})
+    '16th'
+
     """
     if symbolic_dur is None:
 
@@ -558,71 +607,65 @@ def estimate_clef_properties(pitches):
     return clefs[int(f(center))]
 
 
-def notes_to_notearray(notes):
-    # create a structured array with fields pitch, onset and duration for a
-    # given list of notes
-    return np.array([(n.midi_pitch, n.start.t, n.duration_tied) for n in notes],
-                    dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
-
-
 def notearray_to_pianoroll(note_array, time_div=8, onset_only=False,
                            note_separation=False,
                            pitch_margin=-1, time_margin=0,
                            return_idxs=False,
                            is_performance=False,
                            piano_range=False):
-    """
-    Computes a piano roll from a structured note array (as generated by
-    the `note_array` methods in `partitura.score.Part` and
-    `partitura.performance.PerformedPart` instances).
+    """Computes a piano roll from a structured note array (as
+    generated by the `note_array` methods in `partitura.score.Part`
+    and `partitura.performance.PerformedPart` instances).
 
     Parameters
     ----------
     notes : structured array
-        Structured array with pitch, onset and duration information. If the
-        array represents a score is expected to have field names "pitch",
-        "onset" and "duration" (as would be generated by the property
-        `note_array`from a `partitura.score.Part` instance).
-        If the array represents a performance, it is expected to have fields
-        "pitch", "p_onset", "p_duration" and "velocity" (as would be generated
-        by property `note_array` from  an instance of
-        `partitura.performance.PerformedPart`).
-    time_div: int, optional
-       How many sub-divisions for each time unit (beats for a score or
-       seconds for a performance. See `is_performance` below).
+        Structured array with pitch, onset and duration information.
+        If the array represents a score is expected to have field
+        names "pitch", "onset" and "duration" (as would be generated
+        by the property `note_array`from a `partitura.score.Part`
+        instance). If the array represents a performance, it is
+        expected to have fields "pitch", "p_onset", "p_duration" and
+        "velocity" (as would be generated by property `note_array`
+        from  an instance of `partitura.performance.PerformedPart`).
+    time_div : int, optional
+        How many sub-divisions for each time unit (beats for a score
+        or seconds for a performance. See `is_performance` below).
     onset_only : bool, optional
-        If True, code only the onsets of the notes, otherwise code onset
-        and duration.
-    pitch_margin: int, optional
-       If `pitch_margin` > -1, the resulting array will have `pitch_margin`
-       empty rows above and below the highest and lowest pitches, respectively;
-       if `pitch_margin` == -1, the resulting pianoroll will have span the fixed
-       pitch range between (and including) 1 and 127.
-    time_margin: int, optional
-       The resulting array will have `time_margin` * `time_div` empty columns
-       before and after the piano roll
+        If True, code only the onsets of the notes, otherwise code
+        onset and duration.
+    pitch_margin : int, optional
+        If `pitch_margin` > -1, the resulting array will have
+        `pitch_margin` empty rows above and below the highest and
+        lowest pitches, respectively; if `pitch_margin` == -1, the
+        resulting pianoroll will have span the fixed pitch range
+        between (and including) 1 and 127.
+    time_margin : int, optional
+        The resulting array will have `time_margin` * `time_div` empty
+        columns before and after the piano roll
     return_idxs : bool, optional
-       If True, return the indices (i.e., the coordinates) of each note in
-       the piano roll.
-    is_performance: bool, optional
-       If True, assumes that the note array is not a score (i.e., a performance),
-       and the time unit is in seconds insted of beats.
+        If True, return the indices (i.e., the coordinates) of each
+        note in the piano roll.
+    is_performance : bool, optional
+        If True, assumes that the note array is not a score (i.e., a
+        performance), and the time unit is in seconds insted of beats.
     piano_range : bool, optional
-       If True, the pitch axis of the piano roll is in piano keys instead of MIDI
-       note numbers (and there are only 88 pitches). This is equivalent as slicing
-       `piano_range_pianoroll = pianoroll[21:109, :]`.
+        If True, the pitch axis of the piano roll is in piano keys
+        instead of MIDI note numbers (and there are only 88 pitches).
+        This is equivalent as slicing `piano_range_pianoroll =
+        pianoroll[21:109, :]`.
 
     Returns
     -------
-
-    pianoroll: scipy.sparse.csr_matrix
-        A sparse int matrix of size representing the pianoroll; The first
-        dimension is pitch, the second is time; The sizes of the dimensions vary
-        with the parameters `pitch_margin`, `time_margin`, and `time_div`
+    pianoroll : scipy.sparse.csr_matrix
+        A sparse int matrix of size representing the pianoroll; The
+        first dimension is pitch, the second is time; The sizes of the
+        dimensions vary with the parameters `pitch_margin`,
+        `time_margin`, and `time_div`
     pr_idx : ndarray
-      Indices of the onsets and offsets of the notes in the piano roll (in the
-      same order as the input note_array). This is only returned if `return_idxs`
-      is `True`.
+        Indices of the onsets and offsets of the notes in the piano
+        roll (in the same order as the input note_array). This is only
+        returned if `return_idxs` is `True`.
 
     Examples
     --------
@@ -643,8 +686,9 @@ def notearray_to_pianoroll(note_array, time_div=8, onset_only=False,
 
     Notes
     -----
-    The default values in this function assume that the input `note_array`
-    represents a score.
+    The default values in this function assume that the input
+    `note_array` represents a score.
+
     """
     # Fields for performance
     p_fields = ['pitch', 'p_onset', 'p_duration', 'velocity']
@@ -679,10 +723,11 @@ def _notearray_to_pianoroll(note_info, onset_only=False,
                             return_idxs=False,
                             piano_range=False):
     # non-public
-    """Computes a piano roll from a numpy array with MIDI pitch, onset,
-    duration and (optionally) MIDI velocity information. See
-    `notearray_to_pianoroll` for a complete description of the arguments of
-    this function.
+    """Computes a piano roll from a numpy array with MIDI pitch,
+    onset, duration and (optionally) MIDI velocity information. See
+    `notearray_to_pianoroll` for a complete description of the
+    arguments of this function.
+
     """
 
     # Get pitch, onset, offset from the note_info array
@@ -783,32 +828,37 @@ def _notearray_to_pianoroll(note_info, onset_only=False,
 def pianoroll_to_notearray(pianoroll, time_div=8):
     """Extract a structured note array from a piano roll.
 
-    For now, the structured note array is considered a "performance".
+    For now, the structured note array is considered a
+    "performance".
 
     Parameters
     ----------
     pianoroll : array-like
-        2D array containing a piano roll. The first dimension is pitch, and
-        the second is time. The value of each "pixel" in the piano roll
-        is considered to be the MIDI velocity, and it is supposed
-        to be between 0 and 127.
+        2D array containing a piano roll. The first dimension is
+        pitch, and the second is time. The value of each "pixel" in
+        the piano roll is considered to be the MIDI velocity, and it
+        is supposed to be between 0 and 127.
     time_div : int
-        How many sub-divisions for each time unit (see `notearray_to_pianoroll`).
+        How many sub-divisions for each time unit (see
+        `notearray_to_pianoroll`).
 
     Returns
     -------
-    note_array : structured array
-        Strucutred array with pitch, onset, duration and velocity information.
+    np.ndarray :
+        Structured array with pitch, onset, duration and velocity
+        fields.
 
     Notes
     -----
-    Please note that all non-zero pixels will contribute to a note. For the case
-    of piano rolls with continuous values between 0 and 1 (as might be the case
-    of those piano rolls produced using probabilistic/generative models), we
-    recomend to either 1) hard-threshold the piano roll to have only 0s (note-off)
-    or 1s (note-on) or, 2) soft-threshold the notes (values below a certain
-    threshold are considered as not active and scale the active notes to lie
-    between 1 and 127).
+    Please note that all non-zero pixels will contribute to a note.
+    For the case of piano rolls with continuous values between 0 and 1
+    (as might be the case of those piano rolls produced using
+    probabilistic/generative models), we recomend to either 1) hard-
+    threshold the piano roll to have only 0s (note-off) or 1s (note-
+    on) or, 2) soft-threshold the notes (values below a certain
+    threshold are considered as not active and scale the active notes
+    to lie between 1 and 127).
+
     """
     # Indices of the non-zero elements of the piano roll
     pitch_idx, active_idx = pianoroll.nonzero()
@@ -850,23 +900,26 @@ def pianoroll_to_notearray(pianoroll, time_div=8):
     return note_array
 
 def match_note_arrays(input_note_array, target_note_array,
-                      array_type='performance', epsilon=0.01,
+                      fields=None, epsilon=0.01,
                       first_note_at_zero=False,
                       check_duration=True,
                       return_note_idxs=False):
-    """
-    Get indices of the notes from an input note array corresponding to
-    a reference note array.
+    """ Compute a greedy matching of the notes of two note_arrays based on onset, pitch
+    and (optionally) duration. Returns an array of matched note_array indices and 
+    (optionally) an array of the corresponding matched note indices.
+    
+    Get an array of note_array indices of the notes from an input note array corresponding
+    to a reference note array.
 
     Parameters
     ----------
     input_note_array : structured array
         Array containing performance/score information
     target_note_arr : structured array
-        Array containing performance/score information, which which we want
-        to match the input.
-    array_type : 'performance' or 'score'
-        Whether the structured arrays contain a performance or a score
+        Array containing performance/score information, which which we
+        want to match the input.
+    fields : tuplet of strings
+        Field names to use for onset and duration in note_arrays. If None defaults to beats or seconds, respectively.
     epsilon : float
         Epsilon for comparison of onset times.
     first_note_at_zero : bool
@@ -880,15 +933,22 @@ def match_note_arrays(input_note_array, target_note_array,
     Notes
     -----
     This is a greedy method. This method is useful to compare the
-    *same performance* in different formats (e.g., in a match file
-    and MIDI), or the *same score* (e.g., a MIDI file generated from
-    a MusicXML file). It will not produce meaningful results
-    between a score and a performance.
+    *same performance* in different formats or versions (e.g., in a 
+    match file and MIDI), or the *same score* (e.g., a MIDI file generated 
+    from a MusicXML file). It will not produce meaningful results between a
+    score and a performance.
+
     """
-    if array_type == 'performance':
-        onset_key, duration_key = ('p_onset', 'p_duration')
-    elif array_type == 'score':
-        onset_key, duration_key = ('onset', 'duration')
+    input_note_array = ensure_notearray(input_note_array)
+    target_note_array = ensure_notearray(target_note_array)
+
+    if fields != None:
+        onset_key, duration_key = fields
+    else:
+        onset_key, duration_key = get_time_units_from_note_array(input_note_array)
+        onset_key_check, _ = get_time_units_from_note_array(target_note_array)
+        if onset_key_check != onset_key:
+            raise ValueError('Input and target arrays have different field names!')
 
     if first_note_at_zero:
         i_start = input_note_array[onset_key].min()
@@ -913,7 +973,7 @@ def match_note_arrays(input_note_array, target_note_array,
 
     matched_idxs = []
     matched_note_idxs = []
-    count_double = 0
+
     for t, (i, o, p) in enumerate(zip(t_sort_idx, t_onsets, t_pitch)):
         # candidate onset idxs (between o - epsilon and o + epsilon)
         coix = np.where(np.logical_and(i_onsets >= o - epsilon,
@@ -931,9 +991,10 @@ def match_note_arrays(input_note_array, target_note_array,
                 matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
 
     matched_idxs = np.array(matched_idxs)
-    print("LENGTH OF MATCHED IDXS: ", len(matched_idxs),
-          "LENGTH OF INPUT: ", len(input_note_array),
-          "LENGTH OF TARGET: ", len(target_note_array))
+
+    print("Length of matched idxs: ", len(matched_idxs))
+    print("Length of input note_array: ", len(input_note_array))
+    print("Length of target note_array: ", len(target_note_array))
     
     if return_note_idxs:
         if len(matched_idxs) > 0:

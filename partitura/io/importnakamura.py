@@ -34,7 +34,6 @@ from partitura.utils import (
     iter_current_next,
     partition,
     estimate_clef_properties,
-    notes_to_notearray,
     match_note_arrays
 )
 

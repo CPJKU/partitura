@@ -68,6 +68,7 @@ class PerformedPart(object):
         self.id = id
         self.part_name = part_name
 
+
         self.notes = notes
         self.controls = controls or []
         self.programs = programs or []
@@ -107,23 +108,25 @@ class PerformedPart(object):
     @property
     def note_array(self):
         """Structured array containing performance information.
-        The fields are 'id', 'pitch', 'p_onset', 'p_duration' and
-        'velocity'.
+        The fields are 'id', 'pitch', 'onset_div', 'duration_div',
+        'onset_sec', 'duration_sec' and 'velocity'.
         """
-        fields = [('id', 'U256'),
+
+        fields = [('onset_sec', 'f4'),
+                  ('duration_sec', 'f4'),
                   ('pitch', 'i4'),
-                  ('p_onset', 'f4'),
-                  ('p_duration', 'f4'),
-                  ('velocity', 'i4')]
+                  ('velocity', 'i4'),
+                  ('id', 'U256')]
         note_array = []
         for n in self.notes:
+            note_on_sec = n['note_on']
             offset = n.get('sound_off', n['note_off'])
-            p_duration = offset - n['note_on']
-            note_array.append((n['id'],
+            duration_sec = offset - note_on_sec
+            note_array.append((note_on_sec,
+                               duration_sec,
                                n['midi_pitch'],
-                               n['note_on'],
-                               p_duration,
-                               n['velocity']))
+                               n['velocity'],
+                               n['id']))
 
         return np.array(note_array, dtype=fields)
 
@@ -143,9 +146,9 @@ class PerformedPart(object):
         for nid, note in zip(n_ids, note_array):
             notes.append(dict(id=nid,
                               midi_pitch=note['pitch'],
-                              note_on=note['p_onset'],
-                              note_off=note['p_onset'] + note['p_duration'],
-                              sound_off=note['p_onset'] + note['p_duration'],
+                              note_on=note['onset_sec'],
+                              note_off=note['onset_sec'] + note['duration_sec'],
+                              sound_off=note['onset_sec'] + note['duration_sec'],
                               velocity=note['velocity']))
 
         return cls(id=id,
@@ -163,7 +166,7 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
     # Get pedal times
     pedal = np.array([(x['time'], x['value'] > threshold)
                       for x in controls
-                      if x['type'] == 'sustain_pedal'])
+                      if x['number'] == 64])
 
     if len(pedal) == 0:
         for note in notes:

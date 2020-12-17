@@ -9,8 +9,6 @@ from collections import defaultdict
 from numpy import ma
 from statistics import mode
 
-from partitura.utils import add_field
-
 __all__ = ['estimate_voices']
 
 # Maximal cost of a jump (in Chew  and Wu (2004) is 2 ** 31)

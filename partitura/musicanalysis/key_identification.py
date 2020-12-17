@@ -112,8 +112,8 @@ def estimate_key(note_array, method='krumhansl', *args, **kwargs):
     -------
     str
        String representing the key name (i.e., Root(alteration)(m if minor)). 
-       See `partitura.utils.music.key_name_to_fifths_mode` and 
-       `partitura.utils.music.fifths_mode_to_key_name`.
+       See `partitura.utils.key_name_to_fifths_mode` and 
+       `partitura.utils.fifths_mode_to_key_name`.
 
     References
     ----------
@@ -192,7 +192,7 @@ def _similarity_with_pitch_profile(note_array, key_profiles=KRUMHANSL_KESSLER, s
     pitch_classes = np.mod(note_array['pitch'], 12)
 
     # Compute weighted key distribution
-    pitch_distribution = np.array([note_array['duration'][np.where(pitch_classes == pc)[0]].sum()
+    pitch_distribution = np.array([note_array['duration_div'][np.where(pitch_classes == pc)[0]].sum()
                                    for pc in range(12)])
 
     if normalize_distribution:

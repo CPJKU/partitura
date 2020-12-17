@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from .generic import (
+from partitura.utils.generic import (
     ComparableMixin,
     ReplaceRefMixin,
     partition,
@@ -11,10 +11,11 @@ from .generic import (
     find_nearest,
     add_field,
     show_diff,
-    search)
-from .music import (
+    search,
+    _OrderedSet,
+)
+from partitura.utils.music import (
     MIDI_BASE_CLASS,
-    MIDI_CONTROL_TYPES,
     ALTER_SIGNS,
     find_tie_split,
     fifths_mode_to_key_name,
@@ -26,12 +27,11 @@ from .music import (
     pitch_spelling_to_midi_pitch,
     estimate_clef_properties,
     ensure_pitch_spelling_format,
-    notes_to_notearray,
+    ensure_notearray,
     notearray_to_pianoroll,
     pianoroll_to_notearray,
     match_note_arrays,
-    key_mode_to_int
+    key_mode_to_int,
 )
 
-
-# __all__ = []
+__all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]

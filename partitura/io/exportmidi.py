@@ -7,7 +7,7 @@ from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 import partitura.score as score
-from partitura.utils import partition, MIDI_CONTROL_TYPES
+from partitura.utils import partition
 
 __all__ = ['save_score_midi', 'save_performance_midi']
 
@@ -98,14 +98,12 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
     """
     track_events = defaultdict(lambda: defaultdict(list))
 
-    ct_to_int = dict((v, k) for k, v in MIDI_CONTROL_TYPES.items())
-
     for c in performed_part.controls:
         track = c.get('track', 0)
         ch = c.get('channel', 1)
         t = int(np.round(10**6*ppq*c['time']/mpq))
         track_events[track][t].append(
-            Message('control_change', control=ct_to_int[c['type']], value=c['value'], channel=ch))
+            Message('control_change', control=c['type'], value=c['value'], channel=ch))
 
     
     for n in performed_part.notes:

@@ -130,7 +130,6 @@ class TestMusicXML(unittest.TestCase):
     def _pretty_export_import_pretty_test(self, part1):
         # pretty print the part
         pstring1 = part1.pretty()
-
         with TemporaryFile() as f:
             # save part to musicxml
             save_musicxml(part1, f)
@@ -146,11 +145,15 @@ class TestMusicXML(unittest.TestCase):
 
         # test pretty printed strings for equality
         equal = pstring1 == pstring2
-
+        
         if not equal:
+            print('pretty original:')
             print(pstring1)
+            print('pretty reloaded:')
             print(pstring2)
+            print('saved xml:')
             print(_tmp)
+            print('diff:')
             show_diff(pstring1, pstring2)
         msg = 'Exported and imported score does not yield identical pretty printed representations'
         self.assertTrue(equal, msg)
@@ -187,12 +190,13 @@ def make_part_slur():
     part.add(note3, 36, 48)
     part.add(note4, 0, 6)
     part.add(note5, 6, 33)
+
     part.add(slur1, 
-                      slur1.start_note.start.t,
-                      slur1.end_note.end.t)
+             slur1.start_note.start.t,
+             slur1.end_note.end.t)
     part.add(slur2, 
-                      slur2.start_note.start.t,
-                      slur2.end_note.end.t)
+             slur2.start_note.start.t,
+             slur2.end_note.end.t)
 
     score.add_measures(part)
     score.tie_notes(part)
