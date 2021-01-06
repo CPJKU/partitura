@@ -70,14 +70,6 @@ def estimate_voices(note_info, monophonic_voices=False):
         onset and duration information of both score and performance,
         (e.g., containing both `onset_beat` and `onset_sec`), the score
         information will be preferred.
-    notearray : numpy structured array
-        Structured array containing score information.
-        Required fields are `pitch` (MIDI pitch),
-        `onset` (starting time of the notes) and
-        `duration` (duration of the notes). Additionally,
-        It might be useful to have an `id` field containing
-        the ID's of the notes. If this field is not contained
-        in the array, ID's will be created for the notes.
     monophonic_voices : bool
         If True voices are guaranteed to be monophonic. Otherwise
         notes with the same onset and duration are treated as a chord
