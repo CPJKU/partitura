@@ -163,7 +163,12 @@ def get_time_units_from_note_array(note_array):
     performance_units = set(('onset_sec', ))
 
     if len(score_units.intersection(fields)) > 0:
-        return ('onset_beat', 'duration_beat')
+        if 'onset_beat' in fields:
+            return ('onset_beat', 'duration_beat')
+        elif 'onset_quarter' in fields:
+            return ('onset_quarter', 'duration_quarter')
+        elif 'onset_div' in fields:
+            return ('onset_div', 'duration_div')
     elif len(performance_units.intersection(fields)) > 0:
         return ('onset_sec', 'duration_sec')
     else:

@@ -352,9 +352,9 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     note_list = [note for notes in (notes_by_track_ch[key]
                                     for key in tr_ch_keys)
                  for note in notes]
-    note_array = np.array(note_list, dtype=[('onset', np.int),
+    note_array = np.array(note_list, dtype=[('onset_div', np.int),
                                             ('pitch', np.int),
-                                            ('duration', np.int)])
+                                            ('duration_div', np.int)])
 
     LOGGER.debug('pitch spelling')
     spelling_global = analysis.estimate_spelling(note_array)
