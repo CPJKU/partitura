@@ -1290,7 +1290,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # anacrusis
-        if bar_start < 0 and bar_offset != 0 and beat_offset != 0:
+        if bar_start < 0:# and bar_offset = 0 and beat_offset != 0:
             # in case of fully counted anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
             # not active for shortened anacrusis measures
@@ -1626,7 +1626,7 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = []
     for ped in mf.sustain_pedal:
-        sustain_pedal.append(dict(type='sustain_pedal',
+        sustain_pedal.append(dict(number=64,#type='sustain_pedal',
                                   time=ped.Time * mpq / (10**6 * ppq),
                                   value=ped.Value))
 
