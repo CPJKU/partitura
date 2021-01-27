@@ -21,6 +21,30 @@ def note_hash(channel, pitch):
     """Generate a note hash."""
     return channel * 128 + pitch
 
+def load_midi(fn):
+    """Load a MIDI file.
+
+    This function should be used to load MIDI files into an
+    array of MIDI notes given by onset and duration (in seconds),
+    pitch, velocity, and ID.
+
+    Sustain pedal, program changes, control changes, track and
+    channel information as well as mpq and ppq are discarded. 
+
+    Parameters
+    ----------
+    fn : str
+        Path to MIDI file
+    Returns
+    -------
+    np.ndarray :
+        Structured array with onset, duration, pitch, velocity, and
+        ID fields.
+    """
+    ppart = load_performance_midi(fn, merge_tracks=True)
+    # set sustain pedal threshold to 128 to disable sustain adjusted offsets
+    ppart.sustain_pedal_threshold(128)
+    return ppart.note_array
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
@@ -47,6 +71,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     -------
     :class:`partitura.performance.PerformedPart`
         A PerformedPart instance.
+
 
     """
     mid = mido.MidiFile(fn,)
