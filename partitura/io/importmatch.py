@@ -1290,7 +1290,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # anacrusis
-        if bar_start < 0:# and bar_offset = 0 and beat_offset != 0:
+        if bar_start < 0 and (bar_offset != 0 or beat_offset != 0):
             # in case of fully counted anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
             # not active for shortened anacrusis measures
