@@ -1332,7 +1332,6 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
         # and compound durations separately.
-
         if note.Duration.add_components:
             prev_part_note = None
 
@@ -1340,9 +1339,9 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                 # when we add multiple notes that are tied, the first note will
                 # get the original note id, and subsequent notes will get a
                 # derived note id (by appending, 'a', 'b', 'c',...)
-                # if i > 0:
-                    # tnote_id = 'n{}_{}'.format(note.Anchor, i)
-                    #note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
+                if i > 0:
+                    #tnote_id = 'n{}_{}'.format(note.Anchor, i)
+                    note_attributes['id'] = score._make_tied_note_id(note_attributes['id'])
 
 
                 part_note = score.Note(**note_attributes)
@@ -1360,7 +1359,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                     part_note.tie_prev = prev_part_note
                 prev_part_note = part_note
                 onset_divs = offset_divs
-
+        
         else:
             num = note.Duration.numerator
             den = note.Duration.denominator
