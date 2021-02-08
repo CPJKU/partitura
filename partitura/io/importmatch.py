@@ -1256,16 +1256,21 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
     if t > 0:
         # if we have an incomplete first measure that isn't an anacrusis measure, add a rest (dummy)
-        t = 0
+        # t = t-t%beats_map(min_time)
+        
+        # if starting beat is above zero, add padding
         rest = score.Rest()
-        part.add(rest, start=t, end=offset)
+        part.add(rest, start=0, end=t*divs)
+        onset_in_divs += t*divs
         offset = 0
+        t = t-t%beats_map(min_time)
 
     for b0, b1 in iter_current_next(bars, end = bars[-1]+1):
 
         bar_times.setdefault(b0, t)
         if t < 0:
             t = 0
+        
         else:
             # multiply by diff between consecutive bar numbers
             n_bars = b1 - b0
@@ -1379,10 +1384,15 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             
             part.add(part_note, onset_divs, offset_divs)
     
+
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
-        bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
-        bar_start_divs = max(0,bar_start_divs)
+        # check if time signature is in a known measure (from notes)
+        if ts_bar in bar_times.keys():  
+            bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
+            bar_start_divs = max(0,bar_start_divs)
+        else:
+            bar_start_divs = 0
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
 
 
