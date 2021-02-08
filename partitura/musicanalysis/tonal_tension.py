@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Spiral array representation and tonal tension profiles using Herreman and Chew's tension ribbons
+Spiral array representation and tonal tension profiles using Herreman and
+Chew's tension ribbons
 
 References
 ----------
 
-.. [1] D. Herremans and E. Chew (2016) Tension ribbons: Quantifying and visualising tonal tension.
-       Proceedings of the Second International Conference on Technologies for Music Notation and
-       Representation (TENOR), Cambridge, UK.
+.. [1] D. Herremans and E. Chew (2016) Tension ribbons: Quantifying and
+       visualising tonal tension. Proceedings of the Second International
+       Conference on Technologies for Music Notation and Representation
+       (TENOR), Cambridge, UK.
 """
 import logging
 
@@ -17,7 +19,6 @@ import scipy.spatial.distance as distance
 from scipy.interpolate import interp1d
 
 from partitura.score import Part, PartGroup
-from partitura.utils.music import key_int_to_mode
 
 __all__ = ['estimate_tonaltension']
 
@@ -61,6 +62,7 @@ def helical_to_cartesian(t, r=R, a=A):
 
     return x, y, z
 
+
 def ensure_norm(x):
     """
     Ensure that vectors are normalized
@@ -79,7 +81,8 @@ MINOR_IDXS = np.array([0, 1, -3], dtype=int)
 # The scaling factor is the distance between C and B#, as used
 # in Cancino-Chacón and Grachten (2018)
 SCALE_FACTOR = 1.0 / e_distance(PITCH_COORDINATES[C_IDX],
-                                PITCH_COORDINATES[NOTES_BY_FIFTHS.index(('B', 1))])
+                                PITCH_COORDINATES[NOTES_BY_FIFTHS.index(
+                                    ('B', 1))])
 
 
 def major_chord(tonic_idx, w=DEFAULT_WEIGHTS):
@@ -233,7 +236,8 @@ class CloudDiameter(TonalTension):
     """
     Compute cloud diameter
     """
-    def compute_tension(self, cloud, scale_factor=SCALE_FACTOR, *args, **kwargs):
+    def compute_tension(self, cloud, scale_factor=SCALE_FACTOR,
+                        *args, **kwargs):
 
         if len(cloud) > 1:
             return cloud_diameter(cloud) * scale_factor
@@ -263,7 +267,7 @@ class TensileStrain(TonalTension):
     def update_key(self, tonic_idx, mode, w=DEFAULT_WEIGHTS,
                    alpha=ALPHA, beta=BETA):
 
-        if mode in('major', None, 1):
+        if mode in ('major', None, 1):
             self.key_ce = major_key(tonic_idx, w=w)
         elif mode in ('minor', -1):
             self.key_ce = minor_key(tonic_idx, w=w,
@@ -306,6 +310,7 @@ def notes_to_idx(note_array):
                           for n in note_array], dtype=np.int)
     return note_idxs
 
+
 def prepare_notearray(part_partgroup_list):
     """Prepare a note array with score information for computing
     tonal tension
@@ -345,7 +350,7 @@ def prepare_notearray(part_partgroup_list):
         return notelist
 
     if isinstance(part_partgroup_list, Part):
-        notelist = notelist_from_part(part, pid='')
+        notelist = notelist_from_part(part_partgroup_list, pid='')
     else:
         if isinstance(part_partgroup_list, PartGroup):
             parts = part_partgroup_list.children
@@ -385,7 +390,6 @@ def key_map_from_keysignature(notearray):
     unique_onsets = np.unique(onsets)
     unique_onset_idxs = [np.where(onsets == u)[0] for u in unique_onsets]
 
-
     kss = np.zeros((len(unique_onsets), 2), dtype=np.int)
 
     for i, uix in enumerate(unique_onset_idxs):
@@ -400,6 +404,7 @@ def key_map_from_keysignature(notearray):
 
     return interp1d(unique_onsets, kss, axis=0, kind='previous',
                     bounds_error=False, fill_value='extrapolate')
+
 
 def estimate_tonaltension(notearray, ws=1.0, ss='onset',
                           scale_factor=SCALE_FACTOR,
@@ -423,8 +428,8 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset',
         Window size for computing the tonal tension. If a number, it determines
         the size of the window centered at each specified score position (see
         `ss` below). If a numpy array, a 2D array of shape (`len(ss)`, 2)
-        specifying the left and right distance from each score position in `ss`.
-        Default is 1 beat.
+        specifying the left and right distance from each score position in
+        `ss`. Default is 1 beat.
     ss : {float, int, np.array, 'onset'}, optional.
         Step size or score position for computing the tonal tension features.
         If a number, this parameter determines the size of the step (in beats)
@@ -432,6 +437,14 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset',
         score positions at which the tonal tension is estimated. If 'onset',
         it computes the tension at each unique score position (i.e., all notes
         in a chord have the same score position). Default is 'onset'.
+    scale_factor : float
+        A multiplicative scaling factor.
+    w : np.ndarray
+        Weights for the chords
+    alpha : float
+        Alpha.
+    beta : float
+        Beta.
 
     Returns
     -------
@@ -446,6 +459,10 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset',
            Conference on Technologies for Music Notation and Representation
            (TENOR), Cambridge, UK.
     """
+
+    if isinstance(note_info, (Part, PartGroup, list)):
+        notearray = prepare_notearray(note_info)
+        
     score_onset = notearray['onset']
     score_offset = score_onset + notearray['duration']
 
@@ -459,16 +476,18 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset',
     elif ss == 'onset':
         unique_onsets = np.unique(score_onset)
     else:
-        raise ValueError('`ss` has to be a `float`, `int`, a numpy array or "onsets"')
+        raise ValueError('`ss` has to be a `float`, `int`, a numpy array '
+                         'or "onsets"')
 
     # Determine the window sizes for each score position
     if isinstance(ws, (float, int, np.int, np.float)):
         ws = np.ones((len(unique_onsets), 2)) * 0.5 * ws
     elif isinstance(ws, np.ndarray):
         if len(ws) != len(unique_onsets):
-            raise ValueError('`ws` should have the same length as `unique_onsets`')
+            raise ValueError('`ws` should have the same length as '
+                             '`unique_onsets`')
     else:
-         raise ValueError('`ws` has to be a `float`, `int` or a numpy array')
+        raise ValueError('`ws` has to be a `float`, `int` or a numpy array')
 
     note_idxs = notes_to_idx(notearray)
 
@@ -522,19 +541,9 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset',
                           mode=mode)
 
         tonal_tension['cloud_diameter'][i] = cd.compute_tension(cloud)
-        tonal_tension['cloud_momentum'][i] = cm.compute_tension(cloud, duration)
-        tonal_tension['tensile_strain'][i] = ts.compute_tension(cloud, duration)
+        tonal_tension['cloud_momentum'][i] = cm.compute_tension(cloud,
+                                                                duration)
+        tonal_tension['tensile_strain'][i] = ts.compute_tension(cloud,
+                                                                duration)
 
     return tonal_tension
-
-if __name__ == '__main__':
-    pass
-
-
-
-
-
-
-
-
-
