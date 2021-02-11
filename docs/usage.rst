@@ -507,5 +507,5 @@ It is not suitable to estimate the score from a performed MIDI file, such as a r
 >>> midipart.note_array
 
 The note_array of a part is a structured array similar to the one of the :class:`~partitura.performance.PerformedPart` instance, but the first 6 fields refer to onset and duration in score time.
-The score MIDI function correctly identified the note lengths of a whole note and two half notes.
-However, the position of measures is only estimate as a "score" MIDI file of a score that begins with a tied quarter note in an anacrusis measure would look exactly the same in the MIDI eencoding.
+The score MIDI function correctly identifies the note lengths of a whole note and two half notes.
+However, the position of the first measure bar (as well as other score properties) is only an estimate as a "score" MIDI file of a score that begins with a tied quarter note in an anacrusis measure would look exactly the same in the MIDI encoding.

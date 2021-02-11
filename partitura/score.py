@@ -1336,7 +1336,7 @@ class Note(GenericNote):
             sharp
         2
             double sharp
-
+            
         Defaults to None.
 
     """
