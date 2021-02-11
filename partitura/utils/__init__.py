@@ -32,6 +32,7 @@ from partitura.utils.music import (
     pianoroll_to_notearray,
     match_note_arrays,
     key_mode_to_int,
+    remove_silence_from_performed_part
 )
 
 __all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]

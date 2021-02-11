@@ -1010,6 +1010,71 @@ def match_note_arrays(input_note_array, target_note_array,
         return matched_idxs
 
 
+def remove_silence_from_performed_part(ppart):
+    """
+    Remove silence at the beginning of a PerformedPart
+    by shifting notes, controls and programs to the beginning
+    of the file.
+
+    Parameters
+    ----------
+    ppart : `PerformedPart`
+        A performed part. This part will be edited in-place.
+    """
+    # Consider only Controls and Notes, since by default,
+    # programs are created at the beginning of the file.
+    # c_times = [c['time'] for c in ppart.controls]
+    n_times = [n['note_on'] for n in ppart.notes]
+    start_time = min(n_times)
+
+    shifted_controls = []
+    control_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for c in ppart.controls:
+        control_dict[c['track']][c['channel']][c['number']].append(
+            (c['time'], c['value']))
+
+    for track in control_dict:
+        for channel in control_dict[track]:
+            for number, ct in control_dict[track][channel].items():
+
+                cta = np.array(ct)
+                cinterp = interp1d(x=cta[:, 0],
+                                   y=cta[:, 1],
+                                   kind='previous',
+                                   bounds_error=False,
+                                   fill_value=(cta[0, 1], cta[-1, 1]))
+
+                c_idxs = np.where(cta[:, 0] >= start_time)[0]
+
+                c_times = cta[c_idxs, 0]
+                if start_time not in c_times:
+                    c_times = np.r_[start_time, c_times]
+
+                c_values = cinterp(c_times)
+
+                for t, v in zip(c_times, c_values):
+                    shifted_controls.append(
+                        dict(time=max(t - start_time, 0),
+                             number=number,
+                             value=int(v),
+                             track=track,
+                             channel=channel))
+
+    # sort controls according to time
+    shifted_controls.sort(key=lambda x: x['time'])
+
+    ppart.controls = shifted_controls
+
+    # Shift notes
+    for note in ppart.notes:
+        note['note_on'] = max(note['note_on'] - start_time, 0)
+        note['note_off'] = max(note['note_off'] - start_time, 0)
+        note['sound_off'] = max(note['sound_off'] - start_time, 0)
+
+    # Shift programs
+    for program in ppart.programs:
+        program['time'] = max(program['time'] - start_time, 0)
+
 if __name__ == '__main__':
     import doctest
     doctest.testmod()

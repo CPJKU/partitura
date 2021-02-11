@@ -58,6 +58,8 @@ class PerformedPart(object):
     controls : list
         A list of dictionaries containing continuous control
         information
+    programs : list
+        List of dictionaries containing program change information
 
     """
 
@@ -67,8 +69,6 @@ class PerformedPart(object):
         super().__init__()
         self.id = id
         self.part_name = part_name
-
-
         self.notes = notes
         self.controls = controls or []
         self.programs = programs or []
