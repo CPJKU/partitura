@@ -467,9 +467,18 @@ Loading MIDI files
 ==================
 
 Partitura contains three functions to load MIDI files: 
-:func:`~partitura.load_midi`:
+:func:`~partitura.midi_to_notearray`:
 :func:`~partitura.load_performance_midi`:
 :func:`~partitura.load_score_midi`:
 
-The first and easiest function is :func:`~partitura.load_midi`:. It loads a MIDI file into 
-a structured array of MIDI notes given by onset and duration (in seconds), pitch, velocity, and ID.
+The first and easiest function is :func:`~partitura.midi_to_notearray`:. It loads a MIDI file into 
+a structured array of MIDI notes given by onset and duration (in seconds), pitch, velocity, and ID. 
+
+>>> my_midi_file = partitura.EXAMPLE_MIDI
+>>> midi_note_array = partitura.midi_to_notearray(my_midi_file)
+>>> midi_note_array
+
+The note_array is a structured numpy array, individual fields can be accessed using the field names as strings, 
+e.g. midi_note_array["onset_sec"]
+
+The second function is :func:`~partitura.midi_to_notearray`:. This function returns a :class:`~partitura.score.Measure`

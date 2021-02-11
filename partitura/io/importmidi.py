@@ -21,8 +21,8 @@ def note_hash(channel, pitch):
     """Generate a note hash."""
     return channel * 128 + pitch
 
-def load_midi(fn):
-    """Load a MIDI file.
+def midi_to_notearray(fn):
+    """Load a MIDI file in a note_array.
 
     This function should be used to load MIDI files into an
     array of MIDI notes given by onset and duration (in seconds),
@@ -43,7 +43,7 @@ def load_midi(fn):
     """
     ppart = load_performance_midi(fn, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
-    ppart.sustain_pedal_threshold(128)
+    ppart.sustain_pedal_threshold=128
     return ppart.note_array
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
