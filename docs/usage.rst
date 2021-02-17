@@ -463,7 +463,7 @@ The number of sharps/flats and the mode can be inferred from the key name using 
 
 
 
-Loading MIDI files
+Importing MIDI files
 ==================
 
 Partitura contains three functions to load MIDI files: 
@@ -472,13 +472,18 @@ Partitura contains three functions to load MIDI files:
 :func:`~partitura.load_performance_midi`
 :func:`~partitura.load_score_midi`
 
-The first and easiest function is :func:`~partitura.midi_to_notearray`. It loads a MIDI file into 
+The first and simplest function is :func:`~partitura.midi_to_notearray`. It loads a MIDI file into 
 a structured array of MIDI notes given by onset and duration (in seconds), pitch, velocity, and ID. 
 The path to a MIDI file for testing is stored as :const:`partitura.EXAMPLE_MIDI`.
 
 >>> my_midi_file = partitura.EXAMPLE_MIDI
 >>> midi_note_array = partitura.midi_to_notearray(my_midi_file)
 >>> midi_note_array
+array([(0., 2., 69, 64, '0'), 
+      (1., 1., 72, 64, '1'), 
+      (1., 1., 76, 64, '2')],
+      dtype=[('onset_sec', '<f4'), ('duration_sec', '<f4'), 
+      ('pitch', '<i4'), ('velocity', '<i4'), ('id', '<U256')])
 
 The note_array is a structured numpy array, individual fields can be accessed using the field names as strings, 
 e.g. midi_note_array["onset_sec"].
@@ -505,6 +510,13 @@ It is not suitable to estimate the score from a performed MIDI file, such as a r
 
 >>> midipart = partitura.load_score_midi(my_midi_file)
 >>> midipart.note_array
+array([(0., 4., 0., 4.,  0, 48, 69, 1, 'n0'),
+       (2., 2., 2., 2., 24, 24, 72, 2, 'n1'),
+       (2., 2., 2., 2., 24, 24, 76, 2, 'n2')],
+      dtype=[('onset_beat', '<f4'), ('duration_beat', '<f4'), 
+      ('onset_quarter', '<f4'), ('duration_quarter', '<f4'), 
+      ('onset_div', '<i4'), ('duration_div', '<i4'), 
+      ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
 
 The note_array of a part is a structured array similar to the one of the :class:`~partitura.performance.PerformedPart` instance, but the first 6 fields refer to onset and duration in score time.
 The score MIDI function correctly identifies the note lengths of a whole note and two half notes.
