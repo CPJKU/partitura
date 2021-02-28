@@ -3,6 +3,9 @@
 """
 Tools for music analysis.
 
+TODO
+----
+* Update API for Tonal Tension
 """
 
 from .voice_separation import estimate_voices
