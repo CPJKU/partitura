@@ -1024,7 +1024,7 @@ def match_note_arrays(input_note_array, target_note_array,
     LOGGER.info("Length of matched idxs: "
                 "{0}".format(len(matched_idxs)))
     LOGGER.info("Length of input note_array: "
-                "{0}".format(len(input_note_array))
+                "{0}".format(len(input_note_array)))
     LOGGER.info("Length of target note_array: "
                 "{0}".format(len(target_note_array)))
 
