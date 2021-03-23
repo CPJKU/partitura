@@ -19,7 +19,11 @@ import scipy.spatial.distance as distance
 from scipy.interpolate import interp1d
 
 from partitura.score import Part, PartGroup
-from partitura.utils.music import get_time_units_from_note_array
+from partitura.performance import PerformedPart
+from partitura.utils import (get_time_units_from_note_array,
+                             ensure_notearray,
+                             add_field)
+
 
 __all__ = ['estimate_tonaltension']
 
@@ -312,67 +316,46 @@ def notes_to_idx(note_array):
     return note_idxs
 
 
-def prepare_notearray(part_partgroup_list_notearray):
-    """Prepare a note array with score information for computing
-    tonal tension
-    """
-    fields = [('onset', 'f4'),
-              ('duration', 'f4'),
-              ('pitch', 'i4'),
-              ('voice', 'i4'),
-              ('id', 'U256'),
-              ('step', 'U256'),
-              ('alter', 'i4'),
-              ('octave', 'i4'),
-              ('ks_fifths', 'i4'),
-              ('ks_mode', 'i4')]
+def prepare_note_array(note_info):
 
+    note_array = ensure_notearray(note_info,
+                                  include_pitch_spelling=True,
+                                  include_key_signature=True)
+
+    onset_unit, duration_unit = get_time_units_from_note_array(note_array)
+
+    pitch_spelling_fields = ('step',
+                             'alter',
+                             'octave')
+    key_signature_fields = ('ks_fifths',
+                            'ks_mode')
     
+    if len(set(pitch_spelling_fields).difference(note_array.dtype.names)) > 0:
+        LOGGER.info('No pitch spelling information! Estimating pitch spelling...')
+        from partitura.musicanalysis.pitch_spelling import estimate_spelling
+        
+        spelling = estimate_spelling(note_array)
 
-    def notelist_from_part(part, pid=''):
+        note_array = add_field(note_array, spelling.dtype)
 
-        pnotes = part.notes_tied
-        bm = part.beat_map
-        km = part.key_signature_map
+        for field in spelling.dtype.names:
+            note_array[field] = spelling[field]
 
-        on_off = np.array([bm([n.start.t,
-                               n.start.t + n.duration_tied])
-                           for n in pnotes])
-        onset = on_off[:, 0]
-        duration = on_off[:, 1] - on_off[:, 0]
-        pitch = np.array([n.midi_pitch for n in pnotes])
-        step = np.array([n.step for n in pnotes])
-        alter = np.array([n.alter if n.alter is not None else 0 for n in pnotes])
-        octave = np.array([n.octave for n in pnotes])
-        voice = np.array([n.voice for n in pnotes])
-        key_signature = np.array([km(n.start.t) for n in pnotes])
-        ids = np.array(['{0}{1}'.format(pid, n.id) for n in pnotes])
+    if len(set(key_signature_fields).difference(note_array.dtype.names)) > 0:
+        LOGGER.info('No key information! Estimating key...')
+        from partitura.musicanalysis.key_identification import estimate_key
+        from partitura.utils.music import (key_name_to_fifths_mode,
+                                           key_mode_to_int)
+        key_name = estimate_key(note_array)
+        fifths, mode = key_name_to_fifths_mode(key_name)
 
-        notelist = [(o, d, p, v, i, s, a, oc, f, m)
-                    for o, d, p, v, i, s, a, oc, (f, m) in zip(onset, duration, pitch,
-                                                               voice, ids, step, alter,
-                                                               octave, key_signature)]
-        return notelist
+        note_array = add_field(note_array, [('ks_fifths', 'i4'),
+                                            ('ks_mode', 'i4')])
 
-    if isinstance(part_partgroup_list_notearray, Part):
-        notelist = notelist_from_part(part_partgroup_list_notearray, pid='')
-    else:
-        if isinstance(part_partgroup_list_notearray, PartGroup):
-            parts = part_partgroup_list_notearray.children
-        elif isinstance(part_partgroup_list_notearray, (list, tuple)):
-            parts = part_partgroup_list_notearray
-        else:
-            raise ValueError('`part_partgroup_list_notearray` should be a `partitura.score.Part`,'
-                             ' a `partitura.score.PartGroup` or a list of '
-                             '`partitura.score.Part` objetcts')
-        notelist = []
-        for i, part in enumerate(parts):
-            notelist += notelist_from_part(part, pid='P{0:02d}_'.format(i))
+        note_array['ks_fifths'] = np.ones(len(note_array)) * fifths
+        note_array['ks_mode'] = np.ones(len(note_array)) * key_mode_to_int(mode)
 
-    notearray = np.array(notelist, dtype=fields)
-
-    return notearray
-
+    return note_array
 
 def key_map_from_keysignature(notearray):
     """
@@ -466,11 +449,12 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
            (TENOR), Cambridge, UK.
     """
 
-    # if isinstance(note_info, (Part, PartGroup, list)):
-    notearray = prepare_notearray(note_info)
+    note_array = prepare_note_array(note_info)
+
+    onset_unit, duration_unit = get_time_units_from_note_array(note_array)
         
-    score_onset = notearray['onset']
-    score_offset = score_onset + notearray['duration']
+    score_onset = note_array['onset']
+    score_offset = score_onset + note_array['duration']
 
     # Determine the score position
     if isinstance(ss, (float, int, np.int, np.float)):
@@ -495,7 +479,7 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
     else:
         raise ValueError('`ws` has to be a `float`, `int` or a numpy array')
 
-    note_idxs = notes_to_idx(notearray)
+    note_idxs = notes_to_idx(note_array)
 
     # Get coordinates of the notes in the piece in the spiral array space
     piece_coordinates = PITCH_COORDINATES[note_idxs]
@@ -507,7 +491,7 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
     # Get key of the piece from key signature information
     # Perhaps add an automatic method in the future (for
     # inferring modulations?)
-    km = key_map_from_keysignature(notearray)
+    km = key_map_from_keysignature(note_array)
     fifths, mode = km(unique_onsets.min()).astype(np.int)
     ts = TensileStrain(tonic_idx=C_IDX + fifths,
                        mode=mode)

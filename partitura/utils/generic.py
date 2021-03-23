@@ -333,7 +333,7 @@ def add_field(a, descr):
     ----------
     a: np.ndarray
         A structured numpy array
-    descr: np.dtype
+    descr: np.dtype or list
         A numpy type description of the new fields
 
     Returns
@@ -360,6 +360,9 @@ def add_field(a, descr):
     """
     if a.dtype.fields is None:
         raise ValueError("`A` must be a structured numpy array")
+
+    if isinstance(descr, np.dtype):
+        descr = descr.descr
     b = np.empty(a.shape, dtype=a.dtype.descr + descr)
     for name in a.dtype.names:
         b[name] = a[name]

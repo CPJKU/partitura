@@ -34,7 +34,9 @@ from partitura.utils.music import (
     key_mode_to_int,
     remove_silence_from_performed_part,
     note_array_from_part_list,
-    slice_notearray_by_time
+    slice_notearray_by_time,
+    note_array_from_part,
+    get_time_units_from_note_array
 )
 
 __all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]

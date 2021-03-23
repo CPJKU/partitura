@@ -33,6 +33,8 @@ from partitura.utils import (
     symbolic_to_numeric_duration,
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch,
+    note_array_from_part,
+    note_array_from_part_list,
     to_quarter_tempo,
     key_mode_to_int,
     _OrderedSet
@@ -236,7 +238,7 @@ class Part(object):
 
                 normal_dur = ts.beats
                 if quarter:
-                    normal_dur *=  4 / ts.beat_type
+                    normal_dur *= 4 / ts.beat_type
                 if actual_dur < normal_dur:
                     y -= actual_dur
             else:
@@ -672,32 +674,7 @@ class Part(object):
     
     @property
     def note_array(self):
-        fields = [('onset_beat', 'f4'),
-                  ('duration_beat', 'f4'),
-                  ('onset_quarter', 'f4'),
-                  ('duration_quarter', 'f4'),
-                  ('onset_div', 'i4'),
-                  ('duration_div', 'i4'),
-                  ('pitch', 'i4'),
-                  ('voice', 'i4'),
-                  ('id', 'U256')]
-        note_array = []
-        for note in self.notes_tied:
-            note_on_div = note.start.t
-            note_off_div = note.start.t + note.duration_tied
-            note_dur_div = note_off_div - note_on_div
-            note_on_beat, note_off_beat = self.beat_map([note_on_div, note_off_div])
-            note_dur_beat = note_off_beat - note_on_beat
-            note_on_quarter, note_off_quarter = self.quarter_map([note_on_div, note_off_div])
-            note_dur_quarter = note_off_quarter - note_on_quarter
-            
-            note_array.append((note_on_beat, note_dur_beat, 
-                                note_on_quarter, note_dur_quarter, 
-                                note_on_div, note_dur_div, 
-                                note.midi_pitch,
-                                note.voice, note.id))
-            
-        return np.array(note_array, dtype=fields)
+        return note_array_from_part(self)
 
     # @property
     # def part_names(self):
@@ -2178,52 +2155,7 @@ class PartGroup(object):
         belong.
 
         """
-
-        fields = [('onset_beat', 'f4'),
-                  ('duration_beat', 'f4'),
-                  ('onset_quarter', 'f4'),
-                  ('duration_quarter', 'f4'),
-                  ('onset_div', 'i4'),
-                  ('duration_div', 'i4'),
-                  ('pitch', 'i4'),
-                  ('voice', 'i4'),
-                  ('id', 'U256')]
-
-        note_arrays = [part.note_array for part in self.children]
-        onset_beat = np.hstack([na['onset_beat'] for na in note_arrays])
-        duration_beat = np.hstack([na['duration_beat'] for na in note_arrays])
-        onset_quarter = np.hstack([na['onset_quarter'] for na in note_arrays])
-        duration_quarter = np.hstack([na['duration_quarter'] for na in note_arrays])
-        onset_div = np.hstack([na['onset_div'] for na in note_arrays])
-        duration_div = np.hstack([na['duration_div'] for na in note_arrays])
-        pitch = np.hstack([na['pitch'] for na in note_arrays])
-        voice =  np.hstack([na['voice'] for na in note_arrays])
-        ids = []
-        for j, na in enumerate(note_arrays):
-            # add part number at the begining of note ID
-            id = np.array(['P{0:02d}_'.format(j) + i for i in na['id']],
-                           dtype=na['id'].dtype)
-            ids.append(id)
-        ids = np.hstack(ids)
-
-        # Make structured array
-        note_array = np.array(
-            [(ob, db, oq, dq, od, dd, p, v, i) for ob, db, oq, dq, od, dd, p, v, i in zip(onset_beat, duration_beat, 
-            onset_quarter, duration_quarter, 
-            onset_div, duration_div, 
-            pitch, voice, ids)],
-            dtype=fields)
-
-        # sort by onset and pitch
-        pitch_sort_idx = np.argsort(note_array['pitch'])
-        note_array = note_array[pitch_sort_idx]
-        onset_sort_idx = np.argsort(note_array['onset_div'], kind='mergesort')
-        note_array = note_array[onset_sort_idx]
-
-        return note_array
-
-
-
+        return note_array_from_part_list(self.children)
 
 
 class ScoreVariant(object):
