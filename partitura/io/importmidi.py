@@ -157,7 +157,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                     # append the note to the list associated with the channel
 
                     notes.append(dict(
-                       id=len(notes),
+                       id=f'n{len(notes)}',
                        midi_pitch=msg.note,
                        note_on=(sounding_notes[note][0]),
                        note_off=(t),

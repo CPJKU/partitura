@@ -3,13 +3,16 @@
 """Voice Separation using Chew and Wu's algorithm.
 
 """
-import numpy as np
-
 from collections import defaultdict
-from numpy import ma
 from statistics import mode
+
+import numpy as np
+from numpy import ma
+
 from partitura.utils.music import (ensure_notearray,
                                    get_time_units_from_note_array)
+# from partitura.musicanalysis.utils import prepare_notearray
+
 
 __all__ = ['estimate_voices']
 

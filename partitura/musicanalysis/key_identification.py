@@ -5,6 +5,7 @@ Krumhansl and Shepard key estimation
 """
 import numpy as np
 from scipy.linalg import circulant
+# from partitura.musicanalysis.utils import prepare_notearray
 
 __all__ = ['estimate_key']
 

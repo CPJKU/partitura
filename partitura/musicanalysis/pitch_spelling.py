@@ -11,6 +11,8 @@ import numpy as np
 from collections import namedtuple
 from partitura.utils.music import (ensure_notearray,
                                    get_time_units_from_note_array)
+# from partitura.musicanalysis.utils import prepare_notearray
+
 
 __all__ = ['estimate_spelling']
 
@@ -38,7 +40,7 @@ def estimate_spelling(note_info, method='ps13s1', *args, **kwargs):
     method : {'ps13s1'}
          Pitch spelling algorithm. More methods will be added.
     *args
-        positional arguments for the algorithm specified in  `method`.
+        positional arguments for the algorithm specified in `method`
     **kwargs
         Keyword arguments for the algorithm specified in `method`.
 
@@ -60,7 +62,6 @@ def estimate_spelling(note_info, method='ps13s1', *args, **kwargs):
     """
     if method == 'ps13s1':
         ps = ps13s1
-
     step, alter, octave = ps(ensure_notearray(note_info), *args, **kwargs)
 
     spelling = np.empty(len(step), dtype=[('step', 'U1'),
@@ -93,13 +94,14 @@ def ps13s1(note_array, K_pre=10, K_post=40):
         (note_array[sort_idx][onset_unit],
          chromatic_pitch_from_midi(note_array[sort_idx]['pitch'])))
 
-    n = len(sorted_ocp)
+    # n = len(sorted_ocp)
     # ChromaList
     chroma_array = compute_chroma_array(sorted_ocp=sorted_ocp)
     # ChromaVectorList
-    chroma_vector_array = compute_chroma_vector_array(chroma_array=chroma_array,
-                                                      K_pre=K_pre,
-                                                      K_post=K_post)
+    chroma_vector_array = compute_chroma_vector_array(
+        chroma_array=chroma_array,
+        K_pre=K_pre,
+        K_post=K_post)
     morph_array = compute_morph_array(chroma_array=chroma_array,
                                       chroma_vector_array=chroma_vector_array)
 
