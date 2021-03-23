@@ -682,15 +682,13 @@ class Part(object):
                   ('voice', 'i4'),
                   ('id', 'U256')]
         note_array = []
-        beat_map = self.beat_map
-        quarter_map = self.quarter_map
         for note in self.notes_tied:
             note_on_div = note.start.t
             note_off_div = note.start.t + note.duration_tied
             note_dur_div = note_off_div - note_on_div
-            note_on_beat, note_off_beat = beat_map([note_on_div, note_off_div])
+            note_on_beat, note_off_beat = self.beat_map([note_on_div, note_off_div])
             note_dur_beat = note_off_beat - note_on_beat
-            note_on_quarter, note_off_quarter = quarter_map([note_on_div, note_off_div])
+            note_on_quarter, note_off_quarter = self.quarter_map([note_on_div, note_off_div])
             note_dur_quarter = note_off_quarter - note_on_quarter
             
             note_array.append((note_on_beat, note_dur_beat, 
