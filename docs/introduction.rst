@@ -34,8 +34,7 @@ Supported file types
 ====================
 
 Musical data can be loaded from and saved to `MusicXML` and `MIDI`
-files. Version 0.4.0 introduces preliminary support for saving in `MEI` format.
-Furthermore, `partitura` uses `MuseScore <https://musescore.org/>`_
+files. Furthermore, `partitura` uses `MuseScore <https://musescore.org/>`_
 as a backend to load files in other formats, like `MuseScore`, `MuseData`,
 and `GuitarPro`. This requires a working installation of MuseScore on your
 computer.
@@ -89,7 +88,7 @@ separate functions to load and save scores
 (:func:`~partitura.load_score_midi`, :func:`~partitura.save_score_midi`)
 and performances (:func:`~partitura.load_performance_midi`,
 :func:`~partitura.save_performance_midi`). :func:`~partitura.load_score_midi`
-offers basic quantization for unquantized MIDIs but in general you should
+offers simple quantization for unquantized MIDIs but in general you should
 not expect a MIDI representation of a performance to be loaded correctly as
 a `Part` instance.
 
