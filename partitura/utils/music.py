@@ -183,7 +183,7 @@ def get_time_units_from_note_array(note_array):
     fields = set(note_array.dtype.fields)
 
     if fields is None:
-        raise ValueError('Input array is not a structured array!')
+        raise ValueError('`note_array` must be a structured numpy array')
 
     score_units = set(('onset_beat', 'onset_quarter', 'onset_div'))
     performance_units = set(('onset_sec', ))
