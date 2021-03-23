@@ -19,6 +19,7 @@ import scipy.spatial.distance as distance
 from scipy.interpolate import interp1d
 
 from partitura.score import Part, PartGroup
+from partitura.utils.music import get_time_units_from_note_array
 
 __all__ = ['estimate_tonaltension']
 
@@ -311,7 +312,7 @@ def notes_to_idx(note_array):
     return note_idxs
 
 
-def prepare_notearray(part_partgroup_list):
+def prepare_notearray(part_partgroup_list_notearray):
     """Prepare a note array with score information for computing
     tonal tension
     """
@@ -326,13 +327,17 @@ def prepare_notearray(part_partgroup_list):
               ('ks_fifths', 'i4'),
               ('ks_mode', 'i4')]
 
+    
+
     def notelist_from_part(part, pid=''):
 
         pnotes = part.notes_tied
         bm = part.beat_map
         km = part.key_signature_map
 
-        on_off = np.array([bm([n.start.t, n.start.t + n.duration_tied]) for n in pnotes])
+        on_off = np.array([bm([n.start.t,
+                               n.start.t + n.duration_tied])
+                           for n in pnotes])
         onset = on_off[:, 0]
         duration = on_off[:, 1] - on_off[:, 0]
         pitch = np.array([n.midi_pitch for n in pnotes])
@@ -349,15 +354,15 @@ def prepare_notearray(part_partgroup_list):
                                                                octave, key_signature)]
         return notelist
 
-    if isinstance(part_partgroup_list, Part):
-        notelist = notelist_from_part(part_partgroup_list, pid='')
+    if isinstance(part_partgroup_list_notearray, Part):
+        notelist = notelist_from_part(part_partgroup_list_notearray, pid='')
     else:
-        if isinstance(part_partgroup_list, PartGroup):
-            parts = part_partgroup_list.children
-        elif isinstance(part_partgroup_list, (list, tuple)):
-            parts = part_partgroup_list
+        if isinstance(part_partgroup_list_notearray, PartGroup):
+            parts = part_partgroup_list_notearray.children
+        elif isinstance(part_partgroup_list_notearray, (list, tuple)):
+            parts = part_partgroup_list_notearray
         else:
-            raise ValueError('`part_partgroup_list` should be a `partitura.score.Part`,'
+            raise ValueError('`part_partgroup_list_notearray` should be a `partitura.score.Part`,'
                              ' a `partitura.score.PartGroup` or a list of '
                              '`partitura.score.Part` objetcts')
         notelist = []
@@ -367,6 +372,7 @@ def prepare_notearray(part_partgroup_list):
     notearray = np.array(notelist, dtype=fields)
 
     return notearray
+
 
 def key_map_from_keysignature(notearray):
     """
@@ -406,7 +412,7 @@ def key_map_from_keysignature(notearray):
                     bounds_error=False, fill_value='extrapolate')
 
 
-def estimate_tonaltension(notearray, ws=1.0, ss='onset',
+def estimate_tonaltension(note_info, ws=1.0, ss='onset',
                           scale_factor=SCALE_FACTOR,
                           w=DEFAULT_WEIGHTS,
                           alpha=ALPHA, beta=BETA):
@@ -460,8 +466,8 @@ def estimate_tonaltension(notearray, ws=1.0, ss='onset',
            (TENOR), Cambridge, UK.
     """
 
-    if isinstance(note_info, (Part, PartGroup, list)):
-        notearray = prepare_notearray(note_info)
+    # if isinstance(note_info, (Part, PartGroup, list)):
+    notearray = prepare_notearray(note_info)
         
     score_onset = notearray['onset']
     score_offset = score_onset + notearray['duration']
