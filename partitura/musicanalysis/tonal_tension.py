@@ -357,10 +357,11 @@ def prepare_note_array(note_info):
 
     return note_array
 
-def key_map_from_keysignature(notearray):
+
+def key_map_from_keysignature(notearray, onset_unit='auto'):
     """
     Helper method to get the key map from the key signature information
-    in note arrays generated with `prepare_notearray`.
+    in note arrays generated with `prepare_note_array`.
 
     Parameters
     ----------
@@ -374,7 +375,10 @@ def key_map_from_keysignature(notearray):
         Function that maps onset time in beats to the key signature
         in the score.
     """
-    onsets = notearray['onset']
+    if onset_unit == 'auto':
+        onset_unit, _ = get_time_units_from_note_array(notearray)
+
+    onsets = notearray[onset_unit]
 
     unique_onsets = np.unique(onsets)
     unique_onset_idxs = [np.where(onsets == u)[0] for u in unique_onsets]
@@ -411,7 +415,7 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
         `ks_fifths` and `ks_mode`, respectively). Note that method requieres
         extra information not included in the usual `note_array` attributes
         of `partitura.score.Part` objects. We include a helper method
-        `prepare_notearray` to extract the necessary information from a `Part`
+        `prepare_note_array` to extract the necessary information from a `Part`
         object.
     ws : {int, float, np.array}, optional
         Window size for computing the tonal tension. If a number, it determines
@@ -452,9 +456,14 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
     note_array = prepare_note_array(note_info)
 
     onset_unit, duration_unit = get_time_units_from_note_array(note_array)
-        
-    score_onset = note_array['onset']
-    score_offset = score_onset + note_array['duration']
+
+    # Open questions:
+    # 1. rename score_onsets/offsets to reflect that other units are also
+    # possible?
+    # 2. In case the input is a performance, perhaps "cluster"/aggregate
+    # the onsets into "chord" onsets or something similar?
+    score_onset = note_array[onset_unit]
+    score_offset = score_onset + note_array[duration_unit]
 
     # Determine the score position
     if isinstance(ss, (float, int, np.int, np.float)):
@@ -491,7 +500,7 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
     # Get key of the piece from key signature information
     # Perhaps add an automatic method in the future (for
     # inferring modulations?)
-    km = key_map_from_keysignature(note_array)
+    km = key_map_from_keysignature(note_array, onset_unit=onset_unit)
     fifths, mode = km(unique_onsets.min()).astype(np.int)
     ts = TensileStrain(tonic_idx=C_IDX + fifths,
                        mode=mode)
@@ -499,11 +508,11 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
     n_windows = len(unique_onsets)
 
     tonal_tension = np.zeros(n_windows,
-                             dtype=[('onset', 'f4'),
+                             dtype=[(onset_unit, 'f4'),
                                     ('cloud_diameter', 'f4'),
                                     ('cloud_momentum', 'f4'),
                                     ('tensile_strain', 'f4')])
-    tonal_tension['onset'] = unique_onsets
+    tonal_tension[onset_unit] = unique_onsets
 
     # Main loop for computing tension information
     for i, (o, (wlo, whi)) in enumerate(zip(unique_onsets, ws)):
