@@ -21,6 +21,7 @@ def note_hash(channel, pitch):
     """Generate a note hash."""
     return channel * 128 + pitch
 
+
 def midi_to_notearray(fn):
     """Load a MIDI file in a note_array.
 
@@ -29,7 +30,7 @@ def midi_to_notearray(fn):
     pitch, velocity, and ID.
 
     Sustain pedal, program changes, control changes, track and
-    channel information as well as mpq and ppq are discarded. 
+    channel information as well as mpq and ppq are discarded.
 
     Parameters
     ----------
@@ -43,8 +44,9 @@ def midi_to_notearray(fn):
     """
     ppart = load_performance_midi(fn, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
-    ppart.sustain_pedal_threshold=128
+    ppart.sustain_pedal_threshold = 128
     return ppart.note_array
+
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
@@ -80,18 +82,17 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     # microseconds per quarter
     mpq = 60 * (10**6 / default_bpm)
 
-
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq/(ppq*10**6) 
+    time_conversion_factor = mpq / (ppq*10**6)
 
     notes = []
     controls = []
     programs = []
     if merge_tracks:
-        mid_merge= mido.merge_tracks(mid.tracks)
+        mid_merge = mido.merge_tracks(mid.tracks)
         tracks = [(0, mid_merge)]
     else:
-        tracks = [(i,u) for i, u in enumerate(mid.tracks)]
+        tracks = [(i, u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
 
         t = 0
@@ -100,17 +101,19 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         for msg in track:
 
             # update time deltas when they arrive
-            t = t + msg.time * time_conversion_factor    
+            t = t + msg.time * time_conversion_factor
 
             if msg.type == 'set_tempo':
 
                 mpq = msg.tempo
-                
-                time_conversion_factor = mpq/(ppq*10**6)
 
-                print("change of Tempo to mpq = ", mpq, 
-                " and resulting seconds per tick = ", time_conversion_factor, 
-                "at time: ", t)
+                time_conversion_factor = mpq / (ppq*10**6)
+
+                LOGGER.info(("change of Tempo to mpq = {0} "
+                             " and resulting seconds per tick = {1}"
+                             "at time: {2}").format(mpq,
+                                                    time_conversion_factor,
+                                                    t))
 
             elif msg.type == 'control_change':
 
@@ -122,13 +125,12 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                     channel=msg.channel))
 
             elif msg.type == 'program_change':
-                
+
                 programs.append(dict(
                     time=t,
                     program=msg.program,
                     track=i,
                     channel=msg.channel))
-                    
 
             else:
 
