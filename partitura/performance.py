@@ -116,6 +116,8 @@ class PerformedPart(object):
                   ('duration_sec', 'f4'),
                   ('pitch', 'i4'),
                   ('velocity', 'i4'),
+                  ('track', 'i4'),
+                  ('channel', 'i4'),
                   ('id', 'U256')]
         note_array = []
         for n in self.notes:
@@ -126,6 +128,8 @@ class PerformedPart(object):
                                duration_sec,
                                n['midi_pitch'],
                                n['velocity'],
+                               n['track'],
+                               n['channel'],
                                n['id']))
 
         return np.array(note_array, dtype=fields)
@@ -137,7 +141,7 @@ class PerformedPart(object):
         Note that this property does not include non-note information (i.e.
         controls such as sustain pedal).
         """
-        if not 'id' in note_array.dtype.names:
+        if 'id' not in note_array.dtype.names:
             n_ids = ['n{0}'.format(i) for i in range(len(note_array))]
         else:
             n_ids = note_array['id']
@@ -149,6 +153,8 @@ class PerformedPart(object):
                               note_on=note['onset_sec'],
                               note_off=note['onset_sec'] + note['duration_sec'],
                               sound_off=note['onset_sec'] + note['duration_sec'],
+                              track=note['track'],
+                              channel=note['channel'],
                               velocity=note['velocity']))
 
         return cls(id=id,
