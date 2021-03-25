@@ -128,8 +128,8 @@ class PerformedPart(object):
                                duration_sec,
                                n['midi_pitch'],
                                n['velocity'],
-                               n['track'],
-                               n['channel'],
+                               n.get('track', 0),
+                               n.get('channel', 1),
                                n['id']))
 
         return np.array(note_array, dtype=fields)
@@ -146,15 +146,26 @@ class PerformedPart(object):
         else:
             n_ids = note_array['id']
 
+        if 'track' not in note_array.dtype.names:
+            track = np.zeros(len(note_array), dtype=int)
+        else:
+            track = note_array['track']
+
+        if 'channel' not in note_array.dtype.names:
+            channel = np.ones(len(note_array), dtype=int)
+        else:
+            channel = note_array['channel']
+
         notes = []
-        for nid, note in zip(n_ids, note_array):
+        for nid, note, track, channel in zip(n_ids, note_array,
+                                             track, channel):
             notes.append(dict(id=nid,
                               midi_pitch=note['pitch'],
                               note_on=note['onset_sec'],
                               note_off=note['onset_sec'] + note['duration_sec'],
                               sound_off=note['onset_sec'] + note['duration_sec'],
-                              track=note['track'],
-                              channel=note['channel'],
+                              track=track,
+                              channel=channel,
                               velocity=note['velocity']))
 
         return cls(id=id,

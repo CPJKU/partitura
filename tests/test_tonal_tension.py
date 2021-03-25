@@ -30,14 +30,15 @@ class TestTonalTension(unittest.TestCase):
                                             ('ks_mode', '<i4')])
         note_array = prepare_note_array(self.performance)
 
-        self.assertTrue(np.all(note_array == target_note_array),
-                        'Note arrays are not equal')
+        for name in target_note_array.dtype.names:
 
-    
+            self.assertTrue(np.all(note_array[name] == target_note_array[name]),
+                            f'Note arrays are not equal for field {name}')
+
     def test_estimate_tonaltension(self):
         tonal_tension = estimate_tonaltension(self.score)
 
-        target_tension = np.array([(0., 0.        , 0.        , 0.19651566),
+        target_tension = np.array([(0, 0, 0, 0.19651566),
                                    (2., 0.33333334, 0.07754743, 0.13506594)],
                                   dtype=[('onset_beat', '<f4'),
                                          ('cloud_diameter', '<f4'),
