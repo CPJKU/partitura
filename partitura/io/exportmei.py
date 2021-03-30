@@ -1,10 +1,15 @@
-# import partitura
-import partitura.score as score
+#!/usr/bin/env python
+from copy import copy
+import logging
 from lxml import etree
+
+import partitura.score as score
 from partitura.utils.generic import partition
 # from partitura.utils.music import estimate_symbolic_duration
-from copy import copy
 
+__all__ = ["save_mei"]
+
+LOGGER = logging.getLogger(__name__)
 
 name_space = "http://www.music-encoding.org/ns/mei"
 
@@ -35,26 +40,31 @@ def extend_key(dict_of_lists, key, value):
 def calc_dur_dots_split_notes_first_temp_dur(note, measure,
                                              num_to_numbase_ratio=1):
     """
-    Notes have to be represented as a string of elemental notes (there is no notation for arbitrary durations)
-    This function calculates this string (the durations of the elemental notes and their dot counts),
-    whether the note crosses the measure and the temporal duration of the first elemental note
+    Notes have to be represented as a string of elemental notes (there is
+    no notation for arbitrary durations). This function calculates this string
+    (the durations of the elemental notes and their dot counts), whether the
+    note crosses the measure and the temporal duration of the first
+    elemental note.
 
     Parameters
     ----------
     note:               score.GenericNote
-        The note whose representation as a string of elemental notes is calculated
+        The note whose representation as a string of elemental notes is
+        calculated
     measure:            score.Measure
         The measure which contains note
     num_to_numbase_ratio: float, optional
-        scales the duration of note according to whether or not it belongs to a tuplet and which one
+        scales the duration of note according to whether or not it belongs to
+        a tuplet and which one
 
 
     Returns
     -------
     dur_dots:       list of int pairs
-        this describes the string of elemental notes that represent the note notationally
-        every pair in the list contains the duration and the dot count of an elemental note and
-        the list is ordered by duration in decreasing order
+        this describes the string of elemental notes that represent the note
+        notationally every pair in the list contains the duration and the dot
+        count of an elemental note and the list is ordered by duration in
+        decreasing order
     split_notes:     list or None
         an empty list if note crosses measure
         None if it doesn't
@@ -67,22 +77,23 @@ def calc_dur_dots_split_notes_first_temp_dur(note, measure,
 
     if isinstance(note, score.GraceNote):
         main_note = note.main_note
-        #HACK: main note should actually be always not None for a proper GraceNote
+        # HACK: main note should actually be always not
+        # None for a proper GraceNote
         if main_note is not None:
-            dur_dots,_,_ = calc_dur_dots_split_notes_first_temp_dur(main_note, measure)
+            dur_dots = calc_dur_dots_split_notes_first_temp_dur(main_note,
+                                                                measure)[0]
             dur_dots = [(2*dur_dots[0][0], dur_dots[0][1])]
         else:
-            dur_dots = [(8,0)]
-            note.id+="_missing_main_note"
+            dur_dots = [(8, 0)]
+            note.id += "_missing_main_note"
         return dur_dots, None, None
 
     note_duration = note.duration
 
-
-
     split_notes = None
 
-    if note.start.t+note.duration>measure.end.t:
+    # CC: should it be note.duration_tied instead of note.duration?
+    if note.start.t+note.duration > measure.end.t:
         note_duration = measure.end.t - note.start.t
         split_notes = []
 
@@ -96,48 +107,46 @@ def calc_dur_dots_split_notes_first_temp_dur(note, measure,
     untied_durations = []
     pow_of_2 = 1
 
-    while int_part>0:
-        bit = int_part%2
-        untied_durations.insert(0,bit*pow_of_2)
-        int_part=int_part//2
-        pow_of_2*=2
-
+    while int_part > 0:
+        bit = int_part % 2
+        untied_durations.insert(0, bit*pow_of_2)
+        int_part = int_part // 2
+        pow_of_2 *= 2
 
     pow_of_2 = 1/2
 
     while frac_part > 0:
-        frac_part*=2
+        frac_part *= 2
         bit = int(frac_part)
-        frac_part-=bit
+        frac_part -= bit
         untied_durations.append(bit*pow_of_2)
-        pow_of_2/=2
-
+        pow_of_2 /= 2
 
     dur_dots = []
 
     curr_dur = 0
     curr_dots = 0
 
-    def add_dd(dur_dots,dur,dots):
-        dur_dots.append((int(4/dur),dots))
+    def add_dd(dur_dots, dur, dots):
+        dur_dots.append((int(4/dur), dots))
 
     for untied_dur in untied_durations:
-        if curr_dur!=0:
-            if untied_dur==0:
+        if curr_dur != 0:
+            if untied_dur == 0:
                 add_dd(dur_dots, curr_dur, curr_dots)
-                curr_dots=0
-                curr_dur=0
+                curr_dots = 0
+                curr_dur = 0
             else:
-                curr_dots+=1
+                curr_dots += 1
         else:
             curr_dur = untied_dur
 
-    if curr_dur!=0:
+    if curr_dur != 0:
         add_dd(dur_dots, curr_dur, curr_dots)
 
     first_temp_dur = int(untied_durations[0]*quarter_dur)
 
-    return dur_dots,split_notes, first_temp_dur
+    return dur_dots, split_notes, first_temp_dur
 
 
 
