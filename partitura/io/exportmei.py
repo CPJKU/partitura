@@ -149,7 +149,6 @@ def calc_dur_dots_split_notes_first_temp_dur(note, measure,
     return dur_dots, split_notes, first_temp_dur
 
 
-
 def insert_elem_check(t, inbetween_notes_elems):
     """Check if something like a clef etc appears before time t
 
@@ -166,29 +165,30 @@ def insert_elem_check(t, inbetween_notes_elems):
     """
 
     for ine in inbetween_notes_elems:
-        if ine.elem is not None and ine.elem.start.t<=t:
+        if ine.elem is not None and ine.elem.start.t <= t:
             return True
 
     return False
 
 
-
 def partition_handle_none(func, iter, partition_attrib):
-    p = partition(func,iter)
-    newKey = None
-
+    p = partition(func, iter)
+    # newKey = None
 
     if None in p.keys():
-        raise KeyError("PARTITION ERROR: some elements of set do not have partition attribute \""+partition_attrib+"\"")
+        raise KeyError("PARTITION ERROR: some elements of set do not "
+                       "have partition attribute \""+partition_attrib+"\"")
 
     return p
 
-def add_child(parent,child_name):
-    return etree.SubElement(parent,child_name)
+
+def add_child(parent, child_name):
+    return etree.SubElement(parent, child_name)
+
 
 def set_attributes(elem, *list_attrib_val):
     for attrib_val in list_attrib_val:
-        elem.set(attrib_val[0],str(attrib_val[1]))
+        elem.set(attrib_val[0], str(attrib_val[1]))
 
 
 def attribs_of_key_sig(ks):
@@ -213,21 +213,24 @@ def attribs_of_key_sig(ks):
     pname = key[0].lower()
     mode = "major"
 
-    if len(key)==2:
-        mode="minor"
+    if len(key) == 2:
+        mode = "minor"
 
     fifths = str(abs(ks.fifths))
 
-    if ks.fifths<0:
-        fifths+="f"
-    elif ks.fifths>0:
-        fifths+="s"
+    if ks.fifths < 0:
+        fifths += "f"
+    elif ks.fifths > 0:
+        fifths += "s"
 
     return fifths, mode, pname
 
-def first_instances_per_part(cls, parts, start=score.TimePoint(0), end=score.TimePoint(1)):
+
+def first_instances_per_part(cls, parts, start=score.TimePoint(0),
+                             end=score.TimePoint(1)):
     """
-    Returns the first instances of a class (multiple objects with same start time are possible) in each part
+    Returns the first instances of a class (multiple objects with same start
+    time are possible) in each part
 
     Parameters
     ----------
@@ -246,49 +249,61 @@ def first_instances_per_part(cls, parts, start=score.TimePoint(0), end=score.Tim
     """
     if not isinstance(start, list):
         start = [start]*len(parts)
-    elif not len(parts)==len(start):
-        raise ValueError("ERROR at first_instances_per_part: start times are given as list with different size to parts list")
+    elif not len(parts) == len(start):
+        raise ValueError("ERROR at first_instances_per_part: start times are "
+                         "given as list with different size to parts list")
 
     if not isinstance(end, list):
         end = [end]*len(parts)
-    elif not len(parts)==len(end):
-        raise ValueError("ERROR at first_instances_per_part: end times are given as list with different size to parts list")
+    elif not len(parts) == len(end):
+        raise ValueError("ERROR at first_instances_per_part: end times are "
+                         "given as list with different size to parts list")
 
     for i in range(len(parts)):
-        if start[i]==None and end[i] is not None or start[i] is not None and end[i]==None:
-            raise ValueError("ERROR at first_instances_per_part: (start==None) != (end==None) (None elements in start have to be at same position as in end and vice versa)")
+        if (start[i] is None and
+            end[i] is not None or
+            start[i] is not None and
+            end[i] is None):
+            raise ValueError("ERROR at first_instances_per_part: "
+                             "(start is None) != (end is None) "
+                             "(None elements in start have to be at same "
+                             "position as in end and vice versa)")
 
-    instances_per_part=[]
+    instances_per_part = []
 
     non_empty = False
 
-    for i,p in enumerate(parts):
+    for i, p in enumerate(parts):
         s = start[i]
         e = end[i]
 
-        if s==None:
+        if s is None:
             instances_per_part.append([])
             continue
 
-        instances = list(p.iter_all(cls,s,e))
+        instances = list(p.iter_all(cls, s, e))
 
-        if len(instances)==0:
+        if len(instances) == 0:
             instances_per_part.append([])
             continue
 
         non_empty = True
-        t = min(instances, key=lambda i:i.start.t).start.t
-        instances_per_part.append([i for i in instances if t==i.start.t])
+        t = min(instances, key=lambda i: i.start.t).start.t
+        instances_per_part.append([i for i in instances if t == i.start.t])
 
     if non_empty:
         return instances_per_part
 
     return []
 
-def first_instance_per_part(cls, parts, start=score.TimePoint(0), end=score.TimePoint(1)):
+
+def first_instance_per_part(cls, parts,
+                            start=score.TimePoint(0),
+                            end=score.TimePoint(1)):
     """
     Reduce the result of first_instances_per_part, a 2D list, to a 1D list
-    If there are multiple first instances then program aborts with error message
+    If there are multiple first instances then program aborts with error
+    message
 
     Parameters
     ----------
@@ -308,21 +323,27 @@ def first_instance_per_part(cls, parts, start=score.TimePoint(0), end=score.Time
 
     fipp = []
 
-    for i,fis in enumerate(fispp):
-        if len(fis)==0:
+    for i, fis in enumerate(fispp):
+        if len(fis) == 0:
             fipp.append(None)
-        elif len(fis)==1:
+        elif len(fis) == 1:
             fipp.append(fis[0])
         else:
             raise ValueError("Part "+parts[i].name,
-            "ID "+parts[i].id,
-            "has more than one instance of "+str(cls)+" at beginning t=0, but there should only be a single one")
+                             "ID "+parts[i].id,
+                             "has more than one instance of " + str(cls) +
+                             " at beginning t=0, but there should only be a "
+                             "single one")
 
     return fipp
 
-def first_instances(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
+
+def first_instances(cls, part,
+                    start=score.TimePoint(0),
+                    end=score.TimePoint(1)):
     """
-    Returns the first instances of a class (multiple objects with same start time are possible) in the part
+    Returns the first instances of a class (multiple objects with same start
+    time are possible) in the part
 
     Parameters
     ----------
@@ -340,15 +361,18 @@ def first_instances(cls, part, start=score.TimePoint(0), end=score.TimePoint(1))
     """
     fis = first_instances_per_part(cls, [part], start, end)
 
-    if len(fis)==0:
+    if len(fis) == 0:
         return []
 
     return fis[0]
 
-def first_instance(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
+
+def first_instance(cls, part, start=score.TimePoint(0),
+                   end=score.TimePoint(1)):
     """
     Reduce the result of first_instance_per_part, a 1D list, to an element
-    If there are multiple first instances then program aborts with error message
+    If there are multiple first instances then program aborts with error
+    message
 
     Parameters
     ----------
@@ -365,7 +389,7 @@ def first_instance(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
     """
     fi = first_instance_per_part(cls, [part], start, end)
 
-    if len(fi)==0:
+    if len(fi) == 0:
         return None
 
     return fi[0]
@@ -373,16 +397,19 @@ def first_instance(cls, part, start=score.TimePoint(0), end=score.TimePoint(1)):
 
 def common_signature(cls, sig_eql, parts, current_measures=None):
     """
-    Calculate whether a list of parts has a common signature (as in key or time signature)
+    Calculate whether a list of parts has a common signature (as in key or
+    time signature)
 
     Parameters
     ----------
     cls:                score.KeySignature or score.TimeSignature
     sig_eql:            function
-        takes 2 signature objects as input and returns whether they are equivalent (in some sense)
+        takes 2 signature objects as input and returns whether they are
+        equivalent (in some sense)
     parts:              list of score.Part
     current_measures:    list of score.Measure, optional
-        current as in the measures of the parts that are played at the same time and are processed
+        current as in the measures of the parts that are played at the same
+        time and are processed
 
     Returns
     -------
@@ -391,21 +418,27 @@ def common_signature(cls, sig_eql, parts, current_measures=None):
     """
     sigs = None
     if current_measures is not None:
-        #HACK:  measures should probably not contain "pad" at this point, but an actual dummy measure with start and end times?
-        sigs = first_instance_per_part(cls, parts, start=[cm.start if cm!='pad' else None for cm in current_measures], end=[cm.end if cm!='pad' else None for cm in current_measures])
+        # HACK:  measures should probably not contain "pad" at this point,
+        # but an actual dummy measure with start and end times?
+        sigs = first_instance_per_part(cls, parts,
+                                       start=[cm.start if cm != 'pad' else None
+                                              for cm in current_measures],
+                                       end=[cm.end if cm != 'pad' else None
+                                            for cm in current_measures])
     else:
         sigs = first_instance_per_part(cls, parts)
 
-    if sigs==None or len(sigs)==0 or None in sigs:
+    if sigs is None or len(sigs)==0 or None in sigs:
         return None
 
     common_sig = sigs.pop()
 
     for sig in sigs:
-        if sig.start.t!=common_sig.start.t or not sig_eql(sig, common_sig):
+        if sig.start.t != common_sig.start.t or not sig_eql(sig, common_sig):
             return None
 
     return common_sig
+
 
 def vertical_slice(list_2d, index):
     """
@@ -419,20 +452,24 @@ def vertical_slice(list_2d, index):
 
     return vslice
 
-def time_sig_eql(ts1,ts2):
+
+def time_sig_eql(ts1, ts2):
     """
     equivalence function for score.TimeSignature objects
     """
-    return ts1.beats==ts2.beats and ts1.beat_type==ts2.beat_type
+    return ts1.beats == ts2.beats and ts1.beat_type == ts2.beat_type
 
-def key_sig_eql(ks1,ks2):
+
+def key_sig_eql(ks1, ks2):
     """
     equivalence function for score.KeySignature objects
     """
-    return ks1.name==ks2.name and ks1.fifths==ks2.fifths
+    return ks1.name == ks2.name and ks1.fifths == ks2.fifths
+
 
 def idx(len_obj):
     return range(len(len_obj))
+
 
 def attribs_of_clef(clef):
     """
@@ -451,18 +488,19 @@ def attribs_of_clef(clef):
     """
     sign = clef.sign
 
-    if sign=="percussion":
-        sign="perc"
+    if sign == "percussion":
+        sign = "perc"
 
-    if clef.octave_change is not None and clef.octave_change!=0:
+    if clef.octave_change is not None and clef.octave_change != 0:
         place = "above"
 
-        if clef.octave_change<0:
-            place="below"
+        if clef.octave_change < 0:
+            place = "below"
 
         return sign, clef.line, 1+7*abs(clef.octave_change), place
 
     return sign, clef.line
+
 
 def create_staff_def(staff_grp, clef):
     """
@@ -472,19 +510,25 @@ def create_staff_def(staff_grp, clef):
     staff_grp:   etree.SubElement
     clef:       score.Clef
     """
-    staff_def = add_child(staff_grp,"staffDef")
+    staff_def = add_child(staff_grp, "staffDef")
 
     attribs = attribs_of_clef(clef)
-    set_attributes(staff_def,("n",clef.number),("lines",5),("clef.shape",attribs[0]),("clef.line",attribs[1]))
-    if len(attribs)==4:
-        set_attributes(staff_def,("clef.dis",attribs[2]),("clef.dis.place",attribs[3]))
+    set_attributes(staff_def,
+                   ("n", clef.number),
+                   ("lines", 5),
+                   ("clef.shape", attribs[0]),
+                   ("clef.line", attribs[1]))
+    if len(attribs) == 4:
+        set_attributes(staff_def,
+                       ("clef.dis", attribs[2]),
+                       ("clef.dis.place", attribs[3]))
 
 
-
-
-def pad_measure(s, measure_per_staff, notes_within_measure_per_staff, auto_rest_count):
+def pad_measure(s, measure_per_staff, notes_within_measure_per_staff,
+                auto_rest_count):
     """
-    Adds a fake measure ("pad") to the measures of the staff s and a score.Rest object to the notes
+    Adds a fake measure ("pad") to the measures of the staff s and a
+    score.Rest object to the notes
 
     Parameters
     ----------
@@ -500,7 +544,7 @@ def pad_measure(s, measure_per_staff, notes_within_measure_per_staff, auto_rest_
     incremented auto rest counter
     """
 
-    measure_per_staff[s]="pad"
+    measure_per_staff[s] = "pad"
     r = score.Rest(id="pR"+str(auto_rest_count), voice=1)
     r.start = score.TimePoint(0)
     r.end = r.start
@@ -1347,7 +1391,7 @@ def create_measure(section, measure_i, staves_sorted, notes_within_measure_per_s
 
     for slur in current_measure_content.slurs:
         s = add_child(measure,"slur")
-        if slur.start_note==None or slur.end_note==None:
+        if slur.start_note is None or slur.end_note is None:
             raise ValueError("Slur is missing start or end")
         set_attributes(s, ("staff",slur.start_note.staff), ("startid","#"+slur.start_note.id), ("endid","#"+slur.end_note.id))
 
@@ -1505,7 +1549,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
     title.set("type","main")
 
     #derive a title for the piece from the file_name
-    if title_text==None:
+    if title_text is None:
         cursor=len(file_name)-1
         while cursor>=0 and file_name[cursor]!="/":
             cursor-=1
@@ -1615,7 +1659,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
 
     score_def_setup = score_def
 
-    if score_def==None:
+    if score_def is None:
         score_def_setup = add_child(mei_score,"scoreDef")
 
     clefs_per_part=first_instances_per_part(score.Clef, parts)
@@ -1680,7 +1724,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
                     new_tempii.append(tempii[k])
             else:
                 for i,nt in enumerate(new_tempii):
-                    if nt==None:
+                    if nt is None:
                         new_tempii[i]=tempii[compm_keys[i]]
                     else:
                         tempii[compm_keys[i]]=nt
@@ -1689,7 +1733,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
                 return (m.end.t-m.start.t)//m.start.quarter
 
             rep_i=0
-            while rep_i<len(new_tempii) and new_tempii[rep_i]==None:
+            while rep_i<len(new_tempii) and new_tempii[rep_i] is None:
                 rep_i+=1
 
             if rep_i==len(new_tempii):
@@ -1700,7 +1744,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
             for i in range(rep_i+1,len(compm_keys)):
                 nt = new_tempii[i]
 
-                if nt==None:
+                if nt is None:
                     continue
 
                 m = compare_measures[compm_keys[i]]
