@@ -1256,16 +1256,21 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
     if t > 0:
         # if we have an incomplete first measure that isn't an anacrusis measure, add a rest (dummy)
-        t = 0
+        # t = t-t%beats_map(min_time)
+        
+        # if starting beat is above zero, add padding
         rest = score.Rest()
-        part.add(rest, start=t, end=offset)
+        part.add(rest, start=0, end=t*divs)
+        onset_in_divs += t*divs
         offset = 0
+        t = t-t%beats_map(min_time)
 
     for b0, b1 in iter_current_next(bars, end = bars[-1]+1):
 
         bar_times.setdefault(b0, t)
         if t < 0:
             t = 0
+        
         else:
             # multiply by diff between consecutive bar numbers
             n_bars = b1 - b0
@@ -1290,7 +1295,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                        / (note.Offset.denominator * (note.Offset.tuple_div or 1)))
 
         # anacrusis
-        if bar_start < 0 and bar_offset != 0 and beat_offset != 0:
+        if bar_start < 0 and (bar_offset != 0 or beat_offset != 0):
             # in case of fully counted anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
             # not active for shortened anacrusis measures
@@ -1332,7 +1337,6 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
         # and compound durations separately.
-
         if note.Duration.add_components:
             prev_part_note = None
 
@@ -1340,9 +1344,9 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                 # when we add multiple notes that are tied, the first note will
                 # get the original note id, and subsequent notes will get a
                 # derived note id (by appending, 'a', 'b', 'c',...)
-                # if i > 0:
-                    # tnote_id = 'n{}_{}'.format(note.Anchor, i)
-                    #note_attributes['id'] = score.make_tied_note_id(note_attributes['id'])
+                if i > 0:
+                    #tnote_id = 'n{}_{}'.format(note.Anchor, i)
+                    note_attributes['id'] = score._make_tied_note_id(note_attributes['id'])
 
 
                 part_note = score.Note(**note_attributes)
@@ -1360,7 +1364,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
                     part_note.tie_prev = prev_part_note
                 prev_part_note = part_note
                 onset_divs = offset_divs
-
+        
         else:
             num = note.Duration.numerator
             den = note.Duration.denominator
@@ -1380,10 +1384,15 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             
             part.add(part_note, onset_divs, offset_divs)
     
+
     # add time signatures
     for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
-        bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
-        bar_start_divs = max(0,bar_start_divs)
+        # check if time signature is in a known measure (from notes)
+        if ts_bar in bar_times.keys():  
+            bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
+            bar_start_divs = max(0,bar_start_divs)
+        else:
+            bar_start_divs = 0
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
 
 
@@ -1626,7 +1635,7 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = []
     for ped in mf.sustain_pedal:
-        sustain_pedal.append(dict(type='sustain_pedal',
+        sustain_pedal.append(dict(number=64,#type='sustain_pedal',
                                   time=ped.Time * mpq / (10**6 * ppq),
                                   value=ped.Value))
 

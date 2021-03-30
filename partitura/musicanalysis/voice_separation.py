@@ -3,11 +3,11 @@
 """Voice Separation using Chew and Wu's algorithm.
 
 """
-import numpy as np
-
-from collections import defaultdict
-from numpy import ma
 from statistics import mode
+from collections import defaultdict
+import numpy as np
+from numpy import ma
+from partitura.musicanalysis.utils import prepare_notearray
 
 __all__ = ['estimate_voices']
 
@@ -23,26 +23,38 @@ def rename_voices(voices):
                        dtype=voices.dtype)
 
 
-def prepare_notearray(notearray):
-    # * check whether notearray is a structured array
-    # * check whether it has pitch/onset/duration fields
-    # * return a copy of pitch/onset/duration fields with added id field
-    if notearray.dtype.fields is None:
-        raise ValueError('`notearray` must be a structured numpy array')
+# def prepare_notearray(notearray):
+#     # * check whether notearray is a structured array
+#     # * check whether it has pitch/onset/duration fields
+#     # * return a copy of pitch/onset/duration fields with added id field
+#     if notearray.dtype.fields is None:
+#         raise ValueError('`notearray` must be a structured numpy array')
 
-    req_fields = ('pitch', 'onset', 'duration')
-    for field in req_fields:
-        if field not in notearray.dtype.names:
-            raise ValueError('Input array does not contain required field {0}'.format(field))
+#     fields = ('pitch', 'onset', 'duration')
+#     time_units = ('div', 'quarter', 'beat', 'sec')
+#     onset_field = None
+#     duration_field = None
 
-    dtypes = dict(notearray.dtype.descr)
-    new_dtype = [(n, dtypes[n]) for n in req_fields] + [('id', 'i4')]
+#     for unit in time_units:
+#         onset_field = f'onset_{unit}'
+#         if onset_field in notearray.dtype.names:
+#             break
+#     for unit in time_units:
+#         duration_field = f'duration_{unit}'
+#         if duration_field in notearray.dtype.names:
+#             break
+#     # if field not in notearray.dtype.names:
+#     #     raise ValueError('Input array does not contain required field {0}'.format(field))
 
-    return np.fromiter(zip(notearray['pitch'],
-                           notearray['onset'],
-                           notearray['duration'],
-                           np.arange(len(notearray))),
-                       dtype=new_dtype)
+#     dtypes = dict(notearray.dtype.descr)
+#     new_dtype = [(n, dtypes[m]) for n, m in zip(fields, ['pitch', onset_field, duration_field])] + [('id', 'i4')]
+
+
+#     return np.fromiter(zip(notearray['pitch'],
+#                            notearray['onset_div'],
+#                            notearray['duration_div'],
+#                            np.arange(len(notearray))),
+#                        dtype=new_dtype)
 
 
 def argmax_pitch(idx, pitches):

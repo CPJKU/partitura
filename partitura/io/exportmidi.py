@@ -103,7 +103,7 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
         ch = c.get('channel', 1)
         t = int(np.round(10**6*ppq*c['time']/mpq))
         track_events[track][t].append(
-            Message('control_change', control=c['type'], value=c['value'], channel=ch))
+            Message('control_change', control=c['number'], value=c['value'], channel=ch))
 
     
     for n in performed_part.notes:

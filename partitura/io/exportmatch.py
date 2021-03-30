@@ -241,12 +241,12 @@ def matchfile_from_alignment(alignment, ppart, spart,
     for c in ppart.controls:
         t = seconds_to_midi_ticks(c['time'], mpq=mpq, ppq=ppq)
         value = int(c['value'])
-        if c['type'] == 'sustain_pedal':
+        if c['number'] == 64:#c['type'] == 'sustain_pedal':
             sustain_pedal = MatchSustainPedal(Time=t,
                                               Value=value)
             pedal_lines.append(sustain_pedal)
 
-        if c['type'] == 'soft_pedal':
+        if c['number'] == 67:#c['type'] == 'soft_pedal':
             soft_pedal = MatchSoftPedal(Time=t,
                                         Value=value)
             pedal_lines.append(soft_pedal)
