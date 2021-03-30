@@ -1,14 +1,15 @@
-import partitura
+# import partitura
 import partitura.score as score
 from lxml import etree
 from partitura.utils.generic import partition
-from partitura.utils.music import estimate_symbolic_duration
+# from partitura.utils.music import estimate_symbolic_duration
 from copy import copy
 
 
 name_space = "http://www.music-encoding.org/ns/mei"
 
 xml_id_string = "{http://www.w3.org/XML/1998/namespace}id"
+
 
 def extend_key(dict_of_lists, key, value):
     """extend or create a list at the given key in the given dictionary
@@ -31,9 +32,8 @@ def extend_key(dict_of_lists, key, value):
         dict_of_lists[key] = (value if isinstance(value, list) else [value])
 
 
-
-
-def calc_dur_dots_split_notes_first_temp_dur(note, measure, num_to_numbase_ratio=1):
+def calc_dur_dots_split_notes_first_temp_dur(note, measure,
+                                             num_to_numbase_ratio=1):
     """
     Notes have to be represented as a string of elemental notes (there is no notation for arbitrary durations)
     This function calculates this string (the durations of the elemental notes and their dot counts),
@@ -62,13 +62,13 @@ def calc_dur_dots_split_notes_first_temp_dur(note, measure, num_to_numbase_ratio
         duration of first elemental note in partitura time
     """
 
-    if measure=="pad":
+    if measure == "pad":
         return [], None, None
 
     if isinstance(note, score.GraceNote):
         main_note = note.main_note
         #HACK: main note should actually be always not None for a proper GraceNote
-        if main_note!=None:
+        if main_note is not None:
             dur_dots,_,_ = calc_dur_dots_split_notes_first_temp_dur(main_note, measure)
             dur_dots = [(2*dur_dots[0][0], dur_dots[0][1])]
         else:
@@ -157,7 +157,7 @@ def insert_elem_check(t, inbetween_notes_elems):
     """
 
     for ine in inbetween_notes_elems:
-        if ine.elem!=None and ine.elem.start.t<=t:
+        if ine.elem is not None and ine.elem.start.t<=t:
             return True
 
     return False
@@ -246,7 +246,7 @@ def first_instances_per_part(cls, parts, start=score.TimePoint(0), end=score.Tim
         raise ValueError("ERROR at first_instances_per_part: end times are given as list with different size to parts list")
 
     for i in range(len(parts)):
-        if start[i]==None and end[i]!=None or start[i]!=None and end[i]==None:
+        if start[i]==None and end[i] is not None or start[i] is not None and end[i]==None:
             raise ValueError("ERROR at first_instances_per_part: (start==None) != (end==None) (None elements in start have to be at same position as in end and vice versa)")
 
     instances_per_part=[]
@@ -381,7 +381,7 @@ def common_signature(cls, sig_eql, parts, current_measures=None):
         might be None if there is no commonality between parts
     """
     sigs = None
-    if current_measures!=None:
+    if current_measures is not None:
         #HACK:  measures should probably not contain "pad" at this point, but an actual dummy measure with start and end times?
         sigs = first_instance_per_part(cls, parts, start=[cm.start if cm!='pad' else None for cm in current_measures], end=[cm.end if cm!='pad' else None for cm in current_measures])
     else:
@@ -445,7 +445,7 @@ def attribs_of_clef(clef):
     if sign=="percussion":
         sign="perc"
 
-    if clef.octave_change!=None and clef.octave_change!=0:
+    if clef.octave_change is not None and clef.octave_change!=0:
         place = "above"
 
         if clef.octave_change<0:
@@ -751,7 +751,7 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
         elif open_beam and chord_i>0 and rep.beam!=chord_rep(chords,chord_i-1).beam:
             open_beam = handle_beam(False,parents)
 
-        if not auto_beaming and not open_beam and rep.beam!=None:
+        if not auto_beaming and not open_beam and rep.beam is not None:
            open_beam = handle_beam(True,parents)
 
         def conditional_gracify(elem, rep, chord_i, chords):
@@ -775,12 +775,15 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
 
 
         def create_note(parent, n, id, last_key_sig, note_alterations):
+
+            if last_key_sig is None:
+                last_key_sig = score.KeySignature(0, 'major')
             note=add_child(parent,"note")
 
             step = n.step.lower()
             set_attributes(note,(xml_id_string,id),("pname",step),("oct",n.octave))
 
-            if n.articulations!=None and len(n.articulations)>0:
+            if n.articulations is not None and len(n.articulations)>0:
                 artics = []
 
                 translation={
@@ -824,9 +827,6 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
                 set_accid(note, "s", note_alterations, staff_pos, alter)
             elif alter<0:
                 set_accid(note, "f", note_alterations, staff_pos, alter)
-
-
-            
 
             return note
 
@@ -881,7 +881,7 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
             create_split_up_notes(chord_notes, len(dur_dots)-1,parents,dur_dots,ties,rep)
 
 
-        if split_notes!=None:
+        if split_notes is not None:
 
 
             for n in chord_notes:
@@ -897,14 +897,14 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
                     ties[n.id]=[n.id, n.id+"s"]
 
         for n in chord_notes:
-            if n.tie_next!=None:
+            if n.tie_next is not None:
                 if n.id in ties.keys():
                     ties[n.id].append(n.tie_next.id)
                 else:
                     ties[n.id]=[n.id, n.tie_next.id]
 
     elif isinstance(rep,score.Rest):
-        if split_notes!=None:
+        if split_notes is not None:
             split_notes.append(score.Rest(id=rep.id+"s"))
 
         if measure=="pad" or measure.start.t == rep.start.t and measure.end.t == rep.end.t:
@@ -926,7 +926,7 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
                 set_attributes(rest,(xml_id_string,id))
                 set_dur_dots(rest,dur_dots[i])
 
-    if split_notes!=None:
+    if split_notes is not None:
         for sn in split_notes:
             sn.voice = rep.voice
             sn.start = measure.end
@@ -960,15 +960,15 @@ def create_score_def(measures, measure_i, parts, parent):
 
     score_def = None
 
-    if common_key_sig!=None or common_time_sig!=None:
+    if common_key_sig is not None or common_time_sig is not None:
         score_def = add_child(parent,"scoreDef")
 
-    if common_key_sig!=None:
+    if common_key_sig is not None:
         fifths, mode, pname = attribs_of_key_sig(common_key_sig)
 
         set_attributes(score_def,("key.sig",fifths),("key.mode", mode),("key.pname",pname))
 
-    if common_time_sig!=None:
+    if common_time_sig is not None:
         set_attributes(score_def,("meter.count",common_time_sig.beats),("meter.unit",common_time_sig.beat_type))
 
     return score_def
@@ -1080,7 +1080,7 @@ def extract_from_measures(parts, measures, measure_i, staves_per_part, auto_rest
             tstamp=calc_tstamp(beat_map, dynam.start.t, m)
             tstamp2=None
 
-            if dynam.end!=None:
+            if dynam.end is not None:
                 measure_counter = measure_i
                 while True:
                     if dynam.end.t<=measures[part_i][measure_counter].end.t:
@@ -1306,8 +1306,8 @@ def create_measure(section, measure_i, staves_sorted, notes_within_measure_per_s
 
             inbetween_notes_elements = [
                 InbetweenNotesElement("clef", ["shape","line","dis","dis.place"], attribs_of_clef, current_measure_content.clefs_per_staff, s, int(measure_i==0)),
-                InbetweenNotesElement("keySig", ["sig","mode","pname","sig.showchange"], (lambda ks: attribs_of_key_sig(ks)+("true",)), current_measure_content.key_sigs_per_staff, s, int(score_def!=None)),
-                InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), current_measure_content.time_sigs_per_staff, s, int(score_def!=None))
+                InbetweenNotesElement("keySig", ["sig","mode","pname","sig.showchange"], (lambda ks: attribs_of_key_sig(ks)+("true",)), current_measure_content.key_sigs_per_staff, s, int(score_def is not None)),
+                InbetweenNotesElement("meterSig", ["count","unit"], lambda ts: (ts.beats, ts.beat_type), current_measure_content.time_sigs_per_staff, s, int(score_def is not None))
             ]
 
             open_tuplet = False
@@ -1392,7 +1392,7 @@ def create_measure(section, measure_i, staves_sorted, notes_within_measure_per_s
             set_attributes(d, ("form",form))
 
             # duration can also matter for other dynamics, might want to move this out of branch
-            if tstamp2!=None:
+            if tstamp2 is not None:
                 set_attributes(d,("tstamp2",tstamp2))
         else:
             d = add_child(measure, "dynam")
@@ -1574,10 +1574,10 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
         for i,p in enumerate(parts):
             for cls in classes_with_staff:
                 for staff_obj in p.iter_all(cls,include_subclasses=True):
-                    staff_obj.staff = max_staff + (staff_obj.staff if staff_obj.staff!=None else max(staves_per_part_backup[i]))
+                    staff_obj.staff = max_staff + (staff_obj.staff if staff_obj.staff is not None else max(staves_per_part_backup[i]))
 
             for clef in p.iter_all(score.Clef):
-                clef.number=max_staff + (clef.number if clef.number!=None else max(staves_per_part_backup[i]))
+                clef.number=max_staff + (clef.number if clef.number is not None else max(staves_per_part_backup[i]))
 
             max_staff+=(max(staves_per_part_backup[i]) if len(staves_per_part_backup[i])>0 else 0)
 
@@ -1617,6 +1617,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
         clefs_per_part[i] = partition_handle_none(lambda c:c.number, clefs_per_part[i], "number")
 
     if len(clefs_per_part)==0:
+        staff_grp = add_child(score_def_setup,"staffGrp")
         create_staff_def(staff_grp, score.Clef(sign="G",line=2, number=1, octave_change=0))
     else:
         staff_grp = add_child(score_def_setup,"staffGrp")
@@ -1632,7 +1633,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
                         clefs = clefs_per_staff[s]
                         break
 
-                if clefs!=None:
+                if clefs is not None:
                     clef = clefs[0]
                     if len(clefs)!=1:
                         raise ValueError("ERROR at staff_def creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0")
