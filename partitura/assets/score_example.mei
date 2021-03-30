@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mei>
+  <meiHead xmlns="http://www.music-encoding.org/ns/mei">
+    <fileDesc>
+      <titleStmt>
+        <title type="main">score_example</title>
+      </titleStmt>
+      <pubStmt/>
+    </fileDesc>
+  </meiHead>
+  <music>
+    <body>
+      <mdiv>
+        <score>
+          <scoreDef meter.count="4" meter.unit="4">
+            <staffGrp>
+              <staffDef n="1" lines="5" clef.shape="G" clef.line="2"/>
+            </staffGrp>
+          </scoreDef>
+          <section>
+            <measure n="1">
+              <staff n="1">
+                <layer n="2">
+                  <rest xml:id="r01" dur="2"/>
+                  <chord dur="2">
+                    <note xml:id="n02" pname="c" oct="5"/>
+                    <note xml:id="n03" pname="e" oct="5"/>
+                  </chord>
+                </layer>
+              </staff>
+              <staff n="2">
+                <layer n="1">
+                  <note xml:id="n01" pname="a" oct="4" dur="1"/>
+                </layer>
+              </staff>
+            </measure>
+          </section>
+        </score>
+      </mdiv>
+    </body>
+  </music>
+</mei>

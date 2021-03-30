@@ -2,6 +2,7 @@
 from copy import copy
 import logging
 from lxml import etree
+import os
 
 import partitura.score as score
 from partitura.utils.generic import partition
@@ -545,20 +546,18 @@ def pad_measure(s, measure_per_staff, notes_within_measure_per_staff,
     """
 
     measure_per_staff[s] = "pad"
-    r = score.Rest(id="pR"+str(auto_rest_count), voice=1)
+    r = score.Rest(id="pR" + str(auto_rest_count), voice=1)
     r.start = score.TimePoint(0)
     r.end = r.start
 
     extend_key(notes_within_measure_per_staff, s, r)
-    return auto_rest_count+1
+    return auto_rest_count + 1
 
 
-
-
-class InbetweenNotesElement:
+class InbetweenNotesElement(object):
     """
-    InbetweenNotesElements contain information on objects like clefs, keysignatures, etc
-    within the score and how to process them
+    InbetweenNotesElements contain information on objects like clefs,
+    keysignatures, etc. within the score and how to process them
 
     Parameters
     ----------
@@ -590,26 +589,34 @@ class InbetweenNotesElement:
         cursor that keeps track of position in container
     """
 
-    __slots__ = ["name","attrib_names","attrib_vals_of","container","i","elem"]
+    __slots__ = ["name",
+                 "attrib_names",
+                 "attrib_vals_of",
+                 "container",
+                 "i",
+                 "elem"]
 
-    def __init__(self, name, attrib_names, attrib_vals_of, container_dict, staff, skip_index):
+    def __init__(self, name, attrib_names, attrib_vals_of,
+                 container_dict, staff, skip_index):
         self.name = name
         self.attrib_names = attrib_names
         self.attrib_vals_of = attrib_vals_of
 
-        self.i=0
-        self.elem=None
+        self.i = 0
+        self.elem = None
 
         if staff in container_dict.keys():
             self.container = container_dict[staff]
-            if len(self.container)>skip_index:
+            if len(self.container) > skip_index:
                 self.elem = self.container[skip_index]
-                self.i=skip_index
+                self.i = skip_index
         else:
-            self.container=[]
+            self.container = []
 
-def chord_rep(chords,chord_i):
-        return chords[chord_i][0]
+
+def chord_rep(chords, chord_i):
+    return chords[chord_i][0]
+
 
 def handle_beam(open_up, parents):
     """
@@ -627,12 +634,11 @@ def handle_beam(open_up, parents):
     unchanged open_up value
     """
     if open_up:
-        parents.append(add_child(parents[-1],"beam"))
+        parents.append(add_child(parents[-1], "beam"))
     else:
         parents.pop()
 
     return open_up
-
 
 
 def is_chord_in_tuplet(chord_i, tuplet_indices):
@@ -651,10 +657,11 @@ def is_chord_in_tuplet(chord_i, tuplet_indices):
     whether chord falls in the range of a tuplet
     """
     for start, stop in tuplet_indices:
-        if start<=chord_i and chord_i<=stop:
+        if start <= chord_i and chord_i <= stop:
             return True
 
     return False
+
 
 def calc_num_to_numbase_ratio(chord_i, chords, tuplet_indices):
     """
@@ -674,15 +681,22 @@ def calc_num_to_numbase_ratio(chord_i, chords, tuplet_indices):
     the num to numbase ratio of a tuplet (eg. 3 in 2 tuplet is 1.5)
     """
     rep = chords[chord_i][0]
-    if not isinstance(rep,score.GraceNote) and is_chord_in_tuplet(chord_i, tuplet_indices):
+    if not isinstance(rep, score.GraceNote) and is_chord_in_tuplet(chord_i, tuplet_indices):
         return rep.symbolic_duration["actual_notes"]/rep.symbolic_duration["normal_notes"]
     return 1
 
-def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_beaming, parents, dur_dots, split_notes, first_temp_dur, tuplet_indices, ties, measure, layer, tuplet_id_counter, open_tuplet, last_key_sig, note_alterations, notes_next_measure_per_staff, next_dur_dots=None):
+
+def process_chord(chord_i, chords, inbetween_notes_elements, open_beam,
+                  auto_beaming, parents, dur_dots, split_notes,
+                  first_temp_dur, tuplet_indices, ties, measure, layer,
+                  tuplet_id_counter, open_tuplet, last_key_sig,
+                  note_alterations, notes_next_measure_per_staff,
+                  next_dur_dots=None):
     """
     creates <note>, <chord>, <rest>, etc elements from chords
     also creates <beam>, <tuplet>, etc elements if necessary for chords objects
-    also creates <clef>, <keySig>, etc elements before chord objects from inbetween_notes_elements
+    also creates <clef>, <keySig>, etc elements before chord objects from
+    inbetween_notes_elements
 
     Parameters
     ----------
@@ -691,26 +705,30 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
     chords:                     list of list of score.GenericNote
         chord array
     inbetween_notes_elements:     list of InbetweenNotesElements
-        check this to see if something like clef needs to get inserted before chord
+        check this to see if something like clef needs to get inserted before
+        chord
     open_beam:                   boolean
         flag that indicates whether a beam is currently open
     auto_beaming:                boolean
-        flag that determines if automatic beams should be created or if it is kept manual
+        flag that determines if automatic beams should be created or if it is
+        kept manual
     parents:                    list of etree.SubElement
         stack of MEI elements that contain the most recent beam element
     dur_dots:                   list of int pairs
-        describes how the chord actually gets notated via tied notes, each pair contains the duration of the notated note and its dot count
+        describes how the chord actually gets notated via tied notes, each pair
+        contains the duration of the notated note and its dot count
     split_notes:                 list
         this is either empty or None
         if None, nothing is done with this
-        if an empty list, that means this chord crosses into the next measure and a chord is created for the next measure which is tied to this one
+        if an empty list, that means this chord crosses into the next measure
+        and a chord is created for the next measure which is tied to this one
     first_temp_dur:               int
         amount of ticks (as in partitura) of the first notated note
     tuplet_indices:              list of int pairs
         the ranges of tuplets within the chords array
     ties:                       dict
-        out parameter, contains pairs of IDs which need to be connected via ties
-        this function also adds to that
+        out parameter, contains pairs of IDs which need to be connected via
+        ties. This function also adds to that
     measure:                    score.Measure
 
     layer:                      etree.SubElement
@@ -722,7 +740,8 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
     last_key_sig:                 score.KeySignature
         the key signature this chord should be interpeted in
     note_alterations:            dict
-        contains the alterations of staff positions (notes) that are relevant for this chord
+        contains the alterations of staff positions (notes) that are relevant
+        for this chord
     notes_next_measure_per_staff: dict of lists of score.GenericNote
         out parameter, add the result of split_notes into this
     next_dur_dots:              list of int pairs, optional
@@ -743,168 +762,203 @@ def process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_bea
 
     for ine in inbetween_notes_elements:
         if insert_elem_check(rep.start.t, [ine]):
-            # note should maybe be split according to keysig or clef etc insertion time, right now only beaming is disrupted
+            # note should maybe be split according to keysig or clef etc
+            # insertion time, right now only beaming is disrupted
             if open_beam and auto_beaming:
-                open_beam = handle_beam(False,parents)
+                open_beam = handle_beam(False, parents)
 
             xml_elem = add_child(parents[-1], ine.name)
             attrib_vals = ine.attrib_vals_of(ine.elem)
 
-            if ine.name=="keySig":
+            if ine.name == "keySig":
                 last_key_sig = ine.elem
 
-            if len(ine.attrib_names)<len(attrib_vals):
-                raise ValueError("ERROR at insertion of inbetween_notes_elements: there are more attribute values than there are attribute names for xml element "+ine.name)
+            if len(ine.attrib_names) < len(attrib_vals):
+                raise ValueError("ERROR at insertion of "
+                                 "inbetween_notes_elements: there are "
+                                 "more attribute values than there are "
+                                 "attribute names for xml element "+ine.name)
 
             for nv in zip(ine.attrib_names[:len(attrib_vals)], attrib_vals):
-                set_attributes(xml_elem,nv)
+                set_attributes(xml_elem, nv)
 
-            if ine.i+1>=len(ine.container):
+            if ine.i+1 >= len(ine.container):
                 ine.elem = None
             else:
-                ine.i+=1
+                ine.i += 1
                 ine.elem = ine.container[ine.i]
 
     if is_chord_in_tuplet(chord_i, tuplet_indices):
         if not open_tuplet:
-            parents.append(add_child(parents[-1],"tuplet"))
+            parents.append(add_child(parents[-1], "tuplet"))
             num = rep.symbolic_duration["actual_notes"]
             numbase = rep.symbolic_duration["normal_notes"]
-            set_attributes(parents[-1], (xml_id_string,"t"+str(tuplet_id_counter)), ("num",num), ("numbase",numbase))
-            tuplet_id_counter+=1
+            set_attributes(parents[-1],
+                           (xml_id_string,
+                            "t" + str(tuplet_id_counter)),
+                           ("num", num),
+                           ("numbase", numbase))
+            tuplet_id_counter += 1
             open_tuplet = True
     elif open_tuplet:
         parents.pop()
         open_tuplet = False
 
-    def set_dur_dots(elem,dur_dots):
-        dur,dots=dur_dots
-        set_attributes(elem,("dur",dur))
+    def set_dur_dots(elem, dur_dots):
+        dur, dots = dur_dots
+        set_attributes(elem, ("dur", dur))
 
-        if dots>0:
-            set_attributes(elem,("dots",dots))
+        if dots > 0:
+            set_attributes(elem, ("dots", dots))
 
-    if isinstance(rep,score.Note):
+    if isinstance(rep, score.Note):
         if auto_beaming:
-            # for now all notes are beamed, however some rules should be obeyed there, see Note Beaming and Grouping
+            # for now all notes are beamed, however some rules should be
+            # obeyed there, see Note Beaming and Grouping
 
             # check to close beam
-            if open_beam and (dur_dots[0][0]<8 or chord_i-1>=0 and type(rep)!=type(chord_rep(chords, chord_i-1))):
-                open_beam = handle_beam(False,parents)
+            if (open_beam and
+                (dur_dots[0][0] < 8 or
+                 chord_i-1 >= 0 and
+                 isinstance(rep, type(chord_rep(chords, chord_i-1))))):
+
+                open_beam = handle_beam(False, parents)
 
             # check to open beam (maybe again)
-            if not open_beam and dur_dots[0][0]>=8:
-                # open beam if there are multiple "consecutive notes" which don't get interrupted by some element
-                if len(dur_dots)>1 and not insert_elem_check(rep.start.t+first_temp_dur, inbetween_notes_elements):
-                    open_beam=handle_beam(True,parents)
+            if not open_beam and dur_dots[0][0] >= 8:
+                # open beam if there are multiple "consecutive notes" which
+                # don't get interrupted by some element
+                if (len(dur_dots) > 1 and not
+                    insert_elem_check(rep.start.t + first_temp_dur,
+                                      inbetween_notes_elements)):
+                    open_beam = handle_beam(True, parents)
 
-                # open beam if there is just a single note that is not the last one in measure and next note in measure is of same type and fits in beam as well, without getting interrupted by some element
-                elif len(dur_dots)<=1 and chord_i+1<len(chords) and next_dur_dots[0][0]>=8 and type(rep)==type(chord_rep(chords,chord_i+1)) and not insert_elem_check(chord_rep(chords,chord_i+1).start.t, inbetween_notes_elements):
-                    open_beam = handle_beam(True,parents)
-        elif open_beam and chord_i>0 and rep.beam!=chord_rep(chords,chord_i-1).beam:
-            open_beam = handle_beam(False,parents)
+                # open beam if there is just a single note that is not the last
+                # one in measure and next note in measure is of same type and
+                # fits in beam as well, without getting interrupted by some
+                # element
+                elif (len(dur_dots) <= 1 and
+                      chord_i+1 < len(chords) and
+                      next_dur_dots[0][0] >= 8 and
+                      isinstance(rep, type(chord_rep(chords, chord_i+1))) and
+                      not insert_elem_check(chord_rep(chords,
+                                                      chord_i+1).start.t,
+                                            inbetween_notes_elements)):
+                    open_beam = handle_beam(True, parents)
+        elif (open_beam and
+              chord_i > 0 and
+              rep.beam != chord_rep(chords, chord_i-1).beam):
+            open_beam = handle_beam(False, parents)
 
         if not auto_beaming and not open_beam and rep.beam is not None:
-           open_beam = handle_beam(True,parents)
+            open_beam = handle_beam(True, parents)
 
         def conditional_gracify(elem, rep, chord_i, chords):
-            if isinstance(rep,score.GraceNote):
+            if isinstance(rep, score.GraceNote):
                 grace = "unacc"
 
                 if rep.grace_type == "appoggiatura":
                     grace = "acc"
 
-                set_attributes(elem,("grace",grace))
+                set_attributes(elem, ("grace", grace))
 
-                if rep.steal_proportion != None:
-                    set_attributes(elem,("grace.time",str(rep.steal_proportion*100)+"%"))
+                if rep.steal_proportion is not None:
+                    set_attributes(elem, ("grace.time",
+                                          str(rep.steal_proportion*100) + "%"))
 
-                if chord_i==0 or not isinstance(chord_rep(chords,chord_i-1), score.GraceNote):
-                    chords[chord_i]=[copy(n) for n in chords[chord_i]]
+                if (chord_i == 0 or
+                    not isinstance(chord_rep(chords, chord_i-1),
+                                   score.GraceNote)):
+                    chords[chord_i] = [copy(n) for n in chords[chord_i]]
 
                     for n in chords[chord_i]:
                         n.tie_next = n.main_note
-
-
 
         def create_note(parent, n, id, last_key_sig, note_alterations):
 
             if last_key_sig is None:
                 last_key_sig = score.KeySignature(0, 'major')
-            note=add_child(parent,"note")
+            note = add_child(parent,"note")
 
             step = n.step.lower()
-            set_attributes(note,(xml_id_string,id),("pname",step),("oct",n.octave))
+            set_attributes(note,
+                           (xml_id_string, id),
+                           ("pname",step),
+                           ("oct",n.octave))
 
-            if n.articulations is not None and len(n.articulations)>0:
+            if n.articulations is not None and len(n.articulations) > 0:
                 artics = []
 
-                translation={
-                    "accent":           "acc",
-                    "staccato":         "stacc",
-                    "tenuto":           "ten",
-                    "staccatissimo":    "stacciss",
-                    'spiccato':         "spicc",
-                     'scoop':           "scoop",
-                     'plop':            "plop",
-                     'doit':            "doit"
+                translation = {
+                    "accent": "acc",
+                    "staccato": "stacc",
+                    "tenuto": "ten",
+                    "staccatissimo": "stacciss",
+                    'spiccato': "spicc",
+                    "scoop": "scoop",
+                    "plop": "plop",
+                    "doit": "doit"
                 }
 
                 for a in n.articulations:
                     if a in translation.keys():
                         artics.append(translation[a])
-                set_attributes(note,("artic"," ".join(artics)))
+                set_attributes(note, ("artic", " ".join(artics)))
 
-            sharps=['f','c','g','d','a','e','b']
-            flats=list(reversed(sharps))
+            sharps = ['f', 'c', 'g', 'd', 'a', 'e', 'b']
+            flats = list(reversed(sharps))
 
-            staff_pos = step+str(n.octave)
+            staff_pos = step + str(n.octave)
 
             alter = n.alter or 0
 
             def set_accid(note, acc, note_alterations, staff_pos, alter):
-                if staff_pos in note_alterations.keys() and alter==note_alterations[staff_pos]:
+                if (staff_pos in note_alterations.keys() and
+                    alter == note_alterations[staff_pos]):
                     return
-                set_attributes(note, ("accid",acc))
-                note_alterations[staff_pos]=alter
+                set_attributes(note, ("accid", acc))
+                note_alterations[staff_pos] = alter
 
             # sharpen note if: is sharp, is not sharpened by key or prev alt
             # flatten note if: is flat, is not flattened by key or prev alt
             # neutralize note if: is neutral, is sharpened/flattened by key or prev alt
 
             # check if note is sharpened/flattened by prev alt or key
-            if staff_pos in note_alterations.keys() and note_alterations[staff_pos]!=0 or last_key_sig.fifths>0 and step in sharps[:last_key_sig.fifths] or last_key_sig.fifths<0 and step in flats[:-last_key_sig.fifths]:
-                if alter==0:
+            if (staff_pos in note_alterations.keys() and
+                note_alterations[staff_pos] != 0 or
+                last_key_sig.fifths > 0 and
+                step in sharps[:last_key_sig.fifths] or
+                last_key_sig.fifths < 0 and
+                step in flats[:-last_key_sig.fifths]):
+                
+                if alter == 0:
                     set_accid(note, "n", note_alterations, staff_pos, alter)
-            elif alter>0:
+            elif alter > 0:
                 set_accid(note, "s", note_alterations, staff_pos, alter)
-            elif alter<0:
+            elif alter < 0:
                 set_accid(note, "f", note_alterations, staff_pos, alter)
 
             return note
 
+        if len(chord_notes) > 1:
+            chord = add_child(parents[-1], "chord")
 
-
-        if len(chord_notes)>1:
-            chord = add_child(parents[-1],"chord")
-
-            set_dur_dots(chord,dur_dots[0])
+            set_dur_dots(chord, dur_dots[0])
 
             conditional_gracify(chord, rep, chord_i, chords)
 
             for n in chord_notes:
                 create_note(chord, n, n.id, last_key_sig, note_alterations)
-
-
         else:
-            note=create_note(parents[-1], rep, rep.id, last_key_sig, note_alterations)
-            set_dur_dots(note,dur_dots[0])
+            note = create_note(parents[-1], rep, rep.id,
+                               last_key_sig, note_alterations)
+            set_dur_dots(note, dur_dots[0])
 
-            conditional_gracify(note,rep, chord_i, chords)
+            conditional_gracify(note, rep, chord_i, chords)
 
-        if len(dur_dots)>1:
+        if len(dur_dots) > 1:
             for n in chord_notes:
-                ties[n.id]=[n.id]
+                ties[n.id] = [n.id]
 
             def create_split_up_notes(chord_notes, i, parents, dur_dots, ties, rep):
                 if len(chord_notes)>1:
@@ -1370,13 +1424,15 @@ def create_measure(section, measure_i, staves_sorted, notes_within_measure_per_s
             for chord_i in range(len(chords)-1):
                 dur_dots,split_notes, first_temp_dur = next_dur_dots, next_split_notes, next_first_temp_dur
                 next_dur_dots, next_split_notes, next_first_temp_dur = calc_dur_dots_split_notes_first_temp_dur(chord_rep(chords,chord_i+1), m, calc_num_to_numbase_ratio(chord_i+1, chords, tuplet_indices))
-                tuplet_id_counter, open_beam, open_tuplet=process_chord(chord_i, chords, inbetween_notes_elements, open_beam, auto_beaming, parents, dur_dots, split_notes, first_temp_dur, tuplet_indices, ties, m, layer, tuplet_id_counter, open_tuplet, last_key_sig, note_alterations, notes_next_measure_per_staff, next_dur_dots)
-
+                tuplet_id_counter, open_beam, open_tuplet = process_chord(
+                    chord_i, chords, inbetween_notes_elements,
+                    open_beam, auto_beaming, parents, dur_dots,
+                    split_notes, first_temp_dur, tuplet_indices,
+                    ties, m, layer, tuplet_id_counter,
+                    open_tuplet, last_key_sig, note_alterations,
+                    notes_next_measure_per_staff, next_dur_dots)
 
             tuplet_id_counter,_,_=process_chord(len(chords)-1, chords, inbetween_notes_elements, open_beam, auto_beaming, parents, next_dur_dots, next_split_notes, next_first_temp_dur, tuplet_indices, ties, m, layer,tuplet_id_counter, open_tuplet, last_key_sig, note_alterations, notes_next_measure_per_staff)
-
-
-
 
             ties_per_staff_per_voice[voice]=ties
 
@@ -1453,14 +1509,6 @@ def create_measure(section, measure_i, staves_sorted, notes_within_measure_per_s
 
         set_attributes(d,("staff",dynam.staff),("tstamp",tstamp))
 
-
-
-
-
-
-
-
-
     for s,tps in ties_per_staff.items():
 
         for v,tpspv in tps.items():
@@ -1477,6 +1525,7 @@ def create_measure(section, measure_i, staves_sorted, notes_within_measure_per_s
             last_key_sig_per_staff[s]=max(k,key=lambda k:k.start.t)
 
     return tuplet_id_counter, notes_next_measure_per_staff
+
 
 def unpack_part_group(part_grp, parts=[]):
     """
@@ -1500,10 +1549,9 @@ def unpack_part_group(part_grp, parts=[]):
     return parts
 
 
-
-
-
-def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None, proper_staff_grp=False):
+def save_mei(parts, out=None,
+             auto_beaming=True,
+             title_text=None, proper_staff_grp=False):
     """
     creates an MEI document based on the parts provided
     So far only <score> is used and not <part> which means all the parts are gathered in one whole score and
@@ -1515,8 +1563,8 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
     auto_beaming:       boolean, optional
         if all beaming has been done manually then set to False
         otherwise this flag can be used to enable automatic beaming (beaming rules are still in progess)
-    file_name:          string, optional
-        should not contain file extension, .mei will be added automatically
+    out: str, file-like object, or None, optional
+        Output file
     title_text:         string, optional
         name of the piece, e.g. "Klaviersonate Nr. 14" or "WAP"
         if not provided, a title will be derived from file_name
@@ -1527,7 +1575,7 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
     """
 
     if isinstance(parts, score.PartGroup):
-        parts=unpack_part_group(parts)
+        parts = unpack_part_group(parts)
     elif isinstance(parts, score.Part):
         parts = [parts]
 
@@ -1536,69 +1584,70 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
 
     mei = etree.Element("mei")
 
-    mei_head=add_child(mei,"meiHead")
-    music = add_child(mei,"music")
+    mei_head = add_child(mei, "meiHead")
+    music = add_child(mei, "music")
 
+    mei_head.set("xmlns", name_space)
+    file_desc = add_child(mei_head, "fileDesc")
+    title_stmt = add_child(file_desc, "titleStmt")
+    pub_stmt = add_child(file_desc, "pubStmt")
+    title = add_child(title_stmt, "title")
+    title.set("type", "main")
 
-
-    mei_head.set("xmlns",name_space)
-    file_desc = add_child(mei_head,"fileDesc")
-    title_stmt=add_child(file_desc,"titleStmt")
-    pub_stmt=add_child(file_desc,"pubStmt")
-    title=add_child(title_stmt,"title")
-    title.set("type","main")
-
-    #derive a title for the piece from the file_name
+    # derive a title for the piece from the file_name
     if title_text is None:
-        cursor=len(file_name)-1
-        while cursor>=0 and file_name[cursor]!="/":
-            cursor-=1
 
-        tmp = file_name[cursor+1:].split("_")
-        tmp = [s[:1].upper()+s[1:] for s in tmp]
-        title.text = " ".join(tmp)
+        if isinstance(out, str):
+            title.text = os.path.splitext(os.path.basename(out))[0]
+        else:
+            title.text = 'Title'
+        # cursor=len(file_name)-1
+        # while cursor>=0 and file_name[cursor] != "/":
+        #     cursor-=1
+
+        # tmp = file_name[cursor+1:].split("_")
+        # tmp = [s[:1].upper()+s[1:] for s in tmp]
+        # title.text = " ".join(tmp)
     else:
-        title.text=title_text
+        title.text = title_text
 
-    body = add_child(music,"body")
-    mdiv=add_child(body,"mdiv")
-    mei_score=add_child(mdiv,"score")
-
+    body = add_child(music, "body")
+    mdiv = add_child(body, "mdiv")
+    mei_score = add_child(mdiv, "score")
 
     classes_with_staff = [score.GenericNote, score.Words, score.Direction]
 
-
-
-    staves_per_part=[]
+    staves_per_part = []
 
     staves_are_valid = True
 
     for p in parts:
-        tmp = {staffed_obj.staff for cls in classes_with_staff for staffed_obj in p.iter_all(cls,include_subclasses=True)}
+        tmp = {staffed_obj.staff for cls in classes_with_staff
+               for staffed_obj in p.iter_all(cls, include_subclasses=True)}
         tmp = tmp.union({clef.number for clef in p.iter_all(score.Clef)})
         staves_per_part.append(list(tmp))
 
         if None in staves_per_part[-1]:
-            staves_are_valid=False
+            staves_are_valid = False
             staves_per_part[-1].remove(None)
 
-            staves_per_part[-1].append((max(staves_per_part[-1]) if len(staves_per_part[-1])>0 else 0)+1)
+            staves_per_part[-1].append(
+                (max(staves_per_part[-1])
+                 if len(staves_per_part[-1]) > 0 else 0) + 1)
 
         staves_per_part[-1].sort()
 
     if staves_are_valid:
-        staves_sorted = sorted([s for staves in staves_per_part for s in staves])
+        staves_sorted = sorted([s for staves in staves_per_part
+                                for s in staves])
 
-        i=0
+        i = 0
 
-        while i+1<len(staves_sorted):
-            if staves_sorted[i]==staves_sorted[i+1]:
-                staves_are_valid=False
+        while i+1 < len(staves_sorted):
+            if staves_sorted[i] == staves_sorted[i+1]:
+                staves_are_valid = False
                 break
-
-            i+=1
-
-
+            i += 1
 
     if not staves_are_valid:
         staves_per_part_backup = staves_per_part
@@ -1606,33 +1655,31 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
         staves_sorted = []
         staves_per_part = []
 
-
-        #ASSUMPTION: staves are >0
+        # ASSUMPTION: staves are >0
         max_staff = 0
         for staves in staves_per_part_backup:
-            if len(staves)==0:
+            if len(staves) == 0:
                 staves_per_part.append([])
             else:
                 shift = [s+max_staff for s in staves]
 
-                max_staff+=max(staves)
+                max_staff += max(staves)
 
                 staves_sorted.extend(shift)
                 staves_per_part.append(shift)
 
-
-        #staves_sorted.sort()
-
         max_staff = 0
-        for i,p in enumerate(parts):
+        for i, p in enumerate(parts):
             for cls in classes_with_staff:
-                for staff_obj in p.iter_all(cls,include_subclasses=True):
-                    staff_obj.staff = max_staff + (staff_obj.staff if staff_obj.staff is not None else max(staves_per_part_backup[i]))
+                for staff_obj in p.iter_all(cls, include_subclasses=True):
+                    staff_obj.staff = (max_staff +
+                                       (staff_obj.staff if staff_obj.staff is not None else max(staves_per_part_backup[i])))
 
             for clef in p.iter_all(score.Clef):
-                clef.number=max_staff + (clef.number if clef.number is not None else max(staves_per_part_backup[i]))
+                clef.number = max_staff + (clef.number if clef.number is not None else max(staves_per_part_backup[i]))
 
-            max_staff+=(max(staves_per_part_backup[i]) if len(staves_per_part_backup[i])>0 else 0)
+            max_staff += (max(staves_per_part_backup[i])
+                          if len(staves_per_part_backup[i]) > 0 else 0)
 
     measures = [list(parts[0].iter_all(score.Measure))]
     padding_required = False
@@ -1644,39 +1691,34 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
             max_length = len(m)
 
         if not padding_required:
-            padding_required = (len(m)!=len(measures[0]))
+            padding_required = (len(m) != len(measures[0]))
 
         measures.append(m)
-
-
-
-
-
-
-
 
     score_def = create_score_def(measures, 0, parts, mei_score)
 
     score_def_setup = score_def
 
     if score_def is None:
-        score_def_setup = add_child(mei_score,"scoreDef")
+        score_def_setup = add_child(mei_score, "scoreDef")
 
-    clefs_per_part=first_instances_per_part(score.Clef, parts)
-
+    clefs_per_part = first_instances_per_part(score.Clef, parts)
 
 
     for i in idx(clefs_per_part):
-        clefs_per_part[i] = partition_handle_none(lambda c:c.number, clefs_per_part[i], "number")
+        clefs_per_part[i] = partition_handle_none(lambda c: c.number,
+                                                  clefs_per_part[i], "number")
 
-    if len(clefs_per_part)==0:
-        staff_grp = add_child(score_def_setup,"staffGrp")
-        create_staff_def(staff_grp, score.Clef(sign="G",line=2, number=1, octave_change=0))
+    if len(clefs_per_part) == 0:
+        staff_grp = add_child(score_def_setup, "staffGrp")
+        create_staff_def(staff_grp, score.Clef(sign="G",
+                                               line=2, number=1,
+                                               octave_change=0))
     else:
-        staff_grp = add_child(score_def_setup,"staffGrp")
+        staff_grp = add_child(score_def_setup, "staffGrp")
         for staves in staves_per_part:
             if proper_staff_grp:
-                staff_grp = add_child(score_def_setup,"staffGrp")
+                staff_grp = add_child(score_def_setup, "staffGrp")
 
             for s in staves:
                 clefs = None
@@ -1689,15 +1731,17 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
                 if clefs is not None:
                     clef = clefs[0]
                     if len(clefs)!=1:
-                        raise ValueError("ERROR at staff_def creation: Staff "+str(clef.number)+" starts with more than 1 clef at t=0")
+                        raise ValueError("ERROR at staff_def creation: Staff " +
+                                         str(clef.number) + " starts with more "
+                                         "than 1 clef at t=0")
                     create_staff_def(staff_grp, clef)
                 else:
-                    create_staff_def(staff_grp, score.Clef(sign="G",line=2, number=s, octave_change=0))
+                    create_staff_def(staff_grp, score.Clef(sign="G",
+                                                           line=2,
+                                                           number=s,
+                                                           octave_change=0))
 
-
-    section = add_child(mei_score,"section")
-
-
+    section = add_child(mei_score, "section")
 
     measures_are_aligned = True
     if padding_required:
@@ -1706,42 +1750,45 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
 
         while measures_are_aligned:
             compare_measures = {}
-            for i,m in enumerate(measures):
-                if cursors[i]<len(m):
-                    compare_measures[i]=m[cursors[i]]
-                    cursors[i]+=1
+            for i, m in enumerate(measures):
+                if cursors[i] < len(m):
+                    compare_measures[i] = m[cursors[i]]
+                    cursors[i] += 1
 
-
-            if len(compare_measures)==0:
+            if len(compare_measures) == 0:
                 break
 
             compm_keys = list(compare_measures.keys())
 
-            new_tempii = first_instance_per_part(score.Tempo, [p for i, p in enumerate(parts) if i in compm_keys], start=[cm.start for cm in compare_measures.values()], end=[cm.end for cm in compare_measures.values()])
+            new_tempii = first_instance_per_part(
+                score.Tempo,
+                [p for i, p in enumerate(parts) if i in compm_keys],
+                start=[cm.start for cm in compare_measures.values()],
+                end=[cm.end for cm in compare_measures.values()])
 
-            if len(new_tempii)==0:
+            if len(new_tempii) == 0:
                 for k in compm_keys:
                     new_tempii.append(tempii[k])
             else:
-                for i,nt in enumerate(new_tempii):
+                for i, nt in enumerate(new_tempii):
                     if nt is None:
-                        new_tempii[i]=tempii[compm_keys[i]]
+                        new_tempii[i] = tempii[compm_keys[i]]
                     else:
-                        tempii[compm_keys[i]]=nt
+                        tempii[compm_keys[i]] = nt
 
             def norm_dur(m):
                 return (m.end.t-m.start.t)//m.start.quarter
 
-            rep_i=0
-            while rep_i<len(new_tempii) and new_tempii[rep_i] is None:
-                rep_i+=1
+            rep_i = 0
+            while rep_i < len(new_tempii) and new_tempii[rep_i] is None:
+                rep_i += 1
 
-            if rep_i==len(new_tempii):
+            if rep_i == len(new_tempii):
                 continue
 
             rep_dur = norm_dur(compare_measures[compm_keys[rep_i]])*new_tempii[rep_i].bpm
 
-            for i in range(rep_i+1,len(compm_keys)):
+            for i in range(rep_i+1, len(compm_keys)):
                 nt = new_tempii[i]
 
                 if nt is None:
@@ -1750,8 +1797,8 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
                 m = compare_measures[compm_keys[i]]
                 dur = norm_dur(m)*new_tempii[i].bpm
 
-                if dur!=rep_dur:
-                    measures_are_aligned=False
+                if dur != rep_dur:
+                    measures_are_aligned = False
                     break
 
     tuplet_id_counter = 0
@@ -1761,80 +1808,111 @@ def save_mei(parts, auto_beaming=True, file_name = "testResult", title_text=None
 
         if padding_required:
             for i, mp in enumerate(measures):
-                ii=len(mp)
-                time_offset[i]=mp[ii-1].end.t
-                while ii<max_length:
+                ii = len(mp)
+                time_offset[i] = mp[ii-1].end.t
+                while ii < max_length:
                     mp.append("pad")
-                    ii+=1
+                    ii += 1
 
         notes_last_measure_per_staff = {}
         auto_rest_count = 0
 
         notes_within_measure_per_staff = notes_last_measure_per_staff
 
-
-
-
-        auto_rest_count, current_measure_content = extract_from_measures(parts, measures, 0, staves_per_part, auto_rest_count, notes_within_measure_per_staff)
+        auto_rest_count, current_measure_content = extract_from_measures(
+            parts, measures, 0, staves_per_part, auto_rest_count,
+            notes_within_measure_per_staff)
 
         last_key_sig_per_staff = {}
 
-        for s,k in current_measure_content.key_sigs_per_staff.items():
-            last_key_sig_per_staff[s]= (min(k,key=lambda k:k.start.t) if len(k)>0 else None)
+        for s, k in current_measure_content.key_sigs_per_staff.items():
+            last_key_sig_per_staff[s] = (min(k, key=lambda k: k.start.t)
+                                         if len(k) > 0 else None)
 
-        tuplet_id_counter, notes_last_measure_per_staff =create_measure(section, 0, staves_sorted, notes_within_measure_per_staff, score_def, tuplet_id_counter, auto_beaming, last_key_sig_per_staff, current_measure_content)
+        tuplet_id_counter, notes_last_measure_per_staff = create_measure(
+            section, 0, staves_sorted, notes_within_measure_per_staff,
+            score_def, tuplet_id_counter, auto_beaming,
+            last_key_sig_per_staff, current_measure_content)
 
-
-
-        for measure_i in range(1,len(measures[0])):
+        for measure_i in range(1, len(measures[0])):
             notes_within_measure_per_staff = notes_last_measure_per_staff
 
-            auto_rest_count, current_measure_content=extract_from_measures(parts, measures, measure_i, staves_per_part, auto_rest_count, notes_within_measure_per_staff)
+            auto_rest_count, current_measure_content = extract_from_measures(
+                parts, measures, measure_i, staves_per_part, auto_rest_count,
+                notes_within_measure_per_staff)
 
-            score_def=create_score_def(measures, measure_i, parts, section)
+            score_def = create_score_def(measures, measure_i, parts, section)
 
-            tuplet_id_counter, notes_last_measure_per_staff = create_measure(section, measure_i, staves_sorted, notes_within_measure_per_staff, score_def, tuplet_id_counter, auto_beaming, last_key_sig_per_staff, current_measure_content)
+            tuplet_id_counter, notes_last_measure_per_staff = create_measure(
+                section, measure_i, staves_sorted,
+                notes_within_measure_per_staff, score_def,
+                tuplet_id_counter, auto_beaming,
+                last_key_sig_per_staff, current_measure_content)
+
+    if out:
+
+        if hasattr(out, "write"):
+            out.write(
+                etree.tostring(
+                    mei.getroottree(),
+                    encoding='UTF-8',
+                    xml_declaration=True,
+                    pretty_print=True,
+                    )
+                )
+
+        else:
+
+            with open(out, "wb") as f:
+                f.write(
+                    etree.tostring(
+                        mei.getroottree(),
+                        encoding='UTF-8',
+                        xml_declaration=True,
+                        pretty_print=True,
+                    )
+                )
+    else:
+        return etree.tostring(
+            mei.getroottree(),
+            encoding='UTF-8',
+            xml_declaration=True,
+            pretty_print=True,
+            )
+                
+
+    # (etree.ElementTree(mei)).write(file_name+".mei",pretty_print=True)
+
+    # # post processing step necessary
+    # # etree won't write <,> and & into an element's text
+    # with open(file_name+".mei") as result:
+    #     text = list(result.read())
+    #     new_text=[]
+
+    #     i=0
+    #     while i<len(text):
+    #         ch=text[i]
+    #         if ch=="&":
+    #             if text[i+1:i+4]==["l","t",";"]:
+    #                 ch="<"
+    #                 i+=4
+    #             elif text[i+1:i+4]==["g","t",";"]:
+    #                 ch=">"
+    #                 i+=4
+    #             elif text[i+1:i+5]==["a","m","p",";"]:
+    #                 i+=5
+    #             else:
+    #                 i+=1
+    #         else:
+    #             i+=1
+
+    #         new_text.append(ch)
+
+    #     new_text="".join(new_text)
 
 
-
-
-
-
-
-
-
-    (etree.ElementTree(mei)).write(file_name+".mei",pretty_print=True)
-
-    # post processing step necessary
-    # etree won't write <,> and & into an element's text
-    with open(file_name+".mei") as result:
-        text = list(result.read())
-        new_text=[]
-
-        i=0
-        while i<len(text):
-            ch=text[i]
-            if ch=="&":
-                if text[i+1:i+4]==["l","t",";"]:
-                    ch="<"
-                    i+=4
-                elif text[i+1:i+4]==["g","t",";"]:
-                    ch=">"
-                    i+=4
-                elif text[i+1:i+5]==["a","m","p",";"]:
-                    i+=5
-                else:
-                    i+=1
-            else:
-                i+=1
-
-            new_text.append(ch)
-
-        new_text="".join(new_text)
-
-
-    with open(file_name+".mei","w") as result:
-        result.write(new_text)
+    # with open(file_name+".mei","w") as result:
+    #     result.write(new_text)
 
 
 
