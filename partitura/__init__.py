@@ -27,10 +27,12 @@ from . import musicanalysis
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename("partitura", 'assets/score_example.musicxml')
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", 'assets/score_example.mid')
+EXAMPLE_MEI = pkg_resources.resource_filename("partitura", 'assets/score_example.mei')
 
 __all__ = ['load_musicxml', 'save_musicxml', 'save_mei', 'musicxml_to_notearray',
            'load_score_midi', 'save_score_midi', 'load_via_musescore',
            'load_performance_midi', 'save_performance_midi',
            'load_match', 'save_match',
            # add names of nakamura and mei
-           'render', 'EXAMPLE_MUSICXML', 'EXAMPLE_MIDI']
+           'render', 'EXAMPLE_MUSICXML', 'EXAMPLE_MIDI',
+           'EXAMPLE_MEI']
