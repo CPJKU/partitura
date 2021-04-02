@@ -677,9 +677,6 @@ def compute_pianoroll(note_info, time_unit='auto', time_div='auto',
     return_idxs : bool, optional
         If True, return the indices (i.e., the coordinates) of each
         note in the piano roll.
-    is_performance : bool, optional
-        If True, assumes that the note array is not a score (i.e., a
-        performance), and the time unit is in seconds insted of beats.
     piano_range : bool, optional
         If True, the pitch axis of the piano roll is in piano keys
         instead of MIDI note numbers (and there are only 88 pitches).
