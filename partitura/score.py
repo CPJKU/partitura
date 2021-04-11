@@ -1785,6 +1785,14 @@ class Ending(TimedObject):
     #     return 'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
 
 
+class Barline(TimedObject):
+    """Class that represents the style of a barline
+    """
+    def __init__(self, style):
+        super().__init__()
+        self.style = style
+    
+
 class Measure(TimedObject):
     """A measure
 

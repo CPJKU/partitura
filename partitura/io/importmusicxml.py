@@ -372,6 +372,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             measure_maxtime = max(measure_maxtime, position)
 
         elif e.tag == 'barline':
+
             repeat = e.find('repeat')
             if repeat is not None:
                 _handle_repeat(repeat, position, part, ongoing)
@@ -379,6 +380,11 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             ending = e.find('ending')
             if ending is not None:
                 _handle_ending(ending, position, part, ongoing)
+
+            bar_style_e = e.find('bar-style')
+            if bar_style_e is not None:
+                bar_style = score.Barline(bar_style_e.text)
+                part.add(bar_style, position)
 
             # <!ELEMENT barline (bar-style?, %editorial;, wavy-line?,
             #     segno?, coda?, (fermata, fermata?)?, ending?, repeat?)>
