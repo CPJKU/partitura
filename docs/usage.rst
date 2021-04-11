@@ -2,13 +2,40 @@
 Usage
 =====
 
-In this Section we will demonstrate basic usage of the package.
+In this Section we demonstrate basic usage of the package.
+
+
+Quick start: Reading note information from a MIDI file
+======================================================
+
+Before we present more in-depth usage of the package, we cover the common use case of reading note information from a MIDI file. The function :func:`~partitura.midi_to_notearray` does exactly that: It loads the note information from the MIDI file MIDI into a `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_ with attributes onset (in seconds), duration (in seconds), pitch, velocity, and ID (automatically generated).
+For the purpose of this example we use a small MIDI file that comes with the `partitura` package. The path to the example MIDI file is stored as :const:`partitura.EXAMPLE_MIDI`.
+
+>>> import partitura
+>>> path_to_midifile = partitura.EXAMPLE_MIDI
+>>> note_array = partitura.midi_to_notearray(path_to_midifile)
+>>> note_array # doctest: +NORMALIZE_WHITESPACE
+array([(0., 2., 69, 64, 'n0'),
+       (1., 1., 72, 64, 'n1'),
+       (1., 1., 76, 64, 'n2')],
+      dtype=[('onset_sec', '<f4'),
+             ('duration_sec', '<f4'),
+             ('pitch', '<i4'),
+             ('velocity', '<i4'),
+             ('id', '<U256')])
+
+The individual fields can be accessed using the field names as strings, e.g.:
+
+>>> note_array["onset_sec"] # doctest: +NORMALIZE_WHITESPACE
+array([0., 1., 1.], dtype=float32)
+
+To access further information from MIDI files, such as time/key signatures, and control changes, see `Importing MIDI files`_.
+
 
 Importing MusicXML
 ==================
 
-We start by loading a score from a MusicXML file. As an example we take a
-MusicXML file with the following contents:
+As an example we take a MusicXML file with the following contents:
 
 .. literalinclude:: ../partitura/assets/score_example.musicxml
    :language: xml
@@ -21,8 +48,8 @@ For convenience a MusicXML file with the above contents is included in the
 package. The path to the file is stored as :const:`partitura.EXAMPLE_MUSICXML`, so
 that we load the above score as follows:
 
->>> my_musicxml_file = partitura.EXAMPLE_MUSICXML
->>> part = partitura.load_musicxml(my_musicxml_file)
+>>> path_to_musicxml = partitura.EXAMPLE_MUSICXML
+>>> part = partitura.load_musicxml(path_to_musicxml)
 
 
 Displaying the typeset part
@@ -35,9 +62,9 @@ The :func:`partitura.render` function displays the part as a typeset score:
 .. image:: images/score_example.png
    :alt: Score example
    :align: center
-        
+
 This should open an image of the score in the default image viewing
-application of your desktop. The function requires that either `MuseScore 
+application of your desktop. The function requires that either `MuseScore
 <https://musescore.org/>`_ or `lilypond <http://lilypond.org/>`_ is
 installed on your computer.
 
@@ -51,8 +78,8 @@ MusicXML. The following line saves `part` to a file `mypart.musicxml`:
 >>> partitura.save_musicxml(part, 'mypart.musicxml')
 
 
-Viewing the musical elements
-============================
+Viewing the contents of a score
+===============================
 
 The function :func:`~partitura.load_musicxml` returns the score as a
 :class:`~partitura.score.Part` instance. When we print it, it displays its
@@ -106,51 +133,55 @@ objects start or end. At `t=0` there are several starting objects, including a
 :class:`~partitura.score.Page`, and :class:`~partitura.score.System`.
 
 
-Extracting a piano roll
-=======================
+Extracting note information from a Part
+=======================================
 
-The notes in this part can be accessed through the property
-:attr:`part.notes <partitura.score.Part.notes>`:
+The notes in this part can be accessed through the :attr:`~partitura.score.Part.notes` property:
 
 .. doctest::
 
-  >>> part.notes # doctest: +NORMALIZE_WHITESPACE
-  [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
-  <partitura.score.Note object at 0x...>]
+  >>> part.notes  # doctest: +NORMALIZE_WHITESPACE
+  [<partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>]
+  >>> part.notes[0].duration  # duration in divs
+  48
 
-`structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_
+..
+   Like note start and end times, durations are integer values that are  The unit of these values is specified in MusicXML files by the
+   `divisions` element, and in MIDI files by the  . This element specifies the duration of
+   a quarter note. The `divisions` value can vary within an MusicXML file, so it is
+   generally better to work with musical time in beats.
+
+Alternatively, basic note attributes can be accessed through the :attr:`~partitura.score.Part.note_array` property:
 
 .. doctest::
 
   >>> arr = part.note_array
-  >>> arr.dtype # doctest: +NORMALIZE_WHITESPACE
-  dtype([('onset_beat', '<f4'), ('duration_beat', '<f4'),
-         ('onset_quarter', '<f4'), ('duration_quarter', '<f4'),
-		 ('onset_div', '<i4'), ('duration_div', '<i4'),
-		 ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
+  >>> arr.dtype  # doctest: +NORMALIZE_WHITESPACE
+  dtype([('onset_beat', '<f4'),
+         ('duration_beat', '<f4'),
+         ('onset_quarter', '<f4'),
+		 ('duration_quarter', '<f4'),
+         ('onset_div', '<i4'),
+		 ('duration_div', '<i4'),
+         ('pitch', '<i4'),
+		 ('voice', '<i4'),
+		 ('id', '<U256')])
 
->>> for pitch, onset, duration in zip(arr["pitch"], arr["onset_beat"], arr["duration_beat"]):
+The onsets and durations of the notes are specified in various units of time.
+
+>>> for pitch, onset, duration in arr[["pitch", "onset_beat", "duration_beat"]]:
 ...     print(pitch, onset, duration)
 69 0.0 4.0
 72 2.0 2.0
 76 2.0 2.0
 
-The note start and end times are in the units specificied by the
-`divisions` element of the MusicXML file. This element specifies the
-duration of a quarter note. The `divisions` value can vary within an
-MusicXML file, so it is generally better to work with musical time in
-beats.
-
-The part object has a property :attr:`part.beat_map
-<partitura.score.Part.beat_map>` that converts timeline times into beat
-times:
 
 ..
-    >>> beat_map = part.beat_map
-    >>> print(beat_map(pianoroll[:, 0]))
-    [0. 2. 2.]
-    >>> print(beat_map(pianoroll[:, 1]))
-    [4. 4. 4.]
+   The part object has a property :attr:`part.beat_map
+   <partitura.score.Part.beat_map>` that converts timeline times into beat
+   times:
 
 
 Iterating over arbitrary musical objects
@@ -158,16 +189,18 @@ Iterating over arbitrary musical objects
 
 In the previous Section we used :attr:`part.notes
 <partitura.score.Part.notes>` to obtain the notes in the part as a list.
-This property is a short cut for the following statement:
+This property is a shortcut for the following statement:
 
 .. doctest::
 
-  >>> list(part.iter_all(partitura.score.Note)) # doctest: +NORMALIZE_WHITESPACE
-  [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
-  <partitura.score.Note object at 0x...>]
+  >>> list(part.iter_all(partitura.score.Note))  # doctest: +NORMALIZE_WHITESPACE
+  [<partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>,
+   <partitura.score.Note object at 0x...>]
 
-Here we access the :meth:`~partitura.score.Part.iter_all` method. Given a
-class, it iterates over all instances of that class that occur in the part:
+That is, we iterate over all objects of class :class:`partitura.score.Note`, and
+store them in a list.  The :meth:`~partitura.score.Part.iter_all` method can be
+used to iterate over objects of arbitrary classes in the part:
 
 >>> for m in part.iter_all(partitura.score.Measure):
 ...     print(m)
@@ -189,7 +222,6 @@ iterates over all objects in the part:
 24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
 24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
 
-
 This approach is useful for example when we want to retrieve rests in
 addition to notes. Since rests and notes are both subclassess of
 :class:`GenericNote <partitura.score.GenericNote>`, the following works:
@@ -204,16 +236,12 @@ addition to notes. Since rests and notes are both subclassess of
 By default, `include_subclasses` is False.
 
 ..
-   Importing data from MIDI
-   ========================
-
-   >>> part = partitura.load_midi()
 
 
 Creating a musical score by hand
 ================================
 
-You can build a musical score from scratch, by creating a `Part` object. We
+You can build a musical score from scratch, by creating a :class:`partitura.score.Part` object. We
 start by renaming the `partitura.score` module to `score`, for convenience:
 
 >>> import partitura.score as score
@@ -307,7 +335,7 @@ Adding measures
 One option to add measures is to add them by hand like we've added the
 notes and time signature. A more convenient alternative is to use the
 function :func:`~partitura.score.add_measures`:
- 
+
 >>> score.add_measures(part)
 
 This function uses the time signature information in the part to add
@@ -354,7 +382,7 @@ Part id="P0" name="My Part"
          └─ 10--40 Note id=n2 voice=2 staff=None type=half. pitch=C#5
 
 Let's see what our part with measures looks like in typeset form:
-         
+
 >>> partitura.render(part)
 
 .. image:: images/score_example_1.png
@@ -441,11 +469,62 @@ measure instances that were added using the
 Note that we create a list of all measures in `part` before we remove them. This is necessary to avoid changing the contents of `part` while we iterate over it.
 
 
+Importing MIDI files
+====================
+
+For quick access to note information from a MIDI file, use the function :func:`~partitura.midi_to_notearray`, as described in `Quick start: Reading note information from a MIDI file`_. In addition to this function, which returns a structured numpy array, partitura provides two further functions to load information from MIDI files, depending on whether the information should be treated as a performance or as a score (see `<introduction.html#score-vs-performance>`_):
+
+* :func:`~partitura.load_performance_midi`
+* :func:`~partitura.load_score_midi`
+
+The :func:`~partitura.load_performance_midi` returns a :class:`~partitura.performance.PerformedPart` instance. 
+The :class:`~partitura.performance.PerformedPart` instance stores notes, program change and control change messages.
+The notes in :attr:`~partitura.performance.PerformedPart.notes` are dictionaries with the usual MIDI attributes "midi_pitch", "note_on", "note_off", etc. Additionally, there is a key called "sound_off" which returns note_off times adjusted by the sustain pedal. Set the on/off threshold value for the sustain_pedal MIDI cc message like so:
+
+>>> path_to_midifile = partitura.EXAMPLE_MIDI
+>>> performedpart = partitura.load_performance_midi(path_to_midifile)
+>>> performedpart.sustain_pedal_threshold=64
+
+Setting the sustain pedal threshold to 128 will prevent the change of "sound_off" values by sustain pedal.
+When the MIDI file does not contain any pedal information, the "sound_off" is equal to "note_off", and setting :attr:`~partitura.performance.PerformedPart.sustain_pedal_threshold` has no effect.
+Calling :attr:`~partitura.performance.PerformedPart.note_array` will return a structured array like :func:`~partitura.midi_to_notearray`.
+The values in `note_array["duration_sec"]` are the actual duration of the note based on the `sound_off` time.
+
+The function :func:`~partitura.load_score_midi` returns a :class:`~partitura.score.Part` instance.
+The function estimates the score structure based on the "parts per quarter" value and the note_on/note_off times in a MIDI file.
+This function *only* works with deadpan "score" MIDI files that can be generated by Digital Audio Workstations, Scorewriters, and other sequencers.
+It is not suitable to estimate the score from a performed MIDI file, such as a recording of a pianist playing on a MIDI keyboard.
+
+>>> midipart = partitura.load_score_midi(path_to_midifile)
+>>> midipart.note_array  # doctest: +NORMALIZE_WHITESPACE
+array([(0., 4., 0., 4.,  0, 48, 69, 1, 'n0'),
+       (2., 2., 2., 2., 24, 24, 72, 2, 'n1'),
+       (2., 2., 2., 2., 24, 24, 76, 2, 'n2')],
+      dtype=[('onset_beat', '<f4'),
+             ('duration_beat', '<f4'),
+             ('onset_quarter', '<f4'),
+             ('duration_quarter', '<f4'),
+             ('onset_div', '<i4'),
+             ('duration_div', '<i4'),
+             ('pitch', '<i4'),
+             ('voice', '<i4'),
+             ('id', '<U256')])
+
+The note_array of a part is a structured array similar to the one of the
+:class:`~partitura.performance.PerformedPart` instance, but the first 6 fields
+refer to onset and duration in score time.  The score MIDI function correctly
+identifies the note lengths of a whole note and two half notes.  However, the
+position of the first measure bar (as well as other score properties) is only an
+estimate as a "score" MIDI file of a score that begins with a tied quarter note
+in an anacrusis measure would look exactly the same in the MIDI encoding.
+
+
+
 Music Analysis
 ==============
 
-The package offers tools for various types music analysis, including key estimation, tonal tension estimation, voice separation, and pitch spelling. The functions take the note information of in the form of an instance of 
-:class:`~partitura.score.Part`,  :class:`~partitura.score.PartGroup`, or :class:`~partitura.performance.PerformedPart`, a list of :class:`~partitura.score.Part` objects or a `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_, as returned by the :attr:`~partitura.score.Part.note_array` attribute.
+The package offers tools for various types music analysis, including key estimation, tonal tension estimation, voice separation, and pitch spelling. The functions take the note information of in the form of a  `structured numpy array <https://numpy.org/doc/stable/user/basics.rec.html>`_, as returned by the :attr:`~partitura.score.Part.note_array` attribute.
+
 
 Key Estimation
 --------------
@@ -465,95 +544,11 @@ The number of sharps/flats and the mode can be inferred from the key name using 
 Pitch Spelling
 --------------
 
-Pitch spelling estimation is performed by the function
-:func:`~partitura.musicanalysis.estimate_spelling`. The function returns a structured array with pitch spelling information (i.e., with fields `step`, `alter` and `octave`) for each note in the input `note_array`. If the input to this method is an instance of :class:`~partitura.score.Part`,  :class:`~partitura.score.PartGroup`, or :class:`~partitura.performance.PerformedPart`, a list of :class:`~partitura.score.Part`, each row of the output corresponds to order of the notes in the `note_array` that would be generated by using the helper method :func:`~partitura.utils.ensure_notearray`.
-
->>> pitch_spelling = partitura.musicanalysis.estimate_spelling(part.note_array)
->>> print(pitch_spelling)
-[('A', 0, 4) ('C', 0, 5) ('E', 0, 5)]
-
-Voice Estimation
-----------------
-
-Voice estimation is performed by the function
-:func:`~partitura.musicanalysis.estimate_voices`. The function returns a numpy array with voice information for each note in the input `note_array`. If the input to this method is an instance of :class:`~partitura.score.Part`,  :class:`~partitura.score.PartGroup`, or :class:`~partitura.performance.PerformedPart`, a list of :class:`~partitura.score.Part`, each row of the output corresponds to order of the notes in the `note_array` that would be generated by using the helper method :func:`~partitura.utils.ensure_notearray`.
-
->>> voices = partitura.musicanalysis.estimate_voices(part.note_array)
->>> print(voices)
-[1 2 2]
-
-Tonal Tension
--------------
-
-Three tonal tension features proposed by Herremans and Chew (2016) are estimated by the function
-:func:`~partitura.musicanalysis.estimate_tonaltension`. The function returns a strured array with fields `cloud_diameter`, `cloud_momentum`, `tensile_strain` and `onset`. In contrast to the other methods in `partitura.musicanalysis`, the tonal tension features are not computed for each note, but for specific time points, which are specified by argument `ss`, which can be a float specifying the step size, a 1D numpy array with time values, or `'onset`', which computes the tension features at each unique onset time.
-
->>> import numpy as np
->>> tonal_tension = partitura.musicanalysis.estimate_tonaltension(part, ss='onset')
->>> print(np.unique(part.note_array['onset_beat']))
-[0. 2.]
->>> print(tonal_tension.dtype.names)
-('onset_beat', 'cloud_diameter', 'cloud_momentum', 'tensile_strain')
->>> print(tonal_tension['cloud_momentum'])
-[(0., 0.        , 0.        , 0.19651566)
- (2., 0.33333334, 0.07754743, 0.13506594)]
+>>> partitura.musicanalysis.estimate_spelling(part.note_array)  # doctest: +NORMALIZE_WHITESPACE
+array([('A', 0, 4), ('C', 1, 5), ('C', 1, 5)],
+      dtype=[('step', '<U1'), ('alter', '<i8'), ('octave', '<i8')])
 
 
-Importing MIDI files
-====================
-
-Partitura contains three functions to load MIDI files: 
-
-:func:`~partitura.midi_to_notearray`
-:func:`~partitura.load_performance_midi`
-:func:`~partitura.load_score_midi`
-
-The first and simplest function is :func:`~partitura.midi_to_notearray`. It loads a MIDI file into 
-a structured array of MIDI notes given by onset and duration (in seconds), pitch, velocity, and ID. 
-The path to a MIDI file for testing is stored as :const:`partitura.EXAMPLE_MIDI`.
-
->>> my_midi_file = partitura.EXAMPLE_MIDI
->>> midi_note_array = partitura.midi_to_notearray(my_midi_file)
->>> midi_note_array
-array([(0., 2., 69, 64, '0'), 
-      (1., 1., 72, 64, '1'), 
-      (1., 1., 76, 64, '2')],
-      dtype=[('onset_sec', '<f4'), ('duration_sec', '<f4'), 
-      ('pitch', '<i4'), ('velocity', '<i4'), ('id', '<U256')])
-
-The note_array is a structured numpy array, individual fields can be accessed using the field names as strings, 
-e.g. midi_note_array["onset_sec"].
-
-The second function is :func:`~partitura.load_performance_midi`. This function returns a :class:`~partitura.performance.PerformedPart` instance.
-The :class:`~partitura.performance.PerformedPart` instance stores notes, program change and control change messages.
-The notes in :attr:`~partitura.performance.PerformedPart.notes` are dictionaries with the usual MIDI attributes "midi_pitch",
-"note_on", "note_off", etc. 
-Additionally, there is a key called "sound_off" which returns note_off times adjusted by the sustain pedal.
-Set the on/off threshold value for the sustain_pedal MIDI cc message like so:
-
->>> performedpart = partitura.load_performance_midi(my_midi_file)
->>> performedpart.sustain_pedal_threshold=64
-
-Note that this MIDI files does not contain any pedal information, the "sound_off" is equal to "note_off".
-Setting the sustain pedal threshold to 128 will prevent the change of "sound_off" values by sustain pedal.
-Calling :attr:`~partitura.performance.PerformedPart.note_array` will return a structured array like :func:`~partitura.midi_to_notearray`.
-The values in note_array["duration_sec"] are the actual duration of the note based on the sound_off time.
-
-The third function is :func:`~partitura.load_score_midi` and returns a :class:`~partitura.score.Part` instance.
-The function estimates the score structure based on the "parts per quarter" value and the note_on/note_off times in a MIDI file.
-This function *only* works with deadpan "score" MIDI files that can be generated by Digital Audio Workstations, Scorewriters, and other sequencers.
-It is not suitable to estimate the score from a performed MIDI file, such as a recording of a pianist playing on a MIDI keyboard.
-
->>> midipart = partitura.load_score_midi(my_midi_file)
->>> midipart.note_array
-array([(0., 4., 0., 4.,  0, 48, 69, 1, 'n0'),
-       (2., 2., 2., 2., 24, 24, 72, 2, 'n1'),
-       (2., 2., 2., 2., 24, 24, 76, 2, 'n2')],
-      dtype=[('onset_beat', '<f4'), ('duration_beat', '<f4'), 
-      ('onset_quarter', '<f4'), ('duration_quarter', '<f4'), 
-      ('onset_div', '<i4'), ('duration_div', '<i4'), 
-      ('pitch', '<i4'), ('voice', '<i4'), ('id', '<U256')])
-
-The note_array of a part is a structured array similar to the one of the :class:`~partitura.performance.PerformedPart` instance, but the first 6 fields refer to onset and duration in score time.
-The score MIDI function correctly identifies the note lengths of a whole note and two half notes.
-However, the position of the first measure bar (as well as other score properties) is only an estimate as a "score" MIDI file of a score that begins with a tied quarter note in an anacrusis measure would look exactly the same in the MIDI encoding.
+..
+  estimate_voices (in partitura.musicanalysis.voice_separation)
+  estimate_tonaltension(in partitura.musicanalysis.tonaltension)
