@@ -20,17 +20,15 @@ from scipy.interpolate import interp1d
 
 from partitura.score import Part, PartGroup
 from partitura.performance import PerformedPart
-from partitura.utils import (get_time_units_from_note_array,
-                             ensure_notearray,
-                             add_field)
+from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
 
 
-__all__ = ['estimate_tonaltension']
+__all__ = ["estimate_tonaltension"]
 
 LOGGER = logging.getLogger(__name__)
 
 # Scaling factors
-A = np.sqrt(2. / 15.) * np.pi / 2.0
+A = np.sqrt(2.0 / 15.0) * np.pi / 2.0
 R = 1.0
 
 # From Elaine Chew's thesis
@@ -38,16 +36,16 @@ DEFAULT_WEIGHTS = np.array([0.516, 0.315, 0.168])
 ALPHA = 0.75
 BETA = 0.75
 
-STEPS_BY_FIFTHS = ['F', 'C', 'G', 'D', 'A', 'E', 'B']
+STEPS_BY_FIFTHS = ["F", "C", "G", "D", "A", "E", "B"]
 
 NOTES_BY_FIFTHS = []
 for alt in range(-4, 5):
     NOTES_BY_FIFTHS += [(step, alt) for step in STEPS_BY_FIFTHS]
 
 # Index of C
-C_IDX = NOTES_BY_FIFTHS.index(('C', 0))
+C_IDX = NOTES_BY_FIFTHS.index(("C", 0))
 # C lies in the middle of the spiral array
-T = (np.arange(len(NOTES_BY_FIFTHS)) - C_IDX) * np.pi / 2.
+T = (np.arange(len(NOTES_BY_FIFTHS)) - C_IDX) * np.pi / 2.0
 
 
 def e_distance(x, y):
@@ -85,9 +83,9 @@ MINOR_IDXS = np.array([0, 1, -3], dtype=int)
 
 # The scaling factor is the distance between C and B#, as used
 # in Cancino-Chacón and Grachten (2018)
-SCALE_FACTOR = 1.0 / e_distance(PITCH_COORDINATES[C_IDX],
-                                PITCH_COORDINATES[NOTES_BY_FIFTHS.index(
-                                    ('B', 1))])
+SCALE_FACTOR = 1.0 / e_distance(
+    PITCH_COORDINATES[C_IDX], PITCH_COORDINATES[NOTES_BY_FIFTHS.index(("B", 1))]
+)
 
 
 def major_chord(tonic_idx, w=DEFAULT_WEIGHTS):
@@ -145,9 +143,13 @@ def major_key(tonic_idx, w=DEFAULT_WEIGHTS):
         Vector representation of the center of effect of the key
     """
 
-    chords = np.array([major_chord(tonic_idx, w),
-                       major_chord(tonic_idx + 1, w),
-                       major_chord(tonic_idx - 1, w)])
+    chords = np.array(
+        [
+            major_chord(tonic_idx, w),
+            major_chord(tonic_idx + 1, w),
+            major_chord(tonic_idx - 1, w),
+        ]
+    )
 
     return np.dot(ensure_norm(w), chords)
 
@@ -174,17 +176,24 @@ def minor_key(tonic_idx, w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA):
     """
 
     if alpha > 1.0 or alpha < 0:
-        raise ValueError('`alpha` should be between 0 and 1.')
+        raise ValueError("`alpha` should be between 0 and 1.")
 
     if beta > 1.0 or beta < 0:
-        raise ValueError('`beta` should be between 0 and 1.')
+        raise ValueError("`beta` should be between 0 and 1.")
 
-    chords = np.array([
-        minor_chord(tonic_idx, w),
-        (alpha * major_chord(tonic_idx + 1, w) +
-         (1 - alpha) * minor_chord(tonic_idx + 1, w)),
-        (beta * minor_chord(tonic_idx - 1, w) +
-         (1 - beta) * major_chord(tonic_idx - 1, w))])
+    chords = np.array(
+        [
+            minor_chord(tonic_idx, w),
+            (
+                alpha * major_chord(tonic_idx + 1, w)
+                + (1 - alpha) * minor_chord(tonic_idx + 1, w)
+            ),
+            (
+                beta * minor_chord(tonic_idx - 1, w)
+                + (1 - beta) * major_chord(tonic_idx - 1, w)
+            ),
+        ]
+    )
 
     return np.dot(ensure_norm(w), chords)
 
@@ -206,7 +215,7 @@ def cloud_diameter(cloud):
     diameter : float
         Largest distance between any two notes in a cloud
     """
-    return distance.pdist(cloud, metric='euclidean').max()
+    return distance.pdist(cloud, metric="euclidean").max()
 
 
 def center_of_effect(cloud, duration):
@@ -233,6 +242,7 @@ def center_of_effect(cloud, duration):
 
 class TonalTension(object):
     """Base class for TonalTension features"""
+
     def compute_tension(self, cloud, *args, **kwargs):
         raise NotImplementedError
 
@@ -241,8 +251,8 @@ class CloudDiameter(TonalTension):
     """
     Compute cloud diameter
     """
-    def compute_tension(self, cloud, scale_factor=SCALE_FACTOR,
-                        *args, **kwargs):
+
+    def compute_tension(self, cloud, scale_factor=SCALE_FACTOR, *args, **kwargs):
 
         if len(cloud) > 1:
             return cloud_diameter(cloud) * scale_factor
@@ -254,13 +264,16 @@ class TensileStrain(TonalTension):
     """
     Compute tensile strain
     """
-    def __init__(self, tonic_idx=0, mode='major', w=DEFAULT_WEIGHTS,
-                 alpha=ALPHA, beta=BETA):
+
+    def __init__(
+        self, tonic_idx=0, mode="major", w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA
+    ):
 
         self.update_key(tonic_idx, mode, w, alpha, beta)
 
-    def compute_tension(self, cloud, duration, scale_factor=SCALE_FACTOR,
-                        *args, **kwargs):
+    def compute_tension(
+        self, cloud, duration, scale_factor=SCALE_FACTOR, *args, **kwargs
+    ):
 
         if duration.sum() == 0:
             return 0
@@ -269,25 +282,25 @@ class TensileStrain(TonalTension):
 
         return e_distance(cloud_ce, self.key_ce) * scale_factor
 
-    def update_key(self, tonic_idx, mode, w=DEFAULT_WEIGHTS,
-                   alpha=ALPHA, beta=BETA):
+    def update_key(self, tonic_idx, mode, w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA):
 
-        if mode in ('major', None, 1):
+        if mode in ("major", None, 1):
             self.key_ce = major_key(tonic_idx, w=w)
-        elif mode in ('minor', -1):
-            self.key_ce = minor_key(tonic_idx, w=w,
-                                    alpha=alpha, beta=beta)
+        elif mode in ("minor", -1):
+            self.key_ce = minor_key(tonic_idx, w=w, alpha=alpha, beta=beta)
 
 
 class CloudMomentum(TonalTension):
     """
     Compute cloud momentum
     """
+
     def __init__(self):
         self.prev_ce = None
 
-    def compute_tension(self, cloud, duration, reset=False,
-                        scale_factor=SCALE_FACTOR, *args, **kwargs):
+    def compute_tension(
+        self, cloud, duration, reset=False, scale_factor=SCALE_FACTOR, *args, **kwargs
+    ):
 
         if duration.sum() == 0:
             return 0
@@ -311,29 +324,28 @@ def notes_to_idx(note_array):
     """
     Index of the note names in the spiral array
     """
-    note_idxs = np.array([NOTES_BY_FIFTHS.index((n['step'], n['alter']))
-                          for n in note_array], dtype=np.int)
+    note_idxs = np.array(
+        [NOTES_BY_FIFTHS.index((n["step"], n["alter"])) for n in note_array],
+        dtype=np.int,
+    )
     return note_idxs
 
 
 def prepare_note_array(note_info):
 
-    note_array = ensure_notearray(note_info,
-                                  include_pitch_spelling=True,
-                                  include_key_signature=True)
+    note_array = ensure_notearray(
+        note_info, include_pitch_spelling=True, include_key_signature=True
+    )
 
     onset_unit, duration_unit = get_time_units_from_note_array(note_array)
 
-    pitch_spelling_fields = ('step',
-                             'alter',
-                             'octave')
-    key_signature_fields = ('ks_fifths',
-                            'ks_mode')
-    
+    pitch_spelling_fields = ("step", "alter", "octave")
+    key_signature_fields = ("ks_fifths", "ks_mode")
+
     if len(set(pitch_spelling_fields).difference(note_array.dtype.names)) > 0:
-        LOGGER.info('No pitch spelling information! Estimating pitch spelling...')
+        LOGGER.info("No pitch spelling information! Estimating pitch spelling...")
         from partitura.musicanalysis.pitch_spelling import estimate_spelling
-        
+
         spelling = estimate_spelling(note_array)
 
         note_array = add_field(note_array, spelling.dtype)
@@ -342,23 +354,22 @@ def prepare_note_array(note_info):
             note_array[field] = spelling[field]
 
     if len(set(key_signature_fields).difference(note_array.dtype.names)) > 0:
-        LOGGER.info('No key information! Estimating key...')
+        LOGGER.info("No key information! Estimating key...")
         from partitura.musicanalysis.key_identification import estimate_key
-        from partitura.utils.music import (key_name_to_fifths_mode,
-                                           key_mode_to_int)
+        from partitura.utils.music import key_name_to_fifths_mode, key_mode_to_int
+
         key_name = estimate_key(note_array)
         fifths, mode = key_name_to_fifths_mode(key_name)
 
-        note_array = add_field(note_array, [('ks_fifths', 'i4'),
-                                            ('ks_mode', 'i4')])
+        note_array = add_field(note_array, [("ks_fifths", "i4"), ("ks_mode", "i4")])
 
-        note_array['ks_fifths'] = np.ones(len(note_array)) * fifths
-        note_array['ks_mode'] = np.ones(len(note_array)) * key_mode_to_int(mode)
+        note_array["ks_fifths"] = np.ones(len(note_array)) * fifths
+        note_array["ks_mode"] = np.ones(len(note_array)) * key_mode_to_int(mode)
 
     return note_array
 
 
-def key_map_from_keysignature(notearray, onset_unit='auto'):
+def key_map_from_keysignature(notearray, onset_unit="auto"):
     """
     Helper method to get the key map from the key signature information
     in note arrays generated with `prepare_note_array`.
@@ -375,7 +386,7 @@ def key_map_from_keysignature(notearray, onset_unit='auto'):
         Function that maps onset time in beats to the key signature
         in the score.
     """
-    if onset_unit == 'auto':
+    if onset_unit == "auto":
         onset_unit, _ = get_time_units_from_note_array(notearray)
 
     onsets = notearray[onset_unit]
@@ -387,22 +398,36 @@ def key_map_from_keysignature(notearray, onset_unit='auto'):
 
     for i, uix in enumerate(unique_onset_idxs):
         # Deal with potential multiple key singatures in the same onset?
-        ks = np.unique(np.column_stack((notearray['ks_fifths'][uix],
-                                        notearray['ks_mode'][uix])),
-                       axis=0)
+        ks = np.unique(
+            np.column_stack((notearray["ks_fifths"][uix], notearray["ks_mode"][uix])),
+            axis=0,
+        )
         if len(ks) > 1:
-            LOGGER.warn('Multiple Key signtures detected at score position. '
-                        'Taking the first one.')
+            LOGGER.warn(
+                "Multiple Key signtures detected at score position. "
+                "Taking the first one."
+            )
         kss[i] = ks[0]
 
-    return interp1d(unique_onsets, kss, axis=0, kind='previous',
-                    bounds_error=False, fill_value='extrapolate')
+    return interp1d(
+        unique_onsets,
+        kss,
+        axis=0,
+        kind="previous",
+        bounds_error=False,
+        fill_value="extrapolate",
+    )
 
 
-def estimate_tonaltension(note_info, ws=1.0, ss='onset',
-                          scale_factor=SCALE_FACTOR,
-                          w=DEFAULT_WEIGHTS,
-                          alpha=ALPHA, beta=BETA):
+def estimate_tonaltension(
+    note_info,
+    ws=1.0,
+    ss="onset",
+    scale_factor=SCALE_FACTOR,
+    w=DEFAULT_WEIGHTS,
+    alpha=ALPHA,
+    beta=BETA,
+):
     """
     Compute tonal tension ribbons defined in [1]_
 
@@ -473,26 +498,26 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
 
     # Determine the score position
     if isinstance(ss, (float, int, np.int, np.float)):
-        unique_onsets = np.arange(score_onset.min(),
-                                  score_offset.max() + (ss * 0.5),
-                                  step=ss)
+        unique_onsets = np.arange(
+            score_onset.min(), score_offset.max() + (ss * 0.5), step=ss
+        )
     elif isinstance(ss, np.ndarray):
         unique_onsets = ss
-    elif ss == 'onset':
+    elif ss == "onset":
         unique_onsets = np.unique(score_onset)
     else:
-        raise ValueError('`ss` has to be a `float`, `int`, a numpy array '
-                         'or "onsets"')
+        raise ValueError(
+            "`ss` has to be a `float`, `int`, a numpy array " 'or "onsets"'
+        )
 
     # Determine the window sizes for each score position
     if isinstance(ws, (float, int, np.int, np.float)):
         ws = np.ones((len(unique_onsets), 2)) * 0.5 * ws
     elif isinstance(ws, np.ndarray):
         if len(ws) != len(unique_onsets):
-            raise ValueError('`ws` should have the same length as '
-                             '`unique_onsets`')
+            raise ValueError("`ws` should have the same length as " "`unique_onsets`")
     else:
-        raise ValueError('`ws` has to be a `float`, `int` or a numpy array')
+        raise ValueError("`ws` has to be a `float`, `int` or a numpy array")
 
     note_idxs = notes_to_idx(note_array)
 
@@ -508,16 +533,19 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
     # inferring modulations?)
     km = key_map_from_keysignature(note_array, onset_unit=onset_unit)
     fifths, mode = km(unique_onsets.min()).astype(np.int)
-    ts = TensileStrain(tonic_idx=C_IDX + fifths,
-                       mode=mode)
+    ts = TensileStrain(tonic_idx=C_IDX + fifths, mode=mode)
     # Initialize array for holding the tonal tension
     n_windows = len(unique_onsets)
 
-    tonal_tension = np.zeros(n_windows,
-                             dtype=[(onset_unit, 'f4'),
-                                    ('cloud_diameter', 'f4'),
-                                    ('cloud_momentum', 'f4'),
-                                    ('tensile_strain', 'f4')])
+    tonal_tension = np.zeros(
+        n_windows,
+        dtype=[
+            (onset_unit, "f4"),
+            ("cloud_diameter", "f4"),
+            ("cloud_momentum", "f4"),
+            ("tensile_strain", "f4"),
+        ],
+    )
     tonal_tension[onset_unit] = unique_onsets
 
     # Main loop for computing tension information
@@ -531,24 +559,22 @@ def estimate_tonaltension(note_info, ws=1.0, ss='onset',
         emi = set(np.where(score_offset <= max_time)[0])
 
         active_idx = np.array(
-            list(smi.intersection(emi).union(ema.intersection(sma))),
-            dtype=np.int)
+            list(smi.intersection(emi).union(ema.intersection(sma))), dtype=np.int
+        )
         active_idx.sort()
 
         cloud = piece_coordinates[active_idx]
-        duration = (np.minimum(max_time, score_offset[active_idx]) -
-                    np.maximum(min_time, score_onset[active_idx]))
+        duration = np.minimum(max_time, score_offset[active_idx]) - np.maximum(
+            min_time, score_onset[active_idx]
+        )
 
         # Update key information
         if not np.all([fifths, mode] == km(o)):
             fifths, mode = km(o).astype(np.int)
-            ts.update_key(tonic_idx=C_IDX + fifths,
-                          mode=mode)
+            ts.update_key(tonic_idx=C_IDX + fifths, mode=mode)
 
-        tonal_tension['cloud_diameter'][i] = cd.compute_tension(cloud)
-        tonal_tension['cloud_momentum'][i] = cm.compute_tension(cloud,
-                                                                duration)
-        tonal_tension['tensile_strain'][i] = ts.compute_tension(cloud,
-                                                                duration)
+        tonal_tension["cloud_diameter"][i] = cd.compute_tension(cloud)
+        tonal_tension["cloud_momentum"][i] = cm.compute_tension(cloud, duration)
+        tonal_tension["tensile_strain"][i] = ts.compute_tension(cloud, duration)
 
     return tonal_tension
