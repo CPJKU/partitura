@@ -5,7 +5,7 @@ Krumhansl and Shepard key estimation
 """
 import numpy as np
 from scipy.linalg import circulant
-# from partitura.musicanalysis.utils import prepare_notearray
+from partitura.utils.music import ensure_notearray
 
 __all__ = ['estimate_key']
 
@@ -137,7 +137,6 @@ def estimate_key(note_info, method='krumhansl', *args, **kwargs):
            pp. 65--100.
 
     """
-    from partitura.utils.music import ensure_notearray
 
     if method not in ('krumhansl', ):
         raise ValueError('For now the only valid method is "krumhansl"')
