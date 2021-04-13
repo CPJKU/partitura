@@ -58,6 +58,8 @@ class PerformedPart(object):
     controls : list
         A list of dictionaries containing continuous control
         information
+    programs : list
+        List of dictionaries containing program change information
 
     """
 
@@ -67,8 +69,6 @@ class PerformedPart(object):
         super().__init__()
         self.id = id
         self.part_name = part_name
-
-
         self.notes = notes
         self.controls = controls or []
         self.programs = programs or []
@@ -116,6 +116,8 @@ class PerformedPart(object):
                   ('duration_sec', 'f4'),
                   ('pitch', 'i4'),
                   ('velocity', 'i4'),
+                  ('track', 'i4'),
+                  ('channel', 'i4'),
                   ('id', 'U256')]
         note_array = []
         for n in self.notes:
@@ -126,6 +128,8 @@ class PerformedPart(object):
                                duration_sec,
                                n['midi_pitch'],
                                n['velocity'],
+                               n.get('track', 0),
+                               n.get('channel', 1),
                                n['id']))
 
         return np.array(note_array, dtype=fields)
@@ -137,18 +141,31 @@ class PerformedPart(object):
         Note that this property does not include non-note information (i.e.
         controls such as sustain pedal).
         """
-        if not 'id' in note_array.dtype.names:
+        if 'id' not in note_array.dtype.names:
             n_ids = ['n{0}'.format(i) for i in range(len(note_array))]
         else:
             n_ids = note_array['id']
 
+        if 'track' not in note_array.dtype.names:
+            tracks = np.zeros(len(note_array), dtype=int)
+        else:
+            tracks = note_array['track']
+
+        if 'channel' not in note_array.dtype.names:
+            channels = np.ones(len(note_array), dtype=int)
+        else:
+            channels = note_array['channel']
+
         notes = []
-        for nid, note in zip(n_ids, note_array):
+        for nid, note, track, channel in zip(n_ids, note_array,
+                                             tracks, channels):
             notes.append(dict(id=nid,
                               midi_pitch=note['pitch'],
                               note_on=note['onset_sec'],
                               note_off=note['onset_sec'] + note['duration_sec'],
                               sound_off=note['onset_sec'] + note['duration_sec'],
+                              track=track,
+                              channel=channel,
                               velocity=note['velocity']))
 
         return cls(id=id,
