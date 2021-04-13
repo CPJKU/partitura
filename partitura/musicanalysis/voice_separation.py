@@ -61,7 +61,7 @@ def argmax_pitch(idx, pitches):
 
 def estimate_voices(note_info, monophonic_voices=False):
     """Voice estimation using the voice separation algorithm
-       proposed in [1]_.
+       proposed in [6]_.
 
     Parameters
     ----------
@@ -86,7 +86,7 @@ def estimate_voices(note_info, monophonic_voices=False):
 
     References
     ----------
-    .. [1] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
+    .. [6] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
            Polyphonic Music: A Contig Mapping Approach". In Uffe Kock,
            editor, "Computer Music Modeling and Retrieval". Springer
            Berlin Heidelberg.
