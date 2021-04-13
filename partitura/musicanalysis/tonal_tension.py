@@ -242,7 +242,7 @@ class CloudDiameter(TonalTension):
     Compute cloud diameter
     """
     def compute_tension(self, cloud, scale_factor=SCALE_FACTOR,
-                        *args, **kwargs):
+                        **kwargs):
 
         if len(cloud) > 1:
             return cloud_diameter(cloud) * scale_factor
