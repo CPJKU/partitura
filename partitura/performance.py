@@ -147,18 +147,18 @@ class PerformedPart(object):
             n_ids = note_array['id']
 
         if 'track' not in note_array.dtype.names:
-            track = np.zeros(len(note_array), dtype=int)
+            tracks = np.zeros(len(note_array), dtype=int)
         else:
-            track = note_array['track']
+            tracks = note_array['track']
 
         if 'channel' not in note_array.dtype.names:
-            channel = np.ones(len(note_array), dtype=int)
+            channels = np.ones(len(note_array), dtype=int)
         else:
-            channel = note_array['channel']
+            channels = note_array['channel']
 
         notes = []
         for nid, note, track, channel in zip(n_ids, note_array,
-                                             track, channel):
+                                             tracks, channels):
             notes.append(dict(id=nid,
                               midi_pitch=note['pitch'],
                               note_on=note['onset_sec'],
