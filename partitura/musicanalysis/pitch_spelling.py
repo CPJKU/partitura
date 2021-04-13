@@ -24,7 +24,7 @@ UND_CHROMA = np.array([0, 2, 3, 5, 7, 8, 10], dtype=np.int)
 ALTER = np.array(['n', '#', 'b'])
 
 
-def estimate_spelling(note_info, method='ps13s1', *args, **kwargs):
+def estimate_spelling(note_info, method='ps13s1', **kwargs):
     """Estimate pitch spelling using the ps13 algorithm [4]_, [5]_.
 
     Parameters
@@ -39,8 +39,6 @@ def estimate_spelling(note_info, method='ps13s1', *args, **kwargs):
         information will be preferred.
     method : {'ps13s1'}
          Pitch spelling algorithm. More methods will be added.
-    *args
-        positional arguments for the algorithm specified in `method`
     **kwargs
         Keyword arguments for the algorithm specified in `method`.
 
@@ -62,7 +60,7 @@ def estimate_spelling(note_info, method='ps13s1', *args, **kwargs):
     """
     if method == 'ps13s1':
         ps = ps13s1
-    step, alter, octave = ps(ensure_notearray(note_info), *args, **kwargs)
+    step, alter, octave = ps(ensure_notearray(note_info), **kwargs)
 
     spelling = np.empty(len(step), dtype=[('step', 'U1'),
                                           ('alter', np.int),
