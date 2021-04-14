@@ -15,14 +15,17 @@ For the purpose of this example we use a small MIDI file that comes with the `pa
 >>> path_to_midifile = partitura.EXAMPLE_MIDI
 >>> note_array = partitura.midi_to_notearray(path_to_midifile)
 >>> note_array # doctest: +NORMALIZE_WHITESPACE
-array([(0., 2., 69, 64, 'n0'),
-       (1., 1., 72, 64, 'n1'),
-       (1., 1., 76, 64, 'n2')],
+array([(0., 2., 69, 64, 0, 1, 'n0'),
+       (1., 1., 72, 64, 0, 2, 'n1'),
+       (1., 1., 76, 64, 0, 2, 'n2')],
       dtype=[('onset_sec', '<f4'),
              ('duration_sec', '<f4'),
              ('pitch', '<i4'),
              ('velocity', '<i4'),
+             ('track', '<i4'),
+             ('channel', '<i4'),
              ('id', '<U256')])
+
 
 The individual fields can be accessed using the field names as strings, e.g.:
 
@@ -497,18 +500,18 @@ It is not suitable to estimate the score from a performed MIDI file, such as a r
 
 >>> midipart = partitura.load_score_midi(path_to_midifile)
 >>> midipart.note_array  # doctest: +NORMALIZE_WHITESPACE
-array([(0., 4., 0., 4.,  0, 48, 69, 1, 'n0'),
-       (2., 2., 2., 2., 24, 24, 72, 2, 'n1'),
-       (2., 2., 2., 2., 24, 24, 76, 2, 'n2')],
-      dtype=[('onset_beat', '<f4'),
-             ('duration_beat', '<f4'),
-             ('onset_quarter', '<f4'),
-             ('duration_quarter', '<f4'),
-             ('onset_div', '<i4'),
-             ('duration_div', '<i4'),
-             ('pitch', '<i4'),
-             ('voice', '<i4'),
-             ('id', '<U256')])
+    array([(0., 4., 0., 4.,  0, 48, 69, 1, 'n0'),
+           (2., 2., 2., 2., 24, 24, 72, 2, 'n1'),
+           (2., 2., 2., 2., 24, 24, 76, 2, 'n2')],
+          dtype=[('onset_beat', '<f4'),
+                 ('duration_beat', '<f4'),
+                 ('onset_quarter', '<f4'),
+                 ('duration_quarter', '<f4'),
+                 ('onset_div', '<i4'),
+                 ('duration_div', '<i4'),
+                 ('pitch', '<i4'),
+                 ('voice', '<i4'),
+                 ('id', '<U256')])
 
 The note_array of a part is a structured array similar to the one of the
 :class:`~partitura.performance.PerformedPart` instance, but the first 6 fields
@@ -550,7 +553,7 @@ Pitch spelling estimation is performed by the function
 
 >>> pitch_spelling = partitura.musicanalysis.estimate_spelling(part.note_array)
 >>> print(pitch_spelling)
-[('A', 0, 4) ('C', 0, 5) ('E', 0, 5)]
+[('A', 0, 4) ('C', 1, 5) ('C', 1, 5)]
 
 Voice Estimation
 ----------------
@@ -560,7 +563,7 @@ Voice estimation is performed by the function
 
 >>> voices = partitura.musicanalysis.estimate_voices(part.note_array)
 >>> print(voices)
-[1 2 2]
+[1 1 1]
 
 Tonal Tension
 -------------
@@ -571,12 +574,11 @@ Three tonal tension features proposed by Herremans and Chew (2016) are estimated
 >>> import numpy as np
 >>> tonal_tension = partitura.musicanalysis.estimate_tonaltension(part, ss='onset')
 >>> print(np.unique(part.note_array['onset_beat']))
-[0. 2.]
+[0. 1.]
 >>> print(tonal_tension.dtype.names)
 ('onset_beat', 'cloud_diameter', 'cloud_momentum', 'tensile_strain')
 >>> print(tonal_tension['cloud_momentum'])
-[(0., 0.        , 0.        , 0.19651566)
- (2., 0.33333334, 0.07754743, 0.13506594)]
+[0.         0.16666667]
 
 >>> partitura.musicanalysis.estimate_spelling(part.note_array)  # doctest: +NORMALIZE_WHITESPACE
 array([('A', 0, 4), ('C', 1, 5), ('C', 1, 5)],
