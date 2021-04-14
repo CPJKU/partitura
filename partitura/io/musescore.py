@@ -10,7 +10,8 @@ import logging
 import os
 import shutil
 import subprocess
-from tempfile import NamedTemporaryFile, TemporaryFile
+from pathlib import Path
+from tempfile import NamedTemporaryFile, TemporaryDirectory, gettempdir
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +32,13 @@ def find_musescore3():
     result = shutil.which('musescore')
 
     if result is None:
+        result = shutil.which('musescore3')
+
+    if result is None:
         result = shutil.which('mscore')
+
+    if result is None:
+        result = shutil.which('mscore3')
 
     if platform.system() == 'Linux':
         pass
@@ -141,12 +148,15 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
         LOGGER.warning('warning: unsupported output format')
         return None
 
-    with NamedTemporaryFile(suffix='.musicxml') as xml_fh, \
-         NamedTemporaryFile(suffix='.{}'.format(fmt)) as img_fh:
+    # with NamedTemporaryFile(suffix='.musicxml') as xml_fh, \
+    #      NamedTemporaryFile(suffix='.{}'.format(fmt)) as img_fh:
+    with TemporaryDirectory() as tmpdir:
+        xml_fh = Path(tmpdir) / 'score.musicxml'
+        img_fh = Path(tmpdir) / f'score.{fmt}'
 
-        save_musicxml(part, xml_fh.name)
+        save_musicxml(part, xml_fh)
 
-        cmd = [mscore_exec, '-T', '10', '-r', '{}'.format(dpi), '-o', img_fh.name, xml_fh.name]
+        cmd = [mscore_exec, '-T', '10', '-r', '{}'.format(dpi), '-o', os.fspath(img_fh), os.fspath(xml_fh)]
         try:
 
             # ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -164,24 +174,17 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
                          .format(' '.join(cmd), f))
             return None
 
-        LOGGER.error('Command {} returned with code {}; stdout: {}; stderr: {}'
-                     .format(cmd, ps.returncode, ps.stdout.decode('UTF-8'),
-                             ps.stderr.decode('UTF-8')))
+        # LOGGER.error('Command "{}" returned with code {}; stdout: {}; stderr: {}'
+        #              .format(' '.join(cmd), ps.returncode, ps.stdout.decode('UTF-8'),
+        #                      ps.stderr.decode('UTF-8')))
 
-        name, ext = os.path.splitext(img_fh.name)
         if fmt == 'png':
-            img_fn = '{}-1{}'.format(name, ext)
-        else:
-            img_fn = '{}{}'.format(name, ext)
-            
-        # print(img_fn, os.path.exists(img_fn))
-        if os.path.exists(img_fn):
-            if out_fn:
-                shutil.copy(img_fn, out_fn)
-                return out_fn
-            else:
-                return img_fn
-        else:
-            return None
+            img_fh = (img_fh.parent / (img_fh.stem + '-1')).with_suffix(img_fh.suffix)
 
+        if img_fh.is_file():
+            if out_fn is None:
+                out_fn = os.path.join(gettempdir(), 'partitura_render_tmp.png')
+            shutil.copy(img_fh, out_fn)
+            return out_fn
 
+        return None
