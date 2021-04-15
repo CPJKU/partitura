@@ -990,13 +990,12 @@ class VoSA(VSBaseScore):
         Estimate voices using global minimum connections
         """
         # indices of the maximal contigs
-        maximal_contigs_idxs = np.where(self._voices_per_contig == self.num_voices)[0]
+        maximal_contigs_idxs = np.where(
+            self._voices_per_contig == self.num_voices)[0]
 
         # indices of the non maximal contigs
-        non_maximal_contigs_idx = np.where(self._voices_per_contig != self.num_voices)[
-            0
-        ]
-
+        non_maximal_contigs = self._voices_per_contig != self.num_voices
+        non_maximal_contigs_idx = np.where(non_maximal_contigs)[0]
         # initialize maximal contigs and voice managers
         voice_managers_dict = dict()
         for mci in maximal_contigs_idxs:
