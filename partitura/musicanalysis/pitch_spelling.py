@@ -280,12 +280,7 @@ def compute_morphetic_pitch(sorted_ocp, morph_array):
 
     best_morph_oct = morph_octs[np.arange(n), diffs.argmin(1)]
 
-    morphetic_pitch = (
-        morph.reshape(
-            -1,
-        )
-        + 7 * best_morph_oct
-    )
+    morphetic_pitch = morph.reshape(-1,) + 7 * best_morph_oct
 
     return morphetic_pitch
 
