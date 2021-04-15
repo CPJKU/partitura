@@ -1565,7 +1565,7 @@ def note_array_from_part(
             note_on_div,
             note_dur_div,
             note.midi_pitch,
-            note.voice,
+            note.voice if note.voice is not None else -1,
             note.id,
         )
 
@@ -1588,7 +1588,14 @@ def note_array_from_part(
 
         note_array.append(note_info)
 
-    return np.array(note_array, dtype=fields)
+    note_array = np.array(note_array, dtype=fields)
+
+    # Sanitize voice information
+    no_voice_idx = np.where(note_array['voice'] == -1)[0]
+    max_voice = note_array['voice'].max()
+    note_array['voice'][no_voice_idx] = max_voice + 1
+
+    return note_array
 
 
 if __name__ == "__main__":
