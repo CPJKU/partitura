@@ -247,7 +247,7 @@ def linearize_measure_contents(part, start, end, state):
     into segments by divisions, to be linearized separately and
     concatenated. The actual linearization is done by
     the `linearize_segment_contents` function.
-    
+
     Parameters
     ----------
     start: score.TimePoint
@@ -294,7 +294,7 @@ def remove_voice_polyphony_single(notes, voice_spans):
     ----------
     notes: list
         List of notes in a voice
-    
+
     Returns
     -------
     type
@@ -769,9 +769,8 @@ def do_directions(part, start, end, counter):
                 if isinstance(direction, score.SustainPedalDirection):
                     pedal_kwargs = {}
                     if direction.line:
-                        pedal_kwargs['line'] = "yes"
-                    e2s = etree.SubElement(e1s, "pedal", type="start",
-                                           **pedal_kwargs)
+                        pedal_kwargs["line"] = "yes"
+                    e2s = etree.SubElement(e1s, "pedal", type="start", **pedal_kwargs)
                 if direction.staff is not None:
                     e3s = etree.SubElement(e0s, "staff")
                     e3s.text = str(direction.staff)
@@ -783,11 +782,10 @@ def do_directions(part, start, end, counter):
                 if isinstance(direction, score.SustainPedalDirection):
                     pedal_kwargs = {}
                     if direction.line:
-                        pedal_kwargs['line'] = "yes"
+                        pedal_kwargs["line"] = "yes"
                     else:
-                        pedal_kwargs['sign'] = "yes"
-                    e2e = etree.SubElement(e1e, "pedal", type="end",
-                                           **pedal_kwargs)
+                        pedal_kwargs["sign"] = "yes"
+                    e2e = etree.SubElement(e1e, "pedal", type="end", **pedal_kwargs)
                 if direction.staff is not None:
                     e3e = etree.SubElement(e0e, "staff")
                     e3e.text = str(direction.staff)
@@ -810,7 +808,9 @@ def do_directions(part, start, end, counter):
                     wtype = "diminuendo"
 
                 number = range_number_from_counter(direction, "wedge", counter)
-                e2 = etree.SubElement(e1, "wedge", number="{}".format(number), type=wtype)
+                e2 = etree.SubElement(
+                    e1, "wedge", number="{}".format(number), type=wtype
+                )
 
             else:
 
@@ -823,7 +823,9 @@ def do_directions(part, start, end, counter):
                 ):
                     e3 = etree.SubElement(e0, "direction-type")
                     number = range_number_from_counter(direction, "dashes", counter)
-                    etree.SubElement(e3, "dashes", number="{}".format(number), type="start")
+                    etree.SubElement(
+                        e3, "dashes", number="{}".format(number), type="start"
+                    )
 
             if direction.staff is not None:
 
@@ -833,19 +835,18 @@ def do_directions(part, start, end, counter):
             elem = (direction.start.t, None, e0)
             result.append(elem)
 
-
     return result
 
 
 def do_attributes(part, start, end):
     """
-    Produce xml objects for non-note measure content 
-    
+    Produce xml objects for non-note measure content
+
     Parameters
     ----------
     others: type
         Description of `others`
-    
+
     Returns
     -------
     type
@@ -934,7 +935,7 @@ def do_attributes(part, start, end):
 
 def save_musicxml(parts, out=None):
     """Save a one or more Part or PartGroup instances in MusicXML format.
-    
+
     Parameters
     ----------
     parts : list, Part, or PartGroup
@@ -942,7 +943,7 @@ def save_musicxml(parts, out=None):
         :class:`partitura.score.PartGroup` or a list of these
     out: str, file-like object, or None, optional
         Output file
-    
+
     Returns
     -------
     None or str

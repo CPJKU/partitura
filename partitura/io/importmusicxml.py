@@ -6,6 +6,7 @@ import logging
 
 import numpy as np
 from lxml import etree
+
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
@@ -13,43 +14,44 @@ import pkg_resources
 from partitura.directions import parse_direction
 import partitura.score as score
 
-__all__ = ['load_musicxml']
+__all__ = ["load_musicxml"]
 
 LOGGER = logging.getLogger(__name__)
-_MUSICXML_SCHEMA = pkg_resources.resource_filename('partitura', 'assets/musicxml.xsd')
+_MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None
 DYN_DIRECTIONS = {
-    'f': score.ConstantLoudnessDirection,
-    'ff': score.ConstantLoudnessDirection,
-    'fff': score.ConstantLoudnessDirection,
-    'ffff': score.ConstantLoudnessDirection,
-    'fffff': score.ConstantLoudnessDirection,
-    'ffffff': score.ConstantLoudnessDirection,
-    'n': score.ConstantLoudnessDirection,
-    'mf': score.ConstantLoudnessDirection,
-    'mp': score.ConstantLoudnessDirection,
-    'p': score.ConstantLoudnessDirection,
-    'pp': score.ConstantLoudnessDirection,
-    'ppp': score.ConstantLoudnessDirection,
-    'pppp': score.ConstantLoudnessDirection,
-    'ppppp': score.ConstantLoudnessDirection,
-    'pppppp': score.ConstantLoudnessDirection,
-    'fp': score.ImpulsiveLoudnessDirection,
-    'pf': score.ImpulsiveLoudnessDirection,
-    'rf': score.ImpulsiveLoudnessDirection,
-    'rfz': score.ImpulsiveLoudnessDirection,
-    'fz': score.ImpulsiveLoudnessDirection,
-    'sf': score.ImpulsiveLoudnessDirection,
-    'sffz': score.ImpulsiveLoudnessDirection,
-    'sfp': score.ImpulsiveLoudnessDirection,
-    'sfzp': score.ImpulsiveLoudnessDirection,
-    'sfpp': score.ImpulsiveLoudnessDirection,
-    'sfz': score.ImpulsiveLoudnessDirection,
+    "f": score.ConstantLoudnessDirection,
+    "ff": score.ConstantLoudnessDirection,
+    "fff": score.ConstantLoudnessDirection,
+    "ffff": score.ConstantLoudnessDirection,
+    "fffff": score.ConstantLoudnessDirection,
+    "ffffff": score.ConstantLoudnessDirection,
+    "n": score.ConstantLoudnessDirection,
+    "mf": score.ConstantLoudnessDirection,
+    "mp": score.ConstantLoudnessDirection,
+    "p": score.ConstantLoudnessDirection,
+    "pp": score.ConstantLoudnessDirection,
+    "ppp": score.ConstantLoudnessDirection,
+    "pppp": score.ConstantLoudnessDirection,
+    "ppppp": score.ConstantLoudnessDirection,
+    "pppppp": score.ConstantLoudnessDirection,
+    "fp": score.ImpulsiveLoudnessDirection,
+    "pf": score.ImpulsiveLoudnessDirection,
+    "rf": score.ImpulsiveLoudnessDirection,
+    "rfz": score.ImpulsiveLoudnessDirection,
+    "fz": score.ImpulsiveLoudnessDirection,
+    "sf": score.ImpulsiveLoudnessDirection,
+    "sffz": score.ImpulsiveLoudnessDirection,
+    "sfp": score.ImpulsiveLoudnessDirection,
+    "sfzp": score.ImpulsiveLoudnessDirection,
+    "sfpp": score.ImpulsiveLoudnessDirection,
+    "sfz": score.ImpulsiveLoudnessDirection,
 }
 
 PEDAL_DIRECTIONS = {
-    'sustain_pedal': score.SustainPedalDirection,
+    "sustain_pedal": score.SustainPedalDirection,
 }
+
 
 def validate_musicxml(xml, debug=False):
     """
@@ -104,12 +106,12 @@ def _parse_partlist(partlist):
     part_dict = {}
 
     for e in partlist:
-        if e.tag == 'part-group':
-            if e.get('type') == 'start':
+        if e.tag == "part-group":
+            if e.get("type") == "start":
 
-                gr_name = get_value_from_tag(e, 'group-name', str)
-                gr_symbol = get_value_from_tag(e, 'group-symbol', str)
-                gr_number = get_value_from_attribute(e, 'number', int)
+                gr_name = get_value_from_tag(e, "group-name", str)
+                gr_symbol = get_value_from_tag(e, "group-symbol", str)
+                gr_number = get_value_from_attribute(e, "number", int)
                 new_group = score.PartGroup(gr_symbol, gr_name, gr_number)
 
                 if current_group is None:
@@ -119,21 +121,22 @@ def _parse_partlist(partlist):
                     new_group.parent = current_group
                     current_group = new_group
 
-            elif e.get('type') == 'stop':
+            elif e.get("type") == "stop":
                 if current_group.parent is None:
                     structure.append(current_group)
                     current_group = None
                 else:
                     current_group = current_group.parent
 
-        elif e.tag == 'score-part':
-            part_id = e.get('id')
+        elif e.tag == "score-part":
+            part_id = e.get("id")
             part = score.Part(part_id)
 
             # set part name and abbreviation if available
-            part.part_name = next(iter(e.xpath('part-name/text()')), None)
+            part.part_name = next(iter(e.xpath("part-name/text()")), None)
             part.part_abbreviation = next(
-                iter(e.xpath('part-abbreviation/text()')), None)
+                iter(e.xpath("part-abbreviation/text()")), None
+            )
 
             part_dict[part_id] = part
 
@@ -144,8 +147,7 @@ def _parse_partlist(partlist):
                 part.parent = current_group
 
     if current_group is not None:
-        LOGGER.warning(
-            'part-group {0} was not ended'.format(current_group.number))
+        LOGGER.warning("part-group {0} was not ended".format(current_group.number))
         structure.append(current_group)
 
     return structure, part_dict
@@ -188,17 +190,21 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
         validate_musicxml(xml, debug=True)
         # if xml is a file-like object we need to set the read pointer to the
         # start of the file for parsing
-        if hasattr(xml, 'seek'):
+        if hasattr(xml, "seek"):
             xml.seek(0)
 
-    parser = etree.XMLParser(resolve_entities=False, huge_tree=False,
-                             remove_comments=True, remove_blank_text=True)
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        huge_tree=False,
+        remove_comments=True,
+        remove_blank_text=True,
+    )
     document = etree.parse(xml, parser)
 
-    if document.getroot().tag != 'score-partwise':
-        raise Exception('Currently only score-partwise structure is supported')
+    if document.getroot().tag != "score-partwise":
+        raise Exception("Currently only score-partwise structure is supported")
 
-    partlist_el = document.find('part-list')
+    partlist_el = document.find("part-list")
 
     if partlist_el is not None:
         # parse the (hierarchical) structure of score parts
@@ -210,8 +216,8 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
     else:
         partlist = []
 
-    if force_note_ids is True or force_note_ids == 'keep':
-        assign_note_ids(partlist, force_note_ids == 'keep')
+    if force_note_ids is True or force_note_ids == "keep":
+        assign_note_ids(partlist, force_note_ids == "keep")
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -223,12 +229,14 @@ def assign_note_ids(parts, keep=False):
     if keep:
         # Keep existing note id's
         for p, part in enumerate(score.iter_parts(parts)):
-            for ni, n in enumerate(part.iter_all(score.GenericNote, include_subclasses=True)):
+            for ni, n in enumerate(
+                part.iter_all(score.GenericNote, include_subclasses=True)
+            ):
                 if isinstance(n, score.Rest):
-                    n.id = 'p{0}r{1}'.format(p, ni) if n.id is None else n.id
+                    n.id = "p{0}r{1}".format(p, ni) if n.id is None else n.id
                 else:
-                    n.id = 'p{0}n{1}'.format(p, ni) if n.id is None else n.id
-                
+                    n.id = "p{0}n{1}".format(p, ni) if n.id is None else n.id
+
     else:
         # assign note ids to ensure uniqueness across all parts, discarding any
         # existing note ids
@@ -236,12 +244,12 @@ def assign_note_ids(parts, keep=False):
         ri = 0
         for part in score.iter_parts(parts):
             for n in part.iter_all(score.GenericNote, include_subclasses=True):
-                if isinstance(n,score.Rest):
-                    n.id = 'r{}'.format(ri)
-                    ri+=1
+                if isinstance(n, score.Rest):
+                    n.id = "r{}".format(ri)
+                    ri += 1
                 else:
-                    n.id = 'n{}'.format(ni)
-                    ni+=1
+                    n.id = "n{}".format(ni)
+                    ni += 1
 
 
 def _parse_parts(document, part_dict):
@@ -258,9 +266,9 @@ def _parse_parts(document, part_dict):
         by the _parse_partlist() function.
     """
 
-    for part_el in document.findall('part'):
+    for part_el in document.findall("part"):
 
-        part_id = part_el.get('id', 'P1')
+        part_id = part_el.get("id", "P1")
         part = part_dict.get(part_id, score.Part(part_id))
 
         position = 0
@@ -270,13 +278,14 @@ def _parse_parts(document, part_dict):
         _handle_new_page(position, part, ongoing)
         _handle_new_system(position, part, ongoing)
 
-        for measure_el in part_el.xpath('measure'):
-            position, doc_order = _handle_measure(measure_el, position, part,
-                                       ongoing, doc_order)
+        for measure_el in part_el.xpath("measure"):
+            position, doc_order = _handle_measure(
+                measure_el, position, part, ongoing, doc_order
+            )
 
         # remove unfinished elements from the timeline
         for k, o in ongoing.items():
-            if k not in ('page', 'system'):
+            if k not in ("page", "system"):
                 if isinstance(o, list):
                     for o_i in o:
                         part.remove(o_i)
@@ -286,13 +295,20 @@ def _parse_parts(document, part_dict):
         # check whether all grace notes have a main note
         for gn in part.iter_all(score.GraceNote):
             if gn.main_note is None:
-                
-                for no in part.iter_all(score.Note, include_subclasses=False, start = gn.start.t, end = gn.start.t+1):
+
+                for no in part.iter_all(
+                    score.Note,
+                    include_subclasses=False,
+                    start=gn.start.t,
+                    end=gn.start.t + 1,
+                ):
                     if no.voice == gn.voice:
                         gn.last_grace_note_in_seq.grace_next = no
 
             if gn.main_note is None:
-                print("grace note without recoverable same voice main note: {}".format(gn))
+                print(
+                    "grace note without recoverable same voice main note: {}".format(gn)
+                )
                 print("might be cadenza notation")
 
         # set end times for various musical elements that only have a start time
@@ -321,7 +337,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
     trailing_children = []
     for i, e in enumerate(measure_el):
 
-        if e.tag == 'backup':
+        if e.tag == "backup":
             # <xs:documentation>The backup and forward elements are required
             # to coordinate multiple voices in one part, including music on
             # multiple staves. The backup type is generally used to move
@@ -330,12 +346,15 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             # be positive, and should not cross measure boundaries or
             # mid-measure changes in the divisions value.</xs:documentation>
 
-            duration = get_value_from_tag(e, 'duration', int) or 0
+            duration = get_value_from_tag(e, "duration", int) or 0
             position -= duration
 
             if position < measure.start.t:
-                LOGGER.warning('<backup> crosses measure boundary, adjusting position from {} to {} in Measure {}'
-                               .format(position, measure.start.t, measure.number))
+                LOGGER.warning(
+                    "<backup> crosses measure boundary, adjusting position from {} to {} in Measure {}".format(
+                        position, measure.start.t, measure.number
+                    )
+                )
                 position = measure.start.t
 
             # <backup> tags trigger an update of the measure
@@ -345,40 +364,47 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             # Baerenreiter MusicXML files.
             measure_maxtime = max(measure_maxtime, position)
 
-        elif e.tag == 'forward':
-            duration = get_value_from_tag(e, 'duration', int) or 0
+        elif e.tag == "forward":
+            duration = get_value_from_tag(e, "duration", int) or 0
             position += duration
             measure_maxtime = max(measure_maxtime, position)
 
-        elif e.tag == 'attributes':
+        elif e.tag == "attributes":
             _handle_attributes(e, position, part)
 
-        elif e.tag == 'direction':
+        elif e.tag == "direction":
             _handle_direction(e, position, part, ongoing)
 
-        elif e.tag == 'print':
+        elif e.tag == "print":
             # new-page/new-system occurring anywhere in the measure take effect
             # at the start of the measure, so we pass measure_start rather than
             # position
             _handle_print(e, measure_start, part, ongoing)
 
-        elif e.tag == 'sound':
+        elif e.tag == "sound":
             _handle_sound(e, position, part)
 
-        elif e.tag == 'note':
+        elif e.tag == "note":
             (position, prev_note) = _handle_note(
-                e, position, part, ongoing, prev_note, doc_order)
+                e, position, part, ongoing, prev_note, doc_order
+            )
             doc_order += 1
             measure_maxtime = max(measure_maxtime, position)
 
-        elif e.tag == 'barline':
-            repeat = e.find('repeat')
+        elif e.tag == "barline":
+
+            repeat = e.find("repeat")
             if repeat is not None:
                 _handle_repeat(repeat, position, part, ongoing)
 
-            ending = e.find('ending')
+            ending = e.find("ending")
             if ending is not None:
                 _handle_ending(ending, position, part, ongoing)
+
+            bar_style_e = e.find("bar-style")
+            if bar_style_e is not None:
+                bar_style = score.Barline(bar_style_e.text)
+                part.add(bar_style, position)
 
             # <!ELEMENT barline (bar-style?, %editorial;, wavy-line?,
             #     segno?, coda?, (fermata, fermata?)?, ending?, repeat?)>
@@ -388,9 +414,9 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             #     coda CDATA #IMPLIED
             #     divisions CDATA #IMPLIED
 
-            fermata_e = e.find('fermata')
+            fermata_e = e.find("fermata")
             if fermata_e is not None:
-                location = e.get('location')
+                location = e.get("location")
                 fermata = score.Fermata(location)
                 if location is None:
                     # missing location attribute on barline defaults to
@@ -403,8 +429,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             # TODO: handle segno/fine/dacapo
 
         else:
-            LOGGER.debug('ignoring tag {0}'.format(e.tag))
-
+            LOGGER.debug("ignoring tag {0}".format(e.tag))
 
     for obj in trailing_children:
         part.add(obj, measure_maxtime)
@@ -416,15 +441,15 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
 
 def _handle_repeat(e, position, part, ongoing):
-    key = 'repeat'
+    key = "repeat"
 
-    if e.get('direction') == 'forward':
+    if e.get("direction") == "forward":
 
         o = score.Repeat()
         ongoing[key] = o
         part.add(o, position)
 
-    elif e.get('direction') == 'backward':
+    elif e.get("direction") == "backward":
 
         o = ongoing.pop(key, None)
 
@@ -439,22 +464,21 @@ def _handle_repeat(e, position, part, ongoing):
 
 
 def _handle_ending(e, position, part, ongoing):
-    key = 'ending'
+    key = "ending"
 
-    if e.get('type') == 'start':
+    if e.get("type") == "start":
 
-        o = score.Ending(e.get('number'))
+        o = score.Ending(e.get("number"))
         ongoing[key] = o
         part.add(o, position)
 
-    elif e.get('type') in ('stop', 'discontinue'):
+    elif e.get("type") in ("stop", "discontinue"):
 
         o = ongoing.pop(key, None)
 
         if o is None:
 
-            LOGGER.warning(
-                'Found ending[stop] without a preceding ending[start]')
+            LOGGER.warning("Found ending[stop] without a preceding ending[start]")
 
         else:
 
@@ -462,37 +486,37 @@ def _handle_ending(e, position, part, ongoing):
 
 
 def _handle_new_page(position, part, ongoing):
-    if 'page' in ongoing:
+    if "page" in ongoing:
         if position == 0:
             # ignore non-informative new-page at start of score
             return
 
-        part.add(ongoing['page'], None, position)
-        page_nr = ongoing['page'].number + 1
+        part.add(ongoing["page"], None, position)
+        page_nr = ongoing["page"].number + 1
     else:
         page_nr = 1
 
     page = score.Page(page_nr)
     part.add(page, position)
-    ongoing['page'] = page
+    ongoing["page"] = page
 
 
 def _handle_new_system(position, part, ongoing):
-    if 'system' in ongoing:
+    if "system" in ongoing:
 
         if position == 0:
             # ignore non-informative new-system at start of score
             return
 
         # end current page
-        part.add(ongoing['system'], None, position)
-        system_nr = ongoing['system'].number + 1
+        part.add(ongoing["system"], None, position)
+        system_nr = ongoing["system"].number + 1
     else:
         system_nr = 1
 
     system = score.System(system_nr)
     part.add(system, position)
-    ongoing['system'] = system
+    ongoing["system"] = system
 
 
 def make_measure(xml_measure):
@@ -501,31 +525,29 @@ def make_measure(xml_measure):
     #     measure.number = int(xml_measure.attrib['number'])
     # except:
     #     LOGGER.warn('No number attribute found for measure')
-    measure.number = get_value_from_attribute(xml_measure, 'number', int)
+    measure.number = get_value_from_attribute(xml_measure, "number", int)
     return measure
 
 
 def _handle_attributes(e, position, part):
-    """
+    """"""
 
-    """
-
-    ts_num = get_value_from_tag(e, 'time/beats', int)
-    ts_den = get_value_from_tag(e, 'time/beat-type', int)
+    ts_num = get_value_from_tag(e, "time/beats", int)
+    ts_den = get_value_from_tag(e, "time/beat-type", int)
     if ts_num and ts_den:
         part.add(score.TimeSignature(ts_num, ts_den), position)
 
-    fifths = get_value_from_tag(e, 'key/fifths', int)
-    mode = get_value_from_tag(e, 'key/mode', str)
+    fifths = get_value_from_tag(e, "key/fifths", int)
+    mode = get_value_from_tag(e, "key/mode", str)
     if fifths is not None or mode is not None:
         part.add(score.KeySignature(fifths, mode), position)
 
-    diat = get_value_from_tag(e, 'transpose/diatonic', int)
-    chrom = get_value_from_tag(e, 'transpose/chromatic', int)
+    diat = get_value_from_tag(e, "transpose/diatonic", int)
+    chrom = get_value_from_tag(e, "transpose/chromatic", int)
     if diat is not None or chrom is not None:
         part.add(score.Transposition(diat, chrom), position)
 
-    divs = get_value_from_tag(e, 'divisions', int)
+    divs = get_value_from_tag(e, "divisions", int)
     if divs:
         # part.add(score.Divisions(divs), position)
         part.set_quarter_duration(position, divs)
@@ -536,7 +558,7 @@ def _handle_attributes(e, position, part):
 
 
 def get_offset(e):
-    offset = e.find('offset')
+    offset = e.find("offset")
 
     if offset is None:
 
@@ -544,8 +566,8 @@ def get_offset(e):
 
     else:
 
-        sounding = offset.attrib.get('sound', 'no')
-        return int(offset.text) if sounding == 'yes' else 0
+        sounding = offset.attrib.get("sound", "no")
+        return int(offset.text) if sounding == "yes" else 0
 
 
 def _handle_direction(e, position, part, ongoing):
@@ -569,15 +591,15 @@ def _handle_direction(e, position, part, ongoing):
     #     %direction;
     # >
 
-    staff = get_value_from_tag(e, 'staff', int) or None
+    staff = get_value_from_tag(e, "staff", int) or None
 
-    if get_value_from_attribute(e, 'sound/fine', str) == 'yes':
+    if get_value_from_attribute(e, "sound/fine", str) == "yes":
         part.add(score.Fine(), position)
-    if get_value_from_attribute(e, 'sound/dacapo', str) == 'yes':
+    if get_value_from_attribute(e, "sound/dacapo", str) == "yes":
         part.add(score.DaCapo(), position)
 
     # <direction-type> ... </...>
-    direction_types = e.findall('direction-type')
+    direction_types = e.findall("direction-type")
     # <!ELEMENT direction-type (rehearsal+ | segno+ | words+ |
     #     coda+ | wedge | dynamics+ | dashes | bracket | pedal |
     #     metronome | octave-shift | harp-pedals | damp | damp-all |
@@ -608,18 +630,19 @@ def _handle_direction(e, position, part, ongoing):
         # direction_type
         dt = next(iter(direction_type))
 
-        if dt.tag == 'dynamics':
+        if dt.tag == "dynamics":
             # first child of direction-type is dynamics, there may be subsequent
             # dynamics items, so we loop:
             for child in direction_type:
                 # interpret as score.Direction, fall back to score.Words
                 dyn_el = next(iter(child))
                 if dyn_el is not None:
-                    direction = DYN_DIRECTIONS.get(
-                        dyn_el.tag, score.Words)(dyn_el.tag, staff=staff)
+                    direction = DYN_DIRECTIONS.get(dyn_el.tag, score.Words)(
+                        dyn_el.tag, staff=staff
+                    )
                     starting_directions.append(direction)
 
-        elif dt.tag == 'words':
+        elif dt.tag == "words":
             # first child of direction-type is words, there may be subsequent
             # words items, so we loop:
             for child in direction_type:
@@ -628,36 +651,35 @@ def _handle_direction(e, position, part, ongoing):
                 parse_result = parse_direction(child.text)
                 starting_directions.extend(parse_result)
 
-        elif dt.tag == 'wedge':
+        elif dt.tag == "wedge":
 
-            number = get_value_from_attribute(dt, 'number', int) or 1
-            key = ('wedge', number)
-            wedge_type = get_value_from_attribute(dt, 'type', str)
+            number = get_value_from_attribute(dt, "number", int) or 1
+            key = ("wedge", number)
+            wedge_type = get_value_from_attribute(dt, "type", str)
 
-            if wedge_type in ('crescendo', 'diminuendo'):
-                if wedge_type == 'crescendo':
+            if wedge_type in ("crescendo", "diminuendo"):
+                if wedge_type == "crescendo":
                     o = score.IncreasingLoudnessDirection(wedge_type, wedge=True)
                 else:
                     o = score.DecreasingLoudnessDirection(wedge_type, wedge=True)
                 starting_directions.append(o)
                 ongoing[key] = o
 
-            elif wedge_type == 'stop':
+            elif wedge_type == "stop":
 
                 o = ongoing.get(key)
                 if o is not None:
                     ending_directions.append(o)
                     del ongoing[key]
                 else:
-                    LOGGER.warning(
-                        'Did not find a wedge start element for wedge stop!')
+                    LOGGER.warning("Did not find a wedge start element for wedge stop!")
 
-        elif dt.tag == 'dashes':
+        elif dt.tag == "dashes":
 
             # start/stop/continue
-            dashes_type = get_value_from_attribute(dt, 'type', str)
-            number = get_value_from_attribute(dt, 'number', int) or 1
-            dashes_keys[('dashes', number)] = dashes_type
+            dashes_type = get_value_from_attribute(dt, "type", str)
+            number = get_value_from_attribute(dt, "number", int) or 1
+            dashes_keys[("dashes", number)] = dashes_type
             # TODO: for now we ignore dashes_type == continue, because it exists
             # only as a function of the visual appearance. However, if dashes
             # that are continued over a system are stopped at the end of the
@@ -665,27 +687,26 @@ def _handle_direction(e, position, part, ongoing):
             # will not be treated correctly. I'm not sure how dashes spanning
             # systems are encoded in practice (need examples).
 
-        elif dt.tag == 'pedal':
+        elif dt.tag == "pedal":
 
-            #start/stop
-            pedal_type = get_value_from_attribute(dt, 'type', str)
-            pedal_line = get_value_from_attribute(dt, 'line', str) == 'yes'
-            
-            number = get_value_from_attribute(dt, 'number', int) or 1
-            key = ('pedal', number)
-            if pedal_type == 'start':
+            # start/stop
+            pedal_type = get_value_from_attribute(dt, "type", str)
+            pedal_line = get_value_from_attribute(dt, "line", str) == "yes"
+
+            number = get_value_from_attribute(dt, "number", int) or 1
+            key = ("pedal", number)
+            if pedal_type == "start":
                 if key in ongoing:
                     eo = ongoing.pop(key)
-                    ending_directions.append(eo)                    
+                    ending_directions.append(eo)
 
-                o = score.SustainPedalDirection(staff=staff,
-                                                line=pedal_line)
+                o = score.SustainPedalDirection(staff=staff, line=pedal_line)
 
                 starting_directions.append(o)
 
                 ongoing[key] = o
 
-            elif pedal_type == 'stop':
+            elif pedal_type == "stop":
 
                 o = ongoing.get(key)
                 if o is not None:
@@ -693,30 +714,29 @@ def _handle_direction(e, position, part, ongoing):
                     del ongoing[key]
 
                 else:
-                    LOGGER.warning(
-                        'Did not find a pedal start element for pedal stop!')
+                    LOGGER.warning("Did not find a pedal start element for pedal stop!")
 
             else:
-                if pedal_type in ('change', 'continue'):
-                    LOGGER.warning('pedal types "change" and "continue" are '
-                                   'not supported. Ignoring direction.')
-                    
-            
+                if pedal_type in ("change", "continue"):
+                    LOGGER.warning(
+                        'pedal types "change" and "continue" are '
+                        "not supported. Ignoring direction."
+                    )
+
         else:
-            LOGGER.warning('ignoring direction type: {} {}'.format(
-                dt.tag, dt.attrib))
+            LOGGER.warning("ignoring direction type: {} {}".format(dt.tag, dt.attrib))
 
     for dashes_key, dashes_type in dashes_keys.items():
 
-        if dashes_type == 'start':
+        if dashes_type == "start":
 
             ongoing[dashes_key] = starting_directions
 
-        elif dashes_type == 'stop':
+        elif dashes_type == "stop":
 
             oo = ongoing.get(dashes_key)
             if oo is None:
-                LOGGER.warning('Dashes end without dashes start')
+                LOGGER.warning("Dashes end without dashes start")
             else:
                 ending_directions.extend(oo)
                 del ongoing[dashes_key]
@@ -741,13 +761,17 @@ def get_clefs(e):
     (fifths, mode) OR None : tuple of or None.
 
     """
-    clefs = e.xpath('clef')
+    clefs = e.xpath("clef")
     result = []
     for clef in clefs:
-        result.append(dict(number=get_value_from_attribute(clef, 'number', int),
-                           sign=get_value_from_tag(clef, 'sign', str),
-                           line=get_value_from_tag(clef, 'line', int),
-                           octave_change=get_value_from_tag(clef, 'clef-octave-change', int)))
+        result.append(
+            dict(
+                number=get_value_from_attribute(clef, "number", int),
+                sign=get_value_from_tag(clef, "sign", str),
+                line=get_value_from_tag(clef, "line", int),
+                octave_change=get_value_from_tag(clef, "clef-octave-change", int),
+            )
+        )
     return result
 
 
@@ -847,11 +871,11 @@ def get_pitch(e):
         The tuple contains (pitch, alter, octave)
     """
 
-    pitch = e.find('pitch')
+    pitch = e.find("pitch")
     if pitch is not None:
-        step = get_value_from_tag(pitch, 'step', str)
-        alter = get_value_from_tag(pitch, 'alter', int)
-        octave = get_value_from_tag(pitch, 'octave', int)
+        step = get_value_from_tag(pitch, "step", str)
+        alter = get_value_from_tag(pitch, "alter", int)
+        octave = get_value_from_tag(pitch, "octave", int)
         return (step, alter, octave)
     else:
         return None
@@ -879,106 +903,123 @@ def _add_tempo_if_unique(position, part, tempo):
         if tempos == []:
             part.add(tempo, position)
         else:
-            LOGGER.warning('not adding duplicate or conflicting tempo indication')
+            LOGGER.warning("not adding duplicate or conflicting tempo indication")
+
 
 def _handle_sound(e, position, part):
     if "tempo" in e.attrib:
-        tempo = score.Tempo(int(e.attrib['tempo']), 'q')
+        tempo = score.Tempo(int(e.attrib["tempo"]), "q")
         # part.add_starting_object(position, tempo)
         _add_tempo_if_unique(position, part, tempo)
+
 
 def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
     # get some common features of element if available
-    duration = get_value_from_tag(e, 'duration', int) or 0
+    duration = get_value_from_tag(e, "duration", int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
-    staff = get_value_from_tag(e, 'staff', int) or None
-    voice = get_value_from_tag(e, 'voice', int) or None
+    staff = get_value_from_tag(e, "staff", int) or None
+    voice = get_value_from_tag(e, "voice", int) or None
 
     # add support of uppercase "ID" tags
-    note_id = get_value_from_attribute(e, 'id', str)  if get_value_from_attribute(e, 'id', str) else get_value_from_attribute(e, 'ID', str)
-
-
+    note_id = (
+        get_value_from_attribute(e, "id", str)
+        if get_value_from_attribute(e, "id", str)
+        else get_value_from_attribute(e, "ID", str)
+    )
 
     symbolic_duration = {}
-    dur_type = get_value_from_tag(e, 'type', str)
+    dur_type = get_value_from_tag(e, "type", str)
     if dur_type:
-        symbolic_duration['type'] = dur_type
+        symbolic_duration["type"] = dur_type
 
-    dots = len(e.findall('dot'))
+    dots = len(e.findall("dot"))
     if dots:
-        symbolic_duration['dots'] = dots
+        symbolic_duration["dots"] = dots
 
-    actual_notes = get_value_from_tag(e, 'time-modification/actual-notes', int)
+    actual_notes = get_value_from_tag(e, "time-modification/actual-notes", int)
     if actual_notes:
-        symbolic_duration['actual_notes'] = actual_notes
+        symbolic_duration["actual_notes"] = actual_notes
 
-    normal_notes = get_value_from_tag(e, 'time-modification/normal-notes', int)
+    normal_notes = get_value_from_tag(e, "time-modification/normal-notes", int)
     if normal_notes:
-        symbolic_duration['normal_notes'] = normal_notes
+        symbolic_duration["normal_notes"] = normal_notes
 
-    chord = e.find('chord')
+    chord = e.find("chord")
     if chord is not None:
         # this note starts at the same position as the previous note, and has
         # same duration
         assert prev_note is not None
         position = prev_note.start.t
 
-    articulations_e = e.find('notations/articulations')
+    articulations_e = e.find("notations/articulations")
     if articulations_e is not None:
         articulations = get_articulations(articulations_e)
     else:
         articulations = {}
 
-    pitch = e.find('pitch')
+    pitch = e.find("pitch")
     if pitch is not None:
 
-        step = get_value_from_tag(pitch, 'step', str)
-        alter = get_value_from_tag(pitch, 'alter', int)
-        octave = get_value_from_tag(pitch, 'octave', int)
+        step = get_value_from_tag(pitch, "step", str)
+        alter = get_value_from_tag(pitch, "alter", int)
+        octave = get_value_from_tag(pitch, "octave", int)
 
-        grace = e.find('grace')
+        grace = e.find("grace")
 
         if grace is not None:
             grace_type, steal_proportion = get_grace_info(grace)
-            note = score.GraceNote(grace_type=grace_type, step=step,
-                                   octave=octave, alter=alter,
-                                   id=note_id, voice=voice, staff=staff,
-                                   symbolic_duration=symbolic_duration,
-                                   articulations=articulations,
-                                   steal_proportion=steal_proportion,
-                                   doc_order=doc_order)
-            if (isinstance(prev_note, score.GraceNote)
-                and prev_note.voice == voice):
+            note = score.GraceNote(
+                grace_type=grace_type,
+                step=step,
+                octave=octave,
+                alter=alter,
+                id=note_id,
+                voice=voice,
+                staff=staff,
+                symbolic_duration=symbolic_duration,
+                articulations=articulations,
+                steal_proportion=steal_proportion,
+                doc_order=doc_order,
+            )
+            if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
                 note.grace_prev = prev_note
         else:
-            note = score.Note(step=step, octave=octave,
-                              alter=alter, id=note_id,
-                              voice=voice, staff=staff,
-                              symbolic_duration=symbolic_duration,
-                              articulations=articulations,
-                              doc_order=doc_order)
+            note = score.Note(
+                step=step,
+                octave=octave,
+                alter=alter,
+                id=note_id,
+                voice=voice,
+                staff=staff,
+                symbolic_duration=symbolic_duration,
+                articulations=articulations,
+                doc_order=doc_order,
+            )
 
-        if (isinstance(prev_note, score.GraceNote)
-            and prev_note.voice == voice):
+        if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
             prev_note.grace_next = note
     else:
         # note element is a rest
-        note = score.Rest(id=note_id, voice=voice, staff=staff,
-                          symbolic_duration=symbolic_duration,
-                          articulations=articulations,
-                          doc_order=doc_order)
+        note = score.Rest(
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            symbolic_duration=symbolic_duration,
+            articulations=articulations,
+            doc_order=doc_order,
+        )
 
-    part.add(note, position, position+duration)
+    part.add(note, position, position + duration)
 
-    ties = e.findall('tie')
+    ties = e.findall("tie")
     if len(ties) > 0:
 
-        tie_key = ('tie', getattr(note, 'midi_pitch', 'rest'))
-        tie_types = set(tie.attrib['type'] for tie in ties)
+        tie_key = ("tie", getattr(note, "midi_pitch", "rest"))
+        tie_types = set(tie.attrib["type"] for tie in ties)
 
-        if 'stop' in tie_types:
+        if "stop" in tie_types:
 
             tie_prev = ongoing.get(tie_key, None)
 
@@ -988,21 +1029,23 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 tie_prev.tie_next = note
                 del ongoing[tie_key]
 
-        if 'start' in tie_types:
+        if "start" in tie_types:
 
             ongoing[tie_key] = note
 
-    notations = e.find('notations')
+    notations = e.find("notations")
 
     if notations is not None:
 
-        if notations.find('fermata') is not None:
+        if notations.find("fermata") is not None:
 
             fermata = score.Fermata(note)
             part.add(fermata, position)
             note.fermata = fermata
 
-        starting_slurs, stopping_slurs = handle_slurs(notations, ongoing, note, position)
+        starting_slurs, stopping_slurs = handle_slurs(
+            notations, ongoing, note, position
+        )
 
         for slur in starting_slurs:
 
@@ -1010,7 +1053,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
         for slur in stopping_slurs:
 
-            part.add(slur, end=position+duration)
+            part.add(slur, end=position + duration)
 
         starting_tups, stopping_tups = handle_tuplets(notations, ongoing, note)
 
@@ -1020,10 +1063,9 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
         for tup in stopping_tups:
 
-            part.add(tup, end=position+duration)
+            part.add(tup, end=position + duration)
 
     new_position = position + duration
-
 
     return new_position, note
 
@@ -1031,32 +1073,32 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 def handle_tuplets(notations, ongoing, note):
     starting_tuplets = []
     stopping_tuplets = []
-    tuplets = notations.findall('tuplet')
+    tuplets = notations.findall("tuplet")
 
     # this sorts all found tuplets by type (either 'start' or 'stop')
     # in reverse order, so all with type 'stop' will be before
     # the ones with 'start'?!.
-    tuplets.sort(key=lambda x: x.attrib['type'], reverse=True)
+    tuplets.sort(key=lambda x: x.attrib["type"], reverse=True)
 
     # Now that the tuplets are sorted by their type, sort them
     # by their numbers; First note that tuplets do not always
     # have a number attribute, then 1 is implied.
-    tuplets.sort(key=lambda x: get_value_from_attribute(
-        x, 'number', int) or note.voice or 1)
+    tuplets.sort(
+        key=lambda x: get_value_from_attribute(x, "number", int) or note.voice or 1
+    )
 
     for tuplet_e in tuplets:
 
-        tuplet_number = get_value_from_attribute(tuplet_e, 'number', int) or note.voice
-        tuplet_type = get_value_from_attribute(tuplet_e, 'type', str)
-        start_tuplet_key = ('start_tuplet', tuplet_number)
-        stop_tuplet_key = ('stop_tuplet', tuplet_number)
+        tuplet_number = get_value_from_attribute(tuplet_e, "number", int) or note.voice
+        tuplet_type = get_value_from_attribute(tuplet_e, "type", str)
+        start_tuplet_key = ("start_tuplet", tuplet_number)
+        stop_tuplet_key = ("stop_tuplet", tuplet_number)
 
-        if tuplet_type == 'start':
+        if tuplet_type == "start":
 
             # check if we have a stopped_tuplet in ongoing that corresponds to
             # this start
             tuplet = ongoing.pop(stop_tuplet_key, None)
-
 
             if tuplet is None:
 
@@ -1069,7 +1111,7 @@ def handle_tuplets(notations, ongoing, note):
 
             starting_tuplets.append(tuplet)
 
-        elif tuplet_type == 'stop':
+        elif tuplet_type == "stop":
 
             tuplet = ongoing.pop(start_tuplet_key, None)
             if tuplet is None:
@@ -1085,7 +1127,6 @@ def handle_tuplets(notations, ongoing, note):
     return starting_tuplets, stopping_tuplets
 
 
-
 def handle_slurs(notations, ongoing, note, position):
     # we need position here to check for erroneous slurs: sometimes a slur stop
     # is encountered before the corresponding slur start. This is a valid use
@@ -1095,27 +1136,28 @@ def handle_slurs(notations, ongoing, note, position):
 
     starting_slurs = []
     stopping_slurs = []
-    slurs = notations.findall('slur')
+    slurs = notations.findall("slur")
 
     # this sorts all found slurs by type (either 'start' or 'stop')
     # in reverse order, so all with type 'stop' will be before
     # the ones with 'start'?!.
-    slurs.sort(key=lambda x: x.attrib['type'], reverse=True)
+    slurs.sort(key=lambda x: x.attrib["type"], reverse=True)
 
     # Now that the slurs are sorted by their type, sort them
     # by their numbers; First note that slurs do not always
     # have a number attribute, then 1 is implied.
-    slurs.sort(key=lambda x: get_value_from_attribute(
-        x, 'number', int) or note.voice or 1)
+    slurs.sort(
+        key=lambda x: get_value_from_attribute(x, "number", int) or note.voice or 1
+    )
 
     for slur_e in slurs:
 
-        slur_number = get_value_from_attribute(slur_e, 'number', int) or note.voice
-        slur_type = get_value_from_attribute(slur_e, 'type', str)
-        start_slur_key = ('start_slur', slur_number)
-        stop_slur_key = ('stop_slur', slur_number)
+        slur_number = get_value_from_attribute(slur_e, "number", int) or note.voice
+        slur_type = get_value_from_attribute(slur_e, "type", str)
+        start_slur_key = ("start_slur", slur_number)
+        stop_slur_key = ("stop_slur", slur_number)
 
-        if slur_type == 'start':
+        if slur_type == "start":
 
             # check if we have a stopped_slur in ongoing that corresponds to
             # this stop
@@ -1126,10 +1168,16 @@ def handle_slurs(notations, ongoing, note, position):
             if slur is None or slur.end_note.start.t <= position:
 
                 if slur and slur.end_note.start.t <= position:
-                    msg = ('Dropping slur {} starting at {} ({}) and ending '
-                           'at {} ({})'
-                           .format(slur_number, position, note.id,
-                                   slur.end_note.start.t, slur.end_note.id))
+                    msg = (
+                        "Dropping slur {} starting at {} ({}) and ending "
+                        "at {} ({})".format(
+                            slur_number,
+                            position,
+                            note.id,
+                            slur.end_note.start.t,
+                            slur.end_note.id,
+                        )
+                    )
                     LOGGER.warning(msg)
                     # remove the slur from the timeline
                     slur.end_note.start.remove_ending_object(slur)
@@ -1145,17 +1193,23 @@ def handle_slurs(notations, ongoing, note, position):
 
             starting_slurs.append(slur)
 
-        elif slur_type == 'stop':
+        elif slur_type == "stop":
 
             slur = ongoing.pop(start_slur_key, None)
 
             if slur is None or slur.start_note.start.t >= position:
 
                 if slur and slur.start_note.start.t >= position:
-                    msg = ('Dropping slur {} starting at {} ({}) and ending '
-                           'at {} ({})'
-                           .format(slur_number, slur.start_note.start.t,
-                                   slur.start_note.id, position, note.id))
+                    msg = (
+                        "Dropping slur {} starting at {} ({}) and ending "
+                        "at {} ({})".format(
+                            slur_number,
+                            slur.start_note.start.t,
+                            slur.start_note.id,
+                            position,
+                            note.id,
+                        )
+                    )
                     LOGGER.warning(msg)
                     # remove the slur from the timeline
                     slur.start_note.start.remove_starting_object(slur)
@@ -1178,25 +1232,24 @@ def handle_slurs(notations, ongoing, note, position):
 
 def get_grace_info(grace):
     # grace note handling
-    grace_type = 'grace'
+    grace_type = "grace"
     steal_proportion = None
 
-    slash_text = get_value_from_attribute(grace, 'slash', str)
-    if slash_text == 'yes':
-        grace_type = 'acciaccatura'
+    slash_text = get_value_from_attribute(grace, "slash", str)
+    if slash_text == "yes":
+        grace_type = "acciaccatura"
 
-    steal_prc = get_value_from_attribute(grace, 'steal-time-following', float)
+    steal_prc = get_value_from_attribute(grace, "steal-time-following", float)
     if steal_prc is not None:
         steal_proportion = steal_prc / 100
-        grace_type = 'appoggiatura'
+        grace_type = "appoggiatura"
 
-    steal_prc = get_value_from_attribute(grace, 'steal-time-previous', float)
+    steal_prc = get_value_from_attribute(grace, "steal-time-previous", float)
     if steal_prc is not None:
         steal_proportion = steal_prc / 100
-        grace_type = 'acciaccatura'
+        grace_type = "acciaccatura"
 
     return grace_type, steal_proportion
-
 
 
 def get_articulations(e):
@@ -1206,16 +1259,35 @@ def get_articulations(e):
     # 	  scoop | plop | doit | falloff | breath-mark |
     # 	  caesura | stress | unstress | soft-accent |
     # 	  other-articulation)*)>
-    articulations = ('accent', 'strong-accent', 'staccato', 'tenuto',
-                     'detached-legato', 'staccatissimo', 'spiccato',
-                     'scoop', 'plop', 'doit', 'falloff', 'breath-mark',
-                     'caesura', 'stress', 'unstress', 'soft-accent')
+    articulations = (
+        "accent",
+        "strong-accent",
+        "staccato",
+        "tenuto",
+        "detached-legato",
+        "staccatissimo",
+        "spiccato",
+        "scoop",
+        "plop",
+        "doit",
+        "falloff",
+        "breath-mark",
+        "caesura",
+        "stress",
+        "unstress",
+        "soft-accent",
+    )
     return [a for a in articulations if e.find(a) is not None]
 
 
-def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
-                     expand_grace_notes=True, validate=False,
-                     beat_times=True):
+def musicxml_to_notearray(
+    fn,
+    flatten_parts=True,
+    sort_onsets=True,
+    expand_grace_notes=True,
+    validate=False,
+    beat_times=True,
+):
     """Return pitch, onset, and duration information for notes from a
     MusicXML file as a structured array.
 
@@ -1245,17 +1317,15 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     """
 
     if not isinstance(expand_grace_notes, (bool, str)):
-        raise ValueError('`expand_grace_notes` must be a boolean or '
-                         '"delete"')
+        raise ValueError("`expand_grace_notes` must be a boolean or " '"delete"')
     delete_grace_notes = False
     if isinstance(expand_grace_notes, str):
 
-        if expand_grace_notes in ('omit', 'delete', 'd'):
+        if expand_grace_notes in ("omit", "delete", "d"):
             expand_grace_notes = False
             delete_grace_notes = True
         else:
-            raise ValueError('`expand_grace_notes` must be a boolean or '
-                             '"delete"')
+            raise ValueError("`expand_grace_notes` must be a boolean or " '"delete"')
 
     # Parse MusicXML
     parts = load_musicxml(fn, ensure_list=True, validate=validate)
@@ -1264,7 +1334,7 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
         # Unfold any repetitions in part
         part = score.unfold_part_maximal(part)
         if expand_grace_notes:
-            LOGGER.debug('Expanding grace notes...')
+            LOGGER.debug("Expanding grace notes...")
             score.expand_grace_notes(part)
 
         if beat_times:
@@ -1272,23 +1342,28 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
             bm = part.beat_map
             # Build score from beat map
             _score = np.array(
-                [(n.midi_pitch, bm(n.start.t), bm(n.end_tied.t) - bm(n.start.t))
-                 for n in part.notes_tied],
-                dtype=[('pitch', 'i4'), ('onset', 'f4'), ('duration', 'f4')])
+                [
+                    (n.midi_pitch, bm(n.start.t), bm(n.end_tied.t) - bm(n.start.t))
+                    for n in part.notes_tied
+                ],
+                dtype=[("pitch", "i4"), ("onset", "f4"), ("duration", "f4")],
+            )
         else:
             _score = np.array(
-                [(n.midi_pitch, n.start.t, n.end_tied.t - n.start.t)
-                 for n in part.notes_tied],
-                dtype=[('pitch', 'i4'), ('onset', 'i4'), ('duration', 'i4')])
-
+                [
+                    (n.midi_pitch, n.start.t, n.end_tied.t - n.start.t)
+                    for n in part.notes_tied
+                ],
+                dtype=[("pitch", "i4"), ("onset", "i4"), ("duration", "i4")],
+            )
 
         # Sort notes according to onset
         if sort_onsets:
-            _score = _score[_score['onset'].argsort()]
+            _score = _score[_score["onset"].argsort()]
 
         if delete_grace_notes:
-            LOGGER.debug('Deleting grace notes...')
-            _score = _score[_score['duration'] != 0]
+            LOGGER.debug("Deleting grace notes...")
+            _score = _score[_score["duration"] != 0]
         scr.append(_score)
 
     # Return a structured array if the score has only one part
@@ -1297,6 +1372,6 @@ def musicxml_to_notearray(fn, flatten_parts=True, sort_onsets=True,
     elif len(scr) > 1 and flatten_parts:
         scr = np.vstack(scr)
         if sort_onsets:
-            return scr[scr['onset'].argsort()]
+            return scr[scr["onset"].argsort()]
     else:
         return scr

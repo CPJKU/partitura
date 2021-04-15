@@ -34,22 +34,45 @@ from partitura.utils import (
     iter_current_next,
     partition,
     estimate_clef_properties,
-    match_note_arrays
+    match_note_arrays,
 )
 
 
 class MatchError(Exception):
     pass
 
+
 class NakamuraMatchLine(object):
-    field_names = ['number', 'onset', 'offset', 'notename',
-                    'velocityonset', 'velocityoffset',
-                    'channel', 'matchstatus', 'scoretime', 'snoteID',
-                    'errorindex', 'skipindex']
-    def __init__(self,number, onset, offset, notename,
-                    velocityonset, velocityoffset,
-                    channel, matchstatus, scoretime, snoteID,
-                    errorindex, skipindex):
+    field_names = [
+        "number",
+        "onset",
+        "offset",
+        "notename",
+        "velocityonset",
+        "velocityoffset",
+        "channel",
+        "matchstatus",
+        "scoretime",
+        "snoteID",
+        "errorindex",
+        "skipindex",
+    ]
+
+    def __init__(
+        self,
+        number,
+        onset,
+        offset,
+        notename,
+        velocityonset,
+        velocityoffset,
+        channel,
+        matchstatus,
+        scoretime,
+        snoteID,
+        errorindex,
+        skipindex,
+    ):
         self.number = int(number)
         self.onset = float(onset)
         self.offset = float(offset)
@@ -67,6 +90,7 @@ class NakamuraMatchLine(object):
             kwargs = dict(zip(cls.field_names, line_split))
             match_line = cls(**kwargs)
             return match_line
+
 
 def parse_nakamuramatchline(l):
     """
@@ -104,7 +128,9 @@ class NakamuraMatchFile(object):
         self.name = filename
 
         with open(filename) as f:
-            self.lines = np.array([parse_nakamuramatchline(l) for l in f.read().splitlines()])
+            self.lines = np.array(
+                [parse_nakamuramatchline(l) for l in f.read().splitlines()]
+            )
 
     def iter_notes(self):
         """
@@ -117,10 +143,9 @@ class NakamuraMatchFile(object):
                 yield x
 
 
-
 def load_nakamuramatch(fn, pedal_threshold=64, first_note_at_zero=False):
-    """ Load a match file as returned by Nakamura et al.'s MIDI to musicxml alignment
-    
+    """Load a match file as returned by Nakamura et al.'s MIDI to musicxml alignment
+
     Fields of the file format as specified here https://midialignment.github.io/MANUAL.pdf
     ID (onset time) (offset time) (spelled pitch) (onset velocity)(offset velocity) channel (match status) (score time) (note ID)(error index) (skip index)
 
@@ -154,13 +179,13 @@ def load_nakamuramatch(fn, pedal_threshold=64, first_note_at_zero=False):
 
     return mf, ppart, alignment
 
+
 def alignment_from_nakamuramatch(mf):
     result = []
     for l in mf.iter_notes():
-        result.append(dict(label='match',
-                            score_id=l.snoteID,
-                            performance_id=l.number))
+        result.append(dict(label="match", score_id=l.snoteID, performance_id=l.number))
     return result
+
 
 def performed_part_from_nakamuramatch(mf, pedal_threshold=64, first_note_at_zero=False):
     """Make PerformedPart from performance info in a match.txt file
@@ -191,36 +216,61 @@ def performed_part_from_nakamuramatch(mf, pedal_threshold=64, first_note_at_zero
         offset = 0
 
     for note in mf.iter_notes():
-        notes.append(dict(id=note.number,
-                          midi_pitch=note_name_to_midi_pitch(note.notename),
-                          note_on=note.onset  - offset,
-                          note_off=note.offset  - offset,
-                          sound_off=note.offset - offset,
-                          velocity=note.velocityonset
-                          ))
+        notes.append(
+            dict(
+                id=note.number,
+                midi_pitch=note_name_to_midi_pitch(note.notename),
+                note_on=note.onset - offset,
+                note_off=note.offset - offset,
+                sound_off=note.offset - offset,
+                velocity=note.velocityonset,
+            )
+        )
 
-    ppart = PerformedPart(id='P1',
-                          part_name="unknown_part_1",
-                          notes=notes,
-                          sustain_pedal_threshold=pedal_threshold)
+    ppart = PerformedPart(
+        id="P1",
+        part_name="unknown_part_1",
+        notes=notes,
+        sustain_pedal_threshold=pedal_threshold,
+    )
     return ppart
 
 
-
 class NakamuraCorrespLine(object):
-    field_names = ["alignID", "alignOntime", "alignSitch",
-                    "alignPitch", "alignOnvel", "refID",
-                    "refOntime", "refSitch", "refPitch", "refOnvel"]
-    
-    out_pattern = '{alignID}\t{alignOntime}\t{alignSitch}'\
-                      '\t{alignPitch}\t{alignOnvel}'\
-                      '\t{refID}\t{refOntime}'\
-                      '\t{refSitch}\t{refPitch}\t{refOnvel}'
+    field_names = [
+        "alignID",
+        "alignOntime",
+        "alignSitch",
+        "alignPitch",
+        "alignOnvel",
+        "refID",
+        "refOntime",
+        "refSitch",
+        "refPitch",
+        "refOnvel",
+    ]
 
-    def __init__(self, alignID, alignOntime, alignSitch,
-                    alignPitch, alignOnvel, refID,
-                    refOntime, refSitch, refPitch, refOnvel):
-        
+    out_pattern = (
+        "{alignID}\t{alignOntime}\t{alignSitch}"
+        "\t{alignPitch}\t{alignOnvel}"
+        "\t{refID}\t{refOntime}"
+        "\t{refSitch}\t{refPitch}\t{refOnvel}"
+    )
+
+    def __init__(
+        self,
+        alignID,
+        alignOntime,
+        alignSitch,
+        alignPitch,
+        alignOnvel,
+        refID,
+        refOntime,
+        refSitch,
+        refPitch,
+        refOnvel,
+    ):
+
         self.id0 = str(alignID)
         self.onset0 = float(alignOntime)
         self.pitch0 = int(alignPitch)
@@ -244,22 +294,22 @@ class NakamuraCorrespLine(object):
             kwargs = dict(zip(cls.field_names, line_split))
             corresp_line = cls(**kwargs)
             return corresp_line
-    
+
     @property
     def corresp_line(self):
         self.out_pattern.format(
-        alignID = self.id0,
-        alignOntime = self.onset0,
-        alignPitch = self.pitch0,
-        alignSitch = self.alignSitch,
-        alignOnvel = self.alignOnvel,
-        refID = self.id1,
-        refOntime = self.onset1,
-        refPitch = self.pitch1,
-        refSitch = self.refSitch,
-        refOnvel = self.refOnvel
+            alignID=self.id0,
+            alignOntime=self.onset0,
+            alignPitch=self.pitch0,
+            alignSitch=self.alignSitch,
+            alignOnvel=self.alignOnvel,
+            refID=self.id1,
+            refOntime=self.onset1,
+            refPitch=self.pitch1,
+            refSitch=self.refSitch,
+            refOnvel=self.refOnvel,
         )
-        
+
 
 def parse_nakamuracorrespline(l):
     """
@@ -297,7 +347,9 @@ class NakamuraCorrespFile(object):
         self.name = filename
 
         with open(filename) as f:
-            self.lines = np.array([parse_nakamuracorrespline(l) for l in f.read().splitlines()])
+            self.lines = np.array(
+                [parse_nakamuracorrespline(l) for l in f.read().splitlines()]
+            )
 
     @property
     def note_pairs(self):
@@ -321,7 +373,6 @@ class NakamuraCorrespFile(object):
     def snotes(self):
         raise NotImplementedError
 
-
     @property
     def sustain_pedal(self):
         raise NotImplementedError
@@ -337,9 +388,7 @@ class NakamuraCorrespFile(object):
             a tuple of structured arrays
 
         """
-        fields = [('onset', 'f4'),
-                  ('pitch', 'i4'),
-                  ('id', 'U256')]
+        fields = [("onset", "f4"), ("pitch", "i4"), ("id", "U256")]
 
         note_array0 = []
         note_array1 = []
@@ -352,29 +401,27 @@ class NakamuraCorrespFile(object):
         ar1 = np.array(note_array1, dtype=fields)
         return ar0, ar1
 
-
     @property
     def alignment(self):
         result = []
         for l in self.iter_notes():
             if l.id0 == "*":
-                result.append(dict(label='deletion',
-                                   performance_id=l.id0,
-                                score_id=l.id1))
+                result.append(
+                    dict(label="deletion", performance_id=l.id0, score_id=l.id1)
+                )
             elif l.id1 == "*":
-                result.append(dict(label='insertion',
-                                performance_id=int(l.id0),
-                                score_id=l.id1))
+                result.append(
+                    dict(label="insertion", performance_id=int(l.id0), score_id=l.id1)
+                )
             else:
-                result.append(dict(label='match',
-                                performance_id=int(l.id0),
-                                score_id=l.id1))
+                result.append(
+                    dict(label="match", performance_id=int(l.id0), score_id=l.id1)
+                )
         return result
 
 
-
 def load_nakamuracorresp(fn, pedal_threshold=64, first_note_at_zero=False):
-    """ Load a corresp file as returned by Nakamura et al.'s MIDI to MIDI alignment.
+    """Load a corresp file as returned by Nakamura et al.'s MIDI to MIDI alignment.
 
     Fields of the file format as specified here: https://midialignment.github.io/MANUAL.pdf
     (ID) (onset time) (spelled pitch) (integer pitch) (onset velocity)
@@ -410,8 +457,50 @@ def note_name_to_midi_pitch(notename):
     Utility function to convert the Nakamura pitch spelling to MIDI pitches
     """
     pitch = 0
-    keys = ["A","B","C","D","E","F","G","\#","b","0","1","2","3","4","5","6","7","8", "x", "bb"]
-    values = [21,23,12,14,16,17,19,1,-1,0,12,24,36,48,60,72,84,96,2,-1]
+    keys = [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "\#",
+        "b",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "x",
+        "bb",
+    ]
+    values = [
+        21,
+        23,
+        12,
+        14,
+        16,
+        17,
+        19,
+        1,
+        -1,
+        0,
+        12,
+        24,
+        36,
+        48,
+        60,
+        72,
+        84,
+        96,
+        2,
+        -1,
+    ]
     for k, v in zip(keys, values):
         if k in notename:
             pitch += v

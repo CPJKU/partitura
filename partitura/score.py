@@ -33,9 +33,11 @@ from partitura.utils import (
     symbolic_to_numeric_duration,
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch,
+    note_array_from_part,
+    note_array_from_part_list,
     to_quarter_tempo,
     key_mode_to_int,
-    _OrderedSet
+    _OrderedSet,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -71,8 +73,7 @@ class Part(object):
 
     """
 
-    def __init__(self, id, part_name=None, part_abbreviation=None,
-                 quarter_duration=1):
+    def __init__(self, id, part_name=None, part_abbreviation=None, quarter_duration=1):
         super().__init__()
         self.id = id
         self.parent = None
@@ -93,7 +94,7 @@ class Part(object):
         tree.push()
         N = len(self._points)
         for i, timepoint in enumerate(self._points):
-            result.append('{}'.format(tree).rstrip())
+            result.append("{}".format(tree).rstrip())
             if i == N - 1:
                 tree.last_item()
             else:
@@ -111,7 +112,7 @@ class Part(object):
             A pretty representation
 
         """
-        return '\n'.join(self._pp(PrettyPrintTree()))
+        return "\n".join(self._pp(PrettyPrintTree()))
 
     @property
     def time_signature_map(self):
@@ -125,30 +126,39 @@ class Part(object):
             The mapping function
 
         """
-        tss = np.array([(ts.start.t, ts.beats, ts.beat_type)
-                        for ts in self.iter_all(TimeSignature)])
+        tss = np.array(
+            [
+                (ts.start.t, ts.beats, ts.beat_type)
+                for ts in self.iter_all(TimeSignature)
+            ]
+        )
 
         if len(tss) == 0:
             # default time sig
             beats, beat_type = 4, 4
-            LOGGER.warning('No time signatures found, assuming {}/{}'
-                           .format(beats, beat_type))
+            LOGGER.warning(
+                "No time signatures found, assuming {}/{}".format(beats, beat_type)
+            )
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
                 t0 = self.first_point.t
                 tN = self.last_point.t
-            tss = np.array([(t0, beats, beat_type),
-                            (tN, beats, beat_type)])
+            tss = np.array([(t0, beats, beat_type), (tN, beats, beat_type)])
         elif len(tss) == 1:
             # If there is only a single time signature
             return lambda x: np.array([tss[0, 1], tss[0, 2]])
         elif tss[0, 0] > self.first_point.t:
-            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]),
-                             tss))
+            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]), tss))
 
-        return interp1d(tss[:, 0], tss[:, 1:], axis=0, kind='previous',
-                        bounds_error=False, fill_value='extrapolate')
+        return interp1d(
+            tss[:, 0],
+            tss[:, 1:],
+            axis=0,
+            kind="previous",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
 
     @property
     def key_signature_map(self):
@@ -161,31 +171,39 @@ class Part(object):
         function
             The mapping function
         """
-        kss = np.array([(ks.start.t, ks.fifths, key_mode_to_int(ks.mode))
-                        for ks in self.iter_all(KeySignature)])
+        kss = np.array(
+            [
+                (ks.start.t, ks.fifths, key_mode_to_int(ks.mode))
+                for ks in self.iter_all(KeySignature)
+            ]
+        )
 
         if len(kss) == 0:
             # default key signature
             fifths, mode = 0, 1
-            LOGGER.warning('No key signature found, assuming C major')
+            LOGGER.warning("No key signature found, assuming C major")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
                 t0 = self.first_point.t
                 tN = self.first_point.t
 
-            kss = np.array([(t0, fifths, mode),
-                            (tN, fifths, mode)])
+            kss = np.array([(t0, fifths, mode), (tN, fifths, mode)])
 
         elif len(kss) == 1:
             # if there is only a single key signature
             return lambda x: np.array([kss[0, 1], kss[0, 2]])
         elif kss[0, 0] > self.first_point.t:
-            kss = np.vstack(((self.first_point.t, kss[0, 1], kss[0, 2]),
-                             kss))
+            kss = np.vstack(((self.first_point.t, kss[0, 1], kss[0, 2]), kss))
 
-        return interp1d(kss[:, 0], kss[:, 1:], axis=0, kind='previous',
-                        bounds_error=False, fill_value='extrapolate')
+        return interp1d(
+            kss[:, 0],
+            kss[:, 1:],
+            axis=0,
+            kind="previous",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
 
     def _time_interpolator(self, quarter=False, inv=False):
 
@@ -220,13 +238,16 @@ class Part(object):
         keypoints = np.array(keypoints_list, dtype=np.float)
 
         x = keypoints[:, 0]
-        y = np.r_[0, np.cumsum((keypoints[:-1, 2]
-                                * np.diff(keypoints[:, 0])) /
-                               keypoints[:-1, 1])]
+        y = np.r_[
+            0,
+            np.cumsum(
+                (keypoints[:-1, 2] * np.diff(keypoints[:, 0])) / keypoints[:-1, 1]
+            ),
+        ]
 
         m1 = next(self.first_point.iter_starting(Measure), None)
 
-        if (m1 and m1.start is not None and m1.end is not None):
+        if m1 and m1.start is not None and m1.end is not None:
 
             f = interp1d(x, y)
             actual_dur = np.diff(f((m1.start.t, m1.end.t)))[0]
@@ -236,7 +257,7 @@ class Part(object):
 
                 normal_dur = ts.beats
                 if quarter:
-                    normal_dur *=  4 / ts.beat_type
+                    normal_dur *= 4 / ts.beat_type
                 if actual_dur < normal_dur:
                     y -= actual_dur
             else:
@@ -244,9 +265,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x)# , bounds_error=False, fill_value='extrapolate')
+            return interp1d(y, x)  # , bounds_error=False, fill_value='extrapolate')
         else:
-            return interp1d(x, y)# , bounds_error=False, fill_value='extrapolate')
+            return interp1d(x, y)  # , bounds_error=False, fill_value='extrapolate')
 
     @property
     def beat_map(self):
@@ -325,9 +346,11 @@ class Part(object):
             List of Note objects
 
         """
-        return [note for note in self.iter_all(Note, include_subclasses=True)
-                if note.tie_prev is None]
-
+        return [
+            note
+            for note in self.iter_all(Note, include_subclasses=True)
+            if note.tie_prev is None
+        ]
 
     def quarter_durations(self, start=None, end=None):
         """Return an Nx2 array with quarter duration (second column)
@@ -374,9 +397,9 @@ class Part(object):
         if len(x) == 1:
             x = x + x
             y = y + y
-        return interp1d(x, y, kind='previous',
-                        bounds_error=False,
-                        fill_value=(y[0], y[-1]))
+        return interp1d(
+            x, y, kind="previous", bounds_error=False, fill_value=(y[0], y[-1])
+        )
 
     def set_quarter_duration(self, t, quarter):
         """Set the duration of a quarter note from timepoint `t`
@@ -421,7 +444,7 @@ class Part(object):
         i = np.searchsorted(times, t)
         changed = False
 
-        if (i == 0 or quarters[i - 1] != quarter):
+        if i == 0 or quarters[i - 1] != quarter:
             # add or replace
             if i == len(times) or times[i] != t:
                 # add
@@ -484,7 +507,9 @@ class Part(object):
 
         """
         if t < 0:
-            raise InvalidTimePointException('TimePoints should have non-negative integer values')
+            raise InvalidTimePointException(
+                "TimePoints should have non-negative integer values"
+            )
 
         i = np.searchsorted(self._points, TimePoint(t))
         if i < len(self._points) and self._points[i].t == t:
@@ -509,7 +534,9 @@ class Part(object):
 
         """
         if t < 0:
-            raise InvalidTimePointException('TimePoints should have non-negative integer values')
+            raise InvalidTimePointException(
+                "TimePoints should have non-negative integer values"
+            )
 
         tp = self.get_point(t)
         if tp is None:
@@ -538,14 +565,18 @@ class Part(object):
         """
         if start is not None:
             if start < 0:
-                raise InvalidTimePointException('TimePoints should have non-negative integer values')
+                raise InvalidTimePointException(
+                    "TimePoints should have non-negative integer values"
+                )
             self.get_or_add_point(start).add_starting_object(o)
         if end is not None:
             if end < 0:
-                raise InvalidTimePointException('TimePoints should have non-negative integer values')
+                raise InvalidTimePointException(
+                    "TimePoints should have non-negative integer values"
+                )
             self.get_or_add_point(end).add_ending_object(o)
 
-    def remove(self, o, which='both'):
+    def remove(self, o, which="both"):
         """Remove an object from the timeline.
 
         An object can be removed by start time, end time, or both.
@@ -560,32 +591,39 @@ class Part(object):
 
         """
 
-        if which in ('start', 'both') and o.start:
+        if which in ("start", "both") and o.start:
             try:
                 o.start.starting_objects[o.__class__].remove(o)
             except:
-                raise Exception('Not implemented: removing an object that is registered by its superclass')
+                raise Exception(
+                    "Not implemented: removing an object that is registered by its superclass"
+                )
             # cleanup timepoint if no starting/ending objects are left
             self._cleanup_point(o.start)
             o.start = None
 
-        if which in ('end', 'both') and o.end:
+        if which in ("end", "both") and o.end:
             try:
                 o.end.ending_objects[o.__class__].remove(o)
             except:
-                raise Exception('Not implemented: removing an object that is registered by its superclass')
+                raise Exception(
+                    "Not implemented: removing an object that is registered by its superclass"
+                )
             # cleanup timepoint if no starting/ending objects are left
             self._cleanup_point(o.end)
             o.end = None
 
     def _cleanup_point(self, tp):
         # remove tp when it has no starting or ending objects
-        if (sum(len(oo) for oo in tp.starting_objects.values()) +
-            sum(len(oo) for oo in tp.ending_objects.values())) == 0:
+        if (
+            sum(len(oo) for oo in tp.starting_objects.values())
+            + sum(len(oo) for oo in tp.ending_objects.values())
+        ) == 0:
             self._remove_point(tp)
 
-    def iter_all(self, cls=None, start=None, end=None,
-                 include_subclasses=False, mode='starting'):
+    def iter_all(
+        self, cls=None, start=None, end=None, include_subclasses=False, mode="starting"
+    ):
         """Iterate (in direction of increasing time) over all
         instances of `cls` that either start or end (depending on
         `mode`) in the interval `start` to `end`.  When `start` and
@@ -616,9 +654,9 @@ class Part(object):
             Instances of the specified type.
 
         """
-        if not mode in ('starting', 'ending'):
+        if not mode in ("starting", "ending"):
             LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
-            mode = 'starting'
+            mode = "starting"
 
         if start is None:
             start_idx = 0
@@ -638,13 +676,12 @@ class Part(object):
             cls = object
             include_subclasses = True
 
-        if mode == 'ending':
-            for tp in self._points[start_idx: end_idx]:
+        if mode == "ending":
+            for tp in self._points[start_idx:end_idx]:
                 yield from tp.iter_ending(cls, include_subclasses)
         else:
-            for tp in self._points[start_idx: end_idx]:
+            for tp in self._points[start_idx:end_idx]:
                 yield from tp.iter_starting(cls, include_subclasses)
-
 
     @property
     def last_point(self):
@@ -669,35 +706,10 @@ class Part(object):
 
         """
         return self._points[0] if len(self._points) > 0 else None
-    
+
     @property
     def note_array(self):
-        fields = [('onset_beat', 'f4'),
-                  ('duration_beat', 'f4'),
-                  ('onset_quarter', 'f4'),
-                  ('duration_quarter', 'f4'),
-                  ('onset_div', 'i4'),
-                  ('duration_div', 'i4'),
-                  ('pitch', 'i4'),
-                  ('voice', 'i4'),
-                  ('id', 'U256')]
-        note_array = []
-        for note in self.notes_tied:
-            note_on_div = note.start.t
-            note_off_div = note.start.t + note.duration_tied
-            note_dur_div = note_off_div - note_on_div
-            note_on_beat, note_off_beat = self.beat_map([note_on_div, note_off_div])
-            note_dur_beat = note_off_beat - note_on_beat
-            note_on_quarter, note_off_quarter = self.quarter_map([note_on_div, note_off_div])
-            note_dur_quarter = note_off_quarter - note_on_quarter
-            
-            note_array.append((note_on_beat, note_dur_beat, 
-                                note_on_quarter, note_dur_quarter, 
-                                note_on_div, note_dur_div, 
-                                note.midi_pitch,
-                                note.voice, note.id))
-            
-        return np.array(note_array, dtype=fields)
+        return note_array_from_part(self)
 
     # @property
     # def part_names(self):
@@ -786,20 +798,15 @@ class TimePoint(ComparableMixin):
         return new
 
     def __str__(self):
-        return ('TimePoint t={} quarter={}'
-                .format(self.t, self.quarter))
+        return "TimePoint t={} quarter={}".format(self.t, self.quarter)
 
     def add_starting_object(self, obj):
-        """Add object `obj` to the list of starting objects.
-
-        """
+        """Add object `obj` to the list of starting objects."""
         obj.start = self
         self.starting_objects[type(obj)].add(obj)
 
     def remove_starting_object(self, obj):
-        """Remove object `obj` from the list of starting objects.
-
-        """
+        """Remove object `obj` from the list of starting objects."""
         # TODO: check if object is stored under a superclass
         obj.start = None
         if type(obj) in self.starting_objects:
@@ -810,9 +817,7 @@ class TimePoint(ComparableMixin):
                 pass
 
     def remove_ending_object(self, obj):
-        """Remove object `obj` from the list of ending objects.
-
-        """
+        """Remove object `obj` from the list of ending objects."""
         # TODO: check if object is stored under a superclass
         obj.end = None
         if type(obj) in self.ending_objects:
@@ -823,9 +828,7 @@ class TimePoint(ComparableMixin):
                 pass
 
     def add_ending_object(self, obj):
-        """Add object `obj` to the list of ending objects.
-
-        """
+        """Add object `obj` to the list of ending objects."""
         obj.end = self
         self.ending_objects[type(obj)].add(obj)
 
@@ -935,7 +938,6 @@ class TimePoint(ComparableMixin):
             yield from tp.iter_starting(cls, include_subclasses)
             tp = tp.next
 
-
     def _cmpkey(self):
         # This method returns the value to be compared (code for that is in
         # the ComparableMixin class)
@@ -944,34 +946,44 @@ class TimePoint(ComparableMixin):
     def _pp(self, tree):
         # pretty print the timepoint, including its starting and ending
         # objects
-        result = ['{}{}'.format(tree, self.__str__())]
+        result = ["{}{}".format(tree, self.__str__())]
         tree.push()
 
-        ending_items_lists = sorted_dict_items(self.ending_objects.items(),
-                                               key=lambda x: x[0].__name__)
-        starting_items_lists = sorted_dict_items(self.starting_objects.items(),
-                                                 key=lambda x: x[0].__name__)
+        ending_items_lists = sorted_dict_items(
+            self.ending_objects.items(), key=lambda x: x[0].__name__
+        )
+        starting_items_lists = sorted_dict_items(
+            self.starting_objects.items(), key=lambda x: x[0].__name__
+        )
 
         # ending_items = [o for _, oo in ending_items_lists for o in oo]
         # starting_items = [o for _, oo in starting_items_lists for o in oo]
-        ending_items = [o for _, oo in ending_items_lists for o in sorted(oo, key=lambda x: x.duration or -1, reverse=True)]
-        starting_items = [o for _, oo in starting_items_lists for o in sorted(oo, key=lambda x: x.duration or -1)]
-        
+        ending_items = [
+            o
+            for _, oo in ending_items_lists
+            for o in sorted(oo, key=lambda x: x.duration or -1, reverse=True)
+        ]
+        starting_items = [
+            o
+            for _, oo in starting_items_lists
+            for o in sorted(oo, key=lambda x: x.duration or -1)
+        ]
+
         # import ipdb
         # ipdb.set_trace()
-        
+
         if ending_items:
 
-            result.append('{}'.format(tree).rstrip())
+            result.append("{}".format(tree).rstrip())
 
             if starting_items:
                 tree.next_item()
             else:
                 tree.last_item()
 
-            result.append('{}ending objects'.format(tree))
+            result.append("{}ending objects".format(tree))
             tree.push()
-            result.append('{}'.format(tree).rstrip())
+            result.append("{}".format(tree).rstrip())
 
             for i, item in enumerate(ending_items):
 
@@ -980,25 +992,25 @@ class TimePoint(ComparableMixin):
                 else:
                     tree.next_item()
 
-                result.append('{}{}'.format(tree, item))
+                result.append("{}{}".format(tree, item))
 
             tree.pop()
 
         if starting_items:
 
-            result.append('{}'.format(tree).rstrip())
+            result.append("{}".format(tree).rstrip())
             tree.last_item()
-            result.append('{}starting objects'.format(tree))
+            result.append("{}starting objects".format(tree))
             tree.push()
-            result.append('{}'.format(tree).rstrip())
+            result.append("{}".format(tree).rstrip())
 
             for i, item in enumerate(starting_items):
-                
+
                 if i == (len(starting_items) - 1):
                     tree.last_item()
                 else:
                     tree.next_item()
-                result.append('{}{}'.format(tree, item))
+                result.append("{}{}".format(tree, item))
 
             tree.pop()
 
@@ -1021,15 +1033,16 @@ class TimedObject(ReplaceRefMixin):
         End time of the object
 
     """
+
     def __init__(self):
         super().__init__()
         self.start = None
         self.end = None
 
     def __str__(self):
-        start = '' if self.start is None else f'{self.start.t}'
-        end = '' if self.end is None else f'{self.end.t}'
-        return start + '--' + end + ' ' + type(self).__name__
+        start = "" if self.start is None else f"{self.start.t}"
+        end = "" if self.end is None else f"{self.end.t}"
+        return start + "--" + end + " " + type(self).__name__
 
     @property
     def duration(self):
@@ -1046,7 +1059,7 @@ class TimedObject(ReplaceRefMixin):
             return None
         else:
             return self.end.t - self.start.t
-    
+
 
 class GenericNote(TimedObject):
     """Represents the common aspects of notes, rests, and unpitched
@@ -1072,7 +1085,15 @@ class GenericNote(TimedObject):
 
     """
 
-    def __init__(self, id=None, voice=None, staff=None, symbolic_duration=None, articulations=None, doc_order=None):
+    def __init__(
+        self,
+        id=None,
+        voice=None,
+        staff=None,
+        symbolic_duration=None,
+        articulations=None,
+        doc_order=None,
+    ):
         self._sym_dur = None
         super().__init__()
         self.voice = voice
@@ -1092,9 +1113,16 @@ class GenericNote(TimedObject):
         self.tuplet_starts = []
 
         # maintain a list of attributes to update when cloning this instance
-        self._ref_attrs.extend(['tie_prev', 'tie_next',
-                                'slur_stops', 'slur_starts',
-                                'tuplet_stops', 'tuplet_starts'])
+        self._ref_attrs.extend(
+            [
+                "tie_prev",
+                "tie_next",
+                "slur_stops",
+                "slur_starts",
+                "tuplet_stops",
+                "tuplet_starts",
+            ]
+        )
 
     @property
     def symbolic_duration(self):
@@ -1140,10 +1168,14 @@ class GenericNote(TimedObject):
         if self._sym_dur is None:
             # compute value
             if not self.start or not self.end:
-                LOGGER.warning('Cannot estimate symbolic duration for notes that are not added to a Part')
+                LOGGER.warning(
+                    "Cannot estimate symbolic duration for notes that are not added to a Part"
+                )
                 return None
             if self.start.quarter is None:
-                LOGGER.warning('Cannot estimate symbolic duration when not quarter_duration has been set. See Part.set_quarter_duration.')
+                LOGGER.warning(
+                    "Cannot estimate symbolic duration when not quarter_duration has been set. See Part.set_quarter_duration."
+                )
                 return None
             return estimate_symbolic_duration(self.duration, self.start.quarter)
         else:
@@ -1201,7 +1233,9 @@ class GenericNote(TimedObject):
 
         if self.symbolic_duration:
             # check for self.start, and self.start.quarter
-            return symbolic_to_numeric_duration(self.symbolic_duration, self.start.quarter)
+            return symbolic_to_numeric_duration(
+                self.symbolic_duration, self.start.quarter
+            )
         else:
             return None
 
@@ -1292,23 +1326,28 @@ class GenericNote(TimedObject):
         """
 
         for n in self.start.iter_starting(GenericNote, include_subclasses=True):
-            if (((not same_voice) or n.voice == self.voice)
-                    and ((not same_duration) or (n.duration == self.duration))):
+            if ((not same_voice) or n.voice == self.voice) and (
+                (not same_duration) or (n.duration == self.duration)
+            ):
                 yield n
 
     def __str__(self):
         # s = ('{} id={} voice={} staff={} type={}'
         #      .format(type(self).__name__, self.id, self.voice, self.staff,
         #              format_symbolic_duration(self.symbolic_duration)))
-        s = ('{} id={} voice={} staff={} type={}'
-             .format(super().__str__(), self.id, self.voice, self.staff,
-                     format_symbolic_duration(self.symbolic_duration)))
+        s = "{} id={} voice={} staff={} type={}".format(
+            super().__str__(),
+            self.id,
+            self.voice,
+            self.staff,
+            format_symbolic_duration(self.symbolic_duration),
+        )
         if self.articulations:
-            s += ' articulations=({})'.format(", ".join(self.articulations))
+            s += " articulations=({})".format(", ".join(self.articulations))
         if self.tie_prev or self.tie_next:
             all_tied = self.tie_prev_notes + [self] + self.tie_next_notes
-            tied_id = '+'.join(n.id or 'None' for n in all_tied)
-            return s + ' tie_group={}'.format(tied_id)
+            tied_id = "+".join(n.id or "None" for n in all_tied)
+            return s + " tie_group={}".format(tied_id)
         else:
             return s
 
@@ -1336,10 +1375,11 @@ class Note(GenericNote):
             sharp
         2
             double sharp
-            
+
         Defaults to None.
 
     """
+
     def __init__(self, step, octave, alter=None, beam=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.step = step
@@ -1355,12 +1395,16 @@ class Note(GenericNote):
                 self.beam.append(self)
             except:
                 import pdb
+
                 pdb.set_trace()
 
-
     def __str__(self):
-        return ' '.join((super().__str__(),
-                         'pitch={}{}{}'.format(self.step, self.alter_sign, self.octave)))
+        return " ".join(
+            (
+                super().__str__(),
+                "pitch={}{}{}".format(self.step, self.alter_sign, self.octave),
+            )
+        )
 
     @property
     def midi_pitch(self):
@@ -1373,9 +1417,9 @@ class Note(GenericNote):
             The note's pitch as MIDI note number.
 
         """
-        return pitch_spelling_to_midi_pitch(step=self.step,
-                                            octave=self.octave,
-                                            alter=self.alter)
+        return pitch_spelling_to_midi_pitch(
+            step=self.step, octave=self.octave, alter=self.alter
+        )
 
     @property
     def alter_sign(self):
@@ -1390,16 +1434,15 @@ class Note(GenericNote):
 
 
 class Rest(GenericNote):
-    """A subclass of GenericNote representing a rest.
+    """A subclass of GenericNote representing a rest."""
 
-    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-class Beam(TimedObject):
-    """Represent beams (for MEI)
 
-    """
+class Beam(TimedObject):
+    """Represent beams (for MEI)"""
+
     def __init__(self, id=None):
         super().__init__()
         self.id = id
@@ -1416,7 +1459,6 @@ class Beam(TimedObject):
 
         self.start = self.notes[start_idx].start
         self.end = self.notes[end_idx].end
-
 
 
 class GraceNote(Note):
@@ -1441,13 +1483,14 @@ class GraceNote(Note):
         note belongs.
 
     """
+
     def __init__(self, grace_type, *args, steal_proportion=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.grace_type = grace_type
         self.steal_proportion = steal_proportion
         self.grace_next = None
         self.grace_prev = None
-        self._ref_attrs.extend(['grace_next', 'grace_prev'])
+        self._ref_attrs.extend(["grace_next", "grace_prev"])
 
     @property
     def main_note(self):
@@ -1458,9 +1501,11 @@ class GraceNote(Note):
 
     @property
     def grace_seq_len(self):
-        return (sum(1 for _ in self.iter_grace_seq(backwards=True))
-                + sum(1 for _ in self.iter_grace_seq())
-                - 1) # subtract one because self is counted twice
+        return (
+            sum(1 for _ in self.iter_grace_seq(backwards=True))
+            + sum(1 for _ in self.iter_grace_seq())
+            - 1
+        )  # subtract one because self is counted twice
 
     @property
     def last_grace_note_in_seq(self):
@@ -1468,7 +1513,6 @@ class GraceNote(Note):
         while isinstance(n.grace_next, GraceNote):
             n = n.grace_next
         return n
-
 
     def iter_grace_seq(self, backwards=False):
         """Iterate over this and all subsequent/preceding grace notes,
@@ -1499,8 +1543,7 @@ class GraceNote(Note):
                 n = n.grace_next
 
     def __str__(self):
-        return f'{super().__str__()} main_note={self.main_note}'
-
+        return f"{super().__str__()} main_note={self.main_note}"
 
 
 class Page(TimedObject):
@@ -1518,12 +1561,13 @@ class Page(TimedObject):
         See parameters
 
     """
+
     def __init__(self, number=0):
         super().__init__()
         self.number = number
 
     def __str__(self):
-        return f'{super().__str__()} number={self.number}'
+        return f"{super().__str__()} number={self.number}"
 
 
 class System(TimedObject):
@@ -1547,7 +1591,7 @@ class System(TimedObject):
         self.number = number
 
     def __str__(self):
-        return f'{super().__str__()} number={self.number}'
+        return f"{super().__str__()} number={self.number}"
 
 
 class Clef(TimedObject):
@@ -1587,7 +1631,7 @@ class Clef(TimedObject):
         self.octave_change = octave_change
 
     def __str__(self):
-        return f'{super().__str__()} sign={self.sign} line={self.line} number={self.number}'
+        return f"{super().__str__()} sign={self.sign} line={self.line} number={self.number}"
 
 
 class Slur(TimedObject):
@@ -1615,9 +1659,9 @@ class Slur(TimedObject):
         self._start_note = None
         self._end_note = None
         self.start_note = start_note
-        self.end_note= end_note
+        self.end_note = end_note
         # maintain a list of attributes to update when cloning this instance
-        self._ref_attrs.extend(['start_note', 'end_note'])
+        self._ref_attrs.extend(["start_note", "end_note"])
 
     @property
     def start_note(self):
@@ -1655,9 +1699,9 @@ class Slur(TimedObject):
 
     def __str__(self):
         # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
-        start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
-        end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
-        return ' '.join((super().__str__(), start, end)).strip()
+        start = "" if self.start_note is None else "start={}".format(self.start_note.id)
+        end = "" if self.end_note is None else "end={}".format(self.end_note.id)
+        return " ".join((super().__str__(), start, end)).strip()
 
 
 class Tuplet(TimedObject):
@@ -1684,9 +1728,9 @@ class Tuplet(TimedObject):
         self._start_note = None
         self._end_note = None
         self.start_note = start_note
-        self.end_note= end_note
+        self.end_note = end_note
         # maintain a list of attributes to update when cloning this instance
-        self._ref_attrs.extend(['start_note', 'end_note'])
+        self._ref_attrs.extend(["start_note", "end_note"])
 
     @property
     def start_note(self):
@@ -1722,11 +1766,10 @@ class Tuplet(TimedObject):
             note.tuplet_stops.append(self)
         self._end_note = note
 
-
     def __str__(self):
-        start = '' if self.start_note is None else 'start={}'.format(self.start_note.id)
-        end = '' if self.end_note is None else 'end={}'.format(self.end_note.id)
-        return ' '.join((super().__str__(), start, end)).strip()
+        start = "" if self.start_note is None else "start={}".format(self.start_note.id)
+        end = "" if self.end_note is None else "end={}".format(self.end_note.id)
+        return " ".join((super().__str__(), start, end)).strip()
 
 
 class Repeat(TimedObject):
@@ -1734,6 +1777,7 @@ class Repeat(TimedObject):
     by its start and end times.
 
     """
+
     def __init__(self):
         super().__init__()
 
@@ -1742,18 +1786,14 @@ class Repeat(TimedObject):
 
 
 class DaCapo(TimedObject):
-    """A Da Capo sign.
-
-    """
+    """A Da Capo sign."""
 
     # def __str__(self):
     #     return u'Dacapo'
 
 
 class Fine(TimedObject):
-    """A Fine sign.
-
-    """
+    """A Fine sign."""
 
     # def __str__(self):
     #     return 'Fine'
@@ -1781,7 +1821,7 @@ class Fermata(TimedObject):
         self.ref = ref
 
     def __str__(self):
-        return f'{super().__str__()} ref={self.ref}'
+        return f"{super().__str__()} ref={self.ref}"
 
 
 class Ending(TimedObject):
@@ -1808,6 +1848,14 @@ class Ending(TimedObject):
     #     return 'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
 
 
+class Barline(TimedObject):
+    """Class that represents the style of a barline"""
+
+    def __init__(self, style):
+        super().__init__()
+        self.style = style
+
+
 class Measure(TimedObject):
     """A measure
 
@@ -1828,7 +1876,7 @@ class Measure(TimedObject):
         self.number = number
 
     def __str__(self):
-        return f'{super().__str__()} number={self.number}'
+        return f"{super().__str__()} number={self.number}"
 
     @property
     def page(self):
@@ -1891,7 +1939,7 @@ class TimeSignature(TimedObject):
         self.beat_type = beat_type
 
     def __str__(self):
-        return f'{super().__str__()} {self.beats}/{self.beat_type}'
+        return f"{super().__str__()} {self.beats}/{self.beat_type}"
 
 
 class Tempo(TimedObject):
@@ -1915,6 +1963,7 @@ class Tempo(TimedObject):
         See parameters
 
     """
+
     def __init__(self, bpm, unit=None):
         super().__init__()
         self.bpm = bpm
@@ -1931,13 +1980,15 @@ class Tempo(TimedObject):
         int
 
         """
-        return int(np.round(60 * (10**6 / to_quarter_tempo(self.unit or 'q', self.bpm))))
+        return int(
+            np.round(60 * (10 ** 6 / to_quarter_tempo(self.unit or "q", self.bpm)))
+        )
 
     def __str__(self):
         if self.unit:
-            return f'{super().__str__()} {self.unit}={self.bpm}'
+            return f"{super().__str__()} {self.unit}={self.bpm}"
         else:
-            return f'{super().__str__()} bpm={self.bpm}'
+            return f"{super().__str__()} bpm={self.bpm}"
 
 
 class KeySignature(TimedObject):
@@ -1978,7 +2029,9 @@ class KeySignature(TimedObject):
         return fifths_mode_to_key_name(self.fifths, self.mode)
 
     def __str__(self):
-        return f'{super().__str__()} fifths={self.fifths}, mode={self.mode} ({self.name})'
+        return (
+            f"{super().__str__()} fifths={self.fifths}, mode={self.mode} ({self.name})"
+        )
 
 
 class Transposition(TimedObject):
@@ -2009,7 +2062,9 @@ class Transposition(TimedObject):
         self.chromatic = chromatic
 
     def __str__(self):
-        return f'{super().__str__()} diatonic={self.diatonic}, chromatic={self.chromatic}'
+        return (
+            f"{super().__str__()} diatonic={self.diatonic}, chromatic={self.chromatic}"
+        )
 
 
 class Words(TimedObject):
@@ -2041,14 +2096,12 @@ class Words(TimedObject):
 
 
 class Direction(TimedObject):
-    """Base class for performance directions in the score.
-
-    """
+    """Base class for performance directions in the score."""
 
     def __init__(self, text=None, raw_text=None, staff=None):
         super().__init__()
         # I'm not sure why we need a default text here
-        self.text =  text if text is not None else 'default_text'
+        self.text = text if text is not None else "default_text"
         self.raw_text = raw_text
         self.staff = staff
 
@@ -2059,45 +2112,90 @@ class Direction(TimedObject):
             return f'{super().__str__()} "{self.text}"'
 
 
-class LoudnessDirection(Direction): pass
-class TempoDirection(Direction): pass
-class ArticulationDirection(Direction): pass
-class PedalDirection(Direction): pass
+class LoudnessDirection(Direction):
+    pass
 
-class ConstantDirection(Direction): pass
-class DynamicDirection(Direction): pass
-class ImpulsiveDirection(Direction): pass
 
-class ConstantLoudnessDirection(ConstantDirection, LoudnessDirection): pass
-class ConstantTempoDirection(ConstantDirection, TempoDirection): pass
-class ConstantArticulationDirection(ConstantDirection, ArticulationDirection): pass
+class TempoDirection(Direction):
+    pass
+
+
+class ArticulationDirection(Direction):
+    pass
+
+
+class PedalDirection(Direction):
+    pass
+
+
+class ConstantDirection(Direction):
+    pass
+
+
+class DynamicDirection(Direction):
+    pass
+
+
+class ImpulsiveDirection(Direction):
+    pass
+
+
+class ConstantLoudnessDirection(ConstantDirection, LoudnessDirection):
+    pass
+
+
+class ConstantTempoDirection(ConstantDirection, TempoDirection):
+    pass
+
+
+class ConstantArticulationDirection(ConstantDirection, ArticulationDirection):
+    pass
+
 
 class DynamicLoudnessDirection(DynamicDirection, LoudnessDirection):
     def __init__(self, *args, wedge=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.wedge = wedge
+
     def __str__(self):
         if self.wedge:
-            return f'{super().__str__()} wedge'
+            return f"{super().__str__()} wedge"
         else:
             return super().__str__()
 
-class DynamicTempoDirection(DynamicDirection, TempoDirection): pass
 
-class IncreasingLoudnessDirection(DynamicLoudnessDirection): pass
-class DecreasingLoudnessDirection(DynamicLoudnessDirection): pass
-class IncreasingTempoDirection(DynamicTempoDirection): pass
-class DecreasingTempoDirection(DynamicTempoDirection): pass
+class DynamicTempoDirection(DynamicDirection, TempoDirection):
+    pass
 
-class ImpulsiveLoudnessDirection(ImpulsiveDirection, LoudnessDirection): pass
+
+class IncreasingLoudnessDirection(DynamicLoudnessDirection):
+    pass
+
+
+class DecreasingLoudnessDirection(DynamicLoudnessDirection):
+    pass
+
+
+class IncreasingTempoDirection(DynamicTempoDirection):
+    pass
+
+
+class DecreasingTempoDirection(DynamicTempoDirection):
+    pass
+
+
+class ImpulsiveLoudnessDirection(ImpulsiveDirection, LoudnessDirection):
+    pass
+
 
 class SustainPedalDirection(PedalDirection):
-    """Represents a Sustain Pedal Direction
-    """
+    """Represents a Sustain Pedal Direction"""
+
     def __init__(self, line=False, *args, **kwargs):
-        super().__init__('sustain_pedal', *args, **kwargs)
+        super().__init__("sustain_pedal", *args, **kwargs)
         # If pedal direction is a line or 'Ped'
         self.line = line
+
 
 class ResetTempoDirection(ConstantTempoDirection):
     @property
@@ -2145,12 +2243,15 @@ class PartGroup(object):
         self.children = []
 
     def _pp(self, tree):
-        result = ['{}PartGroup: group_name="{}" group_symbol="{}"'
-                  .format(tree, self.group_name, self.group_symbol)]
+        result = [
+            '{}PartGroup: group_name="{}" group_symbol="{}"'.format(
+                tree, self.group_name, self.group_symbol
+            )
+        ]
         tree.push()
         N = len(self.children)
         for i, child in enumerate(self.children):
-            result.append('{}'.format(tree).rstrip())
+            result.append("{}".format(tree).rstrip())
             if i == N - 1:
                 tree.last_item()
             else:
@@ -2168,7 +2269,7 @@ class PartGroup(object):
             A pretty representation
 
         """
-        return '\n'.join(self._pp(PrettyPrintTree()))
+        return "\n".join(self._pp(PrettyPrintTree()))
 
     @property
     def note_array(self):
@@ -2178,52 +2279,7 @@ class PartGroup(object):
         belong.
 
         """
-
-        fields = [('onset_beat', 'f4'),
-                  ('duration_beat', 'f4'),
-                  ('onset_quarter', 'f4'),
-                  ('duration_quarter', 'f4'),
-                  ('onset_div', 'i4'),
-                  ('duration_div', 'i4'),
-                  ('pitch', 'i4'),
-                  ('voice', 'i4'),
-                  ('id', 'U256')]
-
-        note_arrays = [part.note_array for part in self.children]
-        onset_beat = np.hstack([na['onset_beat'] for na in note_arrays])
-        duration_beat = np.hstack([na['duration_beat'] for na in note_arrays])
-        onset_quarter = np.hstack([na['onset_quarter'] for na in note_arrays])
-        duration_quarter = np.hstack([na['duration_quarter'] for na in note_arrays])
-        onset_div = np.hstack([na['onset_div'] for na in note_arrays])
-        duration_div = np.hstack([na['duration_div'] for na in note_arrays])
-        pitch = np.hstack([na['pitch'] for na in note_arrays])
-        voice =  np.hstack([na['voice'] for na in note_arrays])
-        ids = []
-        for j, na in enumerate(note_arrays):
-            # add part number at the begining of note ID
-            id = np.array(['P{0:02d}_'.format(j) + i for i in na['id']],
-                           dtype=na['id'].dtype)
-            ids.append(id)
-        ids = np.hstack(ids)
-
-        # Make structured array
-        note_array = np.array(
-            [(ob, db, oq, dq, od, dd, p, v, i) for ob, db, oq, dq, od, dd, p, v, i in zip(onset_beat, duration_beat, 
-            onset_quarter, duration_quarter, 
-            onset_div, duration_div, 
-            pitch, voice, ids)],
-            dtype=fields)
-
-        # sort by onset and pitch
-        pitch_sort_idx = np.argsort(note_array['pitch'])
-        note_array = note_array[pitch_sort_idx]
-        onset_sort_idx = np.argsort(note_array['onset_div'], kind='mergesort')
-        note_array = note_array[onset_sort_idx]
-
-        return note_array
-
-
-
+        return note_array_from_part_list(self.children)
 
 
 class ScoreVariant(object):
@@ -2236,7 +2292,7 @@ class ScoreVariant(object):
 
     def add_segment(self, start, end):
         self.segments.append((start, end, self.t_unfold))
-        self.t_unfold += (end.t - start.t)
+        self.t_unfold += end.t - start.t
 
     @property
     def segment_times(self):
@@ -2247,7 +2303,7 @@ class ScoreVariant(object):
         return [(s.t, e.t, o) for (s, e, o) in self.segments]
 
     def __str__(self):
-        return f'{super().__str__()} {self.segment_times}'
+        return f"{super().__str__()} {self.segment_times}"
 
     def clone(self):
         """
@@ -2287,14 +2343,16 @@ class ScoreVariant(object):
                     # don't repeat time sig if it hasn't changed
                     elif isinstance(o, TimeSignature):
                         prev = next(tp_new.iter_prev(TimeSignature), None)
-                        if ((prev is not None)
-                            and ((o.beats, o.beat_type) == (prev.beats, prev.beat_type))):
+                        if (prev is not None) and (
+                            (o.beats, o.beat_type) == (prev.beats, prev.beat_type)
+                        ):
                             continue
                     # don't repeat key sig if it hasn't changed
                     elif isinstance(o, KeySignature):
                         prev = next(tp_new.iter_prev(KeySignature), None)
-                        if ((prev is not None)
-                            and ((o.fifths, o.mode) == (prev.fifths, prev.mode))):
+                        if (prev is not None) and (
+                            (o.fifths, o.mode) == (prev.fifths, prev.mode)
+                        ):
                             continue
 
                     # make a copy of the object
@@ -2312,13 +2370,15 @@ class ScoreVariant(object):
 
                 tp = tp.next
                 if tp is None:
-                    raise Exception('segment end not a successor of segment start, invalid score variant')
+                    raise Exception(
+                        "segment end not a successor of segment start, invalid score variant"
+                    )
 
             # special case: fermata starting at end of segment should be
             # included if it does not belong to a note, and comes at the end of
             # a measure (o.ref == 'right')
             for o in end.starting_objects[Fermata]:
-                if o.ref in (None, 'right'):
+                if o.ref in (None, "right"):
                     o_copy = copy(o)
                     tp_new = part.get_or_add_point(end.t + delta)
                     tp_new.add_starting_object(o_copy)
@@ -2401,24 +2461,25 @@ def make_score_variants(part):
 
     """
 
-    if len(list(part.iter_all(DaCapo)) +
-           list(part.iter_all(Fine))) > 0:
-        LOGGER.warning(('Generation of repeat structures involving da '
-                        'capo/fine/coda/segno directions is not '
-                        'supported yet'))
+    if len(list(part.iter_all(DaCapo)) + list(part.iter_all(Fine))) > 0:
+        LOGGER.warning(
+            (
+                "Generation of repeat structures involving da "
+                "capo/fine/coda/segno directions is not "
+                "supported yet"
+            )
+        )
 
     # TODO: check if we need to wrap in list
     repeats = list(part.iter_all(Repeat))
     # repeats may not have start or end times. `repeats_to_start_end`
     # returns the start/end paisr for each repeat, making educated guesses
     # when these are missing.
-    repeat_start_ends = repeats_to_start_end(repeats,
-                                             part.first_point,
-                                             part.last_point)
+    repeat_start_ends = repeats_to_start_end(repeats, part.first_point, part.last_point)
 
     # check for nestings and raise if necessary
     if any(n < c for c, n in iter_current_next(repeat_start_ends)):
-        raise NotImplementedError('Nested endings are currently not supported')
+        raise NotImplementedError("Nested endings are currently not supported")
 
     # t_score is used to keep the time in the score
     t_score = part.first_point
@@ -2468,7 +2529,7 @@ def make_score_variants(part):
 
                 else:
                     # ending 1 without ending 2, should not happen normally
-                    LOGGER.warning('ending 1 without ending 2')
+                    LOGGER.warning("ending 1 without ending 2")
                     # new score time will be the score time
                     t_end = ending1.end
             else:
@@ -2516,12 +2577,12 @@ def add_measures(part):
 
     """
 
-    timesigs = np.array([(ts.start.t, ts.beats)
-                         for ts in part.iter_all(TimeSignature)],
-                        dtype=np.int)
+    timesigs = np.array(
+        [(ts.start.t, ts.beats) for ts in part.iter_all(TimeSignature)], dtype=np.int
+    )
 
     if len(timesigs) == 0:
-        LOGGER.warning('No time signatures found, not adding measures')
+        LOGGER.warning("No time signatures found, not adding measures")
         return
 
     start = part.first_point.t
@@ -2541,9 +2602,7 @@ def add_measures(part):
     ts_start_times = timesigs[:, 0]
     beats_per_measure = timesigs[:, 1]
     ts_end_times = ts_start_times[1:]
-    
-    
-    
+
     # make sure we cover time until the end of the timeline
     if len(ts_end_times) == 0 or ts_end_times[-1] < end:
         ts_end_times = np.r_[ts_end_times, end]
@@ -2553,10 +2612,11 @@ def add_measures(part):
     beat_map = part.beat_map
     inv_beat_map = part.inv_beat_map
     mcounter = 1
-    
-    for ts_start, ts_end, measure_dur in zip(ts_start_times, ts_end_times, beats_per_measure):
+
+    for ts_start, ts_end, measure_dur in zip(
+        ts_start_times, ts_end_times, beats_per_measure
+    ):
         pos = ts_start
-        
 
         while pos < ts_end:
 
@@ -2564,7 +2624,9 @@ def add_measures(part):
             measure_end_beats = min(beat_map(pos) + measure_dur, beat_map(end))
             measure_end = min(ts_end, inv_beat_map(measure_end_beats))
             # any existing measures between measure_start and measure_end
-            existing_measure = next(part.iter_all(Measure, measure_start, measure_end), None)
+            existing_measure = next(
+                part.iter_all(Measure, measure_start, measure_end), None
+            )
             if existing_measure:
                 if existing_measure.start.t == measure_start:
                     assert existing_measure.end.t > pos
@@ -2579,7 +2641,7 @@ def add_measures(part):
                     measure_end = existing_measure.start.t
 
             part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
-            
+
             # if measure exists but was not at measure_start, a filler measure is added with number mcounter
             if existing_measure:
                 pos = existing_measure.end.t
@@ -2588,7 +2650,7 @@ def add_measures(part):
             else:
                 pos = measure_end
                 mcounter += 1
-            
+
 
 def remove_grace_notes(part):
     """Remove all grace notes from a timeline.
@@ -2609,6 +2671,7 @@ def remove_grace_notes(part):
     for gn in list(part.iter_all(GraceNote)):
         part.remove(gn)
 
+
 def expand_grace_notes(part):
     """Expand grace note durations in a part.
 
@@ -2622,8 +2685,8 @@ def expand_grace_notes(part):
     """
     for gn in part.iter_all(GraceNote):
         dur = symbolic_to_numeric_duration(gn.symbolic_duration, gn.start.quarter)
-        part.remove(gn, 'end')
-        part.add(gn, end=gn.start.t+int(np.round(dur)))
+        part.remove(gn, "end")
+        part.add(gn, end=gn.start.t + int(np.round(dur)))
 
 
 def iter_parts(partlist):
@@ -2726,15 +2789,16 @@ def _make_tied_note_id(prev_id):
     'n0a-1'
 
     """
-    prev_id_parts = prev_id.split('-', 1)
+    prev_id_parts = prev_id.split("-", 1)
     prev_id_p1 = prev_id_parts[0]
     if prev_id_p1:
-        if ord(prev_id_p1[-1]) < ord('a') - 1:
-            return '-'.join(['{}a'.format(prev_id_p1)] +
-                            prev_id_parts[1:])
+        if ord(prev_id_p1[-1]) < ord("a") - 1:
+            return "-".join(["{}a".format(prev_id_p1)] + prev_id_parts[1:])
         else:
-            return '-'.join(['{}{}'.format(prev_id_p1[:-1], chr(ord(prev_id[-1]) + 1))]
-                            + prev_id_parts[1:])
+            return "-".join(
+                ["{}{}".format(prev_id_p1[:-1], chr(ord(prev_id[-1]) + 1))]
+                + prev_id_parts[1:]
+            )
     else:
         return None
 
@@ -2760,18 +2824,28 @@ def tie_notes(part):
         slur_stops = cur_note.slur_stops
 
         while next_measure and cur_note.end > next_measure.start:
-            part.remove(cur_note, 'end')
+            part.remove(cur_note, "end")
             cur_note.slur_stops = []
             part.add(cur_note, None, next_measure.start.t)
-            cur_note.symbolic_duration = estimate_symbolic_duration(next_measure.start.t - cur_note.start.t, cur_note.start.quarter)
-            sym_dur = estimate_symbolic_duration(note_end.t - next_measure.start.t, next_measure.start.quarter)
+            cur_note.symbolic_duration = estimate_symbolic_duration(
+                next_measure.start.t - cur_note.start.t, cur_note.start.quarter
+            )
+            sym_dur = estimate_symbolic_duration(
+                note_end.t - next_measure.start.t, next_measure.start.quarter
+            )
             if cur_note.id is not None:
                 note_id = _make_tied_note_id(cur_note.id)
             else:
                 note_id = None
-            next_note = Note(note.step, note.octave, note.alter, id=note_id,
-                             voice=note.voice, staff=note.staff,
-                             symbolic_duration=sym_dur)
+            next_note = Note(
+                note.step,
+                note.octave,
+                note.alter,
+                id=note_id,
+                voice=note.voice,
+                staff=note.staff,
+                symbolic_duration=sym_dur,
+            )
             part.add(next_note, next_measure.start.t, note_end.t)
 
             cur_note.tie_next = next_note
@@ -2793,7 +2867,9 @@ def tie_notes(part):
     for i, note in enumerate(list(part.iter_all(Note))):
         if note.symbolic_duration is None:
 
-            splits = find_tie_split(note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits)
+            splits = find_tie_split(
+                note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits
+            )
 
             if splits:
                 succeeded += 1
@@ -2873,14 +2949,20 @@ def split_note(part, note, splits):
     part.add(cur_note, start, end)
     while splits:
         note.slur_stops = []
-        
+
         if cur_note.id is not None:
             note_id = _make_tied_note_id(cur_note.id)
         else:
             note_id = None
 
-        next_note = Note(note.step, note.octave, note.alter, voice=note.voice,
-                         id=note_id, staff=note.staff)
+        next_note = Note(
+            note.step,
+            note.octave,
+            note.alter,
+            voice=note.voice,
+            id=note_id,
+            staff=note.staff,
+        )
         cur_note.tie_next = next_note
         next_note.tie_prev = cur_note
 
@@ -2949,7 +3031,7 @@ def find_tuplets(part):
             tup_start = 0
 
             while tup_start <= (len(group) - actual_notes):
-                note_tuplet = group[tup_start:tup_start + actual_notes]
+                note_tuplet = group[tup_start : tup_start + actual_notes]
                 # durs = set(n.duration for n in group[:tuplet-1])
                 durs = set(n.duration for n in note_tuplet)
 
@@ -2971,13 +3053,14 @@ def find_tuplets(part):
                         tup_start += 1
                     else:
                         # estimate duration type
-                        dur_type = estimate_symbolic_duration(total_dur // normal_notes,
-                                                              note_tuplet[0].start.quarter)
+                        dur_type = estimate_symbolic_duration(
+                            total_dur // normal_notes, note_tuplet[0].start.quarter
+                        )
 
-                        if dur_type and dur_type.get('dots', 0) == 0:
+                        if dur_type and dur_type.get("dots", 0) == 0:
                             # recognized duration without dots
-                            dur_type['actual_notes'] = actual_notes
-                            dur_type['normal_notes'] = normal_notes
+                            dur_type["actual_notes"] = actual_notes
+                            dur_type["normal_notes"] = normal_notes
                             for note in note_tuplet:
                                 note.symbolic_duration = dur_type.copy()
                             start_note = note_tuplet[0]
@@ -3007,8 +3090,10 @@ def sanitize_part(part):
     elements_to_remove = []
     for gn in part.iter_all(GraceNote):
         if gn.main_note is None:
-            for no in part.iter_all(Note, include_subclasses=False,
-                                    start=gn.start.t, end=gn.start.t+1):
+            for no in part.iter_all(
+                Note, include_subclasses=False, start=gn.start.t, end=gn.start.t + 1
+            ):
+
                 if no.voice == gn.voice:
                     gn.last_grace_note_in_seq.grace_next = no
 
@@ -3030,20 +3115,22 @@ def sanitize_part(part):
 
     for el in elements_to_remove:
         part.remove(el)
-    LOGGER.info("part_sanitize removed {} incomplete tuplets, "
-                "{} incomplete slurs, and {} incomplete grace "
-                "notes".format(remove_tuplet_counter,
-                               remove_slur_counter,
-                               remove_grace_counter))
+    LOGGER.info(
+        "part_sanitize removed {} incomplete tuplets, "
+        "{} incomplete slurs, and {} incomplete grace "
+        "notes".format(remove_tuplet_counter, remove_slur_counter, remove_grace_counter)
+    )
+
 
 
 class InvalidTimePointException(Exception):
-    """Raised when a time point is instantiated with an invalid number.
+    """Raised when a time point is instantiated with an invalid number."""
 
-    """
     def __init__(self, message=None):
         super().__init__(message)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

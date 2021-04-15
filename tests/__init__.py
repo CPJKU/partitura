@@ -7,26 +7,34 @@ This module contains tests.
 import os
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
-DATA_PATH = os.path.join(BASE_PATH, 'data')
-MUSICXML_PATH = os.path.join(DATA_PATH, 'musicxml')
-MATCH_PATH = os.path.join(DATA_PATH, 'match')
-NAKAMURA_PATH = os.path.join(DATA_PATH, 'nakamura')
+DATA_PATH = os.path.join(BASE_PATH, "data")
+MUSICXML_PATH = os.path.join(DATA_PATH, "musicxml")
+MATCH_PATH = os.path.join(DATA_PATH, "match")
+NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
-MUSICXML_IMPORT_EXPORT_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
-                                    ['test_note_ties.xml',
-                                     'test_note_ties_divs.xml']]
-MUSICXML_UNFOLD_TESTPAIRS = [(os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2))
-                             for fn1, fn2 in
-                             [('test_unfold_timeline.xml', 'test_unfold_timeline_result.xml')]]
+MUSICXML_IMPORT_EXPORT_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_note_ties.xml", "test_note_ties_divs.xml"]
+]
+MUSICXML_UNFOLD_TESTPAIRS = [
+    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2))
+    for fn1, fn2 in [("test_unfold_timeline.xml", "test_unfold_timeline_result.xml")]
+]
 
 # This is a list of files for testing Chew and Wu's VOSA. (More files to come?)
-VOSA_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in
-                  ['test_chew_vosa_example.xml']]
+VOSA_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn) for fn in ["test_chew_vosa_example.xml"]
+]
 
 
-MATCH_IMPORT_EXPORT_TESTFILES = [os.path.join(MATCH_PATH, fn) for fn in ['test_fuer_elise.match']]
+MATCH_IMPORT_EXPORT_TESTFILES = [
+    os.path.join(MATCH_PATH, fn) for fn in ["test_fuer_elise.match"]
+]
 
 # This is a list of files for testing Nakamura et al.'s corresp and match file loading
-NAKAMURA_IMPORT_TESTFILES = [os.path.join(NAKAMURA_PATH, fn) for fn in ['Shi05_infer_corresp.txt', 'Shi05_infer_corresp.txt']]
+NAKAMURA_IMPORT_TESTFILES = [
+    os.path.join(NAKAMURA_PATH, fn)
+    for fn in ["Shi05_infer_corresp.txt", "Shi05_infer_corresp.txt"]
+]

@@ -28,10 +28,16 @@ from partitura.utils.music import (
     estimate_clef_properties,
     ensure_pitch_spelling_format,
     ensure_notearray,
-    notearray_to_pianoroll,
+    # notearray_to_pianoroll,
+    compute_pianoroll,
     pianoroll_to_notearray,
     match_note_arrays,
     key_mode_to_int,
+    remove_silence_from_performed_part,
+    note_array_from_part_list,
+    slice_notearray_by_time,
+    note_array_from_part,
+    get_time_units_from_note_array,
 )
 
 __all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]

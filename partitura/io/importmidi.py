@@ -8,10 +8,15 @@ import mido
 
 import partitura.score as score
 import partitura.performance as performance
-from partitura.utils import estimate_symbolic_duration, key_name_to_fifths_mode, fifths_mode_to_key_name, estimate_clef_properties
+from partitura.utils import (
+    estimate_symbolic_duration,
+    key_name_to_fifths_mode,
+    fifths_mode_to_key_name,
+    estimate_clef_properties,
+)
 import partitura.musicanalysis as analysis
 
-__all__ = ['load_score_midi', 'load_performance_midi']
+__all__ = ["load_score_midi", "load_performance_midi"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +26,7 @@ def note_hash(channel, pitch):
     """Generate a note hash."""
     return channel * 128 + pitch
 
+
 def midi_to_notearray(fn):
     """Load a MIDI file in a note_array.
 
@@ -29,7 +35,7 @@ def midi_to_notearray(fn):
     pitch, velocity, and ID.
 
     Sustain pedal, program changes, control changes, track and
-    channel information as well as mpq and ppq are discarded. 
+    channel information as well as mpq and ppq are discarded.
 
     Parameters
     ----------
@@ -43,8 +49,9 @@ def midi_to_notearray(fn):
     """
     ppart = load_performance_midi(fn, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
-    ppart.sustain_pedal_threshold=128
+    ppart.sustain_pedal_threshold = 128
     return ppart.note_array
+
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
@@ -74,24 +81,23 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
 
     """
-    mid = mido.MidiFile(fn,)
+    mid = mido.MidiFile(fn)
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10**6 / default_bpm)
-
+    mpq = 60 * (10 ** 6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq/(ppq*10**6) 
+    time_conversion_factor = mpq / (ppq * 10 ** 6)
 
     notes = []
     controls = []
     programs = []
     if merge_tracks:
-        mid_merge= mido.merge_tracks(mid.tracks)
+        mid_merge = mido.merge_tracks(mid.tracks)
         tracks = [(0, mid_merge)]
     else:
-        tracks = [(i,u) for i, u in enumerate(mid.tracks)]
+        tracks = [(i, u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
 
         t = 0
@@ -100,40 +106,44 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         for msg in track:
 
             # update time deltas when they arrive
-            t = t + msg.time * time_conversion_factor    
+            t = t + msg.time * time_conversion_factor
 
-            if msg.type == 'set_tempo':
+            if msg.type == "set_tempo":
 
                 mpq = msg.tempo
-                
-                time_conversion_factor = mpq/(ppq*10**6)
 
-                print("change of Tempo to mpq = ", mpq, 
-                " and resulting seconds per tick = ", time_conversion_factor, 
-                "at time: ", t)
+                time_conversion_factor = mpq / (ppq * 10 ** 6)
 
-            elif msg.type == 'control_change':
+                LOGGER.info(
+                    (
+                        "change of Tempo to mpq = {0} "
+                        " and resulting seconds per tick = {1}"
+                        "at time: {2}"
+                    ).format(mpq, time_conversion_factor, t)
+                )
 
-                controls.append(dict(
-                    time=t,
-                    number=msg.control,
-                    value=msg.value,
-                    track=i,
-                    channel=msg.channel))
+            elif msg.type == "control_change":
 
-            elif msg.type == 'program_change':
-                
-                programs.append(dict(
-                    time=t,
-                    program=msg.program,
-                    track=i,
-                    channel=msg.channel))
-                    
+                controls.append(
+                    dict(
+                        time=t,
+                        number=msg.control,
+                        value=msg.value,
+                        track=i,
+                        channel=msg.channel,
+                    )
+                )
+
+            elif msg.type == "program_change":
+
+                programs.append(
+                    dict(time=t, program=msg.program, track=i, channel=msg.channel)
+                )
 
             else:
 
-                note_on = msg.type == 'note_on'
-                note_off = msg.type == 'note_off'
+                note_on = msg.type == "note_on"
+                note_off = msg.type == "note_off"
 
                 if not (note_on or note_off):
                     continue
@@ -151,32 +161,38 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                 elif note_off or (note_on and msg.velocity == 0):
 
                     if note not in sounding_notes:
-                        warnings.warn('ignoring MIDI message %s' % msg)
+                        warnings.warn("ignoring MIDI message %s" % msg)
                         continue
 
                     # append the note to the list associated with the channel
 
-                    notes.append(dict(
-                       id=f'n{len(notes)}',
-                       midi_pitch=msg.note,
-                       note_on=(sounding_notes[note][0]),
-                       note_off=(t),
-                       track=i,
-                       channel=msg.channel,
-                       velocity=sounding_notes[note][1]))
-
+                    notes.append(
+                        dict(
+                            id=f"n{len(notes)}",
+                            midi_pitch=msg.note,
+                            note_on=(sounding_notes[note][0]),
+                            note_off=(t),
+                            track=i,
+                            channel=msg.channel,
+                            velocity=sounding_notes[note][1],
+                        )
+                    )
 
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes,
-                                     controls=controls,
-                                     programs=programs)
+    return performance.PerformedPart(notes, controls=controls, programs=programs)
 
 
-def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
-                    quantization_unit=None, estimate_voice_info=True,
-                    estimate_key=False, assign_note_ids=True):
+def load_score_midi(
+    fn,
+    part_voice_assign_mode=0,
+    ensure_list=False,
+    quantization_unit=None,
+    estimate_voice_info=True,
+    estimate_key=False,
+    assign_note_ids=True,
+):
     """Load a musical score from a MIDI file and return it as a Part
     instance.
 
@@ -275,11 +291,7 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     track_names_by_track = {}
     # notes are indexed by (track, channel) tuples
     notes_by_track_ch = {}
-    relevant = {'time_signature',
-                'key_signature',
-                'set_tempo',
-                'note_on',
-                'note_off'}
+    relevant = {"time_signature", "key_signature", "set_tempo", "note_on", "note_off"}
     for track_nr, track in enumerate(mid.tracks):
         time_sigs = []
         key_sigs = []
@@ -303,15 +315,15 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             else:
                 t = t_raw
 
-            if msg.type == 'time_signature':
+            if msg.type == "time_signature":
                 time_sigs.append((t, msg.numerator, msg.denominator))
-            if msg.type == 'key_signature':
+            if msg.type == "key_signature":
                 key_sigs.append((t, msg.key))
-            if msg.type == 'set_tempo':
-                global_tempos.append((t, 60*10**6/msg.tempo))
+            if msg.type == "set_tempo":
+                global_tempos.append((t, 60 * 10 ** 6 / msg.tempo))
             else:
-                note_on = msg.type == 'note_on'
-                note_off = msg.type == 'note_off'
+                note_on = msg.type == "note_on"
+                note_off = msg.type == "note_off"
 
                 if not (note_on or note_off):
                     continue
@@ -329,12 +341,14 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 elif note_off or (note_on and msg.velocity == 0):
 
                     if note not in sounding_notes:
-                        warnings.warn('ignoring MIDI message %s' % msg)
+                        warnings.warn("ignoring MIDI message %s" % msg)
                         continue
 
                     # append the note to the list associated with the channel
-                    notes[msg.channel].append((sounding_notes[note][0], msg.note, t-sounding_notes[note][0]))
-                                              # sounding_notes[note][1]])
+                    notes[msg.channel].append(
+                        (sounding_notes[note][0], msg.note, t - sounding_notes[note][0])
+                    )
+                    # sounding_notes[note][1]])
                     # remove hash from dict
                     del sounding_notes[note]
 
@@ -356,36 +370,40 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
 
     tr_ch_keys = sorted(notes_by_track_ch.keys())
     group_part_voice_keys, part_names, group_names = assign_group_part_voice(
-        part_voice_assign_mode,
-        tr_ch_keys,
-        track_names_by_track)
+        part_voice_assign_mode, tr_ch_keys, track_names_by_track
+    )
 
     # for key and time sigs:
     track_to_part_mapping = make_track_to_part_mapping(
-        tr_ch_keys,
-        group_part_voice_keys)
+        tr_ch_keys, group_part_voice_keys
+    )
 
     # pairs of (part, voice) for each note
-    part_voice_list = [[part, voice] for tr_ch, (_, part, voice)
-                       in zip(tr_ch_keys, group_part_voice_keys)
-                       for i in range(len(notes_by_track_ch[tr_ch]))]
+    part_voice_list = [
+        [part, voice]
+        for tr_ch, (_, part, voice) in zip(tr_ch_keys, group_part_voice_keys)
+        for i in range(len(notes_by_track_ch[tr_ch]))
+    ]
 
     # pitch spelling, voice estimation and key estimation are done on a
     # structured array (onset, pitch, duration) of all notes in the piece
     # jointly, so we concatenate all notes
     # note_list = sorted(note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
-    note_list = [note for notes in (notes_by_track_ch[key]
-                                    for key in tr_ch_keys)
-                 for note in notes]
-    note_array = np.array(note_list, dtype=[('onset', np.int),
-                                            ('pitch', np.int),
-                                            ('duration', np.int)])
+    note_list = [
+        note
+        for notes in (notes_by_track_ch[key] for key in tr_ch_keys)
+        for note in notes
+    ]
+    note_array = np.array(
+        note_list,
+        dtype=[("onset_div", np.int), ("pitch", np.int), ("duration_div", np.int)],
+    )
 
-    LOGGER.debug('pitch spelling')
+    LOGGER.debug("pitch spelling")
     spelling_global = analysis.estimate_spelling(note_array)
 
     if estimate_voice_info:
-        LOGGER.debug('voice estimation')
+        LOGGER.debug("voice estimation")
         # TODO: deal with zero duration notes in note_array. Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
         assert len(part_voice_list) == len(estimated_voices)
@@ -394,13 +412,13 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
                 part_voice[1] = voice_est
 
     if estimate_key:
-        LOGGER.debug('key estimation')
+        LOGGER.debug("key estimation")
         _, mode, fifths = analysis.estimate_key(note_array)
         key_sigs_by_track = {}
         global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
 
     if assign_note_ids:
-        note_ids = ['n{}'.format(i) for i in range(len(note_array))]
+        note_ids = ["n{}".format(i) for i in range(len(note_array))]
     else:
         note_ids = [None for i in range(len(note_array))]
 
@@ -431,10 +449,9 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     #         names_by_part[part] = name
 
     notes_by_part = defaultdict(list)
-    for (part, voice), note, spelling, note_id in zip(part_voice_list,
-                                                      note_list,
-                                                      spelling_global,
-                                                      note_ids):
+    for (part, voice), note, spelling, note_id in zip(
+        part_voice_list, note_list, spelling_global, note_ids
+    ):
         notes_by_part[part].append((note, voice, spelling, note_id))
 
     partlist = []
@@ -442,11 +459,17 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
     part_groups = {}
     for part_nr, note_info in notes_by_part.items():
         notes, voices, spellings, note_ids = zip(*note_info)
-        part = create_part(divs, notes, spellings, voices, note_ids,
-                           sorted(time_sigs_by_part[part_nr]),
-                           sorted(key_sigs_by_part[part_nr]),
-                           part_id='P{}'.format(part_nr+1),
-                           part_name=part_names.get(part_nr, None))
+        part = create_part(
+            divs,
+            notes,
+            spellings,
+            voices,
+            note_ids,
+            sorted(time_sigs_by_part[part_nr]),
+            sorted(key_sigs_by_part[part_nr]),
+            part_id="P{}".format(part_nr + 1),
+            part_name=part_names.get(part_nr, None),
+        )
 
         # print(part.pretty())
         # if this part has an associated part_group number we create a PartGroup
@@ -457,14 +480,16 @@ def load_score_midi(fn, part_voice_assign_mode=0, ensure_list=False,
             partlist.append(part)
         else:
             if pg_nr not in part_groups:
-                part_groups[pg_nr] = score.PartGroup(group_name=group_names.get(pg_nr, None))
+                part_groups[pg_nr] = score.PartGroup(
+                    group_name=group_names.get(pg_nr, None)
+                )
                 partlist.append(part_groups[pg_nr])
             part_groups[pg_nr].children.append(part)
 
     # add tempos to first part
     part = next(score.iter_parts(partlist))
     for t, qpm in global_tempos:
-        part.add(score.Tempo(qpm, unit='q'), t)
+        part.add(score.Tempo(qpm, unit="q"), t)
 
     if not ensure_list and len(partlist) == 1:
         return partlist[0]
@@ -505,7 +530,9 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             prt = part_helper.setdefault(tr, len(part_helper))
             vc1 = voice_helper.setdefault(tr, {})
             vc2 = vc1.setdefault(ch, len(vc1) + 1)
-            part_names[prt] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)))
+            part_names[prt] = "{}".format(
+                track_names.get(tr, "Track {}".format(tr + 1))
+            )
             part[(tr, ch)] = prt
             voice[(tr, ch)] = vc2
         elif mode == 1:
@@ -513,8 +540,8 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             prt = part_helper.setdefault(ch, len(part_helper))
             part_group.setdefault((tr, ch), pg)
             # group_names[pg] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
-            group_names[pg] = track_names.get(tr, 'Track {}'.format(tr+1))
-            part_names[prt] = 'ch={}'.format(ch)
+            group_names[pg] = track_names.get(tr, "Track {}".format(tr + 1))
+            part_names[prt] = "ch={}".format(ch)
             part[(tr, ch)] = prt
         elif mode == 2:
             vc = voice_helper.setdefault(tr, len(voice_helper) + 1)
@@ -522,46 +549,81 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             voice[(tr, ch)] = vc
         elif mode == 3:
             prt = part_helper.setdefault(tr, len(part_helper))
-            part_names[prt] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)))
+            part_names[prt] = "{}".format(
+                track_names.get(tr, "Track {}".format(tr + 1))
+            )
             part[(tr, ch)] = prt
         elif mode == 4:
             part.setdefault((tr, ch), 0)
         elif mode == 5:
-            part_names[(tr, ch)] = '{} ch={}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
+            part_names[(tr, ch)] = "{} ch={}".format(
+                track_names.get(tr, "Track {}".format(tr + 1)), ch
+            )
             part.setdefault((tr, ch), len(part))
 
-    return [(part_group.get(tr_ch), part.get(tr_ch), voice.get(tr_ch))
-            for tr_ch in track_ch_combis], part_names, group_names
+    return (
+        [
+            (part_group.get(tr_ch), part.get(tr_ch), voice.get(tr_ch))
+            for tr_ch in track_ch_combis
+        ],
+        part_names,
+        group_names,
+    )
 
 
-def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, part_id=None, part_name=None):
-    LOGGER.debug('create_part')
+def create_part(
+    ticks,
+    notes,
+    spellings,
+    voices,
+    note_ids,
+    time_sigs,
+    key_sigs,
+    part_id=None,
+    part_name=None,
+):
+    LOGGER.debug("create_part")
 
     part = score.Part(part_id, part_name=part_name)
     part.set_quarter_duration(0, ticks)
 
-    clef = score.Clef(number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes]))
+    clef = score.Clef(
+        number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
+    )
     part.add(clef, 0)
     for t, name in key_sigs:
         fifths, mode = key_name_to_fifths_mode(name)
         part.add(score.KeySignature(fifths, mode), t)
 
-    LOGGER.debug('add notes')
+    LOGGER.debug("add notes")
 
-    for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(notes, spellings, voices, note_ids):
+    for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(
+        notes, spellings, voices, note_ids
+    ):
         if duration > 0:
-            note = score.Note(step=step, octave=octave, alter=alter,
-                              voice=int(voice or 0), id=note_id,
-                              symbolic_duration=estimate_symbolic_duration(duration, ticks))
+            note = score.Note(
+                step=step,
+                octave=octave,
+                alter=alter,
+                voice=int(voice or 0),
+                id=note_id,
+                symbolic_duration=estimate_symbolic_duration(duration, ticks),
+            )
         else:
-            note = score.GraceNote(grace_type='appoggiatura', step=step,
-                                   octave=octave, alter=alter, voice=int(voice or 0), id=note_id,
-                                   symbolic_duration=dict(type='quarter'))
+            note = score.GraceNote(
+                grace_type="appoggiatura",
+                step=step,
+                octave=octave,
+                alter=alter,
+                voice=int(voice or 0),
+                id=note_id,
+                symbolic_duration=dict(type="quarter"),
+            )
 
-        part.add(note, onset, onset+duration)
+        part.add(note, onset, onset + duration)
 
     if not time_sigs:
-        warnings.warn('No time signatures found, assuming 4/4')
+        warnings.warn("No time signatures found, assuming 4/4")
         time_sigs = [(0, 4, 4)]
 
     time_sigs = np.array(time_sigs, dtype=np.int)
@@ -570,7 +632,7 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(np.int).max]
     time_sigs = np.column_stack((time_sigs, ts_end_times))
 
-    LOGGER.debug('add time sigs and measures')
+    LOGGER.debug("add time sigs and measures")
 
     for ts_start, num, den, ts_end in time_sigs:
         time_sig = score.TimeSignature(num.item(), den.item())
@@ -597,16 +659,16 @@ def create_part(ticks, notes, spellings, voices, note_ids, time_sigs, key_sigs, 
     #     if np.isinf(ts_end):
     #         ts_end = m_end
 
-    LOGGER.debug('tie notes')
+    LOGGER.debug("tie notes")
     # tie notes where necessary (across measure boundaries, and within measures
     # notes with compound duration)
     score.tie_notes(part)
 
-    LOGGER.debug('find tuplets')
+    LOGGER.debug("find tuplets")
     # apply simplistic tuplet finding heuristic
     score.find_tuplets(part)
 
-    LOGGER.debug('done create_part')
+    LOGGER.debug("done create_part")
     return part
 
 
@@ -643,6 +705,7 @@ def quantize(v, unit):
         return r
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()
