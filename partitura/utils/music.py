@@ -1359,7 +1359,11 @@ def note_array_from_part_list(
 
 
 def slice_notearray_by_time(
-    note_array, start_time, end_time, time_unit="auto", clip_onset_duration=True
+    note_array,
+    start_time,
+    end_time,
+    time_unit="auto",
+    clip_onset_duration=True
 ):
     """
     Get a slice of a structured note array by time
