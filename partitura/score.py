@@ -1359,8 +1359,9 @@ class Note(GenericNote):
 
     Parameters
     ----------
-    step : {'c', 'd', 'e', 'f', 'g', 'a', 'b'}
-        The note name of the pitch.
+    step : {'C', 'D', 'E', 'F', 'G', 'A', 'B'}
+        The note name of the pitch (in upper case). If a lower case
+        note name is given, it will be converted to upper case.
     octave : int
         An integer representing the octave of the pitch
     alter : int, optional
@@ -1384,7 +1385,7 @@ class Note(GenericNote):
 
     def __init__(self, step, octave, alter=None, beam=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.step = step
+        self.step = step.upper()
         self.octave = octave
         self.alter = alter
         # Add beam (
