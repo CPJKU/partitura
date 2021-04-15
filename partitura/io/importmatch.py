@@ -21,6 +21,8 @@ from partitura.utils import (
     iter_current_next,
     partition,
     estimate_clef_properties,
+    INT_TYPE,
+    FLOAT_TYPE
 )
 
 from partitura.performance import PerformedPart
@@ -142,7 +144,7 @@ class FractionalSymbolicDuration(object):
         if isinstance(sd, int):
             sd = FractionalSymbolicDuration(sd, 1)
 
-        dens = np.array([self.denominator, sd.denominator], dtype=np.int)
+        dens = np.array([self.denominator, sd.denominator], dtype=INT_TYPE)
         new_den = np.lcm(dens[0], dens[1])
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])

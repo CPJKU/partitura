@@ -13,6 +13,8 @@ from partitura.utils.generic import (
     show_diff,
     search,
     _OrderedSet,
+    FLOAT_TYPE,
+    INT_TYPE
 )
 from partitura.utils.music import (
     MIDI_BASE_CLASS,
