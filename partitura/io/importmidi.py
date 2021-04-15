@@ -81,9 +81,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
 
     """
-    mid = mido.MidiFile(
-        fn,
-    )
+    mid = mido.MidiFile(fn)
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
