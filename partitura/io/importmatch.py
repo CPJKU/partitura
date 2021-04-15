@@ -31,8 +31,8 @@ from partitura.musicanalysis import estimate_voices, estimate_key
 __all__ = ["load_match"]
 LOGGER = logging.getLogger(__name__)
 
-rational_pattern = re.compile("^([0-9]+)/([0-9]+)$")
-double_rational_pattern = re.compile("^([0-9]+)/([0-9]+)/([0-9]+)$")
+rational_pattern = re.compile(r"^([0-9]+)/([0-9]+)$")
+double_rational_pattern = re.compile(r"^([0-9]+)/([0-9]+)/([0-9]+)$")
 LATEST_VERSION = 5.0
 
 PITCH_CLASSES = [
@@ -52,7 +52,7 @@ PITCH_CLASSES = [
 
 PC_DICT = dict(zip(range(12), PITCH_CLASSES))
 CLEF_ORDER = ["G", "F", "C", "percussion", "TAB", "jianpu", None]
-NUMBER_PAT = re.compile("\d+")
+NUMBER_PAT = re.compile(r"\d+")
 
 
 class MatchError(Exception):
@@ -306,7 +306,7 @@ class MatchLine(object):
 class MatchInfo(MatchLine):
     out_pattern = "info({Attribute},{Value})."
     field_names = ["Attribute", "Value"]
-    pattern = "info\(\s*([^,]+)\s*,\s*(.+)\s*\)\."
+    pattern = r"info\(\s*([^,]+)\s*,\s*(.+)\s*\)\."
     re_obj = re.compile(pattern)
     field_interpreter = interpret_field
 
@@ -323,7 +323,7 @@ class MatchMeta(MatchLine):
 
     out_pattern = "meta({Attribute},{Value},{Bar},{TimeInBeats})."
     field_names = ["Attribute", "Value", "Bar", "TimeInBeats"]
-    pattern = "meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
+    pattern = r"meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
     re_obj = re.compile(pattern)
     field_interpreter = interpret_field
 
@@ -355,7 +355,7 @@ class MatchSnote(MatchLine):
         + "[{ScoreAttributesList}])"
     )
 
-    pattern = "snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
+    pattern = r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
     re_obj = re.compile(pattern)
 
     field_names = [
@@ -495,7 +495,7 @@ class MatchNote(MatchLine):
         "Velocity",
     ]
     pattern = (
-        "note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
+        r"note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
     )
 
     re_obj = re.compile(pattern)
@@ -510,7 +510,7 @@ class MatchNote(MatchLine):
         "Offset",
         "Velocity",
     ]
-    pattern_v1 = "note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+)\)"
+    pattern_v1 = r"note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+)\)"
     re_obj_v1 = re.compile(pattern_v1)
 
     def __init__(
@@ -829,7 +829,7 @@ class MatchSustainPedal(MatchLine):
 
     out_pattern = "sustain({Time},{Value})."
     field_names = ["Time", "Value"]
-    pattern = "sustain\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
+    pattern = r"sustain\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
     re_obj = re.compile(pattern)
 
     def __init__(self, Time, Value):
@@ -849,7 +849,7 @@ class MatchSoftPedal(MatchLine):
 
     out_pattern = "soft({Time},{Value})."
     field_names = ["Time", "Value"]
-    pattern = "soft\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
+    pattern = r"soft\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
     re_obj = re.compile(pattern)
 
     def __init__(self, Time, Value):
@@ -865,7 +865,7 @@ class MatchSoftPedal(MatchLine):
 class MatchOrnamentNote(MatchLine):
     out_pattern = "ornament({Anchor})-{NoteLine}"
     field_names = ["Anchor"] + MatchNote.field_names
-    pattern = "ornament\(([^\)]*)\)-" + MatchNote.pattern
+    pattern = r"ornament\(([^\)]*)\)-" + MatchNote.pattern
     re_obj = re.compile(pattern)
 
     def __init__(self, Anchor, note):
@@ -895,7 +895,7 @@ class MatchOrnamentNote(MatchLine):
 class MatchTrillNote(MatchOrnamentNote):
     out_pattern = "trill({Anchor})-{NoteLine}"
     field_names = ["Anchor"] + MatchNote.field_names
-    pattern = "trill\(([^\)]*)\)-" + MatchNote.pattern
+    pattern = r"trill\(([^\)]*)\)-" + MatchNote.pattern
     re_obj = re.compile(pattern)
 
     def __init__(self, Anchor, note):
