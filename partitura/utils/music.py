@@ -5,7 +5,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 
-from partitura.utils.generic import find_nearest, search, iter_current_next
+from partitura.utils.generic import find_nearest, search, iter_current_next, INT_TYPE, FLOAT_TYPE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -951,8 +951,8 @@ def _make_pianoroll(
     N = int(np.ceil(time_div * (2 * time_margin + max_time - min_time)))
 
     # Onset and offset times of the notes in the piano roll
-    pr_onset = np.round(time_div * onset).astype(np.int)
-    pr_offset = np.round(time_div * offset).astype(np.int)
+    pr_onset = np.round(time_div * onset).astype(INT_TYPE)
+    pr_offset = np.round(time_div * offset).astype(INT_TYPE)
 
     # Determine the non-zero indices of the piano roll
     if onset_only:
@@ -987,7 +987,7 @@ def _make_pianoroll(
 
     # Fill piano roll
     pianoroll = csc_matrix(
-        (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=np.int
+        (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=INT_TYPE
     )
 
     pr_idx_pitch_start = 0
@@ -999,7 +999,7 @@ def _make_pianoroll(
         # indices of each note in the piano roll
         pr_idx = np.column_stack(
             [pr_pitch - pr_idx_pitch_start, pr_onset, pr_offset]
-        ).astype(np.int)
+        ).astype(INT_TYPE)
         return pianoroll, pr_idx[idx.argsort()]
     else:
         return pianoroll

@@ -7,7 +7,7 @@ from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 import partitura.score as score
-from partitura.utils import partition
+from partitura.utils import partition, INT_TYPE, FLOAT_TYPE
 
 __all__ = ["save_score_midi", "save_performance_midi"]
 
@@ -144,7 +144,7 @@ def save_performance_midi(
                     ]
                 )
             ),
-            dtype=np.int,
+            dtype=INT_TYPE,
         )
 
         timepoints = []

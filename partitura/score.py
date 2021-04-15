@@ -38,6 +38,8 @@ from partitura.utils import (
     to_quarter_tempo,
     key_mode_to_int,
     _OrderedSet,
+    INT_TYPE,
+    FLOAT_TYPE,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -235,7 +237,7 @@ class Part(object):
                 cur_bt = kp[1]
             if not keypoints_list or kp != keypoints_list[-1]:
                 keypoints_list.append([t] + kp)
-        keypoints = np.array(keypoints_list, dtype=np.float)
+        keypoints = np.array(keypoints_list, dtype=FLOAT_TYPE)
 
         x = keypoints[:, 0]
         y = np.r_[
@@ -2578,7 +2580,7 @@ def add_measures(part):
     """
 
     timesigs = np.array(
-        [(ts.start.t, ts.beats) for ts in part.iter_all(TimeSignature)], dtype=np.int
+        [(ts.start.t, ts.beats) for ts in part.iter_all(TimeSignature)], dtype=INT_TYPE
     )
 
     if len(timesigs) == 0:

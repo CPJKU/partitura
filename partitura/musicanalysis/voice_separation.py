@@ -9,7 +9,7 @@ from statistics import mode
 import numpy as np
 from numpy import ma
 
-from partitura.utils.music import ensure_notearray, get_time_units_from_note_array
+from partitura.utils import ensure_notearray, get_time_units_from_note_array, INT_TYPE, FLOAT_TYPE
 
 # from partitura.musicanalysis.utils import prepare_notearray
 
@@ -144,7 +144,7 @@ def estimate_voices(note_info, monophonic_voices=False):
     v_notearray = VoSA(input_array).note_array
 
     # map the voices to the original notes
-    voices = np.empty(len(notearray), dtype=np.int)
+    voices = np.empty(len(notearray), dtype=INT_TYPE)
 
     for idx, voice in zip(v_notearray["id"], v_notearray["voice"]):
         voices[idx_equivs[idx]] = voice
@@ -274,7 +274,7 @@ def est_best_connections(cost, mode="prev"):
         mask[next_best, :] = 1
         mcost.mask = mask
 
-    best_assignment = np.array(best_assignment).astype(np.int)
+    best_assignment = np.array(best_assignment).astype(INT_TYPE)
 
     # Get unassigned streams
     unassigned_streams = list(set(range(n_streams)).difference(best_assignment[:, 0]))
