@@ -9,22 +9,23 @@ References
 """
 import numpy as np
 from collections import namedtuple
-from partitura.utils.music import (ensure_notearray,
-                                   get_time_units_from_note_array)
+from partitura.utils.music import ensure_notearray, get_time_units_from_note_array
+
 # from partitura.musicanalysis.utils import prepare_notearray
 
 
-__all__ = ['estimate_spelling']
+__all__ = ["estimate_spelling"]
 
-ChromamorpheticPitch = namedtuple('ChromamorpheticPitch',
-                                  'chromatic_pitch morphetic_pitch')
+ChromamorpheticPitch = namedtuple(
+    "ChromamorpheticPitch", "chromatic_pitch morphetic_pitch"
+)
 
-STEPS = np.array(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+STEPS = np.array(["A", "B", "C", "D", "E", "F", "G"])
 UND_CHROMA = np.array([0, 2, 3, 5, 7, 8, 10], dtype=np.int)
-ALTER = np.array(['n', '#', 'b'])
+ALTER = np.array(["n", "#", "b"])
 
 
-def estimate_spelling(note_info, method='ps13s1', **kwargs):
+def estimate_spelling(note_info, method="ps13s1", **kwargs):
     """Estimate pitch spelling using the ps13 algorithm [4]_, [5]_.
 
     Parameters
@@ -58,17 +59,17 @@ def estimate_spelling(note_info, method='ps13s1', **kwargs):
            Germany.
 
     """
-    if method == 'ps13s1':
+    if method == "ps13s1":
         ps = ps13s1
     step, alter, octave = ps(ensure_notearray(note_info), **kwargs)
 
-    spelling = np.empty(len(step), dtype=[('step', 'U1'),
-                                          ('alter', np.int),
-                                          ('octave', np.int)])
+    spelling = np.empty(
+        len(step), dtype=[("step", "U1"), ("alter", np.int), ("octave", np.int)]
+    )
 
-    spelling['step'] = step
-    spelling['alter'] = alter
-    spelling['octave'] = octave
+    spelling["step"] = step
+    spelling["alter"] = alter
+    spelling["octave"] = octave
 
     return spelling
 
@@ -79,33 +80,42 @@ def ps13s1(note_array, K_pre=10, K_post=40):
     """
 
     onset_unit, _ = get_time_units_from_note_array(note_array)
-    pitch_sort_idx = note_array['pitch'].argsort()
+    pitch_sort_idx = note_array["pitch"].argsort()
 
-    onset_sort_idx = np.argsort(note_array[pitch_sort_idx][onset_unit],
-                                kind='mergesort')
+    onset_sort_idx = np.argsort(
+        note_array[pitch_sort_idx][onset_unit], kind="mergesort"
+    )
 
     sort_idx = pitch_sort_idx[onset_sort_idx]
 
     re_idx = sort_idx.argsort()  # o_idx[sort_idx]
 
     sorted_ocp = np.column_stack(
-        (note_array[sort_idx][onset_unit],
-         chromatic_pitch_from_midi(note_array[sort_idx]['pitch'])))
+        (
+            note_array[sort_idx][onset_unit],
+            chromatic_pitch_from_midi(note_array[sort_idx]["pitch"]),
+        )
+    )
 
     # n = len(sorted_ocp)
     # ChromaList
     chroma_array = compute_chroma_array(sorted_ocp=sorted_ocp)
     # ChromaVectorList
     chroma_vector_array = compute_chroma_vector_array(
-        chroma_array=chroma_array,
-        K_pre=K_pre,
-        K_post=K_post)
-    morph_array = compute_morph_array(chroma_array=chroma_array,
-                                      chroma_vector_array=chroma_vector_array)
+        chroma_array=chroma_array, K_pre=K_pre, K_post=K_post
+    )
+    morph_array = compute_morph_array(
+        chroma_array=chroma_array, chroma_vector_array=chroma_vector_array
+    )
 
     morphetic_pitch = compute_morphetic_pitch(sorted_ocp, morph_array)
 
-    step, alter, octave = p2pn(sorted_ocp[:, 1], morphetic_pitch.reshape(-1, ))
+    step, alter, octave = p2pn(
+        sorted_ocp[:, 1],
+        morphetic_pitch.reshape(
+            -1,
+        ),
+    )
     # sort back pitch names
     step = step[re_idx]
     alter = alter[re_idx]
@@ -145,10 +155,14 @@ def compute_chroma_vector_array(chroma_array, K_pre, K_post):
 
     for i in range(1, n):
         if i + K_post <= n:
-            chroma_vector[chroma_array[i + K_post - 1]] = 1 + chroma_vector[chroma_array[i + K_post - 1]]
+            chroma_vector[chroma_array[i + K_post - 1]] = (
+                1 + chroma_vector[chroma_array[i + K_post - 1]]
+            )
 
         if i - K_pre > 0:
-            chroma_vector[chroma_array[i - K_pre - 1]] = chroma_vector[chroma_array[i - K_pre - 1]] - 1
+            chroma_vector[chroma_array[i - K_pre - 1]] = (
+                chroma_vector[chroma_array[i - K_pre - 1]] - 1
+            )
 
         chroma_vector_list.append(chroma_vector.copy())
 
@@ -173,7 +187,9 @@ def compute_morph_array(chroma_array, chroma_vector_array):
     morph_int = np.array([0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6], dtype=np.int)
 
     # Lines 6-8
-    tonic_morph_for_tonic_chroma = np.mod(m0 - morph_int[np.mod(c0 - np.arange(12), 12)], 7)
+    tonic_morph_for_tonic_chroma = np.mod(
+        m0 - morph_int[np.mod(c0 - np.arange(12), 12)], 7
+    )
 
     # Line 10
     tonic_chroma_set_for_morph = [[] for i in range(7)]
@@ -185,9 +201,11 @@ def compute_morph_array(chroma_array, chroma_vector_array):
     for j in range(n):
         # Lines 13-15 (skipped line 9, since we do not need to
         # initialize morph_for_tonic_chroma)
-        morph_for_tonic_chroma = np.mod(morph_int[np.mod(chroma_array[j]
-                                                         - np.arange(12), 12)] +
-                                        tonic_morph_for_tonic_chroma, 7)
+        morph_for_tonic_chroma = np.mod(
+            morph_int[np.mod(chroma_array[j] - np.arange(12), 12)]
+            + tonic_morph_for_tonic_chroma,
+            7,
+        )
         # Lines 16-17
         tonic_chroma_set_for_morph = [[] for i in range(7)]
 
@@ -203,8 +221,9 @@ def compute_morph_array(chroma_array, chroma_vector_array):
         # Line 22
         for m in range(7):
             # Line 23
-            morph_strength[m] = sum([chroma_vector_array[j, ct]
-                                     for ct in tonic_chroma_set_for_morph[m]])
+            morph_strength[m] = sum(
+                [chroma_vector_array[j, ct] for ct in tonic_chroma_set_for_morph[m]]
+            )
 
         # Line 24
         morph_array[j] = np.argmax(morph_strength)
@@ -215,7 +234,9 @@ def compute_morph_array(chroma_array, chroma_vector_array):
 def compute_ocm_chord_list(sorted_ocp, chroma_array, morph_array):
 
     # Lines 1-3
-    ocm_array = np.column_stack((sorted_ocp[:, 0], chroma_array, morph_array)).astype(np.int)
+    ocm_array = np.column_stack((sorted_ocp[:, 0], chroma_array, morph_array)).astype(
+        np.int
+    )
 
     # Alternative implementation of lines 4--9
     unique_onsets = np.unique(ocm_array[:, 0])
@@ -247,9 +268,7 @@ def compute_morphetic_pitch(sorted_ocp, morph_array):
 
     morph_oct_1 = np.floor(chromatic_pitch / 12.0).astype(np.int)
 
-    morph_octs = np.column_stack((morph_oct_1,
-                                  morph_oct_1 + 1,
-                                  morph_oct_1 - 1))
+    morph_octs = np.column_stack((morph_oct_1, morph_oct_1 + 1, morph_oct_1 - 1))
 
     chroma = np.mod(chromatic_pitch, 12)
 
@@ -261,7 +280,7 @@ def compute_morphetic_pitch(sorted_ocp, morph_array):
 
     best_morph_oct = morph_octs[np.arange(n), diffs.argmin(1)]
 
-    morphetic_pitch = morph.reshape(-1, ) + 7 * best_morph_oct
+    morphetic_pitch = morph.reshape(-1,) + 7 * best_morph_oct
 
     return morphetic_pitch
 

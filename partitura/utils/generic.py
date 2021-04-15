@@ -7,12 +7,13 @@ import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ['find_nearest', 'iter_current_next', 'partition', 'iter_subclasses']
+__all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
 
 
 class _OrderedSet(dict):
     def add(self, x):
         self[x] = None
+
     def remove(self, x):
         self.pop(x, None)
 
@@ -20,23 +21,26 @@ class _OrderedSet(dict):
 def find_nearest(array, value):
     """
     Return the index of the value in `array` that is closest to `value`.
-    
+
     Parameters
     ----------
     array: ndarray
         Array of numbers
     value: float
         The query value
-    
+
     Returns
     -------
     int
         Index of closest value
     """
-    
+
     idx = np.searchsorted(array, value, side="left")
-    if idx > 0 and (idx == len(array) or np.abs(value - array[idx-1]) <= np.abs(value - array[idx])):
-        return idx-1
+    if idx > 0 and (
+        idx == len(array)
+        or np.abs(value - array[idx - 1]) <= np.abs(value - array[idx])
+    ):
+        return idx - 1
     else:
         return idx
 
@@ -44,6 +48,7 @@ def find_nearest(array, value):
 # we need a globally unique value to detect whether a keyword argument was
 # passed to iter_current_next
 _sentinel = object()
+
 
 def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     """Iterate over pairs of consecutive values in an iterable.
@@ -62,7 +67,7 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     end: object, optional
         If specified, this value will be treated as if it were the last element
         of the iterator
-    
+
     Yields
     ------
     (object, object)
@@ -100,13 +105,13 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
 
     """
     iterable = iter(iterable)
-    
+
     cur = start
     try:
 
         if cur is _sentinel:
             cur = next(iterable)
-            
+
         while True:
 
             nxt = next(iterable)
@@ -146,8 +151,9 @@ def iter_subclasses(cls, _seen=None):
     """
 
     if not isinstance(cls, type):
-        raise TypeError('iter_subclasses must be called with '
-                        'new-style classes, not %.100r' % cls)
+        raise TypeError(
+            "iter_subclasses must be called with " "new-style classes, not %.100r" % cls
+        )
     if _seen is None:
         _seen = set()
     try:
@@ -208,14 +214,14 @@ class ReplaceRefMixin(object):
     >>> b2.replace_refs(object_map)
     >>> b2.prev == b1
     True
-    
+
     """
 
     def __init__(self):
         self._ref_attrs = []
 
     def replace_refs(self, o_map):
-        if hasattr(self, '_ref_attrs'):
+        if hasattr(self, "_ref_attrs"):
             for attr in self._ref_attrs:
                 o = getattr(self, attr)
                 if o is None:
@@ -227,9 +233,15 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            LOGGER.warning(dedent('''reference not found in
+                            LOGGER.warning(
+                                dedent(
+                                    """reference not found in
                             o_map: {} start={} end={}, substituting None
-                            '''.format(o_el, o_el.start, o_el.end)))
+                            """.format(
+                                        o_el, o_el.start, o_el.end
+                                    )
+                                )
+                            )
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
@@ -237,9 +249,15 @@ class ReplaceRefMixin(object):
                     if o in o_map:
                         o_new = o_map[o]
                     else:
-                        LOGGER.warning(dedent('''reference not found in o_map:
+                        LOGGER.warning(
+                            dedent(
+                                """reference not found in o_map:
                         {} start={} end={}, substituting None
-                        '''.format(o, o.start, o.end)))
+                        """.format(
+                                    o, o.start, o.end
+                                )
+                            )
+                        )
                         o_new = None
                     setattr(self, attr, o_new)
 
@@ -388,8 +406,9 @@ def show_diff(a, b):
     """
 
     import difflib
+
     differ = difflib.Differ()
-    for l in differ.compare(a.split('\n'), b.split('\n')):
+    for l in differ.compare(a.split("\n"), b.split("\n")):
         print(l)
 
 
@@ -412,12 +431,12 @@ class PrettyPrintTree(object):
         self.stack[-1].last_item()
 
     def __str__(self):
-        return ''.join(str(sym) for sym in self.stack)
+        return "".join(str(sym) for sym in self.stack)
 
 
 class TreeSymbol(object):
     def __init__(self):
-        self.symbols = [' │  ', ' ├─ ', ' └─ ', '    ']
+        self.symbols = [" │  ", " ├─ ", " └─ ", "    "]
         self.state = 0
 
     def next_item(self):
@@ -458,6 +477,7 @@ def search(states, success, expand, combine):
 #         return None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

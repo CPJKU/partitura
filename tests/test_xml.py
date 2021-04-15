@@ -17,25 +17,29 @@ import partitura.score as score
 
 LOGGER = logging.getLogger(__name__)
 
+
 class TestDirectionParser(unittest.TestCase):
     """
     Test if the direction parser gives the expected results for some directions
     """
 
     cases = [
-        ('Andante', [score.ConstantTempoDirection]),
-        ('ligato', [score.ConstantArticulationDirection]),
-        ('sempre cresc', [score.IncreasingLoudnessDirection]),
-        ('poco a poco rallentando', [score.DecreasingTempoDirection]),
-        ]
-        
+        ("Andante", [score.ConstantTempoDirection]),
+        ("ligato", [score.ConstantArticulationDirection]),
+        ("sempre cresc", [score.IncreasingLoudnessDirection]),
+        ("poco a poco rallentando", [score.DecreasingTempoDirection]),
+    ]
+
     def test_parser(self):
         for words, target in self.cases:
             result = parse_direction(words)
-            self.assertEqual(len(result), len(target), '"{}" not parsed correctly into directions'.format(words))
+            self.assertEqual(
+                len(result),
+                len(target),
+                '"{}" not parsed correctly into directions'.format(words),
+            )
             for res, trg in zip(result, target):
-                self.assertEqual(type(res), trg, '')
-
+                self.assertEqual(type(res), trg, "")
 
 
 class TestMusicXML(unittest.TestCase):
@@ -47,33 +51,35 @@ class TestMusicXML(unittest.TestCase):
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             with open(fn) as f:
                 parts = load_musicxml(f, validate=False)
-                result = save_musicxml(parts).decode('UTF-8')
+                result = save_musicxml(parts).decode("UTF-8")
                 f.seek(0)
                 target = f.read()
                 equal = target == result
                 if not equal:
                     show_diff(result, target)
-                msg = "Import and export of MusicXML of file {} does not yield identical result".format(fn)
+                msg = "Import and export of MusicXML of file {} does not yield identical result".format(
+                    fn
+                )
                 self.assertTrue(equal, msg)
-
 
     def test_unfold_timeline(self):
         for fn, fn_target in MUSICXML_UNFOLD_TESTPAIRS:
             part = load_musicxml(fn, validate=False)
             part = score.unfold_part_maximal(part)
-            result = save_musicxml(part).decode('UTF-8')
+            result = save_musicxml(part).decode("UTF-8")
             with open(fn_target) as f:
                 target = f.read()
             equal = target == result
             if not equal:
                 show_diff(result, target)
-            msg = "Unfolding part of MusicXML file {} does not yield expected result".format(fn)
+            msg = "Unfolding part of MusicXML file {} does not yield expected result".format(
+                fn
+            )
             self.assertTrue(equal, msg)
 
-                
     def test_export_import_pprint(self):
         # create a part
-        part1 = score.Part('My Part')
+        part1 = score.Part("My Part")
 
         # create contents
         divs = 10
@@ -81,10 +87,10 @@ class TestMusicXML(unittest.TestCase):
         page1 = score.Page(1)
         system1 = score.System(1)
         measure1 = score.Measure(number=1)
-        note1 = score.Note(step='A', octave=4, voice=1, staff=1)
+        note1 = score.Note(step="A", octave=4, voice=1, staff=1)
         rest1 = score.Rest(voice=1, staff=1)
-        note2 = score.Note(step='C', octave=5, alter=-1, voice=2, staff=1)
-        
+        note2 = score.Note(step="C", octave=5, alter=-1, voice=2, staff=1)
+
         # and add the contents to the part:
         part1.set_quarter_duration(0, divs)
         part1.add(ts, 0)
@@ -94,9 +100,9 @@ class TestMusicXML(unittest.TestCase):
         part1.add(note1, 0, 15)
         part1.add(rest1, 15, 30)
         part1.add(note2, 0, 30)
-        
+
         score.set_end_times(part1)
-        
+
         # pretty print the part
         pstring1 = part1.pretty()
 
@@ -116,7 +122,7 @@ class TestMusicXML(unittest.TestCase):
 
         if not equal:
             show_diff(pstring1, pstring2)
-        msg = 'Exported and imported score does not yield identical pretty printed representations'
+        msg = "Exported and imported score does not yield identical pretty printed representations"
         self.assertTrue(equal, msg)
 
     def test_export_import_tuplet(self):
@@ -135,7 +141,7 @@ class TestMusicXML(unittest.TestCase):
             save_musicxml(part1, f)
             f.flush()
             f.seek(0)
-            _tmp = f.read().decode('utf8')
+            _tmp = f.read().decode("utf8")
             f.seek(0)
             # load part from musicxml
             part2 = load_musicxml(f)
@@ -145,40 +151,40 @@ class TestMusicXML(unittest.TestCase):
 
         # test pretty printed strings for equality
         equal = pstring1 == pstring2
-        
+
         if not equal:
-            print('pretty original:')
+            print("pretty original:")
             print(pstring1)
-            print('pretty reloaded:')
+            print("pretty reloaded:")
             print(pstring2)
-            print('saved xml:')
+            print("saved xml:")
             print(_tmp)
-            print('diff:')
+            print("diff:")
             show_diff(pstring1, pstring2)
-        msg = 'Exported and imported score does not yield identical pretty printed representations'
+        msg = "Exported and imported score does not yield identical pretty printed representations"
         self.assertTrue(equal, msg)
 
 
 def make_part_slur():
     # create a part
-    part = score.Part('My Part')
+    part = score.Part("My Part")
     # create contents
     divs = 12
     ts = score.TimeSignature(3, 4)
     page1 = score.Page(1)
     system1 = score.System(1)
 
-    note0 = score.Note(id='n0', step='A', octave=4, voice=1, staff=1)
-    note1 = score.Note(id='n1', step='A', octave=4, voice=1, staff=1)
-    note2 = score.Note(id='n2', step='A', octave=4, voice=1, staff=1)
-    note3 = score.Note(id='n3', step='A', octave=4, voice=1, staff=1)
+    note0 = score.Note(id="n0", step="A", octave=4, voice=1, staff=1)
+    note1 = score.Note(id="n1", step="A", octave=4, voice=1, staff=1)
+    note2 = score.Note(id="n2", step="A", octave=4, voice=1, staff=1)
+    note3 = score.Note(id="n3", step="A", octave=4, voice=1, staff=1)
 
-    note4 = score.Note(id='n4', step='A', octave=3, voice=2, staff=1)
-    note5 = score.Note(id='n5', step='A', octave=3, voice=2, staff=1)
+    note4 = score.Note(id="n4", step="A", octave=3, voice=2, staff=1)
+    note5 = score.Note(id="n5", step="A", octave=3, voice=2, staff=1)
 
     slur1 = score.Slur(start_note=note0, end_note=note5)
     slur2 = score.Slur(start_note=note4, end_note=note3)
-    
+
     # and add the contents to the part:
     part.set_quarter_duration(0, divs)
     part.add(ts, 0)
@@ -191,22 +197,18 @@ def make_part_slur():
     part.add(note4, 0, 6)
     part.add(note5, 6, 33)
 
-    part.add(slur1, 
-             slur1.start_note.start.t,
-             slur1.end_note.end.t)
-    part.add(slur2, 
-             slur2.start_note.start.t,
-             slur2.end_note.end.t)
+    part.add(slur1, slur1.start_note.start.t, slur1.end_note.end.t)
+    part.add(slur2, slur2.start_note.start.t, slur2.end_note.end.t)
 
     score.add_measures(part)
     score.tie_notes(part)
     score.set_end_times(part)
     return part
-    
+
 
 def make_part_tuplet():
     # create a part
-    part = score.Part('My Part')
+    part = score.Part("My Part")
 
     # create contents
     divs = 12
@@ -214,11 +216,11 @@ def make_part_tuplet():
     page1 = score.Page(1)
     system1 = score.System(1)
 
-    note1 = score.Note(id='n0', step='A', octave=4, voice=1, staff=1)
+    note1 = score.Note(id="n0", step="A", octave=4, voice=1, staff=1)
     rest1 = score.Rest(voice=1, staff=1)
-    note2 = score.Note(id='n2', step='C', octave=4, voice=1, staff=1)
-    rest2 = score.Rest(id='r0', voice=1, staff=1)
-    
+    note2 = score.Note(id="n2", step="C", octave=4, voice=1, staff=1)
+    rest2 = score.Rest(id="r0", voice=1, staff=1)
+
     # and add the contents to the part:
     part.set_quarter_duration(0, divs)
     part.add(ts, 0)
@@ -235,5 +237,6 @@ def make_part_tuplet():
 
     return part
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

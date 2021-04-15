@@ -9,12 +9,12 @@ from statistics import mode
 import numpy as np
 from numpy import ma
 
-from partitura.utils.music import (ensure_notearray,
-                                   get_time_units_from_note_array)
+from partitura.utils.music import ensure_notearray, get_time_units_from_note_array
+
 # from partitura.musicanalysis.utils import prepare_notearray
 
 
-__all__ = ['estimate_voices']
+__all__ = ["estimate_voices"]
 
 # Maximal cost of a jump (in Chew  and Wu (2004) is 2 ** 31)
 MAX_COST = 1000
@@ -24,8 +24,9 @@ def rename_voices(voices):
     # rename voices so that the first occurring voice has number 1, the second
     # occurring voice has number 2, etc.
     vmap = {}
-    return np.fromiter((vmap.setdefault(v, len(vmap) + 1) for v in voices),
-                       dtype=voices.dtype)
+    return np.fromiter(
+        (vmap.setdefault(v, len(vmap) + 1) for v in voices), dtype=voices.dtype
+    )
 
 
 def prepare_notearray(note_info):
@@ -37,22 +38,29 @@ def prepare_notearray(note_info):
     # Get onset and duration units
     onset_unit, duration_unit = get_time_units_from_note_array(notearray)
 
-    req_fields = ('pitch', onset_unit, duration_unit)
+    req_fields = ("pitch", onset_unit, duration_unit)
     # new array will be unit agnostic
-    new_fields = ('pitch', 'onset', 'duration')
+    new_fields = ("pitch", "onset", "duration")
     for field in req_fields:
         if field not in notearray.dtype.names:
-            raise ValueError('Input array does not contain required field {0}'.format(field))
+            raise ValueError(
+                "Input array does not contain required field {0}".format(field)
+            )
 
     dtypes = dict(notearray.dtype.descr)
-    new_dtype = ([(nn, dtypes[n]) for nn, n in zip(new_fields, req_fields)] +
-                 [('id', 'i4')])
+    new_dtype = [(nn, dtypes[n]) for nn, n in zip(new_fields, req_fields)] + [
+        ("id", "i4")
+    ]
 
-    return np.fromiter(zip(notearray['pitch'],
-                           notearray[onset_unit],
-                           notearray[duration_unit],
-                           np.arange(len(notearray))),
-                       dtype=new_dtype)
+    return np.fromiter(
+        zip(
+            notearray["pitch"],
+            notearray[onset_unit],
+            notearray[duration_unit],
+            np.arange(len(notearray)),
+        ),
+        dtype=new_dtype,
+    )
 
 
 def argmax_pitch(idx, pitches):
@@ -111,7 +119,7 @@ def estimate_voices(note_info, monophonic_voices=False):
     if monophonic_voices:
 
         # identity mapping
-        idx_equivs = dict((n, n) for n in notearray['id'])
+        idx_equivs = dict((n, n) for n in notearray["id"])
         input_array = notearray
 
     else:
@@ -123,9 +131,10 @@ def estimate_voices(note_info, monophonic_voices=False):
 
         # dict that maps first chord note index to the list of all note indices
         # of the same chord
-        idx_equivs = dict((argmax_pitch(np.array(idx), notearray['pitch']),
-                           np.array(idx))
-                          for idx in note_by_key.values())
+        idx_equivs = dict(
+            (argmax_pitch(np.array(idx), notearray["pitch"]), np.array(idx))
+            for idx in note_by_key.values()
+        )
 
         # keep the first note of each chord, the rest of the chord notes will
         # be assigned the same voice as the first chord note
@@ -137,7 +146,7 @@ def estimate_voices(note_info, monophonic_voices=False):
     # map the voices to the original notes
     voices = np.empty(len(notearray), dtype=np.int)
 
-    for idx, voice in zip(v_notearray['id'], v_notearray['voice']):
+    for idx, voice in zip(v_notearray["id"], v_notearray["voice"]):
         voices[idx_equivs[idx]] = voice
 
     # rename voices so that the first occurring voice has number 1, the second
@@ -196,7 +205,7 @@ def pairwise_cost(prev, nxt):
     for i, c_note in enumerate(prev_notes):
         for j, n_note in enumerate(next_notes):
             if c_note == n_note:
-                cost[i, j] = - MAX_COST
+                cost[i, j] = -MAX_COST
             elif c_note.skip_contig != 0 or n_note.skip_contig != 0:
                 cost[i, j] = MAX_COST
             else:
@@ -205,7 +214,7 @@ def pairwise_cost(prev, nxt):
     return cost
 
 
-def est_best_connections(cost, mode='prev'):
+def est_best_connections(cost, mode="prev"):
     """
     Get the connections with minimal cost
 
@@ -233,11 +242,11 @@ def est_best_connections(cost, mode='prev'):
     n_streams_p, n_streams_n = cost.shape
 
     # determine sizes according to the mode
-    if mode == 'prev':
+    if mode == "prev":
         con_cost = cost
         n_streams = n_streams_p
         n_assignments = n_streams_n
-    elif mode == 'next':
+    elif mode == "next":
         con_cost = cost.T
         n_streams = n_streams_n
         n_assignments = n_streams_p
@@ -347,8 +356,7 @@ class VSNote(object):
         MIDI velocity of the note
     """
 
-    def __init__(self, pitch, onset, duration, note_id, velocity=None,
-                 voice=None):
+    def __init__(self, pitch, onset, duration, note_id, velocity=None, voice=None):
 
         # ID of the note
         self.id = note_id
@@ -388,12 +396,15 @@ class VSNote(object):
             n.voice = self.voice
 
     def __str__(self):
-        return 'VSNote {id}: pitch {pi}, onset {on}, duration {dur}, voice {voice}'.format(
-            id=self.id,
-            pi=self.pitch,
-            on=self.onset,
-            dur=self.duration,
-            voice=self.voice if self.voice is not None else 'None')
+        return (
+            "VSNote {id}: pitch {pi}, onset {on}, duration {dur}, voice {voice}".format(
+                id=self.id,
+                pi=self.pitch,
+                on=self.onset,
+                dur=self.duration,
+                voice=self.voice if self.voice is not None else "None",
+            )
+        )
 
 
 class VSChord(object):
@@ -401,12 +412,12 @@ class VSChord(object):
     Base class to hold chords
     """
 
-    def __init__(self, notes, rep_note='highest'):
+    def __init__(self, notes, rep_note="highest"):
 
         if any([n.onset != notes[0].onset for n in notes]):
-            raise ValueError('All notes in the chord must have the same onset')
+            raise ValueError("All notes in the chord must have the same onset")
         if any([n.offset != notes[0].offset for n in notes]):
-            raise ValueError('All notes in the chord must have the same offset')
+            raise ValueError("All notes in the chord must have the same offset")
         self.notes = notes
 
         self.pitches = np.array([n.pitch for n in self.notes])
@@ -420,10 +431,10 @@ class VSChord(object):
 
     @property
     def pitch(self):
-        if self.rep_note == 'highest':
+        if self.rep_note == "highest":
             return self.pitches.max()
 
-        elif self.rep_note == 'lowest':
+        elif self.rep_note == "lowest":
             return self.pitches.min()
 
         elif isinstance(self.rep_note, int):
@@ -462,7 +473,6 @@ class Voice(object):
 
         else:
             self.notes = []
-
 
     def _setup_voice(self):
 
@@ -586,7 +596,9 @@ class VSBaseScore(object):
         self.note_durations = self.note_offsets - self.note_onsets
 
         # Get all timepoints in the score
-        self.unique_timepoints = np.unique(np.hstack((self.note_onsets, self.note_offsets)))
+        self.unique_timepoints = np.unique(
+            np.hstack((self.note_onsets, self.note_offsets))
+        )
         # Sort them in ascending order
         self.unique_timepoints.sort()
 
@@ -611,8 +623,7 @@ class VSBaseScore(object):
             self._sounding_notes[tp] = sort_by_pitch(list(self.notes[sounding_idxs]))
 
     def __getitem__(self, index):
-        """Get element in the score by index of the time points.
-        """
+        """Get element in the score by index of the time points."""
         return sort_by_pitch(self._sounding_notes[self.unique_timepoints[index]])
 
     def __setitem__(self, index, notes):
@@ -657,7 +668,7 @@ class VSBaseScore(object):
 
 
 class NoteStream(VSBaseScore):
-    def __init__(self, notes=[], voice='auto', prev_stream=None, next_stream=None):
+    def __init__(self, notes=[], voice="auto", prev_stream=None, next_stream=None):
 
         super(NoteStream, self).__init__(notes)
         self._voice = voice
@@ -665,7 +676,7 @@ class NoteStream(VSBaseScore):
         self.next_stream = next_stream
 
         if len(self.notes) > 0:
-            if self._voice == 'auto':
+            if self._voice == "auto":
                 self.infer_voice()
 
         self.onset = self.note_onsets.min()
@@ -727,7 +738,9 @@ class Contig(VSBaseScore):
         self.n_voices = self.n_voices.max()
         # offset of the contig is the minimum offset of all
         # notes in the last onset of the contig
-        self.offset = min([n.offset for n in self._sounding_notes[self.note_onsets.max()]])
+        self.offset = min(
+            [n.offset for n in self._sounding_notes[self.note_onsets.max()]]
+        )
         self.duration = self.offset - self.offset
 
         # initialize streams as a list for each voice in the contig
@@ -791,37 +804,46 @@ class VoSA(VSBaseScore):
 
         if delete_gracenotes:
             # TODO: Handle grace notes correctly
-            self.score = self.score[score['duration'] != 0]
+            self.score = self.score[score["duration"] != 0]
         else:
-            grace_note_idxs = np.where(score['duration'] == 0)[0]
-            unique_onsets = np.unique(self.score['onset'])
-            unique_onset_idxs = [np.where(self.score['onset'] == u)[0]
-                                 for u in unique_onsets]
+            grace_note_idxs = np.where(score["duration"] == 0)[0]
+            unique_onsets = np.unique(self.score["onset"])
+            unique_onset_idxs = [
+                np.where(self.score["onset"] == u)[0] for u in unique_onsets
+            ]
             main_notes_idxs = []
             grace_notes = []
             for g_i in grace_note_idxs:
                 grace_note = self.score[g_i]
-                candidate_note_idxs = np.where(self.score['onset'] == grace_note['onset'])[0]
+                candidate_note_idxs = np.where(
+                    self.score["onset"] == grace_note["onset"]
+                )[0]
                 candidate_note_idxs = candidate_note_idxs[candidate_note_idxs != g_i]
 
                 if len(candidate_note_idxs) == 0:
-                    next_onset_idx = int(np.where(unique_onsets == grace_note['onset'])[0] + 1)
+                    next_onset_idx = int(
+                        np.where(unique_onsets == grace_note["onset"])[0] + 1
+                    )
                     # import pdb; pdb.set_trace()
                     candidate_note_idxs = unique_onset_idxs[next_onset_idx]
 
                 candidate_notes = self.score[candidate_note_idxs]
-                main_notes_idxs.append(candidate_note_idxs[
-                    np.argmin(abs(candidate_notes['pitch'] -
-                                  grace_note['pitch']))])
+                main_notes_idxs.append(
+                    candidate_note_idxs[
+                        np.argmin(abs(candidate_notes["pitch"] - grace_note["pitch"]))
+                    ]
+                )
 
         self.notes = []
 
         for n in self.score:
 
-            note = VSNote(pitch=n['pitch'],
-                          onset=n['onset'],
-                          duration=n['duration'],
-                          note_id=n['id'])
+            note = VSNote(
+                pitch=n["pitch"],
+                onset=n["onset"],
+                duration=n["duration"],
+                note_id=n["id"],
+            )
 
             self.notes.append(note)
 
@@ -856,16 +878,25 @@ class VoSA(VSBaseScore):
         out_array = []
 
         for n in self.notes:
-            out_note = (n.pitch, n.onset, n.duration,
-                        n.voice if n.voice is not None else -1, n.id)
+            out_note = (
+                n.pitch,
+                n.onset,
+                n.duration,
+                n.voice if n.voice is not None else -1,
+                n.id,
+            )
             out_array.append(out_note)
 
-        return np.array(out_array, dtype=[('pitch', 'i4'),
-                                          ('onset', 'f4'),
-                                          ('duration', 'f4'),
-                                          ('voice', 'i4'),
-                                          ('id', type(self.notes[0].id))]
-                        )
+        return np.array(
+            out_array,
+            dtype=[
+                ("pitch", "i4"),
+                ("onset", "f4"),
+                ("duration", "f4"),
+                ("voice", "i4"),
+                ("id", type(self.notes[0].id)),
+            ],
+        )
 
     def make_contigs(self):
 
@@ -959,11 +990,12 @@ class VoSA(VSBaseScore):
         Estimate voices using global minimum connections
         """
         # indices of the maximal contigs
-        maximal_contigs_idxs = np.where(self._voices_per_contig == self.num_voices)[0]
+        maximal_contigs_idxs = np.where(
+            self._voices_per_contig == self.num_voices)[0]
 
         # indices of the non maximal contigs
-        non_maximal_contigs_idx = np.where(self._voices_per_contig != self.num_voices)[0]
-
+        non_maximal_contigs = self._voices_per_contig != self.num_voices
+        non_maximal_contigs_idx = np.where(non_maximal_contigs)[0]
         # initialize maximal contigs and voice managers
         voice_managers_dict = dict()
         for mci in maximal_contigs_idxs:
@@ -1033,7 +1065,9 @@ class VoSA(VSBaseScore):
                             # Compute connection cost
                             cost = pairwise_cost(vm, next_contig)
                             # Estimate best connections (global minimum policy)
-                            best_connections, f_unassigned = est_best_connections(cost, mode='prev')
+                            best_connections, f_unassigned = est_best_connections(
+                                cost, mode="prev"
+                            )
                             # for s in vm:
                             #     s.last.skip_contig = 0
 
@@ -1060,7 +1094,9 @@ class VoSA(VSBaseScore):
                             # Compute connection cost
                             cost = pairwise_cost(prev_contig, vm)
                             # Estimate best connections
-                            best_connections, b_unassigned = est_best_connections(cost, mode='next')
+                            best_connections, b_unassigned = est_best_connections(
+                                cost, mode="next"
+                            )
                             # for s in vm:
                             #     s.first.skip_contig = 0
 
@@ -1072,5 +1108,7 @@ class VoSA(VSBaseScore):
 
             # If we have already assigned a voice to all notes in the score,
             # break the loop (or if there are no more neighboring contigs to process)
-            if all([note.voice is not None for note in self.notes]) or (nix > len(self) + 1):
+            if all([note.voice is not None for note in self.notes]) or (
+                nix > len(self) + 1
+            ):
                 keep_loop = False
