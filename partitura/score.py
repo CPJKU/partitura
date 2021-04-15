@@ -266,9 +266,9 @@ class Part(object):
                 pass
 
         if inv:
-            return interp1d(y, x)  # , bounds_error=False, fill_value='extrapolate')
+            return interp1d(y, x)
         else:
-            return interp1d(x, y)  # , bounds_error=False, fill_value='extrapolate')
+            return interp1d(x, y)
 
     @property
     def beat_map(self):
@@ -957,8 +957,6 @@ class TimePoint(ComparableMixin):
             self.starting_objects.items(), key=lambda x: x[0].__name__
         )
 
-        # ending_items = [o for _, oo in ending_items_lists for o in oo]
-        # starting_items = [o for _, oo in starting_items_lists for o in oo]
         ending_items = [
             o
             for _, oo in ending_items_lists
@@ -969,9 +967,6 @@ class TimePoint(ComparableMixin):
             for _, oo in starting_items_lists
             for o in sorted(oo, key=lambda x: x.duration or -1)
         ]
-
-        # import ipdb
-        # ipdb.set_trace()
 
         if ending_items:
 
@@ -1333,9 +1328,6 @@ class GenericNote(TimedObject):
                 yield n
 
     def __str__(self):
-        # s = ('{} id={} voice={} staff={} type={}'
-        #      .format(type(self).__name__, self.id, self.voice, self.staff,
-        #              format_symbolic_duration(self.symbolic_duration)))
         s = "{} id={} voice={} staff={} type={}".format(
             super().__str__(),
             self.id,
@@ -1387,11 +1379,8 @@ class Note(GenericNote):
         self.step = step.upper()
         self.octave = octave
         self.alter = alter
-        # Add beam (
         self.beam = beam
 
-        # import pdb
-        # pdb.set_trace()
         if self.beam is not None:
             try:
                 self.beam.append(self)
@@ -1676,9 +1665,6 @@ class Slur(TimedObject):
             if self.start:
                 #  remove the slur from the current start time
                 self.start.remove_starting_object(self)
-            # if note.start:
-            #     # add the slur to the start time of the new start note
-            #     note.start.add_starting_object(self)
             note.slur_starts.append(self)
         self._start_note = note
 
@@ -1700,7 +1686,6 @@ class Slur(TimedObject):
         self._end_note = note
 
     def __str__(self):
-        # return 'slur at voice {0} (ends at {1})'.format(self.voice, self.end and self.end.t)
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)
         end = "" if self.end_note is None else "end={}".format(self.end_note.id)
         return " ".join((super().__str__(), start, end)).strip()
@@ -1783,22 +1768,13 @@ class Repeat(TimedObject):
     def __init__(self):
         super().__init__()
 
-    # def __str__(self):
-    #     return 'Repeat (from {0} to {1})'.format(self.start and self.start.t, self.end and self.end.t)
-
 
 class DaCapo(TimedObject):
     """A Da Capo sign."""
 
-    # def __str__(self):
-    #     return u'Dacapo'
-
 
 class Fine(TimedObject):
     """A Fine sign."""
-
-    # def __str__(self):
-    #     return 'Fine'
 
 
 class Fermata(TimedObject):
@@ -1845,9 +1821,6 @@ class Ending(TimedObject):
     def __init__(self, number):
         super().__init__()
         self.number = number
-
-    # def __str__(self):
-    #     return 'Ending (from {0} to {1})'.format(self.start.t, self.end.t)
 
 
 class Barline(TimedObject):
@@ -2102,8 +2075,7 @@ class Direction(TimedObject):
 
     def __init__(self, text=None, raw_text=None, staff=None):
         super().__init__()
-        # I'm not sure why we need a default text here
-        self.text = text if text is not None else "default_text"
+        self.text = text if text is not None else ""
         self.raw_text = raw_text
         self.staff = staff
 
@@ -2195,7 +2167,6 @@ class SustainPedalDirection(PedalDirection):
 
     def __init__(self, line=False, *args, **kwargs):
         super().__init__("sustain_pedal", *args, **kwargs)
-        # If pedal direction is a line or 'Ped'
         self.line = line
 
 
@@ -2730,11 +2701,6 @@ def remove_grace_notes(part):
         The timeline from which to remove the grace notes
 
     """
-    # for point in part.points:
-    #     point.starting_objects[Note] = [n for n in point.starting_objects[Note]
-    #                                     if n.grace_type is None]
-    #     point.ending_objects[Note] = [n for n in point.ending_objects[Note]
-    #                                   if n.grace_type is None]
     for gn in list(part.iter_all(GraceNote)):
         part.remove(gn)
 
@@ -2943,7 +2909,6 @@ def tie_notes(part):
                 split_note(part, note, splits)
             else:
                 failed += 1
-    # print(failed, succeeded, failed/succeeded)
 
 
 def set_end_times(parts):
@@ -3042,7 +3007,6 @@ def split_note(part, note, splits):
     cur_note.tie_next = orig_tie_next
 
     if cur_note != note:
-        # cur_note.slur_stops = slur_stops
         for slur in slur_stops:
             slur.end_note = cur_note
 
@@ -3116,7 +3080,6 @@ def find_tuplets(part):
                     # total duration of tuplet notes must be integer-divisble by
                     # normal_notes
                     if total_dur % normal_notes > 0:
-                        # continue
                         tup_start += 1
                     else:
                         # estimate duration type
