@@ -2431,6 +2431,16 @@ def unfold_part_maximal(part, update_ids=True):
     part where all segments marked with repeat signs are included
     twice.
 
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions.
+        Note IDs will have a '-<repatition number>', e.g.,
+        'n132-1' and 'n132-2' represent the first and second
+        repetition of 'n132' in the input `part`.
+
     Returns
     -------
     unfolded_part : :class:`Part`
@@ -2447,9 +2457,17 @@ def unfold_part_maximal(part, update_ids=True):
 
 
 def unfold_part_alignment(part, alignment):
-    """Return the "maximally" unfolded part, that is, a copy of the
-    part where all segments marked with repeat signs are included
-    twice.
+    """Return the unfolded part given an alignment, that is, a copy
+    of the part where the segments are repeated according to the
+    repetitions in a performance.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    alignment : list of dictionaries
+        List of dictionaries containing an alignment (like the ones
+        obtained from a MatchFile (see `alignment_from_matchfile`).
 
     Returns
     -------
