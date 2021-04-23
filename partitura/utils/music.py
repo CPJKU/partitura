@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import copy
 from collections import defaultdict
 import logging
 import numpy as np
@@ -1600,6 +1601,22 @@ def note_array_from_part(
     note_array['voice'][no_voice_idx] = max_voice + 1
 
     return note_array
+
+
+def update_note_ids_after_unfolding(part):
+
+    note_id_dict = defaultdict(list)
+
+    for n in part.notes:
+        note_id_dict[n.id].append(n)
+
+    for nid in note_id_dict:
+
+        notes = note_id_dict[nid]
+        notes.sort(key=lambda x: x.start.t)
+
+        for i, note in enumerate(notes):
+            note.id = f'{note.id}-{i+1}'
 
 
 if __name__ == "__main__":

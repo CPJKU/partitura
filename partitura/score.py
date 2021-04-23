@@ -40,6 +40,7 @@ from partitura.utils import (
     _OrderedSet,
     INT_TYPE,
     FLOAT_TYPE,
+    update_note_ids_after_unfolding
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -2425,20 +2426,67 @@ def iter_unfolded_parts(part):
         yield sv.create_variant_part()
 
 
-def unfold_part_maximal(part):
+def unfold_part_maximal(part, update_ids=True):
     """Return the "maximally" unfolded part, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
 
     Returns
     -------
-    part : :class:`Part`
+    unfolded_part : :class:`Part`
         The unfolded Part
 
     """
 
     sv = make_score_variants(part)[-1]
-    return sv.create_variant_part()
+
+    unfolded_part = sv.create_variant_part()
+    if update_ids:
+        update_note_ids_after_unfolding(unfolded_part)
+    return unfolded_part
+
+
+def unfold_part_alignment(part, alignment):
+    """Return the "maximally" unfolded part, that is, a copy of the
+    part where all segments marked with repeat signs are included
+    twice.
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+
+    unfolded_parts = []
+
+    alignment_ids = []
+
+    for n in alignment:
+        if n['label'] == 'match' or n['label'] == 'deletion':
+            alignment_ids.append(n['score_id'])
+
+    score_variants = make_score_variants(part)
+
+    alignment_score_ids = np.zeros((len(alignment_ids), len(score_variants)))
+    unfolded_part_length = np.zeros(len(score_variants))
+    for j, sv in enumerate(score_variants):
+        u_part = sv.create_variant_part()
+        update_note_ids_after_unfolding(u_part)
+        unfolded_parts.append(u_part)
+        u_part_ids = [n.id for n in u_part.notes_tied]
+        unfolded_part_length[j] = len(u_part_ids)
+        for i, aid in enumerate(alignment_ids):
+            alignment_score_ids[i, j] = aid in u_part_ids
+
+    coverage = np.mean(alignment_score_ids, 0)
+
+    best_idx = np.where(coverage == coverage.max())[0]
+
+    if len(best_idx) > 1:
+        best_idx = best_idx[unfolded_part_length[best_idx].argmin()]
+
+    return unfolded_parts[int(best_idx)]
 
 
 def make_score_variants(part):
