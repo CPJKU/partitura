@@ -1441,26 +1441,27 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             / (note.Offset.denominator * (note.Offset.tuple_div or 1))
         )
 
-        # anacrusis
-        if bar_start < 0 and (bar_offset != 0 or beat_offset != 0):
+        # check anacrusis measure beat counting type for the first note
+        if (bar_start < 0 and (bar_offset != 0 or beat_offset != 0) and ni == 0):
             # in case of fully counted anacrusis we set the bar_start to -bar_duration (in
             # quarters) so that the below calculation is correct
             # not active for shortened anacrusis measures
             bar_start = -beats_map(bar_start) * 4 / beat_type_map(bar_start)
+            # reset the bar_start for other notes in the anacrusis measure
+            bar_times[note.Bar] = bar_start
 
         # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
         onset_divs = int(round(divs * (bar_start + bar_offset + beat_offset - offset)))
 
-        # HACK use onset_in_divs[ni] if onset_in_divs does not match
-        # the correct time
+
         if not np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
             LOGGER.info(
                 "Calculated `onset_divs` does not match `OnsetInBeats` "
                 "information!."
             )
             onset_divs = onset_in_divs[ni]
-        # assert onset_divs >= 0
-        # assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
+        assert onset_divs >= 0
+        assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
 
         articulations = set()
         if "staccato" in note.ScoreAttributesList or "stac" in note.ScoreAttributesList:
