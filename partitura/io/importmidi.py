@@ -81,9 +81,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
 
     """
-    mid = mido.MidiFile(
-        fn,
-    )
+    mid = mido.MidiFile(fn)
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
@@ -398,7 +396,7 @@ def load_score_midi(
     ]
     note_array = np.array(
         note_list,
-        dtype=[("onset_div", np.int), ("pitch", np.int), ("duration_div", np.int)],
+        dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
     )
 
     LOGGER.debug("pitch spelling")
@@ -628,10 +626,10 @@ def create_part(
         warnings.warn("No time signatures found, assuming 4/4")
         time_sigs = [(0, 4, 4)]
 
-    time_sigs = np.array(time_sigs, dtype=np.int)
+    time_sigs = np.array(time_sigs, dtype=int)
 
     # for convenience we add the end times for each time signature
-    ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(np.int).max]
+    ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(int).max]
     time_sigs = np.column_stack((time_sigs, ts_end_times))
 
     LOGGER.debug("add time sigs and measures")

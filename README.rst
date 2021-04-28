@@ -115,7 +115,7 @@ used to get in touch with the developers and other users.
 Acknowledgments
 ===============
 
-This work has received support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme under grant agreement No. 670035 (project `"Con Espressione" <https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/>`_)
+This work has received support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme under grant agreement No. 670035 (project `"Con Espressione" <https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/>`_) and the Austrian Science Fund (FWF) under grant P 29840-G26 (project `"Computer-assisted Analysis of Herbert von Karajan's Musical Conducting Style" <https://karajan-research.org/programs/musical-interpretation-karajan>`_)
 
 .. image:: https://www.jku.at/fileadmin/_processed_/4/3/csm_erc_eu_8b7e33136b.png
    :width: 600

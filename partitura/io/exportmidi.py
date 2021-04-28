@@ -144,7 +144,7 @@ def save_performance_midi(
                     ]
                 )
             ),
-            dtype=np.int,
+            dtype=int,
         )
 
         timepoints = []

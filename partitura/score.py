@@ -38,6 +38,7 @@ from partitura.utils import (
     to_quarter_tempo,
     key_mode_to_int,
     _OrderedSet,
+    update_note_ids_after_unfolding,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -235,7 +236,7 @@ class Part(object):
                 cur_bt = kp[1]
             if not keypoints_list or kp != keypoints_list[-1]:
                 keypoints_list.append([t] + kp)
-        keypoints = np.array(keypoints_list, dtype=np.float)
+        keypoints = np.array(keypoints_list, dtype=float)
 
         x = keypoints[:, 0]
         y = np.r_[
@@ -1349,8 +1350,9 @@ class Note(GenericNote):
 
     Parameters
     ----------
-    step : {'c', 'd', 'e', 'f', 'g', 'a', 'b'}
-        The note name of the pitch.
+    step : {'C', 'D', 'E', 'F', 'G', 'A', 'B'}
+        The note name of the pitch (in upper case). If a lower case
+        note name is given, it will be converted to upper case.
     octave : int
         An integer representing the octave of the pitch
     alter : int, optional
@@ -1374,7 +1376,7 @@ class Note(GenericNote):
 
     def __init__(self, step, octave, alter=None, beam=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.step = step
+        self.step = step.upper()
         self.octave = octave
         self.alter = alter
         self.beam = beam
@@ -2393,20 +2395,85 @@ def iter_unfolded_parts(part):
         yield sv.create_variant_part()
 
 
-def unfold_part_maximal(part):
+def unfold_part_maximal(part, update_ids=False):
     """Return the "maximally" unfolded part, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
 
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+
     Returns
     -------
-    part : :class:`Part`
+    unfolded_part : :class:`Part`
         The unfolded Part
 
     """
 
     sv = make_score_variants(part)[-1]
-    return sv.create_variant_part()
+
+    unfolded_part = sv.create_variant_part()
+    if update_ids:
+        update_note_ids_after_unfolding(unfolded_part)
+    return unfolded_part
+
+
+def unfold_part_alignment(part, alignment):
+    """Return the unfolded part given an alignment, that is, a copy
+    of the part where the segments are repeated according to the
+    repetitions in a performance.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    alignment : list of dictionaries
+        List of dictionaries containing an alignment (like the ones
+        obtained from a MatchFile (see `alignment_from_matchfile`).
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+
+    unfolded_parts = []
+
+    alignment_ids = []
+
+    for n in alignment:
+        if n["label"] == "match" or n["label"] == "deletion":
+            alignment_ids.append(n["score_id"])
+
+    score_variants = make_score_variants(part)
+
+    alignment_score_ids = np.zeros((len(alignment_ids), len(score_variants)))
+    unfolded_part_length = np.zeros(len(score_variants))
+    for j, sv in enumerate(score_variants):
+        u_part = sv.create_variant_part()
+        update_note_ids_after_unfolding(u_part)
+        unfolded_parts.append(u_part)
+        u_part_ids = [n.id for n in u_part.notes_tied]
+        unfolded_part_length[j] = len(u_part_ids)
+        for i, aid in enumerate(alignment_ids):
+            alignment_score_ids[i, j] = aid in u_part_ids
+
+    coverage = np.mean(alignment_score_ids, 0)
+
+    best_idx = np.where(coverage == coverage.max())[0]
+
+    if len(best_idx) > 1:
+        best_idx = best_idx[unfolded_part_length[best_idx].argmin()]
+
+    return unfolded_parts[int(best_idx)]
 
 
 def make_score_variants(part):
@@ -2549,7 +2616,7 @@ def add_measures(part):
     """
 
     timesigs = np.array(
-        [(ts.start.t, ts.beats) for ts in part.iter_all(TimeSignature)], dtype=np.int
+        [(ts.start.t, ts.beats) for ts in part.iter_all(TimeSignature)], dtype=int
     )
 
     if len(timesigs) == 0:
