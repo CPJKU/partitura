@@ -18,8 +18,6 @@ import numpy as np
 import scipy.spatial.distance as distance
 from scipy.interpolate import interp1d
 
-from partitura.score import Part, PartGroup
-from partitura.performance import PerformedPart
 from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
 
 
