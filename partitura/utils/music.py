@@ -1592,9 +1592,9 @@ def note_array_from_part(
     note_array = np.array(note_array, dtype=fields)
 
     # Sanitize voice information
-    no_voice_idx = np.where(note_array['voice'] == -1)[0]
-    max_voice = note_array['voice'].max()
-    note_array['voice'][no_voice_idx] = max_voice + 1
+    no_voice_idx = np.where(note_array["voice"] == -1)[0]
+    max_voice = note_array["voice"].max()
+    note_array["voice"][no_voice_idx] = max_voice + 1
 
     return note_array
 
@@ -1606,13 +1606,15 @@ def update_note_ids_after_unfolding(part):
     for n in part.notes:
         note_id_dict[n.id].append(n)
 
-    for nid in note_id_dict:
+    for nid, notes in note_id_dict.items():
 
-        notes = note_id_dict[nid]
+        if nid is None:
+            continue
+
         notes.sort(key=lambda x: x.start.t)
 
         for i, note in enumerate(notes):
-            note.id = f'{note.id}-{i+1}'
+            note.id = f"{note.id}-{i+1}"
 
 
 if __name__ == "__main__":

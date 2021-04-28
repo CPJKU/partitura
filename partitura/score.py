@@ -2424,7 +2424,7 @@ def iter_unfolded_parts(part):
         yield sv.create_variant_part()
 
 
-def unfold_part_maximal(part, update_ids=True):
+def unfold_part_maximal(part, update_ids=False):
     """Return the "maximally" unfolded part, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
@@ -2434,10 +2434,10 @@ def unfold_part_maximal(part, update_ids=True):
     part : :class:`Part`
         The Part to unfold.
     update_ids : bool (optional)
-        Update note ids to reflect the repetitions.
-        Note IDs will have a '-<repatition number>', e.g.,
-        'n132-1' and 'n132-2' represent the first and second
-        repetition of 'n132' in the input `part`.
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
 
     Returns
     -------
