@@ -13,8 +13,6 @@ from partitura.utils import (
     key_name_to_fifths_mode,
     fifths_mode_to_key_name,
     estimate_clef_properties,
-    INT_TYPE,
-    FLOAT_TYPE
 )
 import partitura.musicanalysis as analysis
 
@@ -398,7 +396,7 @@ def load_score_midi(
     ]
     note_array = np.array(
         note_list,
-        dtype=[("onset_div", INT_TYPE), ("pitch", INT_TYPE), ("duration_div", INT_TYPE)],
+        dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
     )
 
     LOGGER.debug("pitch spelling")
@@ -628,10 +626,10 @@ def create_part(
         warnings.warn("No time signatures found, assuming 4/4")
         time_sigs = [(0, 4, 4)]
 
-    time_sigs = np.array(time_sigs, dtype=INT_TYPE)
+    time_sigs = np.array(time_sigs, dtype=int)
 
     # for convenience we add the end times for each time signature
-    ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(INT_TYPE).max]
+    ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(int).max]
     time_sigs = np.column_stack((time_sigs, ts_end_times))
 
     LOGGER.debug("add time sigs and measures")

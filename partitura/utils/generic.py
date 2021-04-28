@@ -10,10 +10,6 @@ LOGGER = logging.getLogger(__name__)
 __all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
 
 
-FLOAT_TYPE = float
-INT_TYPE = int
-
-
 class _OrderedSet(dict):
     def add(self, x):
         self[x] = None
