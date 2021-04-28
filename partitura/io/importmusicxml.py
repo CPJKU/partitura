@@ -13,6 +13,7 @@ import xmlschema
 import pkg_resources
 from partitura.directions import parse_direction
 import partitura.score as score
+from partitura.utils import ensure_notearray
 
 __all__ = ["load_musicxml"]
 
@@ -1283,10 +1284,9 @@ def get_articulations(e):
 def musicxml_to_notearray(
     fn,
     flatten_parts=True,
-    sort_onsets=True,
-    expand_grace_notes=True,
-    validate=False,
-    beat_times=True,
+    include_pitch_spelling=False,
+    include_key_signature=False,
+    include_time_signature=False,
 ):
     """Return pitch, onset, and duration information for notes from a
     MusicXML file as a structured array.
@@ -1301,77 +1301,44 @@ def musicxml_to_notearray(
     flatten_parts : bool
         If `True`, returns a single array containing all notes.
         Otherwise, returns a list of arrays for each part.
-    expand_grace_notes : bool or 'delete'
-        When True, grace note onset and durations will be adjusted to
-        have a non-zero duration.
-    beat_times : bool
-        When True (default) return onset and duration in beats.
-        Otherwise, return the onset and duration in divisions.
+    include_pitch_spelling : bool (optional)
+        If `True`, includes pitch spelling information for each
+        note. Default is False
+    include_key_signature : bool (optional)
+        If `True`, includes key signature information, i.e.,
+        the key signature at the onset time of each note (all
+        notes starting at the same time have the same key signature).
+        Default is False
+    include_time_signature : bool (optional)
+        If `True`,  includes time signature information, i.e.,
+        the time signature at the onset time of each note (all
+        notes starting at the same time have the same time signature).
+        Default is False
 
     Returns
     -------
     score : structured array or list of structured arrays
-        Structured array containing the score. The fields are 'pitch',
-        'onset' and 'duration'.
-
+        Structured array or list of structured arrays containing
+        score information.
     """
 
-    if not isinstance(expand_grace_notes, (bool, str)):
-        raise ValueError("`expand_grace_notes` must be a boolean or " '"delete"')
-    delete_grace_notes = False
-    if isinstance(expand_grace_notes, str):
+    parts = load_musicxml(fn, ensure_list=True, force_note_ids="keep")
 
-        if expand_grace_notes in ("omit", "delete", "d"):
-            expand_grace_notes = False
-            delete_grace_notes = True
-        else:
-            raise ValueError("`expand_grace_notes` must be a boolean or " '"delete"')
-
-    # Parse MusicXML
-    parts = load_musicxml(fn, ensure_list=True, validate=validate)
-    scr = []
+    note_arrays = []
     for part in score.iter_parts(parts):
         # Unfold any repetitions in part
-        part = score.unfold_part_maximal(part)
-        if expand_grace_notes:
-            LOGGER.debug("Expanding grace notes...")
-            score.expand_grace_notes(part)
+        unfolded_part = score.unfold_part_maximal(part)
+        # Compute note array
+        note_array = ensure_notearray(
+            notearray_or_part=unfolded_part,
+            include_pitch_spelling=include_pitch_spelling,
+            include_key_signature=include_key_signature,
+            include_time_signature=include_time_signature)
+        note_arrays.append(note_array)
 
-        if beat_times:
-            # get beat map
-            bm = part.beat_map
-            # Build score from beat map
-            _score = np.array(
-                [
-                    (n.midi_pitch, bm(n.start.t), bm(n.end_tied.t) - bm(n.start.t))
-                    for n in part.notes_tied
-                ],
-                dtype=[("pitch", "i4"), ("onset", "f4"), ("duration", "f4")],
-            )
-        else:
-            _score = np.array(
-                [
-                    (n.midi_pitch, n.start.t, n.end_tied.t - n.start.t)
-                    for n in part.notes_tied
-                ],
-                dtype=[("pitch", "i4"), ("onset", "i4"), ("duration", "i4")],
-            )
-
-        # Sort notes according to onset
-        if sort_onsets:
-            _score = _score[_score["onset"].argsort()]
-
-        if delete_grace_notes:
-            LOGGER.debug("Deleting grace notes...")
-            _score = _score[_score["duration"] != 0]
-        scr.append(_score)
-
-    # Return a structured array if the score has only one part
-    if len(scr) == 1:
-        return scr[0]
-    elif len(scr) > 1 and flatten_parts:
-        scr = np.vstack(scr)
-        if sort_onsets:
-            return scr[scr["onset"].argsort()]
+    if len(note_arrays) == 1:
+        return note_arrays[0]
+    elif len(note_arrays) > 1 and flatten_parts:
+        return np.hstack(note_arrays)
     else:
-        return scr
+        return note_arrays

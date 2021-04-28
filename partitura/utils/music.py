@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+import copy
 from collections import defaultdict
 import logging
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 
-from partitura.utils.generic import find_nearest, search, iter_current_next, INT_TYPE, FLOAT_TYPE
+from partitura.utils.generic import find_nearest, search, iter_current_next
 
 LOGGER = logging.getLogger(__name__)
 
@@ -951,8 +952,8 @@ def _make_pianoroll(
     N = int(np.ceil(time_div * (2 * time_margin + max_time - min_time)))
 
     # Onset and offset times of the notes in the piano roll
-    pr_onset = np.round(time_div * onset).astype(INT_TYPE)
-    pr_offset = np.round(time_div * offset).astype(INT_TYPE)
+    pr_onset = np.round(time_div * onset).astype(int)
+    pr_offset = np.round(time_div * offset).astype(int)
 
     # Determine the non-zero indices of the piano roll
     if onset_only:
@@ -987,7 +988,7 @@ def _make_pianoroll(
 
     # Fill piano roll
     pianoroll = csc_matrix(
-        (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=INT_TYPE
+        (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=int
     )
 
     pr_idx_pitch_start = 0
@@ -999,7 +1000,7 @@ def _make_pianoroll(
         # indices of each note in the piano roll
         pr_idx = np.column_stack(
             [pr_pitch - pr_idx_pitch_start, pr_onset, pr_offset]
-        ).astype(INT_TYPE)
+        ).astype(int)
         return pianoroll, pr_idx[idx.argsort()]
     else:
         return pianoroll
@@ -1359,11 +1360,7 @@ def note_array_from_part_list(
 
 
 def slice_notearray_by_time(
-    note_array,
-    start_time,
-    end_time,
-    time_unit="auto",
-    clip_onset_duration=True
+    note_array, start_time, end_time, time_unit="auto", clip_onset_duration=True
 ):
     """
     Get a slice of a structured note array by time
@@ -1569,7 +1566,7 @@ def note_array_from_part(
             note_on_div,
             note_dur_div,
             note.midi_pitch,
-            note.voice,
+            note.voice if note.voice is not None else -1,
             note.id,
         )
 
@@ -1592,7 +1589,32 @@ def note_array_from_part(
 
         note_array.append(note_info)
 
-    return np.array(note_array, dtype=fields)
+    note_array = np.array(note_array, dtype=fields)
+
+    # Sanitize voice information
+    no_voice_idx = np.where(note_array["voice"] == -1)[0]
+    max_voice = note_array["voice"].max()
+    note_array["voice"][no_voice_idx] = max_voice + 1
+
+    return note_array
+
+
+def update_note_ids_after_unfolding(part):
+
+    note_id_dict = defaultdict(list)
+
+    for n in part.notes:
+        note_id_dict[n.id].append(n)
+
+    for nid, notes in note_id_dict.items():
+
+        if nid is None:
+            continue
+
+        notes.sort(key=lambda x: x.start.t)
+
+        for i, note in enumerate(notes):
+            note.id = f"{note.id}-{i+1}"
 
 
 if __name__ == "__main__":

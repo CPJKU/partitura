@@ -12,7 +12,6 @@ import logging
 
 import numpy as np
 
-from partitura.utils import INT_TYPE, FLOAT_TYPE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -161,12 +160,12 @@ class PerformedPart(object):
             n_ids = note_array["id"]
 
         if "track" not in note_array.dtype.names:
-            tracks = np.zeros(len(note_array), dtype=INT_TYPE)
+            tracks = np.zeros(len(note_array), dtype=int)
         else:
             tracks = note_array["track"]
 
         if "channel" not in note_array.dtype.names:
-            channels = np.ones(len(note_array), dtype=INT_TYPE)
+            channels = np.ones(len(note_array), dtype=int)
         else:
             channels = note_array["channel"]
 
@@ -190,7 +189,7 @@ class PerformedPart(object):
 
 def adjust_offsets_w_sustain(notes, controls, threshold=64):
     # get all note offsets
-    offs = np.fromiter((n["note_off"] for n in notes), dtype=FLOAT_TYPE)
+    offs = np.fromiter((n["note_off"] for n in notes), dtype=float)
     first_off = np.min(offs)
     last_off = np.max(offs)
 

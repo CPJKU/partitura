@@ -20,7 +20,7 @@ from scipy.interpolate import interp1d
 
 from partitura.score import Part, PartGroup
 from partitura.performance import PerformedPart
-from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field, INT_TYPE, FLOAT_TYPE
+from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
 
 
 __all__ = ["estimate_tonaltension"]
@@ -78,8 +78,8 @@ def ensure_norm(x):
 
 X, Y, Z = helical_to_cartesian(T)
 PITCH_COORDINATES = np.column_stack((X, Y, Z))
-MAJOR_IDXS = np.array([0, 1, 4], dtype=INT_TYPE)
-MINOR_IDXS = np.array([0, 1, -3], dtype=INT_TYPE)
+MAJOR_IDXS = np.array([0, 1, 4], dtype=int)
+MINOR_IDXS = np.array([0, 1, -3], dtype=int)
 
 # The scaling factor is the distance between C and B#, as used
 # in Cancino-Chacón and Grachten (2018)
@@ -326,7 +326,7 @@ def notes_to_idx(note_array):
     """
     note_idxs = np.array(
         [NOTES_BY_FIFTHS.index((n["step"], n["alter"])) for n in note_array],
-        dtype=INT_TYPE,
+        dtype=int,
     )
     return note_idxs
 
@@ -394,7 +394,7 @@ def key_map_from_keysignature(notearray, onset_unit="auto"):
     unique_onsets = np.unique(onsets)
     unique_onset_idxs = [np.where(onsets == u)[0] for u in unique_onsets]
 
-    kss = np.zeros((len(unique_onsets), 2), dtype=INT_TYPE)
+    kss = np.zeros((len(unique_onsets), 2), dtype=int)
 
     for i, uix in enumerate(unique_onset_idxs):
         # Deal with potential multiple key singatures in the same onset?
@@ -532,7 +532,7 @@ def estimate_tonaltension(
     # Perhaps add an automatic method in the future (for
     # inferring modulations?)
     km = key_map_from_keysignature(note_array, onset_unit=onset_unit)
-    fifths, mode = km(unique_onsets.min()).astype(INT_TYPE)
+    fifths, mode = km(unique_onsets.min()).astype(int)
     ts = TensileStrain(tonic_idx=C_IDX + fifths, mode=mode)
     # Initialize array for holding the tonal tension
     n_windows = len(unique_onsets)
@@ -559,7 +559,7 @@ def estimate_tonaltension(
         emi = set(np.where(score_offset <= max_time)[0])
 
         active_idx = np.array(
-            list(smi.intersection(emi).union(ema.intersection(sma))), dtype=INT_TYPE
+            list(smi.intersection(emi).union(ema.intersection(sma))), dtype=int
         )
         active_idx.sort()
 
@@ -570,7 +570,7 @@ def estimate_tonaltension(
 
         # Update key information
         if not np.all([fifths, mode] == km(o)):
-            fifths, mode = km(o).astype(INT_TYPE)
+            fifths, mode = km(o).astype(int)
             ts.update_key(tonic_idx=C_IDX + fifths, mode=mode)
 
         tonal_tension["cloud_diameter"][i] = cd.compute_tension(cloud)
