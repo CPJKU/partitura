@@ -1525,12 +1525,109 @@ def note_array_from_part(
                  ('ts_beats', '<i4'),
                  ('ts_beat_type', '<i4')])
     """
-    # Default fields for a score note array
-    fields = [
-        ("onset_beat", "f4"),
-        ("duration_beat", "f4"),
-        ("onset_quarter", "f4"),
-        ("duration_quarter", "f4"),
+    if include_time_signature:
+        time_signature_map = part.time_signature_map
+    else:
+        time_signature_map = None
+
+    if include_key_signature:
+        key_signature_map = part.key_signature_map
+    else:
+        key_signature_map = None
+
+    note_array = note_array_from_note_list(
+        note_list=part.notes_tied,
+        beat_map=part.beat_map,
+        quarter_map=part.quarter_map,
+        time_signature_map=time_signature_map,
+        key_signature_map=key_signature_map,
+        include_pitch_spelling=include_pitch_spelling)
+    return note_array
+
+
+def note_array_from_note_list(
+        note_list,
+        beat_map=None,
+        quarter_map=None,
+        time_signature_map=None,
+        key_signature_map=None,
+        include_pitch_spelling=False,
+):
+    """
+    Create a structured array with note information
+    from a a list of `Note` objects.
+
+    Parameters
+    ----------
+    note_list : list of `Note` objects
+        A list of `Note` objects containing score information.
+    beat_map : callable or None
+        A function that maps score time in divs to score time in beats.
+        If `None` is given, the output structured array will not
+        include this information.
+    quarter_map: callable or None
+        A function that maps score time in divs to score time in quarters.
+        If `None` is given, the output structured array will not
+        include this information.
+    time_signature_map: callable or None (optional)
+        A function that maps score time in divs to the time signature at
+        that time (in terms of number of beats and beat type).
+        If `None` is given, the output structured array will not
+        include this information.
+    key_signature_map: callable or None (optional)
+        A function that maps score time in divs to the key signature at
+        that time (in terms of fifths and mode).
+        If `None` is given, the output structured array will not
+        include this information.
+    include_pitch_spelling : bool (optional)
+        If `True`, includes pitch spelling information for each
+        note. Default is False
+
+    Returns
+    -------
+    note_array : structured array
+        A structured array containing note information. The fields are
+            * 'onset_beat': onset time of the note in beats.
+              Included if `beat_map` is not `None`.
+            * 'duration_beat': duration of the note in beats.
+              Included if `beat_map` is not `None`.
+            * 'onset_quarter': onset time of the note in quarters.
+              Included if `quarter_map` is not `None`.
+            * 'duration_quarter': duration of the note in quarters.
+              Included if `quarter_map` is not `None`.
+            * 'onset_div': onset of the note in divs (e.g., MIDI ticks,
+              divisions in MusicXML)
+            * 'duration_div': duration of the note in divs
+            * 'pitch': MIDI pitch of a note.
+            * 'voice': Voice number of a note (if given in the score)
+            * 'id': Id of the note
+            * 'step': name of the note ("C", "D", "E", "F", "G", "A", "B").
+              Included if `include_pitch_spelling` is `True`.
+            * 'alter': alteration (0=natural, -1=flat, 1=sharp,
+              2=double sharp, etc.). Included if `include_pitch_spelling`
+              is `True`.
+            * 'octave': octave of the note. Included if `include_pitch_spelling`
+              is `True`.
+            * 'ks_fifths': Fifths starting from C in the circle of fifths.
+              Included if `key_signature_map` is not `None`.
+            * 'mode': major or minor. Included If `key_signature_map` is
+              not `None`.
+            * 'ts_beats': number of beats in a measure. If `time_signature_map`
+               is True.
+            * 'ts_beat_type': type of beats (denominator of the time signature).
+              If `include_time_signature` is True.
+    """
+
+    fields = []
+    if beat_map is not None:
+        # Preserve the order of the fields
+        fields += [("onset_beat", "f4"),
+                   ("duration_beat", "f4")]
+
+    if quarter_map is not None:
+        fields += [("onset_quarter", "f4"),
+                   ("duration_quarter", "f4")]
+    fields += [
         ("onset_div", "i4"),
         ("duration_div", "i4"),
         ("pitch", "i4"),
@@ -1543,30 +1640,38 @@ def note_array_from_part(
         fields += [("step", "U256"), ("alter", "i4"), ("octave", "i4")]
 
     # fields for key signature
-    if include_key_signature:
+    if key_signature_map is not None:
         fields += [("ks_fifths", "i4"), ("ks_mode", "i4")]
 
     # fields for time signature
-    if include_time_signature:
+    if time_signature_map is not None:
         fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
 
     note_array = []
-    for note in part.notes_tied:
+    for note in note_list:
+
+        note_info = tuple()
         note_on_div = note.start.t
         note_off_div = note.start.t + note.duration_tied
         note_dur_div = note_off_div - note_on_div
-        note_on_beat, note_off_beat = part.beat_map([note_on_div, note_off_div])
-        note_dur_beat = note_off_beat - note_on_beat
-        note_on_quarter, note_off_quarter = part.quarter_map(
-            [note_on_div, note_off_div]
-        )
-        note_dur_quarter = note_off_quarter - note_on_quarter
 
-        note_info = (
-            note_on_beat,
-            note_dur_beat,
-            note_on_quarter,
-            note_dur_quarter,
+        if beat_map is not None:
+            note_on_beat, note_off_beat = beat_map([note_on_div, note_off_div])
+            note_dur_beat = note_off_beat - note_on_beat
+
+            note_info += (note_on_beat,
+                          note_dur_beat)
+
+        if quarter_map is not None:
+            note_on_quarter, note_off_quarter = quarter_map(
+                [note_on_div, note_off_div]
+            )
+            note_dur_quarter = note_off_quarter - note_on_quarter
+
+            note_info += (note_on_quarter,
+                          note_dur_quarter)
+
+        note_info += (
             note_on_div,
             note_dur_div,
             note.midi_pitch,
@@ -1581,13 +1686,13 @@ def note_array_from_part(
 
             note_info += (step, alter, octave)
 
-        if include_key_signature:
-            fifths, mode = part.key_signature_map(note.start.t)
+        if key_signature_map is not None:
+            fifths, mode = key_signature_map(note.start.t)
 
             note_info += (fifths, mode)
 
-        if include_time_signature:
-            beats, beat_type = part.time_signature_map(note.start.t)
+        if time_signature_map is not None:
+            beats, beat_type = time_signature_map(note.start.t)
 
             note_info += (beats, beat_type)
 

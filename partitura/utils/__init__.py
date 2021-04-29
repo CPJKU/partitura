@@ -36,6 +36,7 @@ from partitura.utils.music import (
     note_array_from_part_list,
     slice_notearray_by_time,
     note_array_from_part,
+    note_array_from_note_list,
     get_time_units_from_note_array,
     update_note_ids_after_unfolding,
 )
