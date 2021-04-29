@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 
@@ -595,9 +594,10 @@ class Part(object):
         if which in ("start", "both") and o.start:
             try:
                 o.start.starting_objects[o.__class__].remove(o)
-            except:
+            except (KeyError, ValueError):
                 raise Exception(
-                    "Not implemented: removing an object that is registered by its superclass"
+                    "Not implemented: removing an object "
+                    "that is registered by its superclass"
                 )
             # cleanup timepoint if no starting/ending objects are left
             self._cleanup_point(o.start)
@@ -606,9 +606,10 @@ class Part(object):
         if which in ("end", "both") and o.end:
             try:
                 o.end.ending_objects[o.__class__].remove(o)
-            except:
+            except (KeyError, ValueError):
                 raise Exception(
-                    "Not implemented: removing an object that is registered by its superclass"
+                    "Not implemented: removing an object "
+                    "that is registered by its superclass"
                 )
             # cleanup timepoint if no starting/ending objects are left
             self._cleanup_point(o.end)
@@ -655,7 +656,7 @@ class Part(object):
             Instances of the specified type.
 
         """
-        if not mode in ("starting", "ending"):
+        if mode not in ("starting", "ending"):
             LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
             mode = "starting"
 
@@ -1165,12 +1166,15 @@ class GenericNote(TimedObject):
             # compute value
             if not self.start or not self.end:
                 LOGGER.warning(
-                    "Cannot estimate symbolic duration for notes that are not added to a Part"
+                    "Cannot estimate symbolic duration for notes that "
+                    "are not added to a Part"
                 )
                 return None
             if self.start.quarter is None:
                 LOGGER.warning(
-                    "Cannot estimate symbolic duration when not quarter_duration has been set. See Part.set_quarter_duration."
+                    "Cannot estimate symbolic duration when not "
+                    "quarter_duration has been set. "
+                    "See Part.set_quarter_duration."
                 )
                 return None
             return estimate_symbolic_duration(self.duration, self.start.quarter)
@@ -1374,20 +1378,15 @@ class Note(GenericNote):
 
     """
 
-    def __init__(self, step, octave, alter=None, beam=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, step, octave, alter=None, beam=None, **kwargs):
+        super().__init__(**kwargs)
         self.step = step.upper()
         self.octave = octave
         self.alter = alter
         self.beam = beam
 
         if self.beam is not None:
-            try:
-                self.beam.append(self)
-            except:
-                import pdb
-
-                pdb.set_trace()
+            self.beam.append(self)
 
     def __str__(self):
         return " ".join(
@@ -1622,7 +1621,10 @@ class Clef(TimedObject):
         self.octave_change = octave_change
 
     def __str__(self):
-        return f"{super().__str__()} sign={self.sign} line={self.line} number={self.number}"
+        return (
+            f"{super().__str__()} sign={self.sign} "
+            f"line={self.line} number={self.number}"
+        )
 
 
 class Slur(TimedObject):
@@ -2330,7 +2332,8 @@ class ScoreVariant(object):
 
                     # make a copy of the object
                     o_copy = copy(o)
-                    # add it to the set of new objects (for which the refs will be replaced)
+                    # add it to the set of new objects (for which the refs will
+                    # be replaced)
                     o_new.add(o_copy)
                     # keep track of the correspondence between o and o_copy
                     o_map[o] = o_copy
@@ -2344,7 +2347,8 @@ class ScoreVariant(object):
                 tp = tp.next
                 if tp is None:
                     raise Exception(
-                        "segment end not a successor of segment start, invalid score variant"
+                        "segment end not a successor of segment start, "
+                        "invalid score variant"
                     )
 
             # special case: fermata starting at end of segment should be

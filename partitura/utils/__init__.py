@@ -41,24 +41,11 @@ from partitura.utils.music import (
     update_note_ids_after_unfolding,
 )
 
-__all__ = ["key_name_to_fifths_mode",
-           "fifths_mode_to_key_name",
-           "key_mode_to_int",
-           "estimate_symbolic_duration",
-           "format_symbolic_duration",
-           "pitch_spelling_to_midi_pitch",
-           "ensure_pitch_spelling_format",
-           "estimate_clef_properties",
-           "compute_pianoroll",
-           "pianoroll_to_notearray",
-           "slice_notearray_by_time",
-           "ensure_notearray",
-           "note_array_from_part",
-           "note_array_from_part_list",
-           "remove_silence_from_performed_part",
-           "get_time_units_from_note_array",
-           "match_note_arrays",
-           "update_note_ids_after_unfolding",
-           "find_tie_split",
-           "to_quarter_tempo",
-           ]
+__all__ = [
+    "key_name_to_fifths_mode",
+    "fifths_mode_to_key_name",
+    "key_mode_to_int",
+    "pitch_spelling_to_midi_pitch",
+    "compute_pianoroll",
+    "pianoroll_to_notearray",
+]

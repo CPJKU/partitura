@@ -50,7 +50,8 @@ def render(part, fmt="png", dpi=90, out_fn=None):
 
     Parameters
     ----------
-    part : :class:`partitura.score.Part` or :class:`partitura.score.PartGroup` or list of these
+    part : :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
+           or a list of these
         The score content to be displayed
     fmt : {'png', 'pdf'}, optional
         The image format of the rendered material
@@ -63,9 +64,9 @@ def render(part, fmt="png", dpi=90, out_fn=None):
     img_fn = render_musescore(part, fmt, out_fn, dpi)
 
     if img_fn is None or not os.path.exists(img_fn):
-        img_fn = render_lilypond(part, fmt, out_fn)
+        img_fn = render_lilypond(part, fmt)
         if img_fn is None or not os.path.exists(img_fn):
-            return None
+            return
 
     if not out_fn:
         # NOTE: the temporary image file will not be deleted.
@@ -77,7 +78,7 @@ def render(part, fmt="png", dpi=90, out_fn=None):
             os.startfile(img_fn)
 
 
-def render_lilypond(part, fmt="png", out_fn=None):
+def render_lilypond(part, fmt="png"):
     if fmt not in ("png", "pdf"):
         print("warning: unsupported output format")
         return None

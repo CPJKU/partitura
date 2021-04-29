@@ -26,6 +26,7 @@ from . import musicanalysis
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
     "partitura", "assets/score_example.musicxml"
 )
+#: An example MIDI file for didactic purposes
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
 
 __all__ = [
