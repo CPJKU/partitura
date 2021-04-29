@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import copy
 from collections import defaultdict
 import logging
 import numpy as np
@@ -642,8 +641,10 @@ def order_splits(start, end, smallest_unit):
 
     """
 
-    # gegeven b, kies alle veelvouden van 2*b, verschoven om b, die tussen start en end liggen
-    # gegeven b, kies alle veelvouden van 2*b die tussen start-b en end-b liggen en tel er b bij op
+    # gegeven b, kies alle veelvouden van 2*b, verschoven om b,
+    # die tussen start en end liggen
+    # gegeven b, kies alle veelvouden van 2*b die tussen start-b
+    # en end-b liggen en tel er b bij op
 
     b = smallest_unit
     result = []
