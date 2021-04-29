@@ -415,8 +415,8 @@ def show_diff(a, b):
     import difflib
 
     differ = difflib.Differ()
-    for l in differ.compare(a.split("\n"), b.split("\n")):
-        print(l)
+    for li in differ.compare(a.split("\n"), b.split("\n")):
+        print(li)
 
 
 class PrettyPrintTree(object):
