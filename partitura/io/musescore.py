@@ -13,10 +13,10 @@ import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory, gettempdir
 
-LOGGER = logging.getLogger(__name__)
-
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MuseScoreNotFoundException(Exception):
@@ -91,7 +91,8 @@ def load_via_musescore(fn, ensure_list=False, validate=False, force_note_ids=Tru
 
     Returns
     -------
-    :class:`partitura.score.Part`, :class:`partitura.score.PartGroup`, or a list of these
+    :class:`partitura.score.Part`, :class:`partitura.score.PartGroup`, \
+or a list of these
         One or more part or partgroup objects
 
     """
@@ -113,7 +114,8 @@ def load_via_musescore(fn, ensure_list=False, validate=False, force_note_ids=Tru
             if ps.returncode != 0:
 
                 raise FileImportException(
-                    "Command {} failed with code {}. MuseScore error messages:\n {}".format(
+                    ("Command {} failed with code {}. MuseScore "
+                     "error messages:\n {}").format(
                         cmd, ps.returncode, ps.stderr.decode("UTF-8")
                     )
                 )
@@ -180,7 +182,6 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
         ]
         try:
 
-            # ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             if ps.returncode != 0:
@@ -196,7 +197,7 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
 
         except FileNotFoundError as f:
 
-            LOGGER.error('Executing "{}" returned  {}. {}'.format(" ".join(cmd), f))
+            LOGGER.error('Executing "{}" returned  {}.'.format(" ".join(cmd), f))
             return None
 
         # LOGGER.error('Command "{}" returned with code {}; stdout: {}; stderr: {}'
