@@ -352,7 +352,8 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
             if position < measure.start.t:
                 LOGGER.warning(
-                    "<backup> crosses measure boundary, adjusting position from {} to {} in Measure {}".format(
+                    ("<backup> crosses measure boundary, adjusting "
+                     "position from {} to {} in Measure {}").format(
                         position, measure.start.t, measure.number
                     )
                 )
@@ -617,7 +618,8 @@ def _handle_direction(e, position, part, ongoing):
     # * TODO: pedal
     # * TODO: damp
 
-    # here we gather all starting and ending directions, to be added to the part afterwards
+    # here we gather all starting and ending directions,
+    # to be added to the part afterwards
     starting_directions = []
     ending_directions = []
 
@@ -625,7 +627,7 @@ def _handle_direction(e, position, part, ongoing):
     dashes_keys = {}
 
     # keep track of starting and stopping pedals
-    pedal_keys = {}
+    # pedal_keys = {}
 
     for direction_type in direction_types:
         # direction_type

@@ -10,32 +10,12 @@ References
        Detection and Post-Processing for Fast and Accurate Symbolic Music
        Alignment"
 """
-from collections import defaultdict
-from fractions import Fraction
 import logging
-from operator import attrgetter, itemgetter
-import re
-import warnings
-
 import numpy as np
-from scipy.interpolate import interp1d
 
-from partitura.io.exportmatch import matchfile_from_alignment
-from partitura.io.importmidi import load_performance_midi
-from partitura.io.importmusicxml import load_musicxml
 from partitura.performance import PerformedPart
-from partitura.score import PartGroup
-import partitura.score as score
-from partitura.utils import (
-    pitch_spelling_to_midi_pitch,
-    ensure_pitch_spelling_format,
-    ALTER_SIGNS,
-    key_name_to_fifths_mode,
-    iter_current_next,
-    partition,
-    estimate_clef_properties,
-    match_note_arrays,
-)
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MatchError(Exception):
@@ -92,13 +72,13 @@ class NakamuraMatchLine(object):
             return match_line
 
 
-def parse_nakamuramatchline(l):
+def parse_nakamuramatchline(line):
     """
     Return objects representing the line as line or comment
 
     Parameters
     ----------
-    l : str
+    line : str
         Line of the match file
 
     Returns
@@ -111,7 +91,7 @@ def parse_nakamuramatchline(l):
     nakamuramatchline = False
     for from_NakamuraMatchLine in from_NakamuraMatchLine_methods:
         try:
-            nakamuramatchline = from_NakamuraMatchLine(l)
+            nakamuramatchline = from_NakamuraMatchLine(line)
             break
         except MatchError:
             continue
@@ -129,7 +109,7 @@ class NakamuraMatchFile(object):
 
         with open(filename) as f:
             self.lines = np.array(
-                [parse_nakamuramatchline(l) for l in f.read().splitlines()]
+                [parse_nakamuramatchline(line) for line in f.read().splitlines()]
             )
 
     def iter_notes(self):
@@ -146,8 +126,9 @@ class NakamuraMatchFile(object):
 def load_nakamuramatch(fn, pedal_threshold=64, first_note_at_zero=False):
     """Load a match file as returned by Nakamura et al.'s MIDI to musicxml alignment
 
-    Fields of the file format as specified here https://midialignment.github.io/MANUAL.pdf
-    ID (onset time) (offset time) (spelled pitch) (onset velocity)(offset velocity) channel (match status) (score time) (note ID)(error index) (skip index)
+    Fields of the file format as specified in [8]_:
+    ID (onset time) (offset time) (spelled pitch) (onset velocity)(offset velocity)
+    channel (match status) (score time) (note ID)(error index) (skip index)
 
     Parameters
     ----------
@@ -167,14 +148,18 @@ def load_nakamuramatch(fn, pedal_threshold=64, first_note_at_zero=False):
     alignment : list
         The score--performance alignment, a list of dictionaries
 
+    References
+    ----------
+    .. [8] https://midialignment.github.io/MANUAL.pdf
+
     """
     # Parse Matchfile
     mf = NakamuraMatchFile(fn)
 
-    ######## Generate PerformedPart #########
+    # Generate PerformedPart
     ppart = performed_part_from_nakamuramatch(mf, pedal_threshold, first_note_at_zero)
 
-    ###### Alignment ########
+    # Alignment
     alignment = alignment_from_nakamuramatch(mf)
 
     return mf, ppart, alignment
@@ -182,8 +167,10 @@ def load_nakamuramatch(fn, pedal_threshold=64, first_note_at_zero=False):
 
 def alignment_from_nakamuramatch(mf):
     result = []
-    for l in mf.iter_notes():
-        result.append(dict(label="match", score_id=l.snoteID, performance_id=l.number))
+    for line in mf.iter_notes():
+        result.append(dict(label="match",
+                           score_id=line.snoteID,
+                           performance_id=line.number))
     return result
 
 
@@ -311,13 +298,13 @@ class NakamuraCorrespLine(object):
         )
 
 
-def parse_nakamuracorrespline(l):
+def parse_nakamuracorrespline(line):
     """
     Return objects representing the line as line or comment
 
     Parameters
     ----------
-    l : str
+    line : str
         Line of the match file
 
     Returns
@@ -330,7 +317,7 @@ def parse_nakamuracorrespline(l):
     nakamuracorrespline = None
     for from_NakamuraCorrespLine in from_NakamuraCorrespLine_methods:
         try:
-            nakamuracorrespline = from_NakamuraCorrespLine(l)
+            nakamuracorrespline = from_NakamuraCorrespLine(line)
             break
         except MatchError:
             continue
@@ -348,7 +335,7 @@ class NakamuraCorrespFile(object):
 
         with open(filename) as f:
             self.lines = np.array(
-                [parse_nakamuracorrespline(l) for l in f.read().splitlines()]
+                [parse_nakamuracorrespline(line) for line in f.read().splitlines()]
             )
 
     @property
@@ -380,7 +367,8 @@ class NakamuraCorrespFile(object):
     @property
     def note_arrays(self):
         """
-        generate a tuple of (performance-, score-) note arrays with pitch, id and onset information (in seconds).
+        generate a tuple of (performance-, score-) note arrays with pitch,
+        id and onset information (in seconds).
 
         Returns
         -------
@@ -392,11 +380,11 @@ class NakamuraCorrespFile(object):
 
         note_array0 = []
         note_array1 = []
-        for l in self.iter_notes():
-            if l.id0 != "*":
-                note_array0.append((l.onset0, l.pitch0, l.id0))
-            if l.id1 != "*":
-                note_array1.append((l.onset1, l.pitch1, l.id1))
+        for line in self.iter_notes():
+            if line.id0 != "*":
+                note_array0.append((line.onset0, line.pitch0, line.id0))
+            if line.id1 != "*":
+                note_array1.append((line.onset1, line.pitch1, line.id1))
         ar0 = np.array(note_array0, dtype=fields)
         ar1 = np.array(note_array1, dtype=fields)
         return ar0, ar1
@@ -404,18 +392,24 @@ class NakamuraCorrespFile(object):
     @property
     def alignment(self):
         result = []
-        for l in self.iter_notes():
-            if l.id0 == "*":
+        for line in self.iter_notes():
+            if line.id0 == "*":
                 result.append(
-                    dict(label="deletion", performance_id=l.id0, score_id=l.id1)
+                    dict(label="deletion",
+                         performance_id=line.id0,
+                         score_id=line.id1)
                 )
-            elif l.id1 == "*":
+            elif line.id1 == "*":
                 result.append(
-                    dict(label="insertion", performance_id=int(l.id0), score_id=l.id1)
+                    dict(label="insertion",
+                         performance_id=int(line.id0),
+                         score_id=line.id1)
                 )
             else:
                 result.append(
-                    dict(label="match", performance_id=int(l.id0), score_id=l.id1)
+                    dict(label="match",
+                         performance_id=int(line.id0),
+                         score_id=line.id1)
                 )
         return result
 
@@ -423,7 +417,7 @@ class NakamuraCorrespFile(object):
 def load_nakamuracorresp(fn, pedal_threshold=64, first_note_at_zero=False):
     """Load a corresp file as returned by Nakamura et al.'s MIDI to MIDI alignment.
 
-    Fields of the file format as specified here: https://midialignment.github.io/MANUAL.pdf
+    Fields of the file format as specified in [8]_:
     (ID) (onset time) (spelled pitch) (integer pitch) (onset velocity)
 
     Parameters
@@ -465,7 +459,7 @@ def note_name_to_midi_pitch(notename):
         "E",
         "F",
         "G",
-        "\#",
+        r"\#",
         "b",
         "0",
         "1",

@@ -260,7 +260,8 @@ def load_score_midi(
 
     Returns
     -------
-    :class:`partitura.score.Part`, :class:`partitura.score.PartGroup`, or a list of these
+    :class:`partitura.score.Part`, :class:`partitura.score.PartGroup`, \
+or a list of these
         One or more part or partgroup objects
 
     References
@@ -388,7 +389,8 @@ def load_score_midi(
     # pitch spelling, voice estimation and key estimation are done on a
     # structured array (onset, pitch, duration) of all notes in the piece
     # jointly, so we concatenate all notes
-    # note_list = sorted(note for notes in (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
+    # note_list = sorted(note for notes in
+    # (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
     note_list = [
         note
         for notes in (notes_by_track_ch[key] for key in tr_ch_keys)
@@ -404,7 +406,8 @@ def load_score_midi(
 
     if estimate_voice_info:
         LOGGER.debug("voice estimation")
-        # TODO: deal with zero duration notes in note_array. Zero duration notes are currently deleted
+        # TODO: deal with zero duration notes in note_array.
+        # Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
         assert len(part_voice_list) == len(estimated_voices)
         for part_voice, voice_est in zip(part_voice_list, estimated_voices):
@@ -511,7 +514,8 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
     """
     0: return one Part per track, with voices assigned by channel
     1. return one PartGroup per track, with Parts assigned by channel (no voices)
-    2. return single Part with voices assigned by track (tracks are combined, channel info is ignored)
+    2. return single Part with voices assigned by track (tracks are combined,
+       channel info is ignored)
     3. return one Part per track, without voices (channel info is ignored)
     4. return single Part without voices (channel and track info is ignored)
     5. return one Part per <track, channel> combination, without voices
@@ -539,7 +543,6 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
             pg = part_group_helper.setdefault(tr, len(part_group_helper))
             prt = part_helper.setdefault(ch, len(part_helper))
             part_group.setdefault((tr, ch), pg)
-            # group_names[pg] = '{}'.format(track_names.get(tr, 'Track {}'.format(tr+1)), ch)
             group_names[pg] = track_names.get(tr, "Track {}".format(tr + 1))
             part_names[prt] = "ch={}".format(ch)
             part[(tr, ch)] = prt

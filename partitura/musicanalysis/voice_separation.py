@@ -812,7 +812,7 @@ class VoSA(VSBaseScore):
                 np.where(self.score["onset"] == u)[0] for u in unique_onsets
             ]
             main_notes_idxs = []
-            grace_notes = []
+
             for g_i in grace_note_idxs:
                 grace_note = self.score[g_i]
                 candidate_note_idxs = np.where(
@@ -824,7 +824,7 @@ class VoSA(VSBaseScore):
                     next_onset_idx = int(
                         np.where(unique_onsets == grace_note["onset"])[0] + 1
                     )
-                    # import pdb; pdb.set_trace()
+
                     candidate_note_idxs = unique_onset_idxs[next_onset_idx]
 
                 candidate_notes = self.score[candidate_note_idxs]
@@ -992,9 +992,6 @@ class VoSA(VSBaseScore):
         # indices of the maximal contigs
         maximal_contigs_idxs = np.where(self._voices_per_contig == self.num_voices)[0]
 
-        # indices of the non maximal contigs
-        non_maximal_contigs = self._voices_per_contig != self.num_voices
-        non_maximal_contigs_idx = np.where(non_maximal_contigs)[0]
         # initialize maximal contigs and voice managers
         voice_managers_dict = dict()
         for mci in maximal_contigs_idxs:

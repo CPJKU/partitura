@@ -50,7 +50,7 @@ VALID_KEY_PROFILES = [
 ]
 
 
-################ Krumhansl--Kessler Key Profiles ########################
+# Krumhansl--Kessler Key Profiles
 
 # From Krumhansl's "Cognitive Foundations of Musical Pitch" pp.30
 key_prof_maj_kk = np.array(
@@ -61,7 +61,7 @@ key_prof_min_kk = np.array(
     [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
 )
 
-############### Temperley Key Profiles ###########################
+# Temperley Key Profiles
 
 # CBMS (from "Music and Probability" Table 6.1, pp. 86)
 key_prof_maj_cbms = np.array(

@@ -194,7 +194,7 @@ class ReplaceRefMixin(object):
     >>> a2 = MyClass(a1)
 
     Copy `a1` and `a2` to `b1` and `b2`, respectively:
-
+    >>> from copy import copy
     >>> b1 = copy(a1)
     >>> b2 = copy(a2)
 
@@ -325,7 +325,8 @@ def partition(func, iterable):
     Examples
     ========
 
-    The following example groups the integers from 0 to 10 by their respective modulo 3 values:
+    The following example groups the integers from 0 to 10 by their
+    respective modulo 3 values:
 
     >>> lst = range(10)
     >>> partition(lambda x: x % 3, lst)
@@ -343,9 +344,7 @@ def add_field(a, descr):
     Return a new array that is like `a`, but has additional fields.
     The contents of `a` are copied over to the appropriate fields in
     the new array, whereas the new fields are uninitialized.  The
-    arguments are not modified.
-
-    Source: https://stackoverflow.com/questions/1201817/adding-a-field-to-a-structured-numpy-array
+    arguments are not modified. Source [8]_.
 
     Parameters
     ----------
@@ -361,7 +360,7 @@ def add_field(a, descr):
 
     Examples
     --------
-
+    >>> import numpy as np
     >>> sa = np.array([(1, 'Foo'), (2, 'Bar')], \
                          dtype=[('id', int), ('name', 'S3')])
     >>> sa.dtype.descr == np.dtype([('id', int), ('name', 'S3')])
@@ -374,6 +373,14 @@ def add_field(a, descr):
     True
     >>> np.all(sa['name'] == sb['name'])
     True
+
+    Notes
+    -----
+    Source:
+
+    .. [8]
+       https://stackoverflow.com/questions/1201817/\
+adding-a-field-to-a-structured-numpy-array
 
     """
     if a.dtype.fields is None:
@@ -408,8 +415,8 @@ def show_diff(a, b):
     import difflib
 
     differ = difflib.Differ()
-    for l in differ.compare(a.split("\n"), b.split("\n")):
-        print(l)
+    for li in differ.compare(a.split("\n"), b.split("\n")):
+        print(li)
 
 
 class PrettyPrintTree(object):

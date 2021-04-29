@@ -28,7 +28,6 @@ from partitura.utils.music import (
     estimate_clef_properties,
     ensure_pitch_spelling_format,
     ensure_notearray,
-    # notearray_to_pianoroll,
     compute_pianoroll,
     pianoroll_to_notearray,
     match_note_arrays,
@@ -37,8 +36,16 @@ from partitura.utils.music import (
     note_array_from_part_list,
     slice_notearray_by_time,
     note_array_from_part,
+    note_array_from_note_list,
     get_time_units_from_note_array,
     update_note_ids_after_unfolding,
 )
 
-__all__ = ["key_name_to_fifths_mode", "fifths_mode_to_key_name"]
+__all__ = [
+    "key_name_to_fifths_mode",
+    "fifths_mode_to_key_name",
+    "key_mode_to_int",
+    "pitch_spelling_to_midi_pitch",
+    "compute_pianoroll",
+    "pianoroll_to_notearray",
+]

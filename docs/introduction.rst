@@ -24,11 +24,8 @@ Moreover, it supports musical notions that are not note-related, like:
 * repeat structures,
 * and time/key signatures.
 
-In addition to score information, the package can load MIDI recordings of
-performed scores, and alignments between scores and performances in the
-`Matchfile` format used by the publicly available `Vienna4x22 piano corpus
-research dataset
-<https://repo.mdw.ac.at/projects/IWK/the_vienna_4x22_piano_corpus/data/index.html>`_.
+In addition to handling score information, the package can load MIDI recordings of
+performed scores, and alignments between scores and performances.
 
 Supported file types
 ====================
@@ -38,6 +35,15 @@ files. Furthermore, `partitura` uses `MuseScore <https://musescore.org/>`_
 as a backend to load files in other formats, like `MuseScore`, `MuseData`,
 and `GuitarPro`. This requires a working installation of MuseScore on your
 computer.
+`MEI` format is currently not supported, but support is planned for a future release.
+
+Score-performance alignments can be read from different file types by
+`partitura`.  Firstly it supports reading from the `Matchfile` format used by
+the publicly available `Vienna4x22 piano corpus research dataset
+<https://repo.mdw.ac.at/projects/IWK/the_vienna_4x22_piano_corpus/data/index.html>`_.
+Secondly there is read support for `Match` and `Corresp` files produced by
+Nakamura's `music alignment software
+<https://midialignment.github.io/demo.html>`_.
 
 
 Conceptual Overview
