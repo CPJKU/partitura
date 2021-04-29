@@ -14,7 +14,7 @@ __all__ = ["save_musicxml"]
 
 LOGGER = logging.getLogger(__name__)
 
-DOCTYPE = """<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">"""
+DOCTYPE = """<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">"""  # noqa: E501
 MEASURE_SEP_COMMENT = "======================================================="
 ARTICULATIONS = [
     "accent",
@@ -288,7 +288,8 @@ def remove_voice_polyphony_single(notes, voice_spans):
     Test wether a list of notes satisfies the MusicXML constraints on voices that:
     - all notes starting at the same time have the same duration
     - no <backup> is required to specify the voice in document order
-    whenever a note violates the constraints change its voice (choosing a new voice that is not currently in use)
+    whenever a note violates the constraints change its voice
+    (choosing a new voice that is not currently in use)
 
     Parameters
     ----------
@@ -394,7 +395,8 @@ def remove_voice_polyphony(notes_by_voice):
 
 def linearize_segment_contents(part, start, end, state):
     """
-    Determine the document order of events starting between `start` (inclusive) and `end` (exlusive).
+    Determine the document order of events starting between `start` (inclusive)
+    and `end` (exlusive).
     (notes, directions, divisions, time signatures).
     """
 
@@ -770,7 +772,10 @@ def do_directions(part, start, end, counter):
                     pedal_kwargs = {}
                     if direction.line:
                         pedal_kwargs["line"] = "yes"
-                    e2s = etree.SubElement(e1s, "pedal", type="start", **pedal_kwargs)
+                    # For Flake8 (ignore unused variable), since
+                    # etree.SubElement adds e2s to e1s
+                    e2s = etree.SubElement(  # noqa: F841
+                        e1s, "pedal", type="start", **pedal_kwargs)
                 if direction.staff is not None:
                     e3s = etree.SubElement(e0s, "staff")
                     e3s.text = str(direction.staff)
@@ -785,7 +790,10 @@ def do_directions(part, start, end, counter):
                         pedal_kwargs["line"] = "yes"
                     else:
                         pedal_kwargs["sign"] = "yes"
-                    e2e = etree.SubElement(e1e, "pedal", type="end", **pedal_kwargs)
+                    # For Flake8 (ignore unused variable), since
+                    # etree.SubElement adds e2e to e1e
+                    e2e = etree.SubElement(  # noqa: F841
+                        e1e, "pedal", type="end", **pedal_kwargs)
                 if direction.staff is not None:
                     e3e = etree.SubElement(e0e, "staff")
                     e3e.text = str(direction.staff)
