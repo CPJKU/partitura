@@ -39,7 +39,8 @@ __all__ = [
     "save_performance_midi",
     "load_match",
     "save_match",
-    # add names of nakamura and mei
+    "load_nakamuramatch",
+    "load_nakamuracorresp",
     "render",
     "EXAMPLE_MUSICXML",
     "EXAMPLE_MIDI",
