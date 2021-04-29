@@ -204,7 +204,8 @@ CONSTANT_ARTICULATION_ADJ = [
     r"/(legato|legatissimo|ligato|ligatissimo)/",
 ]
 
-# adjectives that may express a combination of tempo loudness and articulation directions
+# adjectives that may express a combination of tempo loudness and
+# articulation directions
 CONSTANT_MIXED_ADJ = [
     r"/(rinforzando|(rinforz|rinf|rfz|rf)\.?)/",
 ]
@@ -347,7 +348,8 @@ def regularize_form(children):
 
 def create_directions(tree, string, start=None, end=None):
     """
-    Recursively walk the parse tree of `string` to create a `score.Direction` or `score.Words` instance.
+    Recursively walk the parse tree of `string` to create a `score.Direction`
+    or `score.Words` instance.
 
     """
     if start is None:
@@ -409,8 +411,6 @@ def create_directions(tree, string, start=None, end=None):
             )
         ]
 
-    # elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
-    #     return [score.DynamicTempoDirection(regularize_form(tree.children), string[start:end])]
     elif tree.data == "inc_tempo_adj":
         return [
             score.IncreasingTempoDirection(

@@ -2674,7 +2674,8 @@ def add_measures(part):
                     assert existing_measure.end.t > pos
                     pos = existing_measure.end.t
                     if existing_measure.number != 0:
-                        # if existing_measure is a match anacrusis measure, keep number 0
+                        # if existing_measure is a match anacrusis measure,
+                        # keep number 0
                         existing_measure.number = mcounter
                         mcounter += 1
                     continue
@@ -2684,7 +2685,8 @@ def add_measures(part):
 
             part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
 
-            # if measure exists but was not at measure_start, a filler measure is added with number mcounter
+            # if measure exists but was not at measure_start,
+            # a filler measure is added with number mcounter
             if existing_measure:
                 pos = existing_measure.end.t
                 existing_measure.number = mcounter + 1
@@ -3066,7 +3068,7 @@ def find_tuplets(part):
             tup_start = 0
 
             while tup_start <= (len(group) - actual_notes):
-                note_tuplet = group[tup_start : tup_start + actual_notes]
+                note_tuplet = group[tup_start: tup_start + actual_notes]
                 # durs = set(n.duration for n in group[:tuplet-1])
                 durs = set(n.duration for n in note_tuplet)
 
