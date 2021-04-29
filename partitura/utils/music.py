@@ -399,9 +399,9 @@ def key_name_to_fifths_mode(name):
 
     Parameters
     ----------
-    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C",
-            "C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb",
-            "Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
+    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C",\
+"C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb",\
+"Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
         Name of the key signature
 
     Returns
@@ -673,11 +673,12 @@ def find_tie_split(start, end, divs, max_splits=3):
     Examples
     --------
 
-    >>> find_tie_split_search(1, 8, 2)
+    >>> find_tie_split(1, 8, 2)
     [(1, 8, {'type': 'half', 'dots': 2})]
 
-    >>> find_tie_split_search(0, 3615, 480)
-    [(0, 3600, {'type': 'whole', 'dots': 3}), (3600, 3615, {'type': '128th', 'dots': 0})]
+    >>> find_tie_split(0, 3615, 480) # doctest: +NORMALIZE_WHITESPACE
+    [(0, 3600, {'type': 'whole', 'dots': 3}),
+     (3600, 3615, {'type': '128th', 'dots': 0})]
 
     """
 
@@ -808,11 +809,10 @@ def compute_pianoroll(
 
     >>> import numpy as np
     >>> from partitura.utils import compute_pianoroll
-    >>> note_array = np.array([(60, 0, 1)],
-                          dtype=[('pitch', 'i4'),
-                                 ('onset_beat', 'f4'),
+    >>> note_array = np.array([(60, 0, 1)],\
+                          dtype=[('pitch', 'i4'),\
+                                 ('onset_beat', 'f4'),\
                                  ('duration_beat', 'f4')])
-
     >>> pr = compute_pianoroll(note_array, pitch_margin=2, time_div=2)
     >>> pr.toarray()
     array([[0, 0],
@@ -1290,8 +1290,8 @@ def note_array_from_part_list(
     ----------
     part_list : list
        A list of `Part` or `PerformedPart` objects. All elements in
-       the list must be of the same type (i.e., no mixing `Part`s
-       and `PerformedPart`s in the same list.
+       the list must be of the same type (i.e., no mixing `Part`
+       and `PerformedPart` objects in the same list.
     unique_id_per_part : bool (optional)
        Indicate from which part do each note come from in the note ids.
     include_pitch_spelling: bool (optional)
@@ -1478,19 +1478,22 @@ def note_array_from_part(
             * 'onset_quarter': onset time of the note in quarters
             * 'duration_quarter': duration of the note in quarters
             * 'onset_div': onset of the note in divs (e.g., MIDI ticks,
-           divisions in MusicXML)
+              divisions in MusicXML)
             * 'duration_div': duration of the note in divs
             * 'pitch': MIDI pitch of a note.
             * 'voice': Voice number of a note (if given in the score)
             * 'id': Id of the note
+
         If `include_pitch_spelling` is True:
             * 'step': name of the note ("C", "D", "E", "F", "G", "A", "B")
             * 'alter': alteration (0=natural, -1=flat, 1=sharp,
-            2=double sharp, etc.)
+              2=double sharp, etc.)
             * 'octave': octave of the note.
+
         If `include_key_signature` is True:
             * 'ks_fifths': Fifths starting from C in the circle of fifths
             * 'mode': major or minor
+
         If `include_time_signature` is True:
             * 'ts_beats': number of beats in a measure
             * 'ts_beat_type': type of beats (denominator of the time signature)
@@ -1500,7 +1503,7 @@ def note_array_from_part(
     >>> from partitura import load_musicxml, EXAMPLE_MUSICXML
     >>> from partitura.utils import note_array_from_part
     >>> part = load_musicxml(EXAMPLE_MUSICXML)
-    >>> note_array_from_part(part, True, True, True)
+    >>> note_array_from_part(part, True, True, True) # doctest: +NORMALIZE_WHITESPACE
     array([(0., 4., 0., 4.,  0, 48, 69, 1, 'n01', 'A', 0, 4, 0, 1, 4, 4),
            (2., 2., 2., 2., 24, 24, 72, 2, 'n02', 'C', 0, 5, 0, 1, 4, 4),
            (2., 2., 2., 2., 24, 24, 76, 2, 'n03', 'E', 0, 5, 0, 1, 4, 4)],
