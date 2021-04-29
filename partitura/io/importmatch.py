@@ -19,6 +19,7 @@ from partitura.utils import (
     iter_current_next,
     partition,
     estimate_clef_properties,
+    note_array_from_note_list
 )
 
 from partitura.performance import PerformedPart
@@ -107,7 +108,7 @@ class FractionalSymbolicDuration(object):
         sign = np.sign(self.numerator) * np.sign(self.denominator)
         self.numerator = np.abs(self.numerator)
         self.denominator = np.abs(self.denominator)
-        # print(self.numerator,self.denominator, sign)
+
         if self.numerator > bound or self.denominator > bound:
             val = float(self.numerator / self.denominator)
             dif = []
@@ -125,8 +126,6 @@ class FractionalSymbolicDuration(object):
                 self.numerator = sign * 1
             else:
                 self.numerator = sign * int(np.round(val * self.denominator))
-
-            # print(self.numerator, self.denominator)
 
     def __str__(self):
 
@@ -1389,9 +1388,9 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
-    duration_in_beats = np.array([note.DurationInBeats for note in snotes])
-    duration_in_quarters = duration_in_beats * beat_to_quarter
-    duration_in_divs = duration_in_quarters * divs
+    # duration_in_beats = np.array([note.DurationInBeats for note in snotes])
+    # duration_in_quarters = duration_in_beats * beat_to_quarter
+    # duration_in_divs = duration_in_quarters * divs
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Bar for n in snotes])
@@ -1401,7 +1400,8 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     bar_times = {}
 
     if t > 0:
-        # if we have an incomplete first measure that isn't an anacrusis measure, add a rest (dummy)
+        # if we have an incomplete first measure that isn't an anacrusis
+        # measure, add a rest (dummy)
         # t = t-t%beats_map(min_time)
 
         # if starting beat is above zero, add padding
@@ -1428,14 +1428,17 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         bar_start = bar_times[note.Bar]
 
         on_off_scale = 1
-        # on_off_scale = 1 means duration and beat offset are given in whole notes, else they're given in beats (as in the kaist data)
+        # on_off_scale = 1 means duration and beat offset are given in
+        # whole notes, else they're given in beats (as in the KAIST data)
         if not match_offset_duration_in_whole:
             on_off_scale = beat_type_map(bar_start)
 
-        # offset within bar in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
+        # offset within bar in quarter units adjusted for different
+        # time signatures -> 4 / beat_type_map(bar_start)
         bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
 
-        # offset within beat in quarter units adjusted for different time signatures -> 4 / beat_type_map(bar_start)
+        # offset within beat in quarter units adjusted for different
+        # time signatures -> 4 / beat_type_map(bar_start)
         beat_offset = (
             4
             / on_off_scale
@@ -1445,16 +1448,16 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
         # check anacrusis measure beat counting type for the first note
         if (bar_start < 0 and (bar_offset != 0 or beat_offset != 0) and ni == 0):
-            # in case of fully counted anacrusis we set the bar_start to -bar_duration (in
-            # quarters) so that the below calculation is correct
+            # in case of fully counted anacrusis we set the bar_start
+            # to -bar_duration (in quarters) so that the below calculation is correct
             # not active for shortened anacrusis measures
             bar_start = -beats_map(bar_start) * 4 / beat_type_map(bar_start)
             # reset the bar_start for other notes in the anacrusis measure
             bar_times[note.Bar] = bar_start
 
-        # convert the onset time in quarters (0 at first barline) to onset time in divs (0 at first note)
+        # convert the onset time in quarters (0 at first barline) to onset
+        # time in divs (0 at first note)
         onset_divs = int(round(divs * (bar_start + bar_offset + beat_offset - offset)))
-
 
         if not np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
             LOGGER.info(
@@ -1471,7 +1474,8 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         if "accent" in note.ScoreAttributesList:
             articulations.add("accent")
 
-        # dictionary with keyword args with which the Note (or GraceNote) will be instantiated
+        # dictionary with keyword args with which the Note
+        # (or GraceNote) will be instantiated
         note_attributes = dict(
             step=note.NoteName,
             octave=note.Octave,
@@ -1596,10 +1600,11 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     if not all([n.voice for n in part.notes_tied]):
         # print('notes without voice detected')
         # TODO: fix this!
-        # ____ deactivate add_voices(part) for now as I get a error VoSA, line 798; the +1 gives an index outside the list length
+        # ____ deactivate add_voices(part) for now as I get a error VoSA,
+        # line 798; the +1 gives an index outside the list length
         # add_voices(part)
         for note in part.notes_tied:
-            if note.voice == None:
+            if note.voice is None:
                 note.voice = 1
 
     return part
@@ -1674,9 +1679,8 @@ def add_staffs_v1(part):
 
     notes = part.notes_tied
     # estimate voices in strictly monophonic way
-    voices = estimate_voices(notes_to_notearray(notes), monophonic_voices=True)
-    # for v, note in zip(voices, notes):
-    #     print(note.start.t, note.midi_pitch, v)
+    voices = estimate_voices(note_array_from_note_list(notes),
+                             monophonic_voices=True)
 
     # group notes by voice
     by_voice = partition(itemgetter(0), zip(voices, notes))
@@ -1698,8 +1702,6 @@ def add_staffs_v1(part):
                 clef = tuple(estimate_clef_properties(pitches).items())
                 staff = clefs.setdefault(clef, len(clefs))
 
-                # print((note_group[0].start.t, note_group[-1].end.t),
-                #       (np.min(pitches), np.max(pitches), np.mean(pitches)), clef)
                 for n in note_group:
                     n.staff = staff
                     n_tied = n.tie_next
@@ -1741,7 +1743,7 @@ def add_voices(part):
         notes_w_voice = [n for n in notes if n.voice is not None]
         if len(notes_w_voice) > 0:
             max_voice += max([n.voice for n in notes_w_voice])
-        voices = estimate_voices(notes_to_notearray(notes_wo_voice))
+        voices = estimate_voices(note_array_from_note_list(notes_wo_voice))
 
         assert len(voices) == len(notes_wo_voice)
         for n, voice in zip(notes_wo_voice, voices):
