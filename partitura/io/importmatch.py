@@ -5,10 +5,8 @@ This module contains methods for parsing matchfiles
 """
 import re
 from fractions import Fraction
-from collections import defaultdict
 from operator import attrgetter, itemgetter
 import logging
-import warnings
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -355,7 +353,8 @@ class MatchSnote(MatchLine):
         + "[{ScoreAttributesList}])"
     )
 
-    pattern = r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
+    pattern = (r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),"
+               r"([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)")
     re_obj = re.compile(pattern)
 
     field_names = [
@@ -686,7 +685,7 @@ class MatchSnoteNote(MatchLine):
                     zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
                 )
                 note_kwargs = dict(
-                    zip(MatchNote.field_names_v1, groups[len(MatchSnote.field_names) :])
+                    zip(MatchNote.field_names_v1, groups[len(MatchSnote.field_names):])
                 )
                 note_kwargs["version"] = 1.0
                 note_kwargs["AdjOffset"] = None
@@ -704,7 +703,7 @@ class MatchSnoteNote(MatchLine):
                 zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
             )
             note_kwargs = dict(
-                zip(MatchNote.field_names, groups[len(MatchSnote.field_names) :])
+                zip(MatchNote.field_names, groups[len(MatchSnote.field_names):])
             )
             snote = MatchSnote(**snote_kwargs)
             note = MatchNote(**note_kwargs)
@@ -724,7 +723,7 @@ class MatchSnoteDeletion(MatchLine):
     """
 
     out_pattern = "{SnoteLine}-deletion."
-    pattern = MatchSnote.pattern + "-deletion\."
+    pattern = MatchSnote.pattern + r"-deletion\."
     re_obj = re.compile(pattern)
     field_names = MatchSnote.field_names
 
@@ -758,7 +757,7 @@ class MatchSnoteTrailingScore(MatchSnoteDeletion):
     A variant of MatchSnoteDeletion for older match files.
     """
 
-    pattern = MatchSnote.pattern + "-trailing_score_note\."
+    pattern = MatchSnote.pattern + r"-trailing_score_note\."
     re_obj = re.compile(pattern)
 
     def __init__(self, snote):
@@ -902,7 +901,7 @@ class MatchTrillNote(MatchOrnamentNote):
         super().__init__(Anchor, note)
 
 
-def parse_matchline(l):
+def parse_matchline(line):
     """
     Return objects representing the line as one of:
 
@@ -923,7 +922,7 @@ def parse_matchline(l):
 
     Parameters
     ----------
-    l : str
+    line : str
         Line of the match file
 
     Returns
@@ -949,7 +948,7 @@ def parse_matchline(l):
     matchline = False
     for from_matchline in from_matchline_methods:
         try:
-            matchline = from_matchline(l)
+            matchline = from_matchline(line)
             break
         except MatchError:
             continue
@@ -971,7 +970,7 @@ class MatchFile(object):
             with open(filename) as f:
 
                 self.lines = np.array(
-                    [parse_matchline(l) for l in f.read().splitlines()]
+                    [parse_matchline(line) for line in f.read().splitlines()]
                 )
         else:
             self.name = None
@@ -1017,7 +1016,7 @@ class MatchFile(object):
 
     @property
     def sustain_pedal(self):
-        return [l for l in self.lines if isinstance(l, MatchSustainPedal)]
+        return [line for line in self.lines if isinstance(line, MatchSustainPedal)]
 
     @property
     def insertions(self):
@@ -1047,7 +1046,7 @@ class MatchFile(object):
             try:
                 idx = [i.Attribute for i in self._info].index(attribute)
                 return self._info[idx].Value
-            except:
+            except ValueError:
                 return None
         else:
             return self._info
@@ -1063,7 +1062,8 @@ class MatchFile(object):
     @property
     def time_signatures(self):
         """
-        A list of tuples(t, b, (n, d)), indicating a time signature of n over v, starting at t in bar b
+        A list of tuples(t, b, (n, d)), indicating a time signature of
+        n over v, starting at t in bar b
 
         """
         tspat = re.compile("([0-9]+)/([0-9]*)")
@@ -1072,13 +1072,13 @@ class MatchFile(object):
         if len(m) > 0:
 
             _timeSigs.append((self.first_onset, self.first_bar, m[0]))
-        for l in self.time_sig_lines:
+        for line in self.time_sig_lines:
 
             _timeSigs.append(
                 (
-                    float(l.TimeInBeats),
-                    int(l.Bar),
-                    [(int(x[0]), int(x[1])) for x in tspat.findall(l.Value)][0],
+                    float(line.TimeInBeats),
+                    int(line.Bar),
+                    [(int(x[0]), int(x[1])) for x in tspat.findall(line.Value)][0],
                 )
             )
         _timeSigs = list(set(_timeSigs))
@@ -1190,7 +1190,7 @@ class MatchFile(object):
     @property
     def key_sig_lines(self):
 
-        ks_info = [l for l in self.info() if l.Attribute == "keySignature"]
+        ks_info = [line for line in self.info() if line.Attribute == "keySignature"]
         ml = ks_info + [
             i
             for i in self.lines
@@ -1203,8 +1203,8 @@ class MatchFile(object):
 
     def write(self, filename):
         with open(filename, "w") as f:
-            for l in self.lines:
-                f.write(l.matchline + "\n")
+            for line in self.lines:
+                f.write(line.matchline + "\n")
 
     @classmethod
     def from_lines(cls, lines, name=""):
@@ -1250,15 +1250,15 @@ def load_match(
     # Parse Matchfile
     mf = MatchFile(fn)
 
-    ######## Generate PerformedPart #########
+    # Generate PerformedPart
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
-    ####### Generate Part ######
+    # Generate Part
     if create_part:
         if offset_duration_whole:
             spart = part_from_matchfile(mf, match_offset_duration_in_whole=True)
         else:
             spart = part_from_matchfile(mf, match_offset_duration_in_whole=False)
-    ###### Alignment ########
+    # Alignment
     alignment = alignment_from_matchfile(mf)
 
     if create_part:
@@ -1270,28 +1270,30 @@ def load_match(
 def alignment_from_matchfile(mf):
     result = []
 
-    for l in mf.lines:
+    for line in mf.lines:
 
-        if isinstance(l, MatchSnoteNote):
+        if isinstance(line, MatchSnoteNote):
             result.append(
                 dict(
-                    label="match", score_id=l.snote.Anchor, performance_id=l.note.Number
+                    label="match",
+                    score_id=line.snote.Anchor,
+                    performance_id=line.note.Number
                 )
             )
-        elif isinstance(l, MatchSnoteDeletion):
-            result.append(dict(label="deletion", score_id=l.snote.Anchor))
-        elif isinstance(l, MatchInsertionNote):
-            result.append(dict(label="insertion", performance_id=l.note.Number))
-        elif isinstance(l, MatchOrnamentNote):
-            if isinstance(l, MatchTrillNote):
+        elif isinstance(line, MatchSnoteDeletion):
+            result.append(dict(label="deletion", score_id=line.snote.Anchor))
+        elif isinstance(line, MatchInsertionNote):
+            result.append(dict(label="insertion", performance_id=line.note.Number))
+        elif isinstance(line, MatchOrnamentNote):
+            if isinstance(line, MatchTrillNote):
                 ornament_type = "trill"
             else:
                 ornament_type = "generic_ornament"
             result.append(
                 dict(
                     label="ornament",
-                    score_id=l.Anchor,
-                    performance_id=l.note.Number,
+                    score_id=line.Anchor,
+                    performance_id=line.note.Number,
                     type=ornament_type,
                 )
             )
@@ -1333,7 +1335,8 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
     match_offset_duration_in_whole: Boolean
         A flag for the type of offset and duration given in the matchfile.
-        When true, the function expects the values to be given in whole notes (e.g. 1/4 for a quarter note) independet of time signature.
+        When true, the function expects the values to be given in whole
+        notes (e.g. 1/4 for a quarter note) independet of time signature.
 
 
     Returns
@@ -1352,7 +1355,8 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         ts, max_time
     )
 
-    # compute necessary divs based on the types of notes in the match snotes (only integers)
+    # compute necessary divs based on the types of notes in the
+    # match snotes (only integers)
     divs_arg = [
         max(int((beat_type_map(note.OnsetInBeats) / 4)), 1)
         * note.Offset.denominator
@@ -1368,7 +1372,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
     onset_in_beats = np.array([note.OnsetInBeats for note in snotes])
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
-    unique_onset_idxs = [np.where(onset_in_beats == u) for u in unique_onsets]
+    # unique_onset_idxs = [np.where(onset_in_beats == u) for u in unique_onsets]
 
     iois_in_beats = np.diff(unique_onsets)
     beat_to_quarter = 4 / beat_type_map(onset_in_beats)
