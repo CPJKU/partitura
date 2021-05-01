@@ -1280,7 +1280,10 @@ def alignment_from_matchfile(mf):
                 )
             )
         elif isinstance(line, MatchSnoteDeletion):
-            result.append(dict(label="deletion", score_id=line.snote.Anchor))
+            if "leftOutTied" in line.snote.ScoreAttributesList:
+                continue
+            else:
+                result.append(dict(label="deletion", score_id=line.snote.Anchor))
         elif isinstance(line, MatchInsertionNote):
             result.append(dict(label="insertion", performance_id=line.note.Number))
         elif isinstance(line, MatchOrnamentNote):
@@ -1422,7 +1425,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             n_bars = b1 - b0
             if t <= max_time_q:
                 t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
-
+    
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
@@ -1473,6 +1476,8 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             articulations.add("staccato")
         if "accent" in note.ScoreAttributesList:
             articulations.add("accent")
+        if "leftOutTied" in note.ScoreAttributesList:
+            continue
 
         # dictionary with keyword args with which the Note
         # (or GraceNote) will be instantiated
@@ -1588,9 +1593,6 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     # add incomplete measure if necessary
     if offset < 0:
         part.add(score.Measure(number=0), 0, int(-offset * divs))
-    # add incomplete measure if necessary -> solved with dummy rest
-    # if offset > 0:
-    #    part.add(score.Measure(number=1), 0, int((bar_times[2]-offset) * divs))
 
     # add the rest of the measures automatically
     score.add_measures(part)
