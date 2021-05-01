@@ -1425,7 +1425,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             n_bars = b1 - b0
             if t <= max_time_q:
                 t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
-    
+
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
         bar_start = bar_times[note.Bar]
