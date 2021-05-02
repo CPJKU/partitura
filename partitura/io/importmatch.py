@@ -1081,7 +1081,7 @@ class MatchFile(object):
                 )
             )
         _timeSigs = list(set(_timeSigs))
-        _timeSigs.sort(key=lambda x: x[0])
+        _timeSigs.sort(key=lambda x: [x[0],x[1]])
 
         # ensure that all consecutive time signatures are different
         timeSigs = [_timeSigs[0]]
