@@ -183,7 +183,8 @@ def save_performance_midi(
             mf.save(out)
 
 
-def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
+def save_score_midi(parts, out, part_voice_assign_mode=0,
+                    velocity=64, anacrusis_behavior='shift'):
     """Write data from Part objects to a MIDI file
 
     Parameters
@@ -223,7 +224,11 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
 
     velocity : int, optional
         Default velocity for all MIDI notes.
-
+    anacrusis_behavior : {"shift", "pad_bar"}, optional
+        Strategy to deal with anacrusis. If "shift", all
+        time points are shifted by the anacrusis (i.e., the first
+        note starts at 0). If "pad_bar", the "incomplete" bar  of
+        the anacrusis is padded with silence.
     """
 
     ppq = get_ppq(parts)
@@ -234,6 +239,22 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     event_keys = OrderedDict()
     tempos = {}
 
+    first_time_point = min([float(part.quarter_map(0))
+                            for part in score.iter_parts(parts)])
+    ftp = 0
+    # Deal with anacrusis
+    if first_time_point < 0:
+        if anacrusis_behavior == "shift":
+            ftp = first_time_point
+        elif anacrusis_behavior == "pad_bar":
+            time_signatures = []
+            for part in score.iter_parts(parts):
+                ts_beats, ts_beat_type = part.time_signature_map(0)
+                time_signatures.append((ts_beats, ts_beat_type,
+                                        part.quarter_map(0)))
+            # sort ts according to time
+            time_signatures.sort(key=lambda x: x[2])
+            ftp = - time_signatures[0][0] / (time_signatures[0][1] / 4)
     for i, part in enumerate(score.iter_parts(parts)):
 
         pg = get_partgroup(part)
@@ -243,7 +264,7 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
 
         def to_ppq(t):
             # convert div times to new ppq
-            return int(ppq * qm(t))
+            return int(ppq * (qm(t) - ftp))
 
         for tp in part.iter_all(score.Tempo):
             tempos[to_ppq(tp.start.t)] = MetaMessage(
