@@ -13,6 +13,7 @@ import numpy as np
 
 
 def load_nakamuracorresp_v2(fn):
+    note_array_dtype = [("onset", "f4"), ("pitch", "i4"), ("id", "U256")]
     dtype = [
         ("alignID", "U256"),
         ("alignOntime", "f"),
@@ -26,7 +27,6 @@ def load_nakamuracorresp_v2(fn):
         ("refOnvel", "i"),
     ]
     result = np.loadtxt(fn, dtype=dtype, comments="//")
-    note_array_dtype = [("onset", "f4"), ("pitch", "i4"), ("id", "U256")]
 
     align_valid = result["alignID"] != "*"
     n_align = sum(align_valid)
