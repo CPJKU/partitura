@@ -322,17 +322,19 @@ class TestMIDIExportModes(unittest.TestCase):
         # print(part.pretty())
 
         mid = export_and_read(part, anacrusis_behavior="shift")
+        t = 0
         for msg in mid.tracks[0]:
+            t += msg.time
             if msg.type == "note_on":
-                assert msg.time == 0
+                assert t == 0
                 break
 
         mid = export_and_read(part, anacrusis_behavior="pad_bar")
+        t = 0
         for msg in mid.tracks[0]:
+            t += msg.time
             if msg.type == "note_on":
-                assert (
-                    msg.time == 3
-                ), f"Incorrect time of first note on: {msg.time} (should be 3)"
+                assert t == 3, f"Incorrect time of first note on: {t} (should be 3)"
                 break
 
 
