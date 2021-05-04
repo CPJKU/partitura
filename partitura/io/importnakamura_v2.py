@@ -13,7 +13,7 @@ import numpy as np
 
 
 def load_nakamuracorresp_v2(fn):
-    note_array_dtype = [("onset", "f4"), ("pitch", "i4"), ("id", "U256")]
+    note_array_dtype = [("onset_sec", "f4"), ("pitch", "i4"), ("id", "U256")]
     dtype = [
         ("alignID", "U256"),
         ("alignOntime", "f"),
