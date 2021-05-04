@@ -1,6 +1,53 @@
 Release Notes
 =============
 
+Version 0.4.0 (Released on 2021-05-04)
+--------------------------------------
+
+API changes:
+
+[DRAFT ITEMS]
+* Different format for `note_array` attribute (in score, also performance?)
+* Simplified interface for tonal tension
+[FINAL ITEMS]
+* The music analysis functions now accept `Part` and `PerformedPart` as well as note arrays
+* Support for all MIDI controls in `PerformedPart`. The controls are only stored by their CC number (not name).
+* Add default program change option to `PerformedPart`
+* Rename `estimate_tension` to `estimate_tonaltension`
+  
+New features:
+
+[DRAFT ITEMS]
+* Add functions to create pianoroll representations from Part
+* Add functions to create polyphonic slices? cc7d074
+
+[FINAL ITEMS]
+* Add document order index to parts read from MusicXML
+* Support for sustain pedal info in MusicXML files
+* Add tonal tension profiles by Herremans and Chew (2016)
+* Add key_signature_map to Part objects
+* Add read support for Match and Corresp files of Nakamura's music alignment tool
+* Add `sanitize_part` function removing incomplete slurs and tuplets.
+
+Bug fixes:
+  
+[DRAFT ITEMS]
+* Fix bug in voice separation? c36dc16
+[FINAL ITEMS]
+* Fix tempo change bug in load_performance_midi
+* Fix saving parts with anacrusis to score MIDI
+* When defining `Note` objects, lower-case note names are converted to upper-case. Before this the behavior was undefined when using lower-case note names
+* Fix bug in pattern for matchfile
+* Fix issue with MIDI velocity for overlapping notes in piano rolls
+* Fix bug in `add_measures`
+* Fix GraceNote bug
+
+Other changes:
+[DRAFT ITEMS]
+[FINAL ITEMS]
+* Add documentation
+* Code cleanup
+
 Version 0.3.5 (Released on 2019-11-08)
 --------------------------------------
 
