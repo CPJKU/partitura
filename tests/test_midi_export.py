@@ -105,6 +105,14 @@ def n_notes(pg):
     return sum(len(part.notes_tied) for part in score.iter_parts(pg))
 
 
+def export_and_read(parts, **kwargs):
+    with TemporaryFile(suffix=".mid") as f:
+        save_score_midi(parts, f, **kwargs)
+        f.flush()
+        f.seek(0)
+        return mido.MidiFile(file=f)
+
+
 class TestMIDIExportModes(unittest.TestCase):
     def setUp(self):
         self.parts = make_assignment_mode_example()
@@ -112,11 +120,7 @@ class TestMIDIExportModes(unittest.TestCase):
         self.parts_list = list(score.iter_parts(self.parts))
 
     def _export_and_read(self, mode):
-        with TemporaryFile(suffix=".mid") as f:
-            save_score_midi(self.parts, f, part_voice_assign_mode=mode)
-            f.flush()
-            f.seek(0)
-            return mido.MidiFile(file=f)
+        return export_and_read(self.parts, part_voice_assign_mode=mode)
 
     def test_midi_export_mode_0(self):
         m = self._export_and_read(mode=0)
@@ -296,6 +300,40 @@ class TestMIDIExportModes(unittest.TestCase):
             "but is {}".format(ks_part, ks_track)
         )
         self.assertEqual(ks_part, ks_track, msg)
+
+    def test_midi_export_anacrusis(self):
+        part = score.Part("id")
+        # 1 div is 1 quarter
+        part.set_quarter_duration(0, 1)
+        # 4/4 at t=0
+        part.add(score.TimeSignature(4, 4), 0)
+
+        # ANACRUSIS
+        # quarter note from t=0 to t=1
+        part.add(score.Note("c", 4), 0, 1)
+        # incomplete measure from t=0 to t=1
+        part.add(score.Measure(), 0, 1)
+
+        # whole note from t=1 to t=5
+        part.add(score.Note("c", 4), 1, 5)
+        # add missing measures
+        score.add_measures(part)
+
+        # print(part.pretty())
+
+        mid = export_and_read(part, anacrusis_behavior="shift")
+        for msg in mid.tracks[0]:
+            if msg.type == "note_on":
+                assert msg.time == 0
+                break
+
+        mid = export_and_read(part, anacrusis_behavior="pad_bar")
+        for msg in mid.tracks[0]:
+            if msg.type == "note_on":
+                assert (
+                    msg.time == 3
+                ), f"Incorrect time of first note on: {msg.time} (should be 3)"
+                break
 
 
 def n_items_per_part_voice(pg, cls):
