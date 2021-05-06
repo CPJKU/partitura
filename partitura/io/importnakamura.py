@@ -376,7 +376,7 @@ class NakamuraCorrespFile(object):
             a tuple of structured arrays
 
         """
-        fields = [("onset", "f4"), ("pitch", "i4"), ("id", "U256")]
+        fields = [("onset_sec", "f4"), ("pitch", "i4"), ("id", "U256")]
 
         note_array0 = []
         note_array1 = []
