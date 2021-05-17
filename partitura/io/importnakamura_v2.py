@@ -61,7 +61,7 @@ def load_nakamuracorresp_v2(fn):
     return align, ref, alignment
 
 
-def load_nakamuramatch(fn, ppqn=1000):
+def load_nakamuramatch(fn):
     # ID (onset time) (offset time) (spelled pitch) (onset velocity) (offset velocity)
     # channel (match status) (score time) (note ID) (error index) (skip index)
     perf_dtype = [("onset_sec", "f4"),
@@ -72,9 +72,6 @@ def load_nakamuramatch(fn, ppqn=1000):
                   ("id", "U256"),
                   ]
     score_dtype = [("onset_div", "i4"),
-                   # ("duration_div", "i4"),
-                   ("onset_quarter", "f4"),
-                   # ("duration_quarter", "f4"),
                    ("pitch", "i4"),
                    ("step", "U256"),
                    ("alter", "i4"),
@@ -127,8 +124,6 @@ def load_nakamuramatch(fn, ppqn=1000):
     ref["id"][n_valid:] = missing["refID"]
     ref["onset_div"][:n_valid] = result["refOntime"][ref_valid]
     ref["onset_div"][n_valid:] = missing["refOntime"]
-    ref["onset_quarter"][:n_valid] = result["refOntime"][ref_valid] / ppqn
-    ref["onset_quarter"][n_valid:] = missing["refOntime"] / ppqn
     ref["pitch"][:n_valid] = midi_pitch[ref_valid]
     ref["pitch"][n_valid:] = -1
     pitch_spelling = [NAME_PATT.search(nn).groups()
@@ -141,6 +136,8 @@ def load_nakamuramatch(fn, ppqn=1000):
     ref["step"][:n_valid] = pitch_spelling[ref_valid][:, 0]
     ref["alter"][:n_valid] = pitch_spelling[ref_valid][:, 1]
     ref["octave"][:n_valid] = pitch_spelling[ref_valid][:, 2]
+    # * indicates that is a missing pitch
+    ref["step"][n_valid:] = '*'
 
     alignment = []
     for alignID, refID in result[["alignID", "refID"]]:
