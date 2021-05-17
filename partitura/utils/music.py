@@ -1112,7 +1112,7 @@ def match_note_arrays(
     target_note_arr : structured array
         Array containing performance/score information, which which we
         want to match the input.
-    fields : tuplet of strings
+    fields : strings or tuple of strings
         Field names to use for onset and duration in note_arrays.
         If None defaults to beats or seconds, respectively.
     epsilon : float
@@ -1138,7 +1138,18 @@ def match_note_arrays(
     target_note_array = ensure_notearray(target_note_array)
 
     if fields is not None:
-        onset_key, duration_key = fields
+
+        if isinstance(fields, (list, tuple)):
+            onset_key, duration_key = fields
+        elif isinstance(fields, str):
+            onset_key = fields
+            duration_key = None
+
+            if duration_key is None and check_duration:
+                check_duration = False
+        else:
+            raise ValueError("`fields` should be a tuple or a string, but given "
+                             f"{type(fields)}")
     else:
         onset_key, duration_key = get_time_units_from_note_array(input_note_array)
         onset_key_check, _ = get_time_units_from_note_array(target_note_array)
@@ -1169,6 +1180,12 @@ def match_note_arrays(
     matched_idxs = []
     matched_note_idxs = []
 
+    # dictionary of lists. For each index of the target, get a list of the
+    # corresponding indices in the input
+    matched_target = defaultdict(list)
+    # dictionary of lists. For each index of the input, get a list of the
+    # corresponding indices in the target
+    matched_input = defaultdict(list)
     for t, (i, o, p) in enumerate(zip(t_sort_idx, t_onsets, t_pitch)):
         # candidate onset idxs (between o - epsilon and o + epsilon)
         coix = np.where(
@@ -1178,14 +1195,43 @@ def match_note_arrays(
             # index of the note with the same pitch
             cpix = np.where(i_pitch[coix] == p)[0]
             if len(cpix) > 0:
+                m_idx = 0
                 # index of the note with the closest duration
-                if check_duration:
+                if len(cpix) > 1 and check_duration:
                     m_idx = abs(i_duration[coix[cpix]] - t_duration[t]).argmin()
-                else:
-                    m_idx = 0
                 # match notes
-                matched_idxs.append((int(i_sort_idx[coix[cpix[m_idx]]]), i))
+                input_idx = int(i_sort_idx[coix[cpix[m_idx]]])
+                target_idx = i
+                # matched_idxs.append((input_idx, target_idx))
+                matched_input[input_idx].append(target_idx)
+                matched_target[target_idx].append(input_idx)
 
+    matched_target_idxs = []
+    for inix, taix in matched_input.items():
+        if len(taix) > 1:
+            # For the case that there are multiple notes aligned to the input note
+
+            # get indices of the target notes if they have not yet been used
+            taix_to_consider = np.array([ti for ti in taix
+                                         if ti not in matched_target_idxs],
+                                        dtype=int)
+            if len(taix_to_consider) > 0:
+                # If there are some indices to consider
+                candidate_notes = target_note_array[taix_to_consider]
+
+                if check_duration:
+                    best_candidate_idx = \
+                        (candidate_notes[duration_key] -
+                         input_note_array[inix][duration_key]).argmin()
+                else:
+                    # Take the first one if no other information is given
+                    best_candidate_idx = 0
+
+                matched_idxs.append((inix, taix_to_consider[best_candidate_idx]))
+                matched_target_idxs.append(taix_to_consider[best_candidate_idx])
+        else:
+            matched_idxs.append((inix, taix[0]))
+            matched_target_idxs.append(taix[0])
     matched_idxs = np.array(matched_idxs)
 
     LOGGER.info("Length of matched idxs: " "{0}".format(len(matched_idxs)))
