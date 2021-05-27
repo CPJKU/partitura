@@ -207,7 +207,7 @@ def load_nakamuramatch(fn):
 
 def load_nakamuraspr(fn):
     """Load a spr file as returned by Nakamura et al.'s alignment methods.
-    
+
     Fields of the file format as specified in [8]_:
     ID (onset time) (offset time) (spelled pitch) (onset velocity)
     (offset velocity) channel
