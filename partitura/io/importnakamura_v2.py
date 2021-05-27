@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 This module contains methods for parsing score-to-performance alignments
 in Nakamura et al.'s [1]_ format.
@@ -8,17 +9,38 @@ References
        Detection and Post-Processing for Fast and Accurate Symbolic Music
        Alignment"
 """
-
-import numpy as np
+import logging
 import re
-from partitura.utils import (pitch_spelling_to_midi_pitch,
-                             ensure_pitch_spelling_format)
+import numpy as np
+
+from partitura.utils import note_name_to_midi_pitch
 from partitura.utils.music import SIGN_TO_ALTER
+
+LOGGER = logging.getLogger(__name__)
 
 NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
 
-def load_nakamuracorresp_v2(fn):
+def load_nakamuracorresp(fn):
+    """Load a corresp file as returned by Nakamura et al.'s MIDI to MIDI alignment.
+
+    Fields of the file format as specified in [8]_:
+    (ID) (onset time) (spelled pitch) (integer pitch) (onset velocity)
+
+    Parameters
+    ----------
+    fn : str
+        The nakamura match.txt-file
+
+    Returns
+    -------
+    align : structured array
+        structured array of performed notes
+    ref : structured array
+        structured array of score notes
+    alignment : list
+        The score--performance alignment, a list of dictionaries
+    """
     note_array_dtype = [("onset_sec", "f4"), ("pitch", "i4"), ("id", "U256")]
     dtype = [
         ("alignID", "U256"),
@@ -62,8 +84,31 @@ def load_nakamuracorresp_v2(fn):
 
 
 def load_nakamuramatch(fn):
-    # ID (onset time) (offset time) (spelled pitch) (onset velocity) (offset velocity)
-    # channel (match status) (score time) (note ID) (error index) (skip index)
+    """Load a match file as returned by Nakamura et al.'s MIDI to musicxml alignment
+
+    Fields of the file format as specified in [8]_:
+    ID (onset time) (offset time) (spelled pitch) (onset velocity)(offset velocity)
+    channel (match status) (score time) (note ID)(error index) (skip index)
+
+    Parameters
+    ----------
+    fn : str
+        The nakamura match.txt-file
+
+    Returns
+    -------
+    align : structured array
+        structured array of performed notes
+    ref : structured array
+        structured array of score notes
+    alignment : list
+        The score--performance alignment, a list of dictionaries
+
+    References
+    ----------
+    .. [8] https://midialignment.github.io/MANUAL.pdf
+
+    """
     perf_dtype = [("onset_sec", "f4"),
                   ("duration_sec", "f4"),
                   ("pitch", "i4"),
@@ -101,7 +146,7 @@ def load_nakamuramatch(fn):
     missing = np.fromregex(fn, pattern, dtype=dtype_missing)
 
     midi_pitch = np.array(
-        [note_name_to_midi_pitch_(n.replace('#', r'\#'))
+        [note_name_to_midi_pitch(n.replace('#', r'\#'))
          for n in result["alignSitch"]])
 
     align_valid = result["alignID"] != "*"
@@ -161,14 +206,35 @@ def load_nakamuramatch(fn):
 
 
 def load_nakamuraspr(fn):
-    """
+    """Load a spr file as returned by Nakamura et al.'s alignment methods.
+    
+    Fields of the file format as specified in [8]_:
+    ID (onset time) (offset time) (spelled pitch) (onset velocity)
+    (offset velocity) channel
+
+    These files contain extra information not included in match or corresp files,
+    particularly duration and pedal information, and can be used to complement the
+    information from the `load_nakamuracorresp` or `load_nakamuramatch`.
+
+    Parameters
+    ----------
+    fn : str
+        The nakamura match.txt-file
+
+    Returns
+    -------
+    note_array : structured array
+        structured array with note information
+
+    References
+    ----------
+    .. [8] https://midialignment.github.io/MANUAL.pdf
+
+
     TODO
     ----
     * Import pedal information
     """
-    # ID (onset time) (offset time) (spelled pitch) (onset velocity)
-    # (offset velocity) channel
-
     note_array_dtype = [("onset_sec", "f4"),
                         ("duration_sec", "f4"),
                         ("pitch", "i4"),
@@ -194,25 +260,9 @@ def load_nakamuraspr(fn):
     note_array["onset_sec"] = result["Ontime"]
     note_array["duration_sec"] = result["Offtime"] - result["Ontime"]
     note_array["pitch"] = np.array(
-        [note_name_to_midi_pitch_(n.replace('#', r'\#'))
+        [note_name_to_midi_pitch(n.replace('#', r'\#'))
          for n in result["Sitch"]])
     note_array["velocity"] = result["Onvel"]
     note_array["channel"] = result["Channel"]
 
     return note_array
-
-
-def note_name_to_midi_pitch_(note_name):
-
-    note_info = NAME_PATT.search(note_name)
-
-    if note_info is None:
-        raise ValueError("Incorrect note name")
-
-    step, alter, octave = note_info.groups()
-    step, alter, octave = ensure_pitch_spelling_format(
-        step=step,
-        alter=alter if alter != "" else "n",
-        octave=int(octave))
-
-    return pitch_spelling_to_midi_pitch(step, alter, octave)

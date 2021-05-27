@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from collections import defaultdict
 import logging
+import re
+
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
@@ -207,6 +209,8 @@ MINOR_KEYS = [
 
 TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
+NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
+
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
@@ -289,6 +293,41 @@ def midi_pitch_to_pitch_spelling(midi_pitch):
     octave = midi_pitch // 12 - 1
     step, alter = DUMMY_PS_BASE_CLASS[np.mod(midi_pitch, 12)]
     return ensure_pitch_spelling_format(step, alter, octave)
+
+
+def note_name_to_pitch_spelling(note_name):
+    note_info = NOTE_NAME_PATT.search(note_name)
+
+    if note_info is None:
+        raise ValueError("Invalid note name. "
+                         "The note name must be "
+                         "'<pitch class>(alteration)<octave>', "
+                         f"but was given {note_name}.")
+    step, alter, octave = note_info.groups()
+    step, alter, octave = ensure_pitch_spelling_format(
+        step=step,
+        alter=alter if alter != "" else "n",
+        octave=int(octave))
+    return step, alter, octave
+
+
+def note_name_to_midi_pitch(note_name):
+    step, alter, octave = note_name_to_pitch_spelling(note_name)
+    return pitch_spelling_to_midi_pitch(step, alter, octave)
+
+
+def pitch_spelling_to_note_name(step, alter, octave):
+    f_alter = ""
+    if alter > 0:
+        if alter == 2:
+            f_alter = "x"
+        else:
+            f_alter = alter * "#"
+    elif alter < 0:
+        f_alter = abs(alter) * "b"
+
+    note_name = f"{step.upper()}{f_alter}{octave}"
+    return note_name
 
 
 SIGN_TO_ALTER = {
