@@ -18,10 +18,10 @@ API changes:
 New features:
 
 [DRAFT ITEMS]
-* Add functions to create pianoroll representations from Part
-* Add functions to create polyphonic slices? cc7d074
+
 
 [FINAL ITEMS]
+* Add function to create 2D pianoroll representations from `Part`, `PerformedPart` or note arrays.
 * Add document order index to parts read from MusicXML
 * Support for sustain pedal info in MusicXML files
 * Add tonal tension profiles by Herremans and Chew (2016)
@@ -32,7 +32,7 @@ New features:
 Bug fixes:
   
 [DRAFT ITEMS]
-* Fix bug in voice separation? c36dc16
+* Fix bug in voice separation? c36dc16 (This is just a very minor bug: When creating `Voice` objects,  `self._voice` need to be initialized before calling `self._setup_voice()`, so perhaps it is not worth mentioning in the change log?)
 [FINAL ITEMS]
 * Fix tempo change bug in load_performance_midi
 * Fix saving parts with anacrusis to score MIDI
