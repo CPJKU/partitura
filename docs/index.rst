@@ -11,7 +11,7 @@ Partitura documentation
 
    introduction
    usage
-
+   genindex
 
 .. _api_reference:
 
@@ -23,11 +23,6 @@ Partitura documentation
    modules/partitura.score
    modules/partitura.performance
    modules/partitura.musicanalysis
+   modules/partitura.utils
 
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

@@ -2,15 +2,14 @@
 
 import logging
 import numpy as np
-from operator import itemgetter
 
 from collections import defaultdict, OrderedDict
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 import partitura.score as score
-from partitura.utils import partition, MIDI_CONTROL_TYPES
+from partitura.utils import partition
 
-__all__ = ['save_score_midi', 'save_performance_midi']
+__all__ = ["save_score_midi", "save_performance_midi"]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,18 +30,18 @@ def map_to_track_channel(note_keys, mode):
         if mode == 0:
             trk = tr_helper.setdefault(p, len(tr_helper))
             ch1 = ch_helper.setdefault(p, {})
-            ch2 = ch1.setdefault(v, len(ch1)+1)
+            ch2 = ch1.setdefault(v, len(ch1) + 1)
             track[(pg, p, v)] = trk
             channel[(pg, p, v)] = ch2
         elif mode == 1:
             trk = tr_helper.setdefault(pg, len(tr_helper))
             ch1 = ch_helper.setdefault(pg, {})
-            ch2 = ch1.setdefault(p, len(ch1)+1)
+            ch2 = ch1.setdefault(p, len(ch1) + 1)
             track[(pg, p, v)] = trk
             channel[(pg, p, v)] = ch2
         elif mode == 2:
             track[(pg, p, v)] = 0
-            ch = ch_helper.setdefault(p, len(ch_helper)+1)
+            ch = ch_helper.setdefault(p, len(ch_helper) + 1)
             channel[(pg, p, v)] = ch
         elif mode == 3:
             trk = tr_helper.setdefault(p, len(tr_helper))
@@ -56,26 +55,28 @@ def map_to_track_channel(note_keys, mode):
             track[(pg, p, v)] = trk
             channel[(pg, p, v)] = 1
         else:
-            raise Exception('unsupported part/voice assign mode {}'
-                            .format(mode))
+            raise Exception("unsupported part/voice assign mode {}".format(mode))
 
-    result = dict((k, (track.get(k, 0), channel.get(k, 1)))
-                  for k in note_keys)
+    result = dict((k, (track.get(k, 0), channel.get(k, 1))) for k in note_keys)
     # for (pg, p, voice), v in result.items():
     #     pgn = pg.group_name if hasattr(pg, 'group_name') else pg.id
     #     print(pgn, p.id, voice)
     #     print(v)
     #     print()
     return result
-    
+
 
 def get_ppq(parts):
-    ppqs = np.concatenate([part.quarter_durations()[:, 1]
-                           for part in score.iter_parts(parts)])
+    ppqs = np.concatenate(
+        [part.quarter_durations()[:, 1] for part in score.iter_parts(parts)]
+    )
     ppq = np.lcm.reduce(ppqs)
     return ppq
 
-def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velocity=64):
+
+def save_performance_midi(
+    performed_part, out, mpq=500000, ppq=480, default_velocity=64
+):
     """Save a :class:`~partitura.performance.PerformedPart` instance as a
     MIDI file.
 
@@ -99,35 +100,75 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
     """
     track_events = defaultdict(lambda: defaultdict(list))
 
-    ct_to_int = dict((v, k) for k, v in MIDI_CONTROL_TYPES.items())
     for c in performed_part.controls:
-        track = c.get('track', 0)
-        ch = c.get('channel', 1)
-        t = int(np.round(10**6*ppq*c['time']/mpq))
+        track = c.get("track", 0)
+        ch = c.get("channel", 1)
+        t = int(np.round(10 ** 6 * ppq * c["time"] / mpq))
         track_events[track][t].append(
-            Message('control_change', control=ct_to_int[c['type']], value=c['value'], channel=ch))
+            Message("control_change", control=c["number"], value=c["value"], channel=ch)
+        )
 
     for n in performed_part.notes:
-        track = n.get('track', 0)
-        ch = n.get('channel', 1)
-        t_on = int(np.round(10**6*ppq*n['note_on']/mpq))
-        t_off = int(np.round(10**6*ppq*n['note_off']/mpq))
-        vel = n.get('velocity', default_velocity)
+        track = n.get("track", 0)
+        ch = n.get("channel", 1)
+        t_on = int(np.round(10 ** 6 * ppq * n["note_on"] / mpq))
+        t_off = int(np.round(10 ** 6 * ppq * n["note_off"] / mpq))
+        vel = n.get("velocity", default_velocity)
         track_events[track][t_on].append(
-            Message('note_on', note=n['midi_pitch'], velocity=vel, channel=ch))
+            Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
+        )
         track_events[track][t_off].append(
-            Message('note_off', note=n['midi_pitch'], velocity=0, channel=ch))
+            Message("note_off", note=n["midi_pitch"], velocity=0, channel=ch)
+        )
 
+    for p in performed_part.programs:
+        track = p.get("track", 0)
+        ch = p.get("channel", 1)
+        t = int(np.round(10 ** 6 * ppq * p["time"] / mpq))
+        track_events[track][t].append(
+            Message("program_change", program=int(p["program"]), channel=ch)
+        )
+
+    if len(performed_part.programs) == 0:
+        # Add default program (to each track/channel)
+        channels_and_tracks = np.array(
+            list(
+                set(
+                    [
+                        (c.get("channel", 1), c.get("track", 0))
+                        for c in performed_part.controls
+                    ]
+                    + [
+                        (n.get("channel", 1), n.get("track", 0))
+                        for n in performed_part.notes
+                    ]
+                )
+            ),
+            dtype=int,
+        )
+
+        timepoints = []
+        for tr in track_events.keys():
+            timepoints += list(track_events[tr].keys())
+        timepoints = list(set(timepoints))
+
+        for tr in np.unique(channels_and_tracks[:, 1]):
+            channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
+            track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
+            for ch in track_channels:
+                track_events[tr][min(timepoints)].append(
+                    Message("program_change", program=0, channel=ch)
+                )
 
     midi_type = 0 if len(track_events) == 1 else 1
-    
+
     mf = MidiFile(type=midi_type, ticks_per_beat=ppq)
 
     for j, i in enumerate(sorted(track_events.keys())):
         track = MidiTrack()
         mf.tracks.append(track)
         if j == 0:
-            track.append(MetaMessage('set_tempo', tempo=mpq, time=0))
+            track.append(MetaMessage("set_tempo", tempo=mpq, time=0))
         t = 0
         for t_msg in sorted(track_events[i].keys()):
             t_delta = t_msg - t
@@ -136,13 +177,15 @@ def save_performance_midi(performed_part, out, mpq=500000, ppq=480, default_velo
                 t_delta = 0
             t = t_msg
     if out:
-        if hasattr(out, 'write'):
+        if hasattr(out, "write"):
             mf.save(file=out)
         else:
             mf.save(out)
 
 
-def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
+def save_score_midi(
+    parts, out, part_voice_assign_mode=0, velocity=64, anacrusis_behavior="shift"
+):
     """Write data from Part objects to a MIDI file
 
     Parameters
@@ -180,9 +223,14 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
             Return one track per <Part, voice> combination, each track
             having a single channel.
 
+        The default mode is 0.
     velocity : int, optional
-        Default velocity for all MIDI notes.
-
+        Default velocity for all MIDI notes. Defaults to 64.
+    anacrusis_behavior : {"shift", "pad_bar"}, optional
+        Strategy to deal with anacrusis. If "shift", all
+        time points are shifted by the anacrusis (i.e., the first
+        note starts at 0). If "pad_bar", the "incomplete" bar  of
+        the anacrusis is padded with silence. Defaults to 'shift'.
     """
 
     ppq = get_ppq(parts)
@@ -193,41 +241,69 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     event_keys = OrderedDict()
     tempos = {}
 
-    for i, part in enumerate(score.iter_parts(parts)):
-        
+    quarter_maps = [part.quarter_map for part in score.iter_parts(parts)]
+
+    first_time_point = min(qm(0) for qm in quarter_maps)
+
+    ftp = 0
+    # Deal with anacrusis
+    if first_time_point < 0:
+        if anacrusis_behavior == "shift":
+            ftp = first_time_point
+        elif anacrusis_behavior == "pad_bar":
+            time_signatures = []
+            for qm, part in zip(quarter_maps, score.iter_parts(parts)):
+                ts_beats, ts_beat_type = part.time_signature_map(0)
+                time_signatures.append((ts_beats, ts_beat_type, qm(0)))
+            # sort ts according to time
+            time_signatures.sort(key=lambda x: x[2])
+            ftp = -time_signatures[0][0] / (time_signatures[0][1] / 4)
+        else:
+            raise Exception(
+                'Invalid anacrusis_behavior value, must be one of ("shift", "pad_bar")'
+            )
+
+    for qm, part in zip(quarter_maps, score.iter_parts(parts)):
+
         pg = get_partgroup(part)
 
         notes = part.notes_tied
-        qm = part.quarter_map
-        q_offset = qm(part.first_point.t)
 
         def to_ppq(t):
             # convert div times to new ppq
-            return int(ppq*qm(t))
-        
+            return int(ppq * (qm(t) - ftp))
+
         for tp in part.iter_all(score.Tempo):
-            tempos[to_ppq(tp.start.t)] = MetaMessage('set_tempo', tempo=tp.microseconds_per_quarter)
+            tempos[to_ppq(tp.start.t)] = MetaMessage(
+                "set_tempo", tempo=tp.microseconds_per_quarter
+            )
 
         for ts in part.iter_all(score.TimeSignature):
-            meta_events[part][to_ppq(ts.start.t)].append(MetaMessage('time_signature',
-                                                                     numerator=ts.beats,
-                                                                     denominator=ts.beat_type))
+            meta_events[part][to_ppq(ts.start.t)].append(
+                MetaMessage(
+                    "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                )
+            )
 
         for ks in part.iter_all(score.KeySignature):
-            meta_events[part][to_ppq(ks.start.t)].append(MetaMessage('key_signature', key=ks.name))
+            meta_events[part][to_ppq(ks.start.t)].append(
+                MetaMessage("key_signature", key=ks.name)
+            )
 
         for note in notes:
-            
-            # key is a tuple (part_group, part, voice) that will be converted into a (track, channel) pair.
-            key = (pg, part, note.voice)
-            events[key][to_ppq(note.start.t)].append(Message('note_on', note=note.midi_pitch))
-            events[key][to_ppq(note.end_tied.t)].append(Message('note_off', note=note.midi_pitch))
 
+            # key is a tuple (part_group, part, voice) that will be
+            # converted into a (track, channel) pair.
+            key = (pg, part, note.voice)
+            events[key][to_ppq(note.start.t)].append(
+                Message("note_on", note=note.midi_pitch)
+            )
+            events[key][to_ppq(note.start.t + note.duration_tied)].append(
+                Message("note_off", note=note.midi_pitch)
+            )
             event_keys[key] = True
 
-    tr_ch_map = map_to_track_channel(list(event_keys.keys()),
-                                     part_voice_assign_mode)
-
+    tr_ch_map = map_to_track_channel(list(event_keys.keys()), part_voice_assign_mode)
 
     # replace original event keys (partgroup, part, voice) by (track, ch) keys:
     for key in list(events.keys()):
@@ -255,7 +331,6 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
     # tempo events are handled differently from key/time sigs because the have a
     # global effect. Instead of adding to each relevant track, like the key/time
     # sig events, we add them only to the first track
-    track0_events = events[0]
     for t, tp in tempos.items():
         events[0][t].insert(0, tp)
 
@@ -270,14 +345,14 @@ def save_score_midi(parts, out, part_voice_assign_mode=0, velocity=64):
             t_prev = t
 
     midi_type = 0 if n_tracks == 1 else 1
-    
+
     mf = MidiFile(type=midi_type, ticks_per_beat=ppq)
 
     for track in tracks:
         mf.tracks.append(track)
 
     if out:
-        if hasattr(out, 'write'):
+        if hasattr(out, "write"):
             mf.save(file=out)
         else:
             mf.save(out)

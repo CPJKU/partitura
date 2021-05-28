@@ -11,12 +11,12 @@ from setuptools import find_packages, setup, Command
 # Package meta-data.
 NAME = 'partitura'
 DESCRIPTION = 'A package for handling symbolic musical information'
-KEYWORDS = 'music notation musicxml midi'
-URL = 'https://github.com/mgrachten/partitura'
+KEYWORDS = 'music notation musicxml midi mei'
+URL = 'https://github.com/CPJKU/partitura'
 EMAIL = 'partitura-users@googlegroups.com'
-AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, and Thassilo Gadermaier'
-REQUIRES_PYTHON = '>=3.5'
-VERSION = '0.3.5'
+AUTHOR = 'Maarten Grachten, Carlos Cancino-Chacón, Thassilo Gadermaier, Silvan Peter and Nimrod Varga'
+REQUIRES_PYTHON = '>=3.6'
+VERSION = '0.4.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [

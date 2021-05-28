@@ -23,7 +23,7 @@ master_doc = 'index'
 
 project = 'partitura'
 # copyright = '2019, Maarten Grachten'
-author = 'Maarten Grachten, Carlos Eduardo Cancino Chacón, Thassilo Gadermaier'
+author = 'Maarten Grachten, Carlos Eduardo Cancino Chacón, Silvan Peter, Thassilo Gadermaier'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -98,13 +98,10 @@ if os.environ.get('READTHEDOCS') != 'True':
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
-# # html_theme = 'alabaster'
-# html_theme = "sphinx_rtd_theme"
-
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'partituradoc'

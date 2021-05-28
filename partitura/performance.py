@@ -12,9 +12,10 @@ import logging
 
 import numpy as np
 
+
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ['PerformedPart']
+__all__ = ["PerformedPart"]
 
 
 class PerformedPart(object):
@@ -58,17 +59,26 @@ class PerformedPart(object):
     controls : list
         A list of dictionaries containing continuous control
         information
+    programs : list
+        List of dictionaries containing program change information
 
     """
 
-    def __init__(self, notes, id=None, part_name=None,
-                 controls=None, sustain_pedal_threshold=64):
+    def __init__(
+        self,
+        notes,
+        id=None,
+        part_name=None,
+        controls=None,
+        programs=None,
+        sustain_pedal_threshold=64,
+    ):
         super().__init__()
         self.id = id
         self.part_name = part_name
-
         self.notes = notes
         self.controls = controls or []
+        self.programs = programs or []
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
@@ -99,71 +109,98 @@ class PerformedPart(object):
         # of the notes
         # """
         self._sustain_pedal_threshold = value
-        adjust_offsets_w_sustain(self.notes, self.controls,
-                                 self._sustain_pedal_threshold)
+        adjust_offsets_w_sustain(
+            self.notes, self.controls, self._sustain_pedal_threshold
+        )
 
     @property
     def note_array(self):
         """Structured array containing performance information.
-        The fields are 'id', 'pitch', 'p_onset', 'p_duration' and
-        'velocity'.
+        The fields are 'id', 'pitch', 'onset_div', 'duration_div',
+        'onset_sec', 'duration_sec' and 'velocity'.
         """
-        fields = [('id', 'U256'),
-                  ('pitch', 'i4'),
-                  ('p_onset', 'f4'),
-                  ('p_duration', 'f4'),
-                  ('velocity', 'i4')]
+
+        fields = [
+            ("onset_sec", "f4"),
+            ("duration_sec", "f4"),
+            ("pitch", "i4"),
+            ("velocity", "i4"),
+            ("track", "i4"),
+            ("channel", "i4"),
+            ("id", "U256"),
+        ]
         note_array = []
         for n in self.notes:
-            offset = n.get('sound_off', n['note_off'])
-            p_duration = offset - n['note_on']
-            note_array.append((n['id'],
-                               n['midi_pitch'],
-                               n['note_on'],
-                               p_duration,
-                               n['velocity']))
+            note_on_sec = n["note_on"]
+            offset = n.get("sound_off", n["note_off"])
+            duration_sec = offset - note_on_sec
+            note_array.append(
+                (
+                    note_on_sec,
+                    duration_sec,
+                    n["midi_pitch"],
+                    n["velocity"],
+                    n.get("track", 0),
+                    n.get("channel", 1),
+                    n["id"],
+                )
+            )
 
         return np.array(note_array, dtype=fields)
 
     @classmethod
-    def from_note_array(cls, note_array,
-                        id=None, part_name=None):
+    def from_note_array(cls, note_array, id=None, part_name=None):
         """Create an instance of PerformedPart from a note_array.
         Note that this property does not include non-note information (i.e.
         controls such as sustain pedal).
         """
-        if not 'id' in note_array.dtype.names:
-            n_ids = ['n{0}'.format(i) for i in range(len(note_array))]
+        if "id" not in note_array.dtype.names:
+            n_ids = ["n{0}".format(i) for i in range(len(note_array))]
         else:
-            n_ids = note_array['id']
+            n_ids = note_array["id"]
+
+        if "track" not in note_array.dtype.names:
+            tracks = np.zeros(len(note_array), dtype=int)
+        else:
+            tracks = note_array["track"]
+
+        if "channel" not in note_array.dtype.names:
+            channels = np.ones(len(note_array), dtype=int)
+        else:
+            channels = note_array["channel"]
 
         notes = []
-        for nid, note in zip(n_ids, note_array):
-            notes.append(dict(id=nid,
-                              midi_pitch=note['pitch'],
-                              note_on=note['p_onset'],
-                              note_off=note['p_onset'] + note['p_duration'],
-                              sound_off=note['p_onset'] + note['p_duration'],
-                              velocity=note['velocity']))
+        for nid, note, track, channel in zip(n_ids, note_array, tracks, channels):
+            notes.append(
+                dict(
+                    id=nid,
+                    midi_pitch=note["pitch"],
+                    note_on=note["onset_sec"],
+                    note_off=note["onset_sec"] + note["duration_sec"],
+                    sound_off=note["onset_sec"] + note["duration_sec"],
+                    track=track,
+                    channel=channel,
+                    velocity=note["velocity"],
+                )
+            )
 
-        return cls(id=id,
-                   part_name=part_name,
-                   notes=notes,
-                   controls=None)
+        return cls(id=id, part_name=part_name, notes=notes, controls=None)
 
 
 def adjust_offsets_w_sustain(notes, controls, threshold=64):
     # get all note offsets
-    offs = np.fromiter((n['note_off'] for n in notes), dtype=np.float)
+    offs = np.fromiter((n["note_off"] for n in notes), dtype=float)
     first_off = np.min(offs)
     last_off = np.max(offs)
 
     # Get pedal times
-    pedal = np.array([(x['time'], x['value'] > threshold)
-                      for x in controls
-                      if x['type'] == 'sustain_pedal'])
+    pedal = np.array(
+        [(x["time"], x["value"] > threshold) for x in controls if x["number"] == 64]
+    )
 
     if len(pedal) == 0:
+        for note in notes:
+            note["sound_off"] = note["note_off"]
         return
 
     # sort, just in case
@@ -171,13 +208,16 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
 
     # reduce the pedal info to just the times where there is a change in pedal state
 
-    pedal = np.vstack(((min(pedal[0, 0] - 1, first_off - 1), 0),
-                       pedal[0, :],
-                       # if there is an onset before the first pedal info, assume pedal is off
-                       pedal[np.where(np.diff(pedal[:, 1]) != 0)[0] + 1, :],
-                       # if there is an offset after the last pedal info, assume pedal is off
-                       (max(pedal[-1, 0] + 1, last_off + 1), 0)
-                       ))
+    pedal = np.vstack(
+        (
+            (min(pedal[0, 0] - 1, first_off - 1), 0),
+            pedal[0, :],
+            # if there is an onset before the first pedal info, assume pedal is off
+            pedal[np.where(np.diff(pedal[:, 1]) != 0)[0] + 1, :],
+            # if there is an offset after the last pedal info, assume pedal is off
+            (max(pedal[-1, 0] + 1, last_off + 1), 0),
+        )
+    )
     last_pedal_change_before_off = np.searchsorted(pedal[:, 0], offs) - 1
 
     pedal_state_at_off = pedal[last_pedal_change_before_off, 1]
@@ -187,4 +227,4 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
     offs[pedal_down_at_off] = next_pedal_time[pedal_down_at_off]
 
     for offset, note in zip(offs, notes):
-        note['sound_off'] = offset
+        note["sound_off"] = offset

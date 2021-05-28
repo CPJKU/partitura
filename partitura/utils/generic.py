@@ -7,29 +7,40 @@ import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
-__all__ = ['find_nearest', 'iter_current_next', 'partition', 'iter_subclasses']
+__all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
+
+
+class _OrderedSet(dict):
+    def add(self, x):
+        self[x] = None
+
+    def remove(self, x):
+        self.pop(x, None)
 
 
 def find_nearest(array, value):
     """
     Return the index of the value in `array` that is closest to `value`.
-    
+
     Parameters
     ----------
     array: ndarray
         Array of numbers
     value: float
         The query value
-    
+
     Returns
     -------
     int
         Index of closest value
     """
-    
+
     idx = np.searchsorted(array, value, side="left")
-    if idx > 0 and (idx == len(array) or np.abs(value - array[idx-1]) <= np.abs(value - array[idx])):
-        return idx-1
+    if idx > 0 and (
+        idx == len(array)
+        or np.abs(value - array[idx - 1]) <= np.abs(value - array[idx])
+    ):
+        return idx - 1
     else:
         return idx
 
@@ -37,6 +48,7 @@ def find_nearest(array, value):
 # we need a globally unique value to detect whether a keyword argument was
 # passed to iter_current_next
 _sentinel = object()
+
 
 def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     """Iterate over pairs of consecutive values in an iterable.
@@ -55,7 +67,7 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     end: object, optional
         If specified, this value will be treated as if it were the last element
         of the iterator
-    
+
     Yields
     ------
     (object, object)
@@ -93,13 +105,13 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
 
     """
     iterable = iter(iterable)
-    
+
     cur = start
     try:
 
         if cur is _sentinel:
             cur = next(iterable)
-            
+
         while True:
 
             nxt = next(iterable)
@@ -139,8 +151,9 @@ def iter_subclasses(cls, _seen=None):
     """
 
     if not isinstance(cls, type):
-        raise TypeError('iter_subclasses must be called with '
-                        'new-style classes, not %.100r' % cls)
+        raise TypeError(
+            "iter_subclasses must be called with " "new-style classes, not %.100r" % cls
+        )
     if _seen is None:
         _seen = set()
     try:
@@ -181,7 +194,7 @@ class ReplaceRefMixin(object):
     >>> a2 = MyClass(a1)
 
     Copy `a1` and `a2` to `b1` and `b2`, respectively:
-
+    >>> from copy import copy
     >>> b1 = copy(a1)
     >>> b2 = copy(a2)
 
@@ -201,14 +214,14 @@ class ReplaceRefMixin(object):
     >>> b2.replace_refs(object_map)
     >>> b2.prev == b1
     True
-    
+
     """
 
     def __init__(self):
         self._ref_attrs = []
 
     def replace_refs(self, o_map):
-        if hasattr(self, '_ref_attrs'):
+        if hasattr(self, "_ref_attrs"):
             for attr in self._ref_attrs:
                 o = getattr(self, attr)
                 if o is None:
@@ -220,9 +233,15 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            LOGGER.warning(dedent('''reference not found in
+                            LOGGER.warning(
+                                dedent(
+                                    """reference not found in
                             o_map: {} start={} end={}, substituting None
-                            '''.format(o_el, o_el.start, o_el.end)))
+                            """.format(
+                                        o_el, o_el.start, o_el.end
+                                    )
+                                )
+                            )
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
@@ -230,9 +249,15 @@ class ReplaceRefMixin(object):
                     if o in o_map:
                         o_new = o_map[o]
                     else:
-                        LOGGER.warning(dedent('''reference not found in o_map:
+                        LOGGER.warning(
+                            dedent(
+                                """reference not found in o_map:
                         {} start={} end={}, substituting None
-                        '''.format(o, o.start, o.end)))
+                        """.format(
+                                    o, o.start, o.end
+                                )
+                            )
+                        )
                         o_new = None
                     setattr(self, attr, o_new)
 
@@ -300,7 +325,8 @@ def partition(func, iterable):
     Examples
     ========
 
-    The following example groups the integers from 0 to 10 by their respective modulo 3 values:
+    The following example groups the integers from 0 to 10 by their
+    respective modulo 3 values:
 
     >>> lst = range(10)
     >>> partition(lambda x: x % 3, lst)
@@ -318,15 +344,13 @@ def add_field(a, descr):
     Return a new array that is like `a`, but has additional fields.
     The contents of `a` are copied over to the appropriate fields in
     the new array, whereas the new fields are uninitialized.  The
-    arguments are not modified.
-
-    Source: https://stackoverflow.com/questions/1201817/adding-a-field-to-a-structured-numpy-array
+    arguments are not modified. Source [8]_.
 
     Parameters
     ----------
     a: np.ndarray
         A structured numpy array
-    descr: np.dtype
+    descr: np.dtype or list
         A numpy type description of the new fields
 
     Returns
@@ -336,7 +360,7 @@ def add_field(a, descr):
 
     Examples
     --------
-
+    >>> import numpy as np
     >>> sa = np.array([(1, 'Foo'), (2, 'Bar')], \
                          dtype=[('id', int), ('name', 'S3')])
     >>> sa.dtype.descr == np.dtype([('id', int), ('name', 'S3')])
@@ -350,9 +374,20 @@ def add_field(a, descr):
     >>> np.all(sa['name'] == sb['name'])
     True
 
+    Notes
+    -----
+    Source:
+
+    .. [8]
+       https://stackoverflow.com/questions/1201817/\
+adding-a-field-to-a-structured-numpy-array
+
     """
     if a.dtype.fields is None:
         raise ValueError("`A` must be a structured numpy array")
+
+    if isinstance(descr, np.dtype):
+        descr = descr.descr
     b = np.empty(a.shape, dtype=a.dtype.descr + descr)
     for name in a.dtype.names:
         b[name] = a[name]
@@ -378,9 +413,10 @@ def show_diff(a, b):
     """
 
     import difflib
+
     differ = difflib.Differ()
-    for l in differ.compare(a.split('\n'), b.split('\n')):
-        print(l)
+    for li in differ.compare(a.split("\n"), b.split("\n")):
+        print(li)
 
 
 class PrettyPrintTree(object):
@@ -402,12 +438,12 @@ class PrettyPrintTree(object):
         self.stack[-1].last_item()
 
     def __str__(self):
-        return ''.join(str(sym) for sym in self.stack)
+        return "".join(str(sym) for sym in self.stack)
 
 
 class TreeSymbol(object):
     def __init__(self):
-        self.symbols = [' │  ', ' ├─ ', ' └─ ', '    ']
+        self.symbols = [" │  ", " ├─ ", " └─ ", "    "]
         self.state = 0
 
     def next_item(self):
@@ -448,6 +484,7 @@ def search(states, success, expand, combine):
 #         return None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()
