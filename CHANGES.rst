@@ -7,13 +7,13 @@ Version 0.4.0 (Released on 2021-05-04)
 API changes:
 
 [DRAFT ITEMS]
-* Different format for `note_array` attribute (in score, also performance?)
-* Simplified interface for tonal tension
+* Different format for `note_array` attribute (in `Part`, `PerformedPart` and `PartGroup`). The name of the fields in the note arrays for onset and duration information now include the units: `beat`, `quarter`, and `div` for scores and `sec` for performances.
+* Simplified interface for tonal tension (since there we are including the methods for tonal tension in this release, I would not include this item in the change log)
 [FINAL ITEMS]
 * The music analysis functions now accept `Part` and `PerformedPart` as well as note arrays
 * Support for all MIDI controls in `PerformedPart`. The controls are only stored by their CC number (not name).
 * Add default program change option to `PerformedPart`
-* Rename `estimate_tension` to `estimate_tonaltension`
+* Rename `estimate_tension` to `estimate_tonaltension` (Same for this item, the tonal tension methods are new for this release, so perhaps we should not include this item)
   
 New features:
 
