@@ -1,26 +1,19 @@
 Release Notes
 =============
 
-Version 0.4.0 (Released on 2021-05-04)
+Version 0.4.0 (Released on 2021-05-28)
 --------------------------------------
 
 API changes:
 
-[DRAFT ITEMS]
 * Different format for `note_array` attribute (in `Part`, `PerformedPart` and `PartGroup`). The name of the fields in the note arrays for onset and duration information now include the units: `beat`, `quarter`, and `div` for scores and `sec` for performances.
-* Simplified interface for tonal tension (since there we are including the methods for tonal tension in this release, I would not include this item in the change log)
-[FINAL ITEMS]
 * The music analysis functions now accept `Part` and `PerformedPart` as well as note arrays
 * Support for all MIDI controls in `PerformedPart`. The controls are only stored by their CC number (not name).
 * Add default program change option to `PerformedPart`
-* Rename `estimate_tension` to `estimate_tonaltension` (Same for this item, the tonal tension methods are new for this release, so perhaps we should not include this item)
+
   
 New features:
 
-[DRAFT ITEMS]
-
-
-[FINAL ITEMS]
 * Add function to create 2D pianoroll representations from `Part`, `PerformedPart` or note arrays.
 * Add document order index to parts read from MusicXML
 * Support for sustain pedal info in MusicXML files
@@ -31,9 +24,6 @@ New features:
 
 Bug fixes:
   
-[DRAFT ITEMS]
-* Fix bug in voice separation? c36dc16 (This is just a very minor bug: When creating `Voice` objects,  `self._voice` need to be initialized before calling `self._setup_voice()`, so perhaps it is not worth mentioning in the change log?)
-[FINAL ITEMS]
 * Fix tempo change bug in load_performance_midi
 * Fix saving parts with anacrusis to score MIDI
 * When defining `Note` objects, lower-case note names are converted to upper-case. Before this the behavior was undefined when using lower-case note names
@@ -43,8 +33,7 @@ Bug fixes:
 * Fix GraceNote bug
 
 Other changes:
-[DRAFT ITEMS]
-[FINAL ITEMS]
+
 * Add documentation
 * Code cleanup
 
