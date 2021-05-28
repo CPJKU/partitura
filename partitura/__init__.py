@@ -20,12 +20,13 @@ from . import musicanalysis
 
 
 # define a version variable
-# __version__ = pkg_resources.get_distribution("partitura").version
+__version__ = pkg_resources.get_distribution("partitura").version
 
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
     "partitura", "assets/score_example.musicxml"
 )
+#: An example MIDI file for didactic purposes
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
 
 EXAMPLE_MEI = pkg_resources.resource_filename("partitura", 'assets/score_example.mei')
@@ -42,7 +43,8 @@ __all__ = [
     "save_performance_midi",
     "load_match",
     "save_match",
-    # add names of nakamura and mei
+    "load_nakamuramatch",
+    "load_nakamuracorresp",
     "render",
     "EXAMPLE_MUSICXML",
     "EXAMPLE_MIDI",

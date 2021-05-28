@@ -19,8 +19,18 @@ MUSICXML_IMPORT_EXPORT_TESTFILES = [
     for fn in ["test_note_ties.xml", "test_note_ties_divs.xml"]
 ]
 MUSICXML_UNFOLD_TESTPAIRS = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2))
-    for fn1, fn2 in [("test_unfold_timeline.xml", "test_unfold_timeline_result.xml")]
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+        os.path.join(MUSICXML_PATH, fn3),
+    )
+    for fn1, fn2, fn3 in [
+        (
+            "test_unfold_timeline.xml",
+            "test_unfold_timeline_result.xml",
+            "test_unfold_timeline_result_updated_ids.xml",
+        )
+    ]
 ]
 
 # This is a list of files for testing Chew and Wu's VOSA. (More files to come?)
@@ -36,5 +46,10 @@ MATCH_IMPORT_EXPORT_TESTFILES = [
 # This is a list of files for testing Nakamura et al.'s corresp and match file loading
 NAKAMURA_IMPORT_TESTFILES = [
     os.path.join(NAKAMURA_PATH, fn)
-    for fn in ["Shi05_infer_corresp.txt", "Shi05_infer_corresp.txt"]
+    for fn in [
+        "Shi05_infer_corresp.txt",
+        "Shi05_infer_corresp.txt",
+        "test_nakamura_performance_corresp.txt",
+        "test_nakamura_performance_match.txt",
+    ]
 ]

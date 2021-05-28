@@ -52,25 +52,25 @@ def join_items(items):
 
 
 UNABBREVS = [
-    (re.compile("(crescendo|cresc\.?)"), "crescendo"),
-    (re.compile("(smorzando|smorz\.?)"), "smorzando"),
-    (re.compile("(decrescendo|(decresc|decr|dimin|dim)\.?)"), "diminuendo"),
-    (re.compile("((acceler|accel|acc)\.?)"), "accelerando"),
-    (re.compile("(ritenente|riten\.?)"), "ritenuto"),
-    (re.compile("((ritard|rit)\.?)"), "ritardando"),
-    (re.compile("((rallent|rall)\.?)"), "rallentando"),
-    (re.compile("(dolciss\.?)"), "dolcissimo"),
-    (re.compile("((sosten|sost)\.?)"), "sostenuto"),
-    (re.compile("(delicatiss\.?)"), "delicatissimo"),
-    (re.compile("(leggieramente|leggiermente|leggiero|legg\.?)"), "leggiero"),
-    (re.compile("(leggierissimo|(leggieriss\.?))"), "leggierissimo"),
-    (re.compile("(scherz\.?)"), "scherzando"),
-    (re.compile("(tenute|ten\.?)"), "tenuto"),
-    (re.compile("(allegretto)"), "allegro"),
-    (re.compile("(espress\.?)"), "espressivo"),
-    (re.compile("(ligato)"), "legato"),
-    (re.compile("(ligatissimo)"), "legatissimo"),
-    (re.compile("((rinforz|rinf|rfz|rf)\.?)"), "rinforzando"),
+    (re.compile(r"(crescendo|cresc\.?)"), "crescendo"),
+    (re.compile(r"(smorzando|smorz\.?)"), "smorzando"),
+    (re.compile(r"(decrescendo|(decresc|decr|dimin|dim)\.?)"), "diminuendo"),
+    (re.compile(r"((acceler|accel|acc)\.?)"), "accelerando"),
+    (re.compile(r"(ritenente|riten\.?)"), "ritenuto"),
+    (re.compile(r"((ritard|rit)\.?)"), "ritardando"),
+    (re.compile(r"((rallent|rall)\.?)"), "rallentando"),
+    (re.compile(r"(dolciss\.?)"), "dolcissimo"),
+    (re.compile(r"((sosten|sost)\.?)"), "sostenuto"),
+    (re.compile(r"(delicatiss\.?)"), "delicatissimo"),
+    (re.compile(r"(leggieramente|leggiermente|leggiero|legg\.?)"), "leggiero"),
+    (re.compile(r"(leggierissimo|(leggieriss\.?))"), "leggierissimo"),
+    (re.compile(r"(scherz\.?)"), "scherzando"),
+    (re.compile(r"(tenute|ten\.?)"), "tenuto"),
+    (re.compile(r"(allegretto)"), "allegro"),
+    (re.compile(r"(espress\.?)"), "espressivo"),
+    (re.compile(r"(ligato)"), "legato"),
+    (re.compile(r"(ligatissimo)"), "legatissimo"),
+    (re.compile(r"((rinforz|rinf|rfz|rf)\.?)"), "rinforzando"),
 ]
 
 
@@ -204,7 +204,8 @@ CONSTANT_ARTICULATION_ADJ = [
     r"/(legato|legatissimo|ligato|ligatissimo)/",
 ]
 
-# adjectives that may express a combination of tempo loudness and articulation directions
+# adjectives that may express a combination of tempo loudness and
+# articulation directions
 CONSTANT_MIXED_ADJ = [
     r"/(rinforzando|(rinforz|rinf|rfz|rf)\.?)/",
 ]
@@ -347,7 +348,8 @@ def regularize_form(children):
 
 def create_directions(tree, string, start=None, end=None):
     """
-    Recursively walk the parse tree of `string` to create a `score.Direction` or `score.Words` instance.
+    Recursively walk the parse tree of `string` to create a `score.Direction`
+    or `score.Words` instance.
 
     """
     if start is None:
@@ -409,8 +411,6 @@ def create_directions(tree, string, start=None, end=None):
             )
         ]
 
-    # elif tree.data in ('inc_tempo_adj', 'dec_tempo_adj'):
-    #     return [score.DynamicTempoDirection(regularize_form(tree.children), string[start:end])]
     elif tree.data == "inc_tempo_adj":
         return [
             score.IncreasingTempoDirection(

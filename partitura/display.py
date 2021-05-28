@@ -9,7 +9,6 @@ application.
 import platform
 import logging
 import os
-import shutil
 import subprocess
 from tempfile import NamedTemporaryFile, TemporaryFile
 
@@ -41,16 +40,18 @@ __all__ = ["render"]
 def render(part, fmt="png", dpi=90, out_fn=None):
     """Create a rendering of one or more parts or partgroups.
 
-    The function can save the rendered image to a file (when `out_fn`
-    is specified), or shown in the default image viewer application.
+    The function can save the rendered image to a file (when
+    `out_fn` is specified), or shown in the default image viewer
+    application.
 
-    Rendering is first attempted through musecore, and if that fails
-    through lilypond. If that also fails the function returns without
-    raising an exception.
+    Rendering is first attempted through musecore, and if that
+    fails through lilypond. If that also fails the function returns
+    without raising an exception.
 
     Parameters
     ----------
-    part : :class:`partitura.score.Part` or :class:`partitura.score.PartGroup` or list of these
+    part : :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
+           or a list of these
         The score content to be displayed
     fmt : {'png', 'pdf'}, optional
         The image format of the rendered material
@@ -63,9 +64,9 @@ def render(part, fmt="png", dpi=90, out_fn=None):
     img_fn = render_musescore(part, fmt, out_fn, dpi)
 
     if img_fn is None or not os.path.exists(img_fn):
-        img_fn = render_lilypond(part, fmt, out_fn)
+        img_fn = render_lilypond(part, fmt)
         if img_fn is None or not os.path.exists(img_fn):
-            return None
+            return
 
     if not out_fn:
         # NOTE: the temporary image file will not be deleted.
@@ -77,10 +78,10 @@ def render(part, fmt="png", dpi=90, out_fn=None):
             os.startfile(img_fn)
 
 
-def render_lilypond(part, fmt="png", out_fn=None):
+def render_lilypond(part, fmt="png"):
     if fmt not in ("png", "pdf"):
         print("warning: unsupported output format")
-        return
+        return None
 
     prvw_sfx = ".preview.{}".format(fmt)
 
@@ -98,15 +99,17 @@ def render_lilypond(part, fmt="png", out_fn=None):
         # convert musicxml to lilypond format (use stdout pipe)
         cmd1 = ["musicxml2ly", "-o-", "-"]
         try:
-            ps1 = subprocess.run(cmd1, stdin=xml_fh, stdout=subprocess.PIPE)
+            ps1 = subprocess.run(
+                cmd1, stdin=xml_fh, stdout=subprocess.PIPE, check=False
+            )
             if ps1.returncode != 0:
                 LOGGER.error(
                     "Command {} failed with code {}".format(cmd1, ps1.returncode)
                 )
-                return
+                return None
         except FileNotFoundError as f:
             LOGGER.error('Executing "{}" returned  {}.'.format(" ".join(cmd1), f))
-            return
+            return None
 
         # convert lilypond format (read from pipe of ps1) to image, and save to
         # temporary filename
@@ -119,12 +122,12 @@ def render_lilypond(part, fmt="png", out_fn=None):
             "-",
         ]
         try:
-            ps2 = subprocess.run(cmd2, input=ps1.stdout)
+            ps2 = subprocess.run(cmd2, input=ps1.stdout, check=False)
             if ps2.returncode != 0:
                 LOGGER.error(
                     "Command {} failed with code {}".format(cmd2, ps2.returncode)
                 )
-                return
+                return None
         except FileNotFoundError as f:
             LOGGER.error('Executing "{}" returned {}.'.format(" ".join(cmd2), f))
             return

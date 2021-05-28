@@ -12,6 +12,7 @@ import logging
 
 import numpy as np
 
+
 LOGGER = logging.getLogger(__name__)
 
 __all__ = ["PerformedPart"]
@@ -188,7 +189,7 @@ class PerformedPart(object):
 
 def adjust_offsets_w_sustain(notes, controls, threshold=64):
     # get all note offsets
-    offs = np.fromiter((n["note_off"] for n in notes), dtype=np.float)
+    offs = np.fromiter((n["note_off"] for n in notes), dtype=float)
     first_off = np.min(offs)
     last_off = np.max(offs)
 

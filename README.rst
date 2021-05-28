@@ -28,33 +28,43 @@ Part id="P1" name="Piano"
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Measure number=1
- │       ├─ Note id=n01 voice=1 staff=2 type=whole pitch=A4
- │       ├─ Page number=1
- │       ├─ Rest id=r01 voice=2 staff=1 type=half
- │       ├─ System number=1
- │       └─ TimeSignature 4/4
+ │       ├─ 0--48 Measure number=1
+ │       ├─ 0--48 Note id=n01 voice=1 staff=2 type=whole pitch=A4
+ │       ├─ 0--48 Page number=1
+ │       ├─ 0--24 Rest id=r01 voice=2 staff=1 type=half
+ │       ├─ 0--48 System number=1
+ │       └─ 0-- TimeSignature 4/4
  │
  ├─ TimePoint t=24 quarter=12
  │   │
  │   ├─ ending objects
  │   │   │
- │   │   └─ Rest id=r01 voice=2 staff=1 type=half
+ │   │   └─ 0--24 Rest id=r01 voice=2 staff=1 type=half
  │   │
  │   └─ starting objects
  │       │
- │       ├─ Note id=n02 voice=2 staff=1 type=half pitch=C5
- │       └─ Note id=n03 voice=2 staff=1 type=half pitch=E5
+ │       ├─ 24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
+ │       └─ 24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
  │
  └─ TimePoint t=48 quarter=12
      │
      └─ ending objects
          │
-         ├─ Measure number=1
-         ├─ Note id=n01 voice=1 staff=2 type=whole pitch=A4
-         ├─ Note id=n02 voice=2 staff=1 type=half pitch=C5
-         └─ Note id=n03 voice=2 staff=1 type=half pitch=E5
+         ├─ 0--48 Measure number=1
+         ├─ 0--48 Note id=n01 voice=1 staff=2 type=whole pitch=A4
+         ├─ 24--48 Note id=n02 voice=2 staff=1 type=half pitch=C5
+         ├─ 24--48 Note id=n03 voice=2 staff=1 type=half pitch=E5
+         ├─ 0--48 Page number=1
+         └─ 0--48 System number=1
   
+If `lilypond` or `MuseScore` are installed on the system, the following command
+renders the part to an image and displays it:
+
+>>> partitura.render(part)
+
+.. image:: https://raw.githubusercontent.com/CPJKU/partitura/master/docs/images/score_example.png
+   :alt: Score example
+
 The notes in this part can be accessed through the property
 `part.notes`:
 
@@ -62,8 +72,8 @@ The notes in this part can be accessed through the property
 [<partitura.score.Note object at 0x...>, <partitura.score.Note object at 0x...>, 
  <partitura.score.Note object at 0x...>]
 
-To create a piano roll extract from the part as a numpy array you would do
-the following:
+The following code stores the start, end, and midi pitch of the notes in a numpy
+array:
 
 >>> import numpy as np
 >>> pianoroll = np.array([(n.start.t, n.end.t, n.midi_pitch) for n in part.notes])
@@ -72,7 +82,7 @@ the following:
  [24 48 72]
  [24 48 76]]
 
-The note start and end times are in the units specificied by the
+The note start and end times are in the units specified by the
 `divisions` element of the MusicXML file. This element specifies the
 duration of a quarter note. The `divisions` value can vary within an
 MusicXML file, so it is generally better to work with musical time in
@@ -87,13 +97,22 @@ times into beat times:
 >>> print(beat_map(pianoroll[:, 1]))
 [4. 4. 4.]
 
-More elaborate examples can be found in the documentation.
+The following commands save the part to MIDI and MusicXML, respectively:
+
+>>> partitura.save_score_midi(part, 'mypart.mid')
+
+>>> partitura.save_musicxml(part, 'mypart.musicxml')
+
+More elaborate examples can be found in the `documentation
+<https://partitura.readthedocs.io/en/latest/index.html>`_.
+
 
 License
 =======
 
 The code in this package is licensed under the Apache 2.0 License. For details,
 please see the `LICENSE <LICENSE>`_ file.
+
 
 Installation
 ============
@@ -106,16 +125,17 @@ Package Index) <https://pypi.python.org/pypi>`_::
 This will install the latest release of the package and will install all
 dependencies automatically.
 
-Mailing list
-============
-
-The `mailing list <https://groups.google.com/d/forum/partitura-users>`_ should be
-used to get in touch with the developers and other users.
 
 Acknowledgments
 ===============
 
-This work has received support from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme under grant agreement No. 670035 (project `"Con Espressione" <https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/>`_)
+This work has received support from the European Research Council (ERC) under
+the European Union’s Horizon 2020 research and innovation programme under grant
+agreement No. 670035 (project `"Con Espressione"
+<https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/>`_)
+and the Austrian Science Fund (FWF) under grant P 29840-G26 (project
+`"Computer-assisted Analysis of Herbert von Karajan's Musical Conducting Style"
+<https://karajan-research.org/programs/musical-interpretation-karajan>`_)
 
 .. image:: https://www.jku.at/fileadmin/_processed_/4/3/csm_erc_eu_8b7e33136b.png
    :width: 600

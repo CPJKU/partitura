@@ -15,10 +15,7 @@ from partitura.io.importmatch import (
     MatchNote,
     MatchSnoteNote,
     MatchSnoteDeletion,
-    MatchSnoteTrailingScore,
     MatchInsertionNote,
-    MatchHammerBounceNote,
-    MatchTrailingPlayedNote,
     MatchSustainPedal,
     MatchSoftPedal,
     MatchOrnamentNote,
@@ -141,7 +138,8 @@ def matchfile_from_alignment(
         snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
 
-        # ____ does this really give the full measure? or just the first note? it seems like it returns the first note.
+        # ____ does this really give the full measure? or just the first note?
+        # it seems like it returns the first note.
         bar_start = float(spart.beat_map(m.start.t))
 
         for n in snotes:

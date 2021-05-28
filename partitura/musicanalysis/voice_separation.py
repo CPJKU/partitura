@@ -9,7 +9,7 @@ from statistics import mode
 import numpy as np
 from numpy import ma
 
-from partitura.utils.music import ensure_notearray, get_time_units_from_note_array
+from partitura.utils import ensure_notearray, get_time_units_from_note_array
 
 # from partitura.musicanalysis.utils import prepare_notearray
 
@@ -144,7 +144,7 @@ def estimate_voices(note_info, monophonic_voices=False):
     v_notearray = VoSA(input_array).note_array
 
     # map the voices to the original notes
-    voices = np.empty(len(notearray), dtype=np.int)
+    voices = np.empty(len(notearray), dtype=int)
 
     for idx, voice in zip(v_notearray["id"], v_notearray["voice"]):
         voices[idx_equivs[idx]] = voice
@@ -274,7 +274,7 @@ def est_best_connections(cost, mode="prev"):
         mask[next_best, :] = 1
         mcost.mask = mask
 
-    best_assignment = np.array(best_assignment).astype(np.int)
+    best_assignment = np.array(best_assignment).astype(int)
 
     # Get unassigned streams
     unassigned_streams = list(set(range(n_streams)).difference(best_assignment[:, 0]))
@@ -812,7 +812,7 @@ class VoSA(VSBaseScore):
                 np.where(self.score["onset"] == u)[0] for u in unique_onsets
             ]
             main_notes_idxs = []
-            grace_notes = []
+
             for g_i in grace_note_idxs:
                 grace_note = self.score[g_i]
                 candidate_note_idxs = np.where(
@@ -824,7 +824,7 @@ class VoSA(VSBaseScore):
                     next_onset_idx = int(
                         np.where(unique_onsets == grace_note["onset"])[0] + 1
                     )
-                    # import pdb; pdb.set_trace()
+
                     candidate_note_idxs = unique_onset_idxs[next_onset_idx]
 
                 candidate_notes = self.score[candidate_note_idxs]
@@ -990,12 +990,8 @@ class VoSA(VSBaseScore):
         Estimate voices using global minimum connections
         """
         # indices of the maximal contigs
-        maximal_contigs_idxs = np.where(
-            self._voices_per_contig == self.num_voices)[0]
+        maximal_contigs_idxs = np.where(self._voices_per_contig == self.num_voices)[0]
 
-        # indices of the non maximal contigs
-        non_maximal_contigs = self._voices_per_contig != self.num_voices
-        non_maximal_contigs_idx = np.where(non_maximal_contigs)[0]
         # initialize maximal contigs and voice managers
         voice_managers_dict = dict()
         for mci in maximal_contigs_idxs:
