@@ -20,7 +20,7 @@ from . import musicanalysis
 
 
 # define a version variable
-# __version__ = pkg_resources.get_distribution("partitura").version
+__version__ = pkg_resources.get_distribution("partitura").version
 
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
