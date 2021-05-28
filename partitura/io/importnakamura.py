@@ -260,7 +260,7 @@ def load_nakamuraspr(fn):
     note_array["onset_sec"] = result["Ontime"]
     note_array["duration_sec"] = result["Offtime"] - result["Ontime"]
     note_array["pitch"] = np.array(
-        [note_name_to_midi_pitch(n.replace('#', r'\#'))
+        [note_name_to_midi_pitch(n)
          for n in result["Sitch"]])
     note_array["velocity"] = result["Onvel"]
     note_array["channel"] = result["Channel"]
