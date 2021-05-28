@@ -46,5 +46,10 @@ MATCH_IMPORT_EXPORT_TESTFILES = [
 # This is a list of files for testing Nakamura et al.'s corresp and match file loading
 NAKAMURA_IMPORT_TESTFILES = [
     os.path.join(NAKAMURA_PATH, fn)
-    for fn in ["Shi05_infer_corresp.txt", "Shi05_infer_corresp.txt"]
+    for fn in [
+        "Shi05_infer_corresp.txt",
+        "Shi05_infer_corresp.txt",
+        "test_nakamura_performance_corresp.txt",
+        "test_nakamura_performance_match.txt",
+    ]
 ]

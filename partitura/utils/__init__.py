@@ -39,6 +39,9 @@ from partitura.utils.music import (
     note_array_from_note_list,
     get_time_units_from_note_array,
     update_note_ids_after_unfolding,
+    note_name_to_pitch_spelling,
+    note_name_to_midi_pitch,
+    pitch_spelling_to_note_name
 )
 
 __all__ = [
