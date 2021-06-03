@@ -141,4 +141,5 @@ and the Austrian Science Fund (FWF) under grant P 29840-G26 (project
    :width: 600
    :align: center
 
-.. image:: https://raw.githubusercontent.com/CPJKU/partitura/update_readme/docs/images/fwf-logo.png
+.. image:: https://raw.githubusercontent.com/CPJKU/partitura/update_readme/docs/images/fwf-logo.jpg
+   :width: 400
