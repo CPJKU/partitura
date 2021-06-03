@@ -140,3 +140,5 @@ and the Austrian Science Fund (FWF) under grant P 29840-G26 (project
 .. image:: https://www.jku.at/fileadmin/_processed_/4/3/csm_erc_eu_8b7e33136b.png
    :width: 600
    :align: center
+
+.. image:: https://raw.githubusercontent.com/CPJKU/partitura/update_readme/docs/images/fwf-logo.png
