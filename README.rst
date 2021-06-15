@@ -137,7 +137,7 @@ and the Austrian Science Fund (FWF) under grant P 29840-G26 (project
 `"Computer-assisted Analysis of Herbert von Karajan's Musical Conducting Style"
 <https://karajan-research.org/programs/musical-interpretation-karajan>`_)
 
-.. image:: https://raw.githubusercontent.com/CPJKU/partitura/update_readme/docs/images/erc_fwf_logos.jpg
+.. image:: https://raw.githubusercontent.com/CPJKU/partitura/master/docs/images/erc_fwf_logos.jpg
    :width: 600 px
    :scale: 1%
    :align: center
