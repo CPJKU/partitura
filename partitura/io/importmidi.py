@@ -168,7 +168,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                     notes.append(
                         dict(
-                            id=f"n{len(notes)}",
+                            # id=f"n{len(notes)}",
                             midi_pitch=msg.note,
                             note_on=(sounding_notes[note][0]),
                             note_off=(t),
@@ -180,6 +180,20 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                     # remove hash from dict
                     del sounding_notes[note]
+
+        # fix note ids so that it is sorted lexicographically
+        # by onset, pitch, offset, channel and track
+        notes.sort(
+            key=lambda x: (x['note_on'],
+                           x['midi_pitch'],
+                           x['note_off'],
+                           x['channel'],
+                           x['track'])
+            )
+
+        # add note id to every note
+        for i, note in enumerate(notes):
+            note["id"] = f"n{i}"
 
     return performance.PerformedPart(notes, controls=controls, programs=programs)
 
