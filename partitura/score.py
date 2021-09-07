@@ -205,6 +205,33 @@ class Part(object):
             fill_value="extrapolate",
         )
 
+    @property
+    def measure_map(self):
+        """A function mapping timeline times to the start and end of
+        the measure they are contained in. The function can take
+        scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+        measures = np.array([(m.start.t, m.end.t) for m in self.iter_all(Measure)])
+
+        if len(measures) == 0:  # no measures in the piece
+            # default only one measure spanning the entire timeline
+            LOGGER.warning("No measures found, assuming only one measure")
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.last_point.t
+
+            measures = np.array([(t0, tN)])
+
+        return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), :]
+
     def _time_interpolator(self, quarter=False, inv=False):
 
         if len(self._points) < 2:
@@ -3068,7 +3095,7 @@ def find_tuplets(part):
             tup_start = 0
 
             while tup_start <= (len(group) - actual_notes):
-                note_tuplet = group[tup_start: tup_start + actual_notes]
+                note_tuplet = group[tup_start : tup_start + actual_notes]
                 # durs = set(n.duration for n in group[:tuplet-1])
                 durs = set(n.duration for n in note_tuplet)
 
