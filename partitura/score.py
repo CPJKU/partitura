@@ -12,6 +12,7 @@ are registered in terms of their start and end times.
 
 from copy import copy
 from collections import defaultdict
+from collections.abc import Iterable
 import logging
 from numbers import Number
 
@@ -231,6 +232,31 @@ class Part(object):
             measures = np.array([(t0, tN)])
 
         return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), :]
+
+    @property
+    def metrical_position_map(self):
+        """A function mapping timeline times to their relative position in
+        the measure they are contained in. The function can take
+        scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+
+        return (
+            lambda x: (
+                x - self.measure_map(x)[:, 0],
+                self.measure_map(x)[:, 1] - self.measure_map(x)[:, 0],
+            )
+            if isinstance(x, Iterable)
+            else (
+                x - self.measure_map(x)[0],
+                self.measure_map(x)[1] - self.measure_map(x)[0],
+            )
+        )
 
     def _time_interpolator(self, quarter=False, inv=False):
 
