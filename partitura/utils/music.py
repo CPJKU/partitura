@@ -1727,7 +1727,7 @@ def note_array_from_note_list(
                If `measure_map` is not None.
             * 'rel_onset_div': number of divs elapsed from the beginning of the note measure.
                If `measure_map` is not None.
-            * 'tot_measure_divs' : total number of divs in the note measure
+            * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
     """
 

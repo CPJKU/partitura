@@ -247,12 +247,14 @@ class Part(object):
         """
 
         return (
-            lambda x: (
-                x - self.measure_map(x)[:, 0],
-                self.measure_map(x)[:, 1] - self.measure_map(x)[:, 0],
-            )
+            lambda x: np.vstack(  # if the input is an array
+                (
+                    x - self.measure_map(x)[:, 0],
+                    self.measure_map(x)[:, 1] - self.measure_map(x)[:, 0],
+                )
+            ).T
             if isinstance(x, Iterable)
-            else (
+            else (  # if the input is just a scalar
                 x - self.measure_map(x)[0],
                 self.measure_map(x)[1] - self.measure_map(x)[0],
             )
