@@ -211,6 +211,8 @@ TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
 NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
+MUSICAL_BEATS = {6:2,9:3,12:4}
+
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
@@ -1532,7 +1534,8 @@ def note_array_from_part(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_metrical_salience=False
+    include_metrical_salience=False,
+    use_musical_beat = False
 ):
     """
     Create a structured array with note information
@@ -1560,6 +1563,10 @@ def note_array_from_part(
         the metrical salience at the onset time of each note (all
         notes starting at the same time have the same metrical salience).
         Default is False
+    use_musical_beat : bool (optional)
+        If `True`,  all the values where the number and position of beats
+        are concerned will consider the musical beat, not the numerator
+        in the time signature (e.g. 2 for 6/8, 3 for 9/8, 4 for 12/8)
 
     Returns
     -------
@@ -1635,9 +1642,14 @@ def note_array_from_part(
     else:
         metrical_position_map = None
 
+    if use_musical_beat:
+        beat_map = part.musical_beat_map
+    else:
+        beat_map = part.beat_map
+
     note_array = note_array_from_note_list(
         note_list=part.notes_tied,
-        beat_map=part.beat_map,
+        beat_map=beat_map,
         quarter_map=part.quarter_map,
         time_signature_map=time_signature_map,
         key_signature_map=key_signature_map,
@@ -1758,7 +1770,7 @@ def note_array_from_note_list(
 
     # fields for time signature
     if time_signature_map is not None:
-        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
+        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4"), ("ts_musical_beats", "i4")]
 
     # fields for metrical salience
     if metrical_position_map is not None:

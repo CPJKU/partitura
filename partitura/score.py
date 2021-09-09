@@ -16,6 +16,8 @@ from collections.abc import Iterable
 import logging
 from numbers import Number
 
+from utils.music import MUSICAL_BEATS
+
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -260,7 +262,7 @@ class Part(object):
             )
         )
 
-    def _time_interpolator(self, quarter=False, inv=False):
+    def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
         if len(self._points) < 2:
             return lambda x: np.zeros(len(x))
@@ -313,6 +315,8 @@ class Part(object):
                 normal_dur = ts.beats
                 if quarter:
                     normal_dur *= 4 / ts.beat_type
+                if musical_beat:
+                    normal_dur = ts.musical_beats
                 if actual_dur < normal_dur:
                     y -= actual_dur
             else:
@@ -336,6 +340,19 @@ class Part(object):
 
         """
         return self._time_interpolator()
+
+    @property
+    def musical_beat_map(self):
+        """A function mapping timeline times to musical beat times. 
+        The function can take scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+        return self._time_interpolator(musical_beat=True)
 
     @property
     def inv_beat_map(self):
@@ -1951,16 +1968,22 @@ class TimeSignature(TimedObject):
     Parameters
     ----------
     beats : int
-        The number of beats in a measure
+        The number of beats in a measure (the numerator).
     beat_type : int
-        The note type that defines the beat unit. (4 for quarter
-        notes, 2 for half notes, etc.)
+        The note type that defines the beat unit (the denominator). 
+        (4 for quarter notes, 2 for half notes, etc.)
+    musical_beats : int
+        The number of beats according to musicologial standards 
+        (2 if beats is 2 or 6; 3 if beats is 3 or 9; 4 if beats is 4 or 12; 
+        else beats)
 
     Attributes
     ----------
     beats : int
         See parameters
     beat_type : int
+        See parameters
+    musical_beat : int
         See parameters
 
     """
@@ -1969,6 +1992,11 @@ class TimeSignature(TimedObject):
         super().__init__()
         self.beats = beats
         self.beat_type = beat_type
+        self.musical_beat = (  # if a value is provided, otherwise default to beats
+            MUSICAL_BEATS[self.beats]
+            if self.beats in MUSICAL_BEATS.keys()
+            else self.beats
+        )
 
     def __str__(self):
         return f"{super().__str__()} {self.beats}/{self.beat_type}"
