@@ -7,6 +7,11 @@ the Part class.
 import unittest
 
 import partitura.score as score
+from partitura import load_musicxml
+from partitura.utils.music import note_array_from_part
+import numpy as np
+
+from tests import NOTE_ARRAY_TESTFILES
 
 
 class TestNoteArray(unittest.TestCase):
@@ -23,3 +28,21 @@ class TestNoteArray(unittest.TestCase):
 
         note_array = part.note_array
         self.assertTrue(len(note_array) == 1)
+
+    def test_notearray_beats(self):
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        note_array = note_array_from_part(part)
+        expected_onset_beats = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 29, 30, 32]
+
+        self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
+
+    def test_notearray_musical_beats(self):
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        note_array = note_array_from_part(part, use_musical_beat=True)
+        expected_onset_beats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14]
+
+        self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
+
+
+if __name__ == "__main__":
+    unittest.main()

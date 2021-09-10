@@ -58,3 +58,5 @@ METRICAL_SALIENCE_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn) for fn in ["test_metrical_salience.xml"]
 ]
 
+NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
+

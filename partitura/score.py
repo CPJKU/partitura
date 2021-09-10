@@ -16,7 +16,7 @@ from collections.abc import Iterable
 import logging
 from numbers import Number
 
-from utils.music import MUSICAL_BEATS
+from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -275,7 +275,12 @@ class Part(object):
         if not quarter:
             for ts in self.iter_all(TimeSignature):
                 # keypoints[ts.start.t][1] = int(np.log2(ts.beat_type))
-                keypoints[ts.start.t][1] = ts.beat_type / 4
+                if musical_beat:
+                    keypoints[ts.start.t][1] = (ts.beat_type / 4) * (
+                        ts.musical_beats / ts.beats
+                    )
+                else:
+                    keypoints[ts.start.t][1] = ts.beat_type / 4
         cur_div = 1
         cur_bt = 1
         keypoints_list = []
@@ -1992,7 +1997,7 @@ class TimeSignature(TimedObject):
         super().__init__()
         self.beats = beats
         self.beat_type = beat_type
-        self.musical_beat = (  # if a value is provided, otherwise default to beats
+        self.musical_beats = (  # if a value is provided, otherwise default to beats
             MUSICAL_BEATS[self.beats]
             if self.beats in MUSICAL_BEATS.keys()
             else self.beats
