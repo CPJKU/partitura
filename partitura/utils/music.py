@@ -1821,9 +1821,9 @@ def note_array_from_note_list(
             note_info += (fifths, mode)
 
         if time_signature_map is not None:
-            beats, beat_type = time_signature_map(note.start.t)
+            beats, beat_type, musical_beats = time_signature_map(note.start.t)
 
-            note_info += (beats, beat_type)
+            note_info += (beats, beat_type, musical_beats)
 
         if metrical_position_map is not None:
             rel_onset_div, tot_measure_div = metrical_position_map(note.start.t)
