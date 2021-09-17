@@ -131,16 +131,14 @@ class Part(object):
         """
         tss = np.array(
             [
-                (ts.start.t, ts.beats, ts.beat_type, MUSICAL_BEATS[ts.beats])
-                if ts.beats in MUSICAL_BEATS
-                else (ts.start.t, ts.beats, ts.beat_type, ts.beats)
+                (ts.start.t, ts.beats, ts.beat_type)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
 
         if len(tss) == 0:
             # default time sig
-            beats, beat_type, musical_beats = 4, 4, 4
+            beats, beat_type = 4, 4
             LOGGER.warning(
                 "No time signatures found, assuming {}/{}".format(beats, beat_type)
             )
@@ -149,19 +147,12 @@ class Part(object):
             else:
                 t0 = self.first_point.t
                 tN = self.last_point.t
-            tss = np.array(
-                [
-                    (t0, beats, beat_type, musical_beats),
-                    (tN, beats, beat_type, musical_beats),
-                ]
-            )
+            tss = np.array([(t0, beats, beat_type), (tN, beats, beat_type),])
         elif len(tss) == 1:
             # If there is only a single time signature
-            return lambda x: np.array([tss[0, 1], tss[0, 2], tss[0, 3]])
+            return lambda x: np.array([tss[0, 1], tss[0, 2]])
         elif tss[0, 0] > self.first_point.t:
-            tss = np.vstack(
-                ((self.first_point.t, tss[0, 1], tss[0, 2], tss[0, 3]), tss)
-            )
+            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]), tss))
 
         return interp1d(
             tss[:, 0],

@@ -1652,6 +1652,7 @@ def note_array_from_part(
         beat_map=beat_map,
         quarter_map=part.quarter_map,
         time_signature_map=time_signature_map,
+        use_musical_beat = use_musical_beat,
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling)
@@ -1663,6 +1664,7 @@ def note_array_from_note_list(
         beat_map=None,
         quarter_map=None,
         time_signature_map=None,
+        use_musical_beat = None,
         key_signature_map=None,
         metrical_position_map=None,
         include_pitch_spelling=False,
@@ -1770,7 +1772,11 @@ def note_array_from_note_list(
 
     # fields for time signature
     if time_signature_map is not None:
-        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4"), ("ts_musical_beats", "i4")]
+        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
+
+        #field for musical beat, only if time signature is not None
+        if use_musical_beat is not None:
+            fields += [("ts_musical_beats", "i4")]
 
     # fields for metrical salience
     if metrical_position_map is not None:
@@ -1821,9 +1827,13 @@ def note_array_from_note_list(
             note_info += (fifths, mode)
 
         if time_signature_map is not None:
-            beats, beat_type, musical_beats = time_signature_map(note.start.t)
+            beats, beat_type = time_signature_map(note.start.t)
 
-            note_info += (beats, beat_type, musical_beats)
+            note_info += (beats, beat_type)
+
+            if use_musical_beat is not None:
+                musical_beats = MUSICAL_BEATS[beats] if beats in MUSICAL_BEATS else beats
+                note_info += (musical_beats,)
 
         if metrical_position_map is not None:
             rel_onset_div, tot_measure_div = metrical_position_map(note.start.t)
