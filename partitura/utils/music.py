@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 
 from partitura.utils.generic import find_nearest, search, iter_current_next
+from partitura.score import Part, PartGroup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -299,15 +300,16 @@ def note_name_to_pitch_spelling(note_name):
     note_info = NOTE_NAME_PATT.search(note_name)
 
     if note_info is None:
-        raise ValueError("Invalid note name. "
-                         "The note name must be "
-                         "'<pitch class>(alteration)<octave>', "
-                         f"but was given {note_name}.")
+        raise ValueError(
+            "Invalid note name. "
+            "The note name must be "
+            "'<pitch class>(alteration)<octave>', "
+            f"but was given {note_name}."
+        )
     step, alter, octave = note_info.groups()
     step, alter, octave = ensure_pitch_spelling_format(
-        step=step,
-        alter=alter if alter != "" else "n",
-        octave=int(octave))
+        step=step, alter=alter if alter != "" else "n", octave=int(octave)
+    )
     return step, alter, octave
 
 
@@ -1187,8 +1189,9 @@ def match_note_arrays(
             if duration_key is None and check_duration:
                 check_duration = False
         else:
-            raise ValueError("`fields` should be a tuple or a string, but given "
-                             f"{type(fields)}")
+            raise ValueError(
+                "`fields` should be a tuple or a string, but given " f"{type(fields)}"
+            )
     else:
         onset_key, duration_key = get_time_units_from_note_array(input_note_array)
         onset_key_check, _ = get_time_units_from_note_array(target_note_array)
@@ -1251,17 +1254,18 @@ def match_note_arrays(
             # For the case that there are multiple notes aligned to the input note
 
             # get indices of the target notes if they have not yet been used
-            taix_to_consider = np.array([ti for ti in taix
-                                         if ti not in matched_target_idxs],
-                                        dtype=int)
+            taix_to_consider = np.array(
+                [ti for ti in taix if ti not in matched_target_idxs], dtype=int
+            )
             if len(taix_to_consider) > 0:
                 # If there are some indices to consider
                 candidate_notes = target_note_array[taix_to_consider]
 
                 if check_duration:
-                    best_candidate_idx = \
-                        (candidate_notes[duration_key] -
-                         input_note_array[inix][duration_key]).argmin()
+                    best_candidate_idx = (
+                        candidate_notes[duration_key]
+                        - input_note_array[inix][duration_key]
+                    ).argmin()
                 else:
                     # Take the first one if no other information is given
                     best_candidate_idx = 0
@@ -1626,17 +1630,18 @@ def note_array_from_part(
         quarter_map=part.quarter_map,
         time_signature_map=time_signature_map,
         key_signature_map=key_signature_map,
-        include_pitch_spelling=include_pitch_spelling)
+        include_pitch_spelling=include_pitch_spelling,
+    )
     return note_array
 
 
 def note_array_from_note_list(
-        note_list,
-        beat_map=None,
-        quarter_map=None,
-        time_signature_map=None,
-        key_signature_map=None,
-        include_pitch_spelling=False,
+    note_list,
+    beat_map=None,
+    quarter_map=None,
+    time_signature_map=None,
+    key_signature_map=None,
+    include_pitch_spelling=False,
 ):
     """
     Create a structured array with note information
@@ -1706,12 +1711,10 @@ def note_array_from_note_list(
     fields = []
     if beat_map is not None:
         # Preserve the order of the fields
-        fields += [("onset_beat", "f4"),
-                   ("duration_beat", "f4")]
+        fields += [("onset_beat", "f4"), ("duration_beat", "f4")]
 
     if quarter_map is not None:
-        fields += [("onset_quarter", "f4"),
-                   ("duration_quarter", "f4")]
+        fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
         ("onset_div", "i4"),
         ("duration_div", "i4"),
@@ -1744,17 +1747,13 @@ def note_array_from_note_list(
             note_on_beat, note_off_beat = beat_map([note_on_div, note_off_div])
             note_dur_beat = note_off_beat - note_on_beat
 
-            note_info += (note_on_beat,
-                          note_dur_beat)
+            note_info += (note_on_beat, note_dur_beat)
 
         if quarter_map is not None:
-            note_on_quarter, note_off_quarter = quarter_map(
-                [note_on_div, note_off_div]
-            )
+            note_on_quarter, note_off_quarter = quarter_map([note_on_div, note_off_div])
             note_dur_quarter = note_off_quarter - note_on_quarter
 
-            note_info += (note_on_quarter,
-                          note_dur_quarter)
+            note_info += (note_on_quarter, note_dur_quarter)
 
         note_info += (
             note_on_div,
@@ -1809,6 +1808,19 @@ def update_note_ids_after_unfolding(part):
 
         for i, note in enumerate(notes):
             note.id = f"{note.id}-{i+1}"
+
+
+def merge_parts(input):
+    if isinstance(input, Part):
+        return input
+    elif isinstance(input, PartGroup) or isinstance(list):
+        # iterate all over the parts
+        # find mcm divs
+        # create a new Part with that value
+        # all points from all parts to that
+        return
+    else:
+        raise Exception("Input must be either GroupPart or list of parts")
 
 
 if __name__ == "__main__":
