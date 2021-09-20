@@ -11,7 +11,7 @@ from partitura import load_musicxml
 from partitura.utils.music import note_array_from_part
 import numpy as np
 
-from . import NOTE_ARRAY_TESTFILES
+from tests import NOTE_ARRAY_TESTFILES
 
 
 class TestNoteArray(unittest.TestCase):
@@ -36,12 +36,36 @@ class TestNoteArray(unittest.TestCase):
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
 
-    def test_notearray_musical_beats(self):
+    def test_notearray_musical_beats1(self):
         part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
         note_array = note_array_from_part(part, use_musical_beat=True)
         expected_onset_beats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14]
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
+
+    def test_set_musical_beats1(self):
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        part.set_musical_beat({"6/8": 3, "2/4": 1})
+        note_array = note_array_from_part(part, use_musical_beat=True)
+        expected_onset_beats = [0, 1.5, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12.5]
+
+        self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
+        self.assertTrue(
+            np.array_equal(
+                part.note_array, note_array_from_part(part, use_musical_beat=True)
+            )
+        )
+
+    def test_set_musical_beats2(self):
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        note_array_mbeat = note_array_from_part(part, use_musical_beat=True)
+        # try without setting musical beats
+        self.assertTrue(part.use_musical_beat == False)
+        self.assertFalse(np.array_equal(note_array_mbeat, part.note_array))
+        # now set musical beats
+        part.set_musical_beat()
+        self.assertTrue(part.use_musical_beat == True)
+        self.assertTrue(np.array_equal(note_array_mbeat, part.note_array))
 
     def test_notearray_ts_beats(self):
         part = load_musicxml(NOTE_ARRAY_TESTFILES[0])

@@ -89,6 +89,9 @@ class Part(object):
         self._quarter_durations = [quarter_duration]
         self._quarter_map = self.quarter_duration_map
 
+        # set beat reference
+        self.use_musical_beat = False
+
     def __str__(self):
         return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
 
@@ -788,7 +791,32 @@ class Part(object):
 
     @property
     def note_array(self):
-        return note_array_from_part(self)
+        return note_array_from_part(self, use_musical_beat=self.use_musical_beat)
+
+    def set_musical_beat(self, mbeats_per_ts=None):
+        """Set the musical beat as beat reference.
+        The number of musical beats for each time signature can be
+        specified as parameter, or the default one can be used
+        (i.e. 2 for 6/X, 3 for 9/X, 4 for 12/X, unchanged for the
+        others ts) if no parameter is provided. Each musical beat
+        has equal duration.
+
+        Parameters
+        ----------
+        mbeats_per_ts : dict, optional
+            A dict where the keys are time signature strings 
+            (e.g. "3/4") and the values are the number of musical beats.
+            If it is None, the defaults values are used.
+            Defaults to None.
+
+        """
+        self.use_musical_beat = True
+        if not mbeats_per_ts is None:
+            # correctly set the musical beat for all time signatures
+            for ts in self.iter_all(TimeSignature):
+                ts_string = "{}/{}".format(ts.beats, ts.beat_type)
+                if ts_string in mbeats_per_ts:
+                    ts.musical_beats = mbeats_per_ts[ts_string]
 
     # @property
     # def part_names(self):
