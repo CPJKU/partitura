@@ -11,7 +11,7 @@ from partitura import load_musicxml
 from partitura.utils.music import note_array_from_part
 import numpy as np
 
-from tests import NOTE_ARRAY_TESTFILES
+from . import NOTE_ARRAY_TESTFILES
 
 
 class TestNoteArray(unittest.TestCase):
