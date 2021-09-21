@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <work>
+    <work-title>Title</work-title>
+    </work>
+  <identification>
+    <creator type="composer">Composer</creator>
+    <encoding>
+      <software>MuseScore 3.6.2</software>
+      <encoding-date>2021-09-10</encoding-date>
+      <supports element="accidental" type="yes"/>
+      <supports element="beam" type="yes"/>
+      <supports element="print" attribute="new-page" type="yes" value="yes"/>
+      <supports element="print" attribute="new-system" type="yes" value="yes"/>
+      <supports element="stem" type="yes"/>
+      </encoding>
+    </identification>
+  <defaults>
+    <scaling>
+      <millimeters>6.99911</millimeters>
+      <tenths>40</tenths>
+      </scaling>
+    <page-layout>
+      <page-height>1596.77</page-height>
+      <page-width>1233.87</page-width>
+      <page-margins type="even">
+        <left-margin>85.7252</left-margin>
+        <right-margin>85.7252</right-margin>
+        <top-margin>85.7252</top-margin>
+        <bottom-margin>85.7252</bottom-margin>
+        </page-margins>
+      <page-margins type="odd">
+        <left-margin>85.7252</left-margin>
+        <right-margin>85.7252</right-margin>
+        <top-margin>85.7252</top-margin>
+        <bottom-margin>85.7252</bottom-margin>
+        </page-margins>
+      </page-layout>
+    <word-font font-family="Edwin" font-size="10"/>
+    <lyric-font font-family="Edwin" font-size="10"/>
+    </defaults>
+  <credit page="1">
+    <credit-type>title</credit-type>
+    <credit-words default-x="616.935" default-y="1511.05" justify="center" valign="top" font-size="22">Title</credit-words>
+    </credit>
+  <credit page="1">
+    <credit-type>composer</credit-type>
+    <credit-words default-x="1148.15" default-y="1411.05" justify="right" valign="bottom">Composer</credit-words>
+    </credit>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Piano</part-name>
+      <part-abbreviation>Pno.</part-abbreviation>
+      <score-instrument id="P1-I1">
+        <instrument-name>Piano</instrument-name>
+        </score-instrument>
+      <midi-device id="P1-I1" port="1"></midi-device>
+      <midi-instrument id="P1-I1">
+        <midi-channel>1</midi-channel>
+        <midi-program>1</midi-program>
+        <volume>78.7402</volume>
+        <pan>0</pan>
+        </midi-instrument>
+      </score-part>
+    </part-list>
+  <part id="P1">
+    <measure number="1" width="198.56">
+      <print>
+        <system-layout>
+          <system-margins>
+            <left-margin>50.00</left-margin>
+            <right-margin>0.00</right-margin>
+            </system-margins>
+          <top-system-distance>170.00</top-system-distance>
+          </system-layout>
+        </print>
+      <attributes>
+        <divisions>2</divisions>
+        <key>
+          <fifths>0</fifths>
+          </key>
+        <time>
+          <beats>6</beats>
+          <beat-type>8</beat-type>
+          </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+          </clef>
+        </attributes>
+      <note default-x="82.22" default-y="-50.00">
+        <pitch>
+          <step>C</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>up</stem>
+        </note>
+      <note default-x="139.49" default-y="-45.00">
+        <pitch>
+          <step>D</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>up</stem>
+        </note>
+      </measure>
+    <measure number="2" width="207.54">
+      <attributes>
+        <time>
+          <beats>9</beats>
+          <beat-type>8</beat-type>
+          </time>
+        </attributes>
+      <note default-x="35.02" default-y="-40.00">
+        <pitch>
+          <step>E</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>up</stem>
+        </note>
+      <note default-x="91.93" default-y="-35.00">
+        <pitch>
+          <step>F</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>up</stem>
+        </note>
+      <note default-x="148.83" default-y="-30.00">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>up</stem>
+        </note>
+      </measure>
+    <measure number="3" width="280.71">
+      <attributes>
+        <time>
+          <beats>12</beats>
+          <beat-type>8</beat-type>
+          </time>
+        </attributes>
+      <note default-x="48.42" default-y="-25.00">
+        <pitch>
+          <step>A</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>up</stem>
+        </note>
+      <note default-x="106.04" default-y="-20.00">
+        <pitch>
+          <step>B</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>down</stem>
+        </note>
+      <note default-x="163.66" default-y="-15.00">
+        <pitch>
+          <step>C</step>
+          <octave>5</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>down</stem>
+        </note>
+      <note default-x="221.29" default-y="-10.00">
+        <pitch>
+          <step>D</step>
+          <octave>5</octave>
+          </pitch>
+        <duration>3</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <dot/>
+        <stem>down</stem>
+        </note>
+      </measure>
+    <measure number="4" width="99.18">
+      <attributes>
+        <time>
+          <beats>2</beats>
+          <beat-type>4</beat-type>
+          </time>
+        </attributes>
+      <note default-x="36.98" default-y="-30.00">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>half</type>
+        <stem>up</stem>
+        </note>
+      </measure>
+    <measure number="5" width="108.65">
+      <note default-x="13.00" default-y="-35.00">
+        <pitch>
+          <step>F</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>2</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+        <stem>up</stem>
+        </note>
+      <note default-x="49.10" default-y="-30.00">
+        <pitch>
+          <step>G</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>half</type>
+        <stem>up</stem>
+        </note>
+      </measure>
+    <measure number="6" width="84.05">
+      <note default-x="13.00" default-y="-40.00">
+        <pitch>
+          <step>E</step>
+          <octave>4</octave>
+          </pitch>
+        <duration>4</duration>
+        <voice>1</voice>
+        <type>half</type>
+        <stem>up</stem>
+        </note>
+      <barline location="right">
+        <bar-style>light-heavy</bar-style>
+        </barline>
+      </measure>
+    </part>
+  </score-partwise>
