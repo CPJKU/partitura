@@ -90,7 +90,7 @@ class Part(object):
         self._quarter_map = self.quarter_duration_map
 
         # set beat reference
-        self.use_musical_beat = False
+        self._use_musical_beat = False
 
     def __str__(self):
         return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
@@ -135,6 +135,8 @@ class Part(object):
         tss = np.array(
             [
                 (ts.start.t, ts.beats, ts.beat_type)
+                if self._use_musical_beat is False
+                else (ts.start.t, ts.musical_beats, ts.beat_type)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
@@ -224,6 +226,18 @@ class Part(object):
 
         """
         measures = np.array([(m.start.t, m.end.t) for m in self.iter_all(Measure)])
+
+        # correct for anacrusis
+        divs_per_beat = self.inv_beat_map(
+            1 + self.beat_map(0)
+        )  # find the divs per beat in the first measure
+        if (
+            measures[0][1] - measures[0][0]
+            < self.time_signature_map(0)[0] * divs_per_beat
+        ):
+            measures[0][0] = (
+                measures[0][1] - self.time_signature_map(0)[0] * divs_per_beat
+            )
 
         if len(measures) == 0:  # no measures in the piece
             # default only one measure spanning the entire timeline
@@ -347,20 +361,10 @@ class Part(object):
             The mapping function
 
         """
-        return self._time_interpolator()
-
-    @property
-    def musical_beat_map(self):
-        """A function mapping timeline times to musical beat times. 
-        The function can take scalar values or lists/arrays of values.
-
-        Returns
-        -------
-        function
-            The mapping function
-
-        """
-        return self._time_interpolator(musical_beat=True)
+        if self._use_musical_beat:
+            return self._time_interpolator(musical_beat=True)
+        else:
+            return self._time_interpolator()
 
     @property
     def inv_beat_map(self):
@@ -373,7 +377,10 @@ class Part(object):
             The mapping function
 
         """
-        return self._time_interpolator(inv=True)
+        if self._use_musical_beat:
+            return self._time_interpolator(inv=True, musical_beat=True)
+        else:
+            return self._time_interpolator(inv=True)
 
     @property
     def quarter_map(self):
@@ -791,14 +798,13 @@ class Part(object):
 
     @property
     def note_array(self):
-        return note_array_from_part(self, use_musical_beat=self.use_musical_beat)
+        return note_array_from_part(self)
 
-    def set_musical_beat(self, mbeats_per_ts=None):
-        """Set the musical beat as beat reference.
-        The number of musical beats for each time signature can be
-        specified as parameter, or the default one can be used
-        (i.e. 2 for 6/X, 3 for 9/X, 4 for 12/X, unchanged for the
-        others ts) if no parameter is provided. Each musical beat
+    def set_musical_beat_per_ts(self, mbeats_per_ts={}):
+        """Set the number of musical beats for each time signature.
+        If no musical beat is specified for a certain time signature,
+        the default one is used, i.e. 2 for 6/X, 3 for 9/X, 4 for 12/X, 
+        and the number of beats for the others ts. Each musical beat
         has equal duration.
 
         Parameters
@@ -806,17 +812,62 @@ class Part(object):
         mbeats_per_ts : dict, optional
             A dict where the keys are time signature strings 
             (e.g. "3/4") and the values are the number of musical beats.
-            If it is None, the defaults values are used.
-            Defaults to None.
+            If a certain time signature is not specified, the defaults 
+            values are used.
+            Defaults to an empty dict.
 
         """
-        self.use_musical_beat = True
-        if not mbeats_per_ts is None:
-            # correctly set the musical beat for all time signatures
-            for ts in self.iter_all(TimeSignature):
-                ts_string = "{}/{}".format(ts.beats, ts.beat_type)
-                if ts_string in mbeats_per_ts:
-                    ts.musical_beats = mbeats_per_ts[ts_string]
+        if not isinstance(mbeats_per_ts, dict):
+            raise TypeError("mbeats_per_ts must be either a dictionary")
+
+        # correctly set the musical beat for all time signatures
+        for ts in self.iter_all(TimeSignature):
+            ts_string = "{}/{}".format(ts.beats, ts.beat_type)
+            if ts_string in mbeats_per_ts:
+                ts.musical_beats = mbeats_per_ts[ts_string]
+            else:  # set to default if not specified
+                if ts.beats in MUSICAL_BEATS:
+                    ts.musical_beats = MUSICAL_BEATS[ts.beats]
+                else:
+                    ts.musical_beats = ts.beats
+
+    def use_musical_beat(self, mbeats_per_ts={}):
+        """Consider the musical beat as the reference for all elements 
+        that concern the number and position of beats. 
+        An optional parameter can set the number of musical beats for 
+        specific time signatures, otherwise the default values are
+        used.
+
+        Parameters
+        ----------
+        mbeats_per_ts : dict, optional
+            A dict where the keys are time signature strings 
+            (e.g. "3/4") and the values are the number of musical beats.
+            If a certain time signature is not specified, the defaults 
+            values are used.
+            Defaults to an empty dict.
+
+        """
+        if not self._use_musical_beat:
+            self._use_musical_beat = True
+            if mbeats_per_ts != {}:  # set the number of nbeats if specified
+                self.set_musical_beat_per_ts(mbeats_per_ts)
+        else:
+            print("Musical beats were already being used!")
+
+    def use_notated_beat(self):
+        """Consider the notated beat (numerator of time signature) 
+        as the reference for all elements that concern the number 
+        and position of beats. 
+        It also reset the number of musical beats for each time signature
+        to default values.
+        """
+        if self._use_musical_beat:
+            self._use_musical_beat = False
+            # reset the number of musical beats to default values
+            self.set_musical_beat_per_ts()
+        else:
+            print("Notated beats were already being used!")
 
     # @property
     # def part_names(self):

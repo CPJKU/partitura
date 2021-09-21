@@ -1534,8 +1534,7 @@ def note_array_from_part(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_metrical_salience=False,
-    use_musical_beat = False
+    include_metrical_position=False
 ):
     """
     Create a structured array with note information
@@ -1558,15 +1557,12 @@ def note_array_from_part(
         the time signature at the onset time of each note (all
         notes starting at the same time have the same time signature).
         Default is False
-    include_metrical_salience : bool (optional)
-        If `True`,  includes metrical salience information, i.e.,
-        the metrical salience at the onset time of each note (all
-        notes starting at the same time have the same metrical salience).
+    include_metrical_position : bool (optional)
+        If `True`,  includes metrical position information, i.e.,
+        the position of the onset time of each note with respect to its 
+        measure (all notes starting at the same time have the same metrical 
+        position).
         Default is False
-    use_musical_beat : bool (optional)
-        If `True`,  all the values where the number and position of beats
-        are concerned will consider the musical beat, not the numerator
-        in the time signature (e.g. 2 for 6/8, 3 for 9/8, 4 for 12/8)
 
     Returns
     -------
@@ -1597,7 +1593,7 @@ def note_array_from_part(
             * 'ts_beats': number of beats in a measure
             * 'ts_beat_type': type of beats (denominator of the time signature)
 
-        If `include_metrical_salience` is True:
+        If `include_metrical_position` is True:
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
             * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
             * 'tot_measure_divs' : total number of divs in the note measure
@@ -1637,22 +1633,16 @@ def note_array_from_part(
     else:
         key_signature_map = None
 
-    if include_metrical_salience:
+    if include_metrical_position:
         metrical_position_map = part.metrical_position_map
     else:
         metrical_position_map = None
 
-    if use_musical_beat:
-        beat_map = part.musical_beat_map
-    else:
-        beat_map = part.beat_map
-
     note_array = note_array_from_note_list(
         note_list=part.notes_tied,
-        beat_map=beat_map,
+        beat_map=part.beat_map,
         quarter_map=part.quarter_map,
         time_signature_map=time_signature_map,
-        use_musical_beat = use_musical_beat,
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling)
@@ -1664,7 +1654,6 @@ def note_array_from_note_list(
         beat_map=None,
         quarter_map=None,
         time_signature_map=None,
-        use_musical_beat = None,
         key_signature_map=None,
         metrical_position_map=None,
         include_pitch_spelling=False,
@@ -1699,7 +1688,7 @@ def note_array_from_note_list(
         A function that maps score time in divs to the position in 
         the measure at that time.
         If `None` is given, the output structured array will not
-        include the metrical salience information.
+        include the metrical position information.
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         note. Default is False
@@ -1774,11 +1763,7 @@ def note_array_from_note_list(
     if time_signature_map is not None:
         fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
 
-        #field for musical beat, only if time signature is not None
-        if use_musical_beat is not None:
-            fields += [("ts_musical_beats", "i4")]
-
-    # fields for metrical salience
+    # fields for metrical position
     if metrical_position_map is not None:
         fields += [("is_downbeat", "i4"), ("rel_onset_div", "i4"), ("tot_measure_div", "i4")]
 
@@ -1830,10 +1815,6 @@ def note_array_from_note_list(
             beats, beat_type = time_signature_map(note.start.t)
 
             note_info += (beats, beat_type)
-
-            if use_musical_beat is not None:
-                musical_beats = MUSICAL_BEATS[beats] if beats in MUSICAL_BEATS else beats
-                note_info += (musical_beats,)
 
         if metrical_position_map is not None:
             rel_onset_div, tot_measure_div = metrical_position_map(note.start.t)
