@@ -217,10 +217,12 @@ MUSICAL_BEATS = {6:2,9:3,12:4}
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
     Ensures to get a structured note array from the input.
+
     Parameters
     ----------
     notearray_or_part : structured ndarray, `Part` or `PerformedPart`
         Input score information
+
     Returns
     -------
     structured ndarray
@@ -385,16 +387,19 @@ def fifths_mode_to_key_name(fifths, mode=None):
     number of flats (i.e. -3 means three flats), and a positive
     number the number of sharps. The mode is specified as 'major'
     or 'minor'. If `mode` is None, the key is assumed to be major.
+
     Parameters
     ----------
     fifths : int
         Number of fifths
     mode : {'major', 'minor', None, -1, 1}
         Mode of the key signature
+
     Returns
     -------
     str
         The name of the key signature, e.g. 'Am'
+
     Examples
     --------
     >>> fifths_mode_to_key_name(0, 'minor')
@@ -405,6 +410,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     'A'
     >>> fifths_mode_to_key_name(-1, 1)
     'F'
+
     """
     global MAJOR_KEYS, MINOR_KEYS
 
@@ -430,16 +436,20 @@ def key_name_to_fifths_mode(name):
     signature name. A negative number denotes the number of flats
     (i.e. -3 means three flats), and a positive number the number of
     sharps. The mode is specified as 'major' or 'minor'.
+
     Parameters
     ----------
     name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C",\
 "C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb",\
 "Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
         Name of the key signature
+
     Returns
     -------
     (int, str)
         Tuple containing the number of fifths and the mode
+
+
     Examples
     --------
     >>> key_name_to_fifths_mode('Am')
@@ -448,6 +458,7 @@ def key_name_to_fifths_mode(name):
     (0, 'major')
     >>> key_name_to_fifths_mode('A')
     (3, 'major')
+
     """
     global MAJOR_KEYS, MINOR_KEYS
 
@@ -469,14 +480,17 @@ def key_name_to_fifths_mode(name):
 def key_mode_to_int(mode):
     """Return the mode of a key as an integer (1 for major and -1 for
     minor).
+
     Parameters
     ----------
     mode : {'major', 'minor', None, 1, -1}
         Mode of the key
+
     Returns
     -------
     int
         Integer representation of the mode.
+
     """
     if mode in ("minor", -1):
         return -1
@@ -488,14 +502,17 @@ def key_mode_to_int(mode):
 
 def key_int_to_mode(mode):
     """Return the mode of a key as a string ('major' or 'minor')
+
     Parameters
     ----------
     mode : {'major', 'minor', None, 1, -1}
         Mode of the key
+
     Returns
     -------
     int
         Integer representation of the mode.
+
     """
     if mode in ("minor", -1):
         return "minor"
@@ -514,8 +531,10 @@ def estimate_symbolic_duration(dur, div, eps=10 ** -3):
     or '16th', and dots is an integer specifying the number of dots.
     If no matching symbolic duration is found the function returns
     None.
+
     NOTE : this function does not estimate composite durations, nor
     time-modifications such as triplets.
+
     Parameters
     ----------
     dur : float or int
@@ -524,16 +543,23 @@ def estimate_symbolic_duration(dur, div, eps=10 ** -3):
         Number of units per quarter note
     eps : float, optional (default: 10**-3)
         Tolerance in case of imprecise matches
+
     Returns
     -------
+
+
     Examples
     --------
     >>> estimate_symbolic_duration(24, 16)
     {'type': 'quarter', 'dots': 1}
+
     >>> estimate_symbolic_duration(15, 10)
     {'type': 'quarter', 'dots': 1}
+
     The following example returns None:
+
     >>> estimate_symbolic_duration(23, 16)
+
     """
     global DURS, SYM_DURS
     qdur = dur / div
@@ -548,24 +574,30 @@ def to_quarter_tempo(unit, tempo):
     """Given a string `unit` (e.g. 'q', 'q.' or 'h') and a number
     `tempo`, return the corresponding tempo in quarter notes. This is
     useful to convert textual tempo directions like h=100.
+
     Parameters
     ----------
     unit : str
         Tempo unit
     tempo : number
         Tempo value
+
     Returns
     -------
     float
         Tempo value in quarter units
+
     Examples
     --------
     >>> to_quarter_tempo('q', 100)
     100.0
+
     >>> to_quarter_tempo('h', 100)
     200.0
+
     >>> to_quarter_tempo('h.', 50)
     150.0
+
     """
     dots = unit.count(".")
     unit = unit.strip().rstrip(".")
@@ -575,20 +607,25 @@ def to_quarter_tempo(unit, tempo):
 def format_symbolic_duration(symbolic_dur):
     """Create a string representation of the symbolic duration encoded
     in the dictionary `symbolic_dur`.
+
     Parameters
     ----------
     symbolic_dur : dict
         Dictionary with keys 'type' and 'dots'
+
     Returns
     -------
     str
         A string representation of the specified symbolic duration
+
     Examples
     --------
     >>> format_symbolic_duration({'type': 'q', 'dots': 2})
     'q..'
+
     >>> format_symbolic_duration({'type': '16th'})
     '16th'
+
     """
     if symbolic_dur is None:
 
@@ -617,6 +654,7 @@ def symbolic_to_numeric_duration(symbolic_dur, divs):
 
 def order_splits(start, end, smallest_unit):
     """Description
+
     Parameters
     ----------
     start : int
@@ -625,10 +663,12 @@ def order_splits(start, end, smallest_unit):
         Description of `end`
     smallest_divs : int
         Description of `smallest_divs`
+
     Returns
     -------
     ndarray
         Description of return value
+
     Examples
     --------
     >>> order_splits(1, 8, 1)
@@ -639,6 +679,7 @@ def order_splits(start, end, smallest_unit):
     array([16, 12, 14, 13, 15])
     >>> order_splits(11, 17, 4)
     array([16, 12])
+
     """
 
     # gegeven b, kies alle veelvouden van 2*b, verschoven om b,
@@ -673,11 +714,14 @@ def find_tie_split(start, end, divs, max_splits=3):
     """
     Examples
     --------
+
     >>> find_tie_split(1, 8, 2)
     [(1, 8, {'type': 'half', 'dots': 2})]
+
     >>> find_tie_split(0, 3615, 480) # doctest: +NORMALIZE_WHITESPACE
     [(0, 3600, {'type': 'whole', 'dots': 3}),
      (3600, 3615, {'type': '128th', 'dots': 0})]
+
     """
 
     smallest_unit = find_smallest_unit(divs)
@@ -755,6 +799,7 @@ def compute_pianoroll(
     """Computes a piano roll from a structured note array (as
     generated by the `note_array` methods in `partitura.score.Part`
     and `partitura.performance.PerformedPart` instances).
+
     Parameters
     ----------
     note_info : structured array, `Part`, `PartGroup`, `PerformedPart`
@@ -788,6 +833,7 @@ def compute_pianoroll(
         notes to be considered in the piano roll. This option is only
         relevant for piano rolls generated from a `PerformedPart`.
         Default is True.
+
     Returns
     -------
     pianoroll : scipy.sparse.csr_matrix
@@ -799,8 +845,10 @@ def compute_pianoroll(
         Indices of the onsets and offsets of the notes in the piano
         roll (in the same order as the input note_array). This is only
         returned if `return_idxs` is `True`.
+
     Examples
     --------
+
     >>> import numpy as np
     >>> from partitura.utils import compute_pianoroll
     >>> note_array = np.array([(60, 0, 1)],\
@@ -814,10 +862,12 @@ def compute_pianoroll(
            [1, 1],
            [0, 0],
            [0, 0]])
+
     Notes
     -----
     The default values in this function assume that the input
     `note_array` represents a score.
+
     """
     note_array = ensure_notearray(note_info)
 
@@ -885,6 +935,7 @@ def _make_pianoroll(
     onset, duration and (optionally) MIDI velocity information. See
     `compute_pianoroll` for a complete description of the
     arguments of this function.
+
     """
 
     # Get pitch, onset, offset from the note_info array
@@ -999,8 +1050,10 @@ def _make_pianoroll(
 
 def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
     """Extract a structured note array from a piano roll.
+
     For now, the structured note array is considered a
     "performance".
+
     Parameters
     ----------
     pianoroll : array-like
@@ -1013,11 +1066,13 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
         `notearray_to_pianoroll`).
     time_unit : {'beat', 'quarter', 'div', 'sec'}
         time unit of the output note array.
+
     Returns
     -------
     np.ndarray :
         Structured array with pitch, onset, duration and velocity
         fields.
+
     Notes
     -----
     Please note that all non-zero pixels will contribute to a note.
@@ -1028,6 +1083,7 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
     on) or, 2) soft-threshold the notes (values below a certain
     threshold are considered as not active and scale the active notes
     to lie between 1 and 127).
+
     """
     # Indices of the non-zero elements of the piano roll
     pitch_idx, active_idx = pianoroll.nonzero()
@@ -1086,8 +1142,10 @@ def match_note_arrays(
     onset, pitch and (optionally) duration. Returns an array of matched
     note_array indices and (optionally) an array of the corresponding
     matched note indices.
+
     Get an array of note_array indices of the notes from an input note
     array corresponding to a reference note array.
+
     Parameters
     ----------
     input_note_array : structured array
@@ -1102,10 +1160,12 @@ def match_note_arrays(
         Epsilon for comparison of onset times.
     first_note_at_zero : bool
         If True, shifts the onsets of both note_arrays to start at 0.
+
     Returns
     -------
     matched_idxs : np.ndarray
         Indices of input_note_array corresponding to target_note_array
+
     Notes
     -----
     This is a greedy method. This method is useful to compare the
@@ -1113,6 +1173,7 @@ def match_note_arrays(
     match file and MIDI), or the *same score* (e.g., a MIDI file generated
     from a MusicXML file). It will not produce meaningful results between a
     score and a performance.
+
     """
     input_note_array = ensure_notearray(input_note_array)
     target_note_array = ensure_notearray(target_note_array)
@@ -1236,6 +1297,7 @@ def remove_silence_from_performed_part(ppart):
     Remove silence at the beginning of a PerformedPart
     by shifting notes, controls and programs to the beginning
     of the file.
+
     Parameters
     ----------
     ppart : `PerformedPart`
@@ -1311,6 +1373,7 @@ def note_array_from_part_list(
 ):
     """
     Construct a structured Note array from a list of Part objects
+
     Parameters
     ----------
     part_list : list
@@ -1331,6 +1394,7 @@ def note_array_from_part_list(
        Include time signature information in output note array.
        Only valid if parts in `part_list` are `Part` objects.
        See `note_array_from_part` for more info. Default is False.
+
     Returns
     -------
     note_array: structured array
@@ -1388,6 +1452,7 @@ def slice_notearray_by_time(
 ):
     """
     Get a slice of a structured note array by time
+
     Parameters
     ----------
     note_array : structured array
@@ -1402,11 +1467,13 @@ def slice_notearray_by_time(
     clip_onset_duration : bool optional
         Clip duration of the notes in the array to fit within the
         specified window
+
     Returns
     -------
     note_array_slice : stuctured array
         Structured array with only the score information between
         `start_time` and `end_time`.
+
     TODO
     ----
     * adjust onsets and duration in other units
@@ -1472,6 +1539,7 @@ def note_array_from_part(
     """
     Create a structured array with note information
     from a `Part` object.
+
     Parameters
     ----------
     part : partitura.score.Part
@@ -1495,6 +1563,7 @@ def note_array_from_part(
         measure (all notes starting at the same time have the same metrical 
         position).
         Default is False
+
     Returns
     -------
     note_array : structured array
@@ -1509,17 +1578,21 @@ def note_array_from_part(
             * 'pitch': MIDI pitch of a note.
             * 'voice': Voice number of a note (if given in the score)
             * 'id': Id of the note
+
         If `include_pitch_spelling` is True:
             * 'step': name of the note ("C", "D", "E", "F", "G", "A", "B")
             * 'alter': alteration (0=natural, -1=flat, 1=sharp,
               2=double sharp, etc.)
             * 'octave': octave of the note.
+
         If `include_key_signature` is True:
             * 'ks_fifths': Fifths starting from C in the circle of fifths
             * 'mode': major or minor
+
         If `include_time_signature` is True:
             * 'ts_beats': number of beats in a measure
             * 'ts_beat_type': type of beats (denominator of the time signature)
+
         If `include_metrical_position` is True:
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
             * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
@@ -1588,6 +1661,7 @@ def note_array_from_note_list(
     """
     Create a structured array with note information
     from a a list of `Note` objects.
+
     Parameters
     ----------
     note_list : list of `Note` objects
@@ -1618,6 +1692,7 @@ def note_array_from_note_list(
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         note. Default is False
+
     Returns
     -------
     note_array : structured array
