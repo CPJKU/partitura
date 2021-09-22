@@ -12,8 +12,11 @@ are registered in terms of their start and end times.
 
 from copy import copy
 from collections import defaultdict
+from collections.abc import Iterable
 import logging
 from numbers import Number
+
+from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -86,6 +89,9 @@ class Part(object):
         self._quarter_durations = [quarter_duration]
         self._quarter_map = self.quarter_duration_map
 
+        # set beat reference
+        self._use_musical_beat = False
+
     def __str__(self):
         return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
 
@@ -129,6 +135,8 @@ class Part(object):
         tss = np.array(
             [
                 (ts.start.t, ts.beats, ts.beat_type)
+                if self._use_musical_beat is False
+                else (ts.start.t, ts.musical_beats, ts.beat_type)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
@@ -144,7 +152,7 @@ class Part(object):
             else:
                 t0 = self.first_point.t
                 tN = self.last_point.t
-            tss = np.array([(t0, beats, beat_type), (tN, beats, beat_type)])
+            tss = np.array([(t0, beats, beat_type), (tN, beats, beat_type),])
         elif len(tss) == 1:
             # If there is only a single time signature
             return lambda x: np.array([tss[0, 1], tss[0, 2]])
@@ -205,7 +213,73 @@ class Part(object):
             fill_value="extrapolate",
         )
 
-    def _time_interpolator(self, quarter=False, inv=False):
+    @property
+    def measure_map(self):
+        """A function mapping timeline times to the start and end of
+        the measure they are contained in. The function can take
+        scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+        measures = np.array([(m.start.t, m.end.t) for m in self.iter_all(Measure)])
+
+        # correct for anacrusis
+        divs_per_beat = self.inv_beat_map(
+            1 + self.beat_map(0)
+        )  # find the divs per beat in the first measure
+        if (
+            measures[0][1] - measures[0][0]
+            < self.time_signature_map(0)[0] * divs_per_beat
+        ):
+            measures[0][0] = (
+                measures[0][1] - self.time_signature_map(0)[0] * divs_per_beat
+            )
+
+        if len(measures) == 0:  # no measures in the piece
+            # default only one measure spanning the entire timeline
+            LOGGER.warning("No measures found, assuming only one measure")
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.last_point.t
+
+            measures = np.array([(t0, tN)])
+
+        return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), :]
+
+    @property
+    def metrical_position_map(self):
+        """A function mapping timeline times to their relative position in
+        the measure they are contained in. The function can take
+        scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+
+        return (
+            lambda x: np.vstack(  # if the input is an array
+                (
+                    x - self.measure_map(x)[:, 0],
+                    self.measure_map(x)[:, 1] - self.measure_map(x)[:, 0],
+                )
+            ).T
+            if isinstance(x, Iterable)
+            else (  # if the input is just a scalar
+                x - self.measure_map(x)[0],
+                self.measure_map(x)[1] - self.measure_map(x)[0],
+            )
+        )
+
+    def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
         if len(self._points) < 2:
             return lambda x: np.zeros(len(x))
@@ -218,7 +292,12 @@ class Part(object):
         if not quarter:
             for ts in self.iter_all(TimeSignature):
                 # keypoints[ts.start.t][1] = int(np.log2(ts.beat_type))
-                keypoints[ts.start.t][1] = ts.beat_type / 4
+                if musical_beat:
+                    keypoints[ts.start.t][1] = (ts.beat_type / 4) * (
+                        ts.musical_beats / ts.beats
+                    )
+                else:
+                    keypoints[ts.start.t][1] = ts.beat_type / 4
         cur_div = 1
         cur_bt = 1
         keypoints_list = []
@@ -258,6 +337,8 @@ class Part(object):
                 normal_dur = ts.beats
                 if quarter:
                     normal_dur *= 4 / ts.beat_type
+                if musical_beat:
+                    normal_dur = ts.musical_beats
                 if actual_dur < normal_dur:
                     y -= actual_dur
             else:
@@ -280,7 +361,10 @@ class Part(object):
             The mapping function
 
         """
-        return self._time_interpolator()
+        if self._use_musical_beat:
+            return self._time_interpolator(musical_beat=True)
+        else:
+            return self._time_interpolator()
 
     @property
     def inv_beat_map(self):
@@ -293,7 +377,10 @@ class Part(object):
             The mapping function
 
         """
-        return self._time_interpolator(inv=True)
+        if self._use_musical_beat:
+            return self._time_interpolator(inv=True, musical_beat=True)
+        else:
+            return self._time_interpolator(inv=True)
 
     @property
     def quarter_map(self):
@@ -712,6 +799,75 @@ class Part(object):
     @property
     def note_array(self):
         return note_array_from_part(self)
+
+    def set_musical_beat_per_ts(self, mbeats_per_ts={}):
+        """Set the number of musical beats for each time signature.
+        If no musical beat is specified for a certain time signature,
+        the default one is used, i.e. 2 for 6/X, 3 for 9/X, 4 for 12/X, 
+        and the number of beats for the others ts. Each musical beat
+        has equal duration.
+
+        Parameters
+        ----------
+        mbeats_per_ts : dict, optional
+            A dict where the keys are time signature strings 
+            (e.g. "3/4") and the values are the number of musical beats.
+            If a certain time signature is not specified, the defaults 
+            values are used.
+            Defaults to an empty dict.
+
+        """
+        if not isinstance(mbeats_per_ts, dict):
+            raise TypeError("mbeats_per_ts must be either a dictionary")
+
+        # correctly set the musical beat for all time signatures
+        for ts in self.iter_all(TimeSignature):
+            ts_string = "{}/{}".format(ts.beats, ts.beat_type)
+            if ts_string in mbeats_per_ts:
+                ts.musical_beats = mbeats_per_ts[ts_string]
+            else:  # set to default if not specified
+                if ts.beats in MUSICAL_BEATS:
+                    ts.musical_beats = MUSICAL_BEATS[ts.beats]
+                else:
+                    ts.musical_beats = ts.beats
+
+    def use_musical_beat(self, mbeats_per_ts={}):
+        """Consider the musical beat as the reference for all elements 
+        that concern the number and position of beats. 
+        An optional parameter can set the number of musical beats for 
+        specific time signatures, otherwise the default values are
+        used.
+
+        Parameters
+        ----------
+        mbeats_per_ts : dict, optional
+            A dict where the keys are time signature strings 
+            (e.g. "3/4") and the values are the number of musical beats.
+            If a certain time signature is not specified, the defaults 
+            values are used.
+            Defaults to an empty dict.
+
+        """
+        if not self._use_musical_beat:
+            self._use_musical_beat = True
+            if mbeats_per_ts != {}:  # set the number of nbeats if specified
+                self.set_musical_beat_per_ts(mbeats_per_ts)
+        else:
+            print("Musical beats were already being used!")
+
+    def use_notated_beat(self):
+        """Consider the notated beat (numerator of time signature) 
+        as the reference for all elements that concern the number 
+        and position of beats. 
+        It also reset the number of musical beats for each time signature
+        to default values.
+        """
+        if self._use_musical_beat:
+            self._use_musical_beat = False
+            # reset the number of musical beats to default values
+            self.set_musical_beat_per_ts()
+        else:
+            print("Notated beats were already being used!")
 
     # @property
     # def part_names(self):
@@ -1896,16 +2052,22 @@ class TimeSignature(TimedObject):
     Parameters
     ----------
     beats : int
-        The number of beats in a measure
+        The number of beats in a measure (the numerator).
     beat_type : int
-        The note type that defines the beat unit. (4 for quarter
-        notes, 2 for half notes, etc.)
+        The note type that defines the beat unit (the denominator). 
+        (4 for quarter notes, 2 for half notes, etc.)
+    musical_beats : int
+        The number of beats according to musicologial standards 
+        (2 if beats is 2 or 6; 3 if beats is 3 or 9; 4 if beats is 4 or 12; 
+        else beats)
 
     Attributes
     ----------
     beats : int
         See parameters
     beat_type : int
+        See parameters
+    musical_beat : int
         See parameters
 
     """
@@ -1914,6 +2076,11 @@ class TimeSignature(TimedObject):
         super().__init__()
         self.beats = beats
         self.beat_type = beat_type
+        self.musical_beats = (  # if a value is provided, otherwise default to beats
+            MUSICAL_BEATS[self.beats]
+            if self.beats in MUSICAL_BEATS.keys()
+            else self.beats
+        )
 
     def __str__(self):
         return f"{super().__str__()} {self.beats}/{self.beat_type}"
@@ -3068,7 +3235,7 @@ def find_tuplets(part):
             tup_start = 0
 
             while tup_start <= (len(group) - actual_notes):
-                note_tuplet = group[tup_start: tup_start + actual_notes]
+                note_tuplet = group[tup_start : tup_start + actual_notes]
                 # durs = set(n.duration for n in group[:tuplet-1])
                 durs = set(n.duration for n in note_tuplet)
 

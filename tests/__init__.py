@@ -53,3 +53,11 @@ NAKAMURA_IMPORT_TESTFILES = [
         "test_nakamura_performance_match.txt",
     ]
 ]
+
+METRICAL_POSITION_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_metrical_position.xml", "test_anacrusis.xml"]
+]
+
+NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
+
