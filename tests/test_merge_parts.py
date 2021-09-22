@@ -3,7 +3,10 @@ import numpy as np
 import logging
 import unittest
 
+from partitura import load_musicxml
 from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
+
+from tests import MERGE_PARTS_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,4 +27,9 @@ class TestMergeParts(unittest.TestCase):
  ('data/raw/asap-dataset/Scriabin/Sonatas/5/xml_score.musicxml',
   partitura.score.PartGroup)]
     """
+
+    def test_part_group(self):
+        part = load_musicxml(MERGE_PARTS_TESTFILES[0])
+        notes = part.notes
+        self.assertTrue(False)
 
