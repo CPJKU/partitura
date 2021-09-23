@@ -3331,6 +3331,49 @@ class InvalidTimePointException(Exception):
         super().__init__(message)
 
 
+def merge_parts(parts):
+    """Merge list of parts of PartGroup
+    into a single part. 
+    """
+    # unfold grouppart and list of parts in a list of parts
+    parts = list(iter_parts(parts))
+    # find the divs per quarter note, assuming it is constant through the part
+    # TODO: check if this is always true
+
+    # check if the divisions per quarter are the same for all parts
+    parts_quarter_times = [p._quarter_times for p in parts]
+    parts_quarter_durations = [p._quarter_durations for p in parts]
+    if not (
+        all([d == parts_quarter_times[0] for d in parts_quarter_times])
+        and all([d == parts_quarter_durations[0] for d in parts_quarter_durations])
+    ):
+        raise Exception(
+            "Merging parts with different divisions is not supported. Found divisions",
+            parts_quarter_durations,
+            "at times",
+            parts_quarter_times,
+        )
+
+    if len(parts) == 1:
+        return parts[0]
+
+    # create a new part and fill it with all objects in other parts
+    new_part = Part(parts[0].id)
+    new_part._quarter_times = parts[0]._quarter_times
+    new_part._quarter_durations = parts[0]._quarter_durations
+    # full copy the first part
+    for e in parts[0].iter_all():
+        new_part.add(e, start=e.start.t)
+    for p in parts[1:]:
+        for e in p.iter_all():
+            # we don't copy elements like duplicate barlines, clefs or time signatures
+            # TODO : complete this list
+            if not isinstance(e, (Measure, Clef, System, Page, TimeSignature, Barline)):
+                new_part.add(e, start=e.start.t)
+
+    return new_part
+
+
 if __name__ == "__main__":
     import doctest
 

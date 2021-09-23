@@ -4,6 +4,7 @@ import logging
 import unittest
 
 from partitura import load_musicxml
+from partitura.score import merge_parts
 from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
 
 from tests import MERGE_PARTS_TESTFILES
@@ -28,8 +29,12 @@ class TestMergeParts(unittest.TestCase):
   partitura.score.PartGroup)]
     """
 
-    def test_part_group(self):
-        part = load_musicxml(MERGE_PARTS_TESTFILES[0])
-        notes = part.notes
-        self.assertTrue(False)
+    def test_different_divs(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[2])
+        self.assertRaises(Exception, merge_parts)
 
+    def test_list_of_parts_and_partgroup(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[1])
+        merged_part = merge_parts(parts)
+        # TODO complete the test
+        self.assertTrue(True)
