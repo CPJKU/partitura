@@ -4,7 +4,7 @@
   <identification>
     <encoding>
       <software>MuseScore 3.6.2</software>
-      <encoding-date>2021-09-23</encoding-date>
+      <encoding-date>2021-09-24</encoding-date>
       <supports element="accidental" type="yes"/>
       <supports element="beam" type="yes"/>
       <supports element="print" attribute="new-page" type="yes" value="yes"/>
@@ -113,7 +113,7 @@
       </score-part>
     </part-list>
   <part id="P1">
-    <measure number="1" width="374.74">
+    <measure number="1" width="372.01">
       <print>
         <system-layout>
           <system-margins>
@@ -147,7 +147,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="2" width="286.26">
+    <measure number="2" width="283.53">
       <note default-x="13.96" default-y="-25.00">
         <pitch>
           <step>A</step>
@@ -165,7 +165,7 @@
           <tuplet type="start" bracket="yes"/>
           </notations>
         </note>
-      <note default-x="104.13" default-y="-30.00">
+      <note default-x="103.22" default-y="-30.00">
         <pitch>
           <step>G</step>
           <octave>4</octave>
@@ -179,7 +179,7 @@
           </time-modification>
         <stem>up</stem>
         </note>
-      <note default-x="194.29" default-y="-40.00">
+      <note default-x="192.47" default-y="-40.00">
         <pitch>
           <step>E</step>
           <octave>4</octave>
@@ -197,7 +197,10 @@
           </notations>
         </note>
       </measure>
-    <measure number="3" width="261.23">
+    <measure number="3" width="266.69">
+      <barline location="left">
+        <ending number="1" type="start" default-y="33.10"/>
+        </barline>
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
@@ -205,11 +208,13 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
+        <ending number="1" type="stop"/>
+        <repeat direction="backward"/>
         </barline>
       </measure>
     </part>
   <part id="P2">
-    <measure number="1" width="374.74">
+    <measure number="1" width="372.01">
       <print>
         <staff-layout number="1">
           <staff-distance>65.00</staff-distance>
@@ -239,14 +244,17 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="2" width="286.26">
+    <measure number="2" width="283.53">
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
         <voice>1</voice>
         </note>
       </measure>
-    <measure number="3" width="261.23">
+    <measure number="3" width="266.69">
+      <barline location="left">
+        <ending number="1" type="start" default-y="33.10"/>
+        </barline>
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
@@ -254,11 +262,13 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
+        <ending number="1" type="stop"/>
+        <repeat direction="backward"/>
         </barline>
       </measure>
     </part>
   <part id="P3">
-    <measure number="1" width="374.74">
+    <measure number="1" width="372.01">
       <print>
         <staff-layout number="1">
           <staff-distance>65.00</staff-distance>
@@ -289,14 +299,17 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="2" width="286.26">
+    <measure number="2" width="283.53">
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
         <voice>1</voice>
         </note>
       </measure>
-    <measure number="3" width="261.23">
+    <measure number="3" width="266.69">
+      <barline location="left">
+        <ending number="1" type="start" default-y="33.10"/>
+        </barline>
       <note default-x="13.96" default-y="-225.00">
         <pitch>
           <step>C</step>
@@ -308,11 +321,13 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
+        <ending number="1" type="stop"/>
+        <repeat direction="backward"/>
         </barline>
       </measure>
     </part>
   <part id="P4">
-    <measure number="1" width="374.74">
+    <measure number="1" width="372.01">
       <print>
         <staff-layout number="1">
           <staff-distance>65.00</staff-distance>
@@ -342,7 +357,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="2" width="286.26">
+    <measure number="2" width="283.53">
       <note default-x="13.00" default-y="-345.00">
         <pitch>
           <step>B</step>
@@ -353,7 +368,10 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="3" width="261.23">
+    <measure number="3" width="266.69">
+      <barline location="left">
+        <ending number="1" type="start" default-y="33.10"/>
+        </barline>
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
@@ -361,11 +379,13 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
+        <ending number="1" type="stop"/>
+        <repeat direction="backward"/>
         </barline>
       </measure>
     </part>
   <part id="P5">
-    <measure number="1" width="374.74">
+    <measure number="1" width="372.01">
       <print>
         <staff-layout number="1">
           <staff-distance>65.00</staff-distance>
@@ -404,7 +424,7 @@
         <stem>up</stem>
         <staff>1</staff>
         </note>
-      <note default-x="193.88" default-y="-460.00">
+      <note default-x="192.84" default-y="-460.00">
         <pitch>
           <step>E</step>
           <octave>4</octave>
@@ -416,7 +436,7 @@
         <staff>1</staff>
         <beam number="1">begin</beam>
         </note>
-      <note default-x="243.62" default-y="-455.00">
+      <note default-x="242.11" default-y="-455.00">
         <pitch>
           <step>F</step>
           <octave>4</octave>
@@ -449,7 +469,7 @@
         <staff>2</staff>
         </note>
       </measure>
-    <measure number="2" width="286.26">
+    <measure number="2" width="283.53">
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
@@ -466,7 +486,10 @@
         <staff>2</staff>
         </note>
       </measure>
-    <measure number="3" width="261.23">
+    <measure number="3" width="266.69">
+      <barline location="left">
+        <ending number="1" type="start" default-y="33.10"/>
+        </barline>
       <note>
         <rest measure="yes"/>
         <duration>24</duration>
@@ -484,6 +507,8 @@
         </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
+        <ending number="1" type="stop"/>
+        <repeat direction="backward"/>
         </barline>
       </measure>
     </part>

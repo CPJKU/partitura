@@ -3332,13 +3332,25 @@ class InvalidTimePointException(Exception):
 
 
 def merge_parts(parts):
-    """Merge list of parts of PartGroup
-    into a single part. 
+    """Merge list of parts or PartGroup into a single part.
+     All parts are expected to have the same time signature
+    and quarter division.
+    All elements are merged, except elements with class:Barline, 
+    Page, System, Clef, Measure, TimeSignature, KeySignature.
+    That means that if you have
+
+    Parameters
+    ----------
+    prev_id : PartGroup, list of parts and partGroups
+        The parts to merge
+
+    Returns
+    -------
+    Part
+        A new part that contains the elements of the old parts
     """
     # unfold grouppart and list of parts in a list of parts
     parts = list(iter_parts(parts))
-    # find the divs per quarter note, assuming it is constant through the part
-    # TODO: check if this is always true
 
     # check if the divisions per quarter are the same for all parts
     parts_quarter_times = [p._quarter_times for p in parts]
@@ -3367,8 +3379,24 @@ def merge_parts(parts):
     for p in parts[1:]:
         for e in p.iter_all():
             # we don't copy elements like duplicate barlines, clefs or time signatures
-            # TODO : complete this list
-            if not isinstance(e, (Measure, Clef, System, Page, TimeSignature, Barline)):
+            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+            if not isinstance(
+                e,
+                (
+                    Barline,
+                    Page,
+                    System,
+                    Clef,
+                    Measure,
+                    TimeSignature,
+                    KeySignature,
+                    DaCapo,
+                    Fine,
+                    Fermata,
+                    Ending,
+                    Tempo,
+                ),
+            ):
                 new_part.add(e, start=e.start.t)
 
     return new_part
