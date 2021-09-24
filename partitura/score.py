@@ -3352,52 +3352,58 @@ def merge_parts(parts):
     # unfold grouppart and list of parts in a list of parts
     parts = list(iter_parts(parts))
 
-    # check if the divisions per quarter are the same for all parts
+    # if there is only one part (it could be a list with one part or a partGroup with one part)
+    if len(parts) == 1:
+        return parts[0]
+
+    # check if there is only one division for all parts
     parts_quarter_times = [p._quarter_times for p in parts]
     parts_quarter_durations = [p._quarter_durations for p in parts]
-    if not (
-        all([d == parts_quarter_times[0] for d in parts_quarter_times])
-        and all([d == parts_quarter_durations[0] for d in parts_quarter_durations])
-    ):
+    if not all([len(qd) == 1 for qd in parts_quarter_durations]):
         raise Exception(
-            "Merging parts with different divisions is not supported. Found divisions",
+            "Merging parts with multiple divisions is not supported. Found divisions",
             parts_quarter_durations,
             "at times",
             parts_quarter_times,
         )
 
-    if len(parts) == 1:
-        return parts[0]
+    # pass from an array of array with one elements, to array of elements
+    parts_quarter_durations = [durs[0] for durs in parts_quarter_durations]
+
+    lcm = np.lcm.reduce(parts_quarter_durations)
+    time_multiplier_per_part = [lcm / d for d in parts_quarter_durations]
 
     # create a new part and fill it with all objects in other parts
     new_part = Part(parts[0].id)
-    new_part._quarter_times = parts[0]._quarter_times
-    new_part._quarter_durations = parts[0]._quarter_durations
-    # full copy the first part
-    for e in parts[0].iter_all():
-        new_part.add(e, start=e.start.t)
-    for p in parts[1:]:
+    new_part._quarter_times = [0]
+    new_part._quarter_durations = [lcm]
+
+    for p_ind, p in enumerate(parts):
+
         for e in p.iter_all():
-            # we don't copy elements like duplicate barlines, clefs or time signatures
-            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
-            if not isinstance(
-                e,
-                (
-                    Barline,
-                    Page,
-                    System,
-                    Clef,
-                    Measure,
-                    TimeSignature,
-                    KeySignature,
-                    DaCapo,
-                    Fine,
-                    Fermata,
-                    Ending,
-                    Tempo,
-                ),
-            ):
-                new_part.add(e, start=e.start.t)
+            if p_ind == 0:  # full copy the first part
+                new_part.add(e, start=e.start.t * time_multiplier_per_part[p_ind])
+            else:
+                # we don't copy elements like duplicate barlines, clefs or time signatures
+                # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+                if not isinstance(
+                    e,
+                    (
+                        Barline,
+                        Page,
+                        System,
+                        Clef,
+                        Measure,
+                        TimeSignature,
+                        KeySignature,
+                        DaCapo,
+                        Fine,
+                        Fermata,
+                        Ending,
+                        Tempo,
+                    ),
+                ):
+                    new_part.add(e, start=e.start.t * time_multiplier_per_part[p_ind])
 
     return new_part
 
