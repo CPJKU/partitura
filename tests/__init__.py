@@ -67,6 +67,7 @@ MERGE_PARTS_TESTFILES = [
         "test_part_group.xml",
         "test_multi_part.xml",
         "test_multi_part_change_divs.xml",
+        "test_metrical_position.xml",
     ]
 ]
 

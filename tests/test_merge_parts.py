@@ -36,3 +36,8 @@ class TestMergeParts(unittest.TestCase):
         self.assertTrue(np.array_equal(note_array["onset_div"], expected_onsets))
         self.assertTrue(np.array_equal(note_array["pitch"], expected_pitches))
 
+    def test_merge_single_part(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[3])
+        merged_part = merge_parts(parts)
+        self.assertTrue(merged_part == parts)
+
