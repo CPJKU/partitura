@@ -3371,7 +3371,7 @@ def merge_parts(parts):
     parts_quarter_durations = [durs[0] for durs in parts_quarter_durations]
 
     lcm = np.lcm.reduce(parts_quarter_durations)
-    time_multiplier_per_part = [lcm / d for d in parts_quarter_durations]
+    time_multiplier_per_part = [int(lcm / d) for d in parts_quarter_durations]
 
     # create a new part and fill it with all objects in other parts
     new_part = Part(parts[0].id)
@@ -3379,10 +3379,15 @@ def merge_parts(parts):
     new_part._quarter_durations = [lcm]
 
     for p_ind, p in enumerate(parts):
-
         for e in p.iter_all():
+            # modify the start and the end
+            if not e.start is None:
+                e.start.t = e.start.t * time_multiplier_per_part[p_ind]
+            if not e.end is None:
+                e.end.t = e.end.t * time_multiplier_per_part[p_ind]
+            # copy elements
             if p_ind == 0:  # full copy the first part
-                new_part.add(e, start=e.start.t * time_multiplier_per_part[p_ind])
+                new_part.add(e, start=e.start.t)
             else:
                 # we don't copy elements like duplicate barlines, clefs or time signatures
                 # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
@@ -3403,7 +3408,7 @@ def merge_parts(parts):
                         Tempo,
                     ),
                 ):
-                    new_part.add(e, start=e.start.t * time_multiplier_per_part[p_ind])
+                    new_part.add(e, start=e.start.t)
 
     return new_part
 
