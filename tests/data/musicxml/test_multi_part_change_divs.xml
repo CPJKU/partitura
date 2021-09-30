@@ -436,7 +436,7 @@
         <staff>1</staff>
         </note>
       <backup>
-        <duration>24</duration>
+        <duration>8</duration>
         </backup>
       <note default-x="83.49" default-y="-545.00">
         <pitch>
@@ -457,7 +457,7 @@
         <staff>1</staff>
         </note>
       <backup>
-        <duration>24</duration>
+        <duration>8</duration>
         </backup>
       <note>
         <rest measure="yes"/>
