@@ -23,8 +23,8 @@ class TestMergeParts(unittest.TestCase):
         merged_part = merge_parts(parts)
         note_array = merged_part.note_array
         expected_onsets = [0, 0, 0, 0, 0, 0, 12, 15, 24, 24, 32, 40, 48]
-        expected_pitches = [69, 67, 53, 48, 62, 50, 64, 65, 69, 47, 67, 64, 60]
-        expected_duration = [24, 24, 24, 24, 12, 24, 3, 3, 8, 24, 8, 8, 24]
+        expected_pitches = [48, 50, 53, 62, 67, 69, 64, 65, 47, 69, 67, 64, 60]
+        expected_duration = [24, 24, 24, 12, 24, 24, 3, 3, 24, 8, 8, 8, 24]
         self.assertTrue(np.array_equal(note_array["onset_div"], expected_onsets))
         self.assertTrue(np.array_equal(note_array["pitch"], expected_pitches))
         self.assertTrue(np.array_equal(note_array["duration_div"], expected_duration))
@@ -34,12 +34,9 @@ class TestMergeParts(unittest.TestCase):
         merged_part = merge_parts(parts)
         note_array = merged_part.note_array
         expected_onsets = [0, 0, 0, 0, 0, 0, 12, 15, 24, 24, 32, 40, 48]
-        expected_pitches = [69, 67, 53, 48, 62, 50, 64, 65, 69, 47, 67, 64, 60]
+        expected_pitches = [48, 50, 53, 62, 67, 69, 64, 65, 47, 69, 67, 64, 60]
         self.assertTrue(np.array_equal(note_array["onset_div"], expected_onsets))
         self.assertTrue(np.array_equal(note_array["pitch"], expected_pitches))
-        # note_array_from_parts = ensure_notearray(list(iter_parts(parts)))
-        # note_array_from_merged = ensure_notearray(merged_part)
-        # self.assertTrue(np.array_equal(note_array_from_parts, note_array_from_merged))
 
     def test_compare_normal_and_different_divs(self):
         parts_normal = load_musicxml(MERGE_PARTS_TESTFILES[1])

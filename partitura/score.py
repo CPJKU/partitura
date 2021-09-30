@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 import logging
 from numbers import Number
-
+import copy
 from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
@@ -3335,9 +3335,13 @@ def merge_parts(parts):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
     and quarter division.
+
     All elements are merged, except elements with class:Barline, 
-    Page, System, Clef, Measure, TimeSignature, KeySignature.
-    That means that if you have
+    Page, System, Clef, Measure, TimeSignature, KeySignature
+    that are only taken from the first part.
+
+    WARNING: this modifies the elements in the input, so the
+    original input should not be used anymore.
 
     Parameters
     ----------
@@ -3407,6 +3411,8 @@ def merge_parts(parts):
                     else None
                 )
                 new_part.add(e, start=new_start, end=new_end)
+
+                # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
     return new_part
 
 
