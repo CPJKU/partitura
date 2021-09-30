@@ -3324,6 +3324,36 @@ def sanitize_part(part):
     )
 
 
+class Segment(TimedObject):
+    """
+    Class that represents any segment between two navigation markers
+
+    Parameters
+    ----------
+    id : string
+        The ID associated with this segment
+    jump_to : list of strings
+        The IDs of segments where the unfolded score could jump to at the end of this segment
+
+    Attributes
+    ----------
+    id : string
+        See parameters
+    jump_to : list of strings
+        See parameters
+    jump_id : int
+        the id
+
+    """
+
+    def __init__(self, id, jump_to):
+        super().__init__()
+        self.id = id
+        self.jump_to = jump_to
+
+
+
+
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
 
