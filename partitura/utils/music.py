@@ -1832,6 +1832,13 @@ def note_array_from_note_list(
     max_voice = note_array["voice"].max()
     note_array["voice"][no_voice_idx] = max_voice + 1
 
+    # sort by onset and pitch
+    onset_unit, _ = get_time_units_from_note_array(note_array)
+    pitch_sort_idx = np.argsort(note_array["pitch"])
+    note_array = note_array[pitch_sort_idx]
+    onset_sort_idx = np.argsort(note_array[onset_unit], kind="mergesort")
+    note_array = note_array[onset_sort_idx]
+
     return note_array
 
 
