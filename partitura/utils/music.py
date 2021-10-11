@@ -1368,6 +1368,7 @@ def note_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
+    include_grace_notes=False
 ):
     """
     Construct a structured Note array from a list of Part objects
@@ -1413,6 +1414,7 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
+                    include_grace_notes=include_grace_notes
                 )
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
@@ -1421,6 +1423,7 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
+                    include_grace_notes=include_grace_notes
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array
@@ -1532,6 +1535,7 @@ def note_array_from_part(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
+    include_grace_notes=False
 ):
     """
     Create a structured array with note information
@@ -1626,7 +1630,8 @@ def note_array_from_part(
         quarter_map=part.quarter_map,
         time_signature_map=time_signature_map,
         key_signature_map=key_signature_map,
-        include_pitch_spelling=include_pitch_spelling)
+        include_pitch_spelling=include_pitch_spelling,
+        include_grace_notes=include_grace_notes)
     return note_array
 
 
@@ -1637,6 +1642,7 @@ def note_array_from_note_list(
         time_signature_map=None,
         key_signature_map=None,
         include_pitch_spelling=False,
+        include_grace_notes=False
 ):
     """
     Create a structured array with note information
@@ -1724,6 +1730,10 @@ def note_array_from_note_list(
     if include_pitch_spelling:
         fields += [("step", "U256"), ("alter", "i4"), ("octave", "i4")]
 
+    # fields for pitch spelling
+    if include_grace_notes:
+        fields += [("is_grace", "b"), ("grace_type", "U256")]
+
     # fields for key signature
     if key_signature_map is not None:
         fields += [("ks_fifths", "i4"), ("ks_mode", "i4")]
@@ -1770,6 +1780,14 @@ def note_array_from_note_list(
             octave = note.octave
 
             note_info += (step, alter, octave)
+
+        if include_grace_notes:
+            is_grace = hasattr(note, 'grace_type')
+            if is_grace:
+                grace_type = note.grace_type
+            else:
+                grace_type = "None"
+            note_info += (is_grace, grace_type)
 
         if key_signature_map is not None:
             fifths, mode = key_signature_map(note.start.t)
