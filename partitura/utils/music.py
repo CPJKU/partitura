@@ -211,6 +211,8 @@ TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
 NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
+MUSICAL_BEATS = {6:2,9:3,12:4}
+
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
@@ -1368,7 +1370,6 @@ def note_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_grace_notes=False
 ):
     """
     Construct a structured Note array from a list of Part objects
@@ -1414,7 +1415,6 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
                 )
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
@@ -1423,7 +1423,6 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array
@@ -1535,8 +1534,7 @@ def note_array_from_part(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_metrical_position=False,
-    include_grace_notes=False
+    include_metrical_position=False
 ):
     """
     Create a structured array with note information
@@ -1564,10 +1562,6 @@ def note_array_from_part(
         the position of the onset time of each note with respect to its 
         measure (all notes starting at the same time have the same metrical 
         position).
-        Default is False
-    include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a 
-	grace note and the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1603,9 +1597,6 @@ def note_array_from_part(
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
             * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
             * 'tot_measure_divs' : total number of divs in the note measure
-        If 'include_grace_notes' is True:
-            * 'is_grace': 1 if the note is a grace 0 otherwise
-            * 'grace_type' : the type of the grace notes "" for non grace notes.
     Examples
     --------
     >>> from partitura import load_musicxml, EXAMPLE_MUSICXML
@@ -1654,8 +1645,7 @@ def note_array_from_part(
         time_signature_map=time_signature_map,
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
-        include_pitch_spelling=include_pitch_spelling,
-	include_grace_notes=include_grace_notes)
+        include_pitch_spelling=include_pitch_spelling)
     return note_array
 
 
@@ -1667,7 +1657,6 @@ def note_array_from_note_list(
         key_signature_map=None,
         metrical_position_map=None,
         include_pitch_spelling=False,
-        include_grace_notes=False
 ):
     """
     Create a structured array with note information
@@ -1703,10 +1692,6 @@ def note_array_from_note_list(
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         note. Default is False
-    include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a 
-	grace note and the grace type "" for non grace notes).
-        Default is False
 
     Returns
     -------
@@ -1733,8 +1718,6 @@ def note_array_from_note_list(
               is `True`.
             * 'octave': octave of the note. Included if `include_pitch_spelling`
               is `True`.
-            * 'is_grace' : Is the note a grace note. Yes if true.
-            * 'grace_type' : The type of grace note. "" for non grace notes.
             * 'ks_fifths': Fifths starting from C in the circle of fifths.
               Included if `key_signature_map` is not `None`.
             * 'mode': major or minor. Included If `key_signature_map` is
@@ -1771,10 +1754,6 @@ def note_array_from_note_list(
     # fields for pitch spelling
     if include_pitch_spelling:
         fields += [("step", "U256"), ("alter", "i4"), ("octave", "i4")]
-
-    # fields for pitch spelling
-    if include_grace_notes:
-        fields += [("is_grace", "b"), ("grace_type", "U256")]
 
     # fields for key signature
     if key_signature_map is not None:
@@ -1826,14 +1805,6 @@ def note_array_from_note_list(
             octave = note.octave
 
             note_info += (step, alter, octave)
-
-        if include_grace_notes:
-            is_grace = hasattr(note, 'grace_type')
-            if is_grace:
-                grace_type = note.grace_type
-            else:
-                grace_type = ""
-            note_info += (is_grace, grace_type)
 
         if key_signature_map is not None:
             fifths, mode = key_signature_map(note.start.t)
