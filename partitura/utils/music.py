@@ -1535,6 +1535,7 @@ def note_array_from_part(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
+    include_metrical_position=False,
     include_grace_notes=False
 ):
     """
@@ -1557,6 +1558,16 @@ def note_array_from_part(
         If `True`,  includes time signature information, i.e.,
         the time signature at the onset time of each note (all
         notes starting at the same time have the same time signature).
+        Default is False
+    include_metrical_position : bool (optional)
+        If `True`,  includes metrical position information, i.e.,
+        the position of the onset time of each note with respect to its 
+        measure (all notes starting at the same time have the same metrical 
+        position).
+        Default is False
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. if a note is a 
+	grace note and the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1588,6 +1599,13 @@ def note_array_from_part(
             * 'ts_beats': number of beats in a measure
             * 'ts_beat_type': type of beats (denominator of the time signature)
 
+        If `include_metrical_position` is True:
+            * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
+            * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
+            * 'tot_measure_divs' : total number of divs in the note measure
+        If 'include_grace_notes' is True:
+            * 'is_grace': 1 if the note is a grace 0 otherwise
+            * 'grace_type' : the type of the grace notes "" for non grace notes.
     Examples
     --------
     >>> from partitura import load_musicxml, EXAMPLE_MUSICXML
@@ -1624,14 +1642,20 @@ def note_array_from_part(
     else:
         key_signature_map = None
 
+    if include_metrical_position:
+        metrical_position_map = part.metrical_position_map
+    else:
+        metrical_position_map = None
+
     note_array = note_array_from_note_list(
         note_list=part.notes_tied,
         beat_map=part.beat_map,
         quarter_map=part.quarter_map,
         time_signature_map=time_signature_map,
         key_signature_map=key_signature_map,
+        metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
-        include_grace_notes=include_grace_notes)
+	include_grace_notes=include_grace_notes)
     return note_array
 
 
@@ -1641,6 +1665,7 @@ def note_array_from_note_list(
         quarter_map=None,
         time_signature_map=None,
         key_signature_map=None,
+        metrical_position_map=None,
         include_pitch_spelling=False,
         include_grace_notes=False
 ):
@@ -1670,9 +1695,18 @@ def note_array_from_note_list(
         that time (in terms of fifths and mode).
         If `None` is given, the output structured array will not
         include this information.
+    metrical_position_map: callable or None (optional)
+        A function that maps score time in divs to the position in 
+        the measure at that time.
+        If `None` is given, the output structured array will not
+        include the metrical position information.
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         note. Default is False
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. if a note is a 
+	grace note and the grace type "" for non grace notes).
+        Default is False
 
     Returns
     -------
@@ -1699,6 +1733,8 @@ def note_array_from_note_list(
               is `True`.
             * 'octave': octave of the note. Included if `include_pitch_spelling`
               is `True`.
+            * 'is_grace' : Is the note a grace note. Yes if true.
+            * 'grace_type' : The type of grace note. "" for non grace notes.
             * 'ks_fifths': Fifths starting from C in the circle of fifths.
               Included if `key_signature_map` is not `None`.
             * 'mode': major or minor. Included If `key_signature_map` is
@@ -1707,6 +1743,12 @@ def note_array_from_note_list(
                is True.
             * 'ts_beat_type': type of beats (denominator of the time signature).
               If `include_time_signature` is True.
+            * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise.
+               If `measure_map` is not None.
+            * 'rel_onset_div': number of divs elapsed from the beginning of the note measure.
+               If `measure_map` is not None.
+            * 'tot_measure_div' : total number of divs in the note measure
+               If `measure_map` is not None.
     """
 
     fields = []
@@ -1741,6 +1783,10 @@ def note_array_from_note_list(
     # fields for time signature
     if time_signature_map is not None:
         fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
+
+    # fields for metrical position
+    if metrical_position_map is not None:
+        fields += [("is_downbeat", "i4"), ("rel_onset_div", "i4"), ("tot_measure_div", "i4")]
 
     note_array = []
     for note in note_list:
@@ -1799,6 +1845,13 @@ def note_array_from_note_list(
 
             note_info += (beats, beat_type)
 
+        if metrical_position_map is not None:
+            rel_onset_div, tot_measure_div = metrical_position_map(note.start.t)
+
+            is_downbeat = 1 if rel_onset_div == 0 else 0
+
+            note_info += (is_downbeat, rel_onset_div, tot_measure_div)
+            
         note_array.append(note_info)
 
     note_array = np.array(note_array, dtype=fields)
@@ -1807,6 +1860,13 @@ def note_array_from_note_list(
     no_voice_idx = np.where(note_array["voice"] == -1)[0]
     max_voice = note_array["voice"].max()
     note_array["voice"][no_voice_idx] = max_voice + 1
+
+    # sort by onset and pitch
+    onset_unit, _ = get_time_units_from_note_array(note_array)
+    pitch_sort_idx = np.argsort(note_array["pitch"])
+    note_array = note_array[pitch_sort_idx]
+    onset_sort_idx = np.argsort(note_array[onset_unit], kind="mergesort")
+    note_array = note_array[onset_sort_idx]
 
     return note_array
 
