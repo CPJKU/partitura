@@ -1786,7 +1786,7 @@ def note_array_from_note_list(
             if is_grace:
                 grace_type = note.grace_type
             else:
-                grace_type = "None"
+                grace_type = ""
             note_info += (is_grace, grace_type)
 
         if key_signature_map is not None:
