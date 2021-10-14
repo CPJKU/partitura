@@ -211,6 +211,8 @@ TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
 NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
+MUSICAL_BEATS = {6:2,9:3,12:4}
+
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
@@ -1655,7 +1657,7 @@ def note_array_from_part(
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
-	include_grace_notes=include_grace_notes)
+	    include_grace_notes=include_grace_notes)
     return note_array
 
 
