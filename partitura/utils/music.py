@@ -1569,7 +1569,7 @@ def note_array_from_part(
         Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a 
-	grace note and the grace type "" for non grace notes).
+	    grace note and the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1707,7 +1707,7 @@ def note_array_from_note_list(
         note. Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a 
-	grace note and the grace type "" for non grace notes).
+	    grace note and the grace type "" for non grace notes).
         Default is False
 
     Returns
