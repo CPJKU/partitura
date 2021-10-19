@@ -54,7 +54,8 @@ def find_musescore3():
         result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
 
     elif platform.system() == "Windows":
-        pass
+        
+        result = shutil.which("C:\\Program Files\\MuseScore 3\\bin\\MuseScore3.exe")
 
     return result
 
@@ -152,7 +153,7 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
 
     """
     mscore_exec = find_musescore3()
-
+    print(mscore_exec)
     if not mscore_exec:
 
         return None
