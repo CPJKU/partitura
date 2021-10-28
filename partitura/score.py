@@ -3296,6 +3296,7 @@ def sanitize_part(part):
             for no in part.iter_all(
                 Note, include_subclasses=False, start=gn.start.t, end=gn.start.t + 1
             ):
+
                 if no.voice == gn.voice:
                     gn.last_grace_note_in_seq.grace_next = no
 
@@ -3322,6 +3323,7 @@ def sanitize_part(part):
         "{} incomplete slurs, and {} incomplete grace "
         "notes".format(remove_tuplet_counter, remove_slur_counter, remove_grace_counter)
     )
+
 
 
 class InvalidTimePointException(Exception):

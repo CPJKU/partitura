@@ -30,6 +30,8 @@ EXAMPLE_MUSICXML = pkg_resources.resource_filename(
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
 EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
 
+EXAMPLE_MEI = pkg_resources.resource_filename("partitura", 'assets/score_example.mei')
+
 __all__ = [
     "load_musicxml",
     "save_musicxml",
