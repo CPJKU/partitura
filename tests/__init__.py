@@ -9,6 +9,7 @@ import os
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
 MUSICXML_PATH = os.path.join(DATA_PATH, "musicxml")
+MEI_PATH = os.path.join(DATA_PATH, "mei")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 
@@ -61,3 +62,13 @@ METRICAL_POSITION_TESTFILES = [
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
 
+MEI_TESTFILES = [
+    os.path.join(MEI_PATH, fn)
+    for fn in [
+        "example_noMeasures_noBeams.mei",
+        "example_noMeasures_withBeams.mei",
+        "example_withMeasures_noBeams.mei",
+        "example_withMeasures_withBeams.mei",
+        "Bach_Prelude.mei",
+    ]
+]
