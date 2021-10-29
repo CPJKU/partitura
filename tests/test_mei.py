@@ -25,7 +25,7 @@ from lxml import etree
 
 
 class TestImportMEI(unittest.TestCase):
-    def test_main_part_group(self):
+    def test_main_part_group1(self):
         document, ns = _parse_mei(MEI_TESTFILES[5])
         main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
         part_list = _handle_main_staff_group(main_partgroup_el, ns)
@@ -56,6 +56,13 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(part_list[1].group_symbol == "brace")
         self.assertTrue(part_list[1].group_name == "Piano")
         self.assertTrue(part_list[1].id == "P5")
+
+    def test_main_part_group2(self):
+        document, ns = _parse_mei(MEI_TESTFILES[4])
+        main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
+        part_list = _handle_main_staff_group(main_partgroup_el, ns)
+        self.assertTrue(len(part_list) == 1)
+        self.assertTrue(isinstance(part_list[0], score.PartGroup))
 
 
 if __name__ == "__main__":

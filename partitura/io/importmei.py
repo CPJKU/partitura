@@ -22,7 +22,10 @@ def _handle_staffdef(staffdef_el, ns):
 
 def _handle_staffgroup(staffgroup_el, ns):
     group_symbol_el = staffgroup_el.find(_ns_name("grpSym", ns))
-    group_symbol = group_symbol_el.attrib["symbol"]
+    if group_symbol_el is None:
+        group_symbol = staffgroup_el.attrib["symbol"]
+    else:
+        group_symbol = group_symbol_el.attrib["symbol"]
     label_el = staffgroup_el.find(_ns_name("label", ns))
     name = label_el.text if label_el is not None else None
     id = staffgroup_el.attrib[_ns_name("id", XML_NAMESPACE)]
