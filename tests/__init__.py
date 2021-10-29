@@ -70,5 +70,6 @@ MEI_TESTFILES = [
         "example_withMeasures_noBeams.mei",
         "example_withMeasures_withBeams.mei",
         "Bach_Prelude.mei",
+        "Schubert_An_die_Sonne_D.439.mei",
     ]
 ]

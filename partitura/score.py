@@ -2377,11 +2377,12 @@ class PartGroup(object):
 
     """
 
-    def __init__(self, group_symbol=None, group_name=None, number=None):
+    def __init__(self, group_symbol=None, group_name=None, number=None, id=None):
         self.group_symbol = group_symbol
         self.group_name = group_name
         self.number = number
         self.parent = None
+        self.id = id
         self.children = []
 
     def _pp(self, tree):
@@ -3323,7 +3324,6 @@ def sanitize_part(part):
         "{} incomplete slurs, and {} incomplete grace "
         "notes".format(remove_tuplet_counter, remove_slur_counter, remove_grace_counter)
     )
-
 
 
 class InvalidTimePointException(Exception):
