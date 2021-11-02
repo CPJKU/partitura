@@ -31,6 +31,20 @@ DUMMY_PS_BASE_CLASS = {
     11: ("b", 0),
 }
 
+MEI_DURS = {
+    "long": "long",
+    "breve": "breve",
+    "1": "whole",
+    "2": "half",
+    "4": "quarter",
+    "8": "eighth",
+    "16": "16th",
+    "32": "32nd",
+    "64": "64th",
+    "128": "128th",
+    "256": "256th",
+}
+
 LABEL_DURS = {
     "long": 16,
     "breve": 8,
@@ -211,7 +225,7 @@ TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
 NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
-MUSICAL_BEATS = {6:2,9:3,12:4}
+MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
@@ -301,15 +315,16 @@ def note_name_to_pitch_spelling(note_name):
     note_info = NOTE_NAME_PATT.search(note_name)
 
     if note_info is None:
-        raise ValueError("Invalid note name. "
-                         "The note name must be "
-                         "'<pitch class>(alteration)<octave>', "
-                         f"but was given {note_name}.")
+        raise ValueError(
+            "Invalid note name. "
+            "The note name must be "
+            "'<pitch class>(alteration)<octave>', "
+            f"but was given {note_name}."
+        )
     step, alter, octave = note_info.groups()
     step, alter, octave = ensure_pitch_spelling_format(
-        step=step,
-        alter=alter if alter != "" else "n",
-        octave=int(octave))
+        step=step, alter=alter if alter != "" else "n", octave=int(octave)
+    )
     return step, alter, octave
 
 
@@ -335,11 +350,15 @@ def pitch_spelling_to_note_name(step, alter, octave):
 SIGN_TO_ALTER = {
     "n": 0,
     "#": 1,
+    "s": 1,
+    "ss": 2,
     "x": 2,
     "##": 2,
     "###": 3,
     "b": -1,
+    "f": -1,
     "bb": -2,
+    "ff": -2,
     "bbb": -3,
     "-": None,
 }
@@ -1189,8 +1208,9 @@ def match_note_arrays(
             if duration_key is None and check_duration:
                 check_duration = False
         else:
-            raise ValueError("`fields` should be a tuple or a string, but given "
-                             f"{type(fields)}")
+            raise ValueError(
+                "`fields` should be a tuple or a string, but given " f"{type(fields)}"
+            )
     else:
         onset_key, duration_key = get_time_units_from_note_array(input_note_array)
         onset_key_check, _ = get_time_units_from_note_array(target_note_array)
@@ -1253,17 +1273,18 @@ def match_note_arrays(
             # For the case that there are multiple notes aligned to the input note
 
             # get indices of the target notes if they have not yet been used
-            taix_to_consider = np.array([ti for ti in taix
-                                         if ti not in matched_target_idxs],
-                                        dtype=int)
+            taix_to_consider = np.array(
+                [ti for ti in taix if ti not in matched_target_idxs], dtype=int
+            )
             if len(taix_to_consider) > 0:
                 # If there are some indices to consider
                 candidate_notes = target_note_array[taix_to_consider]
 
                 if check_duration:
-                    best_candidate_idx = \
-                        (candidate_notes[duration_key] -
-                         input_note_array[inix][duration_key]).argmin()
+                    best_candidate_idx = (
+                        candidate_notes[duration_key]
+                        - input_note_array[inix][duration_key]
+                    ).argmin()
                 else:
                     # Take the first one if no other information is given
                     best_candidate_idx = 0
@@ -1534,7 +1555,7 @@ def note_array_from_part(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_metrical_position=False
+    include_metrical_position=False,
 ):
     """
     Create a structured array with note information
@@ -1645,18 +1666,19 @@ def note_array_from_part(
         time_signature_map=time_signature_map,
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
-        include_pitch_spelling=include_pitch_spelling)
+        include_pitch_spelling=include_pitch_spelling,
+    )
     return note_array
 
 
 def note_array_from_note_list(
-        note_list,
-        beat_map=None,
-        quarter_map=None,
-        time_signature_map=None,
-        key_signature_map=None,
-        metrical_position_map=None,
-        include_pitch_spelling=False,
+    note_list,
+    beat_map=None,
+    quarter_map=None,
+    time_signature_map=None,
+    key_signature_map=None,
+    metrical_position_map=None,
+    include_pitch_spelling=False,
 ):
     """
     Create a structured array with note information
@@ -1737,12 +1759,10 @@ def note_array_from_note_list(
     fields = []
     if beat_map is not None:
         # Preserve the order of the fields
-        fields += [("onset_beat", "f4"),
-                   ("duration_beat", "f4")]
+        fields += [("onset_beat", "f4"), ("duration_beat", "f4")]
 
     if quarter_map is not None:
-        fields += [("onset_quarter", "f4"),
-                   ("duration_quarter", "f4")]
+        fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
         ("onset_div", "i4"),
         ("duration_div", "i4"),
@@ -1765,7 +1785,11 @@ def note_array_from_note_list(
 
     # fields for metrical position
     if metrical_position_map is not None:
-        fields += [("is_downbeat", "i4"), ("rel_onset_div", "i4"), ("tot_measure_div", "i4")]
+        fields += [
+            ("is_downbeat", "i4"),
+            ("rel_onset_div", "i4"),
+            ("tot_measure_div", "i4"),
+        ]
 
     note_array = []
     for note in note_list:
@@ -1779,17 +1803,13 @@ def note_array_from_note_list(
             note_on_beat, note_off_beat = beat_map([note_on_div, note_off_div])
             note_dur_beat = note_off_beat - note_on_beat
 
-            note_info += (note_on_beat,
-                          note_dur_beat)
+            note_info += (note_on_beat, note_dur_beat)
 
         if quarter_map is not None:
-            note_on_quarter, note_off_quarter = quarter_map(
-                [note_on_div, note_off_div]
-            )
+            note_on_quarter, note_off_quarter = quarter_map([note_on_div, note_off_div])
             note_dur_quarter = note_off_quarter - note_on_quarter
 
-            note_info += (note_on_quarter,
-                          note_dur_quarter)
+            note_info += (note_on_quarter, note_dur_quarter)
 
         note_info += (
             note_on_div,
@@ -1822,7 +1842,7 @@ def note_array_from_note_list(
             is_downbeat = 1 if rel_onset_div == 0 else 0
 
             note_info += (is_downbeat, rel_onset_div, tot_measure_div)
-            
+
         note_array.append(note_info)
 
     note_array = np.array(note_array, dtype=fields)

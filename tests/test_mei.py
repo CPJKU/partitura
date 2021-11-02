@@ -7,8 +7,15 @@ import unittest
 from tests import MEI_TESTFILES
 from partitura import load_musicxml, load_mei
 import partitura.score as score
-from partitura.io.importmei import _parse_mei, _ns_name, _handle_main_staff_group
+from partitura.io.importmei import (
+    _parse_mei,
+    _ns_name,
+    _handle_main_staff_group,
+    _handle_layer_in_staff_in_measure,
+    load_mei,
+)
 from lxml import etree
+from xmlschema.names import XML_NAMESPACE
 
 
 # class TestSaveMEI(unittest.TestCase):
@@ -63,6 +70,44 @@ class TestImportMEI(unittest.TestCase):
         part_list = _handle_main_staff_group(main_partgroup_el, ns)
         self.assertTrue(len(part_list) == 1)
         self.assertTrue(isinstance(part_list[0], score.PartGroup))
+
+    def test_handle_layer1(self):
+        document, ns = _parse_mei(MEI_TESTFILES[5])
+        layer_el = [
+            e
+            for e in document.findall(_ns_name("layer", ns, True))
+            if e.attrib[_ns_name("id", XML_NAMESPACE)] == "l3ss4q5"
+        ][0]
+        part = score.Part("dummyid", quarter_duration=12)
+        _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
+        self.assertTrue(len(part.note_array) == 3)
+
+    def test_handle_layer2(self):
+        document, ns = _parse_mei(MEI_TESTFILES[5])
+        layer_el = [
+            e
+            for e in document.findall(_ns_name("layer", ns, True))
+            if e.attrib[_ns_name("id", XML_NAMESPACE)] == "l95j799"
+        ][0]
+        part = score.Part("dummyid", quarter_duration=12)
+        _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
+        self.assertTrue(len(part.note_array) == 3)
+
+    def test_handle_layer_tuplets(self):
+        document, ns = _parse_mei(MEI_TESTFILES[6])
+        layer_el = [
+            e
+            for e in document.findall(_ns_name("layer", ns, True))
+            if e.attrib[_ns_name("id", XML_NAMESPACE)] == "l7hooah"
+        ][0]
+        part = score.Part("dummyid", quarter_duration=15)
+        _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
+        self.assertTrue(len(part.note_array) == 10)
+
+    def test_parse_mei(self):
+        part_list = load_mei(MEI_TESTFILES[6])
+        self.assertTrue(len(part_list[0].children[0].note_array) == 10)
+        # to correct by introducting ties
 
 
 if __name__ == "__main__":
