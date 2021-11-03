@@ -72,5 +72,7 @@ MEI_TESTFILES = [
         "Bach_Prelude.mei",
         "Schubert_An_die_Sonne_D.439.mei",
         "test_tuplets.mei",
+        "test_ties.mei",
+        "test_metrical_position.mei",
     ]
 ]

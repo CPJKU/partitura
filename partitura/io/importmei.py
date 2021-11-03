@@ -31,13 +31,34 @@ def _ns_name(name, ns, all=False):
 # functions to parse staves info
 
 
-def _handle_staffdef(staffdef_el, ns):
+def _handle_metersig(staffdef_el, position, part, ns):
+    metersig_el = staffdef_el.find(_ns_name("meterSig", ns))
+    if metersig_el is not None:  # new element inside
+        numerator = int(metersig_el.attrib["count"])
+        denominator = int(metersig_el.attrib["unit"])
+    else:  # all encoded as attributes in staffdef
+        numerator = int(staffdef_el.attrib["meter.count"])
+        denominator = int(staffdef_el.attrib["meter.unit"])
+    new_time_signature = score.TimeSignature(numerator, denominator)
+    part.add(new_time_signature, position)
+
+
+def _handle_staffdef(staffdef_el, position, part, ns):
+    # fill with time signature info
+    _handle_metersig(staffdef_el, position, part, ns)
+
+
+def _handle_initial_staffdef(staffdef_el, ns):
     """Handles the definition of a single staff"""
     id = staffdef_el.attrib[_ns_name("id", XML_NAMESPACE)]
     label_el = staffdef_el.find(_ns_name("label", ns))
     name = label_el.text if label_el is not None else ""
     ppq = int(staffdef_el.attrib["ppq"])
-    return score.Part(id, name, quarter_duration=ppq)
+    # generate the part
+    part = score.Part(id, name, quarter_duration=ppq)
+    # fill it with other info, e.g. meter, time signature, key signature
+    _handle_staffdef(staffdef_el, 0, part, ns)
+    return part
 
 
 def _handle_staffgroup(staffgroup_el, ns):
@@ -53,7 +74,7 @@ def _handle_staffgroup(staffgroup_el, ns):
     staff_group = score.PartGroup(group_symbol, group_name=name, id=id)
     staves_el = staffgroup_el.findall(_ns_name("staffDef", ns))
     for s_el in staves_el:
-        new_part = _handle_staffdef(s_el, ns)
+        new_part = _handle_initial_staffdef(s_el, ns)
         staff_group.children.append(new_part)
     return staff_group
 
@@ -66,7 +87,7 @@ def _handle_main_staff_group(main_staffgrp_el, ns):
     part_list = []
     # process the parts
     for s_el in staves_el:
-        new_part = _handle_staffdef(s_el, ns)
+        new_part = _handle_initial_staffdef(s_el, ns)
         part_list.append(new_part)
     # process the part groups
     for sg_el in staff_groups_el:
@@ -159,6 +180,31 @@ def _handle_rest(rest_el, position, voice, staff, part, ns):
     return position + duration
 
 
+def _handle_mrest(mrest_el, position, voice, staff, part, ns):
+    """Handles a rest that spawn the entire measure"""
+    # find id
+    mrest_id = mrest_el.attrib[_ns_name("id", XML_NAMESPACE)]
+    # find closest time signature
+    last_ts = list(part.iter_all(cls=score.TimeSignature))[-1]
+    # find divs per measure
+    ppq = part.quarter_duration_map(position)
+    parts_per_measure = int(ppq * 4 * last_ts.beats / last_ts.beat_type)
+
+    # create dummy rest to insert in the timeline
+    rest = score.Rest(
+        id=mrest_id,
+        voice=voice,
+        staff=staff,
+        symbolic_duration=None,
+        articulations=None,
+    )
+    # add mrest to the part
+    part.add(rest, position, position + 1)
+    # now iterate
+    # return duration to update the position in the layer
+    return position + parts_per_measure
+
+
 def _handle_chord(chord_el, position, voice, staff, part, ns):
     # find duration info
     chord_id, duration, symbolic_duration = _duration_info(chord_el, ns)
@@ -192,9 +238,11 @@ def _handle_layer_in_staff_in_measure(
         if e.tag == _ns_name("note", ns):
             new_position = _handle_note(e, position, ind_layer, ind_staff, part, ns)
         elif e.tag == _ns_name("chord", ns):
-            duration = _handle_chord(e, position, ind_layer, ind_staff, part, ns)
+            new_position = _handle_chord(e, position, ind_layer, ind_staff, part, ns)
         elif e.tag == _ns_name("rest", ns):
             new_position = _handle_rest(e, position, ind_layer, ind_staff, part, ns)
+        elif e.tag == _ns_name("mRest", ns):  # rest that spawn the entire measure
+            new_position = _handle_mrest(e, position, ind_layer, ind_staff, part, ns)
         elif e.tag == _ns_name("beam", ns):
             # TODO : add Beam element
             # recursive call to the elements inside beam
@@ -234,30 +282,49 @@ def _handle_staff_in_measure(staff_el, staff_ind, position: int, part, ns):
     return end_positions[0]
 
 
-def _handle_staves_content(parts, measures_el, ns):
+def _handle_section(parts, section_el, ns):
     position = 0
-    for i_m, measure in enumerate(measures_el):
-        staves_el = measure.findall(_ns_name("staff", ns))
-        if len(list(staves_el)) != len(list(parts)):
-            raise Exception("Not all parts are specified in measure" + i_m)
-        end_positions = []
-        for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
-            end_positions.append(
-                _handle_staff_in_measure(staff_el, i_s, position, part, ns)
-            )
-        # sanity check that all layers have equal duration
-        if not all([e == end_positions[0] for e in end_positions]):
-            raise Exception("Different parts have measures of different duration")
-        position = end_positions[0]
+    for i_el, element in enumerate(section_el):
+        # handle measures
+        if element.tag == _ns_name("measure", ns):
+            staves_el = element.findall(_ns_name("staff", ns))
+            if len(list(staves_el)) != len(list(parts)):
+                raise Exception("Not all parts are specified in measure" + i_el)
+            end_positions = []
+            for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
+                end_positions.append(
+                    _handle_staff_in_measure(staff_el, i_s, position, part, ns)
+                )
+            # sanity check that all layers have equal duration
+            if not all([e == end_positions[0] for e in end_positions]):
+                raise Exception("Different parts have measures of different duration")
+            position = end_positions[0]
+        # handle staffDef elements
+        elif element.tag == _ns_name("scoreDef", ns):
+            metersig_el = element.find(_ns_name("meterSig", ns))
+            if (metersig_el is not None) or (element.get("meter.count") is not None):
+                for part in parts:
+                    _handle_metersig(element, position, part, ns)
     return position
 
 
-def _tie_notes(section, part, ns):
+def _tie_notes(section_el, part_list, ns):
     """Ties all notes in a part.
     This function must be run after the parts are completely created."""
-    ties = section.findall(_ns_name("tie", ns, True))
-    for tie in ties:
-        pass
+    ties_el = section_el.findall(_ns_name("tie", ns, True))
+    # create a dict of id : note, to speed up search
+    all_notes = [
+        note
+        for part in score.iter_parts(part_list)
+        for note in part.iter_all(cls=score.Note)
+    ]
+    all_notes_dict = {note.id: note for note in all_notes}
+    for tie_el in ties_el:
+        start_id = tie_el.attrib["startid"][1:]  # remove the # in first position
+        end_id = tie_el.attrib["endid"][1:]  # remove the # in first position
+        # set tie prev and tie next in partira note objects
+        all_notes_dict[start_id].tie_next = all_notes_dict[end_id]
+        all_notes_dict[end_id].tie_prev = all_notes_dict[start_id]
 
 
 def load_mei(xml_path: str):
@@ -272,8 +339,9 @@ def load_mei(xml_path: str):
     sections_el = document.findall(_ns_name("section", ns, True))
     if len(sections_el) != 1:
         raise Exception("Only MEI with a single section are supported")
-    measures_el = sections_el[0].findall((_ns_name("measure", ns)))
-    _handle_staves_content(list(score.iter_parts(part_list)), list(measures_el), ns)
+    _handle_section(list(score.iter_parts(part_list)), sections_el[0], ns)
+    # handle ties
+    _tie_notes(sections_el[0], part_list, ns)
 
     return part_list
 

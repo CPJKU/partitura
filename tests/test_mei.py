@@ -107,7 +107,20 @@ class TestImportMEI(unittest.TestCase):
     def test_parse_mei(self):
         part_list = load_mei(MEI_TESTFILES[6])
         self.assertTrue(len(part_list[0].children[0].note_array) == 10)
-        # to correct by introducting ties
+
+    def test_ties1(self):
+        part_list = load_mei(MEI_TESTFILES[7])
+        note_array = list(score.iter_parts(part_list))[0].note_array
+        self.assertTrue(len(note_array) == 4)
+
+    def test_time_signatures(self):
+        part_list = load_mei(MEI_TESTFILES[8])
+        part0 = list(score.iter_parts(part_list))[0]
+        time_signatures = list(part0.iter_all(score.TimeSignature))
+        self.assertTrue(len(time_signatures) == 3)
+        self.assertTrue(time_signatures[0].t.start == 0)
+        self.assertTrue(time_signatures[1].t.start == 8 * 16)
+        self.assertTrue(time_signatures[2].t.start == 12.5 * 16)
 
 
 if __name__ == "__main__":
