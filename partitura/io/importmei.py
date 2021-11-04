@@ -326,6 +326,11 @@ def _handle_chord(chord_el, position, voice, staff, part, ns):
     return position + duration
 
 
+def _handle_space(e, position):
+    # just move the current position
+    return position + int(e.attrib["dur.ppq"])
+
+
 def _handle_layer_in_staff_in_measure(
     layer_el, ind_layer: int, ind_staff: int, position: int, part, ns
 ) -> int:
@@ -352,6 +357,8 @@ def _handle_layer_in_staff_in_measure(
             )
         elif e.tag == _ns_name("clef", ns):
             new_position = _handle_clef(e, position, part, ns)
+        elif e.tag == _ns_name("space", ns):
+            new_position = _handle_space(e, position)
         else:
             raise Exception("Tag " + e.tag + " not supported")
 

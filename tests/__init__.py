@@ -62,6 +62,19 @@ METRICAL_POSITION_TESTFILES = [
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
 
+MERGE_PARTS_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in [
+        "test_part_group.xml",
+        "test_multi_part.xml",
+        "test_multi_part_change_divs.xml",
+        "test_metrical_position.xml",
+        "test_merge_interpolation.xml",
+        "test_single_part_change_divs.xml",
+    ]
+]
+
+
 MEI_TESTFILES = [
     os.path.join(MEI_PATH, fn)
     for fn in [

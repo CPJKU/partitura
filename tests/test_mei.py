@@ -104,10 +104,6 @@ class TestImportMEI(unittest.TestCase):
         _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
         self.assertTrue(len(part.note_array) == 10)
 
-    def test_parse_mei(self):
-        part_list = load_mei(MEI_TESTFILES[6])
-        self.assertTrue(len(part_list[0].children[0].note_array) == 10)
-
     def test_ties1(self):
         part_list = load_mei(MEI_TESTFILES[7])
         note_array = list(score.iter_parts(part_list))[0].note_array
@@ -172,6 +168,12 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(len(grace_notes) == 4)
         self.assertTrue(grace_notes[0].grace_type == "acciaccatura")
         self.assertTrue(grace_notes[1].grace_type == "appoggiatura")
+
+    def test_parse_mei(self):
+        # check if all test files load correctly
+        for mei in MEI_TESTFILES[4:]:
+            part_list = load_mei(mei)
+        self.assertTrue(True)
 
 
 if __name__ == "__main__":
