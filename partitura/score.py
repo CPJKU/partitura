@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 import logging
 from numbers import Number
-
+import copy
 from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
@@ -3331,6 +3331,91 @@ class InvalidTimePointException(Exception):
 
     def __init__(self, message=None):
         super().__init__(message)
+
+
+def merge_parts(parts):
+    """Merge list of parts or PartGroup into a single part.
+     All parts are expected to have the same time signature
+    and quarter division.
+
+    All elements are merged, except elements with class:Barline, 
+    Page, System, Clef, Measure, TimeSignature, KeySignature
+    that are only taken from the first part.
+
+    WARNING: this modifies the elements in the input, so the
+    original input should not be used anymore.
+
+    Parameters
+    ----------
+    prev_id : PartGroup, list of parts and partGroups
+        The parts to merge
+
+    Returns
+    -------
+    Part
+        A new part that contains the elements of the old parts
+    """
+    # unfold grouppart and list of parts in a list of parts
+    parts = list(iter_parts(parts))
+
+    # if there is only one part (it could be a list with one part or a partGroup with one part)
+    if len(parts) == 1:
+        return parts[0]
+
+    # check if there is only one division for all parts
+    parts_quarter_times = [p._quarter_times for p in parts]
+    parts_quarter_durations = [p._quarter_durations for p in parts]
+    if not all([len(qd) == 1 for qd in parts_quarter_durations]):
+        raise Exception(
+            "Merging parts with multiple divisions is not supported. Found divisions",
+            parts_quarter_durations,
+            "at times",
+            parts_quarter_times,
+        )
+
+    # pass from an array of array with one elements, to array of elements
+    parts_quarter_durations = [durs[0] for durs in parts_quarter_durations]
+
+    lcm = np.lcm.reduce(parts_quarter_durations)
+    time_multiplier_per_part = [int(lcm / d) for d in parts_quarter_durations]
+
+    # create a new part and fill it with all objects in other parts
+    new_part = Part(parts[0].id)
+    new_part._quarter_times = [0]
+    new_part._quarter_durations = [lcm]
+
+    for p_ind, p in enumerate(parts):
+        for e in p.iter_all():
+            # full copy the first part and partially copy the others
+            # we don't copy elements like duplicate barlines, clefs or time signatures for others
+            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+            if p_ind == 0 or not isinstance(
+                e,
+                (
+                    Barline,
+                    Page,
+                    System,
+                    Clef,
+                    Measure,
+                    TimeSignature,
+                    KeySignature,
+                    DaCapo,
+                    Fine,
+                    Fermata,
+                    Ending,
+                    Tempo,
+                ),
+            ):  # a time multiplier is used to account for different divisions
+                new_start = e.start.t * time_multiplier_per_part[p_ind]
+                new_end = (
+                    e.end.t * time_multiplier_per_part[p_ind]
+                    if not e.end is None
+                    else None
+                )
+                new_part.add(e, start=new_start, end=new_end)
+
+                # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
+    return new_part
 
 
 if __name__ == "__main__":
