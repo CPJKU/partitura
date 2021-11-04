@@ -118,9 +118,60 @@ class TestImportMEI(unittest.TestCase):
         part0 = list(score.iter_parts(part_list))[0]
         time_signatures = list(part0.iter_all(score.TimeSignature))
         self.assertTrue(len(time_signatures) == 3)
-        self.assertTrue(time_signatures[0].t.start == 0)
-        self.assertTrue(time_signatures[1].t.start == 8 * 16)
-        self.assertTrue(time_signatures[2].t.start == 12.5 * 16)
+        self.assertTrue(time_signatures[0].start.t == 0)
+        self.assertTrue(time_signatures[1].start.t == 8 * 16)
+        self.assertTrue(time_signatures[2].start.t == 12.5 * 16)
+
+    def test_clef(self):
+        part_list = load_mei(MEI_TESTFILES[9])
+        # test on part 2
+        part2 = list(score.iter_parts(part_list))[2]
+        clefs2 = list(part2.iter_all(score.Clef))
+        self.assertTrue(len(clefs2) == 2)
+        self.assertTrue(clefs2[0].start.t == 0)
+        self.assertTrue(clefs2[0].sign == "C")
+        self.assertTrue(clefs2[0].line == 3)
+        self.assertTrue(clefs2[0].number == 3)
+        self.assertTrue(clefs2[0].octave_change == 0)
+        self.assertTrue(clefs2[1].start.t == 8)
+        self.assertTrue(clefs2[1].sign == "F")
+        self.assertTrue(clefs2[1].line == 4)
+        self.assertTrue(clefs2[1].number == 3)
+        self.assertTrue(clefs2[1].octave_change == 0)
+        # test on part 3
+        part3 = list(score.iter_parts(part_list))[3]
+        clefs3 = list(part3.iter_all(score.Clef))
+        self.assertTrue(len(clefs3) == 2)
+        self.assertTrue(clefs3[0].start.t == 0)
+        self.assertTrue(clefs3[1].start.t == 4)
+        self.assertTrue(clefs3[1].sign == "G")
+        self.assertTrue(clefs3[1].line == 2)
+        self.assertTrue(clefs3[1].number == 4)
+        self.assertTrue(clefs3[1].octave_change == -1)
+
+    def test_key_signature1(self):
+        part_list = load_mei(MEI_TESTFILES[9])
+        for part in score.iter_parts(part_list):
+            kss = list(part.iter_all(score.KeySignature))
+            self.assertTrue(len(kss) == 2)
+            self.assertTrue(kss[0].fifths == 2)
+            self.assertTrue(kss[1].fifths == 4)
+
+    def test_key_signature2(self):
+        part_list = load_mei(MEI_TESTFILES[10])
+        for part in score.iter_parts(part_list):
+            kss = list(part.iter_all(score.KeySignature))
+            self.assertTrue(len(kss) == 1)
+            self.assertTrue(kss[0].fifths == -1)
+
+    def test_grace_note(self):
+        part_list = load_mei(MEI_TESTFILES[10])
+        part = list(score.iter_parts(part_list))[0]
+        grace_notes = list(part.iter_all(score.GraceNote))
+        self.assertTrue(len(part.note_array) == 7)
+        self.assertTrue(len(grace_notes) == 4)
+        self.assertTrue(grace_notes[0].grace_type == "acciaccatura")
+        self.assertTrue(grace_notes[1].grace_type == "appoggiatura")
 
 
 if __name__ == "__main__":

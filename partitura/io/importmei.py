@@ -43,9 +43,82 @@ def _handle_metersig(staffdef_el, position, part, ns):
     part.add(new_time_signature, position)
 
 
+def _mei_sig_to_fifths(sig):
+    """Produces partitura KeySignature.fifths parameter from the MEI sig attribute."""
+    if sig[0] == "0":
+        fifths = 0
+    else:
+        sign = 1 if sig[-1] == "s" else -1
+        fifths = sign * int(sig[:-1])
+    return fifths
+
+
+def _handle_keysig(staffdef_el, position, part, ns):
+    keysig_el = staffdef_el.find(_ns_name("keySig", ns))
+    if keysig_el is not None:  # new element inside
+        sig = keysig_el.attrib["sig"]
+        # now extract partitura keysig parameters
+        fifths = _mei_sig_to_fifths(sig)
+        mode = keysig_el.get("mode")
+    else:  # all encoded as attributes in staffdef
+        sig = staffdef_el.attrib["key.sig"]
+        # now extract partitura keysig parameters
+        fifths = _mei_sig_to_fifths(sig)
+        mode = staffdef_el.get("key.mode")
+    new_key_signature = score.KeySignature(fifths, mode)
+    part.add(new_key_signature, position)
+
+
+def _compute_clef_octave(dis, dis_place):
+    if dis is not None:
+        sign = -1 if dis_place == "below" else 1
+        octave = sign * int(int(dis) / 8)
+    else:
+        octave = 0
+    return octave
+
+
+def _handle_clef(element, position, part, ns):
+    """Inserts a clef. Element can be either a cleff element or staffdef element."""
+    # handle the case where we have clef informations inside staffdef el
+    if element.tag == _ns_name("staffDef", ns):
+        clef_el = element.find(_ns_name("clef", ns))
+        if clef_el is not None:  # if there is a clef element inside
+            return _handle_clef(clef_el, position, part, ns)
+        else:  # if all info are in the staffdef element
+            number = element.attrib["n"]
+            sign = element.attrib["clef.shape"]
+            line = element.attrib["clef.line"]
+            octave = _compute_clef_octave(element.get("dis"), element.get("dis.place"))
+    elif element.tag == _ns_name("clef", ns):
+        if element.get("sameas") is not None:  # this is a copy of another clef
+            # it seems this is used in different layers for the same staff
+            # we don't handle it to avoid clef duplications
+            return position
+        else:
+            # find the staff number
+            parent = element.getparent()
+            if parent.tag == _ns_name("staffDef", ns):
+                number = parent.attrib["n"]
+            else:  # go back another level to staff element
+                number = parent.getparent().attrib["n"]
+            sign = element.attrib["shape"]
+            line = element.attrib["line"]
+            octave = _compute_clef_octave(element.get("dis"), element.get("dis.place"))
+    else:
+        raise Exception("_handle_clef only accepts staffDef or clef elements")
+    new_clef = score.Clef(int(number), sign, int(line), octave)
+    part.add(new_clef, position)
+    return position
+
+
 def _handle_staffdef(staffdef_el, position, part, ns):
     # fill with time signature info
     _handle_metersig(staffdef_el, position, part, ns)
+    # fill with key signature info
+    _handle_keysig(staffdef_el, position, part, ns)
+    # fill with clef info
+    _handle_clef(staffdef_el, position, part, ns)
 
 
 def _handle_initial_staffdef(staffdef_el, ns):
@@ -124,8 +197,8 @@ def _duration_info(el, ns):
     Returns:
         id, duration and symbolic duration of the element
     """
-    # find duration in ppq
-    duration = int(el.attrib["dur.ppq"])
+    # find duration in ppq. For grace notes is 0
+    duration = int(el.get("dur.ppq")) if el.get("dur.ppq") is not None else 0
     # find symbolic duration
     symbolic_duration = {}
     symbolic_duration["type"] = el.attrib["dur"]
@@ -146,17 +219,39 @@ def _handle_note(note_el, position, voice, staff, part, ns):
     step, octave, alter = _pitch_info(note_el)
     # find duration info
     note_id, duration, symbolic_duration = _duration_info(note_el, ns)
-    # create note
-    note = score.Note(
-        step=step,
-        octave=octave,
-        alter=alter,
-        id=note_id,
-        voice=voice,
-        staff=staff,
-        symbolic_duration=symbolic_duration,
-        articulations=None,  # TODO : add articulation
-    )
+    # find if it's grace
+    grace_attr = note_el.get("grace")
+    if grace_attr is None:
+        # create normal note
+        note = score.Note(
+            step=step,
+            octave=octave,
+            alter=alter,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            symbolic_duration=symbolic_duration,
+            articulations=None,  # TODO : add articulation
+        )
+    else:
+        # create grace note
+        if grace_attr == "unacc":
+            grace_type = "acciaccatura"
+        elif grace_attr == "acc":
+            grace_type = "appoggiatura"
+        else:  # unknow type
+            grace_type = "grace"
+        note = score.GraceNote(
+            grace_type=grace_type,
+            step=step,
+            octave=octave,
+            alter=alter,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            symbolic_duration=symbolic_duration,
+            articulations=None,  # TODO : add articulation
+        )
     # add note to the part
     part.add(note, position, position + duration)
     # return duration to update the position in the layer
@@ -255,6 +350,8 @@ def _handle_layer_in_staff_in_measure(
             new_position = _handle_layer_in_staff_in_measure(
                 e, ind_layer, ind_staff, position, part, ns
             )
+        elif e.tag == _ns_name("clef", ns):
+            new_position = _handle_clef(e, position, part, ns)
         else:
             raise Exception("Tag " + e.tag + " not supported")
 
@@ -301,10 +398,17 @@ def _handle_section(parts, section_el, ns):
             position = end_positions[0]
         # handle staffDef elements
         elif element.tag == _ns_name("scoreDef", ns):
+            # meter modifications
             metersig_el = element.find(_ns_name("meterSig", ns))
             if (metersig_el is not None) or (element.get("meter.count") is not None):
                 for part in parts:
                     _handle_metersig(element, position, part, ns)
+            # key signature modifications
+            keysig_el = element.find(_ns_name("keySig", ns))
+            if (keysig_el is not None) or (element.get("key.sig") is not None):
+                for part in parts:
+                    _handle_keysig(element, position, part, ns)
+
     return position
 
 

@@ -74,5 +74,7 @@ MEI_TESTFILES = [
         "test_tuplets.mei",
         "test_ties.mei",
         "test_metrical_position.mei",
+        "test_clefs_tss.mei",
+        "test_grace_note.mei",
     ]
 ]

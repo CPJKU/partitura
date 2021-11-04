@@ -1,0 +1,151 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="4.0.0">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title>test clefs time signatures</title>
+            <respStmt />
+         </titleStmt>
+         <pubStmt><date isodate="2021-11-04" type="encoding-date">2021-11-04</date>
+         </pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-i12pef">
+         <appInfo xml:id="appinfo-75e20d">
+            <application xml:id="application-d6vpf9" isodate="2021-11-04T10:36:25" version="3.7.0-dev-0f8a961">
+               <name xml:id="name-6656w4">Verovio</name>
+               <p xml:id="p-90ywuk">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="mfl3l9r">
+            <score xml:id="sr166y0">
+               <scoreDef xml:id="sevn7j9">
+                  <pgHead xml:id="pxcdvqa">
+                     <rend xml:id="r6m4wak" halign="center" valign="top">test clefs time signatures</rend>
+                  </pgHead>
+                  <staffGrp xml:id="skq24zz">
+                     <staffGrp xml:id="sst7sue">
+                        <grpSym xml:id="gkkchpe" symbol="bracket" />
+                        <staffDef xml:id="P1" n="1" lines="5" ppq="1">
+                           <label xml:id="lafh8cq">Violin I</label>
+                           <instrDef xml:id="iazi1xe" midi.channel="0" midi.instrnum="40" midi.volume="78.00%" />
+                           <clef xml:id="c7vs6b4" shape="G" line="2" />
+                           <keySig xml:id="k8ubd9k" sig="2s" />
+                           <meterSig xml:id="m46a0vf" count="4" unit="4" />
+                        </staffDef>
+                        <staffDef xml:id="P2" n="2" lines="5" ppq="1">
+                           <label xml:id="l8xkedd">Violin II</label>
+                           <instrDef xml:id="idsexne" midi.channel="3" midi.instrnum="40" midi.volume="78.00%" />
+                           <clef xml:id="cyezqtk" shape="G" line="2" />
+                           <keySig xml:id="k4jytlt" sig="2s" />
+                           <meterSig xml:id="m884my4" count="4" unit="4" />
+                        </staffDef>
+                        <staffDef xml:id="P3" n="3" lines="5" ppq="1">
+                           <label xml:id="l3zreml">Viola</label>
+                           <instrDef xml:id="ihv06nx" midi.channel="6" midi.instrnum="41" midi.volume="78.00%" />
+                           <clef xml:id="cd03ati" shape="C" line="3" />
+                           <keySig xml:id="k3712r8" sig="2s" />
+                           <meterSig xml:id="mbvru0q" count="4" unit="4" />
+                        </staffDef>
+                        <staffDef xml:id="P4" n="4" lines="5" ppq="1">
+                           <label xml:id="lno9anv">Violoncello</label>
+                           <instrDef xml:id="i7tttm4" midi.channel="10" midi.instrnum="42" midi.volume="78.00%" />
+                           <clef xml:id="c8o6y64" shape="F" line="4" />
+                           <keySig xml:id="ksesnyy" sig="2s" />
+                           <meterSig xml:id="mn0f6xf" count="4" unit="4" />
+                        </staffDef>
+                     </staffGrp>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="sreo23i">
+                  <measure xml:id="md88gbb" n="1">
+                     <staff xml:id="sazjzmw" n="1">
+                        <layer xml:id="l6bsogv" n="1">
+                           <note xml:id="n5d0klc" dur.ppq="1" dur="4" oct="4" pname="a" stem.dir="up" />
+                           <note xml:id="ne0f5xo" dur.ppq="1" dur="4" oct="4" pname="b" stem.dir="down" />
+                           <note xml:id="nahzeyd" dur.ppq="2" dur="2" oct="5" pname="c" stem.dir="down" accid.ges="s" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="s4qzy4r" n="2">
+                        <layer xml:id="lswwgxq" n="1">
+                           <mRest xml:id="muwa6a2" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="s4cezfh" n="3">
+                        <layer xml:id="lq287h8" n="1">
+                           <mRest xml:id="m1udpot" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="smldopt" n="4">
+                        <layer xml:id="lc4h5xc" n="1">
+                           <note xml:id="nnejjca" dur.ppq="2" dur="2" oct="3" pname="d" stem.dir="down" />
+                           <note xml:id="n57rxds" dur.ppq="2" dur="2" oct="3" pname="f" stem.dir="down" accid.ges="s" />
+                        </layer>
+                     </staff>
+                  </measure>
+                  <scoreDef xml:id="s3fqt51">
+                     <keySig xml:id="k9ufjwk" sig="4s" />
+                  </scoreDef>
+                  <measure xml:id="mb4jj47" n="2">
+                     <staff xml:id="sfi33cb" n="1">
+                        <layer xml:id="l9213z9" n="1">
+                           <mRest xml:id="mdj5jty" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="s7stuzp" n="2">
+                        <layer xml:id="lk2b7dt" n="1">
+                           <mRest xml:id="m29b1v7" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="skjkmv2" n="3">
+                        <layer xml:id="lxe0gic" n="1">
+                           <mRest xml:id="m8wase7" />
+                           <clef xml:id="cyi2cg4" shape="F" line="4" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="s58zvt8" n="4">
+                        <layer xml:id="l73vwic" n="1">
+                           <clef xml:id="cdgjcy0" shape="G" line="2" dis="8" dis.place="below" />
+                           <note xml:id="n5qde92" dur.ppq="4" dur="1" oct="2" pname="b" />
+                        </layer>
+                        <layer xml:id="lrguqve" n="2">
+                           <clef xml:id="ckewhhc" sameas="#cdgjcy0" />
+                           <note xml:id="nn5rmhv" dur.ppq="1" dur="4" oct="2" pname="g" stem.dir="down" accid.ges="s" />
+                           <note xml:id="niustr5" dur.ppq="1" dur="4" oct="3" pname="e" stem.dir="down" />
+                           <rest xml:id="r1ui972" dur.ppq="2" dur="2" />
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="mepaj3q" right="end" n="3">
+                     <staff xml:id="sdq4n2l" n="1">
+                        <layer xml:id="l3l3qr6" n="1">
+                           <mRest xml:id="m348gfv" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="sdrmgp3" n="2">
+                        <layer xml:id="lgap6uf" n="1">
+                           <mRest xml:id="movz0co" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="s6a39ni" n="3">
+                        <layer xml:id="l1eo5ap" n="1">
+                           <mRest xml:id="m59bwvn" />
+                        </layer>
+                     </staff>
+                     <staff xml:id="srj8a9n" n="4">
+                        <layer xml:id="l731ehu" n="1">
+                           <note xml:id="n47m5i2" dur.ppq="4" dur="1" oct="3" pname="b" />
+                        </layer>
+                     </staff>
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>
