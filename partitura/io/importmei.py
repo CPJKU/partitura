@@ -4,7 +4,7 @@ import partitura.score as score
 from partitura.utils.music import MEI_DURS, SIGN_TO_ALTER
 
 
-#-------------- Functions to initialize the xml tree -----------------
+# -------------- Functions to initialize the xml tree -----------------
 def _parse_mei(mei_path):
     """
     Parses an MEI file from path to an lxml tree.
@@ -286,7 +286,7 @@ def _handle_main_staff_group(main_staffgrp_el, ns):
     # the list of parts or part groups
     part_list = []
     # process the parts
-    #TODO add Parallelization to handle part parsing in parallel
+    # TODO add Parallelization to handle part parsing in parallel
     for s_el in staves_el:
         new_part = _handle_initial_staffdef(s_el, ns)
         part_list.append(new_part)
@@ -574,7 +574,9 @@ def _handle_space(e, position):
     return position + int(e.attrib["dur.ppq"])
 
 
-def _handle_layer_in_staff_in_measure(layer_el, ind_layer: int, ind_staff: int, position: int, part, ns) -> int:
+def _handle_layer_in_staff_in_measure(
+    layer_el, ind_layer: int, ind_staff: int, position: int, part, ns
+) -> int:
     for i, e in enumerate(layer_el):
         if e.tag == _ns_name("note", ns):
             new_position = _handle_note(e, position, ind_layer, ind_staff, part, ns)
@@ -645,6 +647,8 @@ def _handle_staff_in_measure(staff_el, staff_ind, position: int, part, ns):
     # sanity check that all layers have equal duration
     if not all([e == end_positions[0] for e in end_positions]):
         raise Exception("Different voices have different durations")
+    # add end time of measure
+    part.add(measure, None, end_positions[0])
     return end_positions[0]
 
 
@@ -747,5 +751,4 @@ def load_mei(mei_path: str) -> list:
     _tie_notes(sections_el[0], part_list, ns)
 
     return part_list
-
 
