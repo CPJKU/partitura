@@ -655,6 +655,12 @@ def _handle_note(note, part, position):
     duration, ntype = re.split('(\d+)',s)
     d = eval(duration)
     name = ntype[0]
+    if len(name) > 1:
+        octave = 1
+    alter = 0
+    pnote = score.Note(step = name, octave = octave, alter = alter)
+    part.add(pnote, position)
+    return position + duration
 
 
 def _handle_chord(chord, part, position):
