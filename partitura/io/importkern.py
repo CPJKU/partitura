@@ -22,6 +22,23 @@ SIGN_TO_ACC = {
     "-": None,
 }
 
+KERN_NOTES ={
+    'C' : ("C", 3),
+    'D' : ('D', 3),
+    'E' : ('E', 3)
+    'F' : ('F', 3),
+    'G' : ('G', 3),
+    'A' : ('A', 3),
+    'B' : ('B', 3),
+    'c' : ("C", 4),
+    'd' : ('D', 4),
+    'e' : ('E', 4),
+    'f' : ('F', 4),
+    'g' : ('G', 4),
+    'a' : ('A', 4),
+    'b' : ('B', 4)
+}
+
 DIVS2Q = {
     1 : 0.25,
     2 : 0.5,
@@ -33,18 +50,18 @@ DIVS2Q = {
     256 : 32
 }
 
-KERN_DUR = {
-    "long": "long",
-    "breve": "breve",
-    "1": "whole",
-    "2": "half",
-    "4": "quarter",
-    "8": "eighth",
-    "16": "16th",
-    "32": "32nd",
-    "64": "64th",
-    "128": "128th",
-    "256": "256th",
+KERN_DURS = {
+    # "long": "long",
+    # "breve": "breve",
+    1 : "whole",
+    2 : "half",
+    4 : "quarter",
+    8 : "eighth",
+    16 : "16th",
+    32 : "32nd",
+    64 : "64th",
+    128 : "128th",
+    256 : "256th",
 }
 
 
@@ -652,15 +669,60 @@ def try_to_eval3(x):
         return 0
 
 def _handle_note(note, part, position):
-    duration, ntype = re.split('(\d+)',s)
+    duration, ntype = re.split('(\d+)',note)
     d = eval(duration)
-    name = ntype[0]
+    symbolic_duration = KERN_DURS[d]
+    name, octave = KERN_NOTES[ntype[0]]
+    if octave == 4:
+        octave += ntype.count(name) - 1
+    elif octave == 3:
+        octave -= ntype.count(name) - 1
+    alter = ntype.count('#') - ntype.count("-")
+    # find if it's grace
+    grace_attr = note_el.get("grace")
+    if grace_attr is None:
+        # create normal note
+        note = score.Note(
+            step=step,
+            octave=octave,
+            alter=alter,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            symbolic_duration=symbolic_duration,
+            articulations=None,  # TODO : add articulation
+        )
+    else:
+        # create grace note
+        if grace_attr == "unacc":
+            grace_type = "acciaccatura"
+        elif grace_attr == "acc":
+            grace_type = "appoggiatura"
+        else:  # unknow type
+            grace_type = "grace"
+        note = score.GraceNote(
+            grace_type=grace_type,
+            step=step,
+            octave=octave,
+            alter=alter,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            symbolic_duration=symbolic_duration,
+            articulations=None,  # TODO : add articulation
+        )
+    # add note to the part
+    part.add(note, position, position + duration)
+
+    return position + duration
 
 
 def _handle_chord(chord, part, position):
     notes = chord.split()
     for note_el in notes:
-        _handle_note(note_el, part, position)
+        new_pos = _handle_note(note_el, part, position)
+    return new_pos
+
 
 def initialize_part_with_div(document, doc_name):
     nlist = list()
