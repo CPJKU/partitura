@@ -3,7 +3,10 @@ import re
 from xmlschema.names import XML_NAMESPACE
 import partitura.score as score
 from joblib import Parallel, delayed
+
+import partitura.utils
 from partitura.utils.music import LABEL_DURS
+
 
 import numpy as np
 
@@ -108,7 +111,7 @@ def _handle_metersig(metersig, part, position):
         The created Partitura Part object.
     """
     m = metersig[2:]
-    numerator, denominator = m.split("/")
+    numerator, denominator = map(eval, m.split("/"))
     new_time_signature = score.TimeSignature(numerator, denominator)
     part.add(new_time_signature, position)
 
@@ -187,16 +190,16 @@ def try_to_eval3(x):
     except SyntaxError:
         return 0
 
-def _handle_rest(el, part, position):
+def _handle_rest(el, part, position, rest_id):
     # find duration info
     _, duration, ntype = re.split('(\d+)', el)
     symbolic_duration = KERN_DURS[eval(duration)]
     duration = part.inv_quarter_map([LABEL_DURS[symbolic_duration]])
     # create rest
     rest = score.Rest(
-        # id=rest_id,
-        # voice=voice,
-        # staff=staff,
+        id=rest_id,
+        voice=1,
+        staff=1,
         symbolic_duration=symbolic_duration,
         articulations=None,
     )
@@ -205,7 +208,7 @@ def _handle_rest(el, part, position):
     # return duration to update the position in the layer
     return position + duration
 
-def _handle_note(note, part, position):
+def _handle_note(note, part, position, note_id):
     # TODO handle brackets
     if note.startswith("[") or note.startswith("{"):
         note = note[1:]
@@ -231,9 +234,9 @@ def _handle_note(note, part, position):
             step=step,
             octave=octave,
             alter=alter,
-            # id=note_id,
-            # voice=voice,
-            # staff=staff,
+            id=note_id,
+            voice=1,
+            staff=1,
             symbolic_duration=symbolic_duration,
             articulations=None,  # TODO : add articulation
         )
@@ -256,14 +259,17 @@ def _handle_note(note, part, position):
             symbolic_duration=symbolic_duration,
             articulations=None,  # TODO : add articulation
         )
-    duration = part.inv_quarter_map([LABEL_DURS[symbolic_duration]])
+    qdivs = part._quarter_durations[0]
+    duration = LABEL_DURS[symbolic_duration]*qdivs
+    part.add(note, position, position+duration)
     return position + duration
 
 
-def _handle_chord(chord, part, position):
+def _handle_chord(chord, part, position, id):
     notes = chord.split()
-    for note_el in notes:
-        new_pos = _handle_note(note_el, part, position)
+    for i, note_el in enumerate(notes):
+        id = "c-" + str(i) + "-" + str(id)
+        new_pos = _handle_note(note_el, part, position, id)
     return new_pos
 
 def _handle_bar(el, part, position):
@@ -289,7 +295,7 @@ def initialize_part_with_div(document, doc_name):
     min_value = np.max(np.vectorize(lambda x : eval(x[:n]))(notes[y]))
     qdivs = divs_to_quarter(min_value)
     # init part
-    parts = [score.Part(doc_name, "", quarter_duration=qdivs) for _ in range(document.shape[0])]
+    parts = [score.Part(doc_name, str(i), quarter_duration=qdivs) for i in range(document.shape[0])]
     return parts
 
 
@@ -306,7 +312,7 @@ def _handle_glob_attr(el, part, position, staff=None):
 
 def _handle_part_elements(line, part, position):
     staff = None
-    for el in line:
+    for index, el in enumerate(line):
         if el.startswith("*staff"):
             staff = eval(el[len("*staff"):])
         elif el.startswith("*"):
@@ -318,12 +324,12 @@ def _handle_part_elements(line, part, position):
         elif el.startswith("="):
             _handle_bar(el, part, position)
         elif " " in el:
-            position = _handle_chord(el, part, position)
+            position = _handle_chord(el, part, position, index)
         elif "r" in el:
-            position = _handle_rest(el, part, position)
+            position = _handle_rest(el, part, position, "r-"+str(index))
         else:
-            position = _handle_note(el, part, position)
-    return position
+            position = _handle_note(el, part, position, "n-"+str(index))
+    return position, part
 
 
 def _handle_pickup_position(kern_doc):
@@ -337,8 +343,9 @@ def _parse_elements(kern_doc, parts):
     else:
         position = _handle_pickup_position(kern_doc)
 
-    positions = Parallel(n_jobs=2)(delayed(_handle_part_elements)(kern_doc[i], parts[i], position) for i in range(kern_doc.shape[0]))
-    return positions
+    # positions, parts = zip(*Parallel(n_jobs=2)(delayed(_handle_part_elements)(kern_doc[i], parts[i], position) for i in range(kern_doc.shape[0])))
+    positions, parts = zip(*[_handle_part_elements(kern_doc[i], parts[i], position) for i in range(kern_doc.shape[0])])
+    return positions, parts
 
 
 def load_kern(kern_path: str):
@@ -358,7 +365,9 @@ def load_kern(kern_path: str):
     document = _parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
     parts = initialize_part_with_div(document, doc_name)
-    _parse_elements(document, parts)
+    positions, parts = _parse_elements(document, parts)
+    part = parts[0]
+    print(part.notes())
 
     # # handle staff and staff groups info
     # main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
