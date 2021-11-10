@@ -13,7 +13,12 @@ from partitura.io.importkern import (
 
 
 class TestImportMEI(unittest.TestCase):
-    def test_main_part_group1(self):
+    def test_4voice_simple(self):
         document_path = KERN_TESFILES[1]
         print(_parse_kern(document_path))
-        load_kern(KERN_TESFILES[1])
+        load_kern(document_path)
+
+    def test_1voice_simple(self):
+        document_path = KERN_TESFILES[0]
+        print(_parse_kern(document_path))
+        load_kern(document_path)
