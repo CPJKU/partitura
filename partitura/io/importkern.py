@@ -58,6 +58,7 @@ class KernGlobalPart(score.Part):
             256: "256th",
         }
 
+
 class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
@@ -67,7 +68,7 @@ class KernParserPart(KernGlobalPart):
         self.tie_dict = dict()
 
     def process(self, line):
-        staff = None
+        self.staff = None
         for index, el in enumerate(line):
             if el.startswith("*staff"):
                 self.staff = eval(el[len("*staff"):])
@@ -255,10 +256,15 @@ class KernParser():
             position = self._handle_pickup_position()
 
         if self.parallel:
-            parts = list(zip(*Parallel(n_jobs=self.n_jobs)(delayed(KernParserPart)(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0]))))
+
+            parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0]))
         else:
-            parts = list(zip(*[KernParserPart(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0])]))
+            parts = [self.collect(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0])]
         return parts
+
+    def collect(self, doc, pos, doc_name, id, qdivs):
+        x = KernParserPart(doc, pos, doc_name, id, qdivs)
+        return x
 
     # TODO pick-up measure
     def _handle_pickup_position(self):
@@ -339,6 +345,5 @@ def load_kern(kern_path: str):
     doc_name = os.path.basename(kern_path[:-4])
     parts = KernParser(document, doc_name).parts
     part = parts[0]
-    print(part.notes())
 
 
