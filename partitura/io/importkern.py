@@ -63,9 +63,9 @@ class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
+        self.slur_dict = {"open": [], "close": []}
+        self.tie_dict = {"open": [], "close": []}
         self.process(stream)
-        self.slur_dict = dict()
-        self.tie_dict = dict()
 
     def process(self, line):
         self.staff = None
@@ -86,16 +86,24 @@ class KernParserPart(KernGlobalPart):
                 self._handle_rest(el, "r-" + str(index))
             else:
                 self._handle_note(el, "n-" + str(index))
+        self.nid_dict = {note.id : note for note in self.iter_all(cls=score.Note)}
         self._handle_slurs()
         self._handle_ties()
 
-    # TODO handle ties
     def _handle_ties(self):
-        pass
+        if len(self.tie_dict["open"]) != len(self.tie_dict["close"]):
+            raise ValueError("Tie Mismatch! Uneven amount of closing to open tie brackets.")
+        else:
+            for (oid,cid) in list(zip(self.tie_dict["open"], self.tie_dict["close"])):
+                self.nid_dict[oid].tie_next = self.nid_dict[cid]
+                self.nid_dict[cid].tie_prev = self.nid_dict[oid]
 
-    # TODO handle slurs
     def _handle_slurs(self):
-        pass
+        if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
+            raise ValueError("Slur Mismatch! Uneven amount of closing to open slur brackets.")
+        else:
+            for (oid, cid) in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
+                self.add(score.Slur(self.nid_dict[oid], self.nid_dict[cid]))
 
     def _handle_metersig(self, metersig):
         m = metersig[2:]
@@ -132,9 +140,7 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_rest(self, el, rest_id):
         # find duration info
-        _, duration, ntype = re.split('(\d+)', el)
-        symbolic_duration = self.KERN_DURS[eval(duration)]
-        duration = self.inv_quarter_map([LABEL_DURS[symbolic_duration]])
+        duration, symbolic_duration, rtype = self._handle_duration(el)
         # create rest
         rest = score.Rest(
             id=rest_id,
@@ -148,18 +154,50 @@ class KernParserPart(KernGlobalPart):
         # return duration to update the position in the layer
         self.position += duration
 
+
+    def _search_slurs_and_ties(self, note, note_id):
+        if note.startswith("("):
+            self.slur_dict["open"].append(note_id)
+            return note[1:]
+        elif ")" in note:
+            if len(self.slur_dict[0]) == len(self.slur_dict[1])+1:
+                self.slur_dict["close"].append(note_id)
+            else:
+                raise ValueError("Cannot deal with Nested Slurs yet.")
+        elif note.startswith("["):
+            self.tie_dict["open"].append(note_id)
+            return note[1:]
+        elif "]" in note:
+            self.tie_dict["close"].append(note_id)
+        return note
+
+    def _handle_duration(self, note):
+        _, dur, ntype = re.split('(\d+)', note)
+        dur = eval(dur)
+        if dur in self.KERN_DURS.keys():
+            symbolic_duration = {"type": self.KERN_DURS[dur]}
+        else:
+            symbolic_duration = {
+                "type" : self.KERN_DURS[4] if dur not in [13, 11, 9, 7, 5, 3] else self.KERN_DURS[4],
+                "actual_notes" : dur/4,
+                "normal_notes" : 1
+            }
+        # calculate duration to divs.
+        qdivs = self._quarter_durations[0]
+        duration = LABEL_DURS[symbolic_duration["type"]] * qdivs
+        if "." in note:
+            symbolic_duration["dots"] = note.count(".")
+            ntype = ntype[note.count("."):]
+            for i in range(symbolic_duration["dots"]):
+                duration += duration / 2
+        else:
+            symbolic_duration["dots"] = 0
+        return duration, symbolic_duration, ntype
+
     def _handle_note(self, note, note_id):
         # TODO handle brackets
-        if note.startswith("[") or note.startswith("{"):
-            note = note[1:]
-        _, duration, ntype = re.split('(\d+)', note)
-        is_dotted = ntype.startswith(".")
-        d = eval(duration)
-        if is_dotted:
-            symbolic_duration = self.KERN_DURS[d]
-            ntype = ntype[1:]
-        else:
-            symbolic_duration = self.KERN_DURS[d]
+        note = self._search_slurs_and_ties(note, note_id)
+        duration, symbolic_duration, ntype = self._handle_duration(note)
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
             octave += ntype.count(step) - 1
@@ -199,8 +237,7 @@ class KernParserPart(KernGlobalPart):
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
-        qdivs = self._quarter_durations[0]
-        duration = LABEL_DURS[symbolic_duration] * qdivs
+
         self.add(note, self.position, self.position + duration)
         self.position += duration
 
