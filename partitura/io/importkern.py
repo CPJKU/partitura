@@ -64,6 +64,7 @@ class KernParserPart(KernGlobalPart):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
         self.mode = None
+        self.barline_dict = dict()
         self.slur_dict = {"open": [], "close": []}
         self.tie_dict = {"open": [], "close": []}
         self.process(stream)
@@ -82,7 +83,7 @@ class KernParserPart(KernGlobalPart):
             elif el == ".":
                 pass
             elif el.startswith("="):
-                self._handle_bar(el)
+                self._handle_barline(el)
             elif " " in el:
                 self._handle_chord(el, index)
             elif "r" in el:
@@ -117,6 +118,20 @@ class KernParserPart(KernGlobalPart):
         numerator, denominator = map(eval, m.split("/"))
         new_time_signature = score.TimeSignature(numerator, denominator)
         self.add(new_time_signature, self.position)
+
+    def _handle_barline(self, element):
+        if element.endswith("!"):
+            barline = score.Fine()
+        elif element.endswith(":|"):
+            barline = score.Repeat()
+        else:
+            bartype, barnum, _ = re.split('(\d+)', element)
+            self.barline_dict[eval(barnum)] = self.position
+            if bartype == "=":
+                barline = score.Barline(style="normal")
+            else:
+                barline = score.Barline(style="special")
+        self.add(barline, self.position)
 
     # TODO maybe also append position for verification.
     def _handle_mode(self, element):
@@ -262,9 +277,6 @@ class KernParserPart(KernGlobalPart):
             id = "c-" + str(i) + "-" + str(id)
             self.position = pos
             self._handle_note(note_el, id)
-
-    def _handle_bar(self, el):
-        pass
 
     def _handle_glob_attr(self, el):
         if el.startswith("*clef"):
