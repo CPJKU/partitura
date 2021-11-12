@@ -63,6 +63,7 @@ class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
+        self.mode = None
         self.slur_dict = {"open": [], "close": []}
         self.tie_dict = {"open": [], "close": []}
         self.process(stream)
@@ -72,6 +73,8 @@ class KernParserPart(KernGlobalPart):
         for index, el in enumerate(line):
             if el.startswith("*staff"):
                 self.staff = eval(el[len("*staff"):])
+            # elif el.startswith("!!!"):
+            #     self._handle_fileinfo(el)
             elif el.startswith("*"):
                 if self.staff == None:
                     self.staff = 1
@@ -89,6 +92,10 @@ class KernParserPart(KernGlobalPart):
         self.nid_dict = {note.id : note for note in self.iter_all(cls=score.Note)}
         self._handle_slurs()
         self._handle_ties()
+
+    # TODO handle !!!info
+    def _handle_fileinfo(self, el):
+        pass
 
     def _handle_ties(self):
         if len(self.tie_dict["open"]) != len(self.tie_dict["close"]):
@@ -111,6 +118,13 @@ class KernParserPart(KernGlobalPart):
         new_time_signature = score.TimeSignature(numerator, denominator)
         self.add(new_time_signature, self.position)
 
+    # TODO maybe also append position for verification.
+    def _handle_mode(self, element):
+        if element[1].isupper():
+            self.mode = "major"
+        else:
+            self.mode = "minor"
+
     def _handle_keysig(self, element):
         keysig_el = element[2:]
         fifths = 0
@@ -120,7 +134,7 @@ class KernParserPart(KernGlobalPart):
             if c == "b":
                 fifths -= 1
         # TODO retrieve the key mode
-        mode = "major"
+        mode = self.mode if self.mode else "major"
         new_key_signature = score.KeySignature(fifths, mode)
         self.add(new_key_signature, self.position)
 
@@ -259,6 +273,8 @@ class KernParserPart(KernGlobalPart):
             self._handle_keysig(el)
         elif el.startswith("*M"):
             self._handle_metersig(el)
+        elif el.endswith(":"):
+            self._handle_mode(el)
         elif el == "*-":
             print("Reached the end of the stream.")
 
@@ -360,7 +376,7 @@ def parse_kern(kern_path):
     """
     with open(kern_path) as file:
         lines = file.read().splitlines()
-    d = [line.split("\t") for line in lines]
+    d = [line.split("\t") for line in lines if not line.startswith("!")]
     document = np.array(list(zip(d))).squeeze(1).T
     return document
 
