@@ -186,6 +186,8 @@ class KernParserPart(KernGlobalPart):
         # return duration to update the position in the layer
         self.position += duration
 
+    def _handle_fermata(self, note_instance):
+        self.add(note_instance, self.position)
 
     def _search_slurs_and_ties(self, note, note_id):
         if note.startswith("("):
@@ -227,7 +229,8 @@ class KernParserPart(KernGlobalPart):
         return duration, symbolic_duration, ntype
 
     def _handle_note(self, note, note_id):
-        # TODO handle brackets
+
+        has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
         duration, symbolic_duration, ntype = self._handle_duration(note)
         step, octave = self.KERN_NOTES[ntype[0]]
@@ -250,6 +253,8 @@ class KernParserPart(KernGlobalPart):
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
+            if has_fermata:
+                self._handle_fermata(note)
         else:
             # create grace note
             if grace_attr == "unacc":
