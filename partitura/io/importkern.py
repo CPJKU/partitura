@@ -8,6 +8,9 @@ from partitura.utils.music import LABEL_DURS
 import numpy as np
 
 
+
+
+
 class KernGlobalPart(score.Part):
     def __init__(self, doc_name, part_id, qdivs):
         super(KernGlobalPart, self).__init__(doc_name, part_id, quarter_duration=qdivs)
@@ -206,7 +209,12 @@ class KernParserPart(KernGlobalPart):
         return note
 
     def _handle_duration(self, note):
-        _, dur, ntype = re.split('(\d+)', note)
+        # TODO deal with grace notes
+        if "q" in note:
+            _ , dur, ntype = re.split('(\d+)', note)
+            ntype = _ + ntype
+        else:
+            _, dur, ntype = re.split('(\d+)', note)
         dur = eval(dur)
         if dur in self.KERN_DURS.keys():
             symbolic_duration = {"type": self.KERN_DURS[dur]}
@@ -233,6 +241,7 @@ class KernParserPart(KernGlobalPart):
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
         duration, symbolic_duration, ntype = self._handle_duration(note)
+        grace_attr = "q" in ntype or "Q" in ntype
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
             octave += ntype.count(step) - 1
@@ -240,7 +249,6 @@ class KernParserPart(KernGlobalPart):
             octave -= ntype.count(step) - 1
         alter = ntype.count('#') - ntype.count("-")
         # find if it's grace
-        grace_attr = "q" in ntype or "Q" in ntype
         if not grace_attr:
             # create normal note
             note = score.Note(
@@ -410,7 +418,7 @@ def parse_kern(kern_path):
     return continuous_parts, non_continuous
 
 
-def load_kern(kern_path: str):
+def load_kern(kern_path: str, parallel=False):
     """
     Parameters
     ----------
@@ -425,7 +433,7 @@ def load_kern(kern_path: str):
     # parse xml file
     continuous_parts, non_continuous = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
-    parts = KernParser(continuous_parts, doc_name).parts
+    parts = KernParser(continuous_parts, doc_name, parallel=parallel).parts
     # TODO parse non_continuous
     part = parts[0]
 

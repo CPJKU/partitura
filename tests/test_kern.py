@@ -9,8 +9,6 @@ from partitura.io.importkern import (
     parse_kern,
 )
 
-
-
 class TestImportMEI(unittest.TestCase):
     def test_4voice_simple(self):
         document_path = KERN_TESFILES[1]
