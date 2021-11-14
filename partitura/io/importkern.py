@@ -124,6 +124,9 @@ class KernParserPart(KernGlobalPart):
             barline = score.Fine()
         elif element.endswith(":|"):
             barline = score.Repeat()
+        # TODO repeat bars front back and double line bars.
+        elif "!" in element:
+            barline = score.Barline(style="think")
         else:
             bartype, barnum, _ = re.split('(\d+)', element)
             self.barline_dict[eval(barnum)] = self.position
@@ -189,7 +192,7 @@ class KernParserPart(KernGlobalPart):
             self.slur_dict["open"].append(note_id)
             return note[1:]
         elif ")" in note:
-            if len(self.slur_dict[0]) == len(self.slur_dict[1])+1:
+            if len(self.slur_dict["open"]) == len(self.slur_dict["close"])+1:
                 self.slur_dict["close"].append(note_id)
             else:
                 raise ValueError("Cannot deal with Nested Slurs yet.")
@@ -283,6 +286,8 @@ class KernParserPart(KernGlobalPart):
             self._handle_clef(el)
         elif el.startswith("*k"):
             self._handle_keysig(el)
+        elif el.startswith("*MM"):
+            pass
         elif el.startswith("*M"):
             self._handle_metersig(el)
         elif el.endswith(":"):
@@ -366,7 +371,7 @@ class KernParser():
             y = np.nonzero(np.vectorize(lambda x: isinstance(eval(x[0]), int))(notes))
             n = 1
         min_value = np.max(np.vectorize(lambda x: eval(x[:n]))(notes[y]))
-        qdivs = self.DIVS2Q[min_value]
+        qdivs = self.DIVS2Q[min_value] if min_value in self.DIVS2Q.keys() else int(min_value/4)
         return qdivs
 
 # functions to initialize the kern parser
@@ -389,8 +394,15 @@ def parse_kern(kern_path):
     with open(kern_path) as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
-    document = np.array(list(zip(d))).squeeze(1).T
-    return document
+    init_parts = len(d[0])
+    striped_parts = list()
+    non_continuous = list()
+    for x in d:
+        striped_parts.append(x[:init_parts])
+        if len((x)) > init_parts:
+            non_continuous.append(x[init_parts:])
+    continuous_parts = np.array(list(zip(striped_parts))).squeeze(1).T
+    return continuous_parts, non_continuous
 
 
 def load_kern(kern_path: str):
@@ -406,9 +418,10 @@ def load_kern(kern_path: str):
         A list of Partitura Part Objects.
     """
     # parse xml file
-    document = parse_kern(kern_path)
+    continuous_parts, non_continuous = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
-    parts = KernParser(document, doc_name).parts
+    parts = KernParser(continuous_parts, doc_name).parts
+    # TODO parse non_continuous
     part = parts[0]
 
 
