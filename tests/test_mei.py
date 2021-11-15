@@ -17,6 +17,8 @@ from partitura.io.importmei import (
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 
+from pathlib import Path
+
 
 # class TestSaveMEI(unittest.TestCase):
 
@@ -169,11 +171,19 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(grace_notes[0].grace_type == "acciaccatura")
         self.assertTrue(grace_notes[1].grace_type == "appoggiatura")
 
+    def test_meter_in_scoredef(self):
+        part_list = load_mei(MEI_TESTFILES[11])
+        self.assertTrue(True)
+
     def test_parse_mei(self):
         # check if all test files load correctly
         for mei in MEI_TESTFILES[4:]:
             part_list = load_mei(mei)
         self.assertTrue(True)
+
+    # def test_parse_all(self):
+    #     for mei in Path("C:/Users/fosca/Desktop/CNAM/MEI dataset").iterdir():
+    #         part_list = load_mei(str(mei))
 
 
 if __name__ == "__main__":

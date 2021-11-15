@@ -74,9 +74,24 @@ def _handle_metersig(staffdef_el, position, part, ns):
     if metersig_el is not None:  # new element inside
         numerator = int(metersig_el.attrib["count"])
         denominator = int(metersig_el.attrib["unit"])
-    else:  # all encoded as attributes in staffdef
+    elif (
+        staffdef_el.get("meter.count") is not None
+    ):  # all encoded as attributes in staffdef
         numerator = int(staffdef_el.attrib["meter.count"])
         denominator = int(staffdef_el.attrib["meter.unit"])
+    else:  # the informatio is encoded in a parent scoredef
+        found_ancestor_with_metrical_info = False
+        for anc in staffdef_el.iterancestors(tag=_ns_name("scoreDef", ns)):
+            if anc.get("meter.count") is not None:
+                found_ancestor_with_metrical_info = True
+                break
+        if found_ancestor_with_metrical_info:
+            numerator = int(anc.attrib["meter.count"])
+            denominator = int(anc.attrib["meter.unit"])
+        else:
+            raise Exception(
+                f"The time signature is not encoded in {staffdef_el.get(_ns_name(id,ns))} or in any ancestor scoreDef"
+            )
     new_time_signature = score.TimeSignature(numerator, denominator)
     part.add(new_time_signature, position)
 
@@ -113,11 +128,29 @@ def _handle_keysig(staffdef_el, position, part, ns):
         # now extract partitura keysig parameters
         fifths = _mei_sig_to_fifths(sig)
         mode = keysig_el.get("mode")
-    else:  # all encoded as attributes in staffdef
+    elif (
+        staffdef_el.get("key.sig") is not None
+    ):  # all encoded as attributes in staffdef
         sig = staffdef_el.attrib["key.sig"]
         # now extract partitura keysig parameters
         fifths = _mei_sig_to_fifths(sig)
         mode = staffdef_el.get("key.mode")
+    else:  # the information is encoded in a parent scoredef
+        found_ancestor_with_key_info = False
+        for anc in staffdef_el.iterancestors(tag=_ns_name("scoreDef", ns)):
+            if anc.get("key.sig") is not None:
+                found_ancestor_with_key_info = True
+                break
+        if found_ancestor_with_key_info:
+            sig = anc.attrib["key.sig"]
+            # now extract partitura keysig parameters
+            fifths = _mei_sig_to_fifths(sig)
+            mode = anc.get("key.mode")
+        else:
+            raise Exception(
+                f"The key signature is not encoded in {staffdef_el.get(_ns_name(id,ns))} or in any ancestor scoreDef"
+            )
+
     new_key_signature = score.KeySignature(fifths, mode)
     part.add(new_key_signature, position)
 
@@ -738,12 +771,17 @@ def load_mei(mei_path: str) -> list:
     # parse xml file
     document, ns = _parse_mei(mei_path)
 
-    # handle staff and staff groups info
+    # handle main scoreDef info
+    scoredef_el = document.find(_ns_name("scoreDef", ns, True))
     main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
     part_list = _handle_main_staff_group(main_partgroup_el, ns)
 
     # fill the content of the score
-    sections_el = document.findall(_ns_name("section", ns, True))
+    scores_el = document.findall(_ns_name("score", ns, True))
+    if len(scores_el) != 1:
+        raise Exception("Only MEI with a single score element are supported")
+    sections_el = scores_el[0].findall(_ns_name("section", ns, True))
+    # TODO: add support for nested scores and endings
     if len(sections_el) != 1:
         raise Exception("Only MEI with a single section are supported")
     _handle_section(list(score.iter_parts(part_list)), sections_el[0], ns)

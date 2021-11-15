@@ -89,6 +89,7 @@ MEI_TESTFILES = [
         "test_metrical_position.mei",
         "test_clefs_tss.mei",
         "test_grace_note.mei",
+        "Beethoven_Op119_Nr01-Breitkopf.mei",
     ]
 ]
 
