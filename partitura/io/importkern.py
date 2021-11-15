@@ -170,7 +170,8 @@ class KernParserPart(KernGlobalPart):
     def _handle_clef(self, element):
         # handle the case where we have clef information
         # TODO Compute Clef Octave
-        new_clef = score.Clef(self.staff, element[5], int(element[6]), 0)
+        line = int(element[6]) if element[6] != "v" else int(element[7])
+        new_clef = score.Clef(self.staff, element[5], line, 1)
         self.add(new_clef, self.position)
 
     def _handle_rest(self, el, rest_id):
@@ -194,20 +195,30 @@ class KernParserPart(KernGlobalPart):
 
     def _search_slurs_and_ties(self, note, note_id):
         if note.startswith("("):
-            self.slur_dict["open"].append(note_id)
-            return note[1:]
-        elif ")" in note:
-            if len(self.slur_dict["open"]) == len(self.slur_dict["close"])+1:
-                self.slur_dict["close"].append(note_id)
-            else:
-                raise ValueError("Cannot deal with Nested Slurs yet.")
-        elif note.startswith("["):
+            # acount for multiple opening brackets
+            n = note.count("(")
+            for _ in range(n):
+                self.slur_dict["open"].append(note_id)
+            # Re-order for correct parsing
+            if len(self.slur_dict["open"]) > len(self.slur_dict["close"])+1:
+                x = note_id
+                lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
+                self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
+                self.slur_dict["open"][lenc] = x
+            note = note[n:]
+        if ")" in note:
+            x = note.count(")")
+            if len(self.slur_dict["open"]) == len(self.slur_dict["close"])+x:
+                for _ in range(x):
+                    self.slur_dict["close"].append(note_id)
+        if note.startswith("["):
             self.tie_dict["open"].append(note_id)
-            return note[1:]
-        elif "]" in note:
+            note = note[1:]
+        if "]" in note:
             self.tie_dict["close"].append(note_id)
         return note
 
+    # TODO tuplet durations.
     def _handle_duration(self, note):
         # TODO deal with grace notes
         if "q" in note:
@@ -237,16 +248,15 @@ class KernParserPart(KernGlobalPart):
         return duration, symbolic_duration, ntype
 
     def _handle_note(self, note, note_id):
-
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
         duration, symbolic_duration, ntype = self._handle_duration(note)
         grace_attr = "q" in ntype or "Q" in ntype
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
-            octave += ntype.count(step) - 1
+            octave += ntype.count(step)
         elif octave == 3:
-            octave -= ntype.count(step) - 1
+            octave -= ntype.count(step)
         alter = ntype.count('#') - ntype.count("-")
         # find if it's grace
         if not grace_attr:
@@ -346,15 +356,15 @@ class KernParser():
         return parts
 
     def collect(self, doc, pos, doc_name, id, qdivs):
-        x = KernParserPart(doc, pos, doc_name, id, qdivs)
-        return x
+        if doc[0] != "**silbe":
+            x = KernParserPart(doc, pos, doc_name, id, qdivs)
+            return x
 
-    # TODO pick-up measure
+    # TODO handle position of pick-up measure
     def _handle_pickup_position(self):
         return 0
 
-    # ------------- Functions to parse staves info --------------------------
-
+    # TODO fix divs calculation with LCM
     def initialize_part_with_div(self):
         def try_to_eval2(x):
             try:
@@ -436,5 +446,6 @@ def load_kern(kern_path: str, parallel=False):
     parts = KernParser(continuous_parts, doc_name, parallel=parallel).parts
     # TODO parse non_continuous
     part = parts[0]
+    return parts
 
 

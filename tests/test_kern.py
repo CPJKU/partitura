@@ -1,5 +1,5 @@
 """
-This file contains test functions for MEI export
+This file contains test functions for KERN import and export.
 """
 import unittest
 
@@ -9,7 +9,7 @@ from partitura.io.importkern import (
     parse_kern,
 )
 
-class TestImportMEI(unittest.TestCase):
+class TestImportKERN(unittest.TestCase):
     def test_4voice_simple(self):
         document_path = KERN_TESFILES[1]
         parts = load_kern(document_path)
@@ -20,4 +20,8 @@ class TestImportMEI(unittest.TestCase):
 
     def test_beethoven(self):
         document_path = KERN_TESFILES[2]
+        parts = load_kern(document_path)
+
+    def test_bach_chorale(self):
+        document_path = KERN_TESFILES[3]
         parts = load_kern(document_path)
