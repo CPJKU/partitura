@@ -174,7 +174,7 @@ class KernParserPart(KernGlobalPart):
         # handle the case where we have clef information
         # TODO Compute Clef Octave
         line = int(element[6]) if element[6] != "v" else int(element[7])
-        new_clef = score.Clef(self.staff, element[5], line, 1)
+        new_clef = score.Clef(self.staff, element[5], line, 0)
         self.add(new_clef, self.position)
 
     def _handle_rest(self, el, rest_id):
@@ -351,18 +351,17 @@ class KernParser():
         else:
             position = self._handle_pickup_position()
 
-
         if self.parallel:
             parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0]))
         else:
-            parts = [self.collect(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0])]
-
+            parts = [self.collect(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0])]
         return parts
 
     def add_part(self, unprocessed):
         flatten = [item for sublist in unprocessed for item in sublist]
-        parts = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, barline_dict=self.parts[0].barline_dict)
-
+        if unprocessed:
+            new_part = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, barline_dict=self.parts[0].barline_dict)
+            self.parts.append(new_part)
 
     def collect(self, doc, pos, doc_name, id, qdivs):
         if doc[0] != "**silbe":
