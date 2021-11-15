@@ -63,11 +63,11 @@ class KernGlobalPart(score.Part):
 
 
 class KernParserPart(KernGlobalPart):
-    def __init__(self, stream, init_pos, doc_name, part_id, qdivs):
+    def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
         self.mode = None
-        self.barline_dict = dict()
+        self.barline_dict = dict() if not barline_dict else barline_dict
         self.slur_dict = {"open": [], "close": []}
         self.tie_dict = {"open": [], "close": []}
         self.process(stream)
@@ -132,7 +132,10 @@ class KernParserPart(KernGlobalPart):
             barline = score.Barline(style="think")
         else:
             bartype, barnum, _ = re.split('(\d+)', element)
-            self.barline_dict[eval(barnum)] = self.position
+            if eval(barnum) not in self.barline_dict.keys():
+                self.barline_dict[eval(barnum)] = self.position
+            else :
+                self.position = self.barline_dict[eval(barnum)]
             if bartype == "=":
                 barline = score.Barline(style="normal")
             else:
@@ -341,19 +344,25 @@ class KernParser():
         return self.parts[item]
 
     def process(self):
-        qdivs = self.initialize_part_with_div()
+        self.qdivs = self.initialize_part_with_div()
         has_pickup = not np.all(np.char.startswith(self.document, "=1-") == False)
         if not has_pickup:
             position = 0
         else:
             position = self._handle_pickup_position()
 
-        if self.parallel:
 
-            parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0]))
+        if self.parallel:
+            parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0]))
         else:
             parts = [self.collect(self.document[i], position, self.doc_name, str(i), qdivs) for i in range(self.document.shape[0])]
+
         return parts
+
+    def add_part(self, unprocessed):
+        flatten = [item for sublist in unprocessed for item in sublist]
+        parts = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, barline_dict=self.parts[0].barline_dict)
+
 
     def collect(self, doc, pos, doc_name, id, qdivs):
         if doc[0] != "**silbe":
@@ -440,12 +449,12 @@ def load_kern(kern_path: str, parallel=False):
     part_list : list
         A list of Partitura Part Objects.
     """
-    # parse xml file
+    # parse kern file
     continuous_parts, non_continuous = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
-    parts = KernParser(continuous_parts, doc_name, parallel=parallel).parts
-    # TODO parse non_continuous
-    part = parts[0]
+    parser = KernParser(continuous_parts, doc_name, parallel=parallel)
+    parser.add_part(non_continuous)
+    parts = parser.parts
     return parts
 
 
