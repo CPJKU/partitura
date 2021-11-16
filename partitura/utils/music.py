@@ -33,7 +33,7 @@ DUMMY_PS_BASE_CLASS = {
 
 MEI_DURS = {
     "long": "long",
-    "breve": "breve",
+    "0": "breve",
     "1": "whole",
     "2": "half",
     "4": "quarter",

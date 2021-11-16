@@ -98,6 +98,8 @@ KERN_TESFILES = [
     for fn in [
         "example.krn",
         "long_example.krn",
+        "Beethoven_sonata_1.1.krn",
+        'Bach-BWV_316.krn'
     ]
 ]
 
