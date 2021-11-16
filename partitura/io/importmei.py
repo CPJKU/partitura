@@ -3,6 +3,8 @@ from xmlschema.names import XML_NAMESPACE
 import partitura.score as score
 from partitura.utils.music import MEI_DURS, SIGN_TO_ALTER
 
+import numpy as np
+
 
 # -------------- Functions to initialize the xml tree -----------------
 def _parse_mei(mei_path):
@@ -238,6 +240,34 @@ def _handle_staffdef(staffdef_el, position, part, ns):
     _handle_clef(staffdef_el, position, part, ns)
 
 
+def _quarter_dur(el, ns):
+    "Produce a dur (e.g. 8 is a eight note) by looking at the dur attribute and eventual tuplet ancestors."
+    tuplet_ancestors = list(el.iterancestors(tag=_ns_name("tuplet", ns)))
+    if len(tuplet_ancestors) == 0:
+        return int(el.attrib["dur"])
+    elif len(tuplet_ancestors) == 1:
+        dur_sym = int(el.attrib["dur"])
+        num = int(tuplet_ancestors[0].attrib["num"])
+        numbase = int(tuplet_ancestors[0].attrib["numbase"])
+        # TODO : check if this can produce float numbers sometime
+        # TODO : handle points
+        return dur_sym * num / numbase / 4
+    else:
+        raise Exception(f"Nested tuplets on element {el}")
+
+
+def _find_ppq(document_el, ns):
+    """Finds the ppq for MEI filed that do not explicitely encode this information"""
+    els_with_dur = document_el.xpath(".//*[@dur]")
+    durs = []
+    for el in els_with_dur:
+        durs.append(_quarter_dur(el, ns))
+
+    least_common_multiple = np.lcm.reduce(durs)
+
+    return least_common_multiple
+
+
 def _handle_initial_staffdef(staffdef_el, ns):
     """
     Handles the definition of a single staff.
@@ -258,7 +288,11 @@ def _handle_initial_staffdef(staffdef_el, ns):
     id = staffdef_el.attrib[_ns_name("id", XML_NAMESPACE)]
     label_el = staffdef_el.find(_ns_name("label", ns))
     name = label_el.text if label_el is not None else ""
-    ppq = int(staffdef_el.attrib["ppq"])
+    ppq_attrib = staffdef_el.get("ppq")
+    if ppq_attrib is not None:
+        ppq = int(ppq_attrib)
+    else:
+        raise Exception("Only MEI with explicit ppq are supported")
     # generate the part
     part = score.Part(id, name, quarter_duration=ppq)
     # fill it with other info, e.g. meter, time signature, key signature
@@ -383,8 +417,13 @@ def _duration_info(el, ns):
     duration :
     symbolic_duration :
     """
-    # find duration in ppq. For grace notes is 0
-    duration = int(el.get("dur.ppq")) if el.get("dur.ppq") is not None else 0
+    if el.get("dur.ppq") is not None or el.get("grace") is not None:
+        # find duration in ppq. For grace notes is 0
+        duration = 0 if el.get("grace") is not None else int(el.get("dur.ppq"))
+    else:
+        # TODO : compute the duration from the symbolic duration
+        pass
+    # symbolic duration
     # find symbolic duration
     symbolic_duration = {}
     symbolic_duration["type"] = MEI_DURS[el.attrib["dur"]]
@@ -677,24 +716,29 @@ def _handle_staff_in_measure(staff_el, staff_ind, position: int, part, ns):
                 layer_el, i_layer, staff_ind, position, part, ns
             )
         )
-    # sanity check that all layers have equal duration
+    # check if layers have equal duration (bad encoding, but it often happens)
     if not all([e == end_positions[0] for e in end_positions]):
-        raise Exception("Different voices have different durations")
+        print(
+            f"Warning: voices have different durations in staff {staff_el.attrib[_ns_name('id',XML_NAMESPACE)]}"
+        )
+
     # add end time of measure
-    part.add(measure, None, end_positions[0])
-    return end_positions[0]
+    part.add(measure, None, max(end_positions))
+    return max(end_positions)
 
 
-def _handle_section(parts, section_el, ns):
+def _handle_section(section_el, parts, position: int, ns):
     """
     Returns position and fills parts with elements.
 
     Parameters
     ----------
-    parts : list()
-        A list of partitura Parts.
     section_el : lxml tree
         An lxml substree of a MEI score reffering to a section.
+    parts : list()
+        A list of partitura Parts.
+    position : int
+        The current position on the timeline.
     ns : str
         The namespace tag of the document.
 
@@ -703,7 +747,6 @@ def _handle_section(parts, section_el, ns):
     position : int
         The end position of the section.
     """
-    position = 0
     for i_el, element in enumerate(section_el):
         # handle measures
         if element.tag == _ns_name("measure", ns):
@@ -731,6 +774,23 @@ def _handle_section(parts, section_el, ns):
             if (keysig_el is not None) or (element.get("key.sig") is not None):
                 for part in parts:
                     _handle_keysig(element, position, part, ns)
+        # handle nested section
+        elif element.tag == _ns_name("section", ns):
+            position = _handle_section(element, parts, position, ns)
+        elif element.tag == _ns_name("ending", ns):
+            position = _handle_section(element, parts, position, ns)
+            # TODO : add the volta symbol and measure separator
+        # explicit repetition expansions
+        elif element.tag == _ns_name("expansion", ns):
+            pass
+        # system break
+        elif element.tag == _ns_name("sb", ns):
+            pass
+        # page break
+        elif element.tag == _ns_name("pb", ns):
+            pass
+        else:
+            raise Exception(f"element {element.tag} is not yet supported")
 
     return position
 
@@ -771,8 +831,7 @@ def load_mei(mei_path: str) -> list:
     # parse xml file
     document, ns = _parse_mei(mei_path)
 
-    # handle main scoreDef info
-    scoredef_el = document.find(_ns_name("scoreDef", ns, True))
+    # handle main scoreDef info: create the part list
     main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
     part_list = _handle_main_staff_group(main_partgroup_el, ns)
 
@@ -780,13 +839,16 @@ def load_mei(mei_path: str) -> list:
     scores_el = document.findall(_ns_name("score", ns, True))
     if len(scores_el) != 1:
         raise Exception("Only MEI with a single score element are supported")
-    sections_el = scores_el[0].findall(_ns_name("section", ns, True))
-    # TODO: add support for nested scores and endings
-    if len(sections_el) != 1:
-        raise Exception("Only MEI with a single section are supported")
-    _handle_section(list(score.iter_parts(part_list)), sections_el[0], ns)
+    sections_el = scores_el[0].findall(_ns_name("section", ns))
+    position = 0
+    for section_el in sections_el:
+        # insert in parts all elements except ties
+        position = _handle_section(
+            section_el, list(score.iter_parts(part_list)), position, ns
+        )
+
     # handles ties
-    _tie_notes(sections_el[0], part_list, ns)
+    _tie_notes(scores_el[0], part_list, ns)
 
     return part_list
 

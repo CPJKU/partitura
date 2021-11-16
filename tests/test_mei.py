@@ -175,15 +175,19 @@ class TestImportMEI(unittest.TestCase):
         part_list = load_mei(MEI_TESTFILES[11])
         self.assertTrue(True)
 
+    def test_missing_ppq(self):
+        part_list = load_mei(MEI_TESTFILES[12])
+        self.assertTrue(True)
+
     def test_parse_mei(self):
         # check if all test files load correctly
         for mei in MEI_TESTFILES[4:]:
             part_list = load_mei(mei)
         self.assertTrue(True)
 
-    # def test_parse_all(self):
-    #     for mei in Path("C:/Users/fosca/Desktop/CNAM/MEI dataset").iterdir():
-    #         part_list = load_mei(str(mei))
+    def test_parse_all(self):
+        for mei in Path("C:/Users/fosca/Desktop/CNAM/MEI dataset").iterdir():
+            part_list = load_mei(str(mei))
 
 
 if __name__ == "__main__":
