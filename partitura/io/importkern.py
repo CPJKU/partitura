@@ -66,15 +66,17 @@ class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
+        self.stream = stream
         self.mode = None
         self.barline_dict = dict() if not barline_dict else barline_dict
         self.slur_dict = {"open": [], "close": []}
         self.tie_dict = {"open": [], "close": []}
-        self.process(stream)
+        self.process()
 
-    def process(self, line):
+    def process(self):
         self.staff = None
-        for index, el in enumerate(line):
+        for index, el in enumerate(self.stream):
+            self.current_index = index
             if el.startswith("*staff"):
                 self.staff = eval(el[len("*staff"):])
             # elif el.startswith("!!!"):
@@ -93,7 +95,7 @@ class KernParserPart(KernGlobalPart):
                 self._handle_rest(el, "r-" + str(index))
             else:
                 self._handle_note(el, "n-" + str(index))
-        self.nid_dict = {note.id : note for note in self.iter_all(cls=score.Note)}
+        self.nid_dict = dict([(n.id, n) for n in self.iter_all(cls=score.Note)] + [(n.id, n) for n in self.iter_all(cls=score.GraceNote)])
         self._handle_slurs()
         self._handle_ties()
 
@@ -111,6 +113,7 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_slurs(self):
         if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
+            print(self.slur_dict)
             raise ValueError("Slur Mismatch! Uneven amount of closing to open slur brackets.")
         else:
             for (oid, cid) in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
@@ -197,23 +200,24 @@ class KernParserPart(KernGlobalPart):
         self.add(note_instance, self.position)
 
     def _search_slurs_and_ties(self, note, note_id):
+        if ")" in note:
+            x = note.count(")")
+            if len(self.slur_dict["open"]) == len(self.slur_dict["close"])+x:
+                # for _ in range(x):
+                self.slur_dict["close"].append(note_id)
         if note.startswith("("):
             # acount for multiple opening brackets
             n = note.count("(")
-            for _ in range(n):
-                self.slur_dict["open"].append(note_id)
+            # for _ in range(n):
+            self.slur_dict["open"].append(note_id)
             # Re-order for correct parsing
             if len(self.slur_dict["open"]) > len(self.slur_dict["close"])+1:
+                raise ValueError("Cannot deal with nested slurs.")
                 x = note_id
                 lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
                 self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
                 self.slur_dict["open"][lenc] = x
             note = note[n:]
-        if ")" in note:
-            x = note.count(")")
-            if len(self.slur_dict["open"]) == len(self.slur_dict["close"])+x:
-                for _ in range(x):
-                    self.slur_dict["close"].append(note_id)
         if note.startswith("["):
             self.tie_dict["open"].append(note_id)
             note = note[1:]
@@ -222,9 +226,9 @@ class KernParserPart(KernGlobalPart):
         return note
 
     # TODO tuplet durations.
-    def _handle_duration(self, note):
+    def _handle_duration(self, note, isgrace=False):
         # TODO deal with grace notes
-        if "q" in note:
+        if isgrace:
             _ , dur, ntype = re.split('(\d+)', note)
             ntype = _ + ntype
         else:
@@ -240,7 +244,7 @@ class KernParserPart(KernGlobalPart):
             }
         # calculate duration to divs.
         qdivs = self._quarter_durations[0]
-        duration = LABEL_DURS[symbolic_duration["type"]] * qdivs
+        duration = qdivs * 4 / dur
         if "." in note:
             symbolic_duration["dots"] = note.count(".")
             ntype = ntype[note.count("."):]
@@ -248,13 +252,15 @@ class KernParserPart(KernGlobalPart):
                 duration += duration / 2
         else:
             symbolic_duration["dots"] = 0
+        if not duration.is_integer():
+            raise ValueError("Duration divs is not an integer, {}".format(duration))
         return duration, symbolic_duration, ntype
 
     def _handle_note(self, note, note_id):
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
-        duration, symbolic_duration, ntype = self._handle_duration(note)
-        grace_attr = "q" in ntype or "Q" in ntype
+        grace_attr = "q" in note or "p" in note
+        duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
             octave += ntype.count(step)
@@ -295,6 +301,7 @@ class KernParserPart(KernGlobalPart):
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
+            duration = 0
 
         self.add(note, self.position, self.position + duration)
         self.position += duration
@@ -355,16 +362,16 @@ class KernParser():
             parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0]))
         else:
             parts = [self.collect(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0])]
-        return parts
+        return [p for p in parts if p]
 
-    def add_part(self, unprocessed):
+    def add2part(self, part, unprocessed):
         flatten = [item for sublist in unprocessed for item in sublist]
         if unprocessed:
-            new_part = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, barline_dict=self.parts[0].barline_dict)
+            new_part = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, part.barline_dict)
             self.parts.append(new_part)
 
     def collect(self, doc, pos, doc_name, id, qdivs):
-        if doc[0] != "**silbe":
+        if doc[0] == "**kern":
             x = KernParserPart(doc, pos, doc_name, id, qdivs)
             return x
 
@@ -417,21 +424,35 @@ def parse_kern(kern_path):
         The path of the KERN document.
     Returns
     -------
-    document : lxml tree
-        An lxml tree of the MEI score.
-    ns : str
-        The namespace tag of the document.
+    continuous_parts : numpy character array
+    non_continuous_parts : list
     """
     with open(kern_path) as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
     init_parts = len(d[0])
+    nkpos = [i for i, x in enumerate(d[0]) if x != "**kern"]
+    # TODO Deal with multi non kern parts
+    nkpos = nkpos[0] if nkpos else None
     striped_parts = list()
     non_continuous = list()
+    f = lambda x: x[:init_parts]
+    g = lambda x: x[init_parts:]
+    merge_index = []
     for x in d:
-        striped_parts.append(x[:init_parts])
-        if len((x)) > init_parts:
-            non_continuous.append(x[init_parts:])
+        if merge_index:
+            for midx in merge_index:
+                x[midx] = x[midx] + " " + x[midx+1]
+            y = [el for i, el in enumerate(x) if i-1 not in merge_index]
+            striped_parts.append(y)
+        else:
+            striped_parts.append(x)
+        if "*^" in x:
+            merge_index.append(x.index("*^"))
+        if "*v *v" in x:
+            k = x.index("*v *v")
+            merge_index.remove(k)
+
     continuous_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return continuous_parts, non_continuous
 
@@ -452,8 +473,9 @@ def load_kern(kern_path: str, parallel=False):
     continuous_parts, non_continuous = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
     parser = KernParser(continuous_parts, doc_name, parallel=parallel)
-    parser.add_part(non_continuous)
+    # TODO check where to add non_continuous
     parts = parser.parts
+    parser.add2part(parts[-1], non_continuous)
     return parts
 
 
