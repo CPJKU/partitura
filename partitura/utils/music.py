@@ -1862,6 +1862,156 @@ def update_note_ids_after_unfolding(part):
             note.id = f"{note.id}-{i+1}"
 
 
+def performance_from_part(part, bpm=100, velocity=64):
+    """
+    Create a PerformedPart object from a Part object
+
+    Parameters
+    ----------
+    part: Part
+        The part from which we want to generate a performed part
+    bpm : float
+        Beats per minute
+    velocity: velocity
+
+    Returns
+    -------
+    ppart: PerformedPart
+    TODO
+    ----
+    * allow for bpm to be a callable or an 2D array with columns (onset, bpm)
+    * allow for velocity to be a callable or a 2D array (onset, velocity)
+    """
+    from partitura.score import Part
+    from partitura.performance import PerformedPart
+
+    if not isinstance(part, Part):
+        raise ValueError("The input `part` must be a "
+                         f"`partitura.score.Part` instance, not {type(part)}")
+
+    ppart_fields = [
+        ("onset_sec", "f4"),
+        ("duration_sec", "f4"),
+        ("pitch", "i4"),
+        ("velocity", "i4"),
+        ("track", "i4"),
+        ("channel", "i4"),
+        ("id", "U256"),
+    ]
+    snote_array = part.note_array
+
+    pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
+
+    unique_onsets = np.unique(snote_array['onset_beat'])
+    # Cast as object to avoid warnings, but seems to work well
+    # in numpy version 1.20.1
+    unique_onset_idxs = np.array([np.where(snote_array['onset_beat'] == u)[0]
+                                  for u in unique_onsets],
+                                 dtype=object)
+
+    iois = np.diff(unique_onsets)
+
+    bp = 60 / float(bpm)
+
+    # TODO: allow for variable bpm and velocity
+    pnote_array['duration_sec'] = bp * snote_array['duration_beat']
+    pnote_array['velocity'] = int(velocity)
+    pnote_array['pitch'] = snote_array['pitch']
+    pnote_array['id'] = snote_array['id']
+    p_onsets = np.r_[0, np.cumsum(iois * bp)]
+
+    for ix, on in zip(unique_onset_idxs, p_onsets):
+        # ix has to be cast as integer depending on the
+        # numpy version...
+        pnote_array['onset_sec'][ix.astype(int)] = on
+
+    ppart = PerformedPart.from_note_array(pnote_array)
+
+    return ppart
+
+
+def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
+                                 alignment,
+                                 remove_ornaments=True):
+    """
+    Time maps
+    """
+    perf_note_array = ensure_notearray(ppart_or_note_array)
+    score_note_array = ensure_notearray(spart_or_note_array)
+
+    match_idx = get_matched_notes(score_note_array,
+                                  perf_note_array,
+                                  alignment)
+
+    score_onsets = score_note_array[match_idx[:, 0]]['onset_beat']
+    score_durations = score_note_array[match_idx[:, 0]]['duration_beat']
+
+    perf_onsets = perf_note_array[match_idx[:, 1]]['onset_sec']
+
+    score_unique_onsets = np.unique(score_onsets)
+
+    if remove_ornaments:
+        # TODO: check that all onsets have a duration?
+        # ornaments (grace notes) do not have a duration
+        score_unique_onset_idxs = np.array(
+            [
+                np.where(np.logical_and(score_onsets == u,
+                                        score_durations > 0))[0]
+                for u in score_unique_onsets
+            ],
+            dtype=object
+        )
+
+    else:
+        score_unique_onset_idxs = np.array(
+            [np.where(score_onsets == u)[0] for u in score_unique_onsets],
+            dtype=object)
+
+    eq_perf_onsets = np.array([np.mean(perf_onsets[u])
+                               for u in score_unique_onset_idxs])
+
+    ptime_to_stime_map = interp1d(
+        x=eq_perf_onsets,
+        y=score_unique_onsets,
+        bounds_error=False,
+        fill_value='extrapolate')
+    stime_to_ptime_map = interp1d(
+        y=eq_perf_onsets,
+        x=score_unique_onsets,
+        bounds_error=False,
+        fill_value='extrapolate')
+
+    return ptime_to_stime_map, stime_to_ptime_map
+
+
+def get_matched_notes(spart_note_array, ppart_note_array, gt_alignment):
+    """
+    Get the indices of the matched notes in an alignment
+    """
+    # Get matched notes
+    matched_idxs = []
+    for al in gt_alignment:
+        # Get only matched notes (i.e., ignore inserted or deleted notes)
+        if al['label'] == 'match':
+
+            # if ppart_note_array['id'].dtype != type(al['performance_id']):
+            if not isinstance(ppart_note_array['id'], type(al['performance_id'])):
+                p_id = str(al['performance_id'])
+            else:
+                p_id = al['performance_id']
+
+            p_idx = int(np.where(
+                ppart_note_array['id'] == p_id)[0])
+
+            s_idx = np.where(spart_note_array['id'] == al['score_id'])[0]
+
+            if len(s_idx) > 0:
+                s_idx = int(s_idx)
+                matched_idxs.append((s_idx, p_idx))
+
+    return np.array(matched_idxs)
+
+
 if __name__ == "__main__":
     import doctest
 
