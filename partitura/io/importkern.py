@@ -1,5 +1,6 @@
 import os.path
 import re
+import math
 import partitura.score as score
 from joblib import Parallel, delayed
 
@@ -85,8 +86,6 @@ class KernParserPart(KernGlobalPart):
                 if self.staff == None:
                     self.staff = 1
                 self._handle_glob_attr(el)
-            elif el == ".":
-                pass
             elif el.startswith("="):
                 self._handle_barline(el)
             elif " " in el:
@@ -126,6 +125,8 @@ class KernParserPart(KernGlobalPart):
         self.add(new_time_signature, self.position)
 
     def _handle_barline(self, element):
+        if len(element.split()) > 1:
+            element = element.split()[0]
         if element.endswith("!"):
             barline = score.Fine()
         elif element.endswith(":|"):
@@ -225,9 +226,7 @@ class KernParserPart(KernGlobalPart):
             self.tie_dict["close"].append(note_id)
         return note
 
-    # TODO tuplet durations.
     def _handle_duration(self, note, isgrace=False):
-        # TODO deal with grace notes
         if isgrace:
             _ , dur, ntype = re.split('(\d+)', note)
             ntype = _ + ntype
@@ -237,11 +236,13 @@ class KernParserPart(KernGlobalPart):
         if dur in self.KERN_DURS.keys():
             symbolic_duration = {"type": self.KERN_DURS[dur]}
         else:
+            diff = dict((map(lambda x : (dur-x, x) if dur>x else (dur+x, x) , self.KERN_DURS.keys())))
             symbolic_duration = {
-                "type" : self.KERN_DURS[4] if dur not in [13, 11, 9, 7, 5, 3] else self.KERN_DURS[4],
+                "type" : self.KERN_DURS[diff[min(list(diff.keys()))]],
                 "actual_notes" : dur/4,
-                "normal_notes" : 1
+                "normal_notes" : diff[min(list(diff.keys()))]/4
             }
+
         # calculate duration to divs.
         qdivs = self._quarter_durations[0]
         duration = qdivs * 4 / dur
@@ -257,6 +258,8 @@ class KernParserPart(KernGlobalPart):
         return duration, symbolic_duration, ntype
 
     def _handle_note(self, note, note_id):
+        if note == ".":
+            return
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
         grace_attr = "q" in note or "p" in note
@@ -284,12 +287,10 @@ class KernParserPart(KernGlobalPart):
                 self._handle_fermata(note)
         else:
             # create grace note
-            if grace_attr == "unacc":
+            if "p" in ntype:
                 grace_type = "acciaccatura"
-            elif grace_attr == "acc":
+            elif "q" in ntype:
                 grace_type = "appoggiatura"
-            else:  # unknow type
-                grace_type = "grace"
             note = score.GraceNote(
                 grace_type=grace_type,
                 step=step,
@@ -310,9 +311,13 @@ class KernParserPart(KernGlobalPart):
         notes = chord.split()
         pos = self.position
         for i, note_el in enumerate(notes):
-            id = "c-" + str(i) + "-" + str(id)
+            id_new = "c-" + str(i) + "-" + str(id)
             self.position = pos
-            self._handle_note(note_el, id)
+            if "r" in note_el:
+                self._handle_rest(note_el, id_new)
+            else:
+                self._handle_note(note_el, id_new)
+
 
     def _handle_glob_attr(self, el):
         if el.startswith("*clef"):
@@ -375,11 +380,10 @@ class KernParser():
             x = KernParserPart(doc, pos, doc_name, id, qdivs)
             return x
 
-    # TODO handle position of pick-up measure
+    # TODO handle position of pick-up measure?
     def _handle_pickup_position(self):
         return 0
 
-    # TODO fix divs calculation with LCM
     def initialize_part_with_div(self):
         def try_to_eval2(x):
             try:
@@ -408,7 +412,8 @@ class KernParser():
         else:
             y = np.nonzero(np.vectorize(lambda x: isinstance(eval(x[0]), int))(notes))
             n = 1
-        min_value = np.max(np.vectorize(lambda x: eval(x[:n]))(notes[y]))
+        uniques = np.unique(np.vectorize(lambda x: eval(x[:n]))(notes[y]))
+        min_value = np.max(np.lcm.reduce(uniques))
         qdivs = self.DIVS2Q[min_value] if min_value in self.DIVS2Q.keys() else int(min_value/4)
         return qdivs
 
@@ -430,14 +435,7 @@ def parse_kern(kern_path):
     with open(kern_path) as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
-    init_parts = len(d[0])
-    nkpos = [i for i, x in enumerate(d[0]) if x != "**kern"]
-    # TODO Deal with multi non kern parts
-    nkpos = nkpos[0] if nkpos else None
     striped_parts = list()
-    non_continuous = list()
-    f = lambda x: x[:init_parts]
-    g = lambda x: x[init_parts:]
     merge_index = []
     for x in d:
         if merge_index:
@@ -448,13 +446,17 @@ def parse_kern(kern_path):
         else:
             striped_parts.append(x)
         if "*^" in x:
-            merge_index.append(x.index("*^"))
+            k = x.index("*^")
+            if merge_index:
+                if k < min(merge_index):
+                    merge_index = [midx+1 for midx in merge_index]
+            merge_index.append(k)
         if "*v *v" in x:
             k = x.index("*v *v")
-            merge_index.remove(k)
+            merge_index = [i for i in merge_index if i != k]
 
-    continuous_parts = np.array(list(zip(striped_parts))).squeeze(1).T
-    return continuous_parts, non_continuous
+    numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
+    return numpy_parts
 
 
 def load_kern(kern_path: str, parallel=False):
@@ -470,12 +472,10 @@ def load_kern(kern_path: str, parallel=False):
         A list of Partitura Part Objects.
     """
     # parse kern file
-    continuous_parts, non_continuous = parse_kern(kern_path)
+    numpy_parts = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
-    parser = KernParser(continuous_parts, doc_name, parallel=parallel)
-    # TODO check where to add non_continuous
+    parser = KernParser(numpy_parts, doc_name, parallel=parallel)
     parts = parser.parts
-    parser.add2part(parts[-1], non_continuous)
     return parts
 
 
