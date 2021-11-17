@@ -127,7 +127,7 @@ class KernParserPart(KernGlobalPart):
     def _handle_barline(self, element):
         if len(element.split()) > 1:
             element = element.split()[0]
-        if element.endswith("!"):
+        if element.endswith("!") or element == "==":
             barline = score.Fine()
         elif element.endswith(":|"):
             barline = score.Repeat()
@@ -135,7 +135,10 @@ class KernParserPart(KernGlobalPart):
         elif "!" in element:
             barline = score.Barline(style="think")
         else:
-            bartype, barnum, _ = re.split('(\d+)', element)
+            try:
+                bartype, barnum, _ = re.split('(\d+)', element)
+            except :
+                x = None
             if eval(barnum) not in self.barline_dict.keys():
                 self.barline_dict[eval(barnum)] = self.position
             else :
@@ -219,11 +222,11 @@ class KernParserPart(KernGlobalPart):
                 self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
                 self.slur_dict["open"][lenc] = x
             note = note[n:]
+        if "]" in note:
+            self.tie_dict["close"].append(note_id)
         if note.startswith("["):
             self.tie_dict["open"].append(note_id)
             note = note[1:]
-        if "]" in note:
-            self.tie_dict["close"].append(note_id)
         return note
 
     def _handle_duration(self, note, isgrace=False):
@@ -453,7 +456,13 @@ def parse_kern(kern_path):
             merge_index.append(k)
         if "*v *v" in x:
             k = x.index("*v *v")
-            merge_index = [i for i in merge_index if i != k]
+            temp = list()
+            for i in merge_index:
+                if i>k:
+                    temp.append(i-1)
+                elif i <k :
+                    temp.append(i)
+            merge_index = temp
 
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
