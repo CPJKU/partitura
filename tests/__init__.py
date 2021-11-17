@@ -90,6 +90,10 @@ MEI_TESTFILES = [
         "test_clefs_tss.mei",
         "test_grace_note.mei",
         "Beethoven_Op119_Nr01-Breitkopf.mei",
+        "test_tuplets_no_ppq.mei",
+        "Beethoven_Op119_Nr02-Breitkopf.mei",
+        "test_parts_duration.mei",
+        "test_parts_duration2.mei",
     ]
 ]
 

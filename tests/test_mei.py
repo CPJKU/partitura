@@ -7,16 +7,12 @@ import unittest
 from tests import MEI_TESTFILES
 from partitura import load_musicxml, load_mei
 import partitura.score as score
-from partitura.io.importmei import (
-    _parse_mei,
-    _ns_name,
-    _handle_main_staff_group,
-    _handle_layer_in_staff_in_measure,
-    load_mei,
-)
+from partitura.io.importmei import MeiParser
+from partitura.utils import compute_pianoroll
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 
+import numpy as np
 from pathlib import Path
 
 
@@ -35,9 +31,9 @@ from pathlib import Path
 
 class TestImportMEI(unittest.TestCase):
     def test_main_part_group1(self):
-        document, ns = _parse_mei(MEI_TESTFILES[5])
-        main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
-        part_list = _handle_main_staff_group(main_partgroup_el, ns)
+        parser = MeiParser(MEI_TESTFILES[5])
+        main_partgroup_el = parser.document.find(parser._ns_name("staffGrp", all=True))
+        part_list = parser._handle_main_staff_group(main_partgroup_el)
         self.assertTrue(len(part_list) == 2)
         # first partgroup
         self.assertTrue(isinstance(part_list[0], score.PartGroup))
@@ -67,43 +63,43 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(part_list[1].id == "P5")
 
     def test_main_part_group2(self):
-        document, ns = _parse_mei(MEI_TESTFILES[4])
-        main_partgroup_el = document.find(_ns_name("staffGrp", ns, True))
-        part_list = _handle_main_staff_group(main_partgroup_el, ns)
+        parser = MeiParser(MEI_TESTFILES[4])
+        main_partgroup_el = parser.document.find(parser._ns_name("staffGrp", all=True))
+        part_list = parser._handle_main_staff_group(main_partgroup_el)
         self.assertTrue(len(part_list) == 1)
         self.assertTrue(isinstance(part_list[0], score.PartGroup))
 
     def test_handle_layer1(self):
-        document, ns = _parse_mei(MEI_TESTFILES[5])
+        parser = MeiParser(MEI_TESTFILES[5])
         layer_el = [
             e
-            for e in document.findall(_ns_name("layer", ns, True))
-            if e.attrib[_ns_name("id", XML_NAMESPACE)] == "l3ss4q5"
+            for e in parser.document.findall(parser._ns_name("layer", all=True))
+            if e.attrib[parser._ns_name("id", XML_NAMESPACE)] == "l3ss4q5"
         ][0]
         part = score.Part("dummyid", quarter_duration=12)
-        _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
+        parser._handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part)
         self.assertTrue(len(part.note_array) == 3)
 
     def test_handle_layer2(self):
-        document, ns = _parse_mei(MEI_TESTFILES[5])
+        parser = MeiParser(MEI_TESTFILES[5])
         layer_el = [
             e
-            for e in document.findall(_ns_name("layer", ns, True))
-            if e.attrib[_ns_name("id", XML_NAMESPACE)] == "l95j799"
+            for e in parser.document.findall(parser._ns_name("layer", all=True))
+            if e.attrib[parser._ns_name("id", XML_NAMESPACE)] == "l95j799"
         ][0]
         part = score.Part("dummyid", quarter_duration=12)
-        _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
+        parser._handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part)
         self.assertTrue(len(part.note_array) == 3)
 
     def test_handle_layer_tuplets(self):
-        document, ns = _parse_mei(MEI_TESTFILES[6])
+        parser = MeiParser(MEI_TESTFILES[6])
         layer_el = [
             e
-            for e in document.findall(_ns_name("layer", ns, True))
-            if e.attrib[_ns_name("id", XML_NAMESPACE)] == "l7hooah"
+            for e in parser.document.findall(parser._ns_name("layer", all=True))
+            if e.attrib[parser._ns_name("id", XML_NAMESPACE)] == "l7hooah"
         ][0]
         part = score.Part("dummyid", quarter_duration=15)
-        _handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part, ns)
+        parser._handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part)
         self.assertTrue(len(part.note_array) == 10)
 
     def test_ties1(self):
@@ -175,9 +171,36 @@ class TestImportMEI(unittest.TestCase):
         part_list = load_mei(MEI_TESTFILES[11])
         self.assertTrue(True)
 
-    def test_missing_ppq(self):
-        part_list = load_mei(MEI_TESTFILES[12])
-        self.assertTrue(True)
+    def test_infer_ppq(self):
+        parser = MeiParser(MEI_TESTFILES[12])
+        inferred_ppq = parser._find_ppq()
+        self.assertTrue(inferred_ppq == 15)
+
+    def test_no_ppq(self):
+        # compare the same piece with and without ppq annotations
+        parts_ppq = load_mei(MEI_TESTFILES[6])
+        part_ppq = list(score.iter_parts(parts_ppq))[0]
+        note_array_ppq = part_ppq.note_array
+
+        parts_no_ppq = load_mei(MEI_TESTFILES[12])
+        part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
+        note_array_no_ppq = part_no_ppq.note_array
+
+        self.assertTrue(np.array_equal(note_array_ppq, note_array_no_ppq))
+
+    def test_part_duration(self):
+        parts_no_ppq = load_mei(MEI_TESTFILES[14])
+        part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
+        note_array_no_ppq = part_no_ppq.note_array
+        self.assertTrue(part_no_ppq._quarter_durations[0] == 4)
+        self.assertTrue(sorted(part_no_ppq._points)[-1].t == 12)
+
+    def test_part_duration2(self):
+        parts_no_ppq = load_mei(MEI_TESTFILES[15])
+        part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
+        note_array_no_ppq = part_no_ppq.note_array
+        self.assertTrue(part_no_ppq._quarter_durations[0] == 8)
+        self.assertTrue(sorted(part_no_ppq._points)[-1].t == 22)
 
     def test_parse_mei(self):
         # check if all test files load correctly
@@ -185,9 +208,9 @@ class TestImportMEI(unittest.TestCase):
             part_list = load_mei(mei)
         self.assertTrue(True)
 
-    def test_parse_all(self):
-        for mei in Path("C:/Users/fosca/Desktop/CNAM/MEI dataset").iterdir():
-            part_list = load_mei(str(mei))
+    # def test_parse_all(self):
+    #     for mei in Path("C:/Users/fosca/Desktop/CNAM/MEI dataset").iterdir():
+    #         part_list = load_mei(str(mei))
 
 
 if __name__ == "__main__":
