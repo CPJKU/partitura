@@ -31,7 +31,7 @@ DUMMY_PS_BASE_CLASS = {
     11: ("b", 0),
 }
 
-MEI_DURS = {
+MEI_DURS_TO_SYMBOLIC = {
     "long": "long",
     "0": "breve",
     "1": "whole",
@@ -43,6 +43,20 @@ MEI_DURS = {
     "64": "64th",
     "128": "128th",
     "256": "256th",
+}
+
+SYMBOLIC_TO_INT_DURS = {
+    "long": 0.25,
+    "breve": 0.5,
+    "whole": 1,
+    "half": 2,
+    "quarter": 4,
+    "eighth": 8,
+    "16th": 16,
+    "32nd": 32,
+    "64th": 64,
+    "128th": 128,
+    "256th": 256,
 }
 
 LABEL_DURS = {
