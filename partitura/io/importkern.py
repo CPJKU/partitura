@@ -475,15 +475,10 @@ def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=Fa
         :Class:`partitura.score.PartGroup` element, the element itself
         is returned instead of a list containing the element. Defaults
         to False.
-    validate : bool, optional
-        When True the validity of the MusicXML is checked against the
-        MusicXML 3.1 specification before loading the file. An
-        exception will be raised when the MusicXML is invalid.
-        Defaults to False.
     force_note_ids : (bool, 'keep') optional.
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
-        the MusicXML will be discarded. If 'keep', only notes without
+        the Kern will be discarded. If 'keep', only notes without
         a note id will be assigned one.
 
     Returns
