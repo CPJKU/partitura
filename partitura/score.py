@@ -3326,6 +3326,40 @@ def sanitize_part(part):
     )
 
 
+def assign_note_ids(parts, keep=False):
+    """"
+    Assigns new note IDs mainly used for loaders.
+
+    parts : list or score.PartGroup or score.Part
+        Some Partitura parts
+    keep : bool
+        Keep or given note IDs or assign new ones.
+    """
+    if keep:
+        # Keep existing note id's
+        for p, part in enumerate(iter_parts(parts)):
+            for ni, n in enumerate(
+                    part.iter_all(GenericNote, include_subclasses=True)
+            ):
+                if isinstance(n, Rest):
+                    n.id = "p{0}r{1}".format(p, ni) if n.id is None else n.id
+                else:
+                    n.id = "p{0}n{1}".format(p, ni) if n.id is None else n.id
+
+    else:
+        # assign note ids to ensure uniqueness across all parts, discarding any
+        # existing note ids
+        ni = 0
+        ri = 0
+        for part in iter_parts(parts):
+            for n in part.iter_all(GenericNote, include_subclasses=True):
+                if isinstance(n, Rest):
+                    n.id = "r{}".format(ri)
+                    ri += 1
+                else:
+                    n.id = "n{}".format(ni)
+                    ni += 1
+
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
 

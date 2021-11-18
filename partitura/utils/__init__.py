@@ -41,7 +41,7 @@ from partitura.utils.music import (
     update_note_ids_after_unfolding,
     note_name_to_pitch_spelling,
     note_name_to_midi_pitch,
-    pitch_spelling_to_note_name
+    pitch_spelling_to_note_name,
 )
 
 __all__ = [

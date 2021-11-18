@@ -1,16 +1,9 @@
 import os.path
 import re
-import math
+
 import partitura.score as score
 from joblib import Parallel, delayed
-
-
-from partitura.utils.music import LABEL_DURS
 import numpy as np
-
-
-
-
 
 class KernGlobalPart(score.Part):
     def __init__(self, doc_name, part_id, qdivs):
@@ -112,7 +105,6 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_slurs(self):
         if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
-            print(self.slur_dict)
             raise ValueError("Slur Mismatch! Uneven amount of closing to open slur brackets.")
         else:
             for (oid, cid) in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
@@ -260,6 +252,8 @@ class KernParserPart(KernGlobalPart):
             raise ValueError("Duration divs is not an integer, {}".format(duration))
         return duration, symbolic_duration, ntype
 
+    # TODO Handle beams and tuplets.
+
     def _handle_note(self, note, note_id):
         if note == ".":
             return
@@ -321,7 +315,6 @@ class KernParserPart(KernGlobalPart):
             else:
                 self._handle_note(note_el, id_new)
 
-
     def _handle_glob_attr(self, el):
         if el.startswith("*clef"):
             self._handle_clef(el)
@@ -333,8 +326,6 @@ class KernParserPart(KernGlobalPart):
             self._handle_metersig(el)
         elif el.endswith(":"):
             self._handle_mode(el)
-        elif el == "*-":
-            print("Reached the end of the stream.")
 
 
 class KernParser():
@@ -468,23 +459,51 @@ def parse_kern(kern_path):
     return numpy_parts
 
 
-def load_kern(kern_path: str, parallel=False):
-    """
+def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=False):
+    """Parse a Kern file and build a composite score ontology
+    structure from it (see also scoreontology.py).
+
     Parameters
     ----------
     kern_path : str
-        The path to an KERN score.
+        Path to the Kern file to be parsed
+    ensure_list : bool, optional
+        When True return a list independent of how many part or
+        partgroup elements were created from the MIDI file. By
+        default, when the return value of `load_musicxml` produces a
+    single : class:`partitura.score.Part` or
+        :Class:`partitura.score.PartGroup` element, the element itself
+        is returned instead of a list containing the element. Defaults
+        to False.
+    validate : bool, optional
+        When True the validity of the MusicXML is checked against the
+        MusicXML 3.1 specification before loading the file. An
+        exception will be raised when the MusicXML is invalid.
+        Defaults to False.
+    force_note_ids : (bool, 'keep') optional.
+        When True each Note in the returned Part(s) will have a newly
+        assigned unique id attribute. Existing note id attributes in
+        the MusicXML will be discarded. If 'keep', only notes without
+        a note id will be assigned one.
 
     Returns
     -------
-    part_list : list
-        A list of Partitura Part Objects.
+    partlist : list
+        A list of either Part or PartGroup objects
+
     """
     # parse kern file
     numpy_parts = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
     parser = KernParser(numpy_parts, doc_name, parallel=parallel)
-    parts = parser.parts
-    return parts
+    partlist = parser.parts
+
+    score.assign_note_ids(partlist, keep= (force_note_ids is True or force_note_ids == "keep"))
+
+
+    if not ensure_list and len(partlist) == 1:
+        return partlist[0]
+    else:
+        return partlist
 
 

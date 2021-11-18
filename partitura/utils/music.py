@@ -450,6 +450,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     return name + suffix
 
 
+# TODO add a universal funtion calculation for mode.
 def key_name_to_fifths_mode(name):
     """Return the number of sharps or flats and the mode of a key
     signature name. A negative number denotes the number of flats
@@ -1860,6 +1861,7 @@ def note_array_from_note_list(
     note_array = note_array[onset_sort_idx]
 
     return note_array
+
 
 
 def update_note_ids_after_unfolding(part):
