@@ -104,7 +104,8 @@ KERN_TESFILES = [
         "example.krn",
         "long_example.krn",
         "Beethoven_sonata_1.1.krn",
-        'Bach-BWV_316.krn'
+        'Bach-BWV_316.krn',
+        "bach_fugue.krn"
     ]
 ]
 

@@ -18,10 +18,14 @@ class TestImportKERN(unittest.TestCase):
         document_path = KERN_TESFILES[0]
         parts = load_kern(document_path)
 
-    def test_beethoven(self):
+    def test_beethoven_sonata(self):
         document_path = KERN_TESFILES[2]
         parts = load_kern(document_path)
 
     def test_bach_chorale(self):
         document_path = KERN_TESFILES[3]
+        parts = load_kern(document_path)
+
+    def test_bach_fugue(self):
+        document_path = KERN_TESFILES[4]
         parts = load_kern(document_path)
