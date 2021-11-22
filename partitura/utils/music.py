@@ -464,54 +464,33 @@ def fifths_mode_to_key_name(fifths, mode=None):
     return name + suffix
 
 
-# TODO add a universal funtion calculation for mode.
-# def key_name_to_fifths_mode(name):
-#     """Return the number of sharps or flats and the mode of a key
-#     signature name. A negative number denotes the number of flats
-#     (i.e. -3 means three flats), and a positive number the number of
-#     sharps. The mode is specified as 'major' or 'minor'.
-#
-#     Parameters
-#     ----------
-#     name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C",\
-# "C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb",\
-# "Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
-#         Name of the key signature
-#
-#     Returns
-#     -------
-#     (int, str)
-#         Tuple containing the number of fifths and the mode
-#
-#
-#     Examples
-#     --------
-#     >>> key_name_to_fifths_mode('Am')
-#     (0, 'minor')
-#     >>> key_name_to_fifths_mode('C')
-#     (0, 'major')
-#     >>> key_name_to_fifths_mode('A')
-#     (3, 'major')
-#
-#     """
-#     global MAJOR_KEYS, MINOR_KEYS
-#
-#     if name.endswith("m"):
-#         mode = "minor"
-#         keylist = MINOR_KEYS
-#     else:
-#         mode = "major"
-#         keylist = MAJOR_KEYS
-#
-#     try:
-#         fifths = keylist.index(name.strip("m")) - 7
-#     except ValueError:
-#         raise Exception("Unknown key signature {}".format(name))
-#
-#     return fifths, mode
-
-
 def key_name_to_fifths_mode(key_name):
+    """Return the number of sharps or flats and the mode of a key
+        signature name. A negative number denotes the number of flats
+        (i.e. -3 means three flats), and a positive number the number of
+        sharps. The mode is specified as 'major' or 'minor'.
+
+        Parameters
+        ----------
+        name : str
+            Name of the key signature, i.e. Am, E#, etc
+
+        Returns
+        -------
+        (int, str)
+            Tuple containing the number of fifths and the mode
+
+
+        Examples
+        --------
+        >>> key_name_to_fifths_mode('Am')
+        (0, 'minor')
+        >>> key_name_to_fifths_mode('C')
+        (0, 'major')
+        >>> key_name_to_fifths_mode('A')
+        (3, 'major')
+
+    """
     fifths_list = ["F", "C", "G", "D", "A", "E", "B"]
 
     if "m" in key_name:
