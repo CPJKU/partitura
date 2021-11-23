@@ -3,7 +3,7 @@ import numpy as np
 import unittest
 from tempfile import TemporaryFile
 
-from . import VOSA_TESTFILES
+from tests import VOSA_TESTFILES
 
 from partitura import load_musicxml
 from partitura.musicanalysis import estimate_voices
