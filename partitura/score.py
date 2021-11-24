@@ -3411,8 +3411,6 @@ class Segment(TimedObject):
         self.jump_to = jump_to
 
 
-
-
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
 
