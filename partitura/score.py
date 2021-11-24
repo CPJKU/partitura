@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 import logging
 from numbers import Number
-import copy
+# import copy
 from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
