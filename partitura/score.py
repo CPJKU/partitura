@@ -1930,10 +1930,20 @@ class Repeat(TimedObject):
 class DaCapo(TimedObject):
     """A Da Capo sign."""
 
-
 class Fine(TimedObject):
     """A Fine sign."""
 
+class DalSegno(TimedObject):
+    """A Dal Segno sign."""
+
+class Segno(TimedObject):
+    """A Segno sign."""
+    
+class ToCoda(TimedObject):
+    """A To Coda sign."""
+    
+class Coda(TimedObject):
+    """A Coda sign."""
 
 class Fermata(TimedObject):
     """A Fermata sign.
