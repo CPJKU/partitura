@@ -3385,31 +3385,165 @@ def assign_note_ids(parts, keep=False):
                     ni += 1
 class Segment(TimedObject):
     """
-    Class that represents any segment between two navigation markers
+    Class that represents any segment between two navigation markers such as repetitions,
+    Volta brackets, or capo/fine/coda/segno directions.
+    
 
     Parameters
     ----------
     id : string
         The ID associated with this segment
-    jump_to : list of strings
-        The IDs of segments where the unfolded score could jump to at the end of this segment
-
-    Attributes
-    ----------
-    id : string
-        See parameters
-    jump_to : list of strings
-        See parameters
-    jump_id : int
-        the id
-
+    to : list of strings
+        Ordered list of IDs of segments where the unfolded score could jump to at the end of this segment
+    force_full_sequence : bool, optional
+        Flag specifying whether segment unfolding should consider all destinations (jumps) sequentially. 
+        Default value False
+    type : string, optional
+        String for the type of the segment (either "default" or "coda")
+        "coda" has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
+        as is commonly expected after capo/fine/coda/segno directions.
+        
     """
 
-    def __init__(self, id, jump_to):
-        super().__init__()
+    def __init__(self, id, to, force_seq = False, type = "default"):
         self.id = id
-        self.jump_to = jump_to
+        self.to = to    # the ordered list of of destinations
+        self.force_full_sequence = force_seq    # can destinations be omitted?
+        self.type = type       
 
+
+
+class Path:
+    """
+    Path that represents a sequence of segments.
+
+    Parameters
+    ----------
+    path : list
+        The string of segment IDs 
+    segments : dict
+        A dictionary of available segments by segment ID
+    used_segment_jumps : defaultdict(list), optional
+        dictionary of used jumps per segment in this path
+    no_repeats : bool, optional
+        Flag to generate no repeating jump destinations with list_of_destinations_from_last_segment
+        
+    """
+    def __init__(self, path_string, segments, used_segment_jumps = defaultdict(list), no_repeats = False):
+        
+        self.path = path_string
+        self.segments = segments
+        self.used_segment_jumps = used_segment_jumps
+        self.ended = False
+        self.no_repeats = no_repeats
+
+        
+    def __str__(self):
+        return self.path
+
+    def __len__(self):
+        return len(self.path)
+
+    def make_copy_with_jump_to(self, destination):
+        new_path = copy.deepcopy(self)
+        new_path.used_segment_jumps[new_path.path[-1]].append(destination)
+        new_path.path += destination
+        if self.segments[destination].type == "coda":
+            new_path.no_repeats = True
+            
+           
+        return new_path
+    
+    @property
+    def list_of_destinations_from_last_segment(self):
+        destinations = self.segments[self.path[-1]].to
+        previously_used_destinations = self.used_segment_jumps[self.path[-1]]
+        # only continue in order of the sequence, after full consumption, start at zero
+        # if the full sequence is forced, return only the single possible jump destination, else return possibly many.
+        
+        if self.segments[self.path[-1]].force_full_sequence:
+            # if the full sequence should be used
+            if len(previously_used_destinations) == 0:
+                return [destinations[0]]
+            else:
+                last_destination = previously_used_destinations[-1]
+                last_destination_index = destinations.index(last_destination)
+                if last_destination_index < (len(destinations)-1):
+                    return list(destinations[last_destination_index+1])
+                else:
+                    return [destinations[0]]
+                
+        elif self.no_repeats: 
+            # currently this is in lower priority than the full sequence
+            return [destinations[-1]]
+            
+        
+        else :
+            if len(previously_used_destinations) == 0:
+                return copy.copy(destinations)
+            else:
+                last_destination = previously_used_destinations[-1]
+                last_destination_index = destinations.index(last_destination)
+                if last_destination_index < (len(destinations)-1):
+                    return copy.copy(destinations[last_destination_index+1:])
+                else:
+                    return copy.copy(destinations)
+
+
+def unfold_paths(path, paths):
+    """
+    Given a starting Path (at least one segment) recursively unfold into all possible
+    Paths with its segments. Ended Paths are stored in a list.
+    
+    
+    Parameters
+    ----------
+    path : Path
+        a starting Path with at least one segment to be unfolded 
+    paths : list
+        empty list to accumulate paths that are fully unfolded until an "end" keyword was found
+    """
+    destinations = path.list_of_destinations_from_last_segment
+    for destination_id in destinations:
+        if destination_id == "end": 
+            path.ended = True
+            paths.append(path)
+        else: 
+            new_path = path.make_copy_with_jump_to(destination_id)
+            unfold_paths(new_path, paths)
+            
+            
+def add_segments(part):
+    """
+    Add segment objects to a part based on repetition and capo/fine/coda/segno directions.
+
+    Parameters
+    ----------
+    part: part
+        A score part 
+
+    """
+    
+    
+    
+    
+def get_segments(part):
+    """
+    Get dictionary of segment objects of a part.
+
+    Parameters
+    ----------
+    part: part
+        A score part 
+    
+    Returns
+    -------
+    segments: dict
+        A dictionary of Segment objects indexed by segment IDs.
+
+    """
+    
+    
 
 
 
