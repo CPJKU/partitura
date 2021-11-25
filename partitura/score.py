@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 import logging
 from numbers import Number
-import copy
+# import copy
 from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
@@ -3396,7 +3396,7 @@ class Path:
         return len(self.path)
 
     def make_copy_with_jump_to(self, destination):
-        new_path = copy.deepcopy(self)
+        new_path = copy(self)
         new_path.used_segment_jumps[new_path.path[-1]].append(destination)
         new_path.path += destination
         if self.segments[destination].type == "leap":
@@ -3430,14 +3430,14 @@ class Path:
         
         else :
             if len(previously_used_destinations) == 0:
-                return copy.copy(destinations)
+                return copy(destinations)
             else:
                 last_destination = previously_used_destinations[-1]
                 last_destination_index = destinations.index(last_destination)
                 if last_destination_index < (len(destinations)-1):
-                    return copy.copy(destinations[last_destination_index+1:])
+                    return copy(destinations[last_destination_index+1:])
                 else:
-                    return copy.copy(destinations)
+                    return copy(destinations)
 
 
 def unfold_paths(path, paths):
@@ -3659,7 +3659,30 @@ def get_paths(part):
     
     return paths, segments
 
+def new_part_from_path(path, part):
+    """
+    create a new Part from a Path and an underlying Part
 
+    Parameters
+    ----------
+    path: Path
+        A Path object
+    part: part
+        A score part
+    
+    Returns
+    -------
+    new_part: part
+        A score part corresponding to the Path
+
+    """
+    scorevariant = ScoreVariant(part)
+    for segment_id in path.path:
+        scorevariant.add_segment(path.segments[segment_id].start,
+                                 path.segments[segment_id].end)
+    
+    new_part = scorevariant.create_variant_part()
+    return new_part
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
