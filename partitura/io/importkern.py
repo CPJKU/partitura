@@ -61,6 +61,7 @@ class KernParserPart(KernGlobalPart):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
         self.stream = stream
+        self.last_repeat_pos = None
         self.mode = None
         self.barline_dict = dict() if not barline_dict else barline_dict
         self.slur_dict = {"open": [], "close": []}
@@ -121,11 +122,10 @@ class KernParserPart(KernGlobalPart):
             element = element.split()[0]
         if element.endswith("!") or element == "==":
             barline = score.Fine()
-        elif element.endswith(":|"):
+        elif ":|" in element:
             barline = score.Repeat()
-        # TODO repeat bars front back and double line bars.
         elif "!" in element:
-            barline = score.Barline(style="think")
+            barline = score.Barline(style="thick")
         else:
             try:
                 bartype, barnum, _ = re.split('(\d+)', element)
@@ -139,7 +139,15 @@ class KernParserPart(KernGlobalPart):
                 barline = score.Barline(style="normal")
             else:
                 barline = score.Barline(style="special")
-        self.add(barline, self.position)
+
+        if isinstance(barline, score.Repeat):
+            self.add(barline, self.position, self.last_repeat_pos if self.last_repeat_pos else None)
+        else:
+            self.add(barline, self.position)
+
+        # update position for backward repeat signs
+        if "|:" in element:
+            self.last_repeat_pos = self.position
 
     # TODO maybe also append position for verification.
     def _handle_mode(self, element):
