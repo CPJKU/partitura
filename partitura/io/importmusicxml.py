@@ -579,11 +579,22 @@ def _handle_direction(e, position, part, ongoing):
     # >
 
     staff = get_value_from_tag(e, "staff", int) or None
-
-    if get_value_from_attribute(e, "sound/fine", str) == "yes":
-        part.add(score.Fine(), position)
-    if get_value_from_attribute(e, "sound/dacapo", str) == "yes":
-        part.add(score.DaCapo(), position)
+    
+    sound_directions = e.findall("sound")
+    for sd in sound_directions:
+        
+        if get_value_from_attribute(sd, "fine", str) == "yes":
+            part.add(score.Fine(), position)
+        if get_value_from_attribute(sd, "dacapo", str) == "yes":
+            part.add(score.DaCapo(), position)
+        if get_value_from_attribute(sd, "tocoda", str) == "coda":
+            part.add(score.ToCoda(), position)
+        if get_value_from_attribute(sd, "coda", str) == "coda":
+            part.add(score.Coda(), position)
+        if get_value_from_attribute(sd, "dalsegno", str) == "segno":
+            part.add(score.DalSegno(), position)
+        if get_value_from_attribute(sd, "segno", str) == "segno":
+            part.add(score.Segno(), position)
 
     # <direction-type> ... </...>
     direction_types = e.findall("direction-type")
