@@ -20,7 +20,6 @@ from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
 from .display import render
 from . import musicanalysis
 
-
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version
 
@@ -30,6 +29,7 @@ EXAMPLE_MUSICXML = pkg_resources.resource_filename(
 )
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
 EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
+EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.krn")
 
 __all__ = [
     "load_musicxml",
@@ -50,4 +50,5 @@ __all__ = [
     "EXAMPLE_MUSICXML",
     "EXAMPLE_MIDI",
     "EXAMPLE_MEI",
+    "EXAMPLE_KERN"
 ]
