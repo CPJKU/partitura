@@ -3,6 +3,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import os
+import zipfile
 
 import numpy as np
 from lxml import etree
