@@ -7,6 +7,9 @@ import logging
 import numpy as np
 from lxml import etree
 
+import os
+import zipfile
+
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
@@ -187,6 +190,11 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
         A list of either Part or PartGroup objects
 
     """
+    
+    if os.path.basename(xml).endswith(".mxl"):
+        with zipfile.ZipFile(xml) as zipped_xml:
+            xml = zipped_xml.open(os.path.basename(xml).split(".")[0]+".xml")
+
     if validate:
         validate_musicxml(xml, debug=True)
         # if xml is a file-like object we need to set the read pointer to the
