@@ -191,9 +191,10 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
 
     """
     
-    if os.path.basename(xml).endswith(".mxl"):
-        with zipfile.ZipFile(xml) as zipped_xml:
-            xml = zipped_xml.open(os.path.basename(xml).split(".")[0]+".xml")
+    if type(xml) == str:
+        if zipfile.is_zipfile(xml):
+            with zipfile.ZipFile(xml) as zipped_xml:
+                xml = zipped_xml.open(os.path.splitext(os.path.basename(xml))[0]+".xml")
 
     if validate:
         validate_musicxml(xml, debug=True)
