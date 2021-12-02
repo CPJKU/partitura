@@ -3,12 +3,11 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import os
+import zipfile
 
 import numpy as np
 from lxml import etree
-
-import os
-import zipfile
 
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
