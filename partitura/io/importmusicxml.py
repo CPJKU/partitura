@@ -3,6 +3,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import os
+import zipfile
 
 import numpy as np
 from lxml import etree
@@ -187,6 +189,12 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
         A list of either Part or PartGroup objects
 
     """
+    
+    if type(xml) == str:
+        if zipfile.is_zipfile(xml):
+            with zipfile.ZipFile(xml) as zipped_xml:
+                xml = zipped_xml.open(os.path.splitext(os.path.basename(xml))[0]+".xml")
+
     if validate:
         validate_musicxml(xml, debug=True)
         # if xml is a file-like object we need to set the read pointer to the
