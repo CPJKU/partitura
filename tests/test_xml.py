@@ -14,6 +14,7 @@ from partitura import load_musicxml, save_musicxml
 from partitura.directions import parse_direction
 from partitura.utils import show_diff
 import partitura.score as score
+from lxml import etree
 
 LOGGER = logging.getLogger(__name__)
 
@@ -66,9 +67,12 @@ class TestMusicXML(unittest.TestCase):
         for fn, fn_target_1, fn_target_2 in MUSICXML_UNFOLD_TESTPAIRS:
             part = load_musicxml(fn, validate=False)
             part = score.unfold_part_maximal(part)
-            result = save_musicxml(part).decode("UTF-8")
+            # Load Target
             with open(fn_target_1) as f:
                 target = f.read()
+            # Transform part to musicxml
+            result = save_musicxml(part).decode("UTF-8")
+
             equal = target == result
             if not equal:
                 show_diff(result, target)
