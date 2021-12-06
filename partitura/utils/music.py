@@ -1565,12 +1565,12 @@ def note_array_from_part(
         Default is False
     include_metrical_position : bool (optional)
         If `True`,  includes metrical position information, i.e.,
-        the position of the onset time of each note with respect to its 
-        measure (all notes starting at the same time have the same metrical 
+        the position of the onset time of each note with respect to its
+        measure (all notes starting at the same time have the same metrical
         position).
         Default is False
     include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a 
+        If `True`,  includes grace note information, i.e. if a note is a
 	    grace note and the grace type "" for non grace notes).
         Default is False
 
@@ -1700,7 +1700,7 @@ def note_array_from_note_list(
         If `None` is given, the output structured array will not
         include this information.
     metrical_position_map: callable or None (optional)
-        A function that maps score time in divs to the position in 
+        A function that maps score time in divs to the position in
         the measure at that time.
         If `None` is given, the output structured array will not
         include the metrical position information.
@@ -1708,7 +1708,7 @@ def note_array_from_note_list(
         If `True`, includes pitch spelling information for each
         note. Default is False
     include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a 
+        If `True`,  includes grace note information, i.e. if a note is a
 	    grace note has one of the types "appoggiatura, acciaccatura, grace" and
 	    the grace type "" for non grace notes).
         Default is False
@@ -1856,7 +1856,7 @@ def note_array_from_note_list(
             is_downbeat = 1 if rel_onset_div == 0 else 0
 
             note_info += (is_downbeat, rel_onset_div, tot_measure_div)
-            
+
         note_array.append(note_info)
 
     note_array = np.array(note_array, dtype=fields)
@@ -1904,13 +1904,15 @@ def performance_from_part(part, bpm=100, velocity=64):
         The part from which we want to generate a performed part
     bpm : float
         Beats per minute
-    velocity: velocity
+    velocity: float or int
+        The MIDI velocity for all notes.
 
     Returns
     -------
     ppart: PerformedPart
-    TODO
-    ----
+
+    Potential extensions
+    --------------------
     * allow for bpm to be a callable or an 2D array with columns (onset, bpm)
     * allow for velocity to be a callable or a 2D array (onset, velocity)
     """
@@ -1966,22 +1968,57 @@ def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
                                  alignment,
                                  remove_ornaments=True):
     """
-    Time maps
+    Get time maps to convert performance time (in seconds) to score time (in beats)
+    and visceversa.
+
+    Parameters
+    ----------
+    ppart_or_note_array : PerformedPart or structured array
+        The performance information as either PerformedPart or the
+        note_array generated from such an object.
+    spart_or_note_array : Part or structured array
+        Score information as either a Part object or the note array
+        generated from such an object.
+    alignment : list
+        The score--performance alignment, a list of dictionaries.
+        (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
+    remove_ornaments : bool (optional)
+        Whether to consider or not ornaments (including grace notes)
+
+    Returns
+    -------
+    ptime_to_stime_map : scipy.interpolate.interp1d
+        An instance of interp1d (a callable) that maps performance time (in seconds)
+        to score time (in beats).
+    stime_to_ptime_map : scipy.interpolate.interp1d
+        An instance of inter1d (a callable) that maps score time (in beats) to
+        performance time (in seconds).
+
+    Note
+    ----
+    This methods uses the average value of the score onsets of notes that are
+    written in the score as part of a chord (i.e., which start at the same time).
     """
+    # Ensure that we are using structured note arrays
     perf_note_array = ensure_notearray(ppart_or_note_array)
     score_note_array = ensure_notearray(spart_or_note_array)
 
+    # Get indices of the matched notes (notes in the score
+    # for which there is a performance note
     match_idx = get_matched_notes(score_note_array,
                                   perf_note_array,
                                   alignment)
 
+    # Get onsets and durations
     score_onsets = score_note_array[match_idx[:, 0]]['onset_beat']
     score_durations = score_note_array[match_idx[:, 0]]['duration_beat']
 
     perf_onsets = perf_note_array[match_idx[:, 1]]['onset_sec']
 
+    # Use only unique onsets
     score_unique_onsets = np.unique(score_onsets)
 
+    # Remove grace notes
     if remove_ornaments:
         # TODO: check that all onsets have a duration?
         # ornaments (grace notes) do not have a duration
@@ -1999,9 +2036,13 @@ def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
             [np.where(score_onsets == u)[0] for u in score_unique_onsets],
             dtype=object)
 
+    # For chords, we use the average performed onset as a proxy for
+    # representing the "performeance time" of the position of the score
+    # onsets
     eq_perf_onsets = np.array([np.mean(perf_onsets[u])
                                for u in score_unique_onset_idxs])
 
+    # Get maps
     ptime_to_stime_map = interp1d(
         x=eq_perf_onsets,
         y=score_unique_onsets,
@@ -2016,13 +2057,30 @@ def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
     return ptime_to_stime_map, stime_to_ptime_map
 
 
-def get_matched_notes(spart_note_array, ppart_note_array, gt_alignment):
+def get_matched_notes(spart_note_array, ppart_note_array, alignment):
     """
     Get the indices of the matched notes in an alignment
+
+    Parameters
+    ----------
+    spart_note_array : structured numpy array
+        note_array of the score part
+    ppart_note_array : structured numpy array
+        note_array of the performed part
+    alignment : list
+        The score--performance alignment, a list of dictionaries.
+        (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
+
+    Returns
+    -------
+    matched_idxs : np.ndarray
+        A 2D array containing the indices of the matched score and
+        performed notes, where the columns are
+        (index_in_score_note_array, index_in_performance_notearray)
     """
     # Get matched notes
     matched_idxs = []
-    for al in gt_alignment:
+    for al in alignment:
         # Get only matched notes (i.e., ignore inserted or deleted notes)
         if al['label'] == 'match':
 

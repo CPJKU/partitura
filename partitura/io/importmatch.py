@@ -172,7 +172,10 @@ class FractionalSymbolicDuration(object):
         return self.__add__(sd)
 
     def __float__(self):
-        return self.numerator / (self.denominator * (self.tuple_div or 1))
+        # Cast as float since the ability to return an instance of a strict
+        # subclass of float is deprecated, and may be removed in a future
+        # version of Python. (following a deprecation warning)
+        return float(self.numerator / (self.denominator * (self.tuple_div or 1)))
 
 
 def interpret_field(data):
