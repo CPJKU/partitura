@@ -166,7 +166,7 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
         Path to the MusicXML file to be parsed, or a file-like object
     ensure_list : bool, optional
         When True return a list independent of how many part or
-        partgroup elements were created from the MIDI file. By
+        partgroup elements were created from the MusicXML file. By
         default, when the return value of `load_musicxml` produces a
     single : class:`partitura.score.Part` or
         :Class:`partitura.score.PartGroup` element, the element itself
