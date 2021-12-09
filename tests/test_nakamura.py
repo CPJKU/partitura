@@ -11,7 +11,7 @@ from partitura.io.importnakamura import (
     load_nakamuramatch
 )
 
-from . import NAKAMURA_IMPORT_TESTFILES
+from tests import NAKAMURA_IMPORT_TESTFILES
 
 
 class TestLoadNakamura(unittest.TestCase):

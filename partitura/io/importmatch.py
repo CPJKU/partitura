@@ -1165,11 +1165,13 @@ class MatchFile(object):
 
             _keysigs.append((t, b, keysig))
 
-        keysigs = [_keysigs[0]]
+        keysigs = []
+        if len(_keysigs) > 0:
+            keysigs.append(_keysigs[0])
 
-        for k in _keysigs:
-            if k[2] != keysigs[-1][2]:
-                keysigs.append(k)
+            for k in _keysigs:
+                if k[2] != keysigs[-1][2]:
+                    keysigs.append(k)
 
         return keysigs
 
