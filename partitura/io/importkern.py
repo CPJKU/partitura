@@ -3,7 +3,7 @@ import re
 
 import partitura.score as score
 # Add for parallel processing
-# from joblib import Parallel, delayed
+from joblib import Parallel, delayed
 import numpy as np
 
 class KernGlobalPart(score.Part):
@@ -338,11 +338,10 @@ class KernParserPart(KernGlobalPart):
 
 
 class KernParser():
-    def __init__(self, document, doc_name, parallel=True, n_jobs=2):
+    def __init__(self, document, doc_name, parallel=True):
         self.document = document
         self.doc_name = doc_name
         self.parallel = parallel
-        self.n_jobs = n_jobs
         self.DIVS2Q = {
             1: 0.25,
             2: 0.5,
@@ -367,10 +366,10 @@ class KernParser():
             position = self._handle_pickup_position()
 
         # Add for parallel processing
-        # if self.parallel:
-        #     parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0]))
-        # else:
-        parts = [self.collect(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0])]
+        if self.parallel:
+            parts = Parallel(n_jobs=-1)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0]))
+        else:
+            parts = [self.collect(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0])]
         return [p for p in parts if p]
 
     def add2part(self, part, unprocessed):
