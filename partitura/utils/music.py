@@ -6,7 +6,7 @@ import re
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-
+from joblib import Parallel, delayed
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
 LOGGER = logging.getLogger(__name__)
@@ -1055,6 +1055,7 @@ def _make_pianoroll(
 
     # Fix multiple notes with the same pitch and onset
     fill_dict = defaultdict(list)
+
     for row, col, vel in _idx_fill:
         key = (int(row), int(col))
         fill_dict[key].append(vel)
@@ -1829,8 +1830,7 @@ def note_array_from_note_list(
         ]
 
     note_array = []
-    for note in note_list:
-
+    def ret_note_array(note):
         note_info = tuple()
         note_on_div = note.start.t
         note_off_div = note.start.t + note.duration_tied
@@ -1880,8 +1880,10 @@ def note_array_from_note_list(
 
             note_info += (is_downbeat, rel_onset_div, tot_measure_div)
 
-        note_array.append(note_info)
+        return note_info
 
+
+    note_array = Parallel(n_jobs=-1)(delayed(ret_note_array)(note) for note in note_list)
     note_array = np.array(note_array, dtype=fields)
 
     # Sanitize voice information
