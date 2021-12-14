@@ -1882,8 +1882,8 @@ def note_array_from_note_list(
 
         return note_info
 
-
-    note_array = Parallel(n_jobs=-1)(delayed(ret_note_array)(note) for note in note_list)
+    #TODO check importance of order "threading" might affect this.
+    note_array = Parallel(n_jobs=-1, backend="threading")(delayed(ret_note_array)(note) for note in note_list)
     note_array = np.array(note_array, dtype=fields)
 
     # Sanitize voice information
