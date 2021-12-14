@@ -17,7 +17,7 @@ import logging
 from numbers import Number
 # import copy
 from partitura.utils.music import MUSICAL_BEATS
-
+from joblib import Parallel, delayed
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -3417,15 +3417,11 @@ def merge_parts(parts):
     new_part = Part(parts[0].id)
     new_part._quarter_times = [0]
     new_part._quarter_durations = [lcm]
-
+    # for p_ind, p in enumerate(parts):
+    #     for e in p.iter_all():
     for p_ind, p in enumerate(parts):
-        for e in p.iter_all():
-            # full copy the first part and partially copy the others
-            # we don't copy elements like duplicate barlines, clefs or time signatures for others
-            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
-            if p_ind == 0 or not isinstance(
-                e,
-                (
+        def add_to_new_part(e):
+            if p_ind == 0 or not isinstance(e, (
                     Barline,
                     Page,
                     System,
@@ -3438,8 +3434,7 @@ def merge_parts(parts):
                     Fermata,
                     Ending,
                     Tempo,
-                ),
-            ):  # a time multiplier is used to account for different divisions
+            )):  # a time multiplier is used to account for different divisions
                 new_start = e.start.t * time_multiplier_per_part[p_ind]
                 new_end = (
                     e.end.t * time_multiplier_per_part[p_ind]
@@ -3447,8 +3442,8 @@ def merge_parts(parts):
                     else None
                 )
                 new_part.add(e, start=new_start, end=new_end)
-
-                # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
+        #TODO check importance of order "threading" might affect this but "loky" results to error.
+        Parallel(n_jobs=-1, backend="threading")(delayed(add_to_new_part)(e) for e in p.iter_all())
     return new_part
 
 
