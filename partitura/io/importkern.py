@@ -432,15 +432,14 @@ def parse_kern(kern_path):
         The path of the KERN document.
     Returns
     -------
-    continuous_parts : numpy character array
-    non_continuous_parts : list
+    numpy_parts : numpy char array
     """
     with open(kern_path) as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
     striped_parts = list()
     merge_index = []
-    for x in d:
+    def merge_indices(x):
         if merge_index:
             for midx in merge_index:
                 x[midx] = x[midx] + " " + x[midx+1]
@@ -463,7 +462,8 @@ def parse_kern(kern_path):
                 elif i <k :
                     temp.append(i)
             merge_index = temp
-
+    #TODO reformulate
+    Parallel(n_jobs=-1, backend="multiprocessing")(delayed(merge_indices)(x) for x in d)
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
 
