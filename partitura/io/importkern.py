@@ -463,7 +463,7 @@ def parse_kern(kern_path):
                     temp.append(i)
             merge_index = temp
     #TODO reformulate
-    Parallel(n_jobs=-1, backend="multiprocessing")(delayed(merge_indices)(x) for x in d)
+    Parallel(n_jobs=-1, require='sharedmem', backend="multiprocessing")(delayed(merge_indices)(x) for x in d)
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
 
