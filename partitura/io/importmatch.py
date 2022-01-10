@@ -172,7 +172,10 @@ class FractionalSymbolicDuration(object):
         return self.__add__(sd)
 
     def __float__(self):
-        return self.numerator / (self.denominator * (self.tuple_div or 1))
+        # Cast as float since the ability to return an instance of a strict
+        # subclass of float is deprecated, and may be removed in a future
+        # version of Python. (following a deprecation warning)
+        return float(self.numerator / (self.denominator * (self.tuple_div or 1)))
 
 
 def interpret_field(data):
@@ -1165,11 +1168,13 @@ class MatchFile(object):
 
             _keysigs.append((t, b, keysig))
 
-        keysigs = [_keysigs[0]]
+        keysigs = []
+        if len(_keysigs) > 0:
+            keysigs.append(_keysigs[0])
 
-        for k in _keysigs:
-            if k[2] != keysigs[-1][2]:
-                keysigs.append(k)
+            for k in _keysigs:
+                if k[2] != keysigs[-1][2]:
+                    keysigs.append(k)
 
         return keysigs
 

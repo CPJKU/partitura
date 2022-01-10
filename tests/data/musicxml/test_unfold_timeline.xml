@@ -5,7 +5,7 @@
 <score-partwise>
   <part-list>
     <score-part id="P1">
-      <part-name>MüsicXML Part</part-name>
+      <part-name>MusicXML Part</part-name>
     </score-part>
   </part-list>
   <part id="P1">
