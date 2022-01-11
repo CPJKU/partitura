@@ -145,6 +145,18 @@ Package Index) <https://pypi.python.org/pypi>`_::
 This will install the latest release of the package and will install all
 dependencies automatically.
 
+Citing Partitura
+================
+
+If you find Partitura useful, we would appreciate if you could cite us!
+
+    | `Grachten, M. <https://maarten.grachten.eu>`__, `Cancino-Chacón, C. <http://www.carloscancinochacon.com>`__ and `Gadermaier, T. <https://www.jku.at/en/institute-of-computational-perception/about-us/people/thassilo-gadermaier/>`__
+    | "`partitura: A Python Package for Handling Symbolic Musical Data <http://carloscancinochacon.com/documents/extended_abstracts/GrachtenEtAl-ISMIR2019-LBD-ext-abstract.pdf>`__\ ".
+    | Late Breaking/Demo Session at the 20th International Society for
+    Music Information Retrieval Conference, Delft, The Netherlands,
+    2019.
+
+
 
 Acknowledgments
 ===============
