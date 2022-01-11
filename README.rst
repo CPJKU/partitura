@@ -106,6 +106,26 @@ The following commands save the part to MIDI and MusicXML, respectively:
 More elaborate examples can be found in the `documentation
 <https://partitura.readthedocs.io/en/latest/index.html>`_.
 
+Import other formats
+====================
+For **MusicXML** files do:
+
+>>> import partitura
+>>> my_xml_file = partitura.EXAMPLE_MUSICXML
+>>> part = partitura.load_musicxml(my_xml_file)
+
+For **Kern** files do:
+
+>>> import partitura
+>>> my_kern_file = partitura.EXAMPLE_KERN
+>>> part = partitura.load_kern(my_kern_file)
+
+For **MEI** files do:
+
+>>> import partitura
+>>> my_mei_file = partitura.EXAMPLE_MEI
+>>> part = partitura.load_mei(my_mei_file)
+
 
 License
 =======

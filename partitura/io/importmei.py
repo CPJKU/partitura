@@ -8,7 +8,11 @@ from partitura.utils.music import (
     estimate_symbolic_duration,
 )
 
+import logging
+
 import numpy as np
+
+LOGGER = logging.getLogger(__name__)
 
 
 def load_mei(mei_path: str) -> list:
@@ -146,7 +150,7 @@ class MeiParser:
                 denominator = int(anc.attrib["meter.unit"])
             else:
                 raise Exception(
-                    f"The time signature is not encoded in {staffdef_el.get(self._ns_name(id))} or in any ancestor scoreDef"
+                    f"The time signature is not encoded in {staffdef_el.get(self._ns_name('id'))} or in any ancestor scoreDef"
                 )
         new_time_signature = score.TimeSignature(numerator, denominator)
         part.add(new_time_signature, position)
@@ -189,9 +193,12 @@ class MeiParser:
                 fifths = self._mei_sig_to_fifths(sig)
                 mode = anc.get("key.mode")
             else:
-                raise Exception(
-                    f"The key signature is not encoded in {staffdef_el.get(self._ns_name(id))} or in any ancestor scoreDef"
+                LOGGER.warning(
+                    f"The key signature is not encoded in {staffdef_el.get(self._ns_name('id'))} or in any ancestor scoreDef."
                 )
+                LOGGER.warning("A default key signature of C maj is set.")
+                fifths = 0
+                mode = "major"
 
         new_key_signature = score.KeySignature(fifths, mode)
         part.add(new_key_signature, position)
@@ -236,12 +243,21 @@ class MeiParser:
             if clef_el is not None:  # if there is a clef element inside
                 return self._handle_clef(clef_el, position, part)
             else:  # if all info are in the staffdef element
-                number = element.attrib["n"]
-                sign = element.attrib["clef.shape"]
-                line = element.attrib["clef.line"]
-                octave = self._compute_clef_octave(
-                    element.get("dis"), element.get("dis.place")
-                )
+                number = element.get("n")
+                sign = element.get("clef.shape")
+                line = element.get("clef.line")
+                if (
+                    number is not None and sign is not None and line is not None
+                ):  # if there is clef info
+                    octave = self._compute_clef_octave(
+                        element.get("dis"), element.get("dis.place")
+                    )
+                else:  # no clef info available, go for default
+                    LOGGER.warning("No clef information found, setting G2 as default.")
+                    sign = "G"
+                    line = 2
+                    number = 1
+                    octave = 0
         elif element.tag == self._ns_name("clef"):
             if element.get("sameas") is not None:  # this is a copy of another clef
                 # it seems this is used in different layers for the same staff
@@ -766,7 +782,7 @@ class MeiParser:
             )
         # check if layers have equal duration (bad encoding, but it often happens)
         if not all([e == end_positions[0] for e in end_positions]):
-            print(
+            LOGGER.warning(
                 f"Warning: voices have different durations in staff {staff_el.attrib[self._ns_name('id',XML_NAMESPACE)]}"
             )
 
@@ -805,7 +821,7 @@ class MeiParser:
                     )
                 # sanity check that all layers have equal duration
                 if not all([e == end_positions[0] for e in end_positions]):
-                    print(
+                    LOGGER.warning(
                         f"Warning : parts have measures of different duration in measure {element.attrib[self._ns_name('id',XML_NAMESPACE)]}"
                     )
                 position = max(end_positions)
@@ -859,7 +875,7 @@ class MeiParser:
             start_id = tie_el.get("startid")
             end_id = tie_el.get("endid")
             if start_id is None or end_id is None:
-                print(
+                LOGGER.warning(
                     f"Warning: tie {tie_el.attrib[self._ns_name('id',XML_NAMESPACE)]} is missing the a startid or endid"
                 )
             else:

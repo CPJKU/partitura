@@ -316,6 +316,7 @@ class ComparableMixin(object):
         return self._compare(other, lambda s, o: s != o)
 
 
+
 def partition(func, iterable):
     """
     Return a dictionary containing the equivalence classes (actually bags)

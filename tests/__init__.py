@@ -10,6 +10,7 @@ BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
 MUSICXML_PATH = os.path.join(DATA_PATH, "musicxml")
 MEI_PATH = os.path.join(DATA_PATH, "mei")
+KERN_PATH = os.path.join(DATA_PATH, "kern")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 
@@ -94,6 +95,17 @@ MEI_TESTFILES = [
         "Beethoven_Op119_Nr02-Breitkopf.mei",
         "test_parts_duration.mei",
         "test_parts_duration2.mei",
+    ]
+]
+
+KERN_TESFILES = [
+    os.path.join(KERN_PATH, fn)
+    for fn in [
+        "example.krn",
+        "long_example.krn",
+        "Beethoven_sonata_1.1.krn",
+        'Bach-BWV_316.krn',
+        "bach_fugue.krn"
     ]
 ]
 

@@ -5,7 +5,7 @@ This file contains test functions for MEI export
 import unittest
 
 from tests import MEI_TESTFILES
-from partitura import load_musicxml, load_mei
+from partitura import load_musicxml, load_mei, EXAMPLE_MEI
 import partitura.score as score
 from partitura.io.importmei import MeiParser
 from partitura.utils import compute_pianoroll
@@ -201,6 +201,10 @@ class TestImportMEI(unittest.TestCase):
         note_array_no_ppq = part_no_ppq.note_array
         self.assertTrue(part_no_ppq._quarter_durations[0] == 8)
         self.assertTrue(sorted(part_no_ppq._points)[-1].t == 22)
+
+    def test_parse_mei_example(self):
+        part_list = load_mei(EXAMPLE_MEI)
+        self.assertTrue(True)
 
     def test_parse_mei(self):
         # check if all test files load correctly

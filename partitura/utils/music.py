@@ -33,7 +33,7 @@ DUMMY_PS_BASE_CLASS = {
 
 MEI_DURS_TO_SYMBOLIC = {
     "long": "long",
-    "breve": "breve",
+    "0": "breve",
     "1": "whole",
     "2": "half",
     "4": "quarter",
@@ -464,49 +464,49 @@ def fifths_mode_to_key_name(fifths, mode=None):
     return name + suffix
 
 
-def key_name_to_fifths_mode(name):
+def key_name_to_fifths_mode(key_name):
     """Return the number of sharps or flats and the mode of a key
-    signature name. A negative number denotes the number of flats
-    (i.e. -3 means three flats), and a positive number the number of
-    sharps. The mode is specified as 'major' or 'minor'.
+        signature name. A negative number denotes the number of flats
+        (i.e. -3 means three flats), and a positive number the number of
+        sharps. The mode is specified as 'major' or 'minor'.
 
-    Parameters
-    ----------
-    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C",\
-"C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb",\
-"Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
-        Name of the key signature
+        Parameters
+        ----------
+        name : str
+            Name of the key signature, i.e. Am, E#, etc
 
-    Returns
-    -------
-    (int, str)
-        Tuple containing the number of fifths and the mode
+        Returns
+        -------
+        (int, str)
+            Tuple containing the number of fifths and the mode
 
 
-    Examples
-    --------
-    >>> key_name_to_fifths_mode('Am')
-    (0, 'minor')
-    >>> key_name_to_fifths_mode('C')
-    (0, 'major')
-    >>> key_name_to_fifths_mode('A')
-    (3, 'major')
+        Examples
+        --------
+        >>> key_name_to_fifths_mode('Am')
+        (0, 'minor')
+        >>> key_name_to_fifths_mode('C')
+        (0, 'major')
+        >>> key_name_to_fifths_mode('A')
+        (3, 'major')
 
     """
-    global MAJOR_KEYS, MINOR_KEYS
+    fifths_list = ["F", "C", "G", "D", "A", "E", "B"]
 
-    if name.endswith("m"):
+    if "m" in key_name:
         mode = "minor"
-        keylist = MINOR_KEYS
+        s_list = fifths_list[4:] + fifths_list[:4]
+        if "b" in key_name or (len(key_name)==2 and s_list.index(key_name[0]) > 2):
+            fifths = s_list.reverse().index(key_name[0]) - 7 * (key_name.count("b") - 1)
+        else:
+            fifths = s_list.index(key_name[0]) + 7 * key_name.count("#")
     else:
         mode = "major"
-        keylist = MAJOR_KEYS
-
-    try:
-        fifths = keylist.index(name.strip("m")) - 7
-    except ValueError:
-        raise Exception("Unknown key signature {}".format(name))
-
+        s_list = fifths_list[1:] + fifths_list[:1]
+        if "b" in key_name or key_name=="F":
+            fifths = s_list.reverse().index(key_name[0]) - 7*(key_name.count("b")-1)
+        else:
+            fifths = s_list.index(key_name[0]) + 7 * key_name.count("#")
     return fifths, mode
 
 
@@ -1224,9 +1224,8 @@ def match_note_arrays(
             if duration_key is None and check_duration:
                 check_duration = False
         else:
-            raise ValueError(
-                "`fields` should be a tuple or a string, but given " f"{type(fields)}"
-            )
+            raise ValueError("`fields` should be a tuple or a string, but given "
+                             f"{type(fields)}")
     else:
         onset_key, duration_key = get_time_units_from_note_array(input_note_array)
         onset_key_check, _ = get_time_units_from_note_array(target_note_array)
@@ -1289,18 +1288,17 @@ def match_note_arrays(
             # For the case that there are multiple notes aligned to the input note
 
             # get indices of the target notes if they have not yet been used
-            taix_to_consider = np.array(
-                [ti for ti in taix if ti not in matched_target_idxs], dtype=int
-            )
+            taix_to_consider = np.array([ti for ti in taix
+                                         if ti not in matched_target_idxs],
+                                        dtype=int)
             if len(taix_to_consider) > 0:
                 # If there are some indices to consider
                 candidate_notes = target_note_array[taix_to_consider]
 
                 if check_duration:
-                    best_candidate_idx = (
-                        candidate_notes[duration_key]
-                        - input_note_array[inix][duration_key]
-                    ).argmin()
+                    best_candidate_idx = \
+                        (candidate_notes[duration_key] -
+                         input_note_array[inix][duration_key]).argmin()
                 else:
                     # Take the first one if no other information is given
                     best_candidate_idx = 0
@@ -1907,6 +1905,7 @@ def note_array_from_note_list(
     note_array = note_array[onset_sort_idx]
 
     return note_array
+
 
 
 def update_note_ids_after_unfolding(part):
