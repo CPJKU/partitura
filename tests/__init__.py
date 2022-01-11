@@ -9,6 +9,7 @@ import os
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
 MUSICXML_PATH = os.path.join(DATA_PATH, "musicxml")
+MEI_PATH = os.path.join(DATA_PATH, "mei")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 
@@ -70,6 +71,29 @@ MERGE_PARTS_TESTFILES = [
         "test_metrical_position.xml",
         "test_merge_interpolation.xml",
         "test_single_part_change_divs.xml",
+    ]
+]
+
+
+MEI_TESTFILES = [
+    os.path.join(MEI_PATH, fn)
+    for fn in [
+        "example_noMeasures_noBeams.mei",
+        "example_noMeasures_withBeams.mei",
+        "example_withMeasures_noBeams.mei",
+        "example_withMeasures_withBeams.mei",
+        "Bach_Prelude.mei",
+        "Schubert_An_die_Sonne_D.439.mei",
+        "test_tuplets.mei",
+        "test_ties.mei",
+        "test_metrical_position.mei",
+        "test_clefs_tss.mei",
+        "test_grace_note.mei",
+        "Beethoven_Op119_Nr01-Breitkopf.mei",
+        "test_tuplets_no_ppq.mei",
+        "Beethoven_Op119_Nr02-Breitkopf.mei",
+        "test_parts_duration.mei",
+        "test_parts_duration2.mei",
     ]
 ]
 

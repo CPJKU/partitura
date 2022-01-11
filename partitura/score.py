@@ -2377,11 +2377,12 @@ class PartGroup(object):
 
     """
 
-    def __init__(self, group_symbol=None, group_name=None, number=None):
+    def __init__(self, group_symbol=None, group_name=None, number=None, id=None):
         self.group_symbol = group_symbol
         self.group_name = group_name
         self.number = number
         self.parent = None
+        self.id = id
         self.children = []
 
     def _pp(self, tree):
@@ -3296,6 +3297,7 @@ def sanitize_part(part):
             for no in part.iter_all(
                 Note, include_subclasses=False, start=gn.start.t, end=gn.start.t + 1
             ):
+
                 if no.voice == gn.voice:
                     gn.last_grace_note_in_seq.grace_next = no
 

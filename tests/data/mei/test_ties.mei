@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="4.0.0">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title>Title</title>
+            <respStmt>
+               <persName role="composer">Composer</persName>
+            </respStmt>
+         </titleStmt>
+         <pubStmt><date isodate="2021-11-03" type="encoding-date">2021-11-03</date>
+         </pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-mzc39a">
+         <appInfo xml:id="appinfo-q38hq8">
+            <application xml:id="application-fyt18f" isodate="2021-11-03T08:08:01" version="3.7.0-dev-dc5fd8e">
+               <name xml:id="name-avhin3">Verovio</name>
+               <p xml:id="p-mhcp1f">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="m6s0j1t">
+            <score xml:id="sdqyl1">
+               <scoreDef xml:id="snzx49o">
+                  <pgHead xml:id="p2ux0rk">
+                     <rend xml:id="r46bq6r" halign="center" valign="top">Title</rend>
+                     <rend xml:id="redvl3q" halign="right" valign="bottom">Composer</rend>
+                  </pgHead>
+                  <staffGrp xml:id="sidmg8x">
+                     <staffDef xml:id="P1" n="1" lines="5" ppq="2">
+                        <label xml:id="liesws6">Piano</label>
+                        <labelAbbr xml:id="leqm2s7">Pno.</labelAbbr>
+                        <instrDef xml:id="i1frcgc" midi.channel="0" midi.instrnum="0" midi.volume="78.00%" />
+                        <clef xml:id="cs7jy1x" shape="G" line="2" />
+                        <keySig xml:id="kl4202w" sig="0" />
+                        <meterSig xml:id="mgvzcww" count="4" unit="4" />
+                     </staffDef>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="syzp6i">
+                  <measure xml:id="m1dj848" n="1">
+                     <staff xml:id="suay0ey" n="1">
+                        <layer xml:id="lfv1ge2" n="1">
+                           <note xml:id="ne23lqv" dur.ppq="8" dur="1" oct="4" pname="f" />
+                        </layer>
+                     </staff>
+                     <tie xml:id="tc3y7rw" startid="#ne23lqv" endid="#nqbjvb5" />
+                  </measure>
+                  <measure xml:id="mq2t21m" right="end" n="2">
+                     <staff xml:id="sp9qpbp" n="1">
+                        <layer xml:id="l3g4h9k" n="1">
+                           <chord xml:id="cpxwgxo" dur.ppq="2" dur="4" stem.dir="up">
+                              <note xml:id="nimusf5" oct="4" pname="c" />
+                              <note xml:id="nqbjvb5" oct="4" pname="f" />
+                              <note xml:id="nes9y1c" oct="5" pname="c" />
+                           </chord>
+                           <chord xml:id="c68kl73" dur.ppq="2" dur="4" stem.dir="up">
+                              <note xml:id="n8gn76n" oct="4" pname="c" />
+                              <note xml:id="n3vnrvt" oct="4" pname="f" />
+                              <note xml:id="nt2w1t7" oct="5" pname="c" />
+                           </chord>
+                           <rest xml:id="rheia4r" dur.ppq="1" dur="8" />
+                           <rest xml:id="rfa112f" dur.ppq="1" dur="8" />
+                           <rest xml:id="rjy82tj" dur.ppq="1" dur="8" />
+                           <rest xml:id="r4gtkr8" dur.ppq="1" dur="8" />
+                        </layer>
+                     </staff>
+                     <tie xml:id="tg9pm81" startid="#nimusf5" endid="#n8gn76n" />
+                     <tie xml:id="tyit2s" startid="#nes9y1c" endid="#nt2w1t7" />
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>
