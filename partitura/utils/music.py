@@ -497,16 +497,24 @@ def key_name_to_fifths_mode(key_name):
         mode = "minor"
         s_list = fifths_list[4:] + fifths_list[:4]
         if "b" in key_name or (len(key_name)==2 and s_list.index(key_name[0]) > 2):
-            fifths = s_list.reverse().index(key_name[0]) - 7 * (key_name.count("b") - 1)
+            idx = s_list[::-1].index(key_name[0]) + 1
+            corr = 1 if idx > 3 else 0
+            fifths = - idx - 7 * (key_name.count("b") - corr)
         else:
-            fifths = s_list.index(key_name[0]) + 7 * key_name.count("#")
+            idx = s_list.index(key_name[0])
+            corr = 1 if idx > 2 else 0
+            fifths = idx + 7 * (key_name.count("#") - corr)
     else:
         mode = "major"
         s_list = fifths_list[1:] + fifths_list[:1]
         if "b" in key_name or key_name=="F":
-            fifths = s_list.reverse().index(key_name[0]) - 7*(key_name.count("b")-1)
+            idx = s_list[::-1].index(key_name[0]) + 1
+            corr = 1 if idx > 0 else 0
+            fifths = - idx - 7*(key_name.count("b") - corr)
         else:
-            fifths = s_list.index(key_name[0]) + 7 * key_name.count("#")
+            idx = s_list.index(key_name[0])
+            corr = 1 if idx > 5 else 0
+            fifths = idx + 7 * (key_name.count("#") - corr)
     return fifths, mode
 
 
