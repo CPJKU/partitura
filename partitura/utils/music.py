@@ -496,9 +496,9 @@ def key_name_to_fifths_mode(key_name):
     if "m" in key_name:
         mode = "minor"
         s_list = fifths_list[4:] + fifths_list[:4]
-        if "b" in key_name or (len(key_name)==2 and s_list.index(key_name[0]) > 2):
+        if "b" in key_name or (len(key_name) == 2 and s_list.index(key_name[0]) > 2 ):
             idx = s_list[::-1].index(key_name[0]) + 1
-            corr = 1 if idx > 3 else 0
+            corr = 1 if idx > 4 else 0
             fifths = - idx - 7 * (key_name.count("b") - corr)
         else:
             idx = s_list.index(key_name[0])
@@ -509,7 +509,7 @@ def key_name_to_fifths_mode(key_name):
         s_list = fifths_list[1:] + fifths_list[:1]
         if "b" in key_name or key_name=="F":
             idx = s_list[::-1].index(key_name[0]) + 1
-            corr = 1 if idx > 0 else 0
+            corr = 1 if idx > 1 else 0
             fifths = - idx - 7*(key_name.count("b") - corr)
         else:
             idx = s_list.index(key_name[0])
