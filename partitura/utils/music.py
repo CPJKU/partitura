@@ -1751,8 +1751,8 @@ def note_array_from_note_list(
         note. Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
-	    grace note has one of the types "appoggiatura, acciaccatura, grace" and
-	    the grace type "" for non grace notes).
+        grace note has one of the types "appoggiatura, acciaccatura, grace" and
+        the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1792,8 +1792,8 @@ def note_array_from_note_list(
               If `include_time_signature` is True.
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise.
                If `measure_map` is not None.
-            * 'rel_onset_div': number of divs elapsed from the beginning of the note measure.
-               If `measure_map` is not None.
+            * 'rel_onset_div': number of divs elapsed from the beginning of the
+               note measure. If `measure_map` is not None.
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
     """
@@ -1914,7 +1914,6 @@ def note_array_from_note_list(
     note_array = note_array[onset_sort_idx]
 
     return note_array
-
 
 
 def update_note_ids_after_unfolding(part):
