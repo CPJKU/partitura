@@ -54,17 +54,18 @@ class TestNotesFromPianoroll(unittest.TestCase):
         time_div = 8
         note_array = np.array(
             [
-                (60, 0, 2, 40),
-                (65, 0, 1, 15),
-                (67, 0, 1, 72),
-                (69, 1, 1, 90),
-                (66, 2, 1, 80),
+                (60, 0, 2, 40, "n0"),
+                (65, 0, 1, 15, "n1"),
+                (67, 0, 1, 72, "n2"),
+                (69, 1, 1, 90, "n3"),
+                (66, 2, 1, 80, "n4"),
             ],
             dtype=[
                 ("pitch", "i4"),
                 ("onset_sec", "f4"),
                 ("duration_sec", "f4"),
                 ("velocity", "i4"),
+                ("id", "U256")
             ],
         )
 
@@ -84,4 +85,6 @@ class TestNotesFromPianoroll(unittest.TestCase):
         rec_note_array = rec_note_array[rec_onset_idx]
 
         test = np.all(note_array == rec_note_array)
+        print(note_array)
+        print(rec_note_array)
         self.assertEqual(test, True)
