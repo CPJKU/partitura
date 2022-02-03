@@ -1113,8 +1113,8 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
     Returns
     -------
     np.ndarray :
-        Structured array with pitch, onset, duration and velocity
-        fields.
+        Structured array with pitch, onset, duration, velocity
+        and note id fields.
 
     Notes
     -----
@@ -1128,47 +1128,69 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
     to lie between 1 and 127).
 
     """
-    # Indices of the non-zero elements of the piano roll
-    pitch_idx, active_idx = pianoroll.nonzero()
-
-    # Sort indices according to time and pitch
-    time_sort_idx = np.argsort(active_idx)
-    pitch_sort_idx = pitch_idx[time_sort_idx].argsort(kind="mergesort")
-
-    pitch_idx = pitch_idx[time_sort_idx[pitch_sort_idx]]
-    active_idx = active_idx[time_sort_idx[pitch_sort_idx]]
-
-    prev_note = -1
-
-    # Iterate over the active indices
-    notes = []
-    for n, at in zip(pitch_idx, active_idx):
-
-        # Create a new note if the pitch has changed
-        if n != prev_note:
-            prev_note = n
-            # the notes are represented by a list containing
-            # pitch, onset, offset and velocity.
-            notes.append([n, at, at + 1, [pianoroll[n, at]]])
-
-        # Otherwise update the offset of the note
+    # check size of the piano roll
+    init_pitch = 0
+    if pianoroll.shape[0] != 128:
+        if pianoroll.shape[0] == 88:
+            init_pitch = 21
         else:
-            notes[-1][2] = at + 1
-            notes[-1][3].append(pianoroll[n, at])
+            raise ValueError(
+                "The shape of the piano roll must be (128, n_time_steps) or"
+                f"(88, n_timesteps) but is {pianoroll.shape}"
+            )
+    active_notes = {}
+    note_list = []
+    for ts in range(pianoroll.shape[1]):
+        active = pianoroll[:, ts].nonzero()[0]
+
+        del_notes = []
+        for note in active_notes:
+            if note not in active:
+                del_notes.append(note)
+
+        for note in del_notes:
+            note_list.append(active_notes.pop(note))
+
+        for note in active:
+            vel = int(pianoroll[note, ts])
+            if note not in active_notes:
+                active_notes[note] = [note, vel, ts, ts + 1]
+            else:
+                if vel != active_notes[note][1]:
+                    note_list.append(active_notes.pop(note))
+                    active_notes[note] = [note, vel, ts, ts + 1]
+                else:
+                    active_notes[note][-1] += 1
+
+    remaining_active_notes = list(active_notes.keys())
+    for note in remaining_active_notes:
+        # append any note left
+        note_list.append(active_notes.pop(note))
+
+    # Sort array lexicographically by onset, pitch, offset and velocity
+    note_list.sort(key=lambda x: (x[2], x[0], x[3], x[1]))
 
     # Create note array
     note_array = np.array(
         [
-            (p, float(on) / time_div, (off - on) / time_div, np.round(np.mean(vel)))
-            for p, on, off, vel in notes
+            (
+                p + init_pitch,
+                float(on) / time_div,
+                float(off - on) / time_div,
+                np.round(vel),
+                f"n{i}",
+            )
+            for i, (p, vel, on, off) in enumerate(note_list)
         ],
         dtype=[
             ("pitch", "i4"),
             (f"onset_{time_unit}", "f4"),
             (f"duration_{time_unit}", "f4"),
             ("velocity", "i4"),
+            ("id", "U256")
         ],
     )
+
     return note_array
 
 
@@ -1612,7 +1634,7 @@ def note_array_from_part(
         Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
-	    grace note and the grace type "" for non grace notes).
+        grace note and the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1700,7 +1722,8 @@ def note_array_from_part(
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
-	      include_grace_notes=include_grace_notes)
+        include_grace_notes=include_grace_notes
+    )
     return note_array
 
 
@@ -1750,8 +1773,8 @@ def note_array_from_note_list(
         note. Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
-	    grace note has one of the types "appoggiatura, acciaccatura, grace" and
-	    the grace type "" for non grace notes).
+        grace note has one of the types "appoggiatura, acciaccatura, grace" and
+        the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1791,8 +1814,8 @@ def note_array_from_note_list(
               If `include_time_signature` is True.
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise.
                If `measure_map` is not None.
-            * 'rel_onset_div': number of divs elapsed from the beginning of the note measure.
-               If `measure_map` is not None.
+            * 'rel_onset_div': number of divs elapsed from the beginning of the
+               note measure. If `measure_map` is not None.
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
     """
@@ -1913,7 +1936,6 @@ def note_array_from_note_list(
     note_array = note_array[onset_sort_idx]
 
     return note_array
-
 
 
 def update_note_ids_after_unfolding(part):
