@@ -253,6 +253,45 @@ class Part(object):
         return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), :]
 
     @property
+    def measure_number_map(self):
+        """A function mapping timeline times to the measure number of
+        the measure they are contained in. The function can take
+        scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+        measures = np.array([(m.start.t, m.end.t, m.number) for m in self.iter_all(Measure)])
+
+        # correct for anacrusis
+        divs_per_beat = self.inv_beat_map(
+            1 + self.beat_map(0)
+        )  # find the divs per beat in the first measure
+        if (
+            measures[0][1] - measures[0][0]
+            < self.time_signature_map(0)[0] * divs_per_beat
+        ):
+            measures[0][0] = (
+                measures[0][1] - self.time_signature_map(0)[0] * divs_per_beat
+            )
+
+        if len(measures) == 0:  # no measures in the piece
+            # default only one measure spanning the entire timeline
+            LOGGER.warning("No measures found, assuming only one measure")
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.last_point.t
+
+            measures = np.array([(t0, tN, 1)])
+
+        return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), 2]
+
+    @property
     def metrical_position_map(self):
         """A function mapping timeline times to their relative position in
         the measure they are contained in. The function can take
