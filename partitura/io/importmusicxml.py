@@ -271,7 +271,7 @@ def _parse_parts(document, part_dict):
 
         # remove unfinished elements from the timeline
         for k, o in ongoing.items():
-            if k not in ("page", "system"):
+            if k not in ("page", "system") and k[0] != "tie":
                 if isinstance(o, list):
                     for o_i in o:
                         part.remove(o_i)
