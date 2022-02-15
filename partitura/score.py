@@ -46,6 +46,49 @@ from partitura.utils import (
 LOGGER = logging.getLogger(__name__)
 
 
+class Score(object):
+    """Represents a score
+    """
+
+    def __init__(self, id, partlist, title=None,
+                 subtitle=None, composer=None, lyricist=None, copyright=None):
+        self.id = id
+
+        # Score Information (default from MuseScore/MusicXML)
+        self.title = title
+        self.subtitle = subtitle
+        self.composer = composer
+        self.lyricist = lyricist
+        self.copyright = copyright
+
+        # List of parts
+        self.parts = list(iter_parts(partlist))
+        # TODO: Think of a better name for this. List of Parts and PartGroups
+        self.partlist = partlist
+
+    def __getitem__(self, index):
+        """Get part in the score by index"""
+        return self.parts[index]
+
+    def __setitem__(self, index, part):
+        # TODO: How to update the score structure as well?
+        self.parts[index] = part
+
+    def __iter__(self):
+        self.iter_idx = 0
+        return self
+
+    def __next__(self):
+        if self.iter_idx == len(self.parts):
+            raise StopIteration
+        res = self[self.iter_idx]
+        self.iter_idx += 1
+        return res
+
+    def __len__(self):
+        return len(self.parts)
+
+
 class Part(object):
     """Represents a score part, e.g. all notes of one single instrument
     (or multiple instruments written in the same staff). Note that
