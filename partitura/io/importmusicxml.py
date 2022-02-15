@@ -394,6 +394,13 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             measure_maxtime = max(measure_maxtime, position)
 
         elif e.tag == "barline":
+            location = get_value_from_attribute(e, "location", str)
+            if location is None or "right":
+                position = measure_maxtime
+            elif location is "left":
+                position = measure_start
+            else:
+                position = position
 
             repeat = e.find("repeat")
             if repeat is not None:
