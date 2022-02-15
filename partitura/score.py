@@ -3664,11 +3664,6 @@ def add_segments(part):
         boundary_times = list(boundaries.keys())
         boundary_times.sort()
 
-        
-        
-        if len(boundary_times) > 26:
-            print("too many different segments for alphabet IDs")
-
         # for every segment get an id, its jump destinations and properties
         init_character = 65
         segment_info = dict()
@@ -3681,14 +3676,9 @@ def add_segments(part):
                             "type": "default"}
         segment_info[boundary_times[-1]] = {"ID":"END"} 
         
-        
-        
-        
         for ss in boundary_times[:-1]:
             se = segment_info[ss]["end"]
-            
-            
-            
+
             # loop through the boundaries at the end of current segment
             for boundary_type in boundaries[se].keys():
                 
@@ -3767,7 +3757,6 @@ def add_segments(part):
                     # TODO: check forcing
                     # segment_info[ss]["force_full_sequence"] = True
                     
-                    
                 # GENERIC
                 if boundary_type == "end":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
@@ -3775,8 +3764,7 @@ def add_segments(part):
                 # first segments is always a leap destination (da capo)
                 if ss == 0:
                     segment_info[ss]["type"] = "leap_end"
-        
-                            
+                          
         for start_time in boundary_times[:-1]:
             destinations = list(set(segment_info[start_time]["to"]))
             if "END" in destinations:
