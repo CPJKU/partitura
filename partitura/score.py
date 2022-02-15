@@ -3277,7 +3277,7 @@ def find_tuplets(part):
                             tup_start += 1
 
 
-def sanitize_part(part):
+def sanitize_part(part, tie_tolerance = 0):
     """Find and remove incomplete structures in a part such as Tuplets
     and Slurs without start or end and grace notes without a main
     note.
@@ -3288,6 +3288,9 @@ def sanitize_part(part):
     ----------
     part : :class:`Part`
         Part instance
+    tie_tolerange: int, optional
+        The maximum number of divs that separates notes that are tied together.
+        Ideally, it is 0, but not so nice scores happen.
 
     """
     remove_grace_counter = 0
@@ -3319,11 +3322,32 @@ def sanitize_part(part):
 
     for el in elements_to_remove:
         part.remove(el)
+    
+    remove_tie_counter = 0
+    for n in part.notes_tied:
+        if n.tie_next != None:
+            d = n.duration_tied
+            s = n.start.t
+            e = n.end_tied.t
+            if abs((e-s)-d) > tie_tolerance:
+                remove_tie_counter += 1
+                all_tied = n.tie_prev_notes + [n] + n.tie_next_notes
+                for tn in all_tied:
+                    tn.tie_next = None
+                    tn.tie_prev = None
+
     LOGGER.info(
         "part_sanitize removed {} incomplete tuplets, "
-        "{} incomplete slurs, and {} incomplete grace "
-        "notes".format(remove_tuplet_counter, remove_slur_counter, remove_grace_counter)
+        "{} incomplete slurs, {} incomplete grace, "
+        "and {} wrong ties."
+        "notes".format(remove_tuplet_counter, 
+                       remove_slur_counter, 
+                       remove_grace_counter,
+                       remove_tie_counter)
     )
+
+
+
 
 
 def assign_note_ids(parts, keep=False):
