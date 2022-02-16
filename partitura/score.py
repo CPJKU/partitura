@@ -3397,7 +3397,8 @@ def sanitize_part(part, tie_tolerance = 0):
     )
 
 
-    """"
+def assign_note_ids(parts, keep=False):
+    """
     Assigns new note IDs mainly used for loaders.
 
     parts : list or score.PartGroup or score.Part
