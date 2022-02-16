@@ -2588,8 +2588,8 @@ class ScoreVariant(object):
 
         return part
 
-
-def iter_unfolded_parts(part):
+# DEPRECATED
+def DEPRECATEDiter_unfolded_parts(part):
     """Iterate over unfolded clones of `part`.
 
     For each repeat construct in `part` the iterator produces two
@@ -2614,8 +2614,8 @@ def iter_unfolded_parts(part):
     for sv in make_score_variants(part):
         yield sv.create_variant_part()
 
-
-def unfold_part_maximal(part, update_ids=False):
+# DEPRECATED
+def DEPRECATEDunfold_part_maximal(part, update_ids=False):
     """Return the "maximally" unfolded part, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
@@ -2644,8 +2644,8 @@ def unfold_part_maximal(part, update_ids=False):
         update_note_ids_after_unfolding(unfolded_part)
     return unfolded_part
 
-
-def unfold_part_alignment(part, alignment):
+# DEPRECATED
+def DEPRECATEDunfold_part_alignment(part, alignment):
     """Return the unfolded part given an alignment, that is, a copy
     of the part where the segments are repeated according to the
     repetitions in a performance.
@@ -2695,8 +2695,8 @@ def unfold_part_alignment(part, alignment):
 
     return unfolded_parts[int(best_idx)]
 
-
-def make_score_variants(part):
+# DEPRECATED
+def DEPRECATEDmake_score_variants(part):
     # non-public (use unfold_part_maximal, or iter_unfolded_parts)
 
     """Create a list of ScoreVariant objects, each representing a
@@ -3809,7 +3809,7 @@ def get_paths(part,
     return paths
 
 
-def new_part_from_path(path, part, update_note_ids = True):
+def new_part_from_path(path, part, update_ids = True):
     """
     create a new Part from a Path and an underlying Part
 
@@ -3819,6 +3819,11 @@ def new_part_from_path(path, part, update_note_ids = True):
         A Path object
     part: part
         A score part
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
     
     Returns
     -------
@@ -3832,15 +3837,193 @@ def new_part_from_path(path, part, update_note_ids = True):
                                  path.segments[segment_id].end)
     
     new_part = scorevariant.create_variant_part()
-    if update_note_ids:
+    if update_ids:
         update_note_ids_after_unfolding(new_part)
     return new_part
 
 
-class InvalidTimePointException(Exception):
-    """Raised when a time point is instantiated with an invalid number."""
-    def __init__(self, message=None):
-        super().__init__(message)
+def new_scorevariant_from_path(path, part):
+    """
+    create a new Part from a Path and an underlying Part
+
+    Parameters
+    ----------
+    path: Path
+        A Path object
+    part: part
+        A score part
+    
+    Returns
+    -------
+    scorevariant: ScoreVariant
+        A ScoreVariant object with segments corresponding to the part
+
+    """
+    scorevariant = ScoreVariant(part)
+    for segment_id in path.path:
+        scorevariant.add_segment(path.segments[segment_id].start,
+                                path.segments[segment_id].end)
+    return scorevariant
+
+# UPDATED VERSION
+def iter_unfolded_parts(part, update_ids=True):
+    """Iterate over unfolded clones of `part`.
+
+    For each repeat construct in `part` the iterator produces two
+    clones, one with the repeat included and another without the
+    repeat. That means the number of items returned is two to the
+    power of the number of repeat constructs in the part.
+
+    The first item returned by the iterator is the version of the part
+    without any repeated sections, the last item is the version of the
+    part with all repeat constructs expanded.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        Part to unfold
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+
+    Yields
+    ------
+
+    """
+    paths = get_paths(part, 
+            no_repeats = False,
+            all_repeats = False, 
+            ignore_leap_info = True)
+
+    for p in paths:
+        yield new_part_from_path(p, part, update_ids = update_ids)
+
+# UPDATED VERSION
+def unfold_part_maximal(part, update_ids=True, ingore_leaps=True):
+    """Return the "maximally" unfolded part, that is, a copy of the
+    part where all segments marked with repeat signs are included
+    twice.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+    ignore_leaps : bool (optional)
+        If ignored, repetitions after a leap are unfolded fully.
+        A leap is a used dal segno, da capo, or al coda marking.
+        Defaults to True.
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+
+    paths = get_paths(part, 
+            no_repeats = False,
+            all_repeats = True, 
+            ignore_leap_info = ingore_leaps)
+
+    unfolded_part = new_part_from_path(paths[0], 
+                                       part, 
+                                       update_ids = update_ids)
+    return unfolded_part
+
+# UPDATED / UNCHANGED VERSION
+def unfold_part_alignment(part, alignment):
+    """Return the unfolded part given an alignment, that is, a copy
+    of the part where the segments are repeated according to the
+    repetitions in a performance.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    alignment : list of dictionaries
+        List of dictionaries containing an alignment (like the ones
+        obtained from a MatchFile (see `alignment_from_matchfile`).
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+
+    unfolded_parts = []
+
+    alignment_ids = []
+
+    for n in alignment:
+        if n["label"] == "match" or n["label"] == "deletion":
+            alignment_ids.append(n["score_id"])
+
+    score_variants = make_score_variants(part)
+
+    alignment_score_ids = np.zeros((len(alignment_ids), len(score_variants)))
+    unfolded_part_length = np.zeros(len(score_variants))
+    for j, sv in enumerate(score_variants):
+        u_part = sv.create_variant_part()
+        update_note_ids_after_unfolding(u_part)
+        unfolded_parts.append(u_part)
+        u_part_ids = [n.id for n in u_part.notes_tied]
+        unfolded_part_length[j] = len(u_part_ids)
+        for i, aid in enumerate(alignment_ids):
+            alignment_score_ids[i, j] = aid in u_part_ids
+
+    coverage = np.mean(alignment_score_ids, 0)
+
+    best_idx = np.where(coverage == coverage.max())[0]
+
+    if len(best_idx) > 1:
+        best_idx = best_idx[unfolded_part_length[best_idx].argmin()]
+
+    return unfolded_parts[int(best_idx)]
+  
+# UPDATED
+def make_score_variants(part):
+    # non-public (use unfold_part_maximal, or iter_unfolded_parts)
+
+    """
+    Create a list of ScoreVariant objects, each representing a
+    distinct way to unfold the score, based on the repeat structure.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        A part for which to make the score variants
+
+    Returns
+    -------
+    list
+        List of ScoreVariant objects
+
+    """
+    paths = get_paths(part, 
+            no_repeats = False,
+            all_repeats = False, 
+            ignore_leap_info = True)
+
+    # # TODO: check if we need to wrap in list
+    # repeats = list(part.iter_all(Repeat))
+    # # repeats may not have start or end times. `repeats_to_start_end`
+    # # returns the start/end paisr for each repeat, making educated guesses
+    # # when these are missing.
+    # repeat_start_ends = repeats_to_start_end(repeats, part.first_point, part.last_point)
+
+    svs = list()
+    for path in paths:
+        svs.append(new_scorevariant_from_path(path, part))
+
+    return svs
 
 
 def merge_parts(parts):
@@ -3926,6 +4109,12 @@ def merge_parts(parts):
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
     return new_part
+
+
+class InvalidTimePointException(Exception):
+    """Raised when a time point is instantiated with an invalid number."""
+    def __init__(self, message=None):
+        super().__init__(message)
 
 
 if __name__ == "__main__":
