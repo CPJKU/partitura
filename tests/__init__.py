@@ -34,6 +34,18 @@ MUSICXML_UNFOLD_TESTPAIRS = [
         )
     ]
 ]
+MUSICXML_UNFOLD_COMPLEX = [
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
+    for fn1, fn2 in [
+        (
+            "test_unfold_complex.xml",
+            "test_unfold_complex_result.xml"
+        )
+    ]
+]
 
 # This is a list of files for testing Chew and Wu's VOSA. (More files to come?)
 VOSA_TESTFILES = [

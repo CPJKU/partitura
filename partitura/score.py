@@ -2530,7 +2530,9 @@ class ScoreVariant(object):
                     # special cases:
 
                     # don't include some TimedObjects in the unfolded part
-                    if isinstance(o, (Repeat, Ending, ToCoda, DaCapo, DalSegno, Segment)):
+                    if isinstance(o, (Repeat, Ending, 
+                    ToCoda, DaCapo, DalSegno, 
+                    Segment, System, Page)):
                         continue
 
                     # don't repeat time sig if it hasn't changed
@@ -2545,6 +2547,14 @@ class ScoreVariant(object):
                         prev = next(tp_new.iter_prev(KeySignature), None)
                         if (prev is not None) and (
                             (o.fifths, o.mode) == (prev.fifths, prev.mode)
+                        ):
+                            continue
+
+                    # don't repeat clef if it hasn't changed
+                    elif isinstance(o, Clef):
+                        prev = next(tp_new.iter_prev(Clef), None)
+                        if (prev is not None) and (
+                            (o.sign, o.line, o.number) == (prev.sign, prev.line, prev.number)
                         ):
                             continue
 
@@ -3553,7 +3563,8 @@ def add_segments(part):
                         # if repeating volta bracket, jump back to start
                         # check if repeat exists (might not be for 3+ volta brackets)
                         if "repeat_end" in list(boundaries[se].keys()):
-                            current_volta_repeat_start = boundaries[se]["repeat_end"].start.t
+                            current_volta_repeat_start = max(boundaries[se]["repeat_end"].start.t,
+                                                             current_volta_repeat_start)
                         repeat_start = current_volta_repeat_start
                         segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
                     else:
