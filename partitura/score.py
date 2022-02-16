@@ -3461,7 +3461,6 @@ class Segment(TimedObject):
         self.type = type       
 
 
-
 class Path:
     """
     Path that represents a sequence of segments.
@@ -3780,8 +3779,7 @@ def add_segments(part):
                     segment_info[start_time]["start"],
                     segment_info[start_time]["end"])
     
-    
-    
+   
 def get_segments(part):
     """
     Get dictionary of segment objects of a part.
@@ -3797,6 +3795,7 @@ def get_segments(part):
         A dictionary of Segment objects indexed by segment IDs.
     """
     return {seg.id: seg for seg in part.iter_all(Segment)}
+
 
 def pretty_segments(part):
     """
@@ -3857,8 +3856,6 @@ def get_paths(part,
     -------
     paths: list
         A list of path objects
-    segments: dict
-        A dictionary of Segment objects indexed by segment IDs.
 
     """
     add_segments(part)
@@ -3868,9 +3865,10 @@ def get_paths(part,
                     paths, 
                     ignore_leap_info=ignore_leap_info)
     
-    return paths, segments
+    return paths
 
-def new_part_from_path(path, part):
+
+def new_part_from_path(path, part, update_note_ids = True):
     """
     create a new Part from a Path and an underlying Part
 
@@ -3893,7 +3891,10 @@ def new_part_from_path(path, part):
                                  path.segments[segment_id].end)
     
     new_part = scorevariant.create_variant_part()
+    if update_note_ids:
+        update_note_ids_after_unfolding(new_part)
     return new_part
+
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
