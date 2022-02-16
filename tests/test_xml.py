@@ -66,7 +66,7 @@ class TestMusicXML(unittest.TestCase):
     def test_unfold_timeline(self):
         for fn, fn_target_1, fn_target_2 in MUSICXML_UNFOLD_TESTPAIRS:
             part = load_musicxml(fn, validate=False)
-            part = score.unfold_part_maximal(part)
+            part = score.unfold_part_maximal(part, update_ids=False)
             # Load Target
             with open(fn_target_1) as f:
                 target = f.read()

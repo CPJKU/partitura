@@ -3397,9 +3397,6 @@ def sanitize_part(part, tie_tolerance = 0):
     )
 
 
-
-
-
 def assign_note_ids(parts, keep=False):
     """"
     Assigns new note IDs mainly used for loaders.
@@ -3433,6 +3430,8 @@ def assign_note_ids(parts, keep=False):
                 else:
                     n.id = "n{}".format(ni)
                     ni += 1
+
+
 class Segment(TimedObject):
     """
     Class that represents any segment between two navigation markers such as repetitions,
@@ -3458,8 +3457,8 @@ class Segment(TimedObject):
 
     def __init__(self, id, to, force_seq = False, type = "default", info = ""):
         self.id = id
-        self.to = to    # the ordered list of of destinations
-        self.force_full_sequence = force_seq    # can destinations be omitted?
+        self.to = to    
+        self.force_full_sequence = force_seq  
         self.type = type     
         self.info = info  
 
@@ -3581,7 +3580,6 @@ def add_segments(part):
                 if boundary_type == "tocoda":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # find the coda and jump there
-                    # TODO: more safety
                     coda_time = destinations["coda"][0]
                     segment_info[ss]["to"].append(segment_info[coda_time]["ID"])
                     segment_info[ss]["to"]
@@ -3597,7 +3595,6 @@ def add_segments(part):
                 if boundary_type == "dalsegno":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # find the segno and jump there
-                    # TODO: more safety
                     segno_time = destinations["segno"][0]
                     segment_info[ss]["to"].append(segment_info[segno_time]["ID"])
                     segment_info[ss]["type"] = "leap_start"
@@ -3606,7 +3603,6 @@ def add_segments(part):
                 if boundary_type == "dacapo":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # jump to the start
-                    # TODO: more safety
                     segment_info[ss]["to"].append(segment_info[part.first_point.t]["ID"])
                     # TODO: check forcing
                     # segment_info[ss]["force_full_sequence"] = True
@@ -3616,7 +3612,6 @@ def add_segments(part):
                 if boundary_type == "fine":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # jump to the start
-                    # TODO: more safety
                     segment_info[ss]["to"].append(segment_info[part.last_point.t]["ID"])
                     # TODO: check forcing
                     # segment_info[ss]["force_full_sequence"] = True
@@ -3706,13 +3701,16 @@ class Path:
     def __init__(self, 
                 path_list, 
                 segments, 
-                used_segment_jumps = defaultdict(list), 
+                used_segment_jumps = None, 
                 no_repeats = False,
                 all_repeats = False):
         
         self.path = path_list
         self.segments = segments
-        self.used_segment_jumps = used_segment_jumps
+        if used_segment_jumps is None:
+            self.used_segment_jumps = defaultdict(list)
+        else:
+            self.used_segment_jumps = used_segment_jumps
         self.ended = False
         self.no_repeats = no_repeats
         self.all_repeats = all_repeats
@@ -3888,7 +3886,10 @@ def get_paths(part,
     add_segments(part)
     segments = get_segments(part)
     paths = list()
-    unfold_paths(Path(["A"], segments, no_repeats = no_repeats, all_repeats = all_repeats), 
+    unfold_paths(Path(["A"], 
+                segments, 
+                no_repeats = no_repeats, 
+                all_repeats = all_repeats), 
                     paths, 
                     ignore_leap_info=ignore_leap_info)
     
@@ -3987,7 +3988,7 @@ def iter_unfolded_parts(part, update_ids=True):
         yield new_part_from_path(p, part, update_ids = update_ids)
 
 # UPDATED VERSION
-def unfold_part_maximal(part, update_ids=True, ingore_leaps=True):
+def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
     """Return the "maximally" unfolded part, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
@@ -4016,7 +4017,7 @@ def unfold_part_maximal(part, update_ids=True, ingore_leaps=True):
     paths = get_paths(part, 
             no_repeats = False,
             all_repeats = True, 
-            ignore_leap_info = ingore_leaps)
+            ignore_leap_info = ignore_leaps)
 
     unfolded_part = new_part_from_path(paths[0], 
                                        part, 
