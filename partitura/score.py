@@ -2734,7 +2734,7 @@ def DEPRECATEDmake_score_variants(part):
     # repeats may not have start or end times. `repeats_to_start_end`
     # returns the start/end paisr for each repeat, making educated guesses
     # when these are missing.
-    repeat_start_ends = repeats_to_start_end(repeats, part.first_point, part.last_point)
+    repeat_start_ends = DEPRECATEDrepeats_to_start_end(repeats, part.first_point, part.last_point)
 
     # check for nestings and raise if necessary
     if any(n < c for c, n in iter_current_next(repeat_start_ends)):
