@@ -3397,7 +3397,6 @@ def sanitize_part(part, tie_tolerance = 0):
     )
 
 
-def assign_note_ids(parts, keep=False):
     """"
     Assigns new note IDs mainly used for loaders.
 
@@ -3439,14 +3438,6 @@ class Segment(TimedObject):
     
 
     Parameters
-    ----------
-    id : string
-        The ID associated with this segment
-    to : list of strings
-        Ordered list of IDs of segments where the unfolded score could jump to at the end of this segment
-    force_full_sequence : bool, optional
-        Flag specifying whether segment unfolding should consider all destinations (jumps) sequentially. 
-        Default value False
     type : string, optional
         String for the type of the segment (either "default" or "leap_start" and "leap_end")
         A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
