@@ -2528,9 +2528,10 @@ class ScoreVariant(object):
 
                     # special cases:
 
-                    # don't include repeats/endings in the unfolded part
-                    if isinstance(o, (Repeat, Ending)):
+                    # don't include some TimedObjects in the unfolded part
+                    if isinstance(o, (Repeat, Ending, ToCoda, DaCapo, DalSegno, Segment)):
                         continue
+
                     # don't repeat time sig if it hasn't changed
                     elif isinstance(o, TimeSignature):
                         prev = next(tp_new.iter_prev(TimeSignature), None)
@@ -2976,8 +2977,8 @@ def iter_parts(partlist):
             for eel in iter_parts(el.children):
                 yield eel
 
-
-def repeats_to_start_end(repeats, first, last):
+# DEPRECATED
+def DEPRECATEDrepeats_to_start_end(repeats, first, last):
     # non-public
     """Return pairs of (start, end) TimePoints corresponding to the start and
     end times of each Repeat object. If any of the start or end attributes
@@ -3392,15 +3393,238 @@ class Segment(TimedObject):
         String for the type of the segment (either "default" or "leap_start" and "leap_end")
         A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
         as is commonly expected after capo/fine/coda/segno directions.
-        
+    info: string, optional
+        String to describe the segment, used only for printing (pretty_segments)
     """
 
-    def __init__(self, id, to, force_seq = False, type = "default"):
+    def __init__(self, id, to, force_seq = False, type = "default", info = ""):
         self.id = id
         self.to = to    # the ordered list of of destinations
         self.force_full_sequence = force_seq    # can destinations be omitted?
-        self.type = type       
+        self.type = type     
+        self.info = info  
 
+            
+def add_segments(part):
+    """
+    Add segment objects to a part based on repetition and capo/fine/coda/segno directions.
+
+    Parameters
+    ----------
+    part: part
+        A score part 
+    """
+    if len([seg for seg in part.iter_all(Segment)]) > 0:
+        # only add segments if no segments exist
+        pass
+    else:
+        boundaries = defaultdict(dict)
+        destinations = defaultdict(list)
+
+        valid_repeats = [r for r in part.iter_all(Repeat) 
+                        if r.start is not None and r.end is not None]
+        valid_endings = [r for r in part.iter_all(Ending) 
+                        if r.start is not None and r.end is not None]
+        # add dummy repeats
+
+
+        for r in valid_repeats:
+            boundaries[r.start.t]["repeat_start"] = r
+            boundaries[r.end.t]["repeat_end"] = r
+        for v in valid_endings:
+            boundaries[v.start.t]["volta_start"] = v
+            boundaries[v.end.t]["volta_end"] = v
+        for c in part.iter_all(Coda):
+            boundaries[c.start.t]["coda"] = c
+            destinations["coda"].append(c.start.t)
+        for c in part.iter_all(ToCoda):
+            boundaries[c.start.t]["tocoda"] = c
+        for c in part.iter_all(DaCapo):
+            boundaries[c.start.t]["dacapo"] = c
+        for c in part.iter_all(Fine):
+            boundaries[c.start.t]["fine"] = c
+        for c in part.iter_all(Segno):
+            boundaries[c.start.t]["segno"] = c
+            destinations["segno"].append(c.start.t)
+        for c in part.iter_all(DalSegno):
+            boundaries[c.start.t]["dalsegno"] = c
+        
+        boundaries[part.last_point.t]["end"] = None
+        boundaries[part.first_point.t]["start"] = None
+        
+        boundary_times = list(boundaries.keys())
+        boundary_times.sort()
+
+        # for every segment get an id, its jump destinations and properties
+        init_character = 65
+        segment_info = dict()
+        for i, (s, e) in enumerate(zip(boundary_times[:-1], boundary_times[1:])):
+            segment_info[s] = {"ID":chr(init_character+i), 
+                            "start": s, 
+                            "end": e, 
+                            "to": [], 
+                            "force_full_sequence": False,
+                            "type": "default",
+                            "info": list()}
+        segment_info[boundary_times[-1]] = {"ID":"END"} 
+        
+        current_volta_repeat_start = 0
+
+        for ss in boundary_times[:-1]:
+            se = segment_info[ss]["end"]
+
+            # loop through the boundaries at the end of current segment
+            for boundary_type in boundaries[se].keys():
+                
+                # REPEATS
+                if boundary_type == "repeat_start":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                if boundary_type == "repeat_end":
+                    if "volta_end" not in list(boundaries[se].keys()):
+                        segment_info[ss]["to"].append(segment_info[se]["ID"])
+                        repeat_start = boundaries[se][boundary_type].start.t
+                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
+                    segment_info[ss]["info"].append("repeat_end")
+                    
+                # VOLTA BRACKETS
+                if boundary_type == "volta_start":
+                    if "volta_end" not in list(boundaries[se].keys()):
+                        segment_info[ss]["to"].append(segment_info[se]["ID"])
+                        bracket_end = se
+                        for volta_number in range(10): # maximal expected number of volta brackets 10
+                            if "volta_start" in list(boundaries[bracket_end].keys()):                 
+                                # add the beginning to the jump destinations
+                                segment_info[ss]["to"].append(segment_info[bracket_end]["ID"])
+                                # update the search time to the end of the ext bracket
+                                bracket_end = boundaries[bracket_end]["volta_start"].end.t
+                    
+                if boundary_type == "volta_end":
+                    if "volta_start" in list(boundaries[se].keys()):
+                        # if repeating volta bracket, jump back to start
+                        # check if repeat exists (might not be for 3+ volta brackets)
+                        if "repeat_end" in list(boundaries[se].keys()):
+                            current_volta_repeat_start = boundaries[se]["repeat_end"].start.t
+                        repeat_start = current_volta_repeat_start
+                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
+                    else:
+                        # else just go to the next segment
+                        segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    segment_info[ss]["info"].append("volta")
+                
+                # NAVIGATION SYMBOLS
+                if boundary_type == "coda":
+                    # if a coda symbol is passed just continue
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    segment_info[se]["type"] = "leap_end"
+                    segment_info[se]["info"].append("Coda")
+                    
+
+                if boundary_type == "tocoda":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # find the coda and jump there
+                    # TODO: more safety
+                    coda_time = destinations["coda"][0]
+                    segment_info[ss]["to"].append(segment_info[coda_time]["ID"])
+                    segment_info[ss]["to"]
+                    segment_info[ss]["type"] = "leap_start"
+                    segment_info[ss]["info"].append("al coda")
+                    
+                if boundary_type == "segno":
+                    # if a segno symbol is passed just continue
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    segment_info[se]["type"] = "leap_end"
+                    segment_info[se]["info"].append("segno")
+
+                if boundary_type == "dalsegno":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # find the segno and jump there
+                    # TODO: more safety
+                    segno_time = destinations["segno"][0]
+                    segment_info[ss]["to"].append(segment_info[segno_time]["ID"])
+                    segment_info[ss]["type"] = "leap_start"
+                    segment_info[ss]["info"].append("dal segno")
+                    
+                if boundary_type == "dacapo":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # jump to the start
+                    # TODO: more safety
+                    segment_info[ss]["to"].append(segment_info[part.first_point.t]["ID"])
+                    # TODO: check forcing
+                    # segment_info[ss]["force_full_sequence"] = True
+                    segment_info[ss]["type"] = "leap_start"
+                    segment_info[ss]["info"].append("da capo")
+                
+                if boundary_type == "fine":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # jump to the start
+                    # TODO: more safety
+                    segment_info[ss]["to"].append(segment_info[part.last_point.t]["ID"])
+                    # TODO: check forcing
+                    # segment_info[ss]["force_full_sequence"] = True
+                    segment_info[ss]["info"].append("fine")
+                    
+                # GENERIC
+                if boundary_type == "end":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                
+                # first segments is always a leap destination (da capo)
+                if ss == 0:
+                    segment_info[ss]["type"] = "leap_end"
+                          
+        for start_time in boundary_times[:-1]:
+            destinations = list(set(segment_info[start_time]["to"]))
+            if "END" in destinations:
+                destinations.remove("END")
+                destinations.sort()
+                destinations.append("END")
+            else:
+                destinations.sort()
+            part.add(Segment(segment_info[start_time]["ID"],
+                            destinations,
+                            segment_info[start_time]["force_full_sequence"],
+                            segment_info[start_time]["type"],
+                            ", ".join(segment_info[start_time]["info"])),
+                        segment_info[start_time]["start"],
+                        segment_info[start_time]["end"])
+    
+   
+def get_segments(part):
+    """
+    Get dictionary of segment objects of a part.
+
+    Parameters
+    ----------
+    part: part
+        A score part 
+    
+    Returns
+    -------
+    segments: dict
+        A dictionary of Segment objects indexed by segment IDs.
+    """
+    return {seg.id: seg for seg in part.iter_all(Segment)}
+
+
+def pretty_segments(part):
+    """
+    Get a pretty string of all the segments in a part.
+    """
+    add_segments(part)
+    segments = get_segments(part)
+    string_list = [str(segments[p].id) +
+                    " -> (choice) " + 
+                    "{:<8}".format(",".join(segments[p].to)) +
+                    "\t segment " + 
+                    "{:<20}".format(str(part.beat_map(segments[p].start.t)) + 
+                    " - " +
+                    str(part.beat_map(segments[p].end.t))) +
+                    "\t duration: " +
+                    "{:<6}".format(str(part.beat_map(segments[p].duration))) +
+                    "\t info: " +
+                    str(segments[p].info)
+                    for p in segments.keys()]
+    return "\n".join(string_list)
+        
 
 class Path:
     """
@@ -3561,204 +3785,7 @@ def unfold_paths(path, paths, ignore_leap_info=True):
             new_path = path.make_copy_with_jump_to(destination_id, ignore_leap_info=ignore_leap_info)
             unfold_paths(new_path, paths, ignore_leap_info=ignore_leap_info)
             
-            
-def add_segments(part):
-    """
-    Add segment objects to a part based on repetition and capo/fine/coda/segno directions.
 
-    Parameters
-    ----------
-    part: part
-        A score part 
-    """
-    if len([seg for seg in part.iter_all(Segment)]) > 0:
-        # only add segments if no segments exist
-        pass
-    else:
-        boundaries = defaultdict(dict)
-        destinations = defaultdict(list)
-        for r in part.iter_all(Repeat):
-            boundaries[r.start.t]["repeat_start"] = r
-            boundaries[r.end.t]["repeat_end"] = r
-        for v in part.iter_all(Ending):
-            boundaries[v.start.t]["volta_start"] = v
-            boundaries[v.end.t]["volta_end"] = v
-        for c in part.iter_all(Coda):
-            boundaries[c.start.t]["coda"] = c
-            destinations["coda"].append(c.start.t)
-        for c in part.iter_all(ToCoda):
-            boundaries[c.start.t]["tocoda"] = c
-        for c in part.iter_all(DaCapo):
-            boundaries[c.start.t]["dacapo"] = c
-        for c in part.iter_all(Fine):
-            boundaries[c.start.t]["fine"] = c
-        for c in part.iter_all(Segno):
-            boundaries[c.start.t]["segno"] = c
-            destinations["segno"].append(c.start.t)
-        for c in part.iter_all(DalSegno):
-            boundaries[c.start.t]["dalsegno"] = c
-        
-        boundaries[part.last_point.t]["end"] = None
-        boundaries[part.first_point.t]["start"] = None
-        
-        boundary_times = list(boundaries.keys())
-        boundary_times.sort()
-
-        # for every segment get an id, its jump destinations and properties
-        init_character = 65
-        segment_info = dict()
-        for i, (s, e) in enumerate(zip(boundary_times[:-1], boundary_times[1:])):
-            segment_info[s] = {"ID":chr(init_character+i), 
-                            "start": s, 
-                            "end": e, 
-                            "to": [], 
-                            "force_full_sequence": False,
-                            "type": "default"}
-        segment_info[boundary_times[-1]] = {"ID":"END"} 
-        
-        for ss in boundary_times[:-1]:
-            se = segment_info[ss]["end"]
-
-            # loop through the boundaries at the end of current segment
-            for boundary_type in boundaries[se].keys():
-                
-                # REPEATS
-                if boundary_type == "repeat_start":
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                if boundary_type == "repeat_end":
-                    if "volta_end" not in list(boundaries[se].keys()):
-                        segment_info[ss]["to"].append(segment_info[se]["ID"])
-                        repeat_start = boundaries[se][boundary_type].start.t
-                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
-                    
-                # VOLTA BRACKETS
-                if boundary_type == "volta_start":
-                    if "volta_end" not in list(boundaries[se].keys()):
-                        segment_info[ss]["to"].append(segment_info[se]["ID"])
-                        bracket_end = se
-                        for volta_number in range(10): # maximal expected number of volta brackets 10
-                            if "volta_start" in list(boundaries[bracket_end].keys()):                 
-                                # add the beginning to the jump destinations
-                                segment_info[ss]["to"].append(segment_info[bracket_end]["ID"])
-                                # update the search time to the end of the ext bracket
-                                bracket_end = boundaries[bracket_end]["volta_start"].end.t
-                    
-                if boundary_type == "volta_end":
-                    if "volta_start" in list(boundaries[se].keys()):
-                        # if repeating volta bracket, jump back to start
-                        repeat_start = boundaries[se]["repeat_end"].start.t
-                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
-                    else:
-                        # else just go to the next segment
-                        segment_info[ss]["to"].append(segment_info[se]["ID"])
-                
-                # NAVIGATION SYMBOLS
-                if boundary_type == "coda":
-                    # if a coda symbol is passed just continue
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    segment_info[se]["type"] = "leap_end"
-
-                if boundary_type == "tocoda":
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    # find the coda and jump there
-                    # TODO: more safety
-                    coda_time = destinations["coda"][0]
-                    segment_info[ss]["to"].append(segment_info[coda_time]["ID"])
-                    segment_info[ss]["to"]
-                    segment_info[ss]["type"] = "leap_start"
-                    
-                if boundary_type == "segno":
-                    # if a segno symbol is passed just continue
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    segment_info[se]["type"] = "leap_end"
-
-                if boundary_type == "dalsegno":
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    # find the segno and jump there
-                    # TODO: more safety
-                    segno_time = destinations["segno"][0]
-                    segment_info[ss]["to"].append(segment_info[segno_time]["ID"])
-                    segment_info[ss]["type"] = "leap_start"
-                    
-                if boundary_type == "dacapo":
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    # jump to the start
-                    # TODO: more safety
-                    segment_info[ss]["to"].append(segment_info[part.first_point.t]["ID"])
-                    # TODO: check forcing
-                    # segment_info[ss]["force_full_sequence"] = True
-                    segment_info[ss]["type"] = "leap_start"
-                
-                if boundary_type == "fine":
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    # jump to the start
-                    # TODO: more safety
-                    segment_info[ss]["to"].append(segment_info[part.last_point.t]["ID"])
-                    # TODO: check forcing
-                    # segment_info[ss]["force_full_sequence"] = True
-                    
-                # GENERIC
-                if boundary_type == "end":
-                    segment_info[ss]["to"].append(segment_info[se]["ID"])
-                
-                # first segments is always a leap destination (da capo)
-                if ss == 0:
-                    segment_info[ss]["type"] = "leap_end"
-                          
-        for start_time in boundary_times[:-1]:
-            destinations = list(set(segment_info[start_time]["to"]))
-            if "END" in destinations:
-                destinations.remove("END")
-                destinations.sort()
-                destinations.append("END")
-            else:
-                destinations.sort()
-            part.add(Segment(segment_info[start_time]["ID"],
-                            destinations,
-                            segment_info[start_time]["force_full_sequence"],
-                            segment_info[start_time]["type"]),
-                    segment_info[start_time]["start"],
-                    segment_info[start_time]["end"])
-    
-   
-def get_segments(part):
-    """
-    Get dictionary of segment objects of a part.
-
-    Parameters
-    ----------
-    part: part
-        A score part 
-    
-    Returns
-    -------
-    segments: dict
-        A dictionary of Segment objects indexed by segment IDs.
-    """
-    return {seg.id: seg for seg in part.iter_all(Segment)}
-
-
-def pretty_segments(part):
-    """
-    Get a pretty string of all the segments in a part.
-    """
-    add_segments(part)
-    segments = get_segments(part)
-    string_list = [str(segments[p].id) +
-                    " -> (choice) " + 
-                    ",".join(segments[p].to) +
-                    "  \t segment " + 
-                    str(part.beat_map(segments[p].start.t)) + 
-                    " - " +
-                    str(part.beat_map(segments[p].end.t)) +
-                    "\t duration: " +
-                    str(part.beat_map(segments[p].duration)) +
-                    "  \t type: " +
-                    str(segments[p].type)
-                    for p in segments.keys()]
-    return "\n".join(string_list)
-        
-        
 def get_paths(part, 
             no_repeats = False,
             all_repeats = False, 
@@ -4011,13 +4038,6 @@ def make_score_variants(part):
             no_repeats = False,
             all_repeats = False, 
             ignore_leap_info = True)
-
-    # # TODO: check if we need to wrap in list
-    # repeats = list(part.iter_all(Repeat))
-    # # repeats may not have start or end times. `repeats_to_start_end`
-    # # returns the start/end paisr for each repeat, making educated guesses
-    # # when these are missing.
-    # repeat_start_ends = repeats_to_start_end(repeats, part.first_point, part.last_point)
 
     svs = list()
     for path in paths:
