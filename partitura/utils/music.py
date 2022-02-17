@@ -984,7 +984,6 @@ def _make_pianoroll(
     # Get pitch, onset, offset from the note_info array
     pr_pitch = note_info[:, 0]
     onset = note_info[:, 1]
-    # offset = note_info[:, 1] + note_info[:, 2]
     duration = note_info[:, 2]
 
     if np.any(duration < 0):
@@ -1011,7 +1010,7 @@ def _make_pianoroll(
     # sort notes
     pr_pitch = pr_pitch[idx]
     onset = onset[idx]
-    # offset = offset[idx]
+
     if min_time is None:
         min_time = 0 if min(onset) >= 0 else min(onset)
         if remove_silence:
@@ -1065,7 +1064,6 @@ def _make_pianoroll(
                 for on, off, pitch, vel in zip(
                     pr_onset, pr_offset, pr_pitch, pr_velocity
                 )
-                # if off <= N
             ]
         )
 
