@@ -1040,6 +1040,13 @@ def _make_pianoroll(
     pr_onset = np.round(time_div * onset).astype(int)
     pr_offset = np.round(time_div * offset).astype(int)
 
+    if pr_onset.max() == pr_offset.max():
+        # In case the last onset and last offset fall into the same bin
+        # due to the resolution of the piano roll, give the last
+        # note at least a duration of 1 bin
+        pr_offset[pr_offset == pr_offset.max()] += 1
+        N += 1
+
     # Determine the non-zero indices of the piano roll
     if onset_only:
         _idx_fill = np.column_stack([pr_pitch, pr_onset, pr_velocity])
@@ -1075,6 +1082,7 @@ def _make_pianoroll(
     pianoroll = csc_matrix(
         (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=int
     )
+    
 
     pr_idx_pitch_start = 0
     if piano_range:
