@@ -1021,11 +1021,8 @@ def _make_pianoroll(
             raise ValueError(
                 "`min_time` must be smaller or equal than " "the smallest onset time "
             )
-    # max_time = np.max(offset)
 
-    # onset -= min_time  - time_margin
     onset -= min_time
-    # offset -= min_time - time_margin
 
     if pitch_margin > -1:
         pr_pitch -= lowest_pitch
@@ -1040,26 +1037,16 @@ def _make_pianoroll(
 
     # Onset and offset times of the notes in the piano roll
     pr_onset = np.round(time_div * onset).astype(int)
-    pr_onset -= int(time_margin * time_div)
-    pr_duration = np.round(time_div * duration).astype(int)
-    np.clip(pr_duration,
-            a_max=None,
-            a_min=1,
-            out=pr_duration
-            )
+    pr_onset += int(time_margin * time_div)
+    pr_duration = np.clip(
+        np.round(time_div * duration).astype(int),
+        a_max=None,
+        a_min=1
+    )
     pr_offset = pr_onset + pr_duration
-    # pr_offset = np.round(time_div * offset).astype(int)
 
     # Time dimension
-    # N = int(np.ceil(time_div * (2 * time_margin + max_time - min_time)))
-    N = int(2 * time_div * time_margin + pr_offset.max())
-
-    # if pr_onset.max() == pr_offset.max():
-    #     # In case the last onset and last offset fall into the same bin
-    #     # due to the resolution of the piano roll, give the last
-    #     # note at least a duration of 1 bin
-    #     pr_offset[pr_offset == pr_offset.max()] += 1
-    #     N += 1
+    N = int(time_div * time_margin + pr_offset.max())
 
     # Determine the non-zero indices of the piano roll
     if onset_only:
@@ -1093,13 +1080,9 @@ def _make_pianoroll(
         idx_fill[i] = np.array([row, column, max(vel)])
 
     # Fill piano roll
-    try:
-        pianoroll = csc_matrix(
-            (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=int
-        )
-    except:
-        import pdb
-        pdb.set_trace()
+    pianoroll = csc_matrix(
+        (idx_fill[:, 2], (idx_fill[:, 0], idx_fill[:, 1])), shape=(M, N), dtype=int
+    )
 
     pr_idx_pitch_start = 0
     if piano_range:
