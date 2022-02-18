@@ -3495,7 +3495,12 @@ def add_segments(part):
                         if r.start is not None and r.end is not None]
         valid_endings = [r for r in part.iter_all(Ending) 
                         if r.start is not None and r.end is not None]
-        # add dummy repeats
+        # # add dummy repeats
+        # endings_clusters = defaultdict(dict)
+        # for e in valid_endings:
+        #     for k in ending_clusters.keys():
+        #         if
+
 
 
         for r in valid_repeats:
@@ -3559,12 +3564,18 @@ def add_segments(part):
                 # VOLTA BRACKETS
                 if boundary_type == "volta_start":
                     if "volta_end" not in list(boundaries[se].keys()):
-                        segment_info[ss]["to"].append(segment_info[se]["ID"])
                         bracket_end = se
+                        numbers = boundaries[bracket_end]["volta_start"].number.split(",")
+                        numbers = [str(int(n)) for n in numbers]
+                        for no in numbers:
+                            segment_info[ss]["to"].append(no+"_Volta_"+segment_info[se]["ID"])
                         for volta_number in range(10): # maximal expected number of volta brackets 10
                             if "volta_start" in list(boundaries[bracket_end].keys()):                 
                                 # add the beginning to the jump destinations
-                                segment_info[ss]["to"].append(segment_info[bracket_end]["ID"])
+                                numbers = boundaries[bracket_end]["volta_start"].number.split(",")
+                                numbers = [str(int(n)) for n in numbers]
+                                for no in numbers:
+                                    segment_info[ss]["to"].append(no+"_Volta_"+segment_info[bracket_end]["ID"])
                                 # update the search time to the end of the ext bracket
                                 bracket_end = boundaries[bracket_end]["volta_start"].end.t
                     
@@ -3640,12 +3651,20 @@ def add_segments(part):
                           
         for start_time in boundary_times[:-1]:
             destinations = list(set(segment_info[start_time]["to"]))
+            destinations_no_volta = [dest for dest in destinations if "Volta_" not in dest]
+            destinations_volta = [dest for dest in destinations if "Volta_" in dest]
             if "END" in destinations:
-                destinations.remove("END")
-                destinations.sort()
-                destinations.append("END")
+                destinations_no_volta.remove("END")
+                destinations_no_volta.sort()
+                destinations_no_volta.append("END")
             else:
-                destinations.sort()
+                destinations_no_volta.sort()
+            destinations_volta.sort()
+            # keep only the segment IDs
+            destinations_volta = [d[8:] for d in destinations_volta]
+            # don't jump to volta brackets w/t number
+            destinations_no_volta = [d for d in destinations_no_volta if d not in destinations_volta]
+            destinations = destinations_volta + destinations_no_volta
             part.add(Segment(segment_info[start_time]["ID"],
                             destinations,
                             segment_info[start_time]["force_full_sequence"],
@@ -3800,11 +3819,17 @@ class Path:
     
     @property
     def list_of_destinations_from_last_segment(self):
-        destinations = self.segments[self.path[-1]].to
+        destinations = list(self.segments[self.path[-1]].to)
         previously_used_destinations = self.used_segment_jumps[self.path[-1]]
         # only continue in order of the sequence, after full consumption, start at zero
         # if the full or minimal sequence is forced, 
         # return only the single possible jump destination, else return possibly many.
+
+        if len(previously_used_destinations) != 0:
+            last_destination = previously_used_destinations[-1]
+            last_destination_count = previously_used_destinations.count(last_destination)
+            last_destination_index = [i for i, n in enumerate(destinations*100) if n == last_destination][last_destination_count-1]
+            last_destination_index %= len(destinations)
 
         if self.no_repeats: 
             # currently this is in higher priority than the full sequence
@@ -3815,8 +3840,8 @@ class Path:
             if len(previously_used_destinations) == 0:
                 return [destinations[0]]
             else:
-                last_destination = previously_used_destinations[-1]
-                last_destination_index = destinations.index(last_destination)
+                #last_destination = previously_used_destinations[-1]
+                #last_destination_index = destinations.index(last_destination)
                 if last_destination_index < (len(destinations)-1):
                     return [destinations[last_destination_index+1]]
                 else:
@@ -3826,8 +3851,8 @@ class Path:
             if len(previously_used_destinations) == 0:
                 return copy(destinations)
             else:
-                last_destination = previously_used_destinations[-1]
-                last_destination_index = destinations.index(last_destination)
+                #last_destination = previously_used_destinations[-1]
+                #last_destination_index = destinations.index(last_destination)
                 if last_destination_index < (len(destinations)-1):
                     return copy(destinations[last_destination_index+1:])
                 else:

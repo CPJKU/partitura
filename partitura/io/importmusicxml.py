@@ -273,7 +273,7 @@ def _parse_parts(document, part_dict):
         # complete unfinished endings
         for o in part.iter_all(score.Ending, mode="ending"): 
             if o.start is None:
-                part.add(o,part.measure_map(o.end.t)[0],None)
+                part.add(o,part.measure_map(o.end.t-1)[0],None)
                 LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"
                     "Single measure bracket is assumed")
         
