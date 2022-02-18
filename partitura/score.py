@@ -249,8 +249,9 @@ class Part(object):
                 tN = self.last_point.t
 
             measures = np.array([(t0, tN)])
-
-        return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), :]
+  
+        return interp1d(measures[:, 0],measures[:, :].astype(int),
+                        kind="previous", axis=0, fill_value="extrapolate")
 
     @property
     def measure_number_map(self):
@@ -289,7 +290,8 @@ class Part(object):
 
             measures = np.array([(t0, tN, 1)])
 
-        return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), 2]
+        return interp1d(measures[:, 0],measures[:, 2].astype(int),
+                        kind="previous", fill_value="extrapolate")
 
     @property
     def metrical_position_map(self):
@@ -303,20 +305,11 @@ class Part(object):
             The mapping function
 
         """
+        xs = np.arange(self.first_point.t, self.last_point.t)
+        ys = np.column_stack((xs - self.measure_map(xs)[:, 0],
+                              self.measure_map(xs)[:, 1] - self.measure_map(xs)[:, 0]))
 
-        return (
-            lambda x: np.vstack(  # if the input is an array
-                (
-                    x - self.measure_map(x)[:, 0],
-                    self.measure_map(x)[:, 1] - self.measure_map(x)[:, 0],
-                )
-            ).T
-            if isinstance(x, Iterable)
-            else (  # if the input is just a scalar
-                x - self.measure_map(x)[0],
-                self.measure_map(x)[1] - self.measure_map(x)[0],
-            )
-        )
+        return interp1d(xs,ys, axis=0, kind="linear")
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 

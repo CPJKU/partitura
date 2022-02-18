@@ -1060,7 +1060,7 @@ def _make_pianoroll(
                 if off <= N
             ]
         )
-
+        
     # Fix multiple notes with the same pitch and onset
     fill_dict = defaultdict(list)
     for row, col, vel in _idx_fill:
