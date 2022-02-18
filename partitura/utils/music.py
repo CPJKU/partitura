@@ -984,7 +984,10 @@ def _make_pianoroll(
     # Get pitch, onset, offset from the note_info array
     pr_pitch = note_info[:, 0]
     onset = note_info[:, 1]
-    offset = note_info[:, 1] + note_info[:, 2]
+    duration = note_info[:, 2]
+
+    if np.any(duration < 0):
+        raise ValueError('Note durations should be >= 0!')
 
     # Get velocity if given
     if note_info.shape[1] < 4:
@@ -1007,7 +1010,7 @@ def _make_pianoroll(
     # sort notes
     pr_pitch = pr_pitch[idx]
     onset = onset[idx]
-    offset = offset[idx]
+
     if min_time is None:
         min_time = 0 if min(onset) >= 0 else min(onset)
         if remove_silence:
@@ -1017,10 +1020,8 @@ def _make_pianoroll(
             raise ValueError(
                 "`min_time` must be smaller or equal than " "the smallest onset time "
             )
-    max_time = np.max(offset)
 
-    onset -= min_time - time_margin
-    offset -= min_time - time_margin
+    onset -= min_time
 
     if pitch_margin > -1:
         pr_pitch -= lowest_pitch
@@ -1033,12 +1034,18 @@ def _make_pianoroll(
     else:
         M = int(pitch_span)
 
-    # Time dimension
-    N = int(np.ceil(time_div * (2 * time_margin + max_time - min_time)))
-
     # Onset and offset times of the notes in the piano roll
     pr_onset = np.round(time_div * onset).astype(int)
-    pr_offset = np.round(time_div * offset).astype(int)
+    pr_onset += int(time_margin * time_div)
+    pr_duration = np.clip(
+        np.round(time_div * duration).astype(int),
+        a_max=None,
+        a_min=1
+    )
+    pr_offset = pr_onset + pr_duration
+
+    # Time dimension
+    N = int(time_div * time_margin + pr_offset.max())
 
     # Determine the non-zero indices of the piano roll
     if onset_only:
@@ -1057,7 +1064,6 @@ def _make_pianoroll(
                 for on, off, pitch, vel in zip(
                     pr_onset, pr_offset, pr_pitch, pr_velocity
                 )
-                if off <= N
             ]
         )
 
