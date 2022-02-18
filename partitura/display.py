@@ -62,7 +62,7 @@ def render(part, fmt="png", dpi=90, out_fn=None):
     """
 
     img_fn = render_musescore(part, fmt, out_fn, dpi)
-
+    
     if img_fn is None or not os.path.exists(img_fn):
         img_fn = render_lilypond(part, fmt)
         if img_fn is None or not os.path.exists(img_fn):

@@ -76,6 +76,19 @@ class TestMetricalPosition(unittest.TestCase):
             np.array_equal(note_array["tot_measure_div"], expected_measure_duration,)
         )
 
+    def test_measure_number_map(self):
+        part = load_musicxml(METRICAL_POSITION_TESTFILES[0])
+        notes = part.notes
+        measure_numbers_for_notes = part.measure_number_map([n.start.t for n in notes])
+        expected_measure_numbers_for_notes = np.array(  # the start and end of measures that we expect
+            [1 for i in range(2)]
+            + [2 for i in range(6)]
+            + [3 for i in range(5)]
+            + [4 for i in range(8)]
+            + [5 for i in range(2)]
+        )
+        self.assertTrue(np.array_equal(measure_numbers_for_notes, expected_measure_numbers_for_notes))
+
     def test_anacrusis_downbeat(self):
         part = load_musicxml(METRICAL_POSITION_TESTFILES[1])
         note_array = note_array_from_part(part, include_metrical_position=True)

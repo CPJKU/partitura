@@ -268,10 +268,36 @@ def _parse_parts(document, part_dict):
             position, doc_order = _handle_measure(
                 measure_el, position, part, ongoing, doc_order
             )
+        
+        
+        # complete unfinished endings
+        for o in part.iter_all(score.Ending, mode="ending"): 
+            if o.start is None:
+                part.add(o,part.measure_map(o.end.t-1)[0],None)
+                LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"
+                    "Single measure bracket is assumed")
+        
+        for o in part.iter_all(score.Ending, mode="starting"):    
+            if o.end is None:
+                part.add(o,None,part.measure_map(o.start.t)[1])
+                LOGGER.warning("Found ending[start] without a following ending[stop]\n"
+                    "Single measure bracket is assumed")
 
-        # remove unfinished elements from the timeline
+        # complete unstarted repeats 
+        for o in part.iter_all(score.Repeat, mode="ending"): 
+            print(o)
+            if o.start is None:
+                start_times = [0] + \
+                    [r.start.t for r in part.iter_all(score.Repeat)]
+                start_time_id = np.searchsorted(start_times, o.end.t) - 1
+                part.add(o,start_times[start_time_id],None)
+                LOGGER.warning("Found repeat without start\n"
+                    "Starting point {} is assumend".format(start_times[start_time_id]))
+
+        # remove unfinished elements from the timeline        
         for k, o in ongoing.items():
-            if k not in ("page", "system") and k[0] != "tie":
+            if (k not in ("page", "system","repeat") and 
+                k[0] not in ("tie","ending")):
                 if isinstance(o, list):
                     for o_i in o:
                         part.remove(o_i)
@@ -379,14 +405,21 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             measure_maxtime = max(measure_maxtime, position)
 
         elif e.tag == "barline":
+            location = get_value_from_attribute(e, "location", str)
+            if location is None or "right":
+                position_barline = measure_maxtime
+            elif location is "left":
+                position_barline = measure_start
+            else:
+                position_barline = position
 
             repeat = e.find("repeat")
             if repeat is not None:
-                _handle_repeat(repeat, position, part, ongoing)
+                _handle_repeat(repeat, position_barline, part, ongoing)
 
             ending = e.find("ending")
             if ending is not None:
-                _handle_ending(ending, position, part, ongoing)
+                _handle_ending(ending, position_barline, part, ongoing)
 
             bar_style_e = e.find("bar-style")
             if bar_style_e is not None:
@@ -445,13 +478,16 @@ def _handle_repeat(e, position, part, ongoing):
             # object and add it at the beginning of
             # the self retroactively
             o = score.Repeat()
-            part.add(o, 0)
+            # no, clean up later with shortest possible repeat start
+            # part.add(o, 0)
 
         part.add(o, None, position)
 
 
+
 def _handle_ending(e, position, part, ongoing):
-    key = "ending"
+    #key = "ending"
+    key = ("ending", getattr(e, "number", "0"))
 
     if e.get("type") == "start":
 
@@ -465,7 +501,10 @@ def _handle_ending(e, position, part, ongoing):
 
         if o is None:
 
-            LOGGER.warning("Found ending[stop] without a preceding ending[start]")
+            LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"+
+                           "Single measure bracket is assumed")
+            o = score.Ending(e.get("number"))
+            part.add(o, None, position)
 
         else:
 
@@ -579,11 +618,22 @@ def _handle_direction(e, position, part, ongoing):
     # >
 
     staff = get_value_from_tag(e, "staff", int) or None
-
-    if get_value_from_attribute(e, "sound/fine", str) == "yes":
-        part.add(score.Fine(), position)
-    if get_value_from_attribute(e, "sound/dacapo", str) == "yes":
-        part.add(score.DaCapo(), position)
+    
+    sound_directions = e.findall("sound")
+    for sd in sound_directions:
+        
+        if get_value_from_attribute(sd, "fine", str) == "yes":
+            part.add(score.Fine(), position)
+        if get_value_from_attribute(sd, "dacapo", str) == "yes":
+            part.add(score.DaCapo(), position)
+        if get_value_from_attribute(sd, "tocoda", str) == "coda":
+            part.add(score.ToCoda(), position)
+        if get_value_from_attribute(sd, "coda", str) == "coda":
+            part.add(score.Coda(), position)
+        if get_value_from_attribute(sd, "dalsegno", str) == "segno":
+            part.add(score.DalSegno(), position)
+        if get_value_from_attribute(sd, "segno", str) == "segno":
+            part.add(score.Segno(), position)
 
     # <direction-type> ... </...>
     direction_types = e.findall("direction-type")
