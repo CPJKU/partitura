@@ -16,6 +16,7 @@ from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
 from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
+from .io.exportparangonada import save_csv_for_parangonada
 
 from .display import render
 from . import musicanalysis
