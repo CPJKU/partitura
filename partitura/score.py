@@ -249,9 +249,15 @@ class Part(object):
                 tN = self.last_point.t
 
             measures = np.array([(t0, tN)])
-  
-        return interp1d(measures[:, 0],measures[:, :].astype(int),
+
+        inter_function = interp1d(measures[:, 0],measures[:, :].astype(int),
                         kind="previous", axis=0, fill_value="extrapolate")
+
+        def int_interp1d(input):
+            return inter_function(input).astype(int) 
+
+        return int_interp1d
+        
 
     @property
     def measure_number_map(self):
@@ -290,8 +296,14 @@ class Part(object):
 
             measures = np.array([(t0, tN, 1)])
 
-        return interp1d(measures[:, 0],measures[:, 2].astype(int),
+        inter_function = interp1d(measures[:, 0],measures[:, 2],
                         kind="previous", fill_value="extrapolate")
+
+        def int_interp1d(input):
+            return inter_function(input).astype(int) 
+
+        return int_interp1d
+
 
     @property
     def metrical_position_map(self):
@@ -309,7 +321,12 @@ class Part(object):
         ys = np.column_stack((xs - self.measure_map(xs)[:, 0],
                               self.measure_map(xs)[:, 1] - self.measure_map(xs)[:, 0]))
 
-        return interp1d(xs,ys, axis=0, kind="linear")
+        inter_function = interp1d(xs,ys, axis=0, kind="linear")
+
+        def int_interp1d(input):
+            return inter_function(input).astype(int) 
+
+        return int_interp1d
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
