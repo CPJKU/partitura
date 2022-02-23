@@ -406,9 +406,9 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
         elif e.tag == "barline":
             location = get_value_from_attribute(e, "location", str)
-            if location is None or "right":
+            if (location is None) or (location == "right"):
                 position_barline = measure_maxtime
-            elif location is "left":
+            elif location == "left":
                 position_barline = measure_start
             else:
                 position_barline = position
