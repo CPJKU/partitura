@@ -15,6 +15,6 @@ class TestPerformanceCoded(unittest.TestCase):
     def test_encode(self):
         pc = PerformanceCodec()
         for fn in MATCH_IMPORT_EXPORT_TESTFILES:
-            part, ppart, alignment = load_match(fn, create_part=True)
-            performed_array = pc.encode(part, ppart, alignment)
+            ppart, alignment, spart = load_match(fn, create_part=True)
+            performed_array, _ = pc.encode(spart, ppart, alignment)
             print(performed_array[:10])

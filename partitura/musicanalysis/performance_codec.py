@@ -34,8 +34,12 @@ class PerformanceCodec(object):
         # Get dynamics-related parameters
         dynamics_params = np.array(m_score['velocity'] / 127.0, dtype=[('velocity', 'f4')])
         # Concatenate parameters into a single matrix
-        parameters = rfn.merge_arrays([time_params, dynamics_params],
-                                      flatten=True, usemask=False)
+        # parameters = rfn.merge_arrays([time_params, dynamics_params],
+        #                               flatten=True, usemask=False)
+
+        # Fixing random error
+        parameters = time_params
+        parameters["velocity"] = dynamics_params["velocity"]
 
         if return_u_onset_idx:
             return parameters, snote_ids, unique_onset_idxs
@@ -75,7 +79,7 @@ class PerformanceCodec(object):
 
         # Compute tempo parameter
         # TODO fix normalization
-        tempo_params = self.normalization['scale'](beat_period)
+        tempo_params = [beat_period]
 
         # Compute articulation parameter
         articulation_param = encode_articulation(
@@ -89,12 +93,9 @@ class PerformanceCodec(object):
                               dtype=[(pn, 'f4') for pn in self.parameter_names])
         parameters['articulation_log'] = articulation_param
         for i, jj in enumerate(unique_onset_idxs):
-            parameters[self.normalization['param_names'][0]][jj] = tempo_params[0][i]
+            parameters["beat_period"][jj] = tempo_params[0][i]
             # Defined as in Eq. (3.9) in Thesis (pp. 34)
             parameters['timing'][jj] = eq_onsets[i] - performance[jj, 0]
-
-            for pn, tp in zip(self.normalization['param_names'][1:], tempo_params[1:]):
-                parameters[pn][jj] = tp[i]
 
         if return_u_onset_idx:
             return parameters, unique_onset_idxs
@@ -152,7 +153,7 @@ class PerformanceCodec(object):
         # Get unique onsets if no provided
         if unique_onset_idxs is None:
             # Get indices of the unique onsets (quantize score onsets)
-            unique_onset_idxs = get_unique_onset_idxs((1e4 * score_onsets).astype(np.int))
+            unique_onset_idxs = get_unique_onset_idxs((1e4 * score_onsets).astype(int))
 
         # Get score information
         score_info = get_unique_seq(onsets=score_onsets,
@@ -190,7 +191,6 @@ class PerformanceCodec(object):
             return tempo_curve, input_onsets, unique_onset_idxs
         else:
             return tempo_curve, input_onsets
-
 
 def get_unique_seq(onsets, offsets, unique_onset_idxs=None):
     """
@@ -342,10 +342,15 @@ def monotonize_times(s, deltas=None):
         _deltas = np.r_[np.min(deltas) - eps, deltas, np.max(deltas) + eps]
     else:
         _deltas = None
-    mask = np.ones(_s.shape[0], dtype=np.bool)
+    mask = np.ones(_s.shape[0], dtype=bool)
     mask[0] = mask[-1] = False
     idx = np.arange(_s.shape[0])
     s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-    return s_mono
+    return _s[mask], _deltas[mask]
 
 
+def bp_scale(beat_period):
+    return [beat_period]
+
+def bp_rescale(tempo_params):
+    return tempo_params['beat_period']
