@@ -16,10 +16,6 @@ class PerformanceCodec(object):
         Encode expressive parameters from a matched performance
         Parameters
         ----------
-        matched_score : structured array
-            Performance matched to its score.
-        snote_ids : list
-            NoteID's of the matched notes in the performance.
         return_u_onset_idx : bool
             Return the indices of the unique score onsets
         """
@@ -56,8 +52,8 @@ class PerformanceCodec(object):
             raise ValueError('The performance and the score should be of '
                              'the same size')
 
-        # use float64, float32 led to problems that x == x + eps
-        # evaluated to True
+        # use float64, float32 led to problems that x == x + eps evaluated to True
+        # Maybe replace by np.isclose
         score_onsets = score_onsets.astype(np.float64, copy=False)
         performed_onsets = performed_onsets.astype(np.float64, copy=False)
         score_durations = score_durations.astype(np.float64, copy=False)
@@ -161,13 +157,11 @@ class PerformanceCodec(object):
         # Get score information
         score_info = get_unique_seq(onsets=score_onsets,
                                     offsets=score_onsets + score_durations,
-                                    unique_onset_idxs=unique_onset_idxs,
-                                    return_diff=False)
+                                    unique_onset_idxs=unique_onset_idxs)
         # Get performance information
         perf_info = get_unique_seq(onsets=performed_onsets,
                                    offsets=performed_onsets + performed_durations,
-                                   unique_onset_idxs=unique_onset_idxs,
-                                   return_diff=False)
+                                   unique_onset_idxs=unique_onset_idxs)
 
         # unique score onsets
         unique_s_onsets = score_info['u_onset']
@@ -197,8 +191,8 @@ class PerformanceCodec(object):
         else:
             return tempo_curve, input_onsets
 
-def get_unique_seq(onsets, offsets, unique_onset_idxs=None,
-                   return_diff=False):
+
+def get_unique_seq(onsets, offsets, unique_onset_idxs=None):
     """
     Get unique onsets of a sequence of notes
     """
@@ -223,9 +217,6 @@ def get_unique_seq(onsets, offsets, unique_onset_idxs=None,
         u_onset=u_onset,
         total_dur=total_dur,
         unique_onset_idxs=unique_onset_idxs)
-
-    if return_diff:
-        output_dict['diff_u_onset'] = np.diff(u_onset)
 
     return output_dict
 
@@ -326,14 +317,9 @@ def encode_articulation(score_durations, performed_durations,
         # Compute log articulation ratio
         articulation[idx] = np.log2(pd / (bp * sd))
 
-    # articulation[np.where(np.isnan(articulation))] = 0
-    if len(np.where(np.isnan(articulation))[0]) != 0:
-        import pdb
-        pdb.set_trace()
-
     return articulation
 
-def monotonize_times(s, strict=True, deltas=None, return_interp_seq=False):
+def monotonize_times(s, deltas=None):
     """Interpolate linearly over as many points in `s` as necessary to
     obtain a monotonic sequence. The minimum and maximum of `s` are
     prepended and appended, respectively, to ensure monotonicity at
@@ -349,10 +335,7 @@ def monotonize_times(s, strict=True, deltas=None, return_interp_seq=False):
     ndarray
        a monotonic sequence that has been linearly interpolated using a subset of s
     """
-    if strict:
-        eps = np.finfo(np.float32).eps
-    else:
-        eps = 1e-3
+    eps = np.finfo(np.float32).eps
 
     _s = np.r_[np.min(s) - eps, s, np.max(s) + eps]
     if deltas is not None:
@@ -360,77 +343,9 @@ def monotonize_times(s, strict=True, deltas=None, return_interp_seq=False):
     else:
         _deltas = None
     mask = np.ones(_s.shape[0], dtype=np.bool)
-    monotonic_mask = _monotonize_times(_s, mask, strict, _deltas)[1:-1]  # is the mask always changed in place?
     mask[0] = mask[-1] = False
-    # s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-    if return_interp_seq:
-        idx = np.arange(_s.shape[0])
-        s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-        return s_mono
-    else:
-        return _s[mask], _deltas[mask]
-
-def _monotonize_times(s, mask, strict, deltas=None):
-    """
-    Return a mask such that s[mask] is monotonic.
-    """
-
-    # print('is monotonic?')
-    if _is_monotonic(s, mask, strict, deltas):
-        # print('yes')
-        return mask
-    else:
-        # print('no')
-        p = _select_problematic(s, mask, deltas)
-        # print('select problematic', p)
-        mask[p] = False
-
-        return _monotonize_times(s, mask, strict, deltas)
+    idx = np.arange(_s.shape[0])
+    s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
+    return s_mono
 
 
-
-def _select_problematic(s, mask, deltas=None):
-    """Return the index i of an element of s, such that removing s[i]
-    reduces the non-monotonicity of s[mask]. This method assumes the
-    first and last element of `s` are the the minimum and maximum,
-    respectively.
-    Parameters
-    ----------
-    s : ndarray
-        a sequence of numbers
-    mask : ndarray(bool)
-        a boolean mask to be applied to s
-    Returns
-    -------
-    int
-       an index i such that removing s[i] from s reduces
-       non-monotonicity
-    """
-    if deltas is not None:
-        diffs = np.diff(s[mask]) / np.diff(deltas[mask])
-    else:
-        diffs = np.diff(s[mask])
-    # ignore first and last elements
-    problematic = np.argmin(diffs[1:] * diffs[:-1]) + 1
-    return np.where(mask)[0][problematic]
-
-def _is_monotonic(s, mask, strict=True, deltas=None):
-    """Return True when `s[mask]` is monotonic. When `strict` is True,
-    check for strict monotonicity.
-    Parameters
-    ----------
-    s : ndarray
-        a sequence of numbers
-    mask : ndarray(bool)
-        a boolean mask to be applied to `s`
-    strict : bool
-        when True, return a strictly monotonic sequence (default: True)
-    """
-
-    if s[mask].shape[0] < 4:
-        return True
-    else:
-        if strict:
-            return np.all(np.diff(s[mask]) / np.diff(deltas[mask]) > 0.0)
-        else:
-            return np.all(np.diff(s[mask]) / np.diff(deltas[mask]) >= 0.0)
