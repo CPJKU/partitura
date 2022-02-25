@@ -1,5 +1,7 @@
+import numpy
 import numpy.lib.recfunctions as rfn
 import numpy as np
+from partitura.score import Part
 from scipy.interpolate import interp1d
 
 class PerformanceCodec(object):
@@ -11,7 +13,7 @@ class PerformanceCodec(object):
         super().__init__()
         self.parameter_names = ['beat_period', 'velocity', 'timing', 'articulation_log']
 
-    def encode(self, part, ppart, alignment, return_u_onset_idx=False):
+    def encode(self, part : Part, ppart, alignment, return_u_onset_idx=False):
         """
         Encode expressive parameters from a matched performance
         Parameters
@@ -46,9 +48,9 @@ class PerformanceCodec(object):
         else:
             return parameters, snote_ids
 
-    def tempo_encode(self, score_onsets, performed_onsets,
+    def tempo_encode(self, score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
                score_durations, performed_durations,
-               return_u_onset_idx=False):
+               return_u_onset_idx : bool = False) -> numpy.ndarray:
         """
         Compute time-related performance parameters from a performance
         """
@@ -220,7 +222,7 @@ def get_unique_seq(onsets, offsets, unique_onset_idxs=None):
 
     return output_dict
 
-def get_unique_onset_idxs(onsets, eps=1e-6, return_unique_onsets=False):
+def get_unique_onset_idxs(onsets, eps:float=1e-6, return_unique_onsets:bool=False):
     """
     Get unique onsets and their indices.
     Parameters
