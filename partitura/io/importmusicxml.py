@@ -285,7 +285,6 @@ def _parse_parts(document, part_dict):
 
         # complete unstarted repeats 
         for o in part.iter_all(score.Repeat, mode="ending"): 
-            print(o)
             if o.start is None:
                 start_times = [0] + \
                     [r.start.t for r in part.iter_all(score.Repeat)]
