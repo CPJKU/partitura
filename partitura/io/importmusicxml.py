@@ -318,10 +318,10 @@ def _parse_parts(document, part_dict):
                         gn.last_grace_note_in_seq.grace_next = no
 
             if gn.main_note is None:
-                print(
+                LOGGER.warning(
                     "grace note without recoverable same voice main note: {}".format(gn)
                 )
-                print("might be cadenza notation")
+                LOGGER.warning("might be cadenza notation")
 
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
