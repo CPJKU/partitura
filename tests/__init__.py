@@ -118,7 +118,6 @@ KERN_TESFILES = [
         "Beethoven_sonata_1.1.krn",
         'Bach-BWV_316.krn',
         "bach_fugue.krn",
-        "wtc1f11.krn"
     ]
 ]
 
