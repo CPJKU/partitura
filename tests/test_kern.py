@@ -17,22 +17,6 @@ class TestImportKERN(unittest.TestCase):
         document_path = partitura.EXAMPLE_KERN
         parts = load_kern(document_path)
 
-    def test_4voice_simple(self):
-        document_path = KERN_TESFILES[1]
-        parts = load_kern(document_path)
-
-    def test_1voice_simple(self):
-        document_path = KERN_TESFILES[0]
-        parts = load_kern(document_path)
-
-    def test_beethoven_sonata(self):
-        document_path = KERN_TESFILES[2]
-        parts = load_kern(document_path)
-
-    def test_bach_chorale(self):
-        document_path = KERN_TESFILES[3]
-        parts = load_kern(document_path)
-
-    def test_bach_fugue(self):
-        document_path = KERN_TESFILES[4]
-        parts = load_kern(document_path)
+    def test_examples(self):
+        for fn in KERN_TESFILES:
+            parts = load_kern(fn)

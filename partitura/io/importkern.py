@@ -338,28 +338,32 @@ class KernParserPart(KernGlobalPart):
 
 
 class KernParser():
-    def __init__(self, document, doc_name, parallel=True, n_jobs=2):
+    def __init__(self, document, doc_name):
         self.document = document
         self.doc_name = doc_name
-        self.parallel = parallel
-        self.n_jobs = n_jobs
+        # TODO review this code
         self.DIVS2Q = {
             1: 0.25,
             2: 0.5,
             4: 1,
+            6: 1.5,
             8: 2,
             16: 4,
-            64: 8,
-            128: 16,
-            256: 32
+            24: 6,
+            32: 8,
+            48: 12,
+            64: 16,
+            128: 32,
+            256: 64
         }
+        # self.qdivs =
         self.parts = self.process()
 
     def __getitem__(self, item):
         return self.parts[item]
 
     def process(self):
-        self.qdivs = self.initialize_part_with_div()
+
         has_pickup = not np.all(np.char.startswith(self.document, "=1-") == False)
         if not has_pickup:
             position = 0
@@ -367,10 +371,7 @@ class KernParser():
             position = self._handle_pickup_position()
 
         # Add for parallel processing
-        # if self.parallel:
-        #     parts = Parallel(n_jobs=self.n_jobs)(delayed(self.collect)(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0]))
-        # else:
-        parts = [self.collect(self.document[i], position, self.doc_name, str(i), self.qdivs) for i in range(self.document.shape[0])]
+        parts = [self.collect(self.document[i], position, self.doc_name, str(i)) for i in range(self.document.shape[0])]
         return [p for p in parts if p]
 
     def add2part(self, part, unprocessed):
@@ -379,8 +380,9 @@ class KernParser():
             new_part = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, part.barline_dict)
             self.parts.append(new_part)
 
-    def collect(self, doc, pos, doc_name, id, qdivs):
+    def collect(self, doc, pos, doc_name, id):
         if doc[0] == "**kern":
+            qdivs = self.find_lcm(doc)
             x = KernParserPart(doc, pos, doc_name, id, qdivs)
             return x
 
@@ -388,41 +390,15 @@ class KernParser():
     def _handle_pickup_position(self):
         return 0
 
-    def initialize_part_with_div(self):
-        def try_to_eval2(x):
-            try:
-                return eval(x[:2])
-            except SyntaxError:
-                return 0
-
-        def try_to_eval3(x):
-            try:
-                return eval(x[:3])
-            except SyntaxError:
-                return 0
-
-        nlist = list()
-        for n in range(1, 10):
-            idx = np.where(np.char.startswith(self.document, str(n)))
-            nlist += [self.document[idx]]
-        notes = np.concatenate(nlist)
-        y = np.nonzero(np.vectorize(try_to_eval2)(notes))
-        if y[0].size != 0:
-            n = 2
-            t = np.nonzero(np.vectorize(try_to_eval3)(notes))
-            if t[0].size != 0:
-                y = t
-                n = 3
-        else:
-            y = np.nonzero(np.vectorize(lambda x: isinstance(eval(x[0]), int))(notes))
-            n = 1
-        uniques = np.unique(np.vectorize(lambda x: eval(x[:n]))(notes[y]))
-        min_value = np.max(np.lcm.reduce(uniques))
-        qdivs = self.DIVS2Q[min_value] if min_value in self.DIVS2Q.keys() else int(min_value/4)
-        return qdivs
+    def find_lcm(self, doc):
+        kern_string = "-".join([row for row in doc])
+        match = re.findall('([0-9]+)([a-g]|[A-G]|r|\.)', kern_string)
+        durs, _ = zip(*match)
+        x = np.array(list(map(lambda x : int(x), durs)))
+        divs = np.lcm.reduce(np.unique(x))
+        return float(divs)/4.00
 
 # functions to initialize the kern parser
-
 def parse_kern(kern_path):
     """
     Parses an KERN file from path to an regular expression.
@@ -500,7 +476,7 @@ def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=Fa
     # parse kern file
     numpy_parts = parse_kern(kern_path)
     doc_name = os.path.basename(kern_path[:-4])
-    parser = KernParser(numpy_parts, doc_name, parallel=parallel)
+    parser = KernParser(numpy_parts, doc_name)
     partlist = parser.parts
 
     score.assign_note_ids(partlist, keep= (force_note_ids is True or force_note_ids == "keep"))
