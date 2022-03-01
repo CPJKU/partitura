@@ -2,12 +2,11 @@ import os.path
 import re
 
 import partitura.score as score
-# Add for parallel processing
-# from joblib import Parallel, delayed
 import numpy as np
 
 class KernGlobalPart(score.Part):
     def __init__(self, doc_name, part_id, qdivs):
+        qdivs = int(1) if int(qdivs) == 0 else int(qdivs)
         super(KernGlobalPart, self).__init__(doc_name, part_id, quarter_duration=qdivs)
         self.SIGN_TO_ACC = {
             "n": 0,
@@ -45,6 +44,7 @@ class KernGlobalPart(score.Part):
         self.KERN_DURS = {
             # "long": "long",
             # "breve": "breve",
+            0: "breve",
             1: "whole",
             2: "half",
             4: "quarter",
@@ -61,6 +61,7 @@ class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = init_pos
+        self.parsing = "full"
         self.stream = stream
         self.last_repeat_pos = None
         self.mode = None
@@ -82,6 +83,7 @@ class KernParserPart(KernGlobalPart):
                     self.staff = 1
                 self._handle_glob_attr(el)
             elif el.startswith("="):
+                self.select_parsing(el)
                 self._handle_barline(el)
             elif " " in el:
                 self._handle_chord(el, index)
@@ -92,6 +94,15 @@ class KernParserPart(KernGlobalPart):
         self.nid_dict = dict([(n.id, n) for n in self.iter_all(cls=score.Note)] + [(n.id, n) for n in self.iter_all(cls=score.GraceNote)])
         self._handle_slurs()
         self._handle_ties()
+
+    # Account for parsing priorities.
+    def select_parsing(self, el):
+        if self.parsing == "full":
+            return el
+        elif self.parsing == "right":
+            return el.split()[-1]
+        else:
+            return el.split()[0]
 
     # TODO handle !!!info
     def _handle_fileinfo(self, el):
@@ -249,7 +260,7 @@ class KernParserPart(KernGlobalPart):
 
         # calculate duration to divs.
         qdivs = self._quarter_durations[0]
-        duration = qdivs * 4 / dur
+        duration = qdivs * 4 / dur if dur != 0 else qdivs * 8
         if "." in note:
             symbolic_duration["dots"] = note.count(".")
             ntype = ntype[note.count("."):]
@@ -257,8 +268,9 @@ class KernParserPart(KernGlobalPart):
                 duration += duration / 2
         else:
             symbolic_duration["dots"] = 0
-        if not duration.is_integer():
-            raise ValueError("Duration divs is not an integer, {}".format(duration))
+        if isinstance(duration, float):
+            if not duration.is_integer():
+                raise ValueError("Duration divs is not an integer, {}".format(duration))
         return duration, symbolic_duration, ntype
 
     # TODO Handle beams and tuplets.
@@ -270,6 +282,8 @@ class KernParserPart(KernGlobalPart):
         note = self._search_slurs_and_ties(note, note_id)
         grace_attr = "q" in note or "p" in note
         duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
+        # Remove editorial symbols from string, i.e. "x"
+        ntype = ntype.replace("x", "")
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
             octave += ntype.count(step)
@@ -335,7 +349,12 @@ class KernParserPart(KernGlobalPart):
             self._handle_metersig(el)
         elif el.endswith(":"):
             self._handle_mode(el)
-
+        elif el.startswith("*S/sic"):
+            self.parsing = "left"
+        elif el.startswith("*S/ossia"):
+            self.parsing = "right"
+        elif el.startswith("Xstrophe"):
+            self.parsing = "full"
 
 class KernParser():
     def __init__(self, document, doc_name):
@@ -363,13 +382,13 @@ class KernParser():
         return self.parts[item]
 
     def process(self):
-
-        has_pickup = not np.all(np.char.startswith(self.document, "=1-") == False)
-        if not has_pickup:
-            position = 0
-        else:
-            position = self._handle_pickup_position()
-
+        # TODO handle pickup
+        # has_pickup = not np.all(np.char.startswith(self.document, "=1-") == False)
+        # if not has_pickup:
+        #     position = 0
+        # else:
+        #     position = self._handle_pickup_position()
+        position = 0
         # Add for parallel processing
         parts = [self.collect(self.document[i], position, self.doc_name, str(i)) for i in range(self.document.shape[0])]
         return [p for p in parts if p]
@@ -425,12 +444,17 @@ def parse_kern(kern_path):
             striped_parts.append(y)
         else:
             striped_parts.append(x)
-        if "*^" in x:
-            k = x.index("*^")
-            if merge_index:
-                if k < min(merge_index):
-                    merge_index = [midx+1 for midx in merge_index]
-            merge_index.append(k)
+        if "*^" in x or "*+":
+            # Accounting for multiple voice ups at the same time.
+            for i, el in enumerate(x):
+                # Some faulty kerns create an extra part half way through the score.
+                # We choose for the moment to add it to the closest column part.
+                if el=="*^" or el=="*+":
+                    k = i
+                    if merge_index:
+                        if k < min(merge_index):
+                            merge_index = [midx+1 for midx in merge_index]
+                    merge_index.append(k)
         if "*v *v" in x:
             k = x.index("*v *v")
             temp = list()
@@ -440,7 +464,8 @@ def parse_kern(kern_path):
                 elif i <k :
                     temp.append(i)
             merge_index = temp
-
+    # Final filter for mistabs and inconsistent tabs that would create extra empty voice and would mess the parsing.
+    striped_parts = [[el for el in part if el != ""] for part in striped_parts]
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
 
