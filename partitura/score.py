@@ -2059,7 +2059,6 @@ class Measure(TimedObject):
     Attributes
     ----------
     number : intp
-
         See parameters
 
     """
