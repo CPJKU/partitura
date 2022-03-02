@@ -4,10 +4,12 @@ import re
 import partitura.score as score
 import numpy as np
 
-class KernGlobalPart(score.Part):
+class KernGlobalPart(object):
     def __init__(self, doc_name, part_id, qdivs):
         qdivs = int(1) if int(qdivs) == 0 else int(qdivs)
-        super(KernGlobalPart, self).__init__(doc_name, part_id, quarter_duration=qdivs)
+        # super(KernGlobalPart, self).__init__()
+        self.part = score.Part(doc_name, part_id, quarter_duration=qdivs)
+        self.default_clef_lines = {"G": 2, "F": 4, "C": 3}
         self.SIGN_TO_ACC = {
             "n": 0,
             "#": 1,
@@ -92,7 +94,7 @@ class KernParserPart(KernGlobalPart):
                 self._handle_rest(el, "r-" + str(index))
             else:
                 self._handle_note(el, "n-" + str(index))
-        self.nid_dict = dict([(n.id, n) for n in self.iter_all(cls=score.Note)] + [(n.id, n) for n in self.iter_all(cls=score.GraceNote)])
+        self.nid_dict = dict([(n.id, n) for n in self.part.iter_all(cls=score.Note)] + [(n.id, n) for n in self.part.iter_all(cls=score.GraceNote)])
         self._handle_slurs()
         self._handle_ties()
 
@@ -122,18 +124,18 @@ class KernParserPart(KernGlobalPart):
             raise ValueError("Slur Mismatch! Uneven amount of closing to open slur brackets.")
         else:
             for (oid, cid) in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
-                self.add(score.Slur(self.nid_dict[oid], self.nid_dict[cid]))
+                self.part.add(score.Slur(self.nid_dict[oid], self.nid_dict[cid]))
 
     def _handle_metersig(self, metersig):
         m = metersig[2:]
         numerator, denominator = map(eval, m.split("/"))
         new_time_signature = score.TimeSignature(numerator, denominator)
-        self.add(new_time_signature, self.position)
+        self.part.add(new_time_signature, self.position)
 
     def _handle_barline(self, element):
         # TODO enumerate measures according to kern nums
         if self.position > self.prev_measure_pos:
-            self.add(score.Measure(), self.prev_measure_pos, self.position)
+            self.part.add(score.Measure(), self.prev_measure_pos, self.position)
             self.prev_measure_pos = self.position
         if len(element.split()) > 1:
             element = element.split()[0]
@@ -158,9 +160,9 @@ class KernParserPart(KernGlobalPart):
                 barline = score.Barline(style="special")
 
         if isinstance(barline, score.Repeat):
-            self.add(barline, self.position, self.last_repeat_pos if self.last_repeat_pos else None)
+            self.part.add(barline, self.position, self.last_repeat_pos if self.last_repeat_pos else None)
         else:
-            self.add(barline, self.position)
+            self.part.add(barline, self.position)
 
         # update position for backward repeat signs
         if "|:" in element:
@@ -184,7 +186,7 @@ class KernParserPart(KernGlobalPart):
         # TODO retrieve the key mode
         mode = self.mode if self.mode else "major"
         new_key_signature = score.KeySignature(fifths, mode)
-        self.add(new_key_signature, self.position)
+        self.part.add(new_key_signature, self.position)
 
     def _compute_clef_octave(self, dis, dis_place):
         if dis is not None:
@@ -197,9 +199,14 @@ class KernParserPart(KernGlobalPart):
     def _handle_clef(self, element):
         # handle the case where we have clef information
         # TODO Compute Clef Octave
-        line = int(element[6]) if element[6] != "v" else int(element[7])
-        new_clef = score.Clef(self.staff, element[5], line, 0)
-        self.add(new_clef, self.position)
+        if element[5] not in ['G', 'F', 'C']:
+            raise ValueError("Unknown Clef", element[5])
+        if len(element) < 7:
+            line = self.default_clef_lines[element[5]]
+        else:
+            line = int(element[6]) if element[6] != "v" else int(element[7])
+        new_clef = score.Clef(number=self.staff, sign=element[5], line=line, octave_change=0)
+        self.part.add(new_clef, self.position)
 
     def _handle_rest(self, el, rest_id):
         # find duration info
@@ -213,12 +220,12 @@ class KernParserPart(KernGlobalPart):
             articulations=None,
         )
         # add rest to the part
-        self.add(rest, self.position, self.position + duration)
+        self.part.add(rest, self.position, self.position + duration)
         # return duration to update the position in the layer
         self.position += duration
 
     def _handle_fermata(self, note_instance):
-        self.add(note_instance, self.position)
+        self.part.add(note_instance, self.position)
 
     def _search_slurs_and_ties(self, note, note_id):
         if ")" in note:
@@ -264,7 +271,7 @@ class KernParserPart(KernGlobalPart):
             }
 
         # calculate duration to divs.
-        qdivs = self._quarter_durations[0]
+        qdivs = self.part._quarter_durations[0]
         duration = qdivs * 4 / dur if dur != 0 else qdivs * 8
         if "." in note:
             symbolic_duration["dots"] = note.count(".")
@@ -291,9 +298,9 @@ class KernParserPart(KernGlobalPart):
         ntype = ntype.replace("x", "")
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
-            octave += ntype.count(step)
+            octave = octave + ntype.count(ntype[0]) - 1
         elif octave == 3:
-            octave -= ntype.count(step)
+            octave = octave - ntype.count(ntype[0]) + 1
         alter = ntype.count('#') - ntype.count("-")
         # find if it's grace
         if not grace_attr:
@@ -329,7 +336,7 @@ class KernParserPart(KernGlobalPart):
             )
             duration = 0
 
-        self.add(note, self.position, self.position + duration)
+        self.part.add(note, self.position, self.position + duration)
         self.position += duration
 
     def _handle_chord(self, chord, id):
@@ -395,7 +402,7 @@ class KernParser():
         #     position = self._handle_pickup_position()
         position = 0
         # Add for parallel processing
-        parts = [self.collect(self.document[i], position, self.doc_name, str(i)) for i in range(self.document.shape[0])]
+        parts = [self.collect(self.document[i], position, str(i), self.doc_name) for i in reversed(range(self.document.shape[0]))]
         return [p for p in parts if p]
 
     def add2part(self, part, unprocessed):
@@ -404,10 +411,10 @@ class KernParser():
             new_part = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, part.barline_dict)
             self.parts.append(new_part)
 
-    def collect(self, doc, pos, doc_name, id):
+    def collect(self, doc, pos, id, doc_name):
         if doc[0] == "**kern":
             qdivs = self.find_lcm(doc)
-            x = KernParserPart(doc, pos, doc_name, id, qdivs)
+            x = KernParserPart(doc, pos, id, doc_name, qdivs).part
             return x
 
     # TODO handle position of pick-up measure?
