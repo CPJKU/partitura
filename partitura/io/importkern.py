@@ -63,6 +63,7 @@ class KernParserPart(KernGlobalPart):
         self.position = init_pos
         self.parsing = "full"
         self.stream = stream
+        self.prev_measure = 0
         self.last_repeat_pos = None
         self.mode = None
         self.barline_dict = dict() if not barline_dict else barline_dict
@@ -130,6 +131,8 @@ class KernParserPart(KernGlobalPart):
         self.add(new_time_signature, self.position)
 
     def _handle_barline(self, element):
+        self.add(score.Measure, self.prev_measure, self.position)
+        self.prev_measure = self.position
         if len(element.split()) > 1:
             element = element.split()[0]
         if element.endswith("!") or element == "==":
