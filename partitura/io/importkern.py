@@ -4,6 +4,7 @@ import re
 import partitura.score as score
 import numpy as np
 
+
 class KernGlobalPart(object):
     def __init__(self, doc_name, part_id, qdivs):
         qdivs = int(1) if int(qdivs) == 0 else int(qdivs)
@@ -66,6 +67,8 @@ class KernParserPart(KernGlobalPart):
         self.parsing = "full"
         self.stream = stream
         self.prev_measure_pos = init_pos
+        # Check if part has pickup measure.
+        self.measure_count = 0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
         self.last_repeat_pos = None
         self.mode = None
         self.barline_dict = dict() if not barline_dict else barline_dict
@@ -133,37 +136,27 @@ class KernParserPart(KernGlobalPart):
         self.part.add(new_time_signature, self.position)
 
     def _handle_barline(self, element):
-        # TODO enumerate measures according to kern nums
         if self.position > self.prev_measure_pos:
-            self.part.add(score.Measure(), self.prev_measure_pos, self.position)
+            indicated_measure = re.findall("=([0-9]+)", element)
+            if indicated_measure != []:
+                m = eval(indicated_measure[0])
+                barline = score.Barline(style="normal")
+                self.part.add(barline, self.position)
+                self.measure_count = m
+                self.barline_dict[m] = self.position
+            else:
+                m = self.measure_count
+            self.part.add(score.Measure(m), self.prev_measure_pos, self.position)
             self.prev_measure_pos = self.position
+            self.measure_count += 1
         if len(element.split()) > 1:
             element = element.split()[0]
         if element.endswith("!") or element == "==":
             barline = score.Fine()
-        elif ":|" in element:
-            barline = score.Repeat()
-        elif "!" in element:
-            barline = score.Barline(style="thick")
-        else:
-            try:
-                bartype, barnum, _ = re.split('(\d+)', element)
-            except :
-                x = None
-            if eval(barnum) not in self.barline_dict.keys():
-                self.barline_dict[eval(barnum)] = self.position
-            else :
-                self.position = self.barline_dict[eval(barnum)]
-            if bartype == "=":
-                barline = score.Barline(style="normal")
-            else:
-                barline = score.Barline(style="special")
-
-        if isinstance(barline, score.Repeat):
-            self.part.add(barline, self.position, self.last_repeat_pos if self.last_repeat_pos else None)
-        else:
             self.part.add(barline, self.position)
-
+        if ":|" in element:
+            barline = score.Repeat()
+            self.part.add(barline, self.position, self.last_repeat_pos if self.last_repeat_pos else None)
         # update position for backward repeat signs
         if "|:" in element:
             self.last_repeat_pos = self.position
