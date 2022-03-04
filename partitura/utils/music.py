@@ -1466,6 +1466,10 @@ def note_array_from_part_list(
        Include time signature information in output note array.
        Only valid if parts in `part_list` are `Part` objects.
        See `note_array_from_part` for more info. Default is False.
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. if a note is a
+        grace note and the grace type "" for non grace notes).
+        Default is False
 
     Returns
     -------
