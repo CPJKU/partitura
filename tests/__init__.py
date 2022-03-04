@@ -113,11 +113,11 @@ MEI_TESTFILES = [
 KERN_TESFILES = [
     os.path.join(KERN_PATH, fn)
     for fn in [
-        "example.krn",
+        "single_voice_example.krn",
         "long_example.krn",
-        "Beethoven_sonata_1.1.krn",
-        'Bach-BWV_316.krn',
-        "bach_fugue.krn"
+        "double_repeat_example.krn",
+        "fine_with_repeat.krn",
+        'tuple_durations.krn',
     ]
 ]
 
