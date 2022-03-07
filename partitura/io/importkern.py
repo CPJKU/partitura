@@ -139,13 +139,13 @@ class KernParserPart(KernGlobalPart):
         if self.position > self.prev_measure_pos:
             indicated_measure = re.findall("=([0-9]+)", element)
             if indicated_measure != []:
-                m = eval(indicated_measure[0])
+                m = eval(indicated_measure[0]) - 1
                 barline = score.Barline(style="normal")
                 self.part.add(barline, self.position)
                 self.measure_count = m
                 self.barline_dict[m] = self.position
             else:
-                m = self.measure_count
+                m = self.measure_count - 1
             self.part.add(score.Measure(m), self.prev_measure_pos, self.position)
             self.prev_measure_pos = self.position
             self.measure_count += 1
