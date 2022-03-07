@@ -63,7 +63,7 @@ class KernGlobalPart(object):
 class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
-        self.position = init_pos
+        self.position = int(init_pos)
         self.parsing = "full"
         self.stream = stream
         self.prev_measure_pos = init_pos
@@ -278,11 +278,13 @@ class KernParserPart(KernGlobalPart):
         if isinstance(duration, float):
             if not duration.is_integer():
                 raise ValueError("Duration divs is not an integer, {}".format(duration))
-        return duration, symbolic_duration, ntype
+        # Check that duration is same as int
+        assert int(duration) == duration
+        return int(duration), symbolic_duration, ntype
 
     # TODO Handle beams and tuplets.
 
-    def _handle_note(self, note, note_id):
+    def _handle_note(self, note, note_id, voice=1):
         if note == ".":
             return
         has_fermata = ";" in note
@@ -305,7 +307,7 @@ class KernParserPart(KernGlobalPart):
                 octave=octave,
                 alter=alter,
                 id=note_id,
-                voice=1,
+                voice=int(voice),
                 staff=self.staff,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
@@ -336,6 +338,7 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_chord(self, chord, id):
         notes = chord.split()
+        position_history = list()
         pos = self.position
         for i, note_el in enumerate(notes):
             id_new = "c-" + str(i) + "-" + str(id)
@@ -343,7 +346,11 @@ class KernParserPart(KernGlobalPart):
             if "r" in note_el:
                 self._handle_rest(note_el, id_new)
             else:
-                self._handle_note(note_el, id_new)
+                self._handle_note(note_el, id_new, voice=int(i))
+            if note_el != ".":
+                position_history.append(self.position)
+        # To account for Voice changes and alternate voice order.
+        self.position = min(position_history) if position_history else self.position
 
     def _handle_glob_attr(self, el):
         if el.startswith("*clef"):
