@@ -269,8 +269,10 @@ class KernParserPart(KernGlobalPart):
         if "." in note:
             symbolic_duration["dots"] = note.count(".")
             ntype = ntype[note.count("."):]
+            d = duration
             for i in range(symbolic_duration["dots"]):
-                duration += duration / 2
+                d = d / 2
+                duration += d
         else:
             symbolic_duration["dots"] = 0
         if isinstance(duration, float):
