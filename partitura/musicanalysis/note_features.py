@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 import types
+from typing import List, Union, Tuple
 
 import partitura.score as score
 from partitura.utils import ensure_notearray
@@ -52,7 +53,7 @@ def list_basis_functions():
     return bfs
 
 
-def make_note_feats(part, basis_functions):
+def make_note_feats(part: Union[score.Part, score.PartGroup, List], basis_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
     """Compute the specified basis functions for a part.
 
     The function returns the computed basis functions as a N x M
@@ -72,7 +73,7 @@ def make_note_feats(part, basis_functions):
     ----------
     part : Part
         The score as a Part instance
-    basis_functions : list
+    basis_functions : list or str
         A list of basis functions. Elements of the list can be either
         the functions themselves or the names of a basis function as
         strings (or a mix). The basis functions specified by name are
@@ -89,9 +90,12 @@ def make_note_feats(part, basis_functions):
     part = score.merge_parts(part)
     na = ensure_notearray(part, include_metrical_position=True , include_grace_notes=True, include_time_signature=True)
     acc = []
+    if isinstance(basis_functions, str) and basis_functions=="all":
+        basis_functions = list_basis_functions()
+    elif not isinstance(basis_functions, list):
+        raise TypeError("basis_functions variable {} needs to be list or all".format(basis_functions))
 
     for bf in basis_functions:
-
         if isinstance(bf, str):
             # get function by name from module
             func = getattr(sys.modules[__name__], bf)
@@ -99,30 +103,30 @@ def make_note_feats(part, basis_functions):
             func = bf
         else:
             warnings.warn('Ignoring unknown basis function {}'.format(bf))
-
         bf, bn = func(na, part)
 
         # check if the size and number of the basis function are correct
-        if bf.shape[1] != len(bn):
-            msg = ('number of basis names {} does not equal '
-                   'number of basis {}'.format(len(bn), bf.shape[1]))
-            raise InvalidBasisException(msg)
-        n_notes = len(part.notes_tied)
-        if len(bf) != n_notes:
-            msg = ('length of basis {} does not equal '
-                   'number of notes {}'.format(len(bf), n_notes))
-            raise InvalidBasisException(msg)
+        if bf.size != 0 :
+            if bf.shape[1] != len(bn):
+                msg = ('number of basis names {} does not equal '
+                       'number of basis {}'.format(len(bn), bf.shape[1]))
+                raise InvalidBasisException(msg)
+            n_notes = len(part.notes_tied)
+            if len(bf) != n_notes:
+                msg = ('length of basis {} does not equal '
+                       'number of notes {}'.format(len(bf), n_notes))
+                raise InvalidBasisException(msg)
 
-        if np.any(np.logical_or(np.isnan(bf), np.isinf(bf))):
-            problematic = np.unique(np.where(np.logical_or(np.isnan(bf), np.isinf(bf)))[1])
-            msg = ('NaNs or Infs found in the following basis: {} '
-                   .format(', '.join(np.array(bn)[problematic])))
-            raise InvalidBasisException(msg)
+            if np.any(np.logical_or(np.isnan(bf), np.isinf(bf))):
+                problematic = np.unique(np.where(np.logical_or(np.isnan(bf), np.isinf(bf)))[1])
+                msg = ('NaNs or Infs found in the following basis: {} '
+                       .format(', '.join(np.array(bn)[problematic])))
+                raise InvalidBasisException(msg)
 
-        # prefix basis names by function name
-        bn = ['{}.{}'.format(func.__name__, n) for n in bn]
+            # prefix basis names by function name
+            bn = ['{}.{}'.format(func.__name__, n) for n in bn]
 
-        acc.append((bf, bn))
+            acc.append((bf, bn))
 
     _data, _names = zip(*acc)
     basis_data = np.column_stack(_data)
@@ -138,7 +142,7 @@ def polynomial_pitch_basis(na, part):
     basis_names = ['pitch']
     max_pitch = 127
     W = pitches / max_pitch
-    return W, basis_names
+    return np.expand_dims(W, axis=1), basis_names
 
 
 def duration_basis(na, part):
@@ -153,7 +157,7 @@ def duration_basis(na, part):
     basis_names = ['duration']
 
 
-    durations_beat = na["durations_beat"]
+    durations_beat = na["duration_beat"]
     W = durations_beat
     W.shape = (-1, 1)
     return W, basis_names
@@ -201,9 +205,14 @@ def grace_basis(na, part):
 
     W = np.zeros((len(na), 3))
     W[:, 0] = na["is_grace"]
-    W[:, 1] = na["n_grace"]
-    # W[i, 2] = n_grace - sum(1 for _ in n.iter_grace_seq()) + 1
-    W[:, 2] = na["grace_pos"]
+    grace_notes = na[np.nonzero(na["is_grace"])]
+    notes = {n.id:n for n in part.notes_tied}
+    indices = np.nonzero(na["is_grace"])[0]
+    for i, index in enumerate(indices):
+        grace = grace_notes[i]
+        n_grace = np.count_nonzero(grace_notes["onset_beat"] == grace["onset_beat"])
+        W[index, 1] = n_grace
+        W[index, 2] = n_grace - sum(1 for _ in notes[grace["id"]].iter_grace_seq()) + 1
     return W, basis_names
 
 
@@ -547,12 +556,12 @@ def metrical_strength_basis(na, part):
              'metrical_strength_weak']
 
     relod = na["rel_onset_div"].astype(float)
-    totmd = na["tot_measure_divs"].astype(float)
+    totmd = na["tot_measure_div"].astype(float)
     W = np.zeros((len(na), len(names)))
     W[:, 0] = np.divide(relod, totmd)  # Onset Phase
-    W[:, 1] = na["is_downbeat"].as_type(float)
+    W[:, 1] = na["is_downbeat"].astype(float)
     W[:, 2][W[:, 0] == 0.5] = 1.00
-    W[:, 2][np.nonzero(W[:, 1] + W[:, 0] == 1.00)]
+    W[:, 3][np.nonzero(np.add(W[:, 1], W[:, 0]) == 1.00)]
 
     # TODO re-evaluate decision of using sec_beat and rest
     # notes = part.notes_tied
@@ -641,7 +650,7 @@ def vertical_neighbor_basis(na, part):
     names = ['n_total', 'n_above', 'n_below',
              'highest_pitch', 'lowest_pitch', 'pitch_range']
     W = np.empty((len(na), len(names)))
-    for i, n in enumerate(notes):
+    for i, n in enumerate(na):
         neighbors = na[np.where(na["onset_beat"] == n["onset_beat"])]["pitch"]
         max_pitch = np.max(neighbors)
         min_pitch = np.min(neighbors)
