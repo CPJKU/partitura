@@ -118,6 +118,7 @@ KERN_TESFILES = [
         "double_repeat_example.krn",
         "fine_with_repeat.krn",
         'tuple_durations.krn',
+        "voice_dublifications.krn"
     ]
 ]
 

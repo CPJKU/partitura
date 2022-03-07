@@ -25,4 +25,6 @@ class TestImportKERN(unittest.TestCase):
 
     def test_examples(self):
         for fn in KERN_TESFILES:
-            parts = merge_parts(load_kern(fn))
+            part = merge_parts(load_kern(fn))
+            ka = ensure_notearray(part)
+            self.assertTrue(True == True)
