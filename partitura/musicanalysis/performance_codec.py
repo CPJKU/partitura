@@ -18,6 +18,12 @@ class PerformanceCodec(object):
         Encode expressive parameters from a matched performance
         Parameters
         ----------
+        part : partitura.Part
+            The score full either load from a match file.
+        ppart : partitura.PerformedPart
+            A list of Dictionaries
+        alignment : list
+            The score--performance alignment, a list of dictionaries
         return_u_onset_idx : bool
             Return the indices of the unique score onsets
         """

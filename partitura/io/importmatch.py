@@ -1249,7 +1249,6 @@ def load_match(
         The score--performance alignment, a list of dictionaries
     spart : Part
         The score part. This item is only returned when `create_part` = True.
-
     """
     # Parse Matchfile
     mf = MatchFile(fn)
