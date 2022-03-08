@@ -445,7 +445,7 @@ def parse_kern(kern_path):
     continuous_parts : numpy character array
     non_continuous_parts : list
     """
-    with open(kern_path) as file:
+    with open(kern_path, encoding='cp437') as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
     striped_parts = list()
