@@ -1,6 +1,8 @@
 import os.path
 import re
+import warnings
 
+import partitura.score
 import partitura.score as score
 import numpy as np
 
@@ -115,12 +117,31 @@ class KernParserPart(KernGlobalPart):
         pass
 
     def _handle_ties(self):
-        if len(self.tie_dict["open"]) != len(self.tie_dict["close"]):
+        try:
+            if len(self.tie_dict["open"]) < len(self.tie_dict["close"]):
+                for index, oid in enumerate(self.tie_dict["open"]):
+                    if self.nid_dict[oid].midi_pitch != self.nid_dict[self.tie_dict["close"][index]].midi_pitch:
+                        dnote = self.nid_dict[self.tie_dict["close"][index]]
+                        m_num = [m for m in self.part.iter_all(partitura.score.Measure) if m.start.t == self.part.measure_map(dnote.start.t)[0]][0].number
+                        warnings.warn("Dropping Closing Tie of note {} at position {} measure {}".format(dnote.midi_pitch, dnote.start.t, m_num))
+                        self.tie_dict["close"].pop(index)
+                        self._handle_ties()
+            elif len(self.tie_dict["open"]) > len(self.tie_dict["close"]):
+                for index, cid in enumerate(self.tie_dict["close"]):
+                    if self.nid_dict[cid].midi_pitch != self.nid_dict[self.tie_dict["open"][index]].midi_pitch:
+                        dnote = self.nid_dict[self.tie_dict["open"][index]]
+                        m_num = [m for m in self.part.iter_all(partitura.score.Measure) if m.start.t == self.part.measure_map(dnote.start.t)[0]][0].number
+                        warnings.warn(
+                            "Dropping Opening Tie of note {} at position {} measure {}".format(dnote.midi_pitch,
+                                                                                                 dnote.start.t, m_num))
+                        self.tie_dict["open"].pop(index)
+                        self._handle_ties()
+            else:
+                for (oid, cid) in list(zip(self.tie_dict["open"], self.tie_dict["close"])):
+                    self.nid_dict[oid].tie_next = self.nid_dict[cid]
+                    self.nid_dict[cid].tie_prev = self.nid_dict[oid]
+        except:
             raise ValueError("Tie Mismatch! Uneven amount of closing to open tie brackets.")
-        else:
-            for (oid,cid) in list(zip(self.tie_dict["open"], self.tie_dict["close"])):
-                self.nid_dict[oid].tie_next = self.nid_dict[cid]
-                self.nid_dict[cid].tie_prev = self.nid_dict[oid]
 
     def _handle_slurs(self):
         if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
