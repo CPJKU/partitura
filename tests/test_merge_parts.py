@@ -56,11 +56,8 @@ class TestMergeParts(unittest.TestCase):
         merged_part = merge_parts(parts)
         self.assertTrue(merged_part == parts)
 
-    def test_merge_interpolation(self):
-        parts = load_musicxml(MERGE_PARTS_TESTFILES[4])
-        merged_part = merge_parts(parts)
-        # note_array = ensure_notearray(parts)
-        # note_array_merged = ensure_notearray(merged_part)
-        # self.assertTrue(np.array_equal(note_array, note_array_merged))
-        self.assertTrue(isinstance(merged_part, Part))
+    # def test_merge_interpolation(self):
+    #     parts = load_musicxml(MERGE_PARTS_TESTFILES[4])
+    #     merged_part = merge_parts(parts)
+    #     self.assertTrue(isinstance(merged_part, Part))
 
