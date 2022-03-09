@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="4.0.0">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title>test grace note</title>
+            <respStmt />
+         </titleStmt>
+         <pubStmt><date isodate="2021-11-04" type="encoding-date">2021-11-04</date>
+         </pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-igec2">
+         <appInfo xml:id="appinfo-8w5o75">
+            <application xml:id="application-gbessh" isodate="2021-11-04T12:40:44" version="3.7.0-dev-0f8a961">
+               <name xml:id="name-czbtya">Verovio</name>
+               <p xml:id="p-1yxdey">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="mmhvqs2">
+            <score xml:id="s6honbe">
+               <scoreDef xml:id="s4tmotq">
+                  <pgHead xml:id="pcxcwdq">
+                     <rend xml:id="r5plvgy" halign="center" valign="top">test grace note</rend>
+                  </pgHead>
+                  <staffGrp xml:id="susqssh">
+                     <staffGrp xml:id="snrdlhw">
+                        <grpSym xml:id="g4j708b" symbol="brace" />
+                        <staffDef xml:id="P1" n="1" lines="5" ppq="1">
+                           <label xml:id="lo7pw6g">Piano</label>
+                           <labelAbbr xml:id="lww4ihv">Pno.</labelAbbr>
+                           <instrDef xml:id="itf108n" midi.channel="0" midi.instrnum="0" midi.volume="78.00%" />
+                           <clef xml:id="cd1icxn" shape="G" line="2" />
+                           <keySig xml:id="kmyesy8" sig="1f" />
+                           <meterSig xml:id="mkpdt4w" count="4" unit="4" />
+                        </staffDef>
+                     </staffGrp>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="snmpkj2">
+                  <measure xml:id="ms0yoye" n="1">
+                     <staff xml:id="snsnc3m" n="1">
+                        <layer xml:id="ldr7ied" n="1">
+                           <note xml:id="n9rbifh" dur.ppq="1" dur="4" oct="4" pname="c" stem.dir="up" />
+                           <rest xml:id="rx1baed" dur.ppq="1" dur="4" />
+                           <note xml:id="n41gm83" dur="8" oct="4" pname="d" grace="unacc" stem.dir="up" stem.mod="1slash" />
+                           <note xml:id="ns3vnxk" dur.ppq="1" dur="4" oct="4" pname="e" stem.dir="up" />
+                           <rest xml:id="rh56eu6" dur.ppq="1" dur="4" />
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="mwmkqea" right="end" n="2">
+                     <staff xml:id="s9egggu" n="1">
+                        <layer xml:id="lx5myap" n="1">
+                           <beam xml:id="b9mr3qe">
+                              <note xml:id="nt59g63" dur="16" oct="4" pname="g" grace="acc" stem.dir="up" />
+                              <note xml:id="nfhmnay" dur="16" oct="4" pname="a" grace="acc" stem.dir="up" />
+                              <note xml:id="na76n5n" dur="16" oct="4" pname="a" grace="acc" stem.dir="up" accid="f" />
+                           </beam>
+                           <note xml:id="nz90nbr" dur.ppq="1" dur="4" oct="4" pname="g" stem.dir="up" />
+                           <rest xml:id="rpw3ckm" dur.ppq="1" dur="4" />
+                           <rest xml:id="rats05a" dur.ppq="2" dur="2" />
+                        </layer>
+                     </staff>
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>

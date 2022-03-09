@@ -250,7 +250,60 @@ class Part(object):
 
             measures = np.array([(t0, tN)])
 
-        return lambda x: measures[np.searchsorted(measures[:, 1], x, side="right"), :]
+        inter_function = interp1d(measures[:, 0],measures[:, :].astype(int),
+                        kind="previous", axis=0, fill_value="extrapolate")
+
+        def int_interp1d(input):
+            return inter_function(input).astype(int) 
+
+        return int_interp1d
+        
+
+    @property
+    def measure_number_map(self):
+        """A function mapping timeline times to the measure number of
+        the measure they are contained in. The function can take
+        scalar values or lists/arrays of values.
+
+        Returns
+        -------
+        function
+            The mapping function
+
+        """
+        measures = np.array([(m.start.t, m.end.t, m.number) for m in self.iter_all(Measure)])
+
+        # correct for anacrusis
+        divs_per_beat = self.inv_beat_map(
+            1 + self.beat_map(0)
+        )  # find the divs per beat in the first measure
+        if (
+            measures[0][1] - measures[0][0]
+            < self.time_signature_map(0)[0] * divs_per_beat
+        ):
+            measures[0][0] = (
+                measures[0][1] - self.time_signature_map(0)[0] * divs_per_beat
+            )
+
+        if len(measures) == 0:  # no measures in the piece
+            # default only one measure spanning the entire timeline
+            LOGGER.warning("No measures found, assuming only one measure")
+            if self.first_point is None:
+                t0, tN = 0, 0
+            else:
+                t0 = self.first_point.t
+                tN = self.last_point.t
+
+            measures = np.array([(t0, tN, 1)])
+
+        inter_function = interp1d(measures[:, 0],measures[:, 2],
+                        kind="previous", fill_value="extrapolate")
+
+        def int_interp1d(input):
+            return inter_function(input).astype(int) 
+
+        return int_interp1d
+
 
     @property
     def metrical_position_map(self):
@@ -264,20 +317,16 @@ class Part(object):
             The mapping function
 
         """
+        xs = np.arange(self.first_point.t, self.last_point.t)
+        ys = np.column_stack((xs - self.measure_map(xs)[:, 0],
+                              self.measure_map(xs)[:, 1] - self.measure_map(xs)[:, 0]))
 
-        return (
-            lambda x: np.vstack(  # if the input is an array
-                (
-                    x - self.measure_map(x)[:, 0],
-                    self.measure_map(x)[:, 1] - self.measure_map(x)[:, 0],
-                )
-            ).T
-            if isinstance(x, Iterable)
-            else (  # if the input is just a scalar
-                x - self.measure_map(x)[0],
-                self.measure_map(x)[1] - self.measure_map(x)[0],
-            )
-        )
+        inter_function = interp1d(xs,ys, axis=0, kind="linear")
+
+        def int_interp1d(input):
+            return inter_function(input).astype(int) 
+
+        return int_interp1d
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
@@ -1930,10 +1979,20 @@ class Repeat(TimedObject):
 class DaCapo(TimedObject):
     """A Da Capo sign."""
 
-
 class Fine(TimedObject):
     """A Fine sign."""
 
+class DalSegno(TimedObject):
+    """A Dal Segno sign."""
+
+class Segno(TimedObject):
+    """A Segno sign."""
+    
+class ToCoda(TimedObject):
+    """A To Coda sign."""
+    
+class Coda(TimedObject):
+    """A Coda sign."""
 
 class Fermata(TimedObject):
     """A Fermata sign.
@@ -1999,7 +2058,7 @@ class Measure(TimedObject):
 
     Attributes
     ----------
-    number : int
+    number : intp
         See parameters
 
     """
@@ -2377,11 +2436,12 @@ class PartGroup(object):
 
     """
 
-    def __init__(self, group_symbol=None, group_name=None, number=None):
+    def __init__(self, group_symbol=None, group_name=None, number=None, id=None):
         self.group_symbol = group_symbol
         self.group_name = group_name
         self.number = number
         self.parent = None
+        self.id = id
         self.children = []
 
     def _pp(self, tree):
@@ -2479,9 +2539,12 @@ class ScoreVariant(object):
 
                     # special cases:
 
-                    # don't include repeats/endings in the unfolded part
-                    if isinstance(o, (Repeat, Ending)):
+                    # don't include some TimedObjects in the unfolded part
+                    if isinstance(o, (Repeat, Ending, 
+                    ToCoda, DaCapo, DalSegno, 
+                    Segment, System, Page)):
                         continue
+
                     # don't repeat time sig if it hasn't changed
                     elif isinstance(o, TimeSignature):
                         prev = next(tp_new.iter_prev(TimeSignature), None)
@@ -2494,6 +2557,14 @@ class ScoreVariant(object):
                         prev = next(tp_new.iter_prev(KeySignature), None)
                         if (prev is not None) and (
                             (o.fifths, o.mode) == (prev.fifths, prev.mode)
+                        ):
+                            continue
+
+                    # don't repeat clef if it hasn't changed
+                    elif isinstance(o, Clef):
+                        prev = next(tp_new.iter_prev(Clef), None)
+                        if (prev is not None) and (
+                            (o.sign, o.line, o.number) == (prev.sign, prev.line, prev.number)
                         ):
                             continue
 
@@ -2538,235 +2609,6 @@ class ScoreVariant(object):
             tp_next.prev = tp
 
         return part
-
-
-def iter_unfolded_parts(part):
-    """Iterate over unfolded clones of `part`.
-
-    For each repeat construct in `part` the iterator produces two
-    clones, one with the repeat included and another without the
-    repeat. That means the number of items returned is two to the
-    power of the number of repeat constructs in the part.
-
-    The first item returned by the iterator is the version of the part
-    without any repeated sections, the last item is the version of the
-    part with all repeat constructs expanded.
-
-    Parameters
-    ----------
-    part : :class:`Part`
-        Part to unfold
-
-    Yields
-    ------
-
-    """
-
-    for sv in make_score_variants(part):
-        yield sv.create_variant_part()
-
-
-def unfold_part_maximal(part, update_ids=False):
-    """Return the "maximally" unfolded part, that is, a copy of the
-    part where all segments marked with repeat signs are included
-    twice.
-
-    Parameters
-    ----------
-    part : :class:`Part`
-        The Part to unfold.
-    update_ids : bool (optional)
-        Update note ids to reflect the repetitions. Note IDs will have
-        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
-        represent the first and second repetition of 'n132' in the
-        input `part`. Defaults to False.
-
-    Returns
-    -------
-    unfolded_part : :class:`Part`
-        The unfolded Part
-
-    """
-
-    sv = make_score_variants(part)[-1]
-
-    unfolded_part = sv.create_variant_part()
-    if update_ids:
-        update_note_ids_after_unfolding(unfolded_part)
-    return unfolded_part
-
-
-def unfold_part_alignment(part, alignment):
-    """Return the unfolded part given an alignment, that is, a copy
-    of the part where the segments are repeated according to the
-    repetitions in a performance.
-
-    Parameters
-    ----------
-    part : :class:`Part`
-        The Part to unfold.
-    alignment : list of dictionaries
-        List of dictionaries containing an alignment (like the ones
-        obtained from a MatchFile (see `alignment_from_matchfile`).
-
-    Returns
-    -------
-    unfolded_part : :class:`Part`
-        The unfolded Part
-
-    """
-
-    unfolded_parts = []
-
-    alignment_ids = []
-
-    for n in alignment:
-        if n["label"] == "match" or n["label"] == "deletion":
-            alignment_ids.append(n["score_id"])
-
-    score_variants = make_score_variants(part)
-
-    alignment_score_ids = np.zeros((len(alignment_ids), len(score_variants)))
-    unfolded_part_length = np.zeros(len(score_variants))
-    for j, sv in enumerate(score_variants):
-        u_part = sv.create_variant_part()
-        update_note_ids_after_unfolding(u_part)
-        unfolded_parts.append(u_part)
-        u_part_ids = [n.id for n in u_part.notes_tied]
-        unfolded_part_length[j] = len(u_part_ids)
-        for i, aid in enumerate(alignment_ids):
-            alignment_score_ids[i, j] = aid in u_part_ids
-
-    coverage = np.mean(alignment_score_ids, 0)
-
-    best_idx = np.where(coverage == coverage.max())[0]
-
-    if len(best_idx) > 1:
-        best_idx = best_idx[unfolded_part_length[best_idx].argmin()]
-
-    return unfolded_parts[int(best_idx)]
-
-
-def make_score_variants(part):
-    # non-public (use unfold_part_maximal, or iter_unfolded_parts)
-
-    """Create a list of ScoreVariant objects, each representing a
-    distinct way to unfold the score, based on the repeat structure.
-
-    Parameters
-    ----------
-    part : :class:`Part`
-        A part for which to make the score variants
-
-    Returns
-    -------
-    list
-        List of ScoreVariant objects
-
-    Notes
-    -----
-    This function does not currently support nested repeats, such as in
-    case 45d of the MusicXML Test Suite.
-
-    """
-
-    if len(list(part.iter_all(DaCapo)) + list(part.iter_all(Fine))) > 0:
-        LOGGER.warning(
-            (
-                "Generation of repeat structures involving da "
-                "capo/fine/coda/segno directions is not "
-                "supported yet"
-            )
-        )
-
-    # TODO: check if we need to wrap in list
-    repeats = list(part.iter_all(Repeat))
-    # repeats may not have start or end times. `repeats_to_start_end`
-    # returns the start/end paisr for each repeat, making educated guesses
-    # when these are missing.
-    repeat_start_ends = repeats_to_start_end(repeats, part.first_point, part.last_point)
-
-    # check for nestings and raise if necessary
-    if any(n < c for c, n in iter_current_next(repeat_start_ends)):
-        raise NotImplementedError("Nested endings are currently not supported")
-
-    # t_score is used to keep the time in the score
-    t_score = part.first_point
-    svs = [ScoreVariant(part)]
-    # each repeat holds start and end time of a score interval to
-    # be repeated
-    for i, (rep_start, rep_end) in enumerate(repeat_start_ends):
-        new_svs = []
-        for sv in svs:
-            # is the start of the repeat after our current score
-            # position?
-            if rep_start > t_score:
-                # yes: add the tuple (t_score, rep_start) to the
-                # result this is the span before the interval that is
-                # to be repeated
-                sv.add_segment(t_score, rep_start)
-
-            # create a new ScoreVariant for the repetition (sv will be the
-            # score variant where this repeat is played only once)
-            new_sv = sv.clone()
-
-            # get any "endings" (e.g. 1 / 2 volta) of the repeat
-            # (there are not supposed to be more than one)
-            ending1 = next(rep_end.iter_ending(Ending), None)
-            # is there an ending?
-            if ending1:
-
-                # add the first occurrence of the repeat
-                sv.add_segment(rep_start, ending1.start)
-
-                ending2 = next(rep_end.iter_starting(Ending), None)
-
-                if ending2:
-                    # add the first occurrence of the repeat
-                    sv.add_segment(ending2.start, ending2.end)
-
-                    # new_sv includes the 1/2 ending repeat, which means:
-                    # 1. from repeat start to repeat end (which includes ending 1)
-                    new_sv.add_segment(rep_start, rep_end)
-                    # 2. from repeat start to ending 1 start
-                    new_sv.add_segment(rep_start, ending1.start)
-                    # 3. ending 2 start to ending 2 end
-                    new_sv.add_segment(ending2.start, ending2.end)
-
-                    # new score time will be the score time
-                    t_end = ending2.end
-
-                else:
-                    # ending 1 without ending 2, should not happen normally
-                    LOGGER.warning("ending 1 without ending 2")
-                    # new score time will be the score time
-                    t_end = ending1.end
-            else:
-                # add the first occurrence of the repeat
-                sv.add_segment(rep_start, rep_end)
-
-                # no: add the full interval of the repeat (the second time)
-                new_sv.add_segment(rep_start, rep_end)
-                new_sv.add_segment(rep_start, rep_end)
-
-                # update the score time
-                t_end = rep_end
-
-            # add both score variants
-            new_svs.append(sv)
-            new_svs.append(new_sv)
-        t_score = t_end
-
-        svs = new_svs
-
-    # are we at the end of the piece already?
-    if t_score < part.last_point:
-        # no, append the interval from the current score
-        # position to the end of the piece
-        for sv in svs:
-            sv.add_segment(t_score, part.last_point)
-
-    return svs
 
 
 def add_measures(part):
@@ -2929,7 +2771,7 @@ def iter_parts(partlist):
 
 
 def repeats_to_start_end(repeats, first, last):
-    # non-public
+    # non-public, deprecated, unused
     """Return pairs of (start, end) TimePoints corresponding to the start and
     end times of each Repeat object. If any of the start or end attributes
     are None, replace it with the end/start of the preceding/succeeding
@@ -3276,7 +3118,7 @@ def find_tuplets(part):
                             tup_start += 1
 
 
-def sanitize_part(part):
+def sanitize_part(part, tie_tolerance = 0):
     """Find and remove incomplete structures in a part such as Tuplets
     and Slurs without start or end and grace notes without a main
     note.
@@ -3287,6 +3129,9 @@ def sanitize_part(part):
     ----------
     part : :class:`Part`
         Part instance
+    tie_tolerange: int, optional
+        The maximum number of divs that separates notes that are tied together.
+        Ideally, it is 0, but not so nice scores happen.
 
     """
     remove_grace_counter = 0
@@ -3296,6 +3141,7 @@ def sanitize_part(part):
             for no in part.iter_all(
                 Note, include_subclasses=False, start=gn.start.t, end=gn.start.t + 1
             ):
+
                 if no.voice == gn.voice:
                     gn.last_grace_note_in_seq.grace_next = no
 
@@ -3317,18 +3163,756 @@ def sanitize_part(part):
 
     for el in elements_to_remove:
         part.remove(el)
+    
+    remove_tie_counter = 0
+    for n in part.notes_tied:
+        if n.tie_next != None:
+            d = n.duration_tied
+            s = n.start.t
+            e = n.end_tied.t
+            if abs((e-s)-d) > tie_tolerance:
+                remove_tie_counter += 1
+                all_tied = n.tie_prev_notes + [n] + n.tie_next_notes
+                for tn in all_tied:
+                    tn.tie_next = None
+                    tn.tie_prev = None
+
     LOGGER.info(
         "part_sanitize removed {} incomplete tuplets, "
-        "{} incomplete slurs, and {} incomplete grace "
-        "notes".format(remove_tuplet_counter, remove_slur_counter, remove_grace_counter)
+        "{} incomplete slurs, {} incomplete grace, "
+        "and {} wrong ties."
+        "notes".format(remove_tuplet_counter, 
+                       remove_slur_counter, 
+                       remove_grace_counter,
+                       remove_tie_counter)
     )
 
 
-class InvalidTimePointException(Exception):
-    """Raised when a time point is instantiated with an invalid number."""
+def assign_note_ids(parts, keep=False):
+    """
+    Assigns new note IDs mainly used for loaders.
 
-    def __init__(self, message=None):
-        super().__init__(message)
+    parts : list or score.PartGroup or score.Part
+        Some Partitura parts
+    keep : bool
+        Keep or given note IDs or assign new ones.
+    """
+    if keep:
+        # Keep existing note id's
+        for p, part in enumerate(iter_parts(parts)):
+            for ni, n in enumerate(
+                    part.iter_all(GenericNote, include_subclasses=True)
+            ):
+                if isinstance(n, Rest):
+                    n.id = "p{0}r{1}".format(p, ni) if n.id is None else n.id
+                else:
+                    n.id = "p{0}n{1}".format(p, ni) if n.id is None else n.id
+
+    else:
+        # assign note ids to ensure uniqueness across all parts, discarding any
+        # existing note ids
+        ni = 0
+        ri = 0
+        for part in iter_parts(parts):
+            for n in part.iter_all(GenericNote, include_subclasses=True):
+                if isinstance(n, Rest):
+                    n.id = "r{}".format(ri)
+                    ri += 1
+                else:
+                    n.id = "n{}".format(ni)
+                    ni += 1
+
+
+class Segment(TimedObject):
+    """
+    Class that represents any segment between two navigation markers such as repetitions,
+    Volta brackets, or capo/fine/coda/segno directions.
+    
+
+    Parameters
+    type : string, optional
+        String for the type of the segment (either "default" or "leap_start" and "leap_end")
+        A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
+        as is commonly expected after capo/fine/coda/segno directions.
+    info: string, optional
+        String to describe the segment, used only for printing (pretty_segments)
+    """
+
+    def __init__(self, id, to, force_seq = False, type = "default", info = ""):
+        self.id = id
+        self.to = to    
+        self.force_full_sequence = force_seq  
+        self.type = type     
+        self.info = info  
+
+            
+def add_segments(part):
+    """
+    Add segment objects to a part based on repetition and capo/fine/coda/segno directions.
+
+    Parameters
+    ----------
+    part: part
+        A score part 
+    """
+    if len([seg for seg in part.iter_all(Segment)]) > 0:
+        # only add segments if no segments exist
+        pass
+    else:
+        boundaries = defaultdict(dict)
+        destinations = defaultdict(list)
+
+        valid_repeats = [r for r in part.iter_all(Repeat) 
+                        if r.start is not None and r.end is not None]
+        valid_endings = [r for r in part.iter_all(Ending) 
+                        if r.start is not None and r.end is not None]
+        # # add dummy repeats
+        # endings_clusters = defaultdict(dict)
+        # for e in valid_endings:
+        #     for k in ending_clusters.keys():
+        #         if
+
+
+
+        for r in valid_repeats:
+            boundaries[r.start.t]["repeat_start"] = r
+            boundaries[r.end.t]["repeat_end"] = r
+        for v in valid_endings:
+            boundaries[v.start.t]["volta_start"] = v
+            boundaries[v.end.t]["volta_end"] = v
+        for c in part.iter_all(Coda):
+            boundaries[c.start.t]["coda"] = c
+            destinations["coda"].append(c.start.t)
+        for c in part.iter_all(ToCoda):
+            boundaries[c.start.t]["tocoda"] = c
+        for c in part.iter_all(DaCapo):
+            boundaries[c.start.t]["dacapo"] = c
+        for c in part.iter_all(Fine):
+            boundaries[c.start.t]["fine"] = c
+        for c in part.iter_all(Segno):
+            boundaries[c.start.t]["segno"] = c
+            destinations["segno"].append(c.start.t)
+        for c in part.iter_all(DalSegno):
+            boundaries[c.start.t]["dalsegno"] = c
+        
+        boundaries[part.last_point.t]["end"] = None
+        boundaries[part.first_point.t]["start"] = None
+        
+        boundary_times = list(boundaries.keys())
+        boundary_times.sort()
+
+        # for every segment get an id, its jump destinations and properties
+        init_character = 65
+        segment_info = dict()
+        for i, (s, e) in enumerate(zip(boundary_times[:-1], boundary_times[1:])):
+            segment_info[s] = {"ID":chr(init_character+i), 
+                            "start": s, 
+                            "end": e, 
+                            "to": [], 
+                            "force_full_sequence": False,
+                            "type": "default",
+                            "info": list()}
+        segment_info[boundary_times[-1]] = {"ID":"END"} 
+        
+        current_volta_repeat_start = 0
+
+        for ss in boundary_times[:-1]:
+            se = segment_info[ss]["end"]
+
+            # loop through the boundaries at the end of current segment
+            for boundary_type in boundaries[se].keys():
+                
+                # REPEATS
+                if boundary_type == "repeat_start":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                if boundary_type == "repeat_end":
+                    if "volta_end" not in list(boundaries[se].keys()):
+                        segment_info[ss]["to"].append(segment_info[se]["ID"])
+                        repeat_start = boundaries[se][boundary_type].start.t
+                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
+                    segment_info[ss]["info"].append("repeat_end")
+                    
+                # VOLTA BRACKETS
+                if boundary_type == "volta_start":
+                    if "volta_end" not in list(boundaries[se].keys()):
+                        bracket_end = se
+                        numbers = boundaries[bracket_end]["volta_start"].number.split(",")
+                        numbers = [str(int(n)) for n in numbers]
+                        for no in numbers:
+                            segment_info[ss]["to"].append(no+"_Volta_"+segment_info[se]["ID"])
+                        for volta_number in range(10): # maximal expected number of volta brackets 10
+                            if "volta_start" in list(boundaries[bracket_end].keys()):                 
+                                # add the beginning to the jump destinations
+                                numbers = boundaries[bracket_end]["volta_start"].number.split(",")
+                                numbers = [str(int(n)) for n in numbers]
+                                for no in numbers:
+                                    segment_info[ss]["to"].append(no+"_Volta_"+segment_info[bracket_end]["ID"])
+                                # update the search time to the end of the ext bracket
+                                bracket_end = boundaries[bracket_end]["volta_start"].end.t
+                    
+                if boundary_type == "volta_end":
+                    if "volta_start" in list(boundaries[se].keys()):
+                        # if repeating volta bracket, jump back to start
+                        # check if repeat exists (might not be for 3+ volta brackets)
+                        if "repeat_end" in list(boundaries[se].keys()):
+                            current_volta_repeat_start = max(boundaries[se]["repeat_end"].start.t,
+                                                             current_volta_repeat_start)
+                        repeat_start = current_volta_repeat_start
+                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
+                    else:
+                        # else just go to the next segment
+                        segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    segment_info[ss]["info"].append("volta")
+                
+                # NAVIGATION SYMBOLS
+                if boundary_type == "coda":
+                    # if a coda symbol is passed just continue
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    segment_info[se]["type"] = "leap_end"
+                    segment_info[se]["info"].append("Coda")
+                    
+
+                if boundary_type == "tocoda":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # find the coda and jump there
+                    coda_time = destinations["coda"][0]
+                    segment_info[ss]["to"].append(segment_info[coda_time]["ID"])
+                    segment_info[ss]["to"]
+                    segment_info[ss]["type"] = "leap_start"
+                    segment_info[ss]["info"].append("al coda")
+                    
+                if boundary_type == "segno":
+                    # if a segno symbol is passed just continue
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    segment_info[se]["type"] = "leap_end"
+                    segment_info[se]["info"].append("segno")
+
+                if boundary_type == "dalsegno":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # find the segno and jump there
+                    segno_time = destinations["segno"][0]
+                    segment_info[ss]["to"].append(segment_info[segno_time]["ID"])
+                    segment_info[ss]["type"] = "leap_start"
+                    segment_info[ss]["info"].append("dal segno")
+                    
+                if boundary_type == "dacapo":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # jump to the start
+                    segment_info[ss]["to"].append(segment_info[part.first_point.t]["ID"])
+                    # TODO: check forcing
+                    # segment_info[ss]["force_full_sequence"] = True
+                    segment_info[ss]["type"] = "leap_start"
+                    segment_info[ss]["info"].append("da capo")
+                
+                if boundary_type == "fine":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                    # jump to the start
+                    segment_info[ss]["to"].append(segment_info[part.last_point.t]["ID"])
+                    # TODO: check forcing
+                    # segment_info[ss]["force_full_sequence"] = True
+                    segment_info[ss]["info"].append("fine")
+                    
+                # GENERIC
+                if boundary_type == "end":
+                    segment_info[ss]["to"].append(segment_info[se]["ID"])
+                
+                # first segments is always a leap destination (da capo)
+                if ss == 0:
+                    segment_info[ss]["type"] = "leap_end"
+                          
+        for start_time in boundary_times[:-1]:
+            destinations = list(set(segment_info[start_time]["to"]))
+            destinations_no_volta = [dest for dest in destinations if "Volta_" not in dest]
+            destinations_volta = [dest for dest in destinations if "Volta_" in dest]
+            if "END" in destinations:
+                destinations_no_volta.remove("END")
+                destinations_no_volta.sort()
+                destinations_no_volta.append("END")
+            else:
+                destinations_no_volta.sort()
+            destinations_volta.sort()
+            # keep only the segment IDs
+            destinations_volta = [d[8:] for d in destinations_volta]
+            # don't jump to volta brackets w/t number
+            destinations_no_volta = [d for d in destinations_no_volta if d not in destinations_volta]
+            destinations = destinations_volta + destinations_no_volta
+            part.add(Segment(segment_info[start_time]["ID"],
+                            destinations,
+                            segment_info[start_time]["force_full_sequence"],
+                            segment_info[start_time]["type"],
+                            ", ".join(segment_info[start_time]["info"])),
+                        segment_info[start_time]["start"],
+                        segment_info[start_time]["end"])
+    
+   
+def get_segments(part):
+    """
+    Get dictionary of segment objects of a part.
+
+    Parameters
+    ----------
+    part: part
+        A score part 
+    
+    Returns
+    -------
+    segments: dict
+        A dictionary of Segment objects indexed by segment IDs.
+    """
+    return {seg.id: seg for seg in part.iter_all(Segment)}
+
+
+def pretty_segments(part):
+    """
+    Get a pretty string of all the segments in a part.
+    """
+    add_segments(part)
+    segments = get_segments(part)
+    string_list = [str(segments[p].id) +
+                    " -> (choice) " + 
+                    "{:<8}".format(",".join(segments[p].to)) +
+                    "\t segment " + 
+                    "{:<20}".format(str(part.beat_map(segments[p].start.t)) + 
+                    " - " +
+                    str(part.beat_map(segments[p].end.t))) +
+                    "\t duration: " +
+                    "{:<6}".format(str(part.beat_map(segments[p].duration))) +
+                    "\t info: " +
+                    str(segments[p].info)
+                    for p in segments.keys()]
+    return "\n".join(string_list)
+        
+
+class Path:
+    """
+    Path that represents a sequence of segments.
+
+    Parameters
+    ----------
+    path : list
+        The string of segment IDs 
+    segments : dict
+        A dictionary of available segments by segment ID
+    used_segment_jumps : defaultdict(list), optional
+        dictionary of used jumps per segment in this path
+    no_repeats : bool, optional
+        Flag to generate no repeating jump destinations with list_of_destinations_from_last_segment
+    all_repeats : bool, optional
+        Flag to generate all repeating jump destinations with list_of_destinations_from_last_segment
+        (lower prority than no_repeats)
+    """
+    def __init__(self, 
+                path_list, 
+                segments, 
+                used_segment_jumps = None, 
+                no_repeats = False,
+                all_repeats = False):
+        
+        self.path = path_list
+        self.segments = segments
+        if used_segment_jumps is None:
+            self.used_segment_jumps = defaultdict(list)
+        else:
+            self.used_segment_jumps = used_segment_jumps
+        self.ended = False
+        self.no_repeats = no_repeats
+        self.all_repeats = all_repeats
+
+        
+    def __str__(self):
+        """
+        return a string of segment IDs.
+        """
+        return "-".join(self.path)
+
+    def __len__(self):
+        return len(self.path)
+
+    def pretty(self, part = None):
+        """
+        create a pretty string describing this path instance.
+        If a corresponding part is given, the string will give 
+        segment times in beats, else in divs.
+        """
+        if part is None:
+            string_list = [str(self.segments[p].id) +
+                            " -> (choice) " + 
+                            ",".join(self.segments[p].to) +
+                            "  \t segment " + 
+                            str(self.segments[p].start.t) + 
+                            " - " +
+                            str(self.segments[p].end.t) +
+                            "\t duration: " +
+                            str(self.segments[p].duration) +
+                            "  \t type: " +
+                            str(self.segments[p].type)
+                            for p in self.path]
+        else:
+            string_list = [str(self.segments[p].id) +
+                            " -> (choice) " + 
+                            ",".join(self.segments[p].to) +
+                            "  \t segment " + 
+                            str(part.beat_map(self.segments[p].start.t)) + 
+                            " - " +
+                            str(part.beat_map(self.segments[p].end.t)) +
+                            "\t duration: " +
+                            str(part.beat_map(self.segments[p].duration)) +
+                            "  \t type: " +
+                            str(self.segments[p].type)
+                            for p in self.path]
+        return "\n".join(string_list)
+
+    def copy(self):
+        """
+        create a copy of this path instance.
+        """
+        return Path(copy(self.path),
+                    copy(self.segments),
+                    copy(self.used_segment_jumps), 
+                    no_repeats=self.no_repeats,
+                    all_repeats=self.all_repeats)
+
+    def make_copy_with_jump_to(self, destination, ignore_leap_info=True):
+        """
+        create a copy of this path instance with an added jump. 
+        If the jump is a leap (dal segno, da capo, al coda) 
+        and leap information is not ignored,
+        set the new Path to subsequently follow the the shortest version.
+        """
+        new_path = self.copy()
+        new_path.used_segment_jumps[new_path.path[-1]].append(destination)
+        new_path.path.append(destination)
+        if (self.segments[destination].type == "leap_end" and 
+            self.segments[self.path[-1]].type == "leap_start" and
+            not ignore_leap_info):
+            new_path.no_repeats = True
+        return new_path
+    
+    @property
+    def list_of_destinations_from_last_segment(self):
+        destinations = list(self.segments[self.path[-1]].to)
+        previously_used_destinations = self.used_segment_jumps[self.path[-1]]
+        # only continue in order of the sequence, after full consumption, start at zero
+        # if the full or minimal sequence is forced, 
+        # return only the single possible jump destination, else return possibly many.
+
+        if len(previously_used_destinations) != 0:
+            last_destination = previously_used_destinations[-1]
+            last_destination_count = previously_used_destinations.count(last_destination)
+            last_destination_index = [i for i, n in enumerate(destinations*100) if n == last_destination][last_destination_count-1]
+            last_destination_index %= len(destinations)
+
+        if self.no_repeats: 
+            # currently this is in higher priority than the full sequence
+            return [destinations[-1]]
+
+        elif self.segments[self.path[-1]].force_full_sequence or self.all_repeats:
+            # if the full sequence should be used in general
+            if len(previously_used_destinations) == 0:
+                return [destinations[0]]
+            else:
+                #last_destination = previously_used_destinations[-1]
+                #last_destination_index = destinations.index(last_destination)
+                if last_destination_index < (len(destinations)-1):
+                    return [destinations[last_destination_index+1]]
+                else:
+                    return [destinations[0]]
+        
+        else :
+            if len(previously_used_destinations) == 0:
+                return copy(destinations)
+            else:
+                #last_destination = previously_used_destinations[-1]
+                #last_destination_index = destinations.index(last_destination)
+                if last_destination_index < (len(destinations)-1):
+                    return copy(destinations[last_destination_index+1:])
+                else:
+                    return copy(destinations)
+
+
+def unfold_paths(path, paths, ignore_leap_info=True):
+    """
+    Given a starting Path (at least one segment) recursively unfold into all possible
+    Paths with its segments. Ended Paths are stored in a list.
+    
+    Parameters
+    ----------
+    path : Path
+        a starting Path with at least one segment to be unfolded 
+    paths : list
+        empty list to accumulate paths that are fully unfolded until an "end" keyword was found
+    """
+    destinations = path.list_of_destinations_from_last_segment
+    for destination_id in destinations:
+        if destination_id == "END": 
+            path.ended = True
+            paths.append(path)
+        else: 
+            new_path = path.make_copy_with_jump_to(destination_id, ignore_leap_info=ignore_leap_info)
+            unfold_paths(new_path, paths, ignore_leap_info=ignore_leap_info)
+            
+
+def get_paths(part, 
+            no_repeats = False,
+            all_repeats = False, 
+            ignore_leap_info = True):
+    """
+    Get a list of paths and and a dictionary of segment objects of a part.
+
+    Common settings to get specific paths:
+    - default: all possible paths
+        (no_repeats = False, all_repeats = False, ignore_leap_info = True)
+    - default: all possible paths but without repetitions after leap
+        (no_repeats = False, all_repeats = False, ignore_leap_info = False)
+    - The longest possible path
+        (no_repeats = False, all_repeats = True, ignore_leap_info = True)
+    - The longest possible path but without repetitions after leap
+        (no_repeats = False, all_repeats = True, ignore_leap_info = False)
+    - The shortest possible path.
+        (no_repeats = True)
+        Note this might not be musically valid, e.g. a passing a "fine" 
+        even a first time will stop this unfolding.
+
+    Parameters
+    ----------
+    part: part
+        A score part
+    no_repeats : bool, optional
+        Flag to choose no repeating segments, i.e. the shortest path.
+    all_repeats : bool, optional
+        Flag to choose all repeating segments, i.e. the longest path.
+        (lower priority than the previous flag)
+    ignore_leap_info : bool, optional
+        If not ignored, Path changes to no_repeats = True if a leap is encountered.
+        (A leap is a used dal segno, da capo, or al coda marking)
+    
+    Returns
+    -------
+    paths: list
+        A list of path objects
+
+    """
+    add_segments(part)
+    segments = get_segments(part)
+    paths = list()
+    unfold_paths(Path(["A"], 
+                segments, 
+                no_repeats = no_repeats, 
+                all_repeats = all_repeats), 
+                    paths, 
+                    ignore_leap_info=ignore_leap_info)
+    
+    return paths
+
+
+def new_part_from_path(path, part, update_ids = True):
+    """
+    create a new Part from a Path and an underlying Part
+
+    Parameters
+    ----------
+    path: Path
+        A Path object
+    part: part
+        A score part
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+    
+    Returns
+    -------
+    new_part: part
+        A score part corresponding to the Path
+
+    """
+    scorevariant = ScoreVariant(part)
+    for segment_id in path.path:
+        scorevariant.add_segment(path.segments[segment_id].start,
+                                 path.segments[segment_id].end)
+    
+    new_part = scorevariant.create_variant_part()
+    if update_ids:
+        update_note_ids_after_unfolding(new_part)
+    return new_part
+
+
+def new_scorevariant_from_path(path, part):
+    """
+    create a new Part from a Path and an underlying Part
+
+    Parameters
+    ----------
+    path: Path
+        A Path object
+    part: part
+        A score part
+    
+    Returns
+    -------
+    scorevariant: ScoreVariant
+        A ScoreVariant object with segments corresponding to the part
+
+    """
+    scorevariant = ScoreVariant(part)
+    for segment_id in path.path:
+        scorevariant.add_segment(path.segments[segment_id].start,
+                                path.segments[segment_id].end)
+    return scorevariant
+
+# UPDATED VERSION
+def iter_unfolded_parts(part, update_ids=True):
+    """Iterate over unfolded clones of `part`.
+
+    For each repeat construct in `part` the iterator produces two
+    clones, one with the repeat included and another without the
+    repeat. That means the number of items returned is two to the
+    power of the number of repeat constructs in the part.
+
+    The first item returned by the iterator is the version of the part
+    without any repeated sections, the last item is the version of the
+    part with all repeat constructs expanded.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        Part to unfold
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+
+    Yields
+    ------
+
+    """
+    paths = get_paths(part, 
+            no_repeats = False,
+            all_repeats = False, 
+            ignore_leap_info = True)
+
+    for p in paths:
+        yield new_part_from_path(p, part, update_ids = update_ids)
+
+# UPDATED VERSION
+def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
+    """Return the "maximally" unfolded part, that is, a copy of the
+    part where all segments marked with repeat signs are included
+    twice.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+    ignore_leaps : bool (optional)
+        If ignored, repetitions after a leap are unfolded fully.
+        A leap is a used dal segno, da capo, or al coda marking.
+        Defaults to True.
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+
+    paths = get_paths(part, 
+            no_repeats = False,
+            all_repeats = True, 
+            ignore_leap_info = ignore_leaps)
+
+    unfolded_part = new_part_from_path(paths[0], 
+                                       part, 
+                                       update_ids = update_ids)
+    return unfolded_part
+
+# UPDATED / UNCHANGED VERSION
+def unfold_part_alignment(part, alignment):
+    """Return the unfolded part given an alignment, that is, a copy
+    of the part where the segments are repeated according to the
+    repetitions in a performance.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        The Part to unfold.
+    alignment : list of dictionaries
+        List of dictionaries containing an alignment (like the ones
+        obtained from a MatchFile (see `alignment_from_matchfile`).
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+
+    unfolded_parts = []
+
+    alignment_ids = []
+
+    for n in alignment:
+        if n["label"] == "match" or n["label"] == "deletion":
+            alignment_ids.append(n["score_id"])
+
+    score_variants = make_score_variants(part)
+
+    alignment_score_ids = np.zeros((len(alignment_ids), len(score_variants)))
+    unfolded_part_length = np.zeros(len(score_variants))
+    for j, sv in enumerate(score_variants):
+        u_part = sv.create_variant_part()
+        update_note_ids_after_unfolding(u_part)
+        unfolded_parts.append(u_part)
+        u_part_ids = [n.id for n in u_part.notes_tied]
+        unfolded_part_length[j] = len(u_part_ids)
+        for i, aid in enumerate(alignment_ids):
+            alignment_score_ids[i, j] = aid in u_part_ids
+
+    coverage = np.mean(alignment_score_ids, 0)
+
+    best_idx = np.where(coverage == coverage.max())[0]
+
+    if len(best_idx) > 1:
+        best_idx = best_idx[unfolded_part_length[best_idx].argmin()]
+
+    return unfolded_parts[int(best_idx)]
+  
+# UPDATED
+def make_score_variants(part):
+    # non-public (use unfold_part_maximal, or iter_unfolded_parts)
+
+    """
+    Create a list of ScoreVariant objects, each representing a
+    distinct way to unfold the score, based on the repeat structure.
+
+    Parameters
+    ----------
+    part : :class:`Part`
+        A part for which to make the score variants
+
+    Returns
+    -------
+    list
+        List of ScoreVariant objects
+
+    """
+    paths = get_paths(part, 
+            no_repeats = False,
+            all_repeats = False, 
+            ignore_leap_info = True)
+
+    svs = list()
+    for path in paths:
+        svs.append(new_scorevariant_from_path(path, part))
+
+    return svs
 
 
 def merge_parts(parts):
@@ -3414,6 +3998,12 @@ def merge_parts(parts):
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
     return new_part
+
+
+class InvalidTimePointException(Exception):
+    """Raised when a time point is instantiated with an invalid number."""
+    def __init__(self, message=None):
+        super().__init__(message)
 
 
 if __name__ == "__main__":

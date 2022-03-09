@@ -31,6 +31,34 @@ DUMMY_PS_BASE_CLASS = {
     11: ("b", 0),
 }
 
+MEI_DURS_TO_SYMBOLIC = {
+    "long": "long",
+    "0": "breve",
+    "1": "whole",
+    "2": "half",
+    "4": "quarter",
+    "8": "eighth",
+    "16": "16th",
+    "32": "32nd",
+    "64": "64th",
+    "128": "128th",
+    "256": "256th",
+}
+
+SYMBOLIC_TO_INT_DURS = {
+    "long": 0.25,
+    "breve": 0.5,
+    "whole": 1,
+    "half": 2,
+    "quarter": 4,
+    "eighth": 8,
+    "16th": 16,
+    "32nd": 32,
+    "64th": 64,
+    "128th": 128,
+    "256th": 256,
+}
+
 LABEL_DURS = {
     "long": 16,
     "breve": 8,
@@ -211,7 +239,7 @@ TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
 NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
-MUSICAL_BEATS = {6:2,9:3,12:4}
+MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
@@ -301,15 +329,16 @@ def note_name_to_pitch_spelling(note_name):
     note_info = NOTE_NAME_PATT.search(note_name)
 
     if note_info is None:
-        raise ValueError("Invalid note name. "
-                         "The note name must be "
-                         "'<pitch class>(alteration)<octave>', "
-                         f"but was given {note_name}.")
+        raise ValueError(
+            "Invalid note name. "
+            "The note name must be "
+            "'<pitch class>(alteration)<octave>', "
+            f"but was given {note_name}."
+        )
     step, alter, octave = note_info.groups()
     step, alter, octave = ensure_pitch_spelling_format(
-        step=step,
-        alter=alter if alter != "" else "n",
-        octave=int(octave))
+        step=step, alter=alter if alter != "" else "n", octave=int(octave)
+    )
     return step, alter, octave
 
 
@@ -335,11 +364,15 @@ def pitch_spelling_to_note_name(step, alter, octave):
 SIGN_TO_ALTER = {
     "n": 0,
     "#": 1,
+    "s": 1,
+    "ss": 2,
     "x": 2,
     "##": 2,
     "###": 3,
     "b": -1,
+    "f": -1,
     "bb": -2,
+    "ff": -2,
     "bbb": -3,
     "-": None,
 }
@@ -431,49 +464,57 @@ def fifths_mode_to_key_name(fifths, mode=None):
     return name + suffix
 
 
-def key_name_to_fifths_mode(name):
+def key_name_to_fifths_mode(key_name):
     """Return the number of sharps or flats and the mode of a key
-    signature name. A negative number denotes the number of flats
-    (i.e. -3 means three flats), and a positive number the number of
-    sharps. The mode is specified as 'major' or 'minor'.
+        signature name. A negative number denotes the number of flats
+        (i.e. -3 means three flats), and a positive number the number of
+        sharps. The mode is specified as 'major' or 'minor'.
 
-    Parameters
-    ----------
-    name : {"A", "A#m", "Ab", "Abm", "Am", "B", "Bb", "Bbm", "Bm", "C",\
-"C#", "C#m", "Cb", "Cm", "D", "D#m", "Db", "Dm", "E", "Eb",\
-"Ebm", "Em", "F", "F#", "F#m", "Fm", "G", "G#m", "Gb", "Gm"}
-        Name of the key signature
+        Parameters
+        ----------
+        name : str
+            Name of the key signature, i.e. Am, E#, etc
 
-    Returns
-    -------
-    (int, str)
-        Tuple containing the number of fifths and the mode
+        Returns
+        -------
+        (int, str)
+            Tuple containing the number of fifths and the mode
 
 
-    Examples
-    --------
-    >>> key_name_to_fifths_mode('Am')
-    (0, 'minor')
-    >>> key_name_to_fifths_mode('C')
-    (0, 'major')
-    >>> key_name_to_fifths_mode('A')
-    (3, 'major')
+        Examples
+        --------
+        >>> key_name_to_fifths_mode('Am')
+        (0, 'minor')
+        >>> key_name_to_fifths_mode('C')
+        (0, 'major')
+        >>> key_name_to_fifths_mode('A')
+        (3, 'major')
 
     """
-    global MAJOR_KEYS, MINOR_KEYS
+    fifths_list = ["F", "C", "G", "D", "A", "E", "B"]
 
-    if name.endswith("m"):
+    if "m" in key_name:
         mode = "minor"
-        keylist = MINOR_KEYS
+        s_list = fifths_list[4:] + fifths_list[:4]
+        if "b" in key_name or (len(key_name) == 2 and s_list.index(key_name[0]) > 2 ):
+            idx = s_list[::-1].index(key_name[0]) + 1
+            corr = 1 if idx > 4 else 0
+            fifths = - idx - 7 * (key_name.count("b") - corr)
+        else:
+            idx = s_list.index(key_name[0])
+            corr = 1 if idx > 2 else 0
+            fifths = idx + 7 * (key_name.count("#") - corr)
     else:
         mode = "major"
-        keylist = MAJOR_KEYS
-
-    try:
-        fifths = keylist.index(name.strip("m")) - 7
-    except ValueError:
-        raise Exception("Unknown key signature {}".format(name))
-
+        s_list = fifths_list[1:] + fifths_list[:1]
+        if "b" in key_name or key_name=="F":
+            idx = s_list[::-1].index(key_name[0]) + 1
+            corr = 1 if idx > 1 else 0
+            fifths = - idx - 7*(key_name.count("b") - corr)
+        else:
+            idx = s_list.index(key_name[0])
+            corr = 1 if idx > 5 else 0
+            fifths = idx + 7 * (key_name.count("#") - corr)
     return fifths, mode
 
 
@@ -943,7 +984,10 @@ def _make_pianoroll(
     # Get pitch, onset, offset from the note_info array
     pr_pitch = note_info[:, 0]
     onset = note_info[:, 1]
-    offset = note_info[:, 1] + note_info[:, 2]
+    duration = note_info[:, 2]
+
+    if np.any(duration < 0):
+        raise ValueError('Note durations should be >= 0!')
 
     # Get velocity if given
     if note_info.shape[1] < 4:
@@ -966,7 +1010,7 @@ def _make_pianoroll(
     # sort notes
     pr_pitch = pr_pitch[idx]
     onset = onset[idx]
-    offset = offset[idx]
+
     if min_time is None:
         min_time = 0 if min(onset) >= 0 else min(onset)
         if remove_silence:
@@ -976,10 +1020,8 @@ def _make_pianoroll(
             raise ValueError(
                 "`min_time` must be smaller or equal than " "the smallest onset time "
             )
-    max_time = np.max(offset)
 
-    onset -= min_time - time_margin
-    offset -= min_time - time_margin
+    onset -= min_time
 
     if pitch_margin > -1:
         pr_pitch -= lowest_pitch
@@ -992,12 +1034,18 @@ def _make_pianoroll(
     else:
         M = int(pitch_span)
 
-    # Time dimension
-    N = int(np.ceil(time_div * (2 * time_margin + max_time - min_time)))
-
     # Onset and offset times of the notes in the piano roll
     pr_onset = np.round(time_div * onset).astype(int)
-    pr_offset = np.round(time_div * offset).astype(int)
+    pr_onset += int(time_margin * time_div)
+    pr_duration = np.clip(
+        np.round(time_div * duration).astype(int),
+        a_max=None,
+        a_min=1
+    )
+    pr_offset = pr_onset + pr_duration
+
+    # Time dimension
+    N = int(time_div * time_margin + pr_offset.max())
 
     # Determine the non-zero indices of the piano roll
     if onset_only:
@@ -1016,10 +1064,9 @@ def _make_pianoroll(
                 for on, off, pitch, vel in zip(
                     pr_onset, pr_offset, pr_pitch, pr_velocity
                 )
-                if off <= N
             ]
         )
-
+        
     # Fix multiple notes with the same pitch and onset
     fill_dict = defaultdict(list)
     for row, col, vel in _idx_fill:
@@ -1072,8 +1119,8 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
     Returns
     -------
     np.ndarray :
-        Structured array with pitch, onset, duration and velocity
-        fields.
+        Structured array with pitch, onset, duration, velocity
+        and note id fields.
 
     Notes
     -----
@@ -1087,47 +1134,69 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
     to lie between 1 and 127).
 
     """
-    # Indices of the non-zero elements of the piano roll
-    pitch_idx, active_idx = pianoroll.nonzero()
-
-    # Sort indices according to time and pitch
-    time_sort_idx = np.argsort(active_idx)
-    pitch_sort_idx = pitch_idx[time_sort_idx].argsort(kind="mergesort")
-
-    pitch_idx = pitch_idx[time_sort_idx[pitch_sort_idx]]
-    active_idx = active_idx[time_sort_idx[pitch_sort_idx]]
-
-    prev_note = -1
-
-    # Iterate over the active indices
-    notes = []
-    for n, at in zip(pitch_idx, active_idx):
-
-        # Create a new note if the pitch has changed
-        if n != prev_note:
-            prev_note = n
-            # the notes are represented by a list containing
-            # pitch, onset, offset and velocity.
-            notes.append([n, at, at + 1, [pianoroll[n, at]]])
-
-        # Otherwise update the offset of the note
+    # check size of the piano roll
+    init_pitch = 0
+    if pianoroll.shape[0] != 128:
+        if pianoroll.shape[0] == 88:
+            init_pitch = 21
         else:
-            notes[-1][2] = at + 1
-            notes[-1][3].append(pianoroll[n, at])
+            raise ValueError(
+                "The shape of the piano roll must be (128, n_time_steps) or"
+                f"(88, n_timesteps) but is {pianoroll.shape}"
+            )
+    active_notes = {}
+    note_list = []
+    for ts in range(pianoroll.shape[1]):
+        active = pianoroll[:, ts].nonzero()[0]
+
+        del_notes = []
+        for note in active_notes:
+            if note not in active:
+                del_notes.append(note)
+
+        for note in del_notes:
+            note_list.append(active_notes.pop(note))
+
+        for note in active:
+            vel = int(pianoroll[note, ts])
+            if note not in active_notes:
+                active_notes[note] = [note, vel, ts, ts + 1]
+            else:
+                if vel != active_notes[note][1]:
+                    note_list.append(active_notes.pop(note))
+                    active_notes[note] = [note, vel, ts, ts + 1]
+                else:
+                    active_notes[note][-1] += 1
+
+    remaining_active_notes = list(active_notes.keys())
+    for note in remaining_active_notes:
+        # append any note left
+        note_list.append(active_notes.pop(note))
+
+    # Sort array lexicographically by onset, pitch, offset and velocity
+    note_list.sort(key=lambda x: (x[2], x[0], x[3], x[1]))
 
     # Create note array
     note_array = np.array(
         [
-            (p, float(on) / time_div, (off - on) / time_div, np.round(np.mean(vel)))
-            for p, on, off, vel in notes
+            (
+                p + init_pitch,
+                float(on) / time_div,
+                float(off - on) / time_div,
+                np.round(vel),
+                f"n{i}",
+            )
+            for i, (p, vel, on, off) in enumerate(note_list)
         ],
         dtype=[
             ("pitch", "i4"),
             (f"onset_{time_unit}", "f4"),
             (f"duration_{time_unit}", "f4"),
             ("velocity", "i4"),
+            ("id", "U256")
         ],
     )
+
     return note_array
 
 
@@ -1571,7 +1640,7 @@ def note_array_from_part(
         Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
-	    grace note and the grace type "" for non grace notes).
+        grace note and the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1659,7 +1728,8 @@ def note_array_from_part(
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
-	    include_grace_notes=include_grace_notes)
+        include_grace_notes=include_grace_notes
+    )
     return note_array
 
 
@@ -1709,8 +1779,8 @@ def note_array_from_note_list(
         note. Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
-	    grace note has one of the types "appoggiatura, acciaccatura, grace" and
-	    the grace type "" for non grace notes).
+        grace note has one of the types "appoggiatura, acciaccatura, grace" and
+        the grace type "" for non grace notes).
         Default is False
 
     Returns
@@ -1750,8 +1820,8 @@ def note_array_from_note_list(
               If `include_time_signature` is True.
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise.
                If `measure_map` is not None.
-            * 'rel_onset_div': number of divs elapsed from the beginning of the note measure.
-               If `measure_map` is not None.
+            * 'rel_onset_div': number of divs elapsed from the beginning of the
+               note measure. If `measure_map` is not None.
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
     """
@@ -1759,12 +1829,10 @@ def note_array_from_note_list(
     fields = []
     if beat_map is not None:
         # Preserve the order of the fields
-        fields += [("onset_beat", "f4"),
-                   ("duration_beat", "f4")]
+        fields += [("onset_beat", "f4"), ("duration_beat", "f4")]
 
     if quarter_map is not None:
-        fields += [("onset_quarter", "f4"),
-                   ("duration_quarter", "f4")]
+        fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
         ("onset_div", "i4"),
         ("duration_div", "i4"),
@@ -1791,7 +1859,11 @@ def note_array_from_note_list(
 
     # fields for metrical position
     if metrical_position_map is not None:
-        fields += [("is_downbeat", "i4"), ("rel_onset_div", "i4"), ("tot_measure_div", "i4")]
+        fields += [
+            ("is_downbeat", "i4"),
+            ("rel_onset_div", "i4"),
+            ("tot_measure_div", "i4"),
+        ]
 
     note_array = []
     for note in note_list:
@@ -1805,17 +1877,13 @@ def note_array_from_note_list(
             note_on_beat, note_off_beat = beat_map([note_on_div, note_off_div])
             note_dur_beat = note_off_beat - note_on_beat
 
-            note_info += (note_on_beat,
-                          note_dur_beat)
+            note_info += (note_on_beat, note_dur_beat)
 
         if quarter_map is not None:
-            note_on_quarter, note_off_quarter = quarter_map(
-                [note_on_div, note_off_div]
-            )
+            note_on_quarter, note_off_quarter = quarter_map([note_on_div, note_off_div])
             note_dur_quarter = note_off_quarter - note_on_quarter
 
-            note_info += (note_on_quarter,
-                          note_dur_quarter)
+            note_info += (note_on_quarter, note_dur_quarter)
 
         note_info += (
             note_on_div,
