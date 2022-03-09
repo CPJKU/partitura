@@ -289,7 +289,7 @@ class KernParserPart(KernGlobalPart):
             return
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
-        grace_attr = "q" in note or "p" in note
+        grace_attr = "q" in note # or "p" in note # for appoggiatura not sure yet.
         duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
         # Remove editorial symbols from string, i.e. "x"
         ntype = ntype.replace("x", "")
