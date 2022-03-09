@@ -9,31 +9,31 @@ import partitura.score as score
 from partitura.utils import ensure_notearray
 
 
-class InvalidBasisException(Exception):
+class InvalidNoteFeatureException(Exception):
     pass
 
 
-def print_basis_functions():
-    """Print a list of all basisfunction names defined in this module,
+def print_note_feats_functions():
+    """Print a list of all featurefunction names defined in this module,
     with descriptions where available.
 
     """
     module = sys.modules[__name__]
     doc_indent = 4
-    for name in list_basis_functions():
+    for name in list_note_feats_functions():
         print('* {}'.format(name))
         member = getattr(sys.modules[__name__], name)
         if member.__doc__:
             print(' ' * doc_indent + member.__doc__.replace('\n', ' ' * doc_indent + '\n'))
 
 
-def list_basis_functions():
-    """Return a list of all basisfunction names defined in this module.
+def list_note_feats_functions():
+    """Return a list of all featurefunction names defined in this module.
 
-    The basisfunction names listed here can be specified by name in
-    the `make_basis` function. For example:
+    The featurefunction names listed here can be specified by name in
+    the `make_feature` function. For example:
 
-    >>> basis, names = make_note_feats(part, ['metrical_basis', 'articulation_basis'])
+    >>> feature, names = make_note_feats(part, ['metrical_feature', 'articulation_feature'])
 
     Returns
     -------
@@ -43,110 +43,117 @@ def list_basis_functions():
     """
     module = sys.modules[__name__]
     bfs = []
-    exclude = {'make_basis'}
+    exclude = {'make_feature'}
     for name in dir(module):
         if name in exclude:
             continue
         member = getattr(sys.modules[__name__], name)
-        if isinstance(member, types.FunctionType) and name.endswith('_basis'):
+        if isinstance(member, types.FunctionType) and name.endswith('_feature'):
             bfs.append(name)
     return bfs
 
 
-def make_note_feats(part: Union[score.Part, score.PartGroup, List], basis_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
-    """Compute the specified basis functions for a part.
+def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
+    """
+    Alias for make_note_feats
+    """
+    return make_note_feats(part, feature_functions)
 
-    The function returns the computed basis functions as a N x M
+
+def make_note_feats(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
+    """Compute the specified feature functions for a part.
+
+    The function returns the computed feature functions as a N x M
     array, where N equals `len(part.notes_tied)` and M equals the
-    total number of descriptors of all basis functions that occur in
+    total number of descriptors of all feature functions that occur in
     part.
 
-    Furthermore the function returns the names of the basis functions.
+    Furthermore the function returns the names of the feature functions.
     A list of strings of size M. The names have the name of the
     function prepended to the name of the descriptor. For example if a
-    function named `abc_basis` returns descriptors `a`, `b`, and `c`,
-    then the list of names returned by `make_basis(part,
-    ['abc_basis'])` will be ['abc_basis.a', 'abc_basis.b',
-    'abc_basis.c'].
+    function named `abc_feature` returns descriptors `a`, `b`, and `c`,
+    then the list of names returned by `make_feature(part,
+    ['abc_feature'])` will be ['abc_feature.a', 'abc_feature.b',
+    'abc_feature.c'].
 
     Parameters
     ----------
     part : Part
         The score as a Part instance
-    basis_functions : list or str
-        A list of basis functions. Elements of the list can be either
-        the functions themselves or the names of a basis function as
-        strings (or a mix). The basis functions specified by name are
-        looked up in the `basismixer.basisfunctions` module.
+    feature_functions : list or str
+        A list of feature functions. Elements of the list can be either
+        the functions themselves or the names of a feature function as
+        strings (or a mix). The feature functions specified by name are
+        looked up in the `featuremixer.featurefunctions` module.
 
     Returns
     -------
-    basis : ndarray
-        The basis functions
+    feature : ndarray
+        The feature functions
     names : list
-        The basis names
+        The feature names
 
     """
     part = score.merge_parts(part)
     na = ensure_notearray(part, include_metrical_position=True , include_grace_notes=True, include_time_signature=True)
     acc = []
-    if isinstance(basis_functions, str) and basis_functions=="all":
-        basis_functions = list_basis_functions()
-    elif not isinstance(basis_functions, list):
-        raise TypeError("basis_functions variable {} needs to be list or all".format(basis_functions))
+    if isinstance(feature_functions, str) and feature_functions=="all":
+        feature_functions = list_note_feats_functions()
+    elif not isinstance(feature_functions, list):
+        raise TypeError("feature_functions variable {} needs to be list or all".format(feature_functions))
 
-    for bf in basis_functions:
+    for bf in feature_functions:
         if isinstance(bf, str):
             # get function by name from module
             func = getattr(sys.modules[__name__], bf)
         elif isinstance(bf, types.FunctionType):
             func = bf
         else:
-            warnings.warn('Ignoring unknown basis function {}'.format(bf))
+            warnings.warn('Ignoring unknown feature function {}'.format(bf))
         bf, bn = func(na, part)
 
-        # check if the size and number of the basis function are correct
+        # check if the size and number of the feature function are correct
         if bf.size != 0 :
             if bf.shape[1] != len(bn):
-                msg = ('number of basis names {} does not equal '
-                       'number of basis {}'.format(len(bn), bf.shape[1]))
-                raise InvalidBasisException(msg)
+                msg = ('number of feature names {} does not equal '
+                       'number of feature {}'.format(len(bn), bf.shape[1]))
+                raise InvalidNoteFeatureException(msg)
             n_notes = len(part.notes_tied)
             if len(bf) != n_notes:
-                msg = ('length of basis {} does not equal '
+                msg = ('length of feature {} does not equal '
                        'number of notes {}'.format(len(bf), n_notes))
-                raise InvalidBasisException(msg)
+                raise InvalidNoteFeatureException(msg)
 
             if np.any(np.logical_or(np.isnan(bf), np.isinf(bf))):
                 problematic = np.unique(np.where(np.logical_or(np.isnan(bf), np.isinf(bf)))[1])
-                msg = ('NaNs or Infs found in the following basis: {} '
+                msg = ('NaNs or Infs found in the following feature: {} '
                        .format(', '.join(np.array(bn)[problematic])))
-                raise InvalidBasisException(msg)
+                raise InvalidNoteFeatureException(msg)
 
-            # prefix basis names by function name
+            # prefix feature names by function name
             bn = ['{}.{}'.format(func.__name__, n) for n in bn]
 
             acc.append((bf, bn))
 
     _data, _names = zip(*acc)
-    basis_data = np.column_stack(_data)
-    basis_names = [n for ns in _names for n in ns]
-    return basis_data, basis_names
+    feature_data = np.column_stack(_data)
+    feature_names = [n for ns in _names for n in ns]
+    return feature_data, feature_names
 
 
-def polynomial_pitch_basis(na, part):
+def polynomial_pitch_feature(na, part):
     """Normalize pitch feature.
 
     """
     pitches = na["pitch"].astype(np.float)
-    basis_names = ['pitch']
+    feature_names = ['pitch']
     max_pitch = 127
     W = pitches / max_pitch
-    return np.expand_dims(W, axis=1), basis_names
+    return np.expand_dims(W, axis=1), feature_names
 
 
-def duration_basis(na, part):
-    """Duration basis.
+def duration_feature(na, part):
+    """Duration feature.
 
     Parameters
     ----------
@@ -154,17 +161,17 @@ def duration_basis(na, part):
         The Note array for Unified part.
     """
 
-    basis_names = ['duration']
+    feature_names = ['duration']
 
 
     durations_beat = na["duration_beat"]
     W = durations_beat
     W.shape = (-1, 1)
-    return W, basis_names
+    return W, feature_names
 
 
-def onset_basis(na, part):
-    """Onset basis
+def onset_feature(na, part):
+    """Onset feature
 
     Returns:
     * onset : the onset of the note in beats
@@ -173,23 +180,23 @@ def onset_basis(na, part):
     TODO:
     * rel_position_repetition
     """
-    basis_names = ['onset', 'score_position']
+    feature_names = ['onset', 'score_position']
 
     onsets_beat = na["onset_beat"]
     rel_position = normalize(onsets_beat, method='minmax')
 
     W = np.column_stack((onsets_beat, rel_position))
 
-    return W, basis_names
+    return W, feature_names
 
 
-def relative_score_position_basis(na, part):
-    W, names = onset_basis(na, part)
+def relative_score_position_feature(na, part):
+    W, names = onset_feature(na, part)
     return W[:, 1:], names[1:]
 
 
-def grace_basis(na, part):
-    """Grace basis.
+def grace_feature(na, part):
+    """Grace feature.
 
     Returns:
     * grace_note : 1 when the note is a grace note, 0 otherwise
@@ -200,7 +207,7 @@ def grace_basis(na, part):
 
     """
 
-    basis_names = ['grace_note', 'n_grace', 'grace_pos']
+    feature_names = ['grace_note', 'n_grace', 'grace_pos']
 
 
     W = np.zeros((len(na), 3))
@@ -213,10 +220,10 @@ def grace_basis(na, part):
         n_grace = np.count_nonzero(grace_notes["onset_beat"] == grace["onset_beat"])
         W[index, 1] = n_grace
         W[index, 2] = n_grace - sum(1 for _ in notes[grace["id"]].iter_grace_seq()) + 1
-    return W, basis_names
+    return W, feature_names
 
 
-def loudness_direction_basis(na, part):
+def loudness_direction_feature(na, part):
     """The loudness directions in part.
 
     This function returns a varying number of descriptors, depending
@@ -250,22 +257,22 @@ def loudness_direction_basis(na, part):
         elif isinstance(d, score.DecreasingLoudnessDirection):
             return 'loudness_decr'
 
-    basis_by_name = {}
+    feature_by_name = {}
     for d in directions:
-        j, bf = basis_by_name.setdefault(to_name(d),
-                                         (len(basis_by_name), np.zeros(N)))
-        bf += basis_function_activation(d)(onsets)
+        j, bf = feature_by_name.setdefault(to_name(d),
+                                         (len(feature_by_name), np.zeros(N)))
+        bf += feature_function_activation(d)(onsets)
 
-    W = np.empty((len(onsets), len(basis_by_name)))
-    names = [None] * len(basis_by_name)
-    for name, (j, bf) in basis_by_name.items():
+    W = np.empty((len(onsets), len(feature_by_name)))
+    names = [None] * len(feature_by_name)
+    for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
         names[j] = name
 
     return W, names
 
 
-def tempo_direction_basis(na, part):
+def tempo_direction_feature(na, part):
     """The tempo directions in part.
 
     This function returns a varying number of descriptors, depending
@@ -297,22 +304,22 @@ def tempo_direction_basis(na, part):
         elif isinstance(d, score.DecreasingTempoDirection):
             return 'tempo_decr'
 
-    basis_by_name = {}
+    feature_by_name = {}
     for d in directions:
-        j, bf = basis_by_name.setdefault(to_name(d),
-                                         (len(basis_by_name), np.zeros(N)))
-        bf += basis_function_activation(d)(onsets)
+        j, bf = feature_by_name.setdefault(to_name(d),
+                                         (len(feature_by_name), np.zeros(N)))
+        bf += feature_function_activation(d)(onsets)
 
-    W = np.empty((len(onsets), len(basis_by_name)))
-    names = [None] * len(basis_by_name)
-    for name, (j, bf) in basis_by_name.items():
+    W = np.empty((len(onsets), len(feature_by_name)))
+    names = [None] * len(feature_by_name)
+    for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
         names[j] = name
 
     return W, names
 
 
-def articulation_direction_basis(na, part):
+def articulation_direction_feature(na, part):
     """
     """
     onsets = na["onset_div"]
@@ -324,24 +331,24 @@ def articulation_direction_basis(na, part):
     def to_name(d):
         return d.text
 
-    basis_by_name = {}
+    feature_by_name = {}
 
     for d in directions:
-        j, bf = basis_by_name.setdefault(to_name(d),
-                                         (len(basis_by_name), np.zeros(N)))
-        bf += basis_function_activation(d)(onsets)
+        j, bf = feature_by_name.setdefault(to_name(d),
+                                         (len(feature_by_name), np.zeros(N)))
+        bf += feature_function_activation(d)(onsets)
 
-    W = np.empty((len(onsets), len(basis_by_name)))
-    names = [None] * len(basis_by_name)
+    W = np.empty((len(onsets), len(feature_by_name)))
+    names = [None] * len(feature_by_name)
 
-    for name, (j, bf) in basis_by_name.items():
+    for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
         names[j] = name
 
     return W, names
 
 
-def basis_function_activation(direction):
+def feature_function_activation(direction):
     epsilon = 1e-6
 
     if isinstance(direction, (score.DynamicLoudnessDirection,
@@ -379,7 +386,7 @@ def basis_function_activation(direction):
             sustained_end = next_dir.start.t
         else:
             # Issue 2. there is no next constant direction. In that case the
-            # basis function will be a ramp with a quarter note ramp
+            # feature function will be a ramp with a quarter note ramp
             sustained_end = direction_end + direction.start.quarter
 
         x = [direction.start.t,
@@ -405,8 +412,8 @@ def basis_function_activation(direction):
     return interp1d(x, y, bounds_error=False, fill_value=0)
 
 
-def slur_basis(na, part):
-    """Slur basis.
+def slur_feature(na, part):
+    """Slur feature.
 
     Returns:
     * slur_incr : a ramp function that increases from 0
@@ -432,10 +439,10 @@ def slur_basis(na, part):
     return W, names
 
 
-def articulation_basis(na, part):
-    """Articulation basis.
+def articulation_feature(na, part):
+    """Articulation feature.
 
-    This basis returns articulation-related note annotations, such as accents, legato, and tenuto.
+    This feature returns articulation-related note annotations, such as accents, legato, and tenuto.
 
     Possible descriptors:
     * accent : 1 when the note has an annotated accent sign
@@ -448,23 +455,23 @@ def articulation_basis(na, part):
              'detached-legato', 'staccatissimo', 'spiccato',
              'scoop', 'plop', 'doit', 'falloff', 'breath-mark',
              'caesura', 'stress', 'unstress', 'soft-accent']
-    basis_by_name = {}
+    feature_by_name = {}
     notes = part.notes_tied
     N = len(notes)
     for i, n in enumerate(notes):
         if n.articulations:
             for art in n.articulations:
                 if art in names:
-                    j, bf = basis_by_name.setdefault(
+                    j, bf = feature_by_name.setdefault(
                         art,
-                        (len(basis_by_name), np.zeros(N)))
+                        (len(feature_by_name), np.zeros(N)))
                     bf[i] = 1
 
-    M = len(basis_by_name)
+    M = len(feature_by_name)
     W = np.empty((N, M))
     names = [None] * M
 
-    for name, (j, bf) in basis_by_name.items():
+    for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
         names[j] = name
 
@@ -472,8 +479,8 @@ def articulation_basis(na, part):
 
 
 # # for a subset of the articulations do e.g.
-# def staccato_basis(part):
-#     W, names = articulation_basis(part)
+# def staccato_feature(part):
+#     W, names = articulation_feature(part)
 #     if 'staccato' in names:
 #         i = names.index('staccato')
 #         return W[:, i:i + 1], ['staccato']
@@ -481,8 +488,8 @@ def articulation_basis(na, part):
 #         return np.empty(len(W)), []
 
 
-def fermata_basis(na, part):
-    """Fermata basis.
+def fermata_feature(na, part):
+    """Fermata feature.
 
     Returns:
     * fermata : 1 when the note coincides with a fermata sign.
@@ -496,14 +503,14 @@ def fermata_basis(na, part):
     return W, names
 
 
-def metrical_basis(na, part):
-    """Metrical basis
+def metrical_feature(na, part):
+    """Metrical feature
 
-    This basis encodes the metrical position in the bar. For example
+    This feature encodes the metrical position in the bar. For example
     the first beat in a 3/4 meter is encoded in a binary descriptor
     'metrical_3_4_0', the fifth beat in a 6/8 meter as
     'metrical_6_8_4', etc. Any positions that do not fall on a beat
-    are encoded in a basis suffixed '_weak'. For example a note
+    are encoded in a feature suffixed '_weak'. For example a note
     starting on the second 8th note in a bar of 4/4 meter will have a
     non-zero value in the 'metrical_4_4_weak' descriptor.
 
@@ -511,7 +518,7 @@ def metrical_basis(na, part):
     notes = part.notes_tied
     ts_map = part.time_signature_map
     bm = part.beat_map
-    basis_by_name = {}
+    feature_by_name = {}
     eps = 10 ** -6
 
     for i, n in enumerate(notes):
@@ -531,23 +538,23 @@ def metrical_basis(na, part):
         else:
             name = 'metrical_{}_{}_weak'.format(beats, beat_type)
 
-        j, bf = basis_by_name.setdefault(name,
-                                         (len(basis_by_name), np.zeros(len(notes))))
+        j, bf = feature_by_name.setdefault(name,
+                                         (len(feature_by_name), np.zeros(len(notes))))
         bf[i] = 1
 
-    W = np.empty((len(notes), len(basis_by_name)))
-    names = [None] * len(basis_by_name)
-    for name, (j, bf) in basis_by_name.items():
+    W = np.empty((len(notes), len(feature_by_name)))
+    names = [None] * len(feature_by_name)
+    for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
         names[j] = name
 
     return W, names
 
 
-def metrical_strength_basis(na, part):
-    """Metrical strength basis
+def metrical_strength_feature(na, part):
+    """Metrical strength feature
 
-    This basis encodes the beat phase (relative position of a note within
+    This feature encodes the beat phase (relative position of a note within
     the measure), as well as metrical strength of common time signatures.
     """
     names = ['beat_phase',
@@ -562,45 +569,12 @@ def metrical_strength_basis(na, part):
     W[:, 1] = na["is_downbeat"].astype(float)
     W[:, 2][W[:, 0] == 0.5] = 1.00
     W[:, 3][np.nonzero(np.add(W[:, 1], W[:, 0]) == 1.00)]
-
-    # TODO re-evaluate decision of using sec_beat and rest
-    # notes = part.notes_tied
-    # ts_map = part.time_signature_map
-    # bm = part.beat_map
-    # names = ['beat_phase',
-    #          'metrical_strength_downbeat',
-    #          'metrical_strength_secondary',
-    #          'metrical_strength_weak']
-    # W = np.zeros((len(notes), len(names)))
-    # W[:, 1] = na["is_downbeat"].as_type(float)
-    # for i, n in enumerate(notes):
-    #     beats, beat_type = ts_map(n.start.t).astype(int)
-    #     measure = next(n.start.iter_prev(score.Measure, eq=True), None)
-    #     if beats == 4: # for 4/4
-    #         sec_beat = 2
-    #     elif beats == 6: # for 6/8
-    #         sec_beat = 3
-    #     elif beats == 12: # for 12/8
-    #         sec_beat = 6
-    #     else:
-    #         sec_beat = None
-    #     measure_start = measure.start.t if measure else 0
-    #     pos = bm(n.start.t) - bm(measure_start)
-    #     m_pos = np.mod(pos, beats)
-    #     W[i, 0] = m_pos / beats
-    #     if m_pos == 0:
-    #         W[i, 1] = 1
-    #     elif m_pos == sec_beat:
-    #         W[i, 2] = 1
-    #     else:
-    #         W[i, 3] = 1
-
     return W, names
 
 
-def time_signature_basis(na, part):
-    """TIme Signature basis
-    This basis encodes the time signature of the note in two sets of one-hot vectors,
+def time_signature_feature(na, part):
+    """TIme Signature feature
+    This feature encodes the time signature of the note in two sets of one-hot vectors,
     a one hot encoding of number of beats and a one hot encoding of beat type
     """
 
@@ -632,8 +606,8 @@ def time_signature_basis(na, part):
     return W, names
 
 
-def vertical_neighbor_basis(na, part):
-    """Vertical neighbor basis.
+def vertical_neighbor_feature(na, part):
+    """Vertical neighbor feature.
 
     Describes various aspects of simultaneously starting notes.
 
