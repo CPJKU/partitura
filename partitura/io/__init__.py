@@ -13,8 +13,8 @@ class NotSupportedFormatError(Exception):
 def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     """
     Load a score format supported by partitura. Currently the accepted formats
-    are MusicXML and MIDI (native Python support), plus all formats for which
-    MuseScore has support import-support (requires MuseScore 3)
+    are MusicXML, MIDI, Kern and MEI, plus all formats for which
+    MuseScore has support import-support (requires MuseScore 3).
 
     Parameters
     ----------
