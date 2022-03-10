@@ -254,11 +254,12 @@ class KernParserPart(KernGlobalPart):
             self.slur_dict["open"].append(note_id)
             # Re-order for correct parsing
             if len(self.slur_dict["open"]) > len(self.slur_dict["close"])+1:
-                raise ValueError("Cannot deal with nested slurs.")
-                x = note_id
-                lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
-                self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
-                self.slur_dict["open"][lenc] = x
+                warnings.warn("Cannot deal with nested slurs. Dropping Opening slur for note id {}".format(self.slur_dict["open"][len(self.slur_dict["open"]) - 2]))
+                self.slur_dict["open"].pop(len(self.slur_dict["open"]) - 2)
+                # x = note_id
+                # lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
+                # self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
+                # self.slur_dict["open"][lenc] = x
             note = note[n:]
         if "]" in note:
             self.tie_dict["close"].append(note_id)
