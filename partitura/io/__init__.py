@@ -2,6 +2,8 @@ from .importmusicxml import load_musicxml
 from .importmidi import load_score_midi
 from .musescore import load_via_musescore
 from .importmatch import load_match
+from .importmei import load_mei
+from .importkern import load_kern
 
 
 class NotSupportedFormat(Exception):
@@ -41,7 +43,9 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MusicXML
     try:
         return load_musicxml(
-            xml=score_fn, ensure_list=ensure_list, force_note_ids=force_note_ids
+            xml=score_fn,
+            ensure_list=ensure_list,
+            force_note_ids=force_note_ids
         )
     except Exception as e:
         exception_dictionary["MusicXML"] = e
@@ -52,10 +56,26 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=score_fn, assign_note_ids=assign_note_ids, ensure_list=ensure_list
+            fn=score_fn,
+            assign_note_ids=assign_note_ids,
+            ensure_list=ensure_list
         )
     except Exception as e:
         exception_dictionary["MIDI"] = e
+    # Load MEI
+    try:
+        return load_mei(mei_path=score_fn)
+    except Exception as e:
+        exception_dictionary["MEI"] = e
+    # Load Kern
+    try:
+        return load_kern(
+            kern_path=score_fn,
+            ensure_list=ensure_list,
+            force_note_ids=force_note_ids,
+        )
+    except Exception as e:
+        exception_dictionary["Kern"] = e
     # Load MuseScore
     try:
         return load_via_musescore(
