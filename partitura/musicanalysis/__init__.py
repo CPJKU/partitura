@@ -9,7 +9,7 @@ from .voice_separation import estimate_voices
 from .key_identification import estimate_key
 from .pitch_spelling import estimate_spelling
 from .tonal_tension import estimate_tonaltension
-from .performance_codec import performance_encode, performance_decode
+from .performance_codec import encode_performance, decode_performance
 
 __all__ = [
     "estimate_voices",

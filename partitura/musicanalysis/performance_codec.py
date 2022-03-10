@@ -6,7 +6,7 @@ from partitura.performance import PerformedPart
 from scipy.interpolate import interp1d
 
 
-def performance_encode(part: Part, ppart: PerformedPart, alignment : list, return_u_onset_idx=False):
+def encode_performance(part: Part, ppart: PerformedPart, alignment : list, return_u_onset_idx=False):
     """
     Encode expressive parameters from a matched performance
     Parameters
@@ -25,7 +25,7 @@ def performance_encode(part: Part, ppart: PerformedPart, alignment : list, retur
 
     # Get time-related parameters
     (time_params,
-     unique_onset_idxs) = tempo_encode(
+     unique_onset_idxs) = encode_tempo(
         score_onsets=m_score['onset'],
         performed_onsets=m_score['p_onset'],
         score_durations=m_score['duration'],
@@ -45,7 +45,7 @@ def performance_encode(part: Part, ppart: PerformedPart, alignment : list, retur
         return parameters, snote_ids
 
 
-def performance_decode(part : Part, performance_array : np.ndarray,
+def decode_performance(part : Part, performance_array : np.ndarray,
                        snote_ids=None,
                        part_id=None,
                        part_name=None,
@@ -92,7 +92,7 @@ def performance_decode(part : Part, performance_array : np.ndarray,
     durations = (bm(snote_info['offset']) - bm(snote_info['onset']))[sort_idx]
     pitches = snote_info['pitch'][sort_idx]
 
-    clip(pitches, 1, 127)
+    pitches = np.clip(pitches, 1, 127)
 
     dynamics_params = performance_array["velocity"][sort_idx]
     time_params = performance_array[list(("beat_period", 'timing', 'articulation_log'))][sort_idx]
@@ -104,7 +104,7 @@ def performance_decode(part : Part, performance_array : np.ndarray,
 
     velocities = np.round(dynamics_params*127.0)
 
-    clip(velocities, 1, 127)
+    velocities = np.clip(velocities, 1, 127)
 
     notes = []
     for nid, (onset, duration), velocity, pitch in zip(snote_ids, onsets_durations, velocities, pitches):
@@ -138,7 +138,6 @@ def decode_time(score_onsets, score_durations,
     Decode a performance into onsets and durations in seconds
     for each note in the score.
     """
-    normalization = dict(scale=bp_scale, rescale=bp_rescale, param_names=('beat_period',))
     score_onsets = score_onsets.astype(float, copy=False)
     score_durations = score_durations.astype(float, copy=False)
 
@@ -150,12 +149,11 @@ def decode_time(score_onsets, score_durations,
     diff_u_onset_score = score_info['diff_u_onset']
 
     time_param = np.array(
-        [tuple([np.mean(parameters[pn][uix])
-                for pn in normalization['param_names']])
+        [tuple([np.mean(parameters["beat_period"][uix])])
          for uix in unique_onset_idxs],
-        dtype=[(pn, 'f4') for pn in normalization['param_names']])
+        dtype=[("beat_period", 'f4')])
 
-    beat_period = normalization['rescale'](time_param)
+    beat_period = time_param["beat_period"]
 
     ioi_perf = diff_u_onset_score * beat_period
 
@@ -188,9 +186,9 @@ def decode_articulation(score_durations, articulation_parameter,
     return dur
 
 
-def tempo_encode(score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
-           score_durations, performed_durations,
-           return_u_onset_idx : bool = False) -> numpy.ndarray:
+def encode_tempo(score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
+                 score_durations, performed_durations,
+                 return_u_onset_idx : bool = False) -> numpy.ndarray:
     """
     Compute time-related performance parameters from a performance
     """
@@ -500,32 +498,4 @@ def monotonize_times(s, deltas=None):
     return _s[mask], _deltas[mask]
 
 
-def bp_scale(beat_period):
-    return [beat_period]
 
-
-def bp_rescale(tempo_params):
-    return tempo_params['beat_period']
-
-
-def clip(v, low=0, high=127):
-    """Clip values in `v` to the range `[low, high]`. The array is
-    modified in-place.
-    Parameters
-    ----------
-    v : ndarray
-        Array of numbers
-    low : number, optional
-        Low bound. Defaults to 0.
-    high : number, optional
-        High bound. Defaults to 127.
-    """
-    too_low = np.where(v < low)[0]
-
-    if len(too_low) > 0:
-        v[too_low] = low
-
-    too_high = np.where(v > high)[0]
-
-    if len(too_high) > 0:
-        v[too_high] = high
