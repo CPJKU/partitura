@@ -4,7 +4,11 @@ from .musescore import load_via_musescore
 from .importmatch import load_match
 
 
-def load_score(score_fn, ensure_list=False, force_note_ids='keep'):
+class NotSupportedFormat(Exception):
+    pass
+
+
+def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     """
     Load a score format supported by partitura. Currently the accepted formats
     are MusicXML and MIDI (native Python support), plus all formats for which
@@ -12,11 +16,11 @@ def load_score(score_fn, ensure_list=False, force_note_ids='keep'):
 
     Parameters
     ----------
-    score_fn : str
-        Filename of the score to load.
+    score_fn : str or file-like  object
+        Filename of the score to parse, or a file-like object
     ensure_list : bool
         When True, return a list independent of how many part or
-        group ementes where created.
+        group elements where created.
     force_note_ids : (None, bool or "keep")
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
@@ -31,15 +35,16 @@ def load_score(score_fn, ensure_list=False, force_note_ids='keep'):
         A score part. If `ensure_list` the output will be a list.
     """
     part = None
+
+    # Catch exceptions
+    exception_dictionary = dict()
     # Load MusicXML
     try:
         return load_musicxml(
-            xml=score_fn,
-            ensure_list=ensure_list,
-            force_note_ids=force_note_ids
+            xml=score_fn, ensure_list=ensure_list, force_note_ids=force_note_ids
         )
-    except:
-        pass
+    except Exception as e:
+        exception_dictionary["MusicXML"] = e
     # Load MIDI
     try:
         if (force_note_ids is None) or (not force_note_ids):
@@ -47,21 +52,17 @@ def load_score(score_fn, ensure_list=False, force_note_ids='keep'):
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=score_fn,
-            assign_note_ids=assign_note_ids,
-            ensure_list=ensure_list
+            fn=score_fn, assign_note_ids=assign_note_ids, ensure_list=ensure_list
         )
-    except:
-        pass
+    except Exception as e:
+        exception_dictionary["MIDI"] = e
     # Load MuseScore
     try:
         return load_via_musescore(
-            fn=score_fn,
-            force_note_ids=force_note_ids,
-            ensure_list=ensure_list
+            fn=score_fn, force_note_ids=force_note_ids, ensure_list=ensure_list
         )
-    except:
-        pass
+    except Exception as e:
+        exception_dictionary["MuseScore"] = e
     try:
         # Load the score information from a Matchfile
         _, _, part = load_match(score_fn, create_part=True)
@@ -70,7 +71,11 @@ def load_score(score_fn, ensure_list=False, force_note_ids='keep'):
             return [part]
         else:
             return part
-    except:
-        pass
+    except Exception as e:
+        exception_dictionary["matchfile"] = e
     if part is None:
-        raise ValueError('The score is not in one of the supported formats')
+        for score_format, exception in exception_dictionary.items():
+            print(f"Error loading score as {score_format}:")
+            print(exception)
+
+        raise NotSupportedFormat
