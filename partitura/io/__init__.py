@@ -6,7 +6,7 @@ from .importmei import load_mei
 from .importkern import load_kern
 
 
-class NotSupportedFormat(Exception):
+class NotSupportedFormatError(Exception):
     pass
 
 
@@ -98,4 +98,4 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
             print(f"Error loading score as {score_format}:")
             print(exception)
 
-        raise NotSupportedFormat
+        raise NotSupportedFormatError
