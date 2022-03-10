@@ -53,14 +53,14 @@ def list_note_feats_functions():
     return bfs
 
 
-def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
-    """
-    Alias for make_note_feats
-    """
-    return make_note_feats(part, feature_functions)
-
-
 def make_note_feats(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
+    """
+    Alias for make_note_features.
+    """
+    return make_note_features(part, feature_functions)
+
+
+def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
     """Compute the specified feature functions for a part.
 
     The function returns the computed feature functions as a N x M
