@@ -153,7 +153,7 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
 
     """
     mscore_exec = find_musescore3()
-
+  
     if not mscore_exec:
 
         return None
