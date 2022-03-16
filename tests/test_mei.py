@@ -202,6 +202,32 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(part_no_ppq._quarter_durations[0] == 8)
         self.assertTrue(sorted(part_no_ppq._points)[-1].t == 22)
 
+    def test_barline(self):
+        parts = load_mei(MEI_TESTFILES[16])
+        part = list(score.iter_parts(parts))[0]
+        barlines = list(part.iter_all(score.Barline))
+        expected_barlines_times = [0, 8, 8, 16, 20, 24, 28]
+        expected_barlines_style = [
+            "heavy-light",
+            "light-heavy",
+            "heavy-light",
+            "light-heavy",
+            "light-light",
+            "dashed",
+            "light-heavy",
+        ]
+        self.assertTrue([bl.start.t for bl in barlines] == expected_barlines_times)
+        self.assertTrue([bl.style for bl in barlines] == expected_barlines_style)
+
+    def test_repetition1(self):
+        parts = load_mei(MEI_TESTFILES[16])
+        part = list(score.iter_parts(parts))[0]
+        repetitions = list(part.iter_all(score.Repeat))
+        expected_repeat_starts = [0, 8]
+        expected_repeat_ends = [8, 16]
+        self.assertTrue([rp.start.t for rp in repetitions] == expected_repeat_starts)
+        self.assertTrue([rp.end.t for rp in repetitions] == expected_repeat_ends)
+
     def test_parse_mei_example(self):
         part_list = load_mei(EXAMPLE_MEI)
         self.assertTrue(True)
