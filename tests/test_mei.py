@@ -228,6 +228,11 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue([rp.start.t for rp in repetitions] == expected_repeat_starts)
         self.assertTrue([rp.end.t for rp in repetitions] == expected_repeat_ends)
 
+    def test_repetition2(self):
+        parts = load_mei(MEI_TESTFILES[17])
+        part = list(score.iter_parts(parts))[0]
+        self.assertTrue(False)
+
     def test_parse_mei_example(self):
         part_list = load_mei(EXAMPLE_MEI)
         self.assertTrue(True)

@@ -100,6 +100,7 @@ MEI_TESTFILES = [
         "test_parts_duration.mei",
         "test_parts_duration2.mei",
         "test_barline.mei",
+        "test_unfold_complex.mei",
     ]
 ]
 

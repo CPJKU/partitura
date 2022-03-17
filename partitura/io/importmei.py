@@ -830,6 +830,26 @@ class MeiParser:
         part.add(measure, None, max(end_positions))
         return max(end_positions)
 
+    def _handle_dir_element(self, dir_el, position, parts):
+        # find the kind of element
+        rend_el = dir_el.find(self._ns_name("rend"))
+        if rend_el is None:
+            return
+        kind = rend_el.text
+        delta_position_beats = dir_el.get("tstamp")
+        to_insert = None
+        if kind == "Fine":
+            to_insert = score.Fine()
+        else:
+            pass
+            # TODO add the other dir elements
+        if (to_insert is not None) and (delta_position_beats is not None):
+            for part in parts:
+                beat_map = part.beat_map
+                inv_beat_map = part.inv_beat_map
+                dir_position = inv_beat_map(beat_map(position) + delta_position_beats)
+                part.add(to_insert, dir_position)
+
     def _handle_section(self, section_el, parts, position: int):
         """
         Returns position and fills parts with elements.
@@ -851,6 +871,10 @@ class MeiParser:
         for i_el, element in enumerate(section_el):
             # handle measures
             if element.tag == self._ns_name("measure"):
+                # handle directives (dir elements)
+                dir_els = element.findall(self._ns_name("dir"))
+                # for dir_el in dir_els:
+                #     self._handle_dir_element(dir_el, position, parts)
                 # handle left barline symbol
                 self._handle_barline_symbols(element, position, "left")
                 # handle staves
