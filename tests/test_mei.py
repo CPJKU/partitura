@@ -231,7 +231,12 @@ class TestImportMEI(unittest.TestCase):
     def test_repetition2(self):
         parts = load_mei(MEI_TESTFILES[17])
         part = list(score.iter_parts(parts))[0]
-        self.assertTrue(False)
+        fine_els = list(part.iter_all(score.Fine))
+        self.assertTrue(len(fine_els) == 1)
+        self.assertTrue(fine_els[0].start.t == 12)
+        dacapo_els = list(part.iter_all(score.DaCapo))
+        self.assertTrue(len(dacapo_els) == 1)
+        self.assertTrue(dacapo_els[0].start.t == 26)
 
     def test_parse_mei_example(self):
         part_list = load_mei(EXAMPLE_MEI)

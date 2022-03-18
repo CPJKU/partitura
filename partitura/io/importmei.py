@@ -830,25 +830,34 @@ class MeiParser:
         part.add(measure, None, max(end_positions))
         return max(end_positions)
 
-    def _handle_dir_element(self, dir_el, position, parts):
+    def _find_dir_positions(self, dir_el, bar_position):
+        """Compute the position for a <dir> element. 
+        Returns an array, one position for each part."""
+        delta_position_beat = float(dir_el.get("tstamp"))
+        return [
+            p.inv_beat_map(p.beat_map(bar_position) + delta_position_beat - 1)
+            for p in score.iter_parts(self.parts)
+        ]
+
+    def _add_in_all_parts(self, tobj, starts):
+        for part, start in zip(score.iter_parts(self.parts), starts):
+            part.add(tobj, start)
+
+    def _handle_dir_element(self, dir_el, position):
         # find the kind of element
-        rend_el = dir_el.find(self._ns_name("rend"))
-        if rend_el is None:
+        kind = dir_el.get("type")
+        if kind is None:
             return
-        kind = rend_el.text
-        delta_position_beats = dir_el.get("tstamp")
-        to_insert = None
-        if kind == "Fine":
-            to_insert = score.Fine()
-        else:
-            pass
-            # TODO add the other dir elements
-        if (to_insert is not None) and (delta_position_beats is not None):
-            for part in parts:
-                beat_map = part.beat_map
-                inv_beat_map = part.inv_beat_map
-                dir_position = inv_beat_map(beat_map(position) + delta_position_beats)
-                part.add(to_insert, dir_position)
+        dir_pos = self._find_dir_positions(dir_el, position)
+        if kind == "fine":
+            self._add_in_all_parts(score.Fine(), dir_pos)
+        elif kind == "dacapo":
+            self._add_in_all_parts(score.DaCapo(), dir_pos)
+
+    def _handle_directives(self, measure_el, position):
+        dir_els = measure_el.findall(self._ns_name("dir"))
+        for dir_el in dir_els:
+            self._handle_dir_element(dir_el, position)
 
     def _handle_section(self, section_el, parts, position: int):
         """
@@ -871,11 +880,7 @@ class MeiParser:
         for i_el, element in enumerate(section_el):
             # handle measures
             if element.tag == self._ns_name("measure"):
-                # handle directives (dir elements)
-                dir_els = element.findall(self._ns_name("dir"))
-                # for dir_el in dir_els:
-                #     self._handle_dir_element(dir_el, position, parts)
-                # handle left barline symbol
+                # handle left barline symbols
                 self._handle_barline_symbols(element, position, "left")
                 # handle staves
                 staves_el = element.findall(self._ns_name("staff"))
@@ -891,6 +896,9 @@ class MeiParser:
                     LOGGER.warning(
                         f"Warning : parts have measures of different duration in measure {element.attrib[self._ns_name('id',XML_NAMESPACE)]}"
                     )
+                # handle directives (dir elements)
+                self._handle_directives(element, position)
+                # move the position at the end of the bar
                 position = max(end_positions)
                 # handle right barline symbol
                 self._handle_barline_symbols(element, position, "right")
