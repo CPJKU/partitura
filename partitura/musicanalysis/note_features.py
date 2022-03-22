@@ -143,7 +143,6 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_f
 
 def polynomial_pitch_feature(na, part):
     """Normalize pitch feature.
-
     """
     pitches = na["pitch"].astype(np.float)
     feature_names = ['pitch']

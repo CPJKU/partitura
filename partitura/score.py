@@ -845,9 +845,8 @@ class Part(object):
         """
         return self._points[0] if len(self._points) > 0 else None
 
-    @property
-    def note_array(self):
-        return note_array_from_part(self)
+    def note_array(self,  *args, **kwargs):
+        return note_array_from_part(self, *args, **kwargs)
 
     def set_musical_beat_per_ts(self, mbeats_per_ts={}):
         """Set the number of musical beats for each time signature.
@@ -2473,15 +2472,14 @@ class PartGroup(object):
         """
         return "\n".join(self._pp(PrettyPrintTree()))
 
-    @property
-    def note_array(self):
+    def note_array(self, *args, **kwargs):
         """A structured array containing pitch, onset, duration, voice
         and id for each note in each part of the PartGroup. The note
         ids in this array include the number of the part to which they
         belong.
 
         """
-        return note_array_from_part_list(self.children)
+        return note_array_from_part_list(self.children,  *args, **kwargs)
 
 
 class ScoreVariant(object):
