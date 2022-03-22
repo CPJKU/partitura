@@ -2,7 +2,7 @@
 
 # -*- coding: utf-8 -*-
 
-import logging
+import warnings
 import os
 import zipfile
 
@@ -20,7 +20,6 @@ from partitura.utils import ensure_notearray
 
 __all__ = ["load_musicxml"]
 
-LOGGER = logging.getLogger(__name__)
 _MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None
 DYN_DIRECTIONS = {
@@ -151,7 +150,7 @@ def _parse_partlist(partlist):
                 part.parent = current_group
 
     if current_group is not None:
-        LOGGER.warning("part-group {0} was not ended".format(current_group.number))
+        warnings.warn("part-group {0} was not ended".format(current_group.number))
         structure.append(current_group)
 
     return structure, part_dict
@@ -274,13 +273,13 @@ def _parse_parts(document, part_dict):
         for o in part.iter_all(score.Ending, mode="ending"): 
             if o.start is None:
                 part.add(o,part.measure_map(o.end.t-1)[0],None)
-                LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"
+                warnings.warn("Found ending[stop] without a preceding ending[start]\n"
                     "Single measure bracket is assumed")
         
         for o in part.iter_all(score.Ending, mode="starting"):    
             if o.end is None:
                 part.add(o,None,part.measure_map(o.start.t)[1])
-                LOGGER.warning("Found ending[start] without a following ending[stop]\n"
+                warnings.warn("Found ending[start] without a following ending[stop]\n"
                     "Single measure bracket is assumed")
 
         # complete unstarted repeats 
@@ -290,7 +289,7 @@ def _parse_parts(document, part_dict):
                     [r.start.t for r in part.iter_all(score.Repeat)]
                 start_time_id = np.searchsorted(start_times, o.end.t) - 1
                 part.add(o,start_times[start_time_id],None)
-                LOGGER.warning("Found repeat without start\n"
+                warnings.warn("Found repeat without start\n"
                     "Starting point {} is assumend".format(start_times[start_time_id]))
 
         # remove unfinished elements from the timeline        
@@ -317,10 +316,10 @@ def _parse_parts(document, part_dict):
                         gn.last_grace_note_in_seq.grace_next = no
 
             if gn.main_note is None:
-                LOGGER.warning(
+                warnings.warn(
                     "grace note without recoverable same voice main note: {}".format(gn)
                 )
-                LOGGER.warning("might be cadenza notation")
+                warnings.warn("might be cadenza notation")
 
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
@@ -361,7 +360,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             position -= duration
 
             if position < measure.start.t:
-                LOGGER.warning(
+                warnings.warn(
                     ("<backup> crosses measure boundary, adjusting "
                      "position from {} to {} in Measure {}").format(
                         position, measure.start.t, measure.number
@@ -448,7 +447,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             # TODO: handle segno/fine/dacapo
 
         else:
-            LOGGER.debug("ignoring tag {0}".format(e.tag))
+            warnings.warn("ignoring tag {0}".format(e.tag), stacklevel=2)
 
     for obj in trailing_children:
         part.add(obj, measure_maxtime)
@@ -500,7 +499,7 @@ def _handle_ending(e, position, part, ongoing):
 
         if o is None:
 
-            LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"+
+            warnings.warn("Found ending[stop] without a preceding ending[start]\n"+
                            "Single measure bracket is assumed")
             o = score.Ending(e.get("number"))
             part.add(o, None, position)
@@ -709,7 +708,7 @@ def _handle_direction(e, position, part, ongoing):
                     ending_directions.append(o)
                     del ongoing[key]
                 else:
-                    LOGGER.warning("Did not find a wedge start element for wedge stop!")
+                    warnings.warn("Did not find a wedge start element for wedge stop!")
 
         elif dt.tag == "dashes":
 
@@ -751,17 +750,17 @@ def _handle_direction(e, position, part, ongoing):
                     del ongoing[key]
 
                 else:
-                    LOGGER.warning("Did not find a pedal start element for pedal stop!")
+                    warnings.warn("Did not find a pedal start element for pedal stop!")
 
             else:
                 if pedal_type in ("change", "continue"):
-                    LOGGER.warning(
+                    warnings.warn(
                         'pedal types "change" and "continue" are '
                         "not supported. Ignoring direction."
                     )
 
         else:
-            LOGGER.warning("ignoring direction type: {} {}".format(dt.tag, dt.attrib))
+            warnings.warn("ignoring direction type: {} {}".format(dt.tag, dt.attrib))
 
     for dashes_key, dashes_type in dashes_keys.items():
 
@@ -773,7 +772,7 @@ def _handle_direction(e, position, part, ongoing):
 
             oo = ongoing.get(dashes_key)
             if oo is None:
-                LOGGER.warning("Dashes end without dashes start")
+                warnings.warn("Dashes end without dashes start")
             else:
                 ending_directions.extend(oo)
                 del ongoing[dashes_key]
@@ -940,7 +939,7 @@ def _add_tempo_if_unique(position, part, tempo):
         if tempos == []:
             part.add(tempo, position)
         else:
-            LOGGER.warning("not adding duplicate or conflicting tempo indication")
+            warnings.warn("not adding duplicate or conflicting tempo indication")
 
 
 def _handle_sound(e, position, part):
@@ -1215,7 +1214,7 @@ def handle_slurs(notations, ongoing, note, position):
                             slur.end_note.id,
                         )
                     )
-                    LOGGER.warning(msg)
+                    warnings.warn(msg)
                     # remove the slur from the timeline
                     slur.end_note.start.remove_ending_object(slur)
                     # remove the reference to the slur in the end note
@@ -1247,7 +1246,7 @@ def handle_slurs(notations, ongoing, note, position):
                             note.id,
                         )
                     )
-                    LOGGER.warning(msg)
+                    warnings.warn(msg)
                     # remove the slur from the timeline
                     slur.start_note.start.remove_starting_object(slur)
                     # remove the reference to the slur in the end note
