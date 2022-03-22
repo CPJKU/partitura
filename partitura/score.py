@@ -316,8 +316,10 @@ class Part(object):
             The mapping function
 
         """
-        ms = [m.start.t for m in self.iter_all(Measure)]
-        me = [m.end.t for m in self.iter_all(Measure)]
+        measure_map = self.measure_map
+        ms = [measure_map(m.start.t)[0] for m in self.iter_all(Measure)]
+        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
+        
 
         if len(ms) == 0:
             warnings.warn("No measures found, metrical position 0 everywhere")
@@ -329,14 +331,19 @@ class Part(object):
         else:
             barlines = np.array(ms + me[-1:])
             bar_durations = np.diff(barlines)
-            measure_inter_function = interp1d(barlines[:-1], bar_durations, axis=0, kind="previous")
+            measure_inter_function = interp1d(barlines[:-1], bar_durations, axis=0, 
+                                              kind="previous", fill_value="extrapolate")
             
             lin_poly_coeff = np.row_stack((np.ones(bar_durations.shape[0]),np.zeros(bar_durations.shape[0])))
             inter_function = PPoly(lin_poly_coeff,barlines)
 
             def int_interp1d(input):
-                return np.column_stack((inter_function(input).astype(int),
+                if isinstance(input, Iterable):
+                    return np.column_stack((inter_function(input).astype(int),
                                         measure_inter_function(input).astype(int) )) 
+                else:
+                    return (inter_function(input).astype(int),
+                            measure_inter_function(input).astype(int) )
 
             return int_interp1d
 
