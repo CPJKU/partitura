@@ -317,7 +317,8 @@ class Part(object):
             The mapping function
 
         """
-        xs = np.arange(self.first_point.t, self.last_point.t)
+        xs = np.array([point.t for point in self._points])
+        # xs = np.arange(self.first_point.t, self.last_point.t)
         mp = self.measure_map(xs)
         ys = np.column_stack((xs - mp[:, 0], mp[:, 1] - mp[:, 0]))
 
