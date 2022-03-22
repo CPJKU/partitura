@@ -13,11 +13,10 @@ are registered in terms of their start and end times.
 from copy import copy
 from collections import defaultdict
 from collections.abc import Iterable
-import logging
 from numbers import Number
 # import copy
 from partitura.utils.music import MUSICAL_BEATS
-
+import warnings
 import numpy as np
 from scipy.interpolate import interp1d, PPoly
 
@@ -43,7 +42,7 @@ from partitura.utils import (
     update_note_ids_after_unfolding,
 )
 
-LOGGER = logging.getLogger(__name__)
+
 
 
 class Part(object):
@@ -144,7 +143,7 @@ class Part(object):
         if len(tss) == 0:
             # default time sig
             beats, beat_type = 4, 4
-            LOGGER.warning(
+            warnings.warn(
                 "No time signatures found, assuming {}/{}".format(beats, beat_type)
             )
             if self.first_point is None:
@@ -189,7 +188,7 @@ class Part(object):
         if len(kss) == 0:
             # default key signature
             fifths, mode = 0, 1
-            LOGGER.warning("No key signature found, assuming C major")
+            warnings.warn("No key signature found, assuming C major")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
@@ -241,7 +240,7 @@ class Part(object):
 
         if len(measures) == 0:  # no measures in the piece
             # default only one measure spanning the entire timeline
-            LOGGER.warning("No measures found, assuming only one measure")
+            warnings.warn("No measures found, assuming only one measure")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
@@ -287,7 +286,7 @@ class Part(object):
 
         if len(measures) == 0:  # no measures in the piece
             # default only one measure spanning the entire timeline
-            LOGGER.warning("No measures found, assuming only one measure")
+            warnings.warn("No measures found, assuming only one measure")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
@@ -806,7 +805,7 @@ class Part(object):
 
         """
         if mode not in ("starting", "ending"):
-            LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
+            warnings.warn('unknown mode "{}", using "starting" instead'.format(mode))
             mode = "starting"
 
         if start is None:
@@ -1383,13 +1382,13 @@ class GenericNote(TimedObject):
         if self._sym_dur is None:
             # compute value
             if not self.start or not self.end:
-                LOGGER.warning(
+                warnings.warn(
                     "Cannot estimate symbolic duration for notes that "
                     "are not added to a Part"
                 )
                 return None
             if self.start.quarter is None:
-                LOGGER.warning(
+                warnings.warn(
                     "Cannot estimate symbolic duration when not "
                     "quarter_duration has been set. "
                     "See Part.set_quarter_duration."
@@ -1952,7 +1951,7 @@ class Tuplet(TimedObject):
                 if self.start_note and self.start_note.start:
                     self.start_note.start.remove_starting_object(self)
             # else:
-            #     LOGGER.warning('Note has no start time')
+            #     warnings.warn('Note has no start time')
             note.tuplet_starts.append(self)
         self._start_note = note
 
@@ -1969,7 +1968,7 @@ class Tuplet(TimedObject):
                     #  remove the tuplet from the currentend time
                     self.end_note.end.remove_ending_object(self)
             # else:
-            #     LOGGER.warning('Note has no end time')
+            #     warnings.warn('Note has no end time')
             note.tuplet_stops.append(self)
         self._end_note = note
 
@@ -2646,7 +2645,7 @@ def add_measures(part):
     )
 
     if len(timesigs) == 0:
-        LOGGER.warning("No time signatures found, not adding measures")
+        warnings.warn("No time signatures found, not adding measures")
         return
 
     start = part.first_point.t
@@ -3190,14 +3189,15 @@ def sanitize_part(part, tie_tolerance = 0):
                     tn.tie_next = None
                     tn.tie_prev = None
 
-    LOGGER.info(
+    warnings.warn(
         "part_sanitize removed {} incomplete tuplets, "
         "{} incomplete slurs, {} incomplete grace, "
         "and {} wrong ties."
         "notes".format(remove_tuplet_counter, 
                        remove_slur_counter, 
                        remove_grace_counter,
-                       remove_tie_counter)
+                       remove_tie_counter),
+        stacklevel=2
     )
 
 

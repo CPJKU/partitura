@@ -12,17 +12,16 @@ The functionality is provided by the function `parse_words`
 """
 
 import re
-import logging
-
+import warnings
 try:
     from lark import Lark
 
     HAVE_LARK = True
 except ImportError:
-    logging.getLogger(__name__).warning(
+    warnings.warn(
         '''package "lark" not found; Textual directions will not be
 parsed to form `score.Direction` objects but included as `score.Words`
-instead; Install using "pip install lark-parser"'''
+instead; Install using "pip install lark-parser"''', ImportWarning, stacklevel=2
     )
     HAVE_LARK = False
 
@@ -34,8 +33,6 @@ __all__ = ["parse_direction"]
 # convert: '{}'.format(roman.fromRoman(t.value.upper()))
 
 import partitura.score as score
-
-LOGGER = logging.getLogger(__name__)
 
 
 def join_items(items):
@@ -449,7 +446,7 @@ def create_directions(tree, string, start=None, end=None):
         return [score.Words(string[start:end])]
 
     else:
-        LOGGER.warning("unhandled: {}".format(string[start:end]))
+        warnings.warn("unhandled: {}".format(string[start:end]))
         return [score.Words(string[start:end])]
 
 
@@ -530,7 +527,7 @@ def parse_direction(string):
             parse_result = DEFAULT_PARSER.parse(string)
             direction = create_directions(parse_result, string)
         except Exception as e:
-            LOGGER.warning('error parsing "{}" ({})'.format(string, type(e).__name__))
+            warnings.warn('error parsing "{}" ({})'.format(string, type(e).__name__))
             direction = [score.Words(string)]
     else:
         direction = [score.Words(string)]

@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 from collections import defaultdict
-import logging
 import re
-
+import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 
 from partitura.utils.generic import find_nearest, search, iter_current_next
-
-LOGGER = logging.getLogger(__name__)
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 # _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
@@ -935,7 +932,7 @@ def compute_pianoroll(
         time_div = int(time_div)
 
     if "channel" in note_array.dtype.names and remove_drums:
-        LOGGER.info("Do not consider drum track for computing piano roll")
+        warnings.warn("Do not consider drum track for computing piano roll")
         non_drum_idxs = np.where(note_array["channel"] != 9)[0]
         note_array = note_array[non_drum_idxs]
 
@@ -1346,9 +1343,9 @@ def match_note_arrays(
             matched_target_idxs.append(taix[0])
     matched_idxs = np.array(matched_idxs)
 
-    LOGGER.info("Length of matched idxs: " "{0}".format(len(matched_idxs)))
-    LOGGER.info("Length of input note_array: " "{0}".format(len(input_note_array)))
-    LOGGER.info("Length of target note_array: " "{0}".format(len(target_note_array)))
+    warnings.warn("Length of matched idxs: " "{0}".format(len(matched_idxs)), stacklevel=2)
+    warnings.warn("Length of input note_array: " "{0}".format(len(input_note_array)), stacklevel=2)
+    warnings.warn("Length of target note_array: " "{0}".format(len(target_note_array)), stacklevel=2)
 
     if return_note_idxs:
         if len(matched_idxs) > 0:
