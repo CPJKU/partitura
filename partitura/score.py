@@ -19,7 +19,7 @@ from numbers import Number
 from partitura.utils.music import MUSICAL_BEATS
 
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, PPoly
 
 from partitura.utils import (
     ComparableMixin,
@@ -317,17 +317,29 @@ class Part(object):
             The mapping function
 
         """
-        xs = np.array([point.t for point in self._points])
-        # xs = np.arange(self.first_point.t, self.last_point.t)
-        mp = self.measure_map(xs)
-        ys = np.column_stack((xs - mp[:, 0], mp[:, 1] - mp[:, 0]))
+        ms = [m.start.t for m in self.iter_all(Measure)]
+        me = [m.end.t for m in self.iter_all(Measure)]
 
-        inter_function = interp1d(xs, ys, axis=0, kind="linear")
+        if len(ms) == 0:
+            LOGGER.warning("No measures found, metrical position 0 everywhere")
+            zero_interpolator = interp1d(np.arange(0,2), np.zeros((2,2)),axis = 0, 
+                                   kind="linear", fill_value="extrapolate")
+            def zero_fun(input):
+                return zero_interpolator(input).astype(int)
+            return zero_fun
+        else:
+            barlines = np.array(ms + me[-1:])
+            bar_durations = np.diff(barlines)
+            measure_inter_function = interp1d(barlines[:-1], bar_durations, axis=0, kind="previous")
+            
+            lin_poly_coeff = np.row_stack((np.ones(bar_durations.shape[0]),np.zeros(bar_durations.shape[0])))
+            inter_function = PPoly(lin_poly_coeff,barlines)
 
-        def int_interp1d(input):
-            return inter_function(input).astype(int) 
+            def int_interp1d(input):
+                return np.column_stack((inter_function(input).astype(int),
+                                        measure_inter_function(input).astype(int) )) 
 
-        return int_interp1d
+            return int_interp1d
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
