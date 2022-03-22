@@ -318,10 +318,10 @@ class Part(object):
 
         """
         xs = np.arange(self.first_point.t, self.last_point.t)
-        ys = np.column_stack((xs - self.measure_map(xs)[:, 0],
-                              self.measure_map(xs)[:, 1] - self.measure_map(xs)[:, 0]))
+        mp = self.measure_map(xs)
+        ys = np.column_stack((xs - mp[:, 0], mp[:, 1] - mp[:, 0]))
 
-        inter_function = interp1d(xs,ys, axis=0, kind="linear")
+        inter_function = interp1d(xs, ys, axis=0, kind="linear")
 
         def int_interp1d(input):
             return inter_function(input).astype(int) 
