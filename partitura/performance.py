@@ -8,12 +8,10 @@ notes as well as continuous control parameters, such as sustain pedal.
 
 """
 
-import logging
+
 
 import numpy as np
 
-
-LOGGER = logging.getLogger(__name__)
 
 __all__ = ["PerformedPart"]
 

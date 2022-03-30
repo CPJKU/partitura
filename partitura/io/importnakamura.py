@@ -9,14 +9,13 @@ References
        Detection and Post-Processing for Fast and Accurate Symbolic Music
        Alignment"
 """
-import logging
+import warnings
 import re
 import numpy as np
 
 from partitura.utils import note_name_to_midi_pitch
 from partitura.utils.music import SIGN_TO_ALTER
 
-LOGGER = logging.getLogger(__name__)
 
 NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 

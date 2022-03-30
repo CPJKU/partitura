@@ -7,6 +7,7 @@ import re
 from fractions import Fraction
 from operator import attrgetter, itemgetter
 import logging
+import warnings
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -28,7 +29,7 @@ import partitura.score as score
 from partitura.musicanalysis import estimate_voices, estimate_key
 
 __all__ = ["load_match"]
-LOGGER = logging.getLogger(__name__)
+
 
 rational_pattern = re.compile(r"^([0-9]+)/([0-9]+)$")
 double_rational_pattern = re.compile(r"^([0-9]+)/([0-9]+)/([0-9]+)$")
@@ -1249,7 +1250,6 @@ def load_match(
         The score--performance alignment, a list of dictionaries
     spart : Part
         The score part. This item is only returned when `create_part` = True.
-
     """
     # Parse Matchfile
     mf = MatchFile(fn)
@@ -1468,7 +1468,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         onset_divs = int(round(divs * (bar_start + bar_offset + beat_offset - offset)))
 
         if not np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
-            LOGGER.info(
+            warnings.warn(
                 "Calculated `onset_divs` does not match `OnsetInBeats` "
                 "information!."
             )

@@ -114,7 +114,15 @@ KERN_TESFILES = [
         "long_example.krn",
         "double_repeat_example.krn",
         "fine_with_repeat.krn",
-        "tuple_durations.krn",
+        'tuple_durations.krn',
+        "voice_dublifications.krn",
+    ]
+]
+
+KERN_TIES = [
+    os.path.join(KERN_PATH, fn)
+    for fn in [
+        "tie_mismatch.krn"
     ]
 ]
 

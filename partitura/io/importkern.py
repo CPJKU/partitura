@@ -1,6 +1,8 @@
 import os.path
 import re
+import warnings
 
+import partitura.score
 import partitura.score as score
 import numpy as np
 
@@ -63,7 +65,7 @@ class KernGlobalPart(object):
 class KernParserPart(KernGlobalPart):
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
-        self.position = init_pos
+        self.position = int(init_pos)
         self.parsing = "full"
         self.stream = stream
         self.prev_measure_pos = init_pos
@@ -115,12 +117,31 @@ class KernParserPart(KernGlobalPart):
         pass
 
     def _handle_ties(self):
-        if len(self.tie_dict["open"]) != len(self.tie_dict["close"]):
+        try:
+            if len(self.tie_dict["open"]) < len(self.tie_dict["close"]):
+                for index, oid in enumerate(self.tie_dict["open"]):
+                    if self.nid_dict[oid].midi_pitch != self.nid_dict[self.tie_dict["close"][index]].midi_pitch:
+                        dnote = self.nid_dict[self.tie_dict["close"][index]]
+                        m_num = [m for m in self.part.iter_all(partitura.score.Measure) if m.start.t == self.part.measure_map(dnote.start.t)[0]][0].number
+                        warnings.warn("Dropping Closing Tie of note {} at position {} measure {}".format(dnote.midi_pitch, dnote.start.t, m_num))
+                        self.tie_dict["close"].pop(index)
+                        self._handle_ties()
+            elif len(self.tie_dict["open"]) > len(self.tie_dict["close"]):
+                for index, cid in enumerate(self.tie_dict["close"]):
+                    if self.nid_dict[cid].midi_pitch != self.nid_dict[self.tie_dict["open"][index]].midi_pitch:
+                        dnote = self.nid_dict[self.tie_dict["open"][index]]
+                        m_num = [m for m in self.part.iter_all(partitura.score.Measure) if m.start.t == self.part.measure_map(dnote.start.t)[0]][0].number
+                        warnings.warn(
+                            "Dropping Opening Tie of note {} at position {} measure {}".format(dnote.midi_pitch,
+                                                                                                 dnote.start.t, m_num))
+                        self.tie_dict["open"].pop(index)
+                        self._handle_ties()
+            else:
+                for (oid, cid) in list(zip(self.tie_dict["open"], self.tie_dict["close"])):
+                    self.nid_dict[oid].tie_next = self.nid_dict[cid]
+                    self.nid_dict[cid].tie_prev = self.nid_dict[oid]
+        except:
             raise ValueError("Tie Mismatch! Uneven amount of closing to open tie brackets.")
-        else:
-            for (oid,cid) in list(zip(self.tie_dict["open"], self.tie_dict["close"])):
-                self.nid_dict[oid].tie_next = self.nid_dict[cid]
-                self.nid_dict[cid].tie_prev = self.nid_dict[oid]
 
     def _handle_slurs(self):
         if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
@@ -139,13 +160,13 @@ class KernParserPart(KernGlobalPart):
         if self.position > self.prev_measure_pos:
             indicated_measure = re.findall("=([0-9]+)", element)
             if indicated_measure != []:
-                m = eval(indicated_measure[0])
+                m = eval(indicated_measure[0]) - 1
                 barline = score.Barline(style="normal")
                 self.part.add(barline, self.position)
                 self.measure_count = m
                 self.barline_dict[m] = self.position
             else:
-                m = self.measure_count
+                m = self.measure_count - 1
             self.part.add(score.Measure(m), self.prev_measure_pos, self.position)
             self.prev_measure_pos = self.position
             self.measure_count += 1
@@ -233,11 +254,12 @@ class KernParserPart(KernGlobalPart):
             self.slur_dict["open"].append(note_id)
             # Re-order for correct parsing
             if len(self.slur_dict["open"]) > len(self.slur_dict["close"])+1:
-                raise ValueError("Cannot deal with nested slurs.")
-                x = note_id
-                lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
-                self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
-                self.slur_dict["open"][lenc] = x
+                warnings.warn("Cannot deal with nested slurs. Dropping Opening slur for note id {}".format(self.slur_dict["open"][len(self.slur_dict["open"]) - 2]))
+                self.slur_dict["open"].pop(len(self.slur_dict["open"]) - 2)
+                # x = note_id
+                # lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
+                # self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
+                # self.slur_dict["open"][lenc] = x
             note = note[n:]
         if "]" in note:
             self.tie_dict["close"].append(note_id)
@@ -269,23 +291,27 @@ class KernParserPart(KernGlobalPart):
         if "." in note:
             symbolic_duration["dots"] = note.count(".")
             ntype = ntype[note.count("."):]
+            d = duration
             for i in range(symbolic_duration["dots"]):
-                duration += duration / 2
+                d = d / 2
+                duration += d
         else:
             symbolic_duration["dots"] = 0
         if isinstance(duration, float):
             if not duration.is_integer():
                 raise ValueError("Duration divs is not an integer, {}".format(duration))
-        return duration, symbolic_duration, ntype
+        # Check that duration is same as int
+        assert int(duration) == duration
+        return int(duration), symbolic_duration, ntype
 
     # TODO Handle beams and tuplets.
 
-    def _handle_note(self, note, note_id):
+    def _handle_note(self, note, note_id, voice=1):
         if note == ".":
             return
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
-        grace_attr = "q" in note or "p" in note
+        grace_attr = "q" in note # or "p" in note # for appoggiatura not sure yet.
         duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
         # Remove editorial symbols from string, i.e. "x"
         ntype = ntype.replace("x", "")
@@ -303,7 +329,7 @@ class KernParserPart(KernGlobalPart):
                 octave=octave,
                 alter=alter,
                 id=note_id,
-                voice=1,
+                voice=int(voice),
                 staff=self.staff,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
@@ -334,6 +360,7 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_chord(self, chord, id):
         notes = chord.split()
+        position_history = list()
         pos = self.position
         for i, note_el in enumerate(notes):
             id_new = "c-" + str(i) + "-" + str(id)
@@ -341,7 +368,11 @@ class KernParserPart(KernGlobalPart):
             if "r" in note_el:
                 self._handle_rest(note_el, id_new)
             else:
-                self._handle_note(note_el, id_new)
+                self._handle_note(note_el, id_new, voice=int(i))
+            if note_el != ".":
+                position_history.append(self.position)
+        # To account for Voice changes and alternate voice order.
+        self.position = min(position_history) if position_history else self.position
 
     def _handle_glob_attr(self, el):
         if el.startswith("*clef"):
@@ -436,7 +467,7 @@ def parse_kern(kern_path):
     continuous_parts : numpy character array
     non_continuous_parts : list
     """
-    with open(kern_path) as file:
+    with open(kern_path, encoding='cp437') as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
     striped_parts = list()
