@@ -238,6 +238,11 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(len(dacapo_els) == 1)
         self.assertTrue(dacapo_els[0].start.t == 26)
 
+    # def test_articulation(self):
+    #     parts = load_mei(MEI_TESTFILES[17])
+    #     part = list(score.iter_parts(parts))[0]
+    #     self.assertTrue(False)
+
     def test_parse_mei_example(self):
         part_list = load_mei(EXAMPLE_MEI)
         self.assertTrue(True)
