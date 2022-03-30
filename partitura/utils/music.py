@@ -878,7 +878,8 @@ def compute_pianoroll(
         of the first note, not at time 0 of the timeline.
     end_time : int, optional
         The time corresponding to the ending of the last 
-        pianoroll frame. If None this is set to the last note offset.
+        pianoroll frame (in time_unit). 
+        If None this is set to the last note offset.
 
     Returns
     -------
@@ -962,6 +963,7 @@ def compute_pianoroll(
         return_idxs=return_idxs,
         piano_range=piano_range,
         remove_silence=remove_silence,
+        end_time = end_time,
     )
 
 
@@ -1053,12 +1055,12 @@ def _make_pianoroll(
 
     # Time dimension
     if end_time is None:
-        N = int(time_div * time_margin + pr_offset.max())
+        N = int(np.ceil(time_div * time_margin + pr_offset.max()))
     else:
-        if end_time < pr_offset.max():
+        if end_time * time_div < pr_offset.max():
             raise ValueError("`end_time` must be higher or equal than the last note offset time")
         else:
-            N = int(time_div * time_margin +  end_time)
+            N = int(np.ceil(time_div * time_margin + time_div * end_time))
 
     # Determine the non-zero indices of the piano roll
     if onset_only:

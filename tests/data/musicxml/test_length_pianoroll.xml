@@ -37,9 +37,6 @@
     <lyric-font font-family="Edwin" font-size="10"/>
     </defaults>
   <part-list>
-    <part-group type="start" number="1">
-      <group-symbol>bracket</group-symbol>
-      </part-group>
     <score-part id="P1">
       <part-name>Soprano</part-name>
       <part-abbreviation>S.</part-abbreviation>
@@ -82,14 +79,13 @@
         <pan>0</pan>
         </midi-instrument>
       </score-part>
-    <part-group type="stop" number="1"/>
     </part-list>
   <part id="P1">
-    <measure number="1" width="346.14">
+    <measure number="1" width="348.22">
       <print>
         <system-layout>
           <system-margins>
-            <left-margin>154.55</left-margin>
+            <left-margin>148.31</left-margin>
             <right-margin>0.00</right-margin>
             </system-margins>
           <top-system-distance>70.00</top-system-distance>
@@ -119,7 +115,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="2" width="261.74">
+    <measure number="2" width="263.82">
       <note default-x="13.00" default-y="-45.00">
         <pitch>
           <step>D</step>
@@ -130,7 +126,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="3" width="266.27">
+    <measure number="3" width="268.35">
       <note default-x="13.00" default-y="-40.00">
         <pitch>
           <step>E</step>
@@ -146,7 +142,7 @@
       </measure>
     </part>
   <part id="P2">
-    <measure number="1" width="346.14">
+    <measure number="1" width="348.22">
       <print>
         <staff-layout number="1">
           <staff-distance>96.19</staff-distance>
@@ -176,7 +172,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="2" width="261.74">
+    <measure number="2" width="263.82">
       <note default-x="13.00" default-y="-181.19">
         <pitch>
           <step>D</step>
@@ -187,7 +183,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="3" width="266.27">
+    <measure number="3" width="268.35">
       <note>
         <rest measure="yes"/>
         <duration>4</duration>
@@ -199,7 +195,7 @@
       </measure>
     </part>
   <part id="P3">
-    <measure number="1" width="346.14">
+    <measure number="1" width="348.22">
       <print>
         <staff-layout number="1">
           <staff-distance>96.19</staff-distance>
@@ -225,7 +221,7 @@
         <voice>1</voice>
         <type>half</type>
         </note>
-      <note default-x="215.66" default-y="-292.39">
+      <note default-x="216.70" default-y="-292.39">
         <pitch>
           <step>B</step>
           <octave>4</octave>
@@ -236,7 +232,7 @@
         <stem>down</stem>
         </note>
       </measure>
-    <measure number="2" width="261.74">
+    <measure number="2" width="263.82">
       <note default-x="13.00" default-y="-307.39">
         <pitch>
           <step>F</step>
@@ -247,7 +243,7 @@
         <type>whole</type>
         </note>
       </measure>
-    <measure number="3" width="266.27">
+    <measure number="3" width="268.35">
       <note default-x="13.00" default-y="-297.39">
         <pitch>
           <step>A</step>

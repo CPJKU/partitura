@@ -80,8 +80,7 @@ MERGE_PARTS_TESTFILES = [
 ]
 
 PIANOROLL_TESTFILES = [
-    os.path.join(MUSICXML_PATH, fn)
-    for fn in ["tests\data\musicxml\test_length_pianoroll.xml"]
+    os.path.join(MUSICXML_PATH, fn) for fn in ["test_length_pianoroll.xml"]
 ]
 
 
@@ -114,15 +113,10 @@ KERN_TESFILES = [
         "long_example.krn",
         "double_repeat_example.krn",
         "fine_with_repeat.krn",
-        'tuple_durations.krn',
+        "tuple_durations.krn",
         "voice_dublifications.krn",
     ]
 ]
 
-KERN_TIES = [
-    os.path.join(KERN_PATH, fn)
-    for fn in [
-        "tie_mismatch.krn"
-    ]
-]
+KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
 
