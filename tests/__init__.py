@@ -35,16 +35,8 @@ MUSICXML_UNFOLD_TESTPAIRS = [
     ]
 ]
 MUSICXML_UNFOLD_COMPLEX = [
-    (
-        os.path.join(MUSICXML_PATH, fn1),
-        os.path.join(MUSICXML_PATH, fn2),
-    )
-    for fn1, fn2 in [
-        (
-            "test_unfold_complex.xml",
-            "test_unfold_complex_result.xml"
-        )
-    ]
+    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
+    for fn1, fn2 in [("test_unfold_complex.xml", "test_unfold_complex_result.xml")]
 ]
 
 # This is a list of files for testing Chew and Wu's VOSA. (More files to come?)
@@ -87,6 +79,11 @@ MERGE_PARTS_TESTFILES = [
     ]
 ]
 
+PIANOROLL_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["tests\data\musicxml\test_length_pianoroll.xml"]
+]
+
 
 MEI_TESTFILES = [
     os.path.join(MEI_PATH, fn)
@@ -117,7 +114,7 @@ KERN_TESFILES = [
         "long_example.krn",
         "double_repeat_example.krn",
         "fine_with_repeat.krn",
-        'tuple_durations.krn',
+        "tuple_durations.krn",
     ]
 ]
 

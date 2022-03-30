@@ -4,9 +4,9 @@ import logging
 import unittest
 
 from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
-from partitura import load_musicxml
+from partitura import load_musicxml, load_score
 
-from tests import MUSICXML_IMPORT_EXPORT_TESTFILES
+from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -242,3 +242,15 @@ class TestNotesFromPianoroll(unittest.TestCase):
             self.assertTrue(test_duration)
             test_velocity = np.all(note_array['velocity'] == rec_note_array['velocity'])
             self.assertTrue(test_velocity)
+
+
+class TestPianorollFromScores(unittest.TestCase):
+    """
+    Test piano roll from xml scores
+    """
+
+    def test_score_pianoroll(self):
+        score = load_score(PIANOROLL_TESTFILES[0])
+        
+
+        self.assertEqual(True)
