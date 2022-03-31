@@ -1,8 +1,7 @@
 .. image:: https://badge.fury.io/py/partitura.svg
     :target: https://badge.fury.io/py/partitura
 
-.. image:: https://github.com/CPJKU/partitura/workflows/partitura_unittests/badge.svg
-    :target: https://github.com/CPJKU/partitura/actions?query=workflow%3A%22partitura_unittests
+.. :image:: https://github.com/CPJKU/partitura/workflows/Partitura%20Unittests/badge.svg
 
 .. image:: https://codecov.io/gh/CPJKU/partitura/branch/coverage/graph/badge.svg?token=mnZ234sGSA
     :target: https://codecov.io/gh/CPJKU/partitura
