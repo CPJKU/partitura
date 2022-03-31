@@ -26,5 +26,15 @@ jobs:
         pip install -r requirements.txt
         pip install .
     - name: Run Tests
-      run: python -m unittest discover ./tests/ 'test*.py'
+      run: |
+        pip install coverage
+        python -m unittest discover ./tests/ 'test*.py'
+        coverage run -m unittest discover ./tests/ 'test*.py'
+        coverage xml
+
+    - name: Check coverage with CodeCov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          verbose: true
 
