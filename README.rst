@@ -2,6 +2,7 @@
     :target: https://badge.fury.io/py/partitura
 
 .. :image:: https://github.com/CPJKU/partitura/workflows/Partitura%20Unittests/badge.svg
+    :target: https://github.com/CPJKU/partitura/actions?query=workflow%3A%22Partitura+Unittests%22
 
 .. image:: https://codecov.io/gh/CPJKU/partitura/branch/coverage/graph/badge.svg?token=mnZ234sGSA
     :target: https://codecov.io/gh/CPJKU/partitura
