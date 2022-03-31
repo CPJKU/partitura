@@ -33,8 +33,8 @@ jobs:
         coverage xml
 
     - name: Check coverage with CodeCov
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./coverage.xml
-          verbose: true
+      uses: codecov/codecov-action@v1
+      with:
+        file: ./coverage.xml
+        verbose: true
 
