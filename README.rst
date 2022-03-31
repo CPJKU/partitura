@@ -1,11 +1,11 @@
 .. image:: https://badge.fury.io/py/partitura.svg
     :target: https://badge.fury.io/py/partitura
 
-.. image:: https://github.com/partitura/partitura/workflows/partitura_unittests/badge.svg
-    :target: https://github.com/partitura/partitura/actions?query=workflow%3A%22Partitura_unittests
+.. image:: https://github.com/CPJKU/partitura/workflows/partitura_unittests/badge.svg
+    :target: https://github.com/CPJKU/partitura/actions?query=workflow%3A%22partitura_unittests
 
-.. image:: https://codecov.io/gh/tensorly/partitura/branch/master/graph/badge.svg?token=mnZ234sGSA
-    :target: https://codecov.io/gh/partitura/partitura
+.. image:: https://codecov.io/gh/CPJKU/partitura/branch/coverage/graph/badge.svg?token=mnZ234sGSA
+    :target: https://codecov.io/gh/CPJKU/partitura
 
 =========
 Partitura
