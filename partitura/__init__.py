@@ -6,7 +6,7 @@ spelling, voice assignment, and key signature.
 
 import pkg_resources
 
-from .io import load_score
+from .io import load_score, load_performance
 from .io.musescore import load_via_musescore
 from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml

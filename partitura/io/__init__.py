@@ -1,5 +1,5 @@
 from .importmusicxml import load_musicxml
-from .importmidi import load_score_midi
+from .importmidi import load_score_midi, load_performance_midi
 from .musescore import load_via_musescore
 from .importmatch import load_match
 from .importmei import load_mei
@@ -43,9 +43,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MusicXML
     try:
         return load_musicxml(
-            xml=score_fn,
-            ensure_list=ensure_list,
-            force_note_ids=force_note_ids
+            xml=score_fn, ensure_list=ensure_list, force_note_ids=force_note_ids
         )
     except Exception as e:
         exception_dictionary["MusicXML"] = e
@@ -56,9 +54,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=score_fn,
-            assign_note_ids=assign_note_ids,
-            ensure_list=ensure_list
+            fn=score_fn, assign_note_ids=assign_note_ids, ensure_list=ensure_list
         )
     except Exception as e:
         exception_dictionary["MIDI"] = e
@@ -99,3 +95,76 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
             print(exception)
 
         raise NotSupportedFormatError
+
+
+def load_performance(
+    performance_fn,
+    default_bpm=120,
+    merge_tracks=False,
+    first_note_at_zero=False,
+    pedal_threshold=64,
+):
+    """
+    Load a performance format supported by partitura. Currently the accepted formats
+    are MIDI and matchfiles.
+
+    Parameters
+    ----------
+    performance_fn: str or file-like  object
+        Filename of the score to parse, or a file-like object
+    default_bpm : number, optional
+        Tempo to use wherever the MIDI does not specify a tempo.
+        Defaults to 120.
+    merge_tracks: bool, optional
+        For MIDI files, merges all tracks into a single track.
+    first_note_at_zero: bool, optional
+        Remove silence at the beginning, so that the first note (or
+        first MIDI message, e.g., pedal) starts at time 0.
+    pedal_threshold: int
+        Threshold for the sustain pedal.
+
+    Returns
+    -------
+    performed_part: :class:`partitura.performance.PerformedPart`
+        A PerformedPart instance.
+
+    TODO
+    ----
+    * Force loading scores as PerformedParts?
+    """
+    from partitura.utils.music import remove_silence_from_performed_part
+
+    performed_part = None
+
+    # Catch exceptions
+    exception_dictionary = dict()
+    try:
+        performed_part = load_performance_midi(
+            performance_fn, default_bpm=default_bpm, merge_tracks=merge_tracks
+        )
+
+        # set threshold for sustain pedal
+        performed_part.sustain_pedal_threshold = pedal_threshold
+
+        if first_note_at_zero:
+            remove_silence_from_performed_part(performed_part)
+
+    except Exception as e:
+        exception_dictionary["midi"] = e
+
+    try:
+        performed_part, _ = load_match(
+            fn=performance_fn,
+            first_note_at_zero=first_note_at_zero,
+            pedal_threshold=pedal_threshold,
+        )
+    except Exception as e:
+        exception_dictionary["match"] = e
+
+    if performed_part is None:
+        for file_format, exception in exception_dictionary.items():
+            print(f"Error loading score as {file_format}:")
+            print(exception)
+        raise NotSupportedFormatError
+
+    return performed_part
