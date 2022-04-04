@@ -43,7 +43,9 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MusicXML
     try:
         return load_musicxml(
-            xml=score_fn, ensure_list=ensure_list, force_note_ids=force_note_ids
+            xml=score_fn,
+            ensure_list=ensure_list,
+            force_note_ids=force_note_ids,
         )
     except Exception as e:
         exception_dictionary["MusicXML"] = e
@@ -54,7 +56,9 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=score_fn, assign_note_ids=assign_note_ids, ensure_list=ensure_list
+            fn=score_fn,
+            assign_note_ids=assign_note_ids,
+            ensure_list=ensure_list,
         )
     except Exception as e:
         exception_dictionary["MIDI"] = e
@@ -75,7 +79,9 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MuseScore
     try:
         return load_via_musescore(
-            fn=score_fn, force_note_ids=force_note_ids, ensure_list=ensure_list
+            fn=score_fn,
+            force_note_ids=force_note_ids,
+            ensure_list=ensure_list,
         )
     except Exception as e:
         exception_dictionary["MuseScore"] = e
@@ -140,7 +146,9 @@ def load_performance(
     exception_dictionary = dict()
     try:
         performed_part = load_performance_midi(
-            performance_fn, default_bpm=default_bpm, merge_tracks=merge_tracks
+            performance_fn,
+            default_bpm=default_bpm,
+            merge_tracks=merge_tracks,
         )
 
         # set threshold for sustain pedal
