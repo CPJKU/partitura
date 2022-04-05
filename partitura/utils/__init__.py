@@ -43,6 +43,9 @@ from partitura.utils.music import (
     note_name_to_midi_pitch,
     pitch_spelling_to_note_name,
 )
+from partitura.utils.synth import (
+    synthesize
+)
 
 __all__ = [
     "key_name_to_fifths_mode",

@@ -2,12 +2,19 @@
 Synthesize Partitura Part or Note array to wav using additive synthesis
 
 """
+from typing import Union, Tuple
+
 import numpy as np
 
 from scipy.interpolate import interp1d
-from scipy.io import wavefile
+from scipy.io import wavfile
 
-from partitura.utils.music import (midi_pitch_to_frequency, A4, get_time_units_from_note_array, ensure_notearray,)
+from partitura.utils.music import (
+    midi_pitch_to_frequency,
+    A4,
+    get_time_units_from_note_array,
+    ensure_notearray,
+)
 
 
 TWO_PI = 2 * np.pi
@@ -31,11 +38,28 @@ NATURAL_INTERVAL_RATIOS = {
 }
 
 
-def midinote2naturalfreq(
-    midi_pitch,
-    a4=A4,
-    natural_interval_ratios=NATURAL_INTERVAL_RATIOS,
-):
+def midi_pitch_to_natural_frequency(
+    midi_pitch: Union[int, float, np.ndarray],
+    a4: Union[int, float] = A4,
+    natural_interval_ratios: dict = NATURAL_INTERVAL_RATIOS,
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI pitch to frequency in Hz using natural tunning.
+    This method computes intervals with respect to A4.
+
+    Parameters
+    ----------
+    midi_pitch: int, float or ndarray
+        MIDI pitch of the note(s).
+    a4 : int or float (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+
+    Returns
+    -------
+    freq : float or ndarray
+        Frequency of the note(s).
+    """
+
     octave = (midi_pitch // 12) - 1
 
     aref = 69.0 - 12.0 * (4 - octave)
@@ -47,9 +71,12 @@ def midinote2naturalfreq(
     if isinstance(interval, (int, float)):
         interval = np.array([interval], dtype=int)
 
-    ratios = np.zeros_like(interval)
-    for i, itv in enumerate(interval):
-        ratios[i] = natural_interval_ratios[abs(itv)] ** (1 if itv >= 0 else -1)
+    ratios = np.array(
+        [
+            natural_interval_ratios[abs(itv)] ** (1 if itv >= 0 else -1)
+            for itv in interval
+        ]
+    )
 
     freqs = aref_freq * ratios
 
@@ -58,7 +85,9 @@ def midinote2naturalfreq(
     return freqs
 
 
-def exp_in_exp_out(num_frames, attack_frames, decay_frames):
+def exp_in_exp_out(
+    num_frames: int,
+) -> np.ndarray:
     """
     Sound envelope with exponential attack and decay
     """
@@ -75,7 +104,7 @@ def exp_in_exp_out(num_frames, attack_frames, decay_frames):
     return envelope
 
 
-def lin_in_lin_out(num_frames):
+def lin_in_lin_out(num_frames: int) -> np.ndarray:
     """
     Sound envelope with linear attack and decay
     """
@@ -92,12 +121,12 @@ def lin_in_lin_out(num_frames):
 
 
 def additive_synthesis(
-    freqs,
-    duration,
-    samplerate=SAMPLE_RATE,
+    freqs: Union[int, float, np.ndarray],
+    duration: float,
+    samplerate: Union[int, float] = SAMPLE_RATE,
     weights="equal",
     envelope_fun="linear",
-):
+) -> np.ndarray:
     """
     Additive synthesis
     """
@@ -130,7 +159,7 @@ def additive_synthesis(
 
 
 class DistributedHarmonics(object):
-    def __init__(self, n_harmonics, weights="equal"):
+    def __init__(self, n_harmonics: int, weights: Union[np.ndarray, str] = "equal"):
 
         self.n_harmonics = n_harmonics
         self.weights = weights
@@ -140,7 +169,7 @@ class DistributedHarmonics(object):
 
         self._overtones = np.arange(1, self.n_harmonics + 2)
 
-    def __call__(self, freq):
+    def __call__(self, freq: float) -> Tuple[np.ndarray, np.ndarray]:
 
         return self._overtones * freq, self.weights
 
@@ -204,41 +233,47 @@ def check_instance(fn):
         raise TypeError("The file type is not supported.")
 
 
-def synthesize_data(
-    in_fn,
+def synthesize(
+    note_info,
     out_fn=None,
     samplerate=SAMPLE_RATE,
     envelope_fun="linear",
     tuning="equal_temperament",
     harmonic_dist=None,
-    bpm=60,
-):
+    bpm: Union[float, int] = 60,
+) -> np.ndarray:
     """
     Synthesize_data from part or note array.
 
 
     Parameters
     ----------
-    in_fn : Part object or structured array
+    note_info : Part, PerformedPart or structured array
         A partitura Part Object (or group part or part list) or a Note array.
     out_fn : str (optional)
-        filname of the output audio file 
+        filname of the output audio file
     envelope_fun: str
         The type of envelop to apply to the individual sines
-    harmonic_dist : int or str
-        Default is None. Option is shepard.
+    harmonic_dist : int, str or None (optional)
+        Default is None.
     bpm : int
         The bpm (if the input is a score)
+
+    Returns
+    -------
+    audio_signal : np.ndarray
+       Audio signal as a 1D array.
     """
-    if check_instance(in_fn):
-        note_array = ensure_notearray(in_fn)
+    if check_instance(note_info):
+        note_array = ensure_notearray(note_info)
     else:
-        note_array = in_fn
+        note_array = note_info
 
     onset_unit, duration_unit = get_time_units_from_note_array(note_array)
     if np.min(note_array[onset_unit]) <= 0:
         note_array[onset_unit] = note_array[onset_unit] + np.min(note_array[onset_unit])
 
+    # If the input is a score, convert score time to seconds
     if onset_unit != "onset_sec":
         beat2sec = 60 / bpm
         onsets = note_array[onset_unit] * beat2sec
@@ -251,25 +286,26 @@ def synthesize_data(
 
     pitch = note_array["pitch"]
 
+    # Duration of the piece
     piece_duration = offsets.max()
 
     # Number of frames
     num_frames = int(np.round(piece_duration * samplerate))
 
     # Initialize array containing audio
-    audio = np.zeros(num_frames, dtype="float")
+    audio_signal = np.zeros(num_frames, dtype="float")
 
     # Initialize the time axis
     x = np.linspace(0, piece_duration, num=num_frames)
 
     # onsets in frames (i.e., indices of the `audio` array)
-    onsets_in_frames = np.digitize(onsets, x)
+    onsets_in_frames = np.searchsorted(x, onsets, side="left")
 
     # frequency of the note in herz
     if tuning == "equal_temperament":
         freq_in_hz = midi_pitch_to_frequency(pitch)
     elif tuning == "natural":
-        freq_in_hz = midinote2naturalfreq(pitch)
+        freq_in_hz = midi_pitch_to_natural_frequency(pitch)
 
     if harmonic_dist is None:
 
@@ -292,19 +328,17 @@ def synthesize_data(
             envelope_fun=envelope_fun,
         )
         idx = slice(oif, oif + len(note))
-
-        audio[idx] += note
+        audio_signal[idx] += note
 
     # normalization term
     # TODO: Non-linear normalization?
-    norm_term = max(audio.max(), abs(audio.min()))
+    norm_term = max(audio_signal.max(), abs(audio_signal.min()))
 
     # normalize audio
-    audio /= norm_term
+    audio_signal /= norm_term
 
     if out_fn is not None:
-        amplitude = np.iinfo(float).max
-        audio *= amplitude
-        wavefile.write(out_fn, samplerate, audio)
+        # Write audio signal
+        wavfile.write(out_fn, samplerate, audio_signal)
 
-    return audio
+    return audio_signal
