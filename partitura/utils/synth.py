@@ -4,11 +4,10 @@ Synthesize Partitura Part or Note array to wav using additive synthesis
 """
 import numpy as np
 
-from soundfile import SoundFile
 from scipy.interpolate import interp1d
-import partitura
+from scipy.io import wavefile
 
-from partitura.utils import midi_pitch_to_frequency, A4
+from partitura.utils.music import (midi_pitch_to_frequency, A4, get_time_units_from_note_array, ensure_notearray,)
 
 
 TWO_PI = 2 * np.pi
@@ -33,7 +32,9 @@ NATURAL_INTERVAL_RATIOS = {
 
 
 def midinote2naturalfreq(
-    midi_pitch, a4=A4, natural_interval_ratios=NATURAL_INTERVAL_RATIOS
+    midi_pitch,
+    a4=A4,
+    natural_interval_ratios=NATURAL_INTERVAL_RATIOS,
 ):
     octave = (midi_pitch // 12) - 1
 
@@ -91,7 +92,11 @@ def lin_in_lin_out(num_frames):
 
 
 def additive_synthesis(
-        freqs, duration, samplerate=SAMPLE_RATE, weights="equal", envelope_fun="linear",
+    freqs,
+    duration,
+    samplerate=SAMPLE_RATE,
+    weights="equal",
+    envelope_fun="linear",
 ):
     """
     Additive synthesis
@@ -156,7 +161,10 @@ class ShepardTones(object):
         weights /= max(weights)
 
         self.shepard_weights_fun = interp1d(
-            x_freq, weights[1:-1], bounds_error=False, fill_value=weights.min()
+            x=x_freq,
+            y=weights[1:-1],
+            bounds_error=False,
+            fill_value=weights.min(),
         )
 
     def __call__(self, freq):
@@ -183,11 +191,12 @@ def check_instance(fn):
     Checks if input is Partitura part object or structured array
 
     """
-    if isinstance(fn, partitura.score.Part):
+    from partitura.score import Part, PartGroup
+    from partitura.performance import PerformedPart
+
+    if isinstance(fn, (Part, PartGroup, PerformedPart)):
         return True
-    elif isinstance(fn, partitura.score.PartGroup):
-        return True
-    elif isinstance(fn, list) and isinstance(fn[0], partitura.score.Part):
+    elif isinstance(fn, list) and isinstance(fn[0], Part):
         return True
     elif isinstance(fn, np.ndarray):
         return False
@@ -212,32 +221,34 @@ def synthesize_data(
     ----------
     in_fn : Part object or structured array
         A partitura Part Object (or group part or part list) or a Note array.
-    out_fn : str
-        The directory and name of the file to be created, i.e. Path/To/Directory/example.wav
+    out_fn : str (optional)
+        filname of the output audio file 
     envelope_fun: str
         The type of envelop to apply to the individual sines
     harmonic_dist : int or str
         Default is None. Option is shepard.
     bpm : int
-        The bpm for playback.
+        The bpm (if the input is a score)
     """
     if check_instance(in_fn):
-        note_array = partitura.utils.ensure_notearray(in_fn)
+        note_array = ensure_notearray(in_fn)
     else:
         note_array = in_fn
-    if np.min(note_array["onset_beat"]) <= 0:
-        note_array["onset_beat"] = note_array["onset_beat"] + np.min(
-            note_array["onset_beat"]
-        )
-    else:
-        note_array["onset_beat"] = note_array["onset_beat"] - np.min(
-            note_array["onset_beat"]
-        )
 
-    beat2sec = 60 / bpm
-    onsets = note_array["onset_beat"] * beat2sec
-    offsets = (note_array["onset_beat"] + note_array["duration_beat"]) * beat2sec
-    duration = note_array["duration_beat"] * beat2sec
+    onset_unit, duration_unit = get_time_units_from_note_array(note_array)
+    if np.min(note_array[onset_unit]) <= 0:
+        note_array[onset_unit] = note_array[onset_unit] + np.min(note_array[onset_unit])
+
+    if onset_unit != "onset_sec":
+        beat2sec = 60 / bpm
+        onsets = note_array[onset_unit] * beat2sec
+        offsets = (note_array[onset_unit] + note_array[duration_unit]) * beat2sec
+        duration = note_array[duration_unit] * beat2sec
+    else:
+        onsets = note_array["onset_sec"]
+        offsets = note_array["onset_sec"] + note_array["duration_sec"]
+        duration = note_array["duration_sec"]
+
     pitch = note_array["pitch"]
 
     piece_duration = offsets.max()
@@ -292,11 +303,8 @@ def synthesize_data(
     audio /= norm_term
 
     if out_fn is not None:
-        wav_fn = out_fn + ".wav"
+        amplitude = np.iinfo(float).max
+        audio *= amplitude
+        wavefile.write(out_fn, samplerate, audio)
 
-        with SoundFile(
-            file=wav_fn, mode="w", samplerate=SAMPLE_RATE, channels=1, subtype="PCM_24"
-        ) as f:
-
-            f.write(audio)
     return audio
