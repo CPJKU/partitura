@@ -281,3 +281,19 @@ class TestPianorollFromScores(unittest.TestCase):
         self.assertTrue(pr1.shape == (128, 24))
         self.assertTrue(pr0.shape == (128, 24))
 
+    def test_sum_pianoroll(self):
+        time_div = 4
+        parts = load_score(PIANOROLL_TESTFILES[2], ensure_list=True)
+        prs = []
+        for part in parts:
+            prs.append(compute_pianoroll(part, time_unit="beat", time_div=time_div))
+        pianoroll_sum = prs[0] + prs[1] + prs[2] + prs[3]
+        original_pianoroll = compute_pianoroll(
+            parts, time_unit="beat", time_div=time_div
+        ).toarray()
+        self.assertTrue(pianoroll_sum.shape == original_pianoroll.shape)
+        clipped_pr_sum = np.clip(
+            pianoroll_sum.toarray(), 0, 1
+        )  # remove count for double notes
+        self.assertTrue(np.array_equal(clipped_pr_sum, original_pianoroll))
+

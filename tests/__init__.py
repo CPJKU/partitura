@@ -80,7 +80,12 @@ MERGE_PARTS_TESTFILES = [
 ]
 
 PIANOROLL_TESTFILES = [
-    os.path.join(MUSICXML_PATH, fn) for fn in ["test_length_pianoroll.xml"]
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in [
+        "test_length_pianoroll.xml",
+        "test_pianoroll_sum.xml",
+        "test_pianoroll_sum_reduced.xml",
+    ]
 ]
 
 
