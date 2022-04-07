@@ -87,11 +87,7 @@ class MatchLine(object):
     out_pattern: str
     line_dict: dict
 
-    def __init__(
-        self,
-        version: Version,
-        **kwargs
-    ):
+    def __init__(self, version: Version, **kwargs):
         # set version
         self.version = version
         # Get pattern
@@ -173,16 +169,16 @@ class MatchInfo(MatchLine):
         self.value_type = self.line_dict[self.version]["value"][self.attribute][2]
         self.format_fun = {
             "attribute": format_string,
-            "value": self.line_dict[self.version]["value"][self.attribute][1]
+            "value": self.line_dict[self.version]["value"][self.attribute][1],
         }
-
 
     @property
     def matchline(self):
         matchline = self.out_pattern.format(
             **dict(
                 [
-                    (field, self.format_fun[field](getattr(self, field))) for field in self.field_names
+                    (field, self.format_fun[field](getattr(self, field)))
+                    for field in self.field_names
                 ]
             )
         )
@@ -191,10 +187,10 @@ class MatchInfo(MatchLine):
 
     @classmethod
     def from_matchline(cls, matchline: str, pos: int = 0, version=CURRENT_VERSION):
-        
+
         class_dict = INFO_LINE[version]
-        
-        match_pattern = class_dict['pattern'].search(matchline, pos=pos)
+
+        match_pattern = class_dict["pattern"].search(matchline, pos=pos)
 
         if match_pattern is not None:
             attribute, value_str = match_pattern.groups()
@@ -209,6 +205,7 @@ class MatchInfo(MatchLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
+
 
 # class MatchInfoMatchFileVersion(MatchInfo):
 
@@ -247,3 +244,5 @@ if __name__ == "__main__":
 
     print(matchfile_version_line)
     print(matchfile_version_line.matchline)
+
+    assert matchfile_version_line.matchline == matchfile_version_line_str
