@@ -45,6 +45,7 @@ from partitura.utils import (
 
 
 
+
 class Part(object):
     """Represents a score part, e.g. all notes of one single instrument
     (or multiple instruments written in the same staff). Note that
@@ -864,9 +865,58 @@ class Part(object):
         """
         return self._points[0] if len(self._points) > 0 else None
 
-    @property
-    def note_array(self):
-        return note_array_from_part(self)
+    def note_array(self,
+                    include_pitch_spelling=False,
+                    include_key_signature=False,
+                    include_time_signature=False,
+                    include_metrical_position=False,
+                    include_grace_notes=False):
+        """
+        Create a structured array with note information
+        from a `Part` object.
+
+        Parameters
+        ----------
+        
+        include_pitch_spelling : bool (optional)
+            If `True`, includes pitch spelling information for each
+            note. Default is False
+        include_key_signature : bool (optional)
+            If `True`, includes key signature information, i.e.,
+            the key signature at the onset time of each note (all
+            notes starting at the same time have the same key signature).
+            Default is False
+        include_time_signature : bool (optional)
+            If `True`,  includes time signature information, i.e.,
+            the time signature at the onset time of each note (all
+            notes starting at the same time have the same time signature).
+            Default is False
+        include_metrical_position : bool (optional)
+            If `True`,  includes metrical position information, i.e.,
+            the position of the onset time of each note with respect to its
+            measure (all notes starting at the same time have the same metrical
+            position).
+            Default is False
+        include_grace_notes : bool (optional)
+            If `True`,  includes grace note information, i.e. if a note is a
+            grace note and the grace type "" for non grace notes).
+            Default is False
+        feature_functions : list or str
+            A list of feature functions. Elements of the list can be either
+            the functions themselves or the names of a feature function as
+            strings (or a mix). The feature functions specified by name are
+            looked up in the `featuremixer.featurefunctions` module.
+
+        Returns:
+        
+        note_array : structured array
+        """
+        return note_array_from_part(self,
+                    include_pitch_spelling=include_pitch_spelling,
+                    include_key_signature=include_key_signature,
+                    include_time_signature=include_time_signature,
+                    include_metrical_position=include_metrical_position,
+                    include_grace_notes=include_grace_notes)
 
     def set_musical_beat_per_ts(self, mbeats_per_ts={}):
         """Set the number of musical beats for each time signature.
@@ -2492,15 +2542,16 @@ class PartGroup(object):
         """
         return "\n".join(self._pp(PrettyPrintTree()))
 
-    @property
-    def note_array(self):
+    def note_array(self, *args, **kwargs):
         """A structured array containing pitch, onset, duration, voice
         and id for each note in each part of the PartGroup. The note
         ids in this array include the number of the part to which they
         belong.
+        
+        See Part.note_array()
 
         """
-        return note_array_from_part_list(self.children)
+        return note_array_from_part_list(self.children,  *args, **kwargs)
 
 
 class ScoreVariant(object):

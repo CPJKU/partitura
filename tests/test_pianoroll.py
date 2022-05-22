@@ -161,7 +161,7 @@ class TestNotesFromPianoroll(unittest.TestCase):
 
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             spart = load_musicxml(fn)
-            note_array = spart.note_array
+            note_array = spart.note_array()
             pr = compute_pianoroll(
                 spart, time_unit="div", time_div=1, remove_silence=False
             )
