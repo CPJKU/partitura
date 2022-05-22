@@ -2,12 +2,11 @@ import sys
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d
+import partitura.score as score
+
 import types
 from typing import List, Union, Tuple
-
-import partitura.score as score
 from partitura.utils import ensure_notearray
-
 
 class InvalidNoteFeatureException(Exception):
     pass
@@ -53,14 +52,10 @@ def list_note_feats_functions():
     return bfs
 
 
-def make_note_feats(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
-    """
-    Alias for make_note_features.
-    """
-    return make_note_features(part, feature_functions)
-
-
-def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_functions: Union[List, str]) -> Tuple[np.ndarray, List]:
+def make_note_features(part: Union[score.Part, score.PartGroup, List], 
+                       feature_functions: Union[List, str],
+                       add_idx: bool = False) -> Tuple[np.ndarray, List]:
+    
     """Compute the specified feature functions for a part.
 
     The function returns the computed feature functions as a N x M
@@ -92,10 +87,12 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_f
         The feature functions
     names : list
         The feature names
-
     """
     part = score.merge_parts(part)
-    na = ensure_notearray(part, include_metrical_position=True , include_grace_notes=True, include_time_signature=True)
+    na = ensure_notearray(part, 
+                          include_metrical_position=True , 
+                          include_grace_notes=True, 
+                          include_time_signature=True)
     acc = []
     if isinstance(feature_functions, str) and feature_functions=="all":
         feature_functions = list_note_feats_functions()
@@ -111,7 +108,6 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_f
         else:
             warnings.warn('Ignoring unknown feature function {}'.format(bf))
         bf, bn = func(na, part)
-
         # check if the size and number of the feature function are correct
         if bf.size != 0 :
             if bf.shape[1] != len(bn):
@@ -135,11 +131,112 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List], feature_f
 
             acc.append((bf, bn))
 
-    _data, _names = zip(*acc)
-    feature_data = np.column_stack(_data)
-    feature_names = [n for ns in _names for n in ns]
-    return feature_data, feature_names
+    if add_idx:
+        _data, _names = zip(*acc)
+        feature_data = np.column_stack(_data)
+        feature_data_list = [list(f)+[i] for f, i in zip(feature_data, na["id"])]
+        feature_names = [n for ns in _names for n in ns] + ["id"]
+        feature_names_dtypes = list(zip(feature_names, ["f4"]*(len(feature_names)-1)+["U256"]))
+        feature_data_struct = np.array([tuple(f) for f in feature_data_list], dtype=feature_names_dtypes)
+        return feature_data_struct
+    else:
+        _data, _names = zip(*acc)
+        feature_data = np.column_stack(_data)
+        feature_names = [n for ns in _names for n in ns]
+        return feature_data, feature_names
 
+# alias
+make_note_feats = make_note_features
+
+def compute_note_array(part,
+                    include_pitch_spelling=False,
+                    include_key_signature=False,
+                    include_time_signature=False,
+                    include_metrical_position=False,
+                    include_grace_notes=False,
+                    feature_functions=None):
+    """
+    Create an extended note array from this part.
+        
+    1) Without arguments this returns a structured array of onsets, offsets, 
+    pitch, and ID information: equivalent to part.note_array()
+    
+    2) With any of the flag arguments set to true, a column with the specified
+    information will be added to the array: equivalent t0 part.note_array(*flags)
+    
+    3) With a list of strings or functions as feature_functions argument, 
+    a column (or multiple columns) with the specified information will 
+    be added to the array. 
+    See also:
+    >>> make_note_features(part)
+    For a list of features see: 
+    >>> list_note_feats_functions()
+
+    Parameters
+    ----------
+    
+    include_pitch_spelling : bool (optional)
+        If `True`, includes pitch spelling information for each
+        note. Default is False
+    include_key_signature : bool (optional)
+        If `True`, includes key signature information, i.e.,
+        the key signature at the onset time of each note (all
+        notes starting at the same time have the same key signature).
+        Default is False
+    include_time_signature : bool (optional)
+        If `True`,  includes time signature information, i.e.,
+        the time signature at the onset time of each note (all
+        notes starting at the same time have the same time signature).
+        Default is False
+    include_metrical_position : bool (optional)
+        If `True`,  includes metrical position information, i.e.,
+        the position of the onset time of each note with respect to its
+        measure (all notes starting at the same time have the same metrical
+        position).
+        Default is False
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. if a note is a
+        grace note and the grace type "" for non grace notes).
+        Default is False
+    feature_functions : list or str
+        A list of feature functions. Elements of the list can be either
+        the functions themselves or the names of a feature function as
+        strings (or a mix). The feature functions specified by name are
+        looked up in the `featuremixer.featurefunctions` module.
+
+    Returns:
+    
+    note_array : structured array
+    """
+    part = score.merge_parts(part)
+    na = ensure_notearray(part,
+                        include_pitch_spelling=include_pitch_spelling,
+                        include_key_signature=include_key_signature,
+                        include_time_signature=include_time_signature,
+                        include_metrical_position=include_metrical_position,
+                        include_grace_notes=include_grace_notes)
+    
+    if feature_functions is not None:
+        feature_data_struct = make_note_feats(part, 
+                                            feature_functions,
+                                            add_idx=True)
+        note_array_joined = np.lib.recfunctions.join_by("id", na, feature_data_struct)
+        note_array = note_array_joined.data
+    else:
+        note_array = na        
+    return note_array
+
+def full_note_array(part):
+    """
+    Create a note array with all available information.
+    """
+    return compute_note_array(part,
+                        include_pitch_spelling=True,
+                        include_key_signature=True,
+                        include_time_signature=True,
+                        include_metrical_position=True,
+                        include_grace_notes=True,
+                        feature_functions="all")
 
 def polynomial_pitch_feature(na, part):
     """Normalize pitch feature.
@@ -161,8 +258,6 @@ def duration_feature(na, part):
     """
 
     feature_names = ['duration']
-
-
     durations_beat = na["duration_beat"]
     W = durations_beat
     W.shape = (-1, 1)

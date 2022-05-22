@@ -1456,8 +1456,7 @@ def note_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_grace_notes=False
-):
+    include_grace_notes=False):
     """
     Construct a structured Note array from a list of Part objects
 
@@ -1749,6 +1748,7 @@ def note_array_from_part(
         include_pitch_spelling=include_pitch_spelling,
         include_grace_notes=include_grace_notes
     )
+    
     return note_array
 
 

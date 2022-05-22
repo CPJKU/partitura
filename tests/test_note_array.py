@@ -26,7 +26,7 @@ class TestNoteArray(unittest.TestCase):
         part.add(score.TimeSignature(3, 4), start=0)
         part.add(score.Note(id="n0", step="A", octave=4), start=0, end=10)
 
-        note_array = part.note_array
+        note_array = part.note_array()
         self.assertTrue(len(note_array) == 1)
 
     def test_notearray_beats(self):
@@ -44,7 +44,7 @@ class TestNoteArray(unittest.TestCase):
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
         self.assertTrue(
-            np.array_equal(part.note_array["onset_beat"], expected_onset_beats)
+            np.array_equal(part.note_array()["onset_beat"], expected_onset_beats)
         )
 
     def test_use_musical_beats1(self):
@@ -54,13 +54,13 @@ class TestNoteArray(unittest.TestCase):
         expected_onset_beats = [0, 1.5, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12.5]
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
-        self.assertTrue(np.array_equal(part.note_array, note_array_from_part(part)))
+        self.assertTrue(np.array_equal(part.note_array(), note_array_from_part(part)))
 
     def test_use_musical_beats2(self):
         part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
         # set musical beats
         part.use_musical_beat()
-        note_array = part.note_array
+        note_array = part.note_array()
         self.assertTrue(part._use_musical_beat == True)
         # unset musical beats
         part.use_notated_beat()

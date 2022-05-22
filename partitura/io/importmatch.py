@@ -1740,7 +1740,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         if len(keys) > 1:
             # there are multple equivalent keys, so we check which one is most
             # likely according to the key estimator
-            est_keys = estimate_key(part.note_array, return_sorted_keys=True)
+            est_keys = estimate_key(part.note_array(), return_sorted_keys=True)
             idx = [est_keys.index(key) if key in est_keys else np.inf for key in keys]
             key_name = keys[np.argmin(idx)]
 
