@@ -321,8 +321,8 @@ class Part(object):
         me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
         
 
-        if len(ms) == 0:
-            warnings.warn("No measures found, metrical position 0 everywhere")
+        if len(ms) < 2:
+            warnings.warn("No or single measures found, metrical position 0 everywhere")
             zero_interpolator = interp1d(np.arange(0,2), np.zeros((2,2)),axis = 0, 
                                    kind="linear", fill_value="extrapolate")
             def zero_fun(input):
