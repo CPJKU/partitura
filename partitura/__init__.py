@@ -20,6 +20,7 @@ from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
 
 from .display import render
 from . import musicanalysis
+from .musicanalysis import make_note_feats, compute_note_array, full_note_array
 
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version
