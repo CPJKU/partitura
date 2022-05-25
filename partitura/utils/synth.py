@@ -179,7 +179,7 @@ class ShepardTones(object):
     Generate Shepard Tones
     """
 
-    def __init__(self, min_freq=77.8, max_freq=2349):
+    def __init__(self, min_freq: Union[float, int] = 77.8, max_freq: Union[float, int] = 2349):
 
         self.min_freq = min_freq
         self.max_freq = max_freq
@@ -204,9 +204,8 @@ class ShepardTones(object):
 
         return freqs, self.shepard_weights_fun(freqs)
 
-    def min_f(self, freq):
+    def min_f(self, freq: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         n = np.floor(np.log2(freq) - np.log2(self.min_freq))
-
         return freq / (2 ** n)
 
     def max_f(self, freq):
@@ -315,6 +314,10 @@ def synthesize(
     elif isinstance(harmonic_dist, int):
 
         harmonic_dist = DistributedHarmonics(harmonic_dist)
+
+    elif isinstance(harmonic_dist, str):
+        if harmonic_dist in ('shepard', ):
+            harmonic_dist = ShepardTones()
 
     for (f, oif, dur) in zip(freq_in_hz, onsets_in_frames, duration):
 
