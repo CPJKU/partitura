@@ -13,13 +13,12 @@ are registered in terms of their start and end times.
 from copy import copy
 from collections import defaultdict
 from collections.abc import Iterable
-import logging
 from numbers import Number
 # import copy
 from partitura.utils.music import MUSICAL_BEATS
-
+import warnings
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, PPoly
 
 from partitura.utils import (
     ComparableMixin,
@@ -43,7 +42,8 @@ from partitura.utils import (
     update_note_ids_after_unfolding,
 )
 
-LOGGER = logging.getLogger(__name__)
+
+
 
 
 class Part(object):
@@ -144,7 +144,7 @@ class Part(object):
         if len(tss) == 0:
             # default time sig
             beats, beat_type = 4, 4
-            LOGGER.warning(
+            warnings.warn(
                 "No time signatures found, assuming {}/{}".format(beats, beat_type)
             )
             if self.first_point is None:
@@ -189,7 +189,7 @@ class Part(object):
         if len(kss) == 0:
             # default key signature
             fifths, mode = 0, 1
-            LOGGER.warning("No key signature found, assuming C major")
+            warnings.warn("No key signature found, assuming C major")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
@@ -241,7 +241,7 @@ class Part(object):
 
         if len(measures) == 0:  # no measures in the piece
             # default only one measure spanning the entire timeline
-            LOGGER.warning("No measures found, assuming only one measure")
+            warnings.warn("No measures found, assuming only one measure")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
@@ -287,7 +287,7 @@ class Part(object):
 
         if len(measures) == 0:  # no measures in the piece
             # default only one measure spanning the entire timeline
-            LOGGER.warning("No measures found, assuming only one measure")
+            warnings.warn("No measures found, assuming only one measure")
             if self.first_point is None:
                 t0, tN = 0, 0
             else:
@@ -317,16 +317,36 @@ class Part(object):
             The mapping function
 
         """
-        xs = np.arange(self.first_point.t, self.last_point.t)
-        ys = np.column_stack((xs - self.measure_map(xs)[:, 0],
-                              self.measure_map(xs)[:, 1] - self.measure_map(xs)[:, 0]))
+        measure_map = self.measure_map
+        ms = [measure_map(m.start.t)[0] for m in self.iter_all(Measure)]
+        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
+        
 
-        inter_function = interp1d(xs,ys, axis=0, kind="linear")
+        if len(ms) < 2:
+            warnings.warn("No or single measures found, metrical position 0 everywhere")
+            zero_interpolator = interp1d(np.arange(0,2), np.zeros((2,2)),axis = 0, 
+                                   kind="linear", fill_value="extrapolate")
+            def zero_fun(input):
+                return zero_interpolator(input).astype(int)
+            return zero_fun
+        else:
+            barlines = np.array(ms + me[-1:])
+            bar_durations = np.diff(barlines)
+            measure_inter_function = interp1d(barlines[:-1], bar_durations, axis=0, 
+                                              kind="previous", fill_value="extrapolate")
+            
+            lin_poly_coeff = np.row_stack((np.ones(bar_durations.shape[0]),np.zeros(bar_durations.shape[0])))
+            inter_function = PPoly(lin_poly_coeff,barlines)
 
-        def int_interp1d(input):
-            return inter_function(input).astype(int) 
+            def int_interp1d(input):
+                if isinstance(input, Iterable):
+                    return np.column_stack((inter_function(input).astype(int),
+                                        measure_inter_function(input).astype(int) )) 
+                else:
+                    return (inter_function(input).astype(int),
+                            measure_inter_function(input).astype(int) )
 
-        return int_interp1d
+            return int_interp1d
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
@@ -793,7 +813,7 @@ class Part(object):
 
         """
         if mode not in ("starting", "ending"):
-            LOGGER.warning('unknown mode "{}", using "starting" instead'.format(mode))
+            warnings.warn('unknown mode "{}", using "starting" instead'.format(mode))
             mode = "starting"
 
         if start is None:
@@ -845,9 +865,58 @@ class Part(object):
         """
         return self._points[0] if len(self._points) > 0 else None
 
-    @property
-    def note_array(self):
-        return note_array_from_part(self)
+    def note_array(self,
+                    include_pitch_spelling=False,
+                    include_key_signature=False,
+                    include_time_signature=False,
+                    include_metrical_position=False,
+                    include_grace_notes=False):
+        """
+        Create a structured array with note information
+        from a `Part` object.
+
+        Parameters
+        ----------
+        
+        include_pitch_spelling : bool (optional)
+            If `True`, includes pitch spelling information for each
+            note. Default is False
+        include_key_signature : bool (optional)
+            If `True`, includes key signature information, i.e.,
+            the key signature at the onset time of each note (all
+            notes starting at the same time have the same key signature).
+            Default is False
+        include_time_signature : bool (optional)
+            If `True`,  includes time signature information, i.e.,
+            the time signature at the onset time of each note (all
+            notes starting at the same time have the same time signature).
+            Default is False
+        include_metrical_position : bool (optional)
+            If `True`,  includes metrical position information, i.e.,
+            the position of the onset time of each note with respect to its
+            measure (all notes starting at the same time have the same metrical
+            position).
+            Default is False
+        include_grace_notes : bool (optional)
+            If `True`,  includes grace note information, i.e. if a note is a
+            grace note and the grace type "" for non grace notes).
+            Default is False
+        feature_functions : list or str
+            A list of feature functions. Elements of the list can be either
+            the functions themselves or the names of a feature function as
+            strings (or a mix). The feature functions specified by name are
+            looked up in the `featuremixer.featurefunctions` module.
+
+        Returns:
+        
+        note_array : structured array
+        """
+        return note_array_from_part(self,
+                    include_pitch_spelling=include_pitch_spelling,
+                    include_key_signature=include_key_signature,
+                    include_time_signature=include_time_signature,
+                    include_metrical_position=include_metrical_position,
+                    include_grace_notes=include_grace_notes)
 
     def set_musical_beat_per_ts(self, mbeats_per_ts={}):
         """Set the number of musical beats for each time signature.
@@ -1370,13 +1439,13 @@ class GenericNote(TimedObject):
         if self._sym_dur is None:
             # compute value
             if not self.start or not self.end:
-                LOGGER.warning(
+                warnings.warn(
                     "Cannot estimate symbolic duration for notes that "
                     "are not added to a Part"
                 )
                 return None
             if self.start.quarter is None:
-                LOGGER.warning(
+                warnings.warn(
                     "Cannot estimate symbolic duration when not "
                     "quarter_duration has been set. "
                     "See Part.set_quarter_duration."
@@ -1939,7 +2008,7 @@ class Tuplet(TimedObject):
                 if self.start_note and self.start_note.start:
                     self.start_note.start.remove_starting_object(self)
             # else:
-            #     LOGGER.warning('Note has no start time')
+            #     warnings.warn('Note has no start time')
             note.tuplet_starts.append(self)
         self._start_note = note
 
@@ -1956,7 +2025,7 @@ class Tuplet(TimedObject):
                     #  remove the tuplet from the currentend time
                     self.end_note.end.remove_ending_object(self)
             # else:
-            #     LOGGER.warning('Note has no end time')
+            #     warnings.warn('Note has no end time')
             note.tuplet_stops.append(self)
         self._end_note = note
 
@@ -2473,15 +2542,16 @@ class PartGroup(object):
         """
         return "\n".join(self._pp(PrettyPrintTree()))
 
-    @property
-    def note_array(self):
+    def note_array(self, *args, **kwargs):
         """A structured array containing pitch, onset, duration, voice
         and id for each note in each part of the PartGroup. The note
         ids in this array include the number of the part to which they
         belong.
+        
+        See Part.note_array()
 
         """
-        return note_array_from_part_list(self.children)
+        return note_array_from_part_list(self.children,  *args, **kwargs)
 
 
 class ScoreVariant(object):
@@ -2633,7 +2703,7 @@ def add_measures(part):
     )
 
     if len(timesigs) == 0:
-        LOGGER.warning("No time signatures found, not adding measures")
+        warnings.warn("No time signatures found, not adding measures")
         return
 
     start = part.first_point.t
@@ -3177,14 +3247,15 @@ def sanitize_part(part, tie_tolerance = 0):
                     tn.tie_next = None
                     tn.tie_prev = None
 
-    LOGGER.info(
+    warnings.warn(
         "part_sanitize removed {} incomplete tuplets, "
         "{} incomplete slurs, {} incomplete grace, "
         "and {} wrong ties."
         "notes".format(remove_tuplet_counter, 
                        remove_slur_counter, 
                        remove_grace_counter,
-                       remove_tie_counter)
+                       remove_tie_counter),
+        stacklevel=2
     )
 
 

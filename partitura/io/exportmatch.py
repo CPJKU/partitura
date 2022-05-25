@@ -3,7 +3,6 @@
 """
 This module contains methods for exporting matchfiles
 """
-import logging
 import numpy as np
 
 from scipy.interpolate import interp1d
@@ -27,7 +26,6 @@ from partitura.utils.music import midi_pitch_to_pitch_spelling, MAJOR_KEYS, MINO
 
 __all__ = ["save_match"]
 
-LOGGER = logging.getLogger(__name__)
 
 
 def seconds_to_midi_ticks(t, mpq=500000, ppq=480):

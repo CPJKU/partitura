@@ -8,12 +8,10 @@ notes as well as continuous control parameters, such as sustain pedal.
 
 """
 
-import logging
+
 
 import numpy as np
 
-
-LOGGER = logging.getLogger(__name__)
 
 __all__ = ["PerformedPart"]
 
@@ -113,7 +111,6 @@ class PerformedPart(object):
             self.notes, self.controls, self._sustain_pedal_threshold
         )
 
-    @property
     def note_array(self):
         """Structured array containing performance information.
         The fields are 'id', 'pitch', 'onset_div', 'duration_div',

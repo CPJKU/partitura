@@ -12,7 +12,7 @@ References
        Conference on Technologies for Music Notation and Representation
        (TENOR), Cambridge, UK.
 """
-import logging
+import warnings
 
 import numpy as np
 import scipy.spatial.distance as distance
@@ -22,8 +22,6 @@ from partitura.utils import get_time_units_from_note_array, ensure_notearray, ad
 
 
 __all__ = ["estimate_tonaltension"]
-
-LOGGER = logging.getLogger(__name__)
 
 # Scaling factors
 A = np.sqrt(2.0 / 15.0) * np.pi / 2.0
@@ -341,7 +339,7 @@ def prepare_note_array(note_info):
     key_signature_fields = ("ks_fifths", "ks_mode")
 
     if len(set(pitch_spelling_fields).difference(note_array.dtype.names)) > 0:
-        LOGGER.info("No pitch spelling information! Estimating pitch spelling...")
+        warnings.warn("No pitch spelling information! Estimating pitch spelling...", stacklevel=2)
         from partitura.musicanalysis.pitch_spelling import estimate_spelling
 
         spelling = estimate_spelling(note_array)
@@ -352,7 +350,7 @@ def prepare_note_array(note_info):
             note_array[field] = spelling[field]
 
     if len(set(key_signature_fields).difference(note_array.dtype.names)) > 0:
-        LOGGER.info("No key information! Estimating key...")
+        warnings.warn("No key information! Estimating key...", stacklevel=2)
         from partitura.musicanalysis.key_identification import estimate_key
         from partitura.utils.music import key_name_to_fifths_mode, key_mode_to_int
 
@@ -401,7 +399,7 @@ def key_map_from_keysignature(notearray, onset_unit="auto"):
             axis=0,
         )
         if len(ks) > 1:
-            LOGGER.warn(
+            warnings.warn(
                 "Multiple Key signtures detected at score position. "
                 "Taking the first one."
             )

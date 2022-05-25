@@ -6,7 +6,7 @@ backend for loading and rendering scores.
 """
 
 import platform
-import logging
+import warnings
 import os
 import shutil
 import subprocess
@@ -16,7 +16,6 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory, gettempdir
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
 
-LOGGER = logging.getLogger(__name__)
 
 
 class MuseScoreNotFoundException(Exception):
@@ -160,7 +159,7 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
 
     if fmt not in ("png", "pdf"):
 
-        LOGGER.warning("warning: unsupported output format")
+        warnings.warn("warning: unsupported output format")
         return None
 
     # with NamedTemporaryFile(suffix='.musicxml') as xml_fh, \
@@ -186,19 +185,19 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             if ps.returncode != 0:
-                LOGGER.error(
+                warnings.warn(
                     "Command {} failed with code {}; stdout: {}; stderr: {}".format(
                         cmd,
                         ps.returncode,
                         ps.stdout.decode("UTF-8"),
                         ps.stderr.decode("UTF-8"),
-                    )
+                    ), SyntaxWarning, stacklevel=2
                 )
                 return None
 
         except FileNotFoundError as f:
 
-            LOGGER.error('Executing "{}" returned  {}.'.format(" ".join(cmd), f))
+            warnings.warn('Executing "{}" returned  {}.'.format(" ".join(cmd), f), ImportWarning, stacklevel=2)
             return None
 
         # LOGGER.error('Command "{}" returned with code {}; stdout: {}; stderr: {}'

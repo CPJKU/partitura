@@ -8,11 +8,11 @@ from partitura.utils.music import (
     estimate_symbolic_duration,
 )
 
-import logging
+import warnings
 
 import numpy as np
 
-LOGGER = logging.getLogger(__name__)
+
 
 
 def load_mei(mei_path: str) -> list:
@@ -193,10 +193,10 @@ class MeiParser:
                 fifths = self._mei_sig_to_fifths(sig)
                 mode = anc.get("key.mode")
             else:
-                LOGGER.warning(
+                warnings.warn(
                     f"The key signature is not encoded in {staffdef_el.get(self._ns_name('id'))} or in any ancestor scoreDef."
                 )
-                LOGGER.warning("A default key signature of C maj is set.")
+                warnings.warn("A default key signature of C maj is set.")
                 fifths = 0
                 mode = "major"
 
@@ -253,7 +253,7 @@ class MeiParser:
                         element.get("dis"), element.get("dis.place")
                     )
                 else:  # no clef info available, go for default
-                    LOGGER.warning("No clef information found, setting G2 as default.")
+                    warnings.warn("No clef information found, setting G2 as default.")
                     sign = "G"
                     line = 2
                     number = 1
@@ -782,7 +782,7 @@ class MeiParser:
             )
         # check if layers have equal duration (bad encoding, but it often happens)
         if not all([e == end_positions[0] for e in end_positions]):
-            LOGGER.warning(
+            warnings.warn(
                 f"Warning: voices have different durations in staff {staff_el.attrib[self._ns_name('id',XML_NAMESPACE)]}"
             )
 
@@ -821,7 +821,7 @@ class MeiParser:
                     )
                 # sanity check that all layers have equal duration
                 if not all([e == end_positions[0] for e in end_positions]):
-                    LOGGER.warning(
+                    warnings.warn(
                         f"Warning : parts have measures of different duration in measure {element.attrib[self._ns_name('id',XML_NAMESPACE)]}"
                     )
                 position = max(end_positions)
@@ -875,7 +875,7 @@ class MeiParser:
             start_id = tie_el.get("startid")
             end_id = tie_el.get("endid")
             if start_id is None or end_id is None:
-                LOGGER.warning(
+                warnings.warn(
                     f"Warning: tie {tie_el.attrib[self._ns_name('id',XML_NAMESPACE)]} is missing the a startid or endid"
                 )
             else:
