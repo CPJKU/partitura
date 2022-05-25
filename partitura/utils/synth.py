@@ -1,6 +1,9 @@
 """
 Synthesize Partitura Part or Note array to wav using additive synthesis
 
+TODO
+* Add other tuning systems
+
 """
 from typing import Union, Tuple
 
@@ -44,7 +47,8 @@ def midi_pitch_to_natural_frequency(
     natural_interval_ratios: dict = NATURAL_INTERVAL_RATIOS,
 ) -> Union[float, np.ndarray]:
     """
-    Convert MIDI pitch to frequency in Hz using natural tunning.
+    Convert MIDI pitch to frequency in Hz using natural tunning (i.e., with
+    respect to the harmonic series).
     This method computes intervals with respect to A4.
 
     Parameters
@@ -58,6 +62,20 @@ def midi_pitch_to_natural_frequency(
     -------
     freq : float or ndarray
         Frequency of the note(s).
+
+    Notes
+    -----
+    This implementation computes the natural interval ratios
+    (with respect to the harmonic series), but with respect to
+    octaves centered on A. All intervals are computed with respect
+    to the A in the same octave as the note in question (e.g.,
+    C4 is a descending major sixth with respect to A4, E5 is descending
+    perfect fourth computed with respect to A5, etc.).
+    
+
+    TODO
+    ----
+    * compute intervals with given reference pitch.
     """
 
     octave = (midi_pitch // 12) - 1
@@ -150,7 +168,7 @@ def additive_synthesis(
         if not callable(envelope_fun):
             raise ValueError('`envelope_fun` must be "linear", "exp" or a callable')
 
-    num_frames = int(np.round(duration * SAMPLE_RATE))
+    num_frames = int(np.round(duration * samplerate))
     envelope = envelope_fun(num_frames)
     x = np.linspace(0, duration, num=num_frames)
     output = weights * np.sin(TWO_PI * freqs * x)
