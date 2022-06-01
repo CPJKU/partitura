@@ -3,7 +3,6 @@
 import math
 from collections import defaultdict
 from lxml import etree
-import logging
 import partitura.score as score
 from operator import itemgetter
 
@@ -11,8 +10,6 @@ from .importmusicxml import DYN_DIRECTIONS, PEDAL_DIRECTIONS
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
 
 __all__ = ["save_musicxml"]
-
-LOGGER = logging.getLogger(__name__)
 
 DOCTYPE = """<!DOCTYPE score-partwise PUBLIC\n  "-//Recordare//DTD MusicXML 3.1 Partwise//EN"\n  "http://www.musicxml.org/dtds/partwise.dtd">"""  # noqa: E501
 MEASURE_SEP_COMMENT = "======================================================="

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import logging
 import numpy as np
 
 from collections import defaultdict, OrderedDict
@@ -10,8 +9,6 @@ import partitura.score as score
 from partitura.utils import partition
 
 __all__ = ["save_score_midi", "save_performance_midi"]
-
-LOGGER = logging.getLogger(__name__)
 
 
 def get_partgroup(part):

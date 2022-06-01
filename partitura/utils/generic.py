@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-import logging
+import warnings
 from collections import defaultdict
 from textwrap import dedent
 import numpy as np
 
-LOGGER = logging.getLogger(__name__)
+
 
 __all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
 
@@ -233,7 +233,7 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            LOGGER.warning(
+                            warnings.warn(
                                 dedent(
                                     """reference not found in
                             o_map: {} start={} end={}, substituting None
@@ -249,7 +249,7 @@ class ReplaceRefMixin(object):
                     if o in o_map:
                         o_new = o_map[o]
                     else:
-                        LOGGER.warning(
+                        warnings.warn(
                             dedent(
                                 """reference not found in o_map:
                         {} start={} end={}, substituting None

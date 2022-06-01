@@ -43,7 +43,7 @@ class TestKeyEstimation(unittest.TestCase):
         self.assertTrue(key == "Am", "Incorrect key")
 
     def test_note_array(self):
-        key = estimate_key(self.score.note_array)
+        key = estimate_key(self.score.note_array())
         self.assertTrue(key == "Am", "Incorrect key")
 
 

@@ -31,6 +31,6 @@ class TestKeyEstimation(unittest.TestCase):
         self.assertTrue(np.all(comparisons), "Incorrect spelling")
 
     def test_note_array(self):
-        spelling = estimate_spelling(self.score.note_array)
+        spelling = estimate_spelling(self.score.note_array())
         comparisons = compare_spelling(spelling, self.score.notes)
         self.assertTrue(np.all(comparisons), "Incorrect spelling")
