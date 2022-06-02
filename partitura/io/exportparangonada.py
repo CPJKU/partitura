@@ -35,6 +35,7 @@ def alignment_dicts_to_array(alignment):
 
     return alignarray
 
+
 def save_csv_for_parangonada(outdir, part, ppart, align,
                              zalign=None, feature=None):
     """
@@ -84,16 +85,43 @@ def save_csv_for_parangonada(outdir, part, ppart, align,
     else: # if no zalign is available, save the same alignment twice
         zalignarray = alignment_dicts_to_array(align)
 
-    np.savetxt(outdir + os.path.sep+"Nppart.csv", ppart,
-               fmt = "%.20s",delimiter=",",header=",".join(ppart.dtype.names),comments="")   
-    np.savetxt(outdir + os.path.sep+"Npart.csv", part,
-               fmt = "%.20s",delimiter=",",header=",".join(part.dtype.names),comments="")
-    np.savetxt(outdir + os.path.sep+"Nalign.csv", alignarray,
-               fmt = "%.20s",delimiter=",",header=",".join(alignarray.dtype.names),comments="")
-    np.savetxt(outdir + os.path.sep+"Nzalign.csv", zalignarray,
-               fmt = "%.20s",delimiter=",",header=",".join(zalignarray.dtype.names),comments="")
-    np.savetxt(outdir + os.path.sep+"Nfeature.csv", featurearray,
-               fmt = "%.20s",delimiter=",",header=",".join(featurearray.dtype.names),comments="")
+    np.savetxt(outdir + os.path.sep+"ppart.csv", ppart,
+               fmt = "%.20s",delimiter=",",
+               header=",".join(ppart.dtype.names),comments="")   
+    np.savetxt(outdir + os.path.sep+"part.csv", part,
+               fmt = "%.20s",delimiter=",",
+               header=",".join(part.dtype.names),comments="")
+    np.savetxt(outdir + os.path.sep+"align.csv", alignarray,
+               fmt = "%.20s",delimiter=",",
+               header=",".join(alignarray.dtype.names),comments="")
+    np.savetxt(outdir + os.path.sep+"zalign.csv", zalignarray,
+               fmt = "%.20s",delimiter=",",
+               header=",".join(zalignarray.dtype.names),comments="")
+    np.savetxt(outdir + os.path.sep+"feature.csv", featurearray,
+               fmt = "%.20s",delimiter=",",
+               header=",".join(featurearray.dtype.names),comments="")
+
+
+def save_alignment_for_parangonada(outfile, align):
+    """
+    Save only an alignment csv for visualization with parangonda.
+    For score, performance, and expressive features use
+    save_csv_for_parangonada()
+    
+    Parameters
+    ----------
+    outdir : str
+        A directory to save the files into.
+    align : list
+        A list of note alignment dictionaries.
+
+    """
+    alignarray = alignment_dicts_to_array(align)
+    
+    np.savetxt(outfile, alignarray,
+               fmt = "%.20s",delimiter=",",
+               header=",".join(alignarray.dtype.names),
+               comments="")
 
 
 def load_alignment_from_parangonada(outfile): 
@@ -114,18 +142,18 @@ def load_alignment_from_parangonada(outfile):
     alignlist = list()
     # match = 0, deletion  = 1, insertion = 2
     for k in range(1,array.shape[0]):
-        if array[k,1] == 0:
+        if int(array[k,1]) == 0:
             alignlist.append({"label":"match","score_id":array[k,2],"performance_id":array[k,3]})
                 
-        elif array[k,1] == 2:
+        elif int(array[k,1]) == 2:
             alignlist.append({"label":"insertion","performance_id":array[k,3]})
 
-        elif array[k,1] == 0:
+        elif int(array[k,1]) == 1:
             alignlist.append({"label":"deletion","score_id":array[k,2]})
     return alignlist
 
 
-def save_tsv_for_ASAP(outfile, ppart, alignment): 
+def save_alignment_for_ASAP(outfile, ppart, alignment): 
     """
     load an alignment exported from parangonda.
     
@@ -160,6 +188,7 @@ def save_tsv_for_ASAP(outfile, ppart, alignment):
                 outline_perf = notes_indexed_by_id[str(line["performance_id"])]
                 f.write('\t'.join(outline_score+outline_perf) + '\n')
 
+
 def load_alignment_from_ASAP(outfile): 
     """
     load a note alignment of the ASAP dataset.
@@ -175,14 +204,15 @@ def load_alignment_from_ASAP(outfile):
         A list of note alignment dictionaries.
     """
     alignlist = list()
-    with open(outfile, 'w') as f:
+    with open(outfile, 'r') as f:
         for line in f.readlines():
             fields = line.split("\t")
-            if fields[0][0] == "n" and fields[1] != "deletion":
+            if fields[0][0] == "n" and "deletion" not in fields[1]:
                 alignlist.append({"label":"match","score_id":fields[0],"performance_id":fields[1]}) 
             elif fields[0] == "insertion":     
                 alignlist.append({"label":"insertion","performance_id":fields[1]})
-            elif fields[0][0] == "n" and fields[1] == "deletion":   
+            elif fields[0][0] == "n" and "deletion" in fields[1]:   
                 alignlist.append({"label":"deletion","score_id":fields[0]})
       
     return alignlist
+ 
