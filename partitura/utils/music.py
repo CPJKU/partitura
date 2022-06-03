@@ -2019,7 +2019,7 @@ def performance_from_part(part, bpm=100, velocity=64):
         ("channel", "i4"),
         ("id", "U256"),
     ]
-    snote_array = part.note_array
+    snote_array = part.note_array()
 
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
 
