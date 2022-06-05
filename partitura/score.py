@@ -507,6 +507,105 @@ class Part(object):
             for note in self.iter_all(Note, include_subclasses=True)
             if note.tie_prev is None
         ]
+        
+    @property
+    def measures(self):
+        """Return a list of all Measure objects in the part
+
+        Returns
+        -------
+        list
+            List of Measure objects
+
+        """
+        return [
+            e for e in self.iter_all(Measure, include_subclasses=False)
+        ]
+        
+    @property
+    def rests(self):
+        """Return a list of all rest objects in the part
+
+        Returns
+        -------
+        list
+            List of Rest objects
+
+        """
+        return [
+            e for e in self.iter_all(Rest, include_subclasses=False)
+        ]
+        
+    @property
+    def repeats(self):
+        """Return a list of all Repeat objects in the part
+
+        Returns
+        -------
+        list
+            List of Repeat objects
+
+        """
+        return [
+            e for e in self.iter_all(Repeat, include_subclasses=False)
+        ]
+
+    @property
+    def key_sigs(self):
+        """Return a list of all Key Signature objects in the part
+
+        Returns
+        -------
+        list
+            List of Key Signature objects
+
+        """
+        return [
+            e for e in self.iter_all(KeySignature, include_subclasses=False)
+        ]
+
+    @property
+    def time_sigs(self):
+        """Return a list of all Time Signature objects in the part
+
+        Returns
+        -------
+        list
+            List of Time Signature objects
+
+        """
+        return [
+            e for e in self.iter_all(TimeSignature, include_subclasses=False)
+        ]
+        
+    @property
+    def dynamics(self):
+        """Return a list of all Dynamics markings in the part
+
+        Returns
+        -------
+        list
+            List of Dynamics objects
+
+        """
+        return [
+            e for e in self.iter_all(LoudnessDirection, include_subclasses=True)
+        ]
+    
+    @property
+    def articulations(self):
+        """Return a list of all Articulation markings in the part
+
+        Returns
+        -------
+        list
+            List of Articulation objects
+
+        """
+        return [
+            e for e in self.iter_all(ArticulationDirection, include_subclasses=True)
+        ]
+        
 
     def quarter_durations(self, start=None, end=None):
         """Return an Nx2 array with quarter duration (second column)
