@@ -1363,6 +1363,7 @@ class GenericNote(TimedObject):
         staff=None,
         symbolic_duration=None,
         articulations=None,
+        ornaments=None,
         doc_order=None,
     ):
         self._sym_dur = None
@@ -1372,6 +1373,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
+        self.ornaments = ornaments
         self.doc_order = doc_order
 
         # these attributes are set after the instance is constructed
