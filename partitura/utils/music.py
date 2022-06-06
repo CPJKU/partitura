@@ -2409,9 +2409,10 @@ def rest_array_from_rest_list(
     rest_array = np.array(rest_array, dtype=fields)
 
     # Sanitize voice information
-    no_voice_idx = np.where(rest_array["voice"] == -1)[0]
-    max_voice = rest_array["voice"].max()
-    rest_array["voice"][no_voice_idx] = max_voice + 1
+    if rest_list:
+        no_voice_idx = np.where(rest_array["voice"] == -1)[0]
+        max_voice = rest_array["voice"].max()
+        rest_array["voice"][no_voice_idx] = max_voice + 1
 
     # sort by onset and pitch
     onset_unit, _ = get_time_units_from_note_array(rest_array)
