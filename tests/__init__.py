@@ -71,6 +71,8 @@ METRICAL_POSITION_TESTFILES = [
     for fn in ["test_metrical_position.xml", "test_anacrusis.xml"]
 ]
 
+REST_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]]
+
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
 
 MERGE_PARTS_TESTFILES = [

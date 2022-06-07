@@ -10,9 +10,7 @@ import partitura.score as score
 from partitura import load_musicxml
 from partitura.utils.music import rest_array_from_part
 import numpy as np
-
-from tests import NOTE_ARRAY_TESTFILES
-from tests import MUSICXML_UNFOLD_COMPLEX
+from tests import REST_ARRAY_TESTFILES
 
 
 class TestNoteArray(unittest.TestCase):
@@ -32,12 +30,18 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(len(note_array) == 1)
 
     def test_rest_array(self):
-        part = load_musicxml(MUSICXML_UNFOLD_COMPLEX[0][0])
+        part = load_musicxml(REST_ARRAY_TESTFILES[0])
         part.use_musical_beat()
         rest_array = part.rest_array(collapse=True, include_metrical_position=True)
         expected_musical_beats = [14, 18]
         self.assertTrue(np.array_equal(rest_array["onset_beat"], expected_musical_beats))
 
+    def test_rest_collapse(self):
+        part = load_musicxml(REST_ARRAY_TESTFILES[0])
+        part.use_musical_beat()
+        rest_array = part.rest_array(collapse=True, include_metrical_position=True)
+        expected_musical_beats = [14, 18]
+        self.assertTrue(np.array_equal(rest_array["onset_beat"], expected_musical_beats))
 
 if __name__ == "__main__":
     unittest.main()
