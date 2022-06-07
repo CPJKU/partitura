@@ -1855,8 +1855,9 @@ class Note(GenericNote):
 class Rest(GenericNote):
     """A subclass of GenericNote representing a rest."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, hidden=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.hidden = hidden
 
 
 class Beam(TimedObject):
