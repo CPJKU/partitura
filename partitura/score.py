@@ -968,7 +968,8 @@ class Part(object):
                     include_key_signature=False,
                     include_time_signature=False,
                     include_metrical_position=False,
-                    include_grace_notes=False):
+                    include_grace_notes=False,
+                    include_staff=False):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -1014,7 +1015,8 @@ class Part(object):
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
                     include_metrical_position=include_metrical_position,
-                    include_grace_notes=include_grace_notes)
+                    include_grace_notes=include_grace_notes,
+                    include_staff=include_staff)
 
     def rest_array(self,
                    include_pitch_spelling=False,
@@ -1022,6 +1024,7 @@ class Part(object):
                    include_time_signature=False,
                    include_metrical_position=False,
                    include_grace_notes=False,
+                   include_staff=False,
                    collapse=False):
         """
         Create a structured array with rest information
@@ -1067,6 +1070,7 @@ class Part(object):
                                     include_time_signature=include_time_signature,
                                     include_metrical_position=include_metrical_position,
                                     include_grace_notes=include_grace_notes,
+                                    include_staff=include_staff,
                                     collapse=collapse)
 
     def set_musical_beat_per_ts(self, mbeats_per_ts={}):
