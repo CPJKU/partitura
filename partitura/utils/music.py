@@ -1017,6 +1017,7 @@ def _make_pianoroll(
     # sort notes
     pr_pitch = pr_pitch[idx]
     onset = onset[idx]
+    duration = duration[idx]
 
     if min_time is None:
         min_time = 0 if min(onset) >= 0 else min(onset)
