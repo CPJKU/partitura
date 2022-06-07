@@ -269,7 +269,7 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
         return note_array_from_part_list(notearray_or_part.children, *args, **kwargs)
 
     elif isinstance(notearray_or_part, PerformedPart):
-        return notearray_or_part.note_array
+        return notearray_or_part.note_array()
 
     elif isinstance(notearray_or_part, list):
         if all([isinstance(part, Part) for part in notearray_or_part]):
@@ -1456,8 +1456,7 @@ def note_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_grace_notes=False
-):
+    include_grace_notes=False):
     """
     Construct a structured Note array from a list of Part objects
 
@@ -1749,6 +1748,7 @@ def note_array_from_part(
         include_pitch_spelling=include_pitch_spelling,
         include_grace_notes=include_grace_notes
     )
+    
     return note_array
 
 
@@ -2019,7 +2019,7 @@ def performance_from_part(part, bpm=100, velocity=64):
         ("channel", "i4"),
         ("id", "U256"),
     ]
-    snote_array = part.note_array
+    snote_array = part.note_array()
 
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
 

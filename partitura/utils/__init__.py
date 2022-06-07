@@ -44,6 +44,7 @@ from partitura.utils.music import (
     pitch_spelling_to_note_name,
 )
 
+
 __all__ = [
     "key_name_to_fifths_mode",
     "fifths_mode_to_key_name",

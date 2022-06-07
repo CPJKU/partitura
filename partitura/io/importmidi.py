@@ -71,6 +71,9 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     default_bpm : number, optional
         Tempo to use wherever the MIDI does not specify a tempo.
         Defaults to 120.
+    merge_tracks: bool, optional
+        For MIDI files, merges all tracks into a single track.
+
 
     Returns
     -------

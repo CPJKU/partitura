@@ -78,7 +78,7 @@ class TestImportMEI(unittest.TestCase):
         ][0]
         part = score.Part("dummyid", quarter_duration=12)
         parser._handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part)
-        self.assertTrue(len(part.note_array) == 3)
+        self.assertTrue(len(part.note_array()) == 3)
 
     def test_handle_layer2(self):
         parser = MeiParser(MEI_TESTFILES[5])
@@ -89,7 +89,7 @@ class TestImportMEI(unittest.TestCase):
         ][0]
         part = score.Part("dummyid", quarter_duration=12)
         parser._handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part)
-        self.assertTrue(len(part.note_array) == 3)
+        self.assertTrue(len(part.note_array()) == 3)
 
     def test_handle_layer_tuplets(self):
         parser = MeiParser(MEI_TESTFILES[6])
@@ -100,12 +100,12 @@ class TestImportMEI(unittest.TestCase):
         ][0]
         part = score.Part("dummyid", quarter_duration=15)
         parser._handle_layer_in_staff_in_measure(layer_el, 1, 1, 0, part)
-        self.assertTrue(len(part.note_array) == 10)
+        self.assertTrue(len(part.note_array()) == 10)
 
     def test_ties1(self):
         part_list = load_mei(MEI_TESTFILES[7])
         note_array = list(score.iter_parts(part_list))[0].note_array
-        self.assertTrue(len(note_array) == 4)
+        self.assertTrue(len(note_array()) == 4)
 
     def test_time_signatures(self):
         part_list = load_mei(MEI_TESTFILES[8])
@@ -162,7 +162,7 @@ class TestImportMEI(unittest.TestCase):
         part_list = load_mei(MEI_TESTFILES[10])
         part = list(score.iter_parts(part_list))[0]
         grace_notes = list(part.iter_all(score.GraceNote))
-        self.assertTrue(len(part.note_array) == 7)
+        self.assertTrue(len(part.note_array()) == 7)
         self.assertTrue(len(grace_notes) == 4)
         self.assertTrue(grace_notes[0].grace_type == "acciaccatura")
         self.assertTrue(grace_notes[1].grace_type == "appoggiatura")
@@ -180,25 +180,25 @@ class TestImportMEI(unittest.TestCase):
         # compare the same piece with and without ppq annotations
         parts_ppq = load_mei(MEI_TESTFILES[6])
         part_ppq = list(score.iter_parts(parts_ppq))[0]
-        note_array_ppq = part_ppq.note_array
+        note_array_ppq = part_ppq.note_array()
 
         parts_no_ppq = load_mei(MEI_TESTFILES[12])
         part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
-        note_array_no_ppq = part_no_ppq.note_array
+        note_array_no_ppq = part_no_ppq.note_array()
 
         self.assertTrue(np.array_equal(note_array_ppq, note_array_no_ppq))
 
     def test_part_duration(self):
         parts_no_ppq = load_mei(MEI_TESTFILES[14])
         part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
-        note_array_no_ppq = part_no_ppq.note_array
+        note_array_no_ppq = part_no_ppq.note_array()
         self.assertTrue(part_no_ppq._quarter_durations[0] == 4)
         self.assertTrue(sorted(part_no_ppq._points)[-1].t == 12)
 
     def test_part_duration2(self):
         parts_no_ppq = load_mei(MEI_TESTFILES[15])
         part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
-        note_array_no_ppq = part_no_ppq.note_array
+        note_array_no_ppq = part_no_ppq.note_array()
         self.assertTrue(part_no_ppq._quarter_durations[0] == 8)
         self.assertTrue(sorted(part_no_ppq._points)[-1].t == 22)
 
