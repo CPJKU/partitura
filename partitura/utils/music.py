@@ -2232,7 +2232,7 @@ def rest_array_from_rest_list(
     Returns
     -------
     rest_array : structured array
-        A structured array containing note information. Pitch is set to 0.
+        A structured array containing rest information. Pitch is set to 0.
     """
 
     fields = []
