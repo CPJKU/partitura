@@ -1593,43 +1593,42 @@ def rest_array_from_part_list(
     include_time_signature=False,
     include_grace_notes=False):
     """
-    Construct a structured Note array from a list of Part objects
+    Construct a structured Rest array from a list of Part objects
 
     Parameters
     ----------
     part_list : list
        A list of `Part` or `PerformedPart` objects. All elements in
-       the list must be of the same type (i.e., no mixing `Part`
-       and `PerformedPart` objects in the same list.
+       the list must be of the same type.
     unique_id_per_part : bool (optional)
-       Indicate from which part do each note come from in the note ids.
+       Indicate from which part do each rest come from in the rest ids.
     include_pitch_spelling: bool (optional)
-       Include pitch spelling information in note array. Only valid
-       if parts in `part_list` are `Part` objects. See `note_array_from_part`
-       for more info. Default is False.
+       Include pitch spelling information in rest array.
+       This is a dummy attribute and returns zeros everywhere.
+       Default is False.
     include_key_signature: bool (optional)
-       Include key signature information in output note array.
+       Include key signature information in output rest array.
        Only valid if parts in `part_list` are `Part` objects.
-       See `note_array_from_part` for more info. Default is False.
+       See `rest_array_from_part` for more info.
+       Default is False.
     include_time_signature : bool (optional)
-       Include time signature information in output note array.
+       Include time signature information in output rest array.
        Only valid if parts in `part_list` are `Part` objects.
-       See `note_array_from_part` for more info. Default is False.
+       See `rest_array_from_part` for more info.
+       Default is False.
     include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a
-        grace note and the grace type "" for non grace notes).
+        If `True`,  includes grace note information, i.e. "" for every rest).
         Default is False
 
     Returns
     -------
     rest_array: structured array
-        A structured array containing pitch, onset, duration, voice
-        and id for each note in each part of the `part_list`. The note
+        A structured array containing pitch (always zero), onset, duration, voice
+        and id for each rest in each part of the `part_list`. The rest
         ids in this array include the number of the part to which they
         belong.
     """
     from partitura.score import Part, PartGroup
-    from partitura.performance import PerformedPart
 
     rest_array = []
     for i, part in enumerate(part_list):
@@ -1904,66 +1903,35 @@ def rest_array_from_part(
         An object representing a score part.
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
-        note. Default is False
+        rest.
+        This is a dummy attribute returns zeros everywhere.
+        Default is False
     include_key_signature : bool (optional)
         If `True`, includes key signature information, i.e.,
-        the key signature at the onset time of each note (all
+        the key signature at the onset time of each rest (all
         notes starting at the same time have the same key signature).
         Default is False
     include_time_signature : bool (optional)
         If `True`,  includes time signature information, i.e.,
-        the time signature at the onset time of each note (all
-        notes starting at the same time have the same time signature).
+        the time signature at the onset time of each rest (all
+        rests starting at the same time have the same time signature).
         Default is False
     include_metrical_position : bool (optional)
         If `True`,  includes metrical position information, i.e.,
         the position of the onset time of each note with respect to its
-        measure (all notes starting at the same time have the same metrical
-        position).
+        measure.
         Default is False
     include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a
-        grace note and the grace type "" for non grace notes).
+        If `True`,  includes grace note information, i.e. the grace type is "" for all rests).
         Default is False
     collapse : bool (optional)
         If 'True', collapses consecutive rest onsets on the same voice, to a single rest of their combined duration.
+        Default is False
 
     Returns
     -------
-    note_array : structured array
-        A structured array containing note information. The fields are
-            * 'onset_beat': onset time of the note in beats
-            * 'duration_beat': duration of the note in beats
-            * 'onset_quarter': onset time of the note in quarters
-            * 'duration_quarter': duration of the note in quarters
-            * 'onset_div': onset of the note in divs (e.g., MIDI ticks,
-              divisions in MusicXML)
-            * 'duration_div': duration of the note in divs
-            * 'pitch': MIDI pitch of a note.
-            * 'voice': Voice number of a note (if given in the score)
-            * 'id': Id of the note
-
-        If `include_pitch_spelling` is True:
-            * 'step': name of the note ("C", "D", "E", "F", "G", "A", "B")
-            * 'alter': alteration (0=natural, -1=flat, 1=sharp,
-              2=double sharp, etc.)
-            * 'octave': octave of the note.
-
-        If `include_key_signature` is True:
-            * 'ks_fifths': Fifths starting from C in the circle of fifths
-            * 'mode': major or minor
-
-        If `include_time_signature` is True:
-            * 'ts_beats': number of beats in a measure
-            * 'ts_beat_type': type of beats (denominator of the time signature)
-
-        If `include_metrical_position` is True:
-            * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
-            * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
-            * 'tot_measure_divs' : total number of divs in the note measure
-        If 'include_grace_notes' is True:
-            * 'is_grace': 1 if the note is a grace 0 otherwise
-            * 'grace_type' : the type of the grace notes "" for non grace notes.
+    rest_array : structured array
+        A structured array containing rest information (pitch is always 0).
     """
     if include_time_signature:
         time_signature_map = part.time_signature_map
@@ -2219,13 +2187,13 @@ def rest_array_from_rest_list(
         collapse=False
 ):
     """
-    Create a structured array with note information
-    from a a list of `Note` objects.
+    Create a structured array with rest information
+    from a list of `Rest` objects.
 
     Parameters
     ----------
-    rest_list : list of `Note` objects
-        A list of `Note` objects containing score information.
+    rest_list : list of `Rest` objects
+        A list of `Rest` objects containing score information.
     beat_map : callable or None
         A function that maps score time in divs to score time in beats.
         If `None` is given, the output structured array will not
@@ -2251,11 +2219,10 @@ def rest_array_from_rest_list(
         include the metrical position information.
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
-        note. Default is False
+        rest. This is a dummy attribute and returns zeros everywhere.
+        Default is False
     include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a
-        grace note has one of the types "appoggiatura, acciaccatura, grace" and
-        the grace type "" for non grace notes).
+        If `True`,  includes grace note information, i.e. "" for all rests).
         Default is False
     collapse : bool (optional)
         If `True`, joins rests on consecutive onsets on the same voice and combines their durations.
@@ -2264,45 +2231,8 @@ def rest_array_from_rest_list(
 
     Returns
     -------
-    note_array : structured array
-        A structured array containing note information. The fields are
-            * 'onset_beat': onset time of the note in beats.
-              Included if `beat_map` is not `None`.
-            * 'duration_beat': duration of the note in beats.
-              Included if `beat_map` is not `None`.
-            * 'onset_quarter': onset time of the note in quarters.
-              Included if `quarter_map` is not `None`.
-            * 'duration_quarter': duration of the note in quarters.
-              Included if `quarter_map` is not `None`.
-            * 'onset_div': onset of the note in divs (e.g., MIDI ticks,
-              divisions in MusicXML)
-            * 'duration_div': duration of the note in divs
-            * 'pitch': MIDI pitch of a note.
-            * 'voice': Voice number of a note (if given in the score)
-            * 'id': Id of the note
-            * 'step': name of the note ("C", "D", "E", "F", "G", "A", "B").
-              Included if `include_pitch_spelling` is `True`.
-            * 'alter': alteration (0=natural, -1=flat, 1=sharp,
-              2=double sharp, etc.). Included if `include_pitch_spelling`
-              is `True`.
-            * 'octave': octave of the note. Included if `include_pitch_spelling`
-              is `True`.
-            * 'is_grace' : Is the note a grace note. Yes if true.
-            * 'grace_type' : The type of grace note. "" for non grace notes.
-            * 'ks_fifths': Fifths starting from C in the circle of fifths.
-              Included if `key_signature_map` is not `None`.
-            * 'mode': major or minor. Included If `key_signature_map` is
-              not `None`.
-            * 'ts_beats': number of beats in a measure. If `time_signature_map`
-               is True.
-            * 'ts_beat_type': type of beats (denominator of the time signature).
-              If `include_time_signature` is True.
-            * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise.
-               If `measure_map` is not None.
-            * 'rel_onset_div': number of divs elapsed from the beginning of the
-               note measure. If `measure_map` is not None.
-            * 'tot_measure_div' : total number of divs in the note measure
-               If `measure_map` is not None.
+    rest_array : structured array
+        A structured array containing note information. Pitch is set to 0.
     """
 
     fields = []
@@ -2421,12 +2351,29 @@ def rest_array_from_rest_list(
     onset_sort_idx = np.argsort(rest_array[onset_unit], kind="mergesort")
     rest_array = rest_array[onset_sort_idx]
 
-    for i, rest in enumerate(rest_array):
-        idxs = np.where(rest_array["onset_beat"] == rest["onset_beat"] + rest["duration_beat"])[0]
-        for idx in idxs:
-            rest_array[i]["duration_beat"] = rest["duration_beat"] + rest_array[idx]["duration_beat"]
-            rest_array[i]["duration_div"] = rest["duration_div"] + rest_array[idx]["duration_div"]
 
+    return rest_array
+
+
+def collapse_rests(rest_array):
+    filter_idx = []
+    output_idx = []
+    for i, rest in enumerate(rest_array):
+        if i not in filter_idx:
+            idxs = np.where((rest_array["onset_beat"] == rest["onset_beat"] + rest["duration_beat"]) & (rest_array["voice"] == rest["voice"]))[0]
+            for idx in idxs:
+                rest_array[i]["duration_beat"] = rest["duration_beat"] + rest_array[idx]["duration_beat"]
+                rest_array[i]["duration_div"] = rest["duration_div"] + rest_array[idx]["duration_div"]
+                filter_idx.append(idx)
+            output_idx.append(i)
+    return rest_array[output_idx], filter_idx
+
+
+def rec_collaphse_rests(rest_array):
+    cond = True
+    while cond:
+        rest_array, filter_idx = collapse_rests(rest_array)
+        cond = len(filter_idx) > 0
     return rest_array
 
 
