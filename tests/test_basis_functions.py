@@ -1,7 +1,7 @@
 import unittest
 from tests import METRICAL_POSITION_TESTFILES, MUSICXML_IMPORT_EXPORT_TESTFILES, MEI_TESTFILES
 from partitura import load_musicxml, load_mei
-from partitura.musicanalysis import make_note_feats
+from partitura.musicanalysis import make_note_feats, make_rest_feats
 
 
 class TestingNoteFeatureExtraction(unittest.TestCase):
@@ -19,6 +19,7 @@ class TestingNoteFeatureExtraction(unittest.TestCase):
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             part = load_musicxml(fn)
             make_note_feats(part, "all")
+            make_rest_feats(part, "all")
 
 
 if __name__ == '__main__':
