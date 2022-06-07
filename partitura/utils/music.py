@@ -2351,7 +2351,8 @@ def rest_array_from_rest_list(
     onset_sort_idx = np.argsort(rest_array[onset_unit], kind="mergesort")
     rest_array = rest_array[onset_sort_idx]
 
-
+    if collapse:
+        rest_array = rec_collapse_rests(rest_array)
     return rest_array
 
 
@@ -2369,7 +2370,7 @@ def collapse_rests(rest_array):
     return rest_array[output_idx], filter_idx
 
 
-def rec_collaphse_rests(rest_array):
+def rec_collapse_rests(rest_array):
     cond = True
     while cond:
         rest_array, filter_idx = collapse_rests(rest_array)
