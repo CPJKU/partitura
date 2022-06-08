@@ -660,6 +660,43 @@ def articulation_feature(na, part):
 
     return W, names
 
+def ornament_feature(na, part):
+    """Ornament feature.
+
+    This feature returns ornamentation note annotations,such as trills.
+
+    Possible descriptors:
+    * trill : 1 when the note has an annotated trill
+    * mordent : 1 when the note has an annotated mordent
+    ...
+
+    """
+    names = [ "trill-mark", "turn", "delayed-turn", "inverted-turn",
+        "delayed-inverted-turn", "vertical-turn", "inverted-vertical-turn",
+        "shake", "wavy-line", "mordent", "inverted-mordent",
+        "schleifer", "tremolo", "haydn", "other-ornament"]
+    feature_by_name = {}
+    notes = part.notes_tied
+    N = len(notes)
+    for i, n in enumerate(notes):
+        if n.ornaments:
+            for art in n.ornaments:
+                if art in names:
+                    j, bf = feature_by_name.setdefault(
+                        art,
+                        (len(feature_by_name), np.zeros(N)))
+                    bf[i] = 1
+
+    M = len(feature_by_name)
+    W = np.empty((N, M))
+    names = [None] * M
+
+    for name, (j, bf) in feature_by_name.items():
+        W[:, j] = bf
+        names[j] = name
+
+    return W, names
+
 
 # # for a subset of the articulations do e.g.
 # def staccato_feature(part):

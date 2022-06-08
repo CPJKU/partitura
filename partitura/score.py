@@ -1518,6 +1518,7 @@ class GenericNote(TimedObject):
         staff=None,
         symbolic_duration=None,
         articulations=None,
+        ornaments=None,
         doc_order=None,
     ):
         self._sym_dur = None
@@ -1527,6 +1528,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
+        self.ornaments = ornaments
         self.doc_order = doc_order
 
         # these attributes are set after the instance is constructed
@@ -4256,6 +4258,38 @@ def merge_parts(parts):
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
     return new_part
 
+
+def is_a_within_b(a, b, wholly=False):
+    """
+    Returns a boolean indicating whether a is (wholly) within b.
+
+    Parameters
+    ----------
+    a: TimePoint, TimedObject, int
+        Query object
+    b: TimedObject
+        Container object
+    wholly: bool
+        True = a needs to wholly contained in b
+    """
+    contained = None
+    if not isinstance(b, TimedObject):
+        warnings.warn("b needs to be TimedObject")
+    if isinstance(a,TimePoint):
+        contained = (a.t <= b.end.t and a.t >= b.start.t)
+    elif isinstance(a, int):
+        contained = (a <= b.end.t and a >= b.start.t)
+    elif isinstance(a, TimedObject):
+        contained_start = (a.start.t <= b.end.t and a.start.t >= b.start.t)
+        contained_end = (a.end.t <= b.end.t and a.end.t >= b.start.t)
+        if wholly:
+            contained = contained_start and contained_end 
+        else:
+            contained = contained_start or contained_end
+    else:
+        warnings.warn("a needs to be TimePoint, TImedObject, or int.")
+    return contained
+        
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""

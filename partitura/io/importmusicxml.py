@@ -1012,6 +1012,12 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
         articulations = get_articulations(articulations_e)
     else:
         articulations = {}
+        
+    ornaments_e = e.find("notations/ornaments")
+    if ornaments_e is not None:
+        ornaments = get_ornaments(ornaments_e)
+    else:
+        ornaments = {}
 
     pitch = e.find("pitch")
     if pitch is not None:
@@ -1034,6 +1040,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 staff=staff,
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
+                ornaments=ornaments,
                 steal_proportion=steal_proportion,
                 doc_order=doc_order,
             )
@@ -1049,6 +1056,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 staff=staff,
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
+                ornaments=ornaments,
                 doc_order=doc_order,
             )
 
@@ -1219,9 +1227,9 @@ def handle_slurs(notations, ongoing, note, position):
 
             # if slur.end_note.start.t < position then the slur stop is
             # rogue. We drop it and treat the slur start like a fresh start
-            if slur is None or slur.end_note.start.t <= position:
+            if slur is None or slur.end_note.start.t < position:
 
-                if slur and slur.end_note.start.t <= position:
+                if slur and slur.end_note.start.t < position:
                     msg = (
                         "Dropping slur {} starting at {} ({}) and ending "
                         "at {} ({})".format(
@@ -1251,9 +1259,9 @@ def handle_slurs(notations, ongoing, note, position):
 
             slur = ongoing.pop(start_slur_key, None)
 
-            if slur is None or slur.start_note.start.t >= position:
+            if slur is None or slur.start_note.start.t > position:
 
-                if slur and slur.start_note.start.t >= position:
+                if slur and slur.start_note.start.t > position:
                     msg = (
                         "Dropping slur {} starting at {} ({}) and ending "
                         "at {} ({})".format(
@@ -1332,6 +1340,43 @@ def get_articulations(e):
         "soft-accent",
     )
     return [a for a in articulations if e.find(a) is not None]
+
+def get_ornaments(e):
+    #  ornaments elements: 	
+    #  trill-mark 
+    #  turn 
+    #  delayed-turn 
+    #  inverted-turn 
+    #  delayed-inverted-turn 
+    #  vertical-turn 
+    #  inverted-vertical-turn 
+    #  shake 
+    #  wavy-line 
+    #  mordent 
+    #  inverted-mordent 
+    #  schleifer 
+    #  tremolo 
+    #  haydn 
+    #  other-ornament 
+
+    ornaments = (
+        "trill-mark",
+        "turn",
+        "delayed-turn",
+        "inverted-turn",
+        "delayed-inverted-turn",
+        "vertical-turn",
+        "inverted-vertical-turn",
+        "shake",
+        "wavy-line",
+        "mordent",
+        "inverted-mordent",
+        "schleifer",
+        "tremolo",
+        "haydn",
+        "other-ornament"
+    )
+    return [a for a in ornaments if e.find(a) is not None]
 
 
 def musicxml_to_notearray(
