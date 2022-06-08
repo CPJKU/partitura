@@ -104,8 +104,8 @@ def make_note_el(note, dur, voice, counter):
         etree.SubElement(pitch_e, "octave").text = "{}".format(note.octave)
 
     elif isinstance(note, score.Rest):
-
-        etree.SubElement(note_e, "rest")
+        if not note.hidden:
+            etree.SubElement(note_e, "rest")
 
     if not isinstance(note, score.GraceNote):
 

@@ -1501,7 +1501,8 @@ def note_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_grace_notes=False):
+    include_grace_notes=False,
+    include_staff=False):
     """
     Construct a structured Note array from a list of Part objects
 
@@ -1529,6 +1530,9 @@ def note_array_from_part_list(
         If `True`,  includes grace note information, i.e. if a note is a
         grace note and the grace type "" for non grace notes).
         Default is False
+    include_staff : bool (optional)
+        If `True`,  includes note staff number.
+        Default is False
 
     Returns
     -------
@@ -1550,7 +1554,8 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
+                    include_grace_notes=include_grace_notes,
+                    include_staff=include_staff
                 )
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
@@ -1559,7 +1564,8 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
+                    include_grace_notes=include_grace_notes,
+                    include_staff=include_staff
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array
@@ -1591,7 +1597,10 @@ def rest_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_grace_notes=False):
+    include_grace_notes=False,
+    include_staff=False,
+    collapse=False
+    ):
     """
     Construct a structured Rest array from a list of Part objects
 
@@ -1619,6 +1628,9 @@ def rest_array_from_part_list(
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. "" for every rest).
         Default is False
+    include_staff : bool (optional)
+        If `True`,  includes note staff number.
+        Default is False
 
     Returns
     -------
@@ -1639,7 +1651,9 @@ def rest_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
+                    include_grace_notes=include_grace_notes,
+                    inlcude_staff=include_staff,
+                    collapse=collapse
                 )
             elif isinstance(part, PartGroup):
                 na = rest_array_from_part_list(
@@ -1648,7 +1662,9 @@ def rest_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
+                    include_grace_notes=include_grace_notes,
+                    inlcude_staff=include_staff,
+                    collapse=collapse
                 )
         if unique_id_per_part:
             # Update id with part number
@@ -1759,7 +1775,8 @@ def note_array_from_part(
     include_key_signature=False,
     include_time_signature=False,
     include_metrical_position=False,
-    include_grace_notes=False
+    include_grace_notes=False,
+    include_staff=False
 ):
     """
     Create a structured array with note information
@@ -1878,7 +1895,8 @@ def note_array_from_part(
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
-        include_grace_notes=include_grace_notes
+        include_grace_notes=include_grace_notes,
+        include_staff=include_staff
     )
     
     return note_array
@@ -1891,6 +1909,7 @@ def rest_array_from_part(
         include_time_signature=False,
         include_metrical_position=False,
         include_grace_notes=False,
+        include_staff=False,
         collapse=False
 ):
     """
@@ -1957,6 +1976,7 @@ def rest_array_from_part(
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
         include_grace_notes=include_grace_notes,
+        include_staff=include_staff,
         collapse=collapse
     )
 
@@ -1971,7 +1991,8 @@ def note_array_from_note_list(
         key_signature_map=None,
         metrical_position_map=None,
         include_pitch_spelling=False,
-        include_grace_notes=False
+        include_grace_notes=False,
+        include_staff=False
 ):
     """
     Create a structured array with note information
@@ -2011,6 +2032,9 @@ def note_array_from_note_list(
         If `True`,  includes grace note information, i.e. if a note is a
         grace note has one of the types "appoggiatura, acciaccatura, grace" and
         the grace type "" for non grace notes).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes the staff number for every note.
         Default is False
 
     Returns
@@ -2054,6 +2078,7 @@ def note_array_from_note_list(
                note measure. If `measure_map` is not None.
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
+            * 'staff' : number of note staff.
     """
 
     fields = []
@@ -2094,6 +2119,9 @@ def note_array_from_note_list(
             ("rel_onset_div", "i4"),
             ("tot_measure_div", "i4"),
         ]
+    # field for staff
+    if include_staff:
+        fields += [("staff", "i4")]
 
     note_array = []
     for note in note_list:
@@ -2155,6 +2183,9 @@ def note_array_from_note_list(
 
             note_info += (is_downbeat, rel_onset_div, tot_measure_div)
 
+        if include_staff:
+            note_info += (note.staff if note.staff else 0),
+
         note_array.append(note_info)
 
     note_array = np.array(note_array, dtype=fields)
@@ -2184,6 +2215,7 @@ def rest_array_from_rest_list(
         metrical_position_map=None,
         include_pitch_spelling=False,
         include_grace_notes=False,
+        include_staff=False,
         collapse=False
 ):
     """
@@ -2223,6 +2255,9 @@ def rest_array_from_rest_list(
         Default is False
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. "" for all rests).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes the staff number for every note.
         Default is False
     collapse : bool (optional)
         If `True`, joins rests on consecutive onsets on the same voice and combines their durations.
@@ -2273,6 +2308,9 @@ def rest_array_from_rest_list(
             ("rel_onset_div", "i4"),
             ("tot_measure_div", "i4"),
         ]
+    # fields for staff
+    if include_staff:
+        fields += [("staff", "i4")]
 
     rest_array = []
     for rest in rest_list:
@@ -2333,6 +2371,9 @@ def rest_array_from_rest_list(
             is_downbeat = 1 if rel_onset_div == 0 else 0
 
             rest_info += (is_downbeat, rel_onset_div, tot_measure_div)
+
+        if include_staff:
+            rest_info += (rest.staff if rest.staff else 0),
 
         rest_array.append(rest_info)
 

@@ -5,10 +5,8 @@ the Part class.
 """
 
 import unittest
-
 import partitura.score as score
 from partitura import load_musicxml
-from partitura.utils.music import rest_array_from_part
 import numpy as np
 from tests import REST_ARRAY_TESTFILES
 
@@ -32,7 +30,7 @@ class TestNoteArray(unittest.TestCase):
     def test_rest_array(self):
         part = load_musicxml(REST_ARRAY_TESTFILES[0])
         part.use_musical_beat()
-        rest_array = part.rest_array(include_metrical_position=True)
+        rest_array = part.rest_array(include_metrical_position=True, include_staff=True)
         expected_musical_beats = [14, 18]
         self.assertTrue(np.array_equal(rest_array["onset_beat"], expected_musical_beats))
 
@@ -44,6 +42,7 @@ class TestNoteArray(unittest.TestCase):
         expected_length_collapsed = 5
         self.assertTrue(len(rest_array_non_collapsed) == expected_length_non_collapsed)
         self.assertTrue(len(rest_array) == expected_length_collapsed)
+
 
 if __name__ == "__main__":
     unittest.main()
