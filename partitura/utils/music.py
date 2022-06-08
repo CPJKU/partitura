@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from collections import defaultdict
 import re
+from partitura.io.importmidi import create_part
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d
@@ -2658,7 +2659,6 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
     return np.array(matched_idxs)
 
 
-
 def create_divs_from_beats(note_array):
     duration_fractions = [Fraction(ix).limit_denominator(256) for ix in note_array["duration_beat"]]
     onset_fractions = [Fraction(ix).limit_denominator(256) for ix in note_array["onset_beat"]]
@@ -2668,7 +2668,6 @@ def create_divs_from_beats(note_array):
     duration_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), duration_fractions))
     na_divs = np.array(list(zip(onset_divs, duration_divs)), dtype=[("onset_div", int), ("duration_div", int)])
     return rfn.merge_arrays((note_array, na_divs), flatten=True, usemask=False)
-
 
 
 def create_part(
@@ -2749,6 +2748,7 @@ def create_part(
 
     warnings.warn("done create_part", stacklevel=2)
     return part
+
 
 def note_array_to_part(note_array : Union[np.ndarray, list], part_id="", assign_note_ids:bool=True, ensurelist:bool=False, estimate_key:bool=False)-> Union[Union[Part, PartGroup], list]:
     """
