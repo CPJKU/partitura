@@ -2219,7 +2219,6 @@ def note_array_from_note_list(
     return note_array
 
 
-
 def rest_array_from_rest_list(
         rest_list,
         beat_map=None,
