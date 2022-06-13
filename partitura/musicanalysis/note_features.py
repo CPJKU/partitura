@@ -6,7 +6,7 @@ import partitura.score as score
 
 import types
 from typing import List, Union, Tuple
-from partitura.utils import ensure_notearray
+from partitura.utils import ensure_notearray, ensure_rest_array
 
 class InvalidNoteFeatureException(Exception):
     pass
@@ -145,8 +145,97 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List],
         feature_names = [n for ns in _names for n in ns]
         return feature_data, feature_names
 
+
+def make_rest_features(part: Union[score.Part, score.PartGroup, List],
+                       feature_functions: Union[List, str],
+                       add_idx: bool = False) -> Tuple[np.ndarray, List]:
+    """Compute the specified feature functions for a part.
+
+    The function returns the computed feature functions as a N x M
+    array, where N equals `len(part.rests)` and M equals the
+    total number of descriptors of all feature functions that occur in
+    part.
+
+    Parameters
+    ----------
+    part : Part
+        The score as a Part instance
+    feature_functions : list or str
+        A list of feature functions. Elements of the list can be either
+        the functions themselves or the names of a feature function as
+        strings (or a mix). The feature functions specified by name are
+        looked up in the `featuremixer.featurefunctions` module.
+
+    Returns
+    -------
+    feature : ndarray
+        The feature functions
+    names : list
+        The feature names
+    """
+    part = score.merge_parts(part)
+    na = ensure_rest_array(part,
+                          include_metrical_position=True,
+                          include_grace_notes=True,
+                          include_time_signature=True)
+    if na.size == 0:
+        return np.array([])
+
+    acc = []
+    if isinstance(feature_functions, str) and feature_functions == "all":
+        feature_functions = list_note_feats_functions()
+    elif not isinstance(feature_functions, list):
+        raise TypeError("feature_functions variable {} needs to be list or all".format(feature_functions))
+
+    for bf in feature_functions:
+        if isinstance(bf, str):
+            # get function by name from module
+            func = getattr(sys.modules[__name__], bf)
+        elif isinstance(bf, types.FunctionType):
+            func = bf
+        else:
+            warnings.warn('Ignoring unknown feature function {}'.format(bf))
+        bf, bn = func(na, part)
+        # check if the size and number of the feature function are correct
+        if bf.size != 0:
+            if bf.shape[1] != len(bn):
+                msg = ('number of feature names {} does not equal '
+                       'number of feature {}'.format(len(bn), bf.shape[1]))
+                raise InvalidNoteFeatureException(msg)
+            n_notes = len(part.rests)
+            if len(bf) != n_notes:
+                msg = ('length of feature {} does not equal '
+                       'number of notes {}'.format(len(bf), n_notes))
+                raise InvalidNoteFeatureException(msg)
+
+            if np.any(np.logical_or(np.isnan(bf), np.isinf(bf))):
+                problematic = np.unique(np.where(np.logical_or(np.isnan(bf), np.isinf(bf)))[1])
+                msg = ('NaNs or Infs found in the following feature: {} '
+                       .format(', '.join(np.array(bn)[problematic])))
+                raise InvalidNoteFeatureException(msg)
+
+            # prefix feature names by function name
+            bn = ['{}.{}'.format(func.__name__, n) for n in bn]
+
+            acc.append((bf, bn))
+
+    if add_idx:
+        _data, _names = zip(*acc)
+        feature_data = np.column_stack(_data)
+        feature_data_list = [list(f) + [i] for f, i in zip(feature_data, na["id"])]
+        feature_names = [n for ns in _names for n in ns] + ["id"]
+        feature_names_dtypes = list(zip(feature_names, ["f4"] * (len(feature_names) - 1) + ["U256"]))
+        feature_data_struct = np.array([tuple(f) for f in feature_data_list], dtype=feature_names_dtypes)
+        return feature_data_struct
+    else:
+        _data, _names = zip(*acc)
+        feature_data = np.column_stack(_data)
+        feature_names = [n for ns in _names for n in ns]
+        return feature_data, feature_names
+
 # alias
 make_note_feats = make_note_features
+make_rest_feats = make_rest_features
 
 def compute_note_array(part,
                     include_pitch_spelling=False,
@@ -307,7 +396,7 @@ def grace_feature(na, part):
     W = np.zeros((len(na), 3))
     W[:, 0] = na["is_grace"]
     grace_notes = na[np.nonzero(na["is_grace"])]
-    notes = {n.id:n for n in part.notes_tied}
+    notes = {n.id:n for n in part.notes_tied} if not np.all(na["pitch"] == 0) else {n.id:n for n in part.rests}
     indices = np.nonzero(na["is_grace"])[0]
     for i, index in enumerate(indices):
         grace = grace_notes[i]
@@ -550,11 +639,48 @@ def articulation_feature(na, part):
              'scoop', 'plop', 'doit', 'falloff', 'breath-mark',
              'caesura', 'stress', 'unstress', 'soft-accent']
     feature_by_name = {}
-    notes = part.notes_tied
+    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
     N = len(notes)
     for i, n in enumerate(notes):
         if n.articulations:
             for art in n.articulations:
+                if art in names:
+                    j, bf = feature_by_name.setdefault(
+                        art,
+                        (len(feature_by_name), np.zeros(N)))
+                    bf[i] = 1
+
+    M = len(feature_by_name)
+    W = np.empty((N, M))
+    names = [None] * M
+
+    for name, (j, bf) in feature_by_name.items():
+        W[:, j] = bf
+        names[j] = name
+
+    return W, names
+
+def ornament_feature(na, part):
+    """Ornament feature.
+
+    This feature returns ornamentation note annotations,such as trills.
+
+    Possible descriptors:
+    * trill : 1 when the note has an annotated trill
+    * mordent : 1 when the note has an annotated mordent
+    ...
+
+    """
+    names = [ "trill-mark", "turn", "delayed-turn", "inverted-turn",
+        "delayed-inverted-turn", "vertical-turn", "inverted-vertical-turn",
+        "shake", "wavy-line", "mordent", "inverted-mordent",
+        "schleifer", "tremolo", "haydn", "other-ornament"]
+    feature_by_name = {}
+    notes = part.notes_tied
+    N = len(notes)
+    for i, n in enumerate(notes):
+        if n.ornaments:
+            for art in n.ornaments:
                 if art in names:
                     j, bf = feature_by_name.setdefault(
                         art,
@@ -609,7 +735,7 @@ def metrical_feature(na, part):
     non-zero value in the 'metrical_4_4_weak' descriptor.
 
     """
-    notes = part.notes_tied
+    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
     ts_map = part.time_signature_map
     bm = part.beat_map
     feature_by_name = {}
@@ -672,17 +798,16 @@ def time_signature_feature(na, part):
     a one hot encoding of number of beats and a one hot encoding of beat type
     """
 
-    notes = ensure_notearray(part)
     ts_map = part.time_signature_map
     possible_beats = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 'other']
     possible_beat_types = [1, 2, 4, 8, 16, 'other']
-    W_beats = np.zeros((len(notes), len(possible_beats)))
-    W_types = np.zeros((len(notes), len(possible_beat_types)))
+    W_beats = np.zeros((len(na), len(possible_beats)))
+    W_types = np.zeros((len(na), len(possible_beat_types)))
 
     names = (['time_signature_num_{0}'.format(b) for b in possible_beats] +
              ['time_signature_den_{0}'.format(b) for b in possible_beat_types])
 
-    for i, n in enumerate(notes):
+    for i, n in enumerate(na):
         beats, beat_type = ts_map(n["onset_div"]).astype(int)
 
         if beats in possible_beats:

@@ -289,6 +289,51 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
         )
 
 
+def ensure_rest_array(restarray_or_part, *args, **kwargs):
+    """
+    Ensures to get a structured note array from the input.
+
+    Parameters
+    ----------
+    restarray_or_part : structured ndarray, `Part` or `PerformedPart`
+        Input score information
+
+    Returns
+    -------
+    structured ndarray
+        Structured array containing score information.
+    """
+    from partitura.score import Part, PartGroup
+
+    if isinstance(restarray_or_part, np.ndarray):
+        if restarray_or_part.dtype.fields is not None:
+            return restarray_or_part
+        else:
+            raise ValueError("Input array is not a structured array!")
+
+    elif isinstance(restarray_or_part, Part):
+        return rest_array_from_part(restarray_or_part, *args, **kwargs)
+
+    elif isinstance(restarray_or_part, PartGroup):
+        return rest_array_from_part_list(restarray_or_part.children, *args, **kwargs)
+
+    elif isinstance(restarray_or_part, list):
+        if all([isinstance(part, Part) for part in restarray_or_part]):
+            return rest_array_from_part_list(restarray_or_part, *args, **kwargs)
+        else:
+            raise ValueError(
+                "`restarray_or_part` should be a list of "
+                "`Part` objects, but was given "
+                "[{0}]".format(",".join(str(type(p)) for p in restarray_or_part))
+            )
+    else:
+        raise ValueError(
+            "`restarray_or_part` should be a structured "
+            "numpy array, a `Part`, `PartGroup`, or a list but "
+            "is {0}".format(type(restarray_or_part))
+        )
+
+
 def get_time_units_from_note_array(note_array):
     fields = set(note_array.dtype.fields)
 
@@ -1017,6 +1062,7 @@ def _make_pianoroll(
     # sort notes
     pr_pitch = pr_pitch[idx]
     onset = onset[idx]
+    duration = duration[idx]
 
     if min_time is None:
         min_time = 0 if min(onset) >= 0 else min(onset)
@@ -1456,7 +1502,8 @@ def note_array_from_part_list(
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
-    include_grace_notes=False):
+    include_grace_notes=False,
+    include_staff=False):
     """
     Construct a structured Note array from a list of Part objects
 
@@ -1484,6 +1531,9 @@ def note_array_from_part_list(
         If `True`,  includes grace note information, i.e. if a note is a
         grace note and the grace type "" for non grace notes).
         Default is False
+    include_staff : bool (optional)
+        If `True`,  includes note staff number.
+        Default is False
 
     Returns
     -------
@@ -1505,7 +1555,8 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
+                    include_grace_notes=include_grace_notes,
+                    include_staff=include_staff
                 )
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
@@ -1514,7 +1565,8 @@ def note_array_from_part_list(
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes
+                    include_grace_notes=include_grace_notes,
+                    include_staff=include_staff
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array
@@ -1537,6 +1589,103 @@ def note_array_from_part_list(
     note_array = note_array[onset_sort_idx]
 
     return note_array
+
+
+
+def rest_array_from_part_list(
+    part_list,
+    unique_id_per_part=True,
+    include_pitch_spelling=False,
+    include_key_signature=False,
+    include_time_signature=False,
+    include_grace_notes=False,
+    include_staff=False,
+    collapse=False
+    ):
+    """
+    Construct a structured Rest array from a list of Part objects
+
+    Parameters
+    ----------
+    part_list : list
+       A list of `Part` or `PerformedPart` objects. All elements in
+       the list must be of the same type.
+    unique_id_per_part : bool (optional)
+       Indicate from which part do each rest come from in the rest ids.
+    include_pitch_spelling: bool (optional)
+       Include pitch spelling information in rest array.
+       This is a dummy attribute and returns zeros everywhere.
+       Default is False.
+    include_key_signature: bool (optional)
+       Include key signature information in output rest array.
+       Only valid if parts in `part_list` are `Part` objects.
+       See `rest_array_from_part` for more info.
+       Default is False.
+    include_time_signature : bool (optional)
+       Include time signature information in output rest array.
+       Only valid if parts in `part_list` are `Part` objects.
+       See `rest_array_from_part` for more info.
+       Default is False.
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. "" for every rest).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes note staff number.
+        Default is False
+
+    Returns
+    -------
+    rest_array: structured array
+        A structured array containing pitch (always zero), onset, duration, voice
+        and id for each rest in each part of the `part_list`. The rest
+        ids in this array include the number of the part to which they
+        belong.
+    """
+    from partitura.score import Part, PartGroup
+
+    rest_array = []
+    for i, part in enumerate(part_list):
+        if isinstance(part, (Part, PartGroup)):
+            if isinstance(part, Part):
+                na = rest_array_from_part(
+                    part=part,
+                    include_pitch_spelling=include_pitch_spelling,
+                    include_key_signature=include_key_signature,
+                    include_time_signature=include_time_signature,
+                    include_grace_notes=include_grace_notes,
+                    inlcude_staff=include_staff,
+                    collapse=collapse
+                )
+            elif isinstance(part, PartGroup):
+                na = rest_array_from_part_list(
+                    part_list=part.children,
+                    unique_id_per_part=unique_id_per_part,
+                    include_pitch_spelling=include_pitch_spelling,
+                    include_key_signature=include_key_signature,
+                    include_time_signature=include_time_signature,
+                    include_grace_notes=include_grace_notes,
+                    inlcude_staff=include_staff,
+                    collapse=collapse
+                )
+        if unique_id_per_part:
+            # Update id with part number
+            na["id"] = np.array(
+                ["P{0:02d}_".format(i) + nid for nid in na["id"]], dtype=na["id"].dtype
+            )
+        rest_array.append(na)
+
+    # concatenate note_arrays
+    rest_array = np.hstack(rest_array)
+
+    onset_unit, _ = get_time_units_from_note_array(rest_array)
+
+    # sort by onset and pitch
+    pitch_sort_idx = np.argsort(rest_array["pitch"])
+    rest_array = rest_array[pitch_sort_idx]
+    onset_sort_idx = np.argsort(rest_array[onset_unit], kind="mergesort")
+    rest_array = rest_array[onset_sort_idx]
+
+    return rest_array
 
 
 def slice_notearray_by_time(
@@ -1627,7 +1776,8 @@ def note_array_from_part(
     include_key_signature=False,
     include_time_signature=False,
     include_metrical_position=False,
-    include_grace_notes=False
+    include_grace_notes=False,
+    include_staff=False
 ):
     """
     Create a structured array with note information
@@ -1746,10 +1896,92 @@ def note_array_from_part(
         key_signature_map=key_signature_map,
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
-        include_grace_notes=include_grace_notes
+        include_grace_notes=include_grace_notes,
+        include_staff=include_staff
     )
     
     return note_array
+
+
+def rest_array_from_part(
+        part,
+        include_pitch_spelling=False,
+        include_key_signature=False,
+        include_time_signature=False,
+        include_metrical_position=False,
+        include_grace_notes=False,
+        include_staff=False,
+        collapse=False
+):
+    """
+    Create a structured array with rest information
+    from a `Part` object.
+
+    Parameters
+    ----------
+    part : partitura.score.Part
+        An object representing a score part.
+    include_pitch_spelling : bool (optional)
+        If `True`, includes pitch spelling information for each
+        rest.
+        This is a dummy attribute returns zeros everywhere.
+        Default is False
+    include_key_signature : bool (optional)
+        If `True`, includes key signature information, i.e.,
+        the key signature at the onset time of each rest (all
+        notes starting at the same time have the same key signature).
+        Default is False
+    include_time_signature : bool (optional)
+        If `True`,  includes time signature information, i.e.,
+        the time signature at the onset time of each rest (all
+        rests starting at the same time have the same time signature).
+        Default is False
+    include_metrical_position : bool (optional)
+        If `True`,  includes metrical position information, i.e.,
+        the position of the onset time of each note with respect to its
+        measure.
+        Default is False
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. the grace type is "" for all rests).
+        Default is False
+    collapse : bool (optional)
+        If 'True', collapses consecutive rest onsets on the same voice, to a single rest of their combined duration.
+        Default is False
+
+    Returns
+    -------
+    rest_array : structured array
+        A structured array containing rest information (pitch is always 0).
+    """
+    if include_time_signature:
+        time_signature_map = part.time_signature_map
+    else:
+        time_signature_map = None
+
+    if include_key_signature:
+        key_signature_map = part.key_signature_map
+    else:
+        key_signature_map = None
+
+    if include_metrical_position:
+        metrical_position_map = part.metrical_position_map
+    else:
+        metrical_position_map = None
+
+    rest_array = rest_array_from_rest_list(
+        rest_list=part.rests,
+        beat_map=part.beat_map,
+        quarter_map=part.quarter_map,
+        time_signature_map=time_signature_map,
+        key_signature_map=key_signature_map,
+        metrical_position_map=metrical_position_map,
+        include_pitch_spelling=include_pitch_spelling,
+        include_grace_notes=include_grace_notes,
+        include_staff=include_staff,
+        collapse=collapse
+    )
+
+    return rest_array
 
 
 def note_array_from_note_list(
@@ -1760,7 +1992,8 @@ def note_array_from_note_list(
         key_signature_map=None,
         metrical_position_map=None,
         include_pitch_spelling=False,
-        include_grace_notes=False
+        include_grace_notes=False,
+        include_staff=False
 ):
     """
     Create a structured array with note information
@@ -1800,6 +2033,9 @@ def note_array_from_note_list(
         If `True`,  includes grace note information, i.e. if a note is a
         grace note has one of the types "appoggiatura, acciaccatura, grace" and
         the grace type "" for non grace notes).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes the staff number for every note.
         Default is False
 
     Returns
@@ -1843,6 +2079,7 @@ def note_array_from_note_list(
                note measure. If `measure_map` is not None.
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
+            * 'staff' : number of note staff.
     """
 
     fields = []
@@ -1883,6 +2120,9 @@ def note_array_from_note_list(
             ("rel_onset_div", "i4"),
             ("tot_measure_div", "i4"),
         ]
+    # field for staff
+    if include_staff:
+        fields += [("staff", "i4")]
 
     note_array = []
     for note in note_list:
@@ -1944,6 +2184,9 @@ def note_array_from_note_list(
 
             note_info += (is_downbeat, rel_onset_div, tot_measure_div)
 
+        if include_staff:
+            note_info += (note.staff if note.staff else 0),
+
         note_array.append(note_info)
 
     note_array = np.array(note_array, dtype=fields)
@@ -1961,6 +2204,220 @@ def note_array_from_note_list(
     note_array = note_array[onset_sort_idx]
 
     return note_array
+
+
+
+def rest_array_from_rest_list(
+        rest_list,
+        beat_map=None,
+        quarter_map=None,
+        time_signature_map=None,
+        key_signature_map=None,
+        metrical_position_map=None,
+        include_pitch_spelling=False,
+        include_grace_notes=False,
+        include_staff=False,
+        collapse=False
+):
+    """
+    Create a structured array with rest information
+    from a list of `Rest` objects.
+
+    Parameters
+    ----------
+    rest_list : list of `Rest` objects
+        A list of `Rest` objects containing score information.
+    beat_map : callable or None
+        A function that maps score time in divs to score time in beats.
+        If `None` is given, the output structured array will not
+        include this information.
+    quarter_map: callable or None
+        A function that maps score time in divs to score time in quarters.
+        If `None` is given, the output structured array will not
+        include this information.
+    time_signature_map: callable or None (optional)
+        A function that maps score time in divs to the time signature at
+        that time (in terms of number of beats and beat type).
+        If `None` is given, the output structured array will not
+        include this information.
+    key_signature_map: callable or None (optional)
+        A function that maps score time in divs to the key signature at
+        that time (in terms of fifths and mode).
+        If `None` is given, the output structured array will not
+        include this information.
+    metrical_position_map: callable or None (optional)
+        A function that maps score time in divs to the position in
+        the measure at that time.
+        If `None` is given, the output structured array will not
+        include the metrical position information.
+    include_pitch_spelling : bool (optional)
+        If `True`, includes pitch spelling information for each
+        rest. This is a dummy attribute and returns zeros everywhere.
+        Default is False
+    include_grace_notes : bool (optional)
+        If `True`,  includes grace note information, i.e. "" for all rests).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes the staff number for every note.
+        Default is False
+    collapse : bool (optional)
+        If `True`, joins rests on consecutive onsets on the same voice and combines their durations.
+        Keeps the id of the first one.
+        Default is False
+
+    Returns
+    -------
+    rest_array : structured array
+        A structured array containing rest information. Pitch is set to 0.
+    """
+
+    fields = []
+    if beat_map is not None:
+        # Preserve the order of the fields
+        fields += [("onset_beat", "f4"), ("duration_beat", "f4")]
+
+    if quarter_map is not None:
+        fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
+    fields += [
+        ("onset_div", "i4"),
+        ("duration_div", "i4"),
+        ("pitch", "i4"),
+        ("voice", "i4"),
+        ("id", "U256"),
+    ]
+
+    # fields for pitch spelling
+    if include_pitch_spelling:
+        fields += [("step", "U256"), ("alter", "i4"), ("octave", "i4")]
+
+    # fields for pitch spelling
+    if include_grace_notes:
+        fields += [("is_grace", "b"), ("grace_type", "U256")]
+
+    # fields for key signature
+    if key_signature_map is not None:
+        fields += [("ks_fifths", "i4"), ("ks_mode", "i4")]
+
+    # fields for time signature
+    if time_signature_map is not None:
+        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
+
+    # fields for metrical position
+    if metrical_position_map is not None:
+        fields += [
+            ("is_downbeat", "i4"),
+            ("rel_onset_div", "i4"),
+            ("tot_measure_div", "i4"),
+        ]
+    # fields for staff
+    if include_staff:
+        fields += [("staff", "i4")]
+
+    rest_array = []
+    for rest in rest_list:
+
+        rest_info = tuple()
+        rest_on_div = rest.start.t
+        rest_off_div = rest.start.t + rest.duration_tied
+        rest_dur_div = rest_off_div - rest_on_div
+
+        if beat_map is not None:
+            note_on_beat, note_off_beat = beat_map([rest_on_div, rest_off_div])
+            note_dur_beat = note_off_beat - note_on_beat
+
+            rest_info += (note_on_beat, note_dur_beat)
+
+        if quarter_map is not None:
+            note_on_quarter, note_off_quarter = quarter_map([rest_on_div, rest_off_div])
+            note_dur_quarter = note_off_quarter - note_on_quarter
+
+            rest_info += (note_on_quarter, note_dur_quarter)
+
+        rest_info += (
+            rest_on_div,
+            rest_dur_div,
+            0,
+            rest.voice if rest.voice is not None else -1,
+            rest.id,
+        )
+
+        if include_pitch_spelling:
+            step = 0
+            alter = 0
+            octave = 0
+
+            rest_info += (step, alter, octave)
+
+        if include_grace_notes:
+            is_grace = hasattr(rest, 'grace_type')
+            if is_grace:
+                grace_type = rest.grace_type
+            else:
+                grace_type = ""
+            rest_info += (is_grace, grace_type)
+
+        if key_signature_map is not None:
+            fifths, mode = key_signature_map(rest.start.t)
+
+            rest_info += (fifths, mode)
+
+        if time_signature_map is not None:
+            beats, beat_type = time_signature_map(rest.start.t)
+
+            rest_info += (beats, beat_type)
+
+        if metrical_position_map is not None:
+            rel_onset_div, tot_measure_div = metrical_position_map(rest.start.t)
+
+            is_downbeat = 1 if rel_onset_div == 0 else 0
+
+            rest_info += (is_downbeat, rel_onset_div, tot_measure_div)
+
+        if include_staff:
+            rest_info += (rest.staff if rest.staff else 0),
+
+        rest_array.append(rest_info)
+
+    rest_array = np.array(rest_array, dtype=fields)
+
+    # Sanitize voice information
+    if rest_list:
+        no_voice_idx = np.where(rest_array["voice"] == -1)[0]
+        max_voice = rest_array["voice"].max()
+        rest_array["voice"][no_voice_idx] = max_voice + 1
+
+    # sort by onset and pitch
+    onset_unit, _ = get_time_units_from_note_array(rest_array)
+    pitch_sort_idx = np.argsort(rest_array["pitch"])
+    rest_array = rest_array[pitch_sort_idx]
+    onset_sort_idx = np.argsort(rest_array[onset_unit], kind="mergesort")
+    rest_array = rest_array[onset_sort_idx]
+
+    if collapse:
+        rest_array = rec_collapse_rests(rest_array)
+    return rest_array
+
+
+def collapse_rests(rest_array):
+    filter_idx = []
+    output_idx = []
+    for i, rest in enumerate(rest_array):
+        if i not in filter_idx:
+            idxs = np.where((rest_array["onset_beat"] == rest["onset_beat"] + rest["duration_beat"]) & (rest_array["voice"] == rest["voice"]))[0]
+            for idx in idxs:
+                rest_array[i]["duration_beat"] = rest["duration_beat"] + rest_array[idx]["duration_beat"]
+                rest_array[i]["duration_div"] = rest["duration_div"] + rest_array[idx]["duration_div"]
+                filter_idx.append(idx)
+            output_idx.append(i)
+    return rest_array[output_idx], filter_idx
+
+
+def rec_collapse_rests(rest_array):
+    cond = True
+    while cond:
+        rest_array, filter_idx = collapse_rests(rest_array)
+        cond = len(filter_idx) > 0
+    return rest_array
 
 
 def update_note_ids_after_unfolding(part):
@@ -2019,7 +2476,7 @@ def performance_from_part(part, bpm=100, velocity=64):
         ("channel", "i4"),
         ("id", "U256"),
     ]
-    snote_array = part.note_array
+    snote_array = part.note_array()
 
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
 

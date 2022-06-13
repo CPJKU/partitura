@@ -35,15 +35,14 @@ from partitura.utils import (
     fifths_mode_to_key_name,
     pitch_spelling_to_midi_pitch,
     note_array_from_part,
+    rest_array_from_part,
+    rest_array_from_part_list,
     note_array_from_part_list,
     to_quarter_tempo,
     key_mode_to_int,
     _OrderedSet,
     update_note_ids_after_unfolding,
 )
-
-
-
 
 
 class Part(object):
@@ -507,6 +506,105 @@ class Part(object):
             for note in self.iter_all(Note, include_subclasses=True)
             if note.tie_prev is None
         ]
+        
+    @property
+    def measures(self):
+        """Return a list of all Measure objects in the part
+
+        Returns
+        -------
+        list
+            List of Measure objects
+
+        """
+        return [
+            e for e in self.iter_all(Measure, include_subclasses=False)
+        ]
+        
+    @property
+    def rests(self):
+        """Return a list of all rest objects in the part
+
+        Returns
+        -------
+        list
+            List of Rest objects
+
+        """
+        return [
+            e for e in self.iter_all(Rest, include_subclasses=False)
+        ]
+        
+    @property
+    def repeats(self):
+        """Return a list of all Repeat objects in the part
+
+        Returns
+        -------
+        list
+            List of Repeat objects
+
+        """
+        return [
+            e for e in self.iter_all(Repeat, include_subclasses=False)
+        ]
+
+    @property
+    def key_sigs(self):
+        """Return a list of all Key Signature objects in the part
+
+        Returns
+        -------
+        list
+            List of Key Signature objects
+
+        """
+        return [
+            e for e in self.iter_all(KeySignature, include_subclasses=False)
+        ]
+
+    @property
+    def time_sigs(self):
+        """Return a list of all Time Signature objects in the part
+
+        Returns
+        -------
+        list
+            List of Time Signature objects
+
+        """
+        return [
+            e for e in self.iter_all(TimeSignature, include_subclasses=False)
+        ]
+        
+    @property
+    def dynamics(self):
+        """Return a list of all Dynamics markings in the part
+
+        Returns
+        -------
+        list
+            List of Dynamics objects
+
+        """
+        return [
+            e for e in self.iter_all(LoudnessDirection, include_subclasses=True)
+        ]
+    
+    @property
+    def articulations(self):
+        """Return a list of all Articulation markings in the part
+
+        Returns
+        -------
+        list
+            List of Articulation objects
+
+        """
+        return [
+            e for e in self.iter_all(ArticulationDirection, include_subclasses=True)
+        ]
+        
 
     def quarter_durations(self, start=None, end=None):
         """Return an Nx2 array with quarter duration (second column)
@@ -870,7 +968,8 @@ class Part(object):
                     include_key_signature=False,
                     include_time_signature=False,
                     include_metrical_position=False,
-                    include_grace_notes=False):
+                    include_grace_notes=False,
+                    include_staff=False):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -916,7 +1015,63 @@ class Part(object):
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
                     include_metrical_position=include_metrical_position,
-                    include_grace_notes=include_grace_notes)
+                    include_grace_notes=include_grace_notes,
+                    include_staff=include_staff)
+
+    def rest_array(self,
+                   include_pitch_spelling=False,
+                   include_key_signature=False,
+                   include_time_signature=False,
+                   include_metrical_position=False,
+                   include_grace_notes=False,
+                   include_staff=False,
+                   collapse=False):
+        """
+        Create a structured array with rest information
+        from a `Part` object.
+
+        Parameters
+        ----------
+
+        include_pitch_spelling : bool (optional)
+            If `True`, includes pitch spelling information for each
+            rest, i.e. all information is 0. Default is False
+        include_key_signature : bool (optional)
+            If `True`, includes key signature information, i.e.,
+            the key signature at the onset time of each rest (all
+            notes starting at the same time have the same key signature).
+            Default is False
+        include_time_signature : bool (optional)
+            If `True`,  includes time signature information, i.e.,
+            the time signature at the onset time of each note (all
+            notes starting at the same time have the same time signature).
+            Default is False
+        include_metrical_position : bool (optional)
+            If `True`,  includes metrical position information, i.e.,
+            the position of the onset time of each rest with respect to its
+            measure (all notes starting at the same time have the same metrical
+            position).
+            Default is False
+        include_grace_notes : bool (optional)
+            If `True`,  includes returns empty strings as type and false.
+        feature_functions : list or str
+            A list of feature functions. Elements of the list can be either
+            the functions themselves or the names of a feature function as
+            strings (or a mix). The feature functions specified by name are
+            looked up in the `featuremixer.featurefunctions` module.
+
+        Returns:
+
+        rest_array : structured array
+        """
+        return rest_array_from_part(self,
+                                    include_pitch_spelling=include_pitch_spelling,
+                                    include_key_signature=include_key_signature,
+                                    include_time_signature=include_time_signature,
+                                    include_metrical_position=include_metrical_position,
+                                    include_grace_notes=include_grace_notes,
+                                    include_staff=include_staff,
+                                    collapse=collapse)
 
     def set_musical_beat_per_ts(self, mbeats_per_ts={}):
         """Set the number of musical beats for each time signature.
@@ -1363,6 +1518,7 @@ class GenericNote(TimedObject):
         staff=None,
         symbolic_duration=None,
         articulations=None,
+        ornaments=None,
         doc_order=None,
     ):
         self._sym_dur = None
@@ -1372,6 +1528,7 @@ class GenericNote(TimedObject):
         self.staff = staff
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
+        self.ornaments = ornaments
         self.doc_order = doc_order
 
         # these attributes are set after the instance is constructed
@@ -1700,8 +1857,9 @@ class Note(GenericNote):
 class Rest(GenericNote):
     """A subclass of GenericNote representing a rest."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, hidden=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.hidden = hidden
 
 
 class Beam(TimedObject):
@@ -2553,6 +2711,17 @@ class PartGroup(object):
         """
         return note_array_from_part_list(self.children,  *args, **kwargs)
 
+    def rest_array(self, *args, **kwargs):
+        """A structured array containing pitch, onset, duration, voice
+        and id for each note in each part of the PartGroup. The note
+        ids in this array include the number of the part to which they
+        belong.
+
+        See Part.note_array()
+
+        """
+        return rest_array_from_part_list(self.children, *args, **kwargs)
+
 
 class ScoreVariant(object):
     # non-public
@@ -3382,10 +3551,13 @@ def add_segments(part):
                             "to": [], 
                             "force_full_sequence": False,
                             "type": "default",
-                            "info": list()}
+                            "info": list(),
+                            "volta_numbers": list()}
         segment_info[boundary_times[-1]] = {"ID":"END"} 
         
         current_volta_repeat_start = 0
+        current_volta_end = 0
+        current_volta_total_number = 0
 
         for ss in boundary_times[:-1]:
             se = segment_info[ss]["end"]
@@ -3406,34 +3578,41 @@ def add_segments(part):
                 # VOLTA BRACKETS
                 if boundary_type == "volta_start":
                     if "volta_end" not in list(boundaries[se].keys()):
-                        bracket_end = se
-                        numbers = boundaries[bracket_end]["volta_start"].number.split(",")
-                        numbers = [str(int(n)) for n in numbers]
-                        for no in numbers:
-                            segment_info[ss]["to"].append(no+"_Volta_"+segment_info[se]["ID"])
+                        current_volta_total_number = 0
+                        current_volta_end = se
                         for volta_number in range(10): # maximal expected number of volta brackets 10
-                            if "volta_start" in list(boundaries[bracket_end].keys()):                 
+                            if "volta_start" in list(boundaries[current_volta_end].keys()):                 
                                 # add the beginning to the jump destinations
-                                numbers = boundaries[bracket_end]["volta_start"].number.split(",")
+                                numbers = boundaries[current_volta_end]["volta_start"].number.split(",")
                                 numbers = [str(int(n)) for n in numbers]
+                                current_volta_total_number += len(numbers)
                                 for no in numbers:
-                                    segment_info[ss]["to"].append(no+"_Volta_"+segment_info[bracket_end]["ID"])
+                                    segment_info[ss]["to"].append(no+"_Volta_"+segment_info[current_volta_end]["ID"])
+                                segment_info[current_volta_end]["info"].append("volta "+",".join(numbers))
+                                segment_info[current_volta_end]["volta_numbers"] += numbers
+                                # segment_info[bracket_end]["info"].append(str(len(numbers)))
                                 # update the search time to the end of the ext bracket
-                                bracket_end = boundaries[bracket_end]["volta_start"].end.t
+                                current_volta_end = boundaries[current_volta_end]["volta_start"].end.t
+                               
                     
                 if boundary_type == "volta_end":
-                    if "volta_start" in list(boundaries[se].keys()):
-                        # if repeating volta bracket, jump back to start
-                        # check if repeat exists (might not be for 3+ volta brackets)
-                        if "repeat_end" in list(boundaries[se].keys()):
-                            current_volta_repeat_start = max(boundaries[se]["repeat_end"].start.t,
-                                                             current_volta_repeat_start)
-                        repeat_start = current_volta_repeat_start
-                        segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
-                    else:
-                        # else just go to the next segment
-                        segment_info[ss]["to"].append(segment_info[se]["ID"])
-                    segment_info[ss]["info"].append("volta")
+                    current_volta_numbers = segment_info[ss]["volta_numbers"]
+                    for vn in current_volta_numbers: 
+                        if vn != str(current_volta_total_number):
+                            # if repeating volta bracket, jump back to start
+                            # check if repeat exists (might not be for 3+ volta brackets)
+                            if "repeat_end" in list(boundaries[se].keys()):
+                                current_volta_repeat_start = max(boundaries[se]["repeat_end"].start.t,
+                                                                current_volta_repeat_start)
+                            repeat_start = current_volta_repeat_start
+                            segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
+                        
+                    if str(current_volta_total_number) in current_volta_numbers:
+                        # else just go to the segment after the last
+                        segment_info[ss]["to"].append(segment_info[current_volta_end]["ID"])
+                    
+                    print("volta", segment_info[ss]["to"], current_volta_numbers, 
+                          current_volta_end, segment_info[current_volta_end]["ID"])    
                 
                 # NAVIGATION SYMBOLS
                 if boundary_type == "coda":
@@ -3490,17 +3669,26 @@ def add_segments(part):
                 # first segments is always a leap destination (da capo)
                 if ss == 0:
                     segment_info[ss]["type"] = "leap_end"
-                          
+        
+        
         for start_time in boundary_times[:-1]:
-            destinations = list(set(segment_info[start_time]["to"]))
-            destinations_no_volta = [dest for dest in destinations if "Volta_" not in dest]
-            destinations_volta = [dest for dest in destinations if "Volta_" in dest]
+            destinations = segment_info[start_time]["to"]
+            
+            print(destinations)
+            destinations_no_volta = [dest for dest in destinations 
+                                     if "Volta_" not in dest]
+            destinations_volta = [dest for dest in destinations 
+                                  if "Volta_" in dest]
+            
+            # make sure the "END" destination is the last
             if "END" in destinations:
-                destinations_no_volta.remove("END")
+                while "END" in destinations_no_volta:
+                    destinations_no_volta.remove("END")
                 destinations_no_volta.sort()
                 destinations_no_volta.append("END")
             else:
                 destinations_no_volta.sort()
+            # sort destinations by volta number
             destinations_volta.sort()
             # keep only the segment IDs
             destinations_volta = [d[8:] for d in destinations_volta]
@@ -4070,6 +4258,38 @@ def merge_parts(parts):
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
     return new_part
 
+
+def is_a_within_b(a, b, wholly=False):
+    """
+    Returns a boolean indicating whether a is (wholly) within b.
+
+    Parameters
+    ----------
+    a: TimePoint, TimedObject, int
+        Query object
+    b: TimedObject
+        Container object
+    wholly: bool
+        True = a needs to wholly contained in b
+    """
+    contained = None
+    if not isinstance(b, TimedObject):
+        warnings.warn("b needs to be TimedObject")
+    if isinstance(a,TimePoint):
+        contained = (a.t <= b.end.t and a.t >= b.start.t)
+    elif isinstance(a, int):
+        contained = (a <= b.end.t and a >= b.start.t)
+    elif isinstance(a, TimedObject):
+        contained_start = (a.start.t <= b.end.t and a.start.t >= b.start.t)
+        contained_end = (a.end.t <= b.end.t and a.end.t >= b.start.t)
+        if wholly:
+            contained = contained_start and contained_end 
+        else:
+            contained = contained_start or contained_end
+    else:
+        warnings.warn("a needs to be TimePoint, TImedObject, or int.")
+    return contained
+        
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
