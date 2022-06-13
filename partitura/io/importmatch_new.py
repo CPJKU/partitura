@@ -209,10 +209,26 @@ class MatchInfo(MatchLine):
 
 # class MatchInfoMatchFileVersion(MatchInfo):
 
+SCOREPROP_LINE = {
+    Version(1, 0, 0): {
+        "pattern": None,
+        "field_names": (
+            "attribute",
+            "value",
+            "measure",
+            "beat",
+            "offset",
+            "onset_in_beats",
+        ),
+        "matchline": "scoreProp({attribute},{value},{measure}:{beat},{offset},{onset_in_beats}).",
+        "value": None,
+    }
+}
+
 
 class MatchScoreProp(MatchLine):
 
-    field_names = ("Attribute", "Value", "Bar", "")
+    field_names = ("Attribute", "Value", "Measure", "")
 
     pattern = re.compile(r"info\(\s*([^,]+)\s*,\s*(.+)\s*\)\.")
 
