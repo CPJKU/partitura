@@ -79,6 +79,10 @@ MERGE_PARTS_TESTFILES = [
     ]
 ]
 
+PIANOROLL_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn) for fn in ["test_length_pianoroll.xml"]
+]
+
 
 MEI_TESTFILES = [
     os.path.join(MEI_PATH, fn)
