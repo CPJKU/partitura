@@ -80,6 +80,11 @@ def format_string(value: str) -> str:
 
 
 class MatchLine(object):
+    """
+    Main class representing a match line.
+
+    This class should be subclassed for each different match lines.
+    """
 
     version: Version
     field_names: tuple
@@ -104,7 +109,7 @@ class MatchLine(object):
 
     def __str__(self) -> str:
         """
-        For printing the Method
+        Prints the printing the match line
         """
         r = [self.__class__.__name__]
         for fn in self.field_names:
@@ -113,10 +118,27 @@ class MatchLine(object):
 
     @property
     def matchline(self) -> str:
+        """
+        Generate matchline as a string.
+        """
         raise NotImplementedError
 
     @classmethod
     def from_matchline(cls, matchline: str, version: Version = CURRENT_MAJOR_VERSION):
+        """
+        Create a new MatchLine object from a string
+
+        Parameters
+        ----------
+        matchline : str
+            String with a matchline
+        version : Version
+            Version of the matchline
+
+        Returns
+        -------
+        a MatchLine instance
+        """
         raise NotImplementedError
 
     def check_types(self) -> bool:
@@ -126,7 +148,7 @@ class MatchLine(object):
         raise NotImplementedError
 
 
-# Dictionary of interpreter, formatters and datatypes
+# Dictionary of interpreter, formatters and datatypes for version 1.0.0
 INFO_LINE_INTERPRETERS_V_1_0_0 = {
     "matchFileVersion": (interpret_version, format_version, Version),
     "piece": (interpret_as_string, format_string, str),
@@ -146,10 +168,14 @@ INFO_LINE_INTERPRETERS_V_1_0_0 = {
     "subtitle": (interpret_as_string, format_string, str),
 }
 
+# Dictionary containing the definition of all versions of the MatchInfo line
+# starting from version 1.0.0
 INFO_LINE = {
     Version(1, 0, 0): {
         "pattern": re.compile(
-            r"info\(\s*(?P<Attribute>[^,]+)\s*,\s*(?P<Value>.+)\s*\)\."
+            # CC Allow for spaces? I think we should be strict and do not do this.
+            # r"info\(\s*(?P<Attribute>[^,]+)\s*,\s*(?P<Value>.+)\s*\)\."
+            r"info\((?P<Attribute>[^,]+),(?P<Value>.+)\)\."
         ),
         "field_names": ("attribute", "value"),
         "matchline": "info({attribute},{value}).",
@@ -186,8 +212,30 @@ class MatchInfo(MatchLine):
         return matchline
 
     @classmethod
-    def from_matchline(cls, matchline: str, pos: int = 0, version=CURRENT_VERSION):
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version=CURRENT_VERSION,
+    ) -> MatchLine:
+        """
+        Create a new MatchLine object from a string
 
+        Parameters
+        ----------
+        matchline : str
+            String with a matchline
+        pos : int (optional)
+            Position of the matchline in the input string. By default it is
+            assumed that the matchline starts at the beginning of the input
+            string.
+        version : Version (optional)
+            Version of the matchline. By default it is the latest version.
+
+        Returns
+        -------
+        a MatchLine instance
+        """
         class_dict = INFO_LINE[version]
 
         match_pattern = class_dict["pattern"].search(matchline, pos=pos)
@@ -206,8 +254,10 @@ class MatchInfo(MatchLine):
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
 
-
-# class MatchInfoMatchFileVersion(MatchInfo):
+SCOREPROP_LINE_INTERPRETERS_V_1_0_0 = {
+    "keySignature": (interpret_as_string, format_string, str),
+    "timeSignature": (interpret_as_string, format_string, str),
+}
 
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
@@ -221,7 +271,7 @@ SCOREPROP_LINE = {
             "onset_in_beats",
         ),
         "matchline": "scoreProp({attribute},{value},{measure}:{beat},{offset},{onset_in_beats}).",
-        "value": None,
+        "value": SCOREPROP_LINE_INTERPRETERS_V_1_0_0,
     }
 }
 
