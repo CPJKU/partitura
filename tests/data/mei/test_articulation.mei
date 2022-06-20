@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.0.0-dev">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title>Title</title>
+            <respStmt>
+               <persName role="composer">Composer</persName>
+            </respStmt>
+         </titleStmt>
+         <pubStmt><date isodate="2022-03-24" type="encoding-date">2022-03-24</date>
+         </pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-gakph8">
+         <appInfo xml:id="appinfo-jlxpun">
+            <application xml:id="application-y7c90b" isodate="2022-03-24T10:00:47" version="3.10.0-dev-6c0a3cf">
+               <name xml:id="name-fyg1wc">Verovio</name>
+               <p xml:id="p-k9dvlc">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="m2f7emu">
+            <score xml:id="snqotkn">
+               <scoreDef xml:id="stm214g">
+                  <pgHead xml:id="paq8mzw">
+                     <rend xml:id="r8h3yx1" halign="center" valign="top">Title</rend>
+                     <rend xml:id="rqzbd2m" halign="right" valign="bottom">Composer</rend>
+                  </pgHead>
+                  <staffGrp xml:id="s5segz2">
+                     <staffDef xml:id="P1" n="1" lines="5" ppq="1">
+                        <label xml:id="lqrxeak">Piano</label>
+                        <labelAbbr xml:id="l2box59">Pno.</labelAbbr>
+                        <instrDef xml:id="ibi8h7k" midi.channel="0" midi.instrnum="0" midi.volume="78.00%" />
+                        <clef xml:id="cd27q64" shape="G" line="2" />
+                        <keySig xml:id="ki6jo05" sig="0" />
+                        <meterSig xml:id="mfodq46" count="4" unit="4" />
+                     </staffDef>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="svlk59w">
+                  <measure xml:id="mfvqzi3" n="1">
+                     <staff xml:id="sfzhq2d" n="1">
+                        <layer xml:id="lfzprhc" n="1">
+                           <note xml:id="ns8gyia" dur.ppq="1" dur="4" oct="4" pname="c" stem.dir="up">
+                              <artic xml:id="a7kn9ag" artic="stacc" />
+                           </note>
+                           <chord xml:id="czaioly" dur.ppq="1" dur="4" stem.dir="up">
+                              <note xml:id="na3amrv" oct="3" pname="b" />
+                              <note xml:id="nva8i4c" oct="4" pname="d" />
+                              <note xml:id="nihcqyk" oct="4" pname="f" />
+                           </chord>
+                           <chord xml:id="cza8mng" dur.ppq="1" dur="4" stem.dir="up">
+                              <artic xml:id="alc4gcz" artic="ten" />
+                              <note xml:id="njwjig5" oct="4" pname="e" />
+                              <note xml:id="npxsm4e" oct="4" pname="g" />
+                           </chord>
+                           <note xml:id="n3yeq2i" dur.ppq="1" dur="4" oct="4" pname="f" stem.dir="up">
+                              <artic xml:id="akr4cjw" artic="acc" />
+                           </note>
+                        </layer>
+                     </staff>
+                     <arpeg xml:id="az1w1g7" plist="#czaioly" />
+                  </measure>
+                  <measure xml:id="mswshc8" n="2">
+                     <staff xml:id="sp5orlg" n="1">
+                        <layer xml:id="ly78jj3" n="1">
+                           <note xml:id="nutvsax" dur.ppq="1" dur="4" oct.ges="5" oct="4" pname="g" stem.dir="up" />
+                           <note xml:id="nvnm9im" dur.ppq="1" dur="4" oct.ges="5" oct="4" pname="a" stem.dir="up" />
+                           <note xml:id="ngk3997" dur.ppq="1" dur="4" oct.ges="5" oct="4" pname="b" stem.dir="down" />
+                           <note xml:id="nvqdg2a" dur.ppq="1" dur="4" oct="5" pname="c" stem.dir="down" />
+                        </layer>
+                     </staff>
+                     <octave xml:id="oojpeus" staff="1" startid="#nutvsax" endid="#ngk3997" n="1" dis="8" dis.place="above" />
+                     <slur xml:id="sxin63u" startid="#nutvsax" endid="#ngk3997" curvedir="above" />
+                     <fermata xml:id="fmbeb8o" staff="1" startid="#nvqdg2a" form="norm" place="above" />
+                  </measure>
+                  <measure xml:id="mn158ag" right="end" n="3">
+                     <staff xml:id="so56qwu" n="1">
+                        <layer xml:id="lrmo5u2" n="1">
+                           <note xml:id="n7h63vl" dur.ppq="1" dur="4" oct="5" pname="c" stem.dir="down" />
+                           <note xml:id="n8hzfa0" dur.ppq="1" dur="4" oct="4" pname="b" stem.dir="down" />
+                           <note xml:id="neajiha" dur.ppq="1" dur="4" oct.ges="3" oct="4" pname="a" stem.dir="up" />
+                           <note xml:id="nz4uoa1" dur.ppq="1" dur="4" oct.ges="3" oct="4" pname="g" stem.dir="up" />
+                        </layer>
+                     </staff>
+                     <hairpin xml:id="h8r8woj" staff="1" tstamp="1.000000" tstamp2="0m+2.5000" form="cres" place="below" vgrp="61" />
+                     <trill xml:id="thbyzhx" staff="1" startid="#n7h63vl" />
+                     <mordent xml:id="mva1pml" staff="1" startid="#n8hzfa0" form="upper" long="true" />
+                     <octave xml:id="o4bdr99" staff="1" startid="#neajiha" endid="#nz4uoa1" n="1" dis="8" dis.place="below" />
+                     <mordent xml:id="mi5njac" staff="1" startid="#neajiha" form="lower" />
+                     <fermata xml:id="fb1a10" staff="1" tstamp="5.000000" form="norm" place="above" />
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>
