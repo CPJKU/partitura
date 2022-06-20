@@ -121,6 +121,9 @@ MEI_TESTFILES = [
         "Beethoven_Op119_Nr02-Breitkopf.mei",
         "test_parts_duration.mei",
         "test_parts_duration2.mei",
+        "test_barline.mei",
+        "test_unfold_complex.mei",
+        "test_articulation.mei",
     ]
 ]
 
