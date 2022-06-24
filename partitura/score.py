@@ -270,8 +270,9 @@ class Part(object):
             The mapping function
 
         """
-        measures = np.array([(m.start.t, m.end.t, m.number) for m in self.iter_all(Measure)])
-
+        # operations to avoid None values and filter them efficiently.
+        m_it = self.measures
+        measures = np.array([[m.start.t, m.end.t, (m_it[i-1].number if m.number==None else m.number)] for i, m in enumerate(m_it)])
         # correct for anacrusis
         divs_per_beat = self.inv_beat_map(
             1 + self.beat_map(0)
