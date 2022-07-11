@@ -3675,7 +3675,7 @@ def add_segments(part):
         for start_time in boundary_times[:-1]:
             destinations = segment_info[start_time]["to"]
             
-            print(destinations)
+            # print(destinations)
             destinations_no_volta = [dest for dest in destinations 
                                      if "Volta_" not in dest]
             destinations_volta = [dest for dest in destinations 
