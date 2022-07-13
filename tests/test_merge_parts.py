@@ -61,3 +61,9 @@ class TestMergeParts(unittest.TestCase):
     #     merged_part = merge_parts(parts)
     #     self.assertTrue(isinstance(merged_part, Part))
 
+    def test_merge_voices(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[6])
+        merged_part = merge_parts(parts)
+        note_array = merged_part.note_array()
+        expected_voices = [3,2,1,1]
+        self.assertTrue(note_array["voice"].tolist() == expected_voices)

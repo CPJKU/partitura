@@ -4175,7 +4175,7 @@ def make_score_variants(part):
     return svs
 
 
-def merge_parts(parts):
+def merge_parts(parts, reassign = "staff"):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
     and quarter division.
@@ -4189,14 +4189,24 @@ def merge_parts(parts):
 
     Parameters
     ----------
-    prev_id : PartGroup, list of parts and partGroups
+    parts : PartGroup, list of parts and partGroups
         The parts to merge
+    reassign: string (optional)
+        If "staff" the new part have as many staves as the sum
+        of the staves in parts, and the staff numbers get reassigned.
+        If "voice", the new part have only one staff, and as manually
+        voices as the sum of the voices in parts; the voice number
+        get reassigned.
 
     Returns
     -------
     Part
         A new part that contains the elements of the old parts
     """
+    # check if reassign has valid values
+    if reassign not in ["staff","voice"]:
+        raise ValueError("Only 'staff' and 'voice' are supported ressign values. Found", reassign)
+
     # unfold grouppart and list of parts in a list of parts
     parts = list(iter_parts(parts))
 
@@ -4225,6 +4235,12 @@ def merge_parts(parts):
     new_part = Part(parts[0].id)
     new_part._quarter_times = [0]
     new_part._quarter_durations = [lcm]
+
+    note_arrays = [part.note_array(include_staff = True) for part in parts]
+    # find the maximum number of staves for each part
+    maximum_staves = [max(note_array["staff"]) for note_array in note_arrays]
+    # find the maximum number of voices for each part
+    maximum_staves = [max(note_array["voice"]) for note_array in note_arrays]
 
     for p_ind, p in enumerate(parts):
         for e in p.iter_all():
