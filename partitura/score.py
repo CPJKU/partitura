@@ -4175,7 +4175,7 @@ def make_score_variants(part):
     return svs
 
 
-def merge_parts(parts, reassign = "staff"):
+def merge_parts(parts, reassign = "voice"):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
     and quarter division.
@@ -4240,16 +4240,24 @@ def merge_parts(parts, reassign = "staff"):
     # find the maximum number of staves for each part
     maximum_staves = [max(note_array["staff"]) for note_array in note_arrays]
     # find the maximum number of voices for each part
-    maximum_staves = [max(note_array["voice"]) for note_array in note_arrays]
+    maximum_voices = [max(note_array["voice"]) for note_array in note_arrays]
 
-    for p_ind, p in enumerate(parts):
-        for e in p.iter_all():
-            # full copy the first part and partially copy the others
-            # we don't copy elements like duplicate barlines, clefs or time signatures for others
-            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
-            if p_ind == 0 or not isinstance(
-                e,
-                (
+    if reassign == "staff":
+        el_to_discard = (
+                    Barline,
+                    Page,
+                    System,
+                    Measure,
+                    TimeSignature,
+                    KeySignature,
+                    DaCapo,
+                    Fine,
+                    Fermata,
+                    Ending,
+                    Tempo,
+                )
+    elif reassign == "voice":
+        el_to_discard = (
                     Barline,
                     Page,
                     System,
@@ -4262,7 +4270,16 @@ def merge_parts(parts, reassign = "staff"):
                     Fermata,
                     Ending,
                     Tempo,
-                ),
+                )
+
+    for p_ind, p in enumerate(parts):
+        for e in p.iter_all():
+            # full copy the first part and partially copy the others
+            # we don't copy elements like duplicate barlines, clefs or time signatures for others
+            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+            if p_ind == 0 or not isinstance(
+                e,
+                el_to_discard,
             ):  # a time multiplier is used to account for different divisions
                 new_start = e.start.t * time_multiplier_per_part[p_ind]
                 new_end = (
@@ -4270,6 +4287,15 @@ def merge_parts(parts, reassign = "staff"):
                     if not e.end is None
                     else None
                 )
+                if reassign == "voices":
+                    if isinstance(e, GenericNote):
+                        e.voice = e.voice + sum(maximum_voices[:p_ind])
+                elif reassign == "staff":
+                    if isinstance(e, (GenericNote,Words,Direction)):
+                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+                    elif isinstance(e, Clef):
+                        e.number = e.number + sum(maximum_staves[:p_ind])
+
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
