@@ -4237,10 +4237,10 @@ def merge_parts(parts, reassign = "voice"):
     new_part._quarter_durations = [lcm]
 
     note_arrays = [part.note_array(include_staff = True) for part in parts]
-    # find the maximum number of staves for each part
-    maximum_staves = [max(note_array["staff"]) for note_array in note_arrays]
-    # find the maximum number of voices for each part
+    # find the maximum number of voices for each part (voice number start from 1)
     maximum_voices = [max(note_array["voice"]) for note_array in note_arrays]
+    # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
+    maximum_staves = [max(note_array["staff"]) if max(note_array["staff"])!=0 else 1  for note_array in note_arrays]
 
     if reassign == "staff":
         el_to_discard = (
@@ -4287,14 +4287,20 @@ def merge_parts(parts, reassign = "voice"):
                     if not e.end is None
                     else None
                 )
-                if reassign == "voices":
+                if reassign == "voice":
                     if isinstance(e, GenericNote):
                         e.voice = e.voice + sum(maximum_voices[:p_ind])
                 elif reassign == "staff":
                     if isinstance(e, (GenericNote,Words,Direction)):
-                        e.staff = e.staff + sum(maximum_staves[:p_ind])
-                    elif isinstance(e, Clef):
-                        e.number = e.number + sum(maximum_staves[:p_ind])
+                        if e.staff is not None:
+                            e.staff = e.staff + sum(maximum_staves[:p_ind])
+                        else: # sometimes the staff is None when there is only 1 staff
+                            e.staff = sum(maximum_staves[:p_ind])
+                    elif isinstance(e, Clef): #TODO: to update if "number" get changed in "staff"
+                        if e.number is not None:
+                            e.number = e.number + sum(maximum_staves[:p_ind])
+                        else:
+                            e.number = sum(maximum_staves[:p_ind])
 
                 new_part.add(e, start=new_start, end=new_end)
 
