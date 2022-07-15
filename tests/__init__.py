@@ -89,6 +89,8 @@ MERGE_PARTS_TESTFILES = [
         "test_metrical_position.xml",
         "test_merge_interpolation.xml",
         "test_single_part_change_divs.xml",
+        "test_merge_voices1.xml",
+        "test_merge_voices2.xml",
     ]
 ]
 

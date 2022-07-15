@@ -820,7 +820,7 @@ def get_clefs(e):
     for clef in clefs:
         result.append(
             dict(
-                number=get_value_from_attribute(clef, "number", int),
+                number=get_value_from_attribute(clef, "number", int) or 1,
                 sign=get_value_from_tag(clef, "sign", str),
                 line=get_value_from_tag(clef, "line", int),
                 octave_change=get_value_from_tag(clef, "clef-octave-change", int),
@@ -973,8 +973,8 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
     duration = get_value_from_tag(e, "duration", int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
-    staff = get_value_from_tag(e, "staff", int) or None
-    voice = get_value_from_tag(e, "voice", int) or None
+    staff = get_value_from_tag(e, "staff", int) or 1
+    voice = get_value_from_tag(e, "voice", int) or 1
 
     # add support of uppercase "ID" tags
     note_id = (
