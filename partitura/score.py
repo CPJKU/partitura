@@ -745,6 +745,17 @@ class Part(object):
                 self._points[i].next = self._points[i + 1]
                 self._points[i + 1].prev = self._points[i]
 
+    @property
+    def number_of_staves(self):
+        max_staves = 1
+        for e in self.iter_all():
+            if hasattr(e, "staff"):
+                if e.staff is not None and e.staff> max_staves:
+                    max_staves = e.staff
+        return max_staves
+
+
+
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
@@ -4238,7 +4249,7 @@ def merge_parts(parts, reassign = "voice"):
 
     note_arrays = [part.note_array(include_staff = True) for part in parts]
     # find the maximum number of voices for each part (voice number start from 1)
-    maximum_voices = [max(note_array["voice"]) for note_array in note_arrays]
+    maximum_voices = [max(note_array["voice"]) if max(note_array["voice"])!=0 else 1 for note_array in note_arrays]
     # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
     maximum_staves = [max(note_array["staff"]) if max(note_array["staff"])!=0 else 1  for note_array in note_arrays]
 
