@@ -162,7 +162,7 @@ def make_note_el(note, dur, voice, counter):
         normal_e = etree.SubElement(time_mod_e, "normal-notes")
         normal_e.text = str(sym_dur["normal_notes"])
 
-    if note.staff:
+    if note.staff and note.staff!=1:
 
         etree.SubElement(note_e, "staff").text = "{}".format(note.staff)
 
@@ -773,7 +773,7 @@ def do_directions(part, start, end, counter):
                     # etree.SubElement adds e2s to e1s
                     e2s = etree.SubElement(  # noqa: F841
                         e1s, "pedal", type="start", **pedal_kwargs)
-                if direction.staff is not None:
+                if direction.staff and direction.staff!=1:
                     e3s = etree.SubElement(e0s, "staff")
                     e3s.text = str(direction.staff)
                 elem = (direction.start.t, None, e0s)
@@ -791,7 +791,7 @@ def do_directions(part, start, end, counter):
                     # etree.SubElement adds e2e to e1e
                     e2e = etree.SubElement(  # noqa: F841
                         e1e, "pedal", type="end", **pedal_kwargs)
-                if direction.staff is not None:
+                if direction.staff and direction.staff!=1:
                     e3e = etree.SubElement(e0e, "staff")
                     e3e.text = str(direction.staff)
                 elem = (ped_end.t, None, e0e)
@@ -832,7 +832,7 @@ def do_directions(part, start, end, counter):
                         e3, "dashes", number="{}".format(number), type="start"
                     )
 
-            if direction.staff is not None:
+            if direction.staff and direction.staff!=1:
 
                 e5 = etree.SubElement(e0, "staff")
                 e5.text = str(direction.staff)
@@ -920,7 +920,7 @@ def do_attributes(part, start, end):
 
                 clef_e = etree.SubElement(attr_e, "clef")
 
-                if o.number:
+                if o.number and o.number!=1:
 
                     clef_e.set("number", "{}".format(o.number))
 
