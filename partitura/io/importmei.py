@@ -8,6 +8,8 @@ from partitura.utils.music import (
     estimate_symbolic_duration,
 )
 
+import verovio
+
 import re
 import logging
 import warnings
@@ -105,7 +107,7 @@ class MeiParser:
         else:
             return ".//{" + ns + "}" + name
 
-    def _parse_mei(self, mei_path):
+    def _parse_mei(self, mei_path, use_verovio = True):
         """
         Parses an MEI file from path to an lxml tree.
 
@@ -124,11 +126,21 @@ class MeiParser:
             remove_comments=True,
             remove_blank_text=True,
         )
-        document = etree.parse(mei_path, parser)
+
+        if use_verovio:
+            tk = verovio.toolkit(True)
+            tk.loadFile(mei_path)
+            mei_score = tk.getMEI("basic")
+            # document = etree.parse(mei_score, parser)
+            root = etree.fromstring(mei_score.encode('utf-8'), parser)
+            tree = etree.ElementTree(root)
+        else:
+            tree = etree.parse(mei_path,parser)
+            root = tree.get_root()
         # find the namespace
-        ns = document.getroot().nsmap[None]
+        ns = root.nsmap[None]
         # --> nsmap fetches a dict of the namespace Map, generally for root the key `None` fetches the namespace of the document.
-        return document, ns
+        return tree, ns
 
     # functions to parse staves info
 
