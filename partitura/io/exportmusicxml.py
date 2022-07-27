@@ -922,9 +922,9 @@ def do_attributes(part, start, end):
 
                 clef_e = etree.SubElement(attr_e, "clef")
 
-                if o.number and o.number!=1:
+                if o.staff and o.staff!=1:
 
-                    clef_e.set("number", "{}".format(o.number))
+                    clef_e.set("number", "{}".format(o.staff))
 
                 etree.SubElement(clef_e, "sign").text = "{}".format(o.sign)
                 etree.SubElement(clef_e, "line").text = "{}".format(o.line)

@@ -2033,7 +2033,7 @@ class Clef(TimedObject):
 
     Parameters
     ----------
-    number : int, optional
+    staff : int, optional
         The number of the staff to which this clef belongs.
     sign : {'G', 'F', 'C', 'percussion', 'TAB', 'jianpu',  'none'}
         The sign of the clef
@@ -2045,7 +2045,7 @@ class Clef(TimedObject):
 
     Attributes
     ----------
-    nr : int
+    staff : int
         See parameters
     sign : {'G', 'F', 'C', 'percussion', 'TAB', 'jianpu',  'none'}
         See parameters
@@ -2056,10 +2056,10 @@ class Clef(TimedObject):
 
     """
 
-    def __init__(self, number, sign, line, octave_change):
+    def __init__(self, staff, sign, line, octave_change):
 
         super().__init__()
-        self.number = number
+        self.staff = staff
         self.sign = sign
         self.line = line
         self.octave_change = octave_change
@@ -2067,7 +2067,7 @@ class Clef(TimedObject):
     def __str__(self):
         return (
             f"{super().__str__()} sign={self.sign} "
-            f"line={self.line} number={self.number}"
+            f"line={self.line} number={self.staff}"
         )
 
 
@@ -2815,7 +2815,7 @@ class ScoreVariant(object):
                     elif isinstance(o, Clef):
                         prev = next(tp_new.iter_prev(Clef), None)
                         if (prev is not None) and (
-                            (o.sign, o.line, o.number) == (prev.sign, prev.line, prev.number)
+                            (o.sign, o.line, o.staff) == (prev.sign, prev.line, prev.staff)
                         ):
                             continue
 
@@ -4305,7 +4305,7 @@ def merge_parts(parts, reassign = "voice"):
                     if isinstance(e, (GenericNote,Words,Direction)):
                         e.staff = e.staff + sum(maximum_staves[:p_ind])
                     elif isinstance(e, Clef): #TODO: to update if "number" get changed in "staff"
-                        e.number = e.number + sum(maximum_staves[:p_ind])
+                        e.staff = e.staff + sum(maximum_staves[:p_ind])
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)

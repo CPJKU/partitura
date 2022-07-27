@@ -820,7 +820,7 @@ def get_clefs(e):
     for clef in clefs:
         result.append(
             dict(
-                number=get_value_from_attribute(clef, "number", int) or 1,
+                staff=get_value_from_attribute(clef, "number", int) or 1,
                 sign=get_value_from_tag(clef, "sign", str),
                 line=get_value_from_tag(clef, "line", int),
                 octave_change=get_value_from_tag(clef, "clef-octave-change", int),
