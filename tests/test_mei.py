@@ -253,10 +253,19 @@ class TestImportMEI(unittest.TestCase):
             part_list = load_mei(mei)
         self.assertTrue(True)
 
-    # def test_parse_all(self):
-    #     for mei in Path("C:/Users/fosca/Desktop/CNAM/MEI dataset").iterdir():
-    #         part_list = load_mei(str(mei))
+    def test_voice(self):
+        parts = load_mei(MEI_TESTFILES[19])
+        merged_part = score.merge_parts(parts, reassign="voice")
+        voices = merged_part.note_array()["voice"]
+        expected_voices = [5,4,3,2,1,1]
+        self.assertTrue(np.array_equal(voices, expected_voices) )
 
+    def test_staff(self):
+        parts = load_mei(MEI_TESTFILES[19])
+        merged_part = score.merge_parts(parts, reassign="staff")
+        staves = merged_part.note_array(include_staff =True)["staff"]
+        expected_staves = [4,3,2,1,1,1]
+        self.assertTrue(np.array_equal(staves, expected_staves) )
 
 if __name__ == "__main__":
     unittest.main()

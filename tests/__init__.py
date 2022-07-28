@@ -126,6 +126,7 @@ MEI_TESTFILES = [
         "test_barline.mei",
         "test_unfold_complex.mei",
         "test_articulation.mei",
+        "test_merge_voices2.mei",
     ]
 ]
 

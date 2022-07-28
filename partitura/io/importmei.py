@@ -416,6 +416,10 @@ class MeiParser:
         for s_el in staves_el:
             new_part = self._handle_initial_staffdef(s_el)
             staff_group.children.append(new_part)
+        staff_groups_el = staffgroup_el.findall(self._ns_name("staffGrp"))
+        for sg_el in staff_groups_el:
+            new_staffgroup = self._handle_staffgroup(sg_el)
+            staff_group.children.append(new_staffgroup)
         return staff_group
 
     def _handle_main_staff_group(self, main_staffgrp_el):
@@ -577,7 +581,7 @@ class MeiParser:
                 alter=alter,
                 id=note_id,
                 voice=voice,
-                staff=staff,
+                staff=1,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
@@ -596,7 +600,7 @@ class MeiParser:
                 alter=alter,
                 id=note_id,
                 voice=voice,
-                staff=staff,
+                staff=1,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
@@ -634,7 +638,7 @@ class MeiParser:
         rest = score.Rest(
             id=rest_id,
             voice=voice,
-            staff=staff,
+            staff=1,
             symbolic_duration=symbolic_duration,
             articulations=None,
         )
@@ -677,7 +681,7 @@ class MeiParser:
         rest = score.Rest(
             id=mrest_id,
             voice=voice,
-            staff=staff,
+            staff=1,
             symbolic_duration=estimate_symbolic_duration(parts_per_measure, ppq),
             articulations=None,
         )
@@ -724,7 +728,7 @@ class MeiParser:
                 alter=alter,
                 id=note_id,
                 voice=voice,
-                staff=staff,
+                staff=1,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
@@ -898,7 +902,7 @@ class MeiParser:
                 # handle staves
                 staves_el = element.findall(self._ns_name("staff"))
                 if len(list(staves_el)) != len(list(parts)):
-                    raise Exception("Not all parts are specified in measure" + i_el)
+                    raise Exception(f"Not all parts are specified in measure {i_el}")
                 end_positions = []
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
