@@ -125,12 +125,12 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(clefs2[0].start.t == 0)
         self.assertTrue(clefs2[0].sign == "C")
         self.assertTrue(clefs2[0].line == 3)
-        self.assertTrue(clefs2[0].number == 3)
+        self.assertTrue(clefs2[0].number == 1)
         self.assertTrue(clefs2[0].octave_change == 0)
         self.assertTrue(clefs2[1].start.t == 8)
         self.assertTrue(clefs2[1].sign == "F")
         self.assertTrue(clefs2[1].line == 4)
-        self.assertTrue(clefs2[1].number == 3)
+        self.assertTrue(clefs2[1].number == 1)
         self.assertTrue(clefs2[1].octave_change == 0)
         # test on part 3
         part3 = list(score.iter_parts(part_list))[3]
@@ -140,7 +140,7 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(clefs3[1].start.t == 4)
         self.assertTrue(clefs3[1].sign == "G")
         self.assertTrue(clefs3[1].line == 2)
-        self.assertTrue(clefs3[1].number == 4)
+        self.assertTrue(clefs3[1].number == 1)
         self.assertTrue(clefs3[1].octave_change == -1)
 
     def test_key_signature1(self):

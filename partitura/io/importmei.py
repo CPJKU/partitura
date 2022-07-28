@@ -294,9 +294,11 @@ class MeiParser:
                 # find the staff number
                 parent = element.getparent()
                 if parent.tag == self._ns_name("staffDef"):
-                    number = parent.attrib["n"]
+                    # number = parent.attrib["n"]
+                    number = 1
                 else:  # go back another level to staff element
-                    number = parent.getparent().attrib["n"]
+                    # number = parent.getparent().attrib["n"]
+                    number = 1
                 sign = element.attrib["shape"]
                 line = element.attrib["line"]
                 octave = self._compute_clef_octave(
