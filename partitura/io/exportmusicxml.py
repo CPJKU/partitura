@@ -103,6 +103,22 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
 
         etree.SubElement(pitch_e, "octave").text = "{}".format(note.octave)
 
+    elif isinstance(note, score.UnpitchedNote):
+
+        unpitch_e = etree.SubElement(note_e, "unpitched")
+        
+        etree.SubElement(unpitch_e, "display-step").text = "{}".format(note.step)
+        
+        etree.SubElement(unpitch_e, "display-octave").text = "{}".format(note.octave)
+        
+        if note.notehead is not None:
+            nh_e = etree.SubElement(note_e, "notehead")
+            nh_e.text = "{}".format(note.notehead)
+            if note.noteheadstyle:
+                nh_e.attrib["filled"] = "yes"
+            else:
+                nh_e.attrib["filled"] = "no"
+        
     elif isinstance(note, score.Rest):
         if not note.hidden:
             etree.SubElement(note_e, "rest")

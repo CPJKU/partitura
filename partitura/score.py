@@ -1865,6 +1865,62 @@ class Note(GenericNote):
         """
         return ALTER_SIGNS[self.alter]
 
+class UnpitchedNote(GenericNote):
+    """Subclass of GenericNote representing unpitched notes.
+
+    Parameters
+    ----------
+        Parameters
+    ----------
+    step : {'C', 'D', 'E', 'F', 'G', 'A', 'B'}
+        The note name of the pitch (in upper case). If a lower case
+        note name is given, it will be converted to upper case.
+    octave : int
+        An integer representing the octave of the pitch
+    notehead : string
+        A string representing the notehead.
+        Defaults to None
+    noteheadstyle : bool
+        A boolean indicating whether the notehead is filled.
+        Defaults to true
+    
+    """
+
+    def __init__(self, step, octave, beam=None, 
+                notehead=None, noteheadstyle=True, **kwargs):
+        super().__init__(**kwargs)
+        self.step = step.upper()
+        self.octave = octave
+        self.beam = beam
+        self.notehead = notehead
+        self.noteheadstyle = noteheadstyle
+
+        if self.beam is not None:
+            self.beam.append(self)
+
+    def __str__(self):
+        return " ".join(
+            (
+                super().__str__(),
+                "pitch={}{}{}".format(self.step, "", self.octave),
+            )
+        )
+
+    @property
+    def midi_pitch(self):
+        """The midi pitch value of the note (MIDI note number). 
+
+        Returns
+        -------
+        integer
+            The note's position as MIDI note number.
+
+        """
+        return pitch_spelling_to_midi_pitch(
+            step=self.step, octave=self.octave, alter=0
+        )
+
+
 
 class Rest(GenericNote):
     """A subclass of GenericNote representing a rest."""

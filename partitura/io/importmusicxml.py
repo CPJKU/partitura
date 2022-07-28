@@ -1020,6 +1020,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
         ornaments = {}
 
     pitch = e.find("pitch")
+    unpitch = e.find("unpitched")
     if pitch is not None:
 
         step = get_value_from_tag(pitch, "step", str)
@@ -1062,6 +1063,33 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
         if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
             prev_note.grace_next = note
+            
+    elif unpitch is not None:
+        # note element is unpitched
+        step = get_value_from_tag(unpitch, "display-step", str)
+        octave = get_value_from_tag(unpitch, "display-octave", int)
+        noteheadtag = e.find("notehead")
+        noteheadstylebool = True
+        notehead = None
+        if noteheadtag is not None:
+            notehead = get_value_from_tag(e, "notehead", str)
+            noteheadstyle = get_value_from_attribute(noteheadtag, "filled", str)
+            if noteheadstyle is not None:
+                noteheadstylebool = {"no":False, "yes":True}[noteheadstyle]
+
+        note = score.UnpitchedNote(
+            step=step,
+            octave=octave,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            notehead=notehead,
+            noteheadstyle=noteheadstylebool,
+            articulations=articulations,
+            symbolic_duration=symbolic_duration,
+            doc_order=doc_order,
+        )
+        
     else:
         # note element is a rest
         note = score.Rest(
