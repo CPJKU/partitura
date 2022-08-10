@@ -1835,8 +1835,8 @@ def add_staffs(part, split=55, only_missing=True):
             n_tied.staff = staff
             n_tied = n_tied.tie_next
 
-    part.add(score.Clef(number=1, sign="G", line=2, octave_change=0), 0)
-    part.add(score.Clef(number=2, sign="F", line=4, octave_change=0), 0)
+    part.add(score.Clef(staff=1, sign="G", line=2, octave_change=0), 0)
+    part.add(score.Clef(staff=2, sign="F", line=4, octave_change=0), 0)
 
 
 def add_staffs_v1(part):
@@ -1893,7 +1893,7 @@ def add_clefs(part):
     for staff, notes in by_staff.items():
         part.add(
             score.Clef(
-                number=staff, **estimate_clef_properties([n.midi_pitch for n in notes])
+                staff=staff, **estimate_clef_properties([n.midi_pitch for n in notes])
             ),
             0,
         )

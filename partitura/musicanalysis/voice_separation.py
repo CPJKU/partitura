@@ -67,7 +67,7 @@ def argmax_pitch(idx, pitches):
     return idx[np.argmax(pitches[idx])]
 
 
-def estimate_voices(note_info, monophonic_voices=False):
+def estimate_voices(note_info, monophonic_voices=True):
     """Voice estimation using the voice separation algorithm
        proposed in [6]_.
 
@@ -153,7 +153,10 @@ def estimate_voices(note_info, monophonic_voices=False):
     # occurring voice has number 2, etc.
     rvoices = rename_voices(voices)
 
-    return rvoices
+    # reverse voice numbers so that the high voices have the low numbers, like in musicxml
+    rrvoices = max(rvoices) - rvoices +1  
+
+    return rrvoices
 
 
 def pairwise_cost(prev, nxt):

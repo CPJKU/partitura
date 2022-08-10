@@ -1865,6 +1865,62 @@ class Note(GenericNote):
         """
         return ALTER_SIGNS[self.alter]
 
+class UnpitchedNote(GenericNote):
+    """Subclass of GenericNote representing unpitched notes.
+
+    Parameters
+    ----------
+        Parameters
+    ----------
+    step : {'C', 'D', 'E', 'F', 'G', 'A', 'B'}
+        The note name of the pitch (in upper case). If a lower case
+        note name is given, it will be converted to upper case.
+    octave : int
+        An integer representing the octave of the pitch
+    notehead : string
+        A string representing the notehead.
+        Defaults to None
+    noteheadstyle : bool
+        A boolean indicating whether the notehead is filled.
+        Defaults to true
+    
+    """
+
+    def __init__(self, step, octave, beam=None, 
+                notehead=None, noteheadstyle=True, **kwargs):
+        super().__init__(**kwargs)
+        self.step = step.upper()
+        self.octave = octave
+        self.beam = beam
+        self.notehead = notehead
+        self.noteheadstyle = noteheadstyle
+
+        if self.beam is not None:
+            self.beam.append(self)
+
+    def __str__(self):
+        return " ".join(
+            (
+                super().__str__(),
+                "pitch={}{}{}".format(self.step, "", self.octave),
+            )
+        )
+
+    @property
+    def midi_pitch(self):
+        """The midi pitch value of the note (MIDI note number). 
+
+        Returns
+        -------
+        integer
+            The note's position as MIDI note number.
+
+        """
+        return pitch_spelling_to_midi_pitch(
+            step=self.step, octave=self.octave, alter=0
+        )
+
+
 
 class Rest(GenericNote):
     """A subclass of GenericNote representing a rest."""
@@ -2033,7 +2089,7 @@ class Clef(TimedObject):
 
     Parameters
     ----------
-    number : int, optional
+    staff : int, optional
         The number of the staff to which this clef belongs.
     sign : {'G', 'F', 'C', 'percussion', 'TAB', 'jianpu',  'none'}
         The sign of the clef
@@ -2045,7 +2101,7 @@ class Clef(TimedObject):
 
     Attributes
     ----------
-    nr : int
+    staff : int
         See parameters
     sign : {'G', 'F', 'C', 'percussion', 'TAB', 'jianpu',  'none'}
         See parameters
@@ -2056,10 +2112,10 @@ class Clef(TimedObject):
 
     """
 
-    def __init__(self, number, sign, line, octave_change):
+    def __init__(self, staff, sign, line, octave_change):
 
         super().__init__()
-        self.number = number
+        self.staff = staff
         self.sign = sign
         self.line = line
         self.octave_change = octave_change
@@ -2067,7 +2123,7 @@ class Clef(TimedObject):
     def __str__(self):
         return (
             f"{super().__str__()} sign={self.sign} "
-            f"line={self.line} number={self.number}"
+            f"line={self.line} number={self.staff}"
         )
 
 
@@ -2815,7 +2871,7 @@ class ScoreVariant(object):
                     elif isinstance(o, Clef):
                         prev = next(tp_new.iter_prev(Clef), None)
                         if (prev is not None) and (
-                            (o.sign, o.line, o.number) == (prev.sign, prev.line, prev.number)
+                            (o.sign, o.line, o.staff) == (prev.sign, prev.line, prev.staff)
                         ):
                             continue
 
@@ -4305,7 +4361,7 @@ def merge_parts(parts, reassign = "voice"):
                     if isinstance(e, (GenericNote,Words,Direction)):
                         e.staff = e.staff + sum(maximum_staves[:p_ind])
                     elif isinstance(e, Clef): #TODO: to update if "number" get changed in "staff"
-                        e.number = e.number + sum(maximum_staves[:p_ind])
+                        e.staff = e.staff + sum(maximum_staves[:p_ind])
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)

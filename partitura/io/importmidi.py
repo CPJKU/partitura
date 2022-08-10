@@ -606,7 +606,7 @@ def create_part(
     part.set_quarter_duration(0, ticks)
 
     clef = score.Clef(
-        number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
+        staff=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
     )
     part.add(clef, 0)
     for t, name in key_sigs:
