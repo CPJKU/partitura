@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.0.0-dev">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title />
+            <respStmt />
+         </titleStmt>
+         <pubStmt></pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-y2c7j">
+         <appInfo xml:id="appinfo-wzmtx5">
+            <application xml:id="application-z4xw2w" isodate="2022-03-16T12:54:39" version="3.10.0-dev-6906e9c">
+               <name xml:id="name-thqlez">Verovio</name>
+               <p xml:id="p-ufdb4t">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="mwou5cs">
+            <score xml:id="syt006x">
+               <scoreDef xml:id="s7nmhte">
+                  <staffGrp xml:id="suluxoj">
+                     <staffDef xml:id="P1" n="1" lines="5" ppq="10">
+                        <label xml:id="l7tehg7">MusicXML Part</label>
+                        <meterSig xml:id="m586s60" count="2" unit="4" />
+                     </staffDef>
+                  </staffGrp>
+               </scoreDef>
+               <sb xml:id="sel67qt" />
+               <section xml:id="s99r22y">
+                  <pb xml:id="pb1wqhm" />
+                  <measure xml:id="md9oz1h" left="rptstart" right="rptend" n="1">
+                     <staff xml:id="sjh2lpn" n="1">
+                        <layer xml:id="lcsnmqx" n="1">
+                           <rest xml:id="rgto4y" dur.ppq="10" dur="4" />
+                           <chord xml:id="c5vpint" dur.ppq="10" dur="4">
+                              <note xml:id="n01" oct="4" pname="a" />
+                              <note xml:id="n02" oct="3" pname="a" />
+                           </chord>
+                        </layer>
+                     </staff>
+                     <fermata xml:id="fvi9pcn" staff="1" startid="#c5vpint" />
+                     <fermata xml:id="fsnizse" staff="1" tstamp="3.000000" />
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>

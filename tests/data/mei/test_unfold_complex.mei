@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/dev/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.0.0-dev">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title />
+            <respStmt />
+         </titleStmt>
+         <pubStmt></pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-nysmxt">
+         <appInfo xml:id="appinfo-50i4yu">
+            <application xml:id="application-dhc1s2" isodate="2022-03-17T17:46:59" version="3.10.0-dev-3d32fdd">
+               <name xml:id="name-kge13">Verovio</name>
+               <p xml:id="p-6pf198">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="mp3snog">
+            <score xml:id="suz6xdv">
+               <scoreDef xml:id="s51ueo6">
+                  <staffGrp xml:id="sdq7sny">
+                     <staffDef xml:id="P1" n="1" lines="5" ppq="1">
+                        <label xml:id="lug44fi">MusicXML Part</label>
+                        <clef xml:id="cr709mf" shape="G" line="2" />
+                        <keySig xml:id="k8j2jwx" sig="0" />
+                        <meterSig xml:id="msb09a7" count="4" unit="4" />
+                     </staffDef>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="sl258hb">
+                  <measure xml:id="mkmpkla" right="rptend" n="1">
+                     <staff xml:id="sxske61" n="1">
+                        <layer xml:id="lx3t902" n="1">
+                           <note xml:id="n36nf6s" dur.ppq="4" dur="1" oct="4" pname="c" />
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="mfhoo03" n="2">
+                     <staff xml:id="sr74qnq" n="1">
+                        <layer xml:id="lu7ij1p" n="1">
+                           <note xml:id="nzamlgh" dur.ppq="1" dur="4" oct="4" pname="d" stem.dir="up" />
+                           <note xml:id="n9koxbg" dur.ppq="1" dur="4" oct="4" pname="e" stem.dir="up" />
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="mjic3tv" left="rptstart" n="3">
+                     <staff xml:id="simtiy8" n="1">
+                        <layer xml:id="l2zxw5b" n="1">
+                           <note xml:id="n82i50z" dur.ppq="2" dur="2" oct="4" pname="f" stem.dir="up" />
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="mnrlsra" n="4">
+                     <staff xml:id="sv94n5i" n="1">
+                        <layer xml:id="lp9gvxr" n="1">
+                           <note xml:id="npv4tfb" dur.ppq="4" dur="1" oct="4" pname="g" />
+                        </layer>
+                     </staff>
+                     <dir xml:id="dd9feiq" type="fine" place="above" staff="1" tstamp="5.000000" vgrp="200">
+                        <rend xml:id="rm78fy8" halign="right">Fine</rend>
+                     </dir>
+                  </measure>
+                  <ending xml:id="epnrf97" lendsym="angledown" n="1">
+                     <measure xml:id="m5422gm" right="rptend" n="5">
+                        <staff xml:id="s61yx6i" n="1">
+                           <layer xml:id="l1jkhlj" n="1">
+                              <note xml:id="n75b4ts" dur.ppq="2" dur="2" oct="4" pname="a" stem.dir="up" />
+                           </layer>
+                        </staff>
+                     </measure>
+                  </ending>
+                  <ending xml:id="ezcwauc" lendsym="angledown" n="2">
+                     <measure xml:id="mehi46i" n="6">
+                        <staff xml:id="st9l2xv" n="1">
+                           <layer xml:id="lxron07" n="1">
+                              <rest xml:id="rloylts" dur.ppq="2" dur="2" />
+                              <note xml:id="na6p0ug" dur.ppq="2" dur="2" oct="4" pname="b" stem.dir="up" />
+                           </layer>
+                        </staff>
+                     </measure>
+                     <measure xml:id="mcnmi0p" right="rptend" n="7">
+                        <staff xml:id="sy372na" n="1">
+                           <layer xml:id="ld0a908" n="1">
+                              <mRest xml:id="m14o9gr" />
+                           </layer>
+                        </staff>
+                     </measure>
+                  </ending>
+                  <ending xml:id="eov0n6a" lendsym="angledown" n="3">
+                     <measure xml:id="megqbae" right="end" n="8">
+                        <staff xml:id="sg4ogw3" n="1">
+                           <layer xml:id="le0h7jy" n="1">
+                              <note xml:id="nxo8s9t" dur.ppq="4" dur="1" oct="5" pname="c" />
+                           </layer>
+                        </staff>
+                        <dir xml:id="dgk25lq" type="dacapo" place="above" staff="1" tstamp="5.000000" vgrp="200">
+                           <rend xml:id="rr97xy5" halign="right">D.C. al Fine</rend>
+                        </dir>
+                     </measure>
+                  </ending>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>

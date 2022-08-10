@@ -42,6 +42,10 @@ from partitura.utils.music import (
     note_name_to_pitch_spelling,
     note_name_to_midi_pitch,
     pitch_spelling_to_note_name,
+    rest_array_from_part,
+    rest_array_from_rest_list,
+    ensure_rest_array,
+    rest_array_from_part_list
 )
 
 
