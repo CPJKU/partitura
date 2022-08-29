@@ -101,7 +101,7 @@ def create_part(
     return part
 
 
-def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", assign_note_ids: bool = True,
+def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: int = None, assign_note_ids: bool = True,
                        ensurelist: bool = False, estimate_key: bool = False) -> Union[Union[Part, PartGroup], list]:
     """
     A generic function to transform an enriched note_array to part.
@@ -121,7 +121,8 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", assign_n
     Parameters
     ----------
     note_array : structure array or list of structured arrays
-
+    divs : int (optional)
+        Necessary Provided divs for midi import.
     assign_note_ids : bool (optional)
         Assign note_ids
     ensurelist: bool (optional)
@@ -133,8 +134,6 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", assign_n
     part : list or Part or PartGroup
         Maybe should return score
     """
-
-
     if isinstance(note_array, list):
         parts = [
             note_array_to_part(note_array=x, part_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist) for
@@ -188,12 +187,13 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", assign_n
         estimate_voice_info = False
         part_voice_list = note_array["voice"]
     else:
-        part_voice_list = np.empty(len(note_array))
+        estimate_voice_info = True
+        part_voice_list = np.full(len(note_array), np.inf)
 
     if not all(x in dtypes for x in ['step', 'alter', 'octave']):
         warnings.warn("pitch spelling")
         spelling_global = analysis.estimate_spelling(note_array)
-        note_array = rfn.merge_arrays((note_array, spelling_global))
+        note_array = rfn.merge_arrays((note_array, spelling_global), flatten=True)
 
     if estimate_voice_info:
         warnings.warn("voice estimation", stacklevel=2)
@@ -202,8 +202,9 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", assign_n
         estimated_voices = analysis.estimate_voices(note_array)
         assert len(part_voice_list) == len(estimated_voices)
         for part_voice, voice_est in zip(part_voice_list, estimated_voices):
-            if part_voice[1] is None:
-                part_voice[1] = voice_est
+            if part_voice == np.inf:
+                part_voice = voice_est
+        note_array = rfn.merge_arrays((note_array, np.array(estimated_voices, dtype=[("voice", int)])), flatten=True)
 
     if estimate_key or ('ks_fifths' not in dtypes and 'ks_mode' not in dtypes):
         warnings.warn("key estimation", stacklevel=2)
@@ -219,8 +220,8 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", assign_n
     ks_end_times = np.r_[global_key_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
     global_key_sigs = np.column_stack((global_key_sigs, ks_end_times))
 
-
-    divs = int((note_array[0]["duration_div"] / note_array[0]["duration_beat"])*(note_array[0]["ts_beat_type"]/4))
+    if divs is None:
+        divs = int((note_array[0]["duration_div"] / note_array[0]["duration_beat"])*(note_array[0]["ts_beat_type"]/4))
     part = create_part(
         ticks=divs,
         note_array=note_array,
