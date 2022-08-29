@@ -10,10 +10,10 @@ import partitura.score as score
 
 
 def create_divs_from_beats(note_array):
-    duration_fractions = [Fraction(ix).limit_denominator(256) for ix in note_array["duration_beat"]]
-    onset_fractions = [Fraction(ix).limit_denominator(256) for ix in note_array["onset_beat"]]
+    duration_fractions = [Fraction(float(ix)).limit_denominator(256) for ix in note_array["duration_beat"]]
+    onset_fractions = [Fraction(float(ix)).limit_denominator(256) for ix in note_array["onset_beat"]]
     divs = np.lcm.reduce(
-        [Fraction(ix).limit_denominator(256).denominator for ix in np.unique(note_array["duration_beat"])])
+        [Fraction(float(ix)).limit_denominator(256).denominator for ix in np.unique(note_array["duration_beat"])])
     onset_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), onset_fractions))
     duration_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), duration_fractions))
     na_divs = np.array(list(zip(onset_divs, duration_divs)), dtype=[("onset_div", int), ("duration_div", int)])
