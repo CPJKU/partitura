@@ -61,3 +61,38 @@ class TestMergeParts(unittest.TestCase):
     #     merged_part = merge_parts(parts)
     #     self.assertTrue(isinstance(merged_part, Part))
 
+    def test_reassign_voices(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[6])
+        merged_part = merge_parts(parts, reassign = "voice")
+        note_array = merged_part.note_array(include_staff = True)
+        expected_voices = [3,2,1,1]
+        expected_staves = [1,1,1,1]
+        self.assertTrue(note_array["voice"].tolist() == expected_voices)
+        self.assertTrue(note_array["staff"].tolist() ==  expected_staves)
+
+    def test_reassign_voices2(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[7])
+        merged_part = merge_parts(parts, reassign = "voice")
+        note_array = merged_part.note_array(include_staff = True)
+        expected_voices = [4,4,3,2,1,1]
+        expected_staves = [2,1,1,1,1,1]
+        self.assertTrue(note_array["voice"].tolist() == expected_voices)
+        self.assertTrue(note_array["staff"].tolist() ==  expected_staves)
+
+    def test_reassign_staves(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[6])
+        merged_part = merge_parts(parts, reassign = "staff")
+        note_array = merged_part.note_array(include_staff =True)
+        expected_voices = [1,2,1,1]
+        expected_staves = [2,1,1,1]
+        self.assertTrue(note_array["voice"].tolist() == expected_voices)
+        self.assertTrue(note_array["staff"].tolist() ==  expected_staves)
+
+    def test_reassign_staves2(self):
+        parts = load_musicxml(MERGE_PARTS_TESTFILES[7])
+        merged_part = merge_parts(parts, reassign = "staff")
+        note_array = merged_part.note_array(include_staff =True)
+        expected_voices = [1,1,1,2,1,1]
+        expected_staves = [4,3,2,1,1,1]
+        self.assertTrue(note_array["voice"].tolist() == expected_voices)
+        self.assertTrue(note_array["staff"].tolist() ==  expected_staves)

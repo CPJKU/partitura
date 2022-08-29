@@ -618,7 +618,8 @@ def slur_feature(na, part):
         y_dec = [1, 0]
         W[:, 0] += interp1d(x, y_inc, bounds_error=False, fill_value=0)(onsets)
         W[:, 1] += interp1d(x, y_dec, bounds_error=False, fill_value=0)(onsets)
-
+    # Filter out NaN values
+    W[np.isnan(W)] = 0.0
     return W, names
 
 

@@ -270,8 +270,9 @@ class Part(object):
             The mapping function
 
         """
-        measures = np.array([(m.start.t, m.end.t, m.number) for m in self.iter_all(Measure)])
-
+        # operations to avoid None values and filter them efficiently.
+        m_it = self.measures
+        measures = np.array([[m.start.t, m.end.t, (m_it[i-1].number if m.number==None else m.number)] for i, m in enumerate(m_it)])
         # correct for anacrusis
         divs_per_beat = self.inv_beat_map(
             1 + self.beat_map(0)
@@ -743,6 +744,17 @@ class Part(object):
             if i < len(self._points) - 1:
                 self._points[i].next = self._points[i + 1]
                 self._points[i + 1].prev = self._points[i]
+
+    @property
+    def number_of_staves(self):
+        max_staves = 1
+        for e in self.iter_all():
+            if hasattr(e, "staff"):
+                if e.staff is not None and e.staff> max_staves:
+                    max_staves = e.staff
+        return max_staves
+
+
 
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
@@ -3674,7 +3686,7 @@ def add_segments(part):
         for start_time in boundary_times[:-1]:
             destinations = segment_info[start_time]["to"]
             
-            print(destinations)
+            # print(destinations)
             destinations_no_volta = [dest for dest in destinations 
                                      if "Volta_" not in dest]
             destinations_volta = [dest for dest in destinations 
@@ -4174,7 +4186,7 @@ def make_score_variants(part):
     return svs
 
 
-def merge_parts(parts):
+def merge_parts(parts, reassign = "voice"):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
     and quarter division.
@@ -4188,14 +4200,24 @@ def merge_parts(parts):
 
     Parameters
     ----------
-    prev_id : PartGroup, list of parts and partGroups
+    parts : PartGroup, list of parts and partGroups
         The parts to merge
+    reassign: string (optional)
+        If "staff" the new part have as many staves as the sum
+        of the staves in parts, and the staff numbers get reassigned.
+        If "voice", the new part have only one staff, and as manually
+        voices as the sum of the voices in parts; the voice number
+        get reassigned.
 
     Returns
     -------
     Part
         A new part that contains the elements of the old parts
     """
+    # check if reassign has valid values
+    if reassign not in ["staff","voice"]:
+        raise ValueError("Only 'staff' and 'voice' are supported ressign values. Found", reassign)
+
     # unfold grouppart and list of parts in a list of parts
     parts = list(iter_parts(parts))
 
@@ -4225,14 +4247,28 @@ def merge_parts(parts):
     new_part._quarter_times = [0]
     new_part._quarter_durations = [lcm]
 
-    for p_ind, p in enumerate(parts):
-        for e in p.iter_all():
-            # full copy the first part and partially copy the others
-            # we don't copy elements like duplicate barlines, clefs or time signatures for others
-            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
-            if p_ind == 0 or not isinstance(
-                e,
-                (
+    note_arrays = [part.note_array(include_staff = True) for part in parts]
+    # find the maximum number of voices for each part (voice number start from 1)
+    maximum_voices = [max(note_array["voice"]) if max(note_array["voice"])!=0 else 1 for note_array in note_arrays]
+    # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
+    maximum_staves = [max(note_array["staff"]) if max(note_array["staff"])!=0 else 1  for note_array in note_arrays]
+
+    if reassign == "staff":
+        el_to_discard = (
+                    Barline,
+                    Page,
+                    System,
+                    Measure,
+                    TimeSignature,
+                    KeySignature,
+                    DaCapo,
+                    Fine,
+                    Fermata,
+                    Ending,
+                    Tempo,
+                )
+    elif reassign == "voice":
+        el_to_discard = (
                     Barline,
                     Page,
                     System,
@@ -4245,7 +4281,16 @@ def merge_parts(parts):
                     Fermata,
                     Ending,
                     Tempo,
-                ),
+                )
+
+    for p_ind, p in enumerate(parts):
+        for e in p.iter_all():
+            # full copy the first part and partially copy the others
+            # we don't copy elements like duplicate barlines, clefs or time signatures for others
+            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+            if p_ind == 0 or not isinstance(
+                e,
+                el_to_discard,
             ):  # a time multiplier is used to account for different divisions
                 new_start = e.start.t * time_multiplier_per_part[p_ind]
                 new_end = (
@@ -4253,6 +4298,14 @@ def merge_parts(parts):
                     if not e.end is None
                     else None
                 )
+                if reassign == "voice":
+                    if isinstance(e, GenericNote):
+                        e.voice = e.voice + sum(maximum_voices[:p_ind])
+                elif reassign == "staff":
+                    if isinstance(e, (GenericNote,Words,Direction)):
+                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+                    elif isinstance(e, Clef): #TODO: to update if "number" get changed in "staff"
+                        e.number = e.number + sum(maximum_staves[:p_ind])
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)

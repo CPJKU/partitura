@@ -1061,6 +1061,7 @@ def _make_pianoroll(
     # sort notes
     pr_pitch = pr_pitch[idx]
     onset = onset[idx]
+    duration = duration[idx]
 
     if min_time is None:
         min_time = 0 if min(onset) >= 0 else min(onset)
@@ -1550,6 +1551,7 @@ def note_array_from_part_list(
             if isinstance(part, Part):
                 na = note_array_from_part(
                     part=part,
+                    unique_id_per_part=unique_id_per_part,
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
@@ -1647,6 +1649,7 @@ def rest_array_from_part_list(
             if isinstance(part, Part):
                 na = rest_array_from_part(
                     part=part,
+                    unique_id_per_part=unique_id_per_part,
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
@@ -1770,6 +1773,7 @@ def slice_notearray_by_time(
 
 def note_array_from_part(
     part,
+    unique_id_per_part=False,
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
@@ -1785,6 +1789,9 @@ def note_array_from_part(
     ----------
     part : partitura.score.Part
         An object representing a score part.
+    include_pitch_spelling : bool (optional)
+        It's a dummy attribute for consistancy between note_array_from_part and note_array_from_part_list.
+        Default is False
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         note. Default is False
@@ -1903,6 +1910,7 @@ def note_array_from_part(
 
 def rest_array_from_part(
         part,
+        unique_id_per_part=False,
         include_pitch_spelling=False,
         include_key_signature=False,
         include_time_signature=False,
@@ -1919,6 +1927,9 @@ def rest_array_from_part(
     ----------
     part : partitura.score.Part
         An object representing a score part.
+    include_pitch_spelling : bool (optional)
+        It's a dummy attribute for consistancy between rest_array_from_part and rest_array_from_part_list.
+        Default is False
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         rest.
