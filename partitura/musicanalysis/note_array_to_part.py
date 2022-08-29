@@ -224,8 +224,13 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
     ks_end_times = np.r_[global_key_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
     global_key_sigs = np.column_stack((global_key_sigs, ks_end_times))
 
+    # compute quarter divs
     if divs is None:
-        divs = int((note_array[0]["duration_div"] / note_array[0]["duration_beat"])*(note_array[0]["ts_beat_type"]/4))
+        # find first note with nonzero duration (in case score starts with grace_note).
+        for idx, dur in enumerate(note_array["duration_beat"]):
+            if dur != 0:
+                break
+        divs = int((note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])*(note_array[idx]["ts_beat_type"]/4))
     part = create_part(
         ticks=divs,
         note_array=note_array,
