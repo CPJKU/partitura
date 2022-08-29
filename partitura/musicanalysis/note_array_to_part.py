@@ -145,7 +145,10 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
     if len(note_array) == 0:
         raise ValueError("The note array is empty.")
 
-    if assign_note_ids or np.all(note_array["id"] == note_array["id"][0]):
+    if "id" not in note_array.dtype.names:
+        note_ids = ["{}n{:4d}".format(part_id, i) for i in range(len(note_array))]
+        note_array = rfn.merge_arrays((note_array, np.array(note_ids, dtype=[("id", str)])), flatten=True)
+    elif assign_note_ids or np.all(note_array["id"] == note_array["id"][0]):
         note_ids = ["{}n{:4d}".format(part_id, i) for i in range(len(note_array))]
         note_array["id"] = np.array(note_ids)
 
@@ -201,9 +204,10 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
         # Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
         assert len(part_voice_list) == len(estimated_voices)
-        for part_voice, voice_est in zip(part_voice_list, estimated_voices):
-            if part_voice == np.inf:
-                part_voice = voice_est
+        for i, (part_voice, voice_est) in enumerate(zip(part_voice_list, estimated_voices)):
+            # Not sure if correct.
+            if part_voice != np.inf:
+                estimated_voices[i] = part_voice
         note_array = rfn.merge_arrays((note_array, np.array(estimated_voices, dtype=[("voice", int)])), flatten=True)
 
     if estimate_key or ('ks_fifths' not in dtypes and 'ks_mode' not in dtypes):
@@ -229,4 +233,7 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
         part_id=part_id,
         part_name=None,
     )
-    return part
+    if ensurelist:
+        return [part]
+    else:
+        return part
