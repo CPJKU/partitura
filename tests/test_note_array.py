@@ -9,6 +9,7 @@ import unittest
 import partitura.score as score
 from partitura import load_musicxml
 from partitura.utils.music import note_array_from_part
+from partitura.musicanalysis import note_array_to_part
 import numpy as np
 
 from tests import NOTE_ARRAY_TESTFILES
@@ -78,6 +79,17 @@ class TestNoteArray(unittest.TestCase):
         note_array = note_array_from_part(part, include_time_signature=True)
         expected_musical_beats = [2, 2, 3, 3, 3, 4, 4, 4, 4, 2, 2, 2, 2]
         self.assertTrue(np.array_equal(note_array["ts_beats"], expected_musical_beats))
+
+    def test_note_array_to_part(self):
+        part_orig = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        note_array = part_orig.note_array(include_time_signature=True, include_metrical_position=True, include_grace_notes=True, include_pitch_spelling=True)
+        part_gen = note_array_to_part(note_array)
+        gen_array = part_gen.note_array()
+        self.assertTrue(np.all(gen_array["onset_beat"] == note_array["onset_beat"]))
+        self.assertTrue(np.all(gen_array["duration_beat"] == note_array["duration_beat"]))
+        self.assertTrue(np.all(gen_array["onset_div"] == note_array["onset_div"]))
+        self.assertTrue(np.all(gen_array["duration_div"] == note_array["duration_div"]))
+        self.assertTrue(np.all(gen_array["pitch"] == note_array["pitch"]))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 import numpy as np
 from collections import defaultdict
 import warnings
-
+from numpy.lib.recfunctions import unstructured_to_structured, merge_arrays
 import mido
 
 import partitura.score as score
@@ -14,6 +14,7 @@ from partitura.utils import (
     estimate_clef_properties,
 )
 import partitura.musicanalysis as analysis
+from partitura.musicanalysis import note_array_to_part
 
 __all__ = ["load_score_midi", "load_performance_midi"]
 
@@ -407,112 +408,134 @@ or a list of these
     # note_list = sorted(note for notes in
     # (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
     note_list = [
-        note
+        ("None",) + note
         for notes in (notes_by_track_ch[key] for key in tr_ch_keys)
         for note in notes
     ]
     note_array = np.array(
         note_list,
-        dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
+        dtype=[("id", str), ("onset_div", int), ("pitch", int), ("duration_div", int)],
     )
-
-    warnings.warn("pitch spelling")
-    spelling_global = analysis.estimate_spelling(note_array)
-
-    if estimate_voice_info:
-        warnings.warn("voice estimation", stacklevel=2)
-        # TODO: deal with zero duration notes in note_array.
-        # Zero duration notes are currently deleted
-        estimated_voices = analysis.estimate_voices(note_array)
-        assert len(part_voice_list) == len(estimated_voices)
-        for part_voice, voice_est in zip(part_voice_list, estimated_voices):
-            if part_voice[1] is None:
-                part_voice[1] = voice_est
-
-    if estimate_key:
-        warnings.warn("key estimation", stacklevel=2)
-        _, mode, fifths = analysis.estimate_key(note_array)
-        key_sigs_by_track = {}
-        global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
-
-    if assign_note_ids:
-        note_ids = ["n{}".format(i) for i in range(len(note_array))]
+    if len(global_time_sigs) > 1:
+        ts_ends = np.r_[global_time_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
+        ts_beats = np.zeros((len(note_array), 1))
+        ts_beat_type = np.zeros((len(note_array), 1))
+        for i, ts_start, ts_num, ts_dem, ts_end in enumerate(global_time_sigs):
+            ts_end = ts_ends[i]
+            mask = np.where(np.logical_and(note_array["onset_div"] >= ts_start, note_array["onset_div"] < ts_end))
+            ts_beats[mask, 0] = ts_num
+            ts_beat_type[mask, 0] = ts_dem
+    elif len(global_time_sigs) == 0:
+        ts_beats = np.full((len(note_array), 1), 4)
+        ts_beat_type = np.full((len(note_array), 1), 4)
     else:
-        note_ids = [None for i in range(len(note_array))]
+        ts_beats = np.full((len(note_array), 1), global_time_sigs[0][1])
+        ts_beat_type = np.full((len(note_array), 1), global_time_sigs[0][2])
 
-    time_sigs_by_part = defaultdict(set)
-    for tr, ts_list in time_sigs_by_track.items():
-        for ts in ts_list:
-            for part in track_to_part_mapping[tr]:
-                time_sigs_by_part[part].add(ts)
-    for ts in global_time_sigs:
-        for part in set(part for _, part, _ in group_part_voice_keys):
-            time_sigs_by_part[part].add(ts)
-
-    key_sigs_by_part = defaultdict(set)
-    for tr, ks_list in key_sigs_by_track.items():
-        for ks in ks_list:
-            for part in track_to_part_mapping[tr]:
-                key_sigs_by_part[part].add(ks)
-    for ks in global_key_sigs:
-        for part in set(part for _, part, _ in group_part_voice_keys):
-            key_sigs_by_part[part].add(ks)
-
-    # names_by_part = defaultdict(set)
-    # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
-    #     print(tr_ch, pg_p_v)
-    # for tr, name in track_names_by_track.items():
-    #     print(tr, track_to_part_mapping, name)
-    #     for part in track_to_part_mapping[tr]:
-    #         names_by_part[part] = name
-
-    notes_by_part = defaultdict(list)
-    for (part, voice), note, spelling, note_id in zip(
-        part_voice_list, note_list, spelling_global, note_ids
-    ):
-        notes_by_part[part].append((note, voice, spelling, note_id))
-
-    partlist = []
-    part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
-    part_groups = {}
-    for part_nr, note_info in notes_by_part.items():
-        notes, voices, spellings, note_ids = zip(*note_info)
-        part = create_part(
-            divs,
-            notes,
-            spellings,
-            voices,
-            note_ids,
-            sorted(time_sigs_by_part[part_nr]),
-            sorted(key_sigs_by_part[part_nr]),
-            part_id="P{}".format(part_nr + 1),
-            part_name=part_names.get(part_nr, None),
-        )
-
-        # print(part.pretty())
-        # if this part has an associated part_group number we create a PartGroup
-        # if necessary, and add the part to that. The newly created PartGroup is
-        # then added to the partlist.
-        pg_nr = part_to_part_group[part_nr]
-        if pg_nr is None:
-            partlist.append(part)
-        else:
-            if pg_nr not in part_groups:
-                part_groups[pg_nr] = score.PartGroup(
-                    group_name=group_names.get(pg_nr, None)
-                )
-                partlist.append(part_groups[pg_nr])
-            part_groups[pg_nr].children.append(part)
-
-    # add tempos to first part
-    part = next(score.iter_parts(partlist))
-    for t, qpm in global_tempos:
-        part.add(score.Tempo(qpm, unit="q"), t)
-
-    if not ensure_list and len(partlist) == 1:
-        return partlist[0]
-    else:
-        return partlist
+    t_sigs = np.hstack((ts_beats, ts_beat_type))
+    t_sigs = unstructured_to_structured(t_sigs, dtype=np.dtype([("ts_beats", int), ("ts_beat_type", int)]))
+    # TODO: deal with zero duration notes in note_array.
+    note_array = merge_arrays((note_array, t_sigs), flatten=True)
+    part = note_array_to_part(note_array, divs=divs, assign_note_ids=True)
+    return part
+    #
+    # warnings.warn("pitch spelling")
+    # spelling_global = analysis.estimate_spelling(note_array)
+    #
+    # if estimate_voice_info:
+    #     warnings.warn("voice estimation", stacklevel=2)
+    #     # TODO: deal with zero duration notes in note_array.
+    #     # Zero duration notes are currently deleted
+    #     estimated_voices = analysis.estimate_voices(note_array)
+    #     assert len(part_voice_list) == len(estimated_voices)
+    #     for part_voice, voice_est in zip(part_voice_list, estimated_voices):
+    #         if part_voice[1] is None:
+    #             part_voice[1] = voice_est
+    #
+    # if estimate_key:
+    #     warnings.warn("key estimation", stacklevel=2)
+    #     _, mode, fifths = analysis.estimate_key(note_array)
+    #     key_sigs_by_track = {}
+    #     global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
+    #
+    # if assign_note_ids:
+    #     note_ids = ["n{}".format(i) for i in range(len(note_array))]
+    # else:
+    #     note_ids = [None for i in range(len(note_array))]
+    #
+    # time_sigs_by_part = defaultdict(set)
+    # for tr, ts_list in time_sigs_by_track.items():
+    #     for ts in ts_list:
+    #         for part in track_to_part_mapping[tr]:
+    #             time_sigs_by_part[part].add(ts)
+    # for ts in global_time_sigs:
+    #     for part in set(part for _, part, _ in group_part_voice_keys):
+    #         time_sigs_by_part[part].add(ts)
+    #
+    # key_sigs_by_part = defaultdict(set)
+    # for tr, ks_list in key_sigs_by_track.items():
+    #     for ks in ks_list:
+    #         for part in track_to_part_mapping[tr]:
+    #             key_sigs_by_part[part].add(ks)
+    # for ks in global_key_sigs:
+    #     for part in set(part for _, part, _ in group_part_voice_keys):
+    #         key_sigs_by_part[part].add(ks)
+    #
+    # # names_by_part = defaultdict(set)
+    # # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
+    # #     print(tr_ch, pg_p_v)
+    # # for tr, name in track_names_by_track.items():
+    # #     print(tr, track_to_part_mapping, name)
+    # #     for part in track_to_part_mapping[tr]:
+    # #         names_by_part[part] = name
+    #
+    # notes_by_part = defaultdict(list)
+    # for (part, voice), note, spelling, note_id in zip(
+    #     part_voice_list, note_list, spelling_global, note_ids
+    # ):
+    #     notes_by_part[part].append((note, voice, spelling, note_id))
+    #
+    # partlist = []
+    # part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
+    # part_groups = {}
+    # for part_nr, note_info in notes_by_part.items():
+    #     notes, voices, spellings, note_ids = zip(*note_info)
+    #     part = create_part(
+    #         divs,
+    #         notes,
+    #         spellings,
+    #         voices,
+    #         note_ids,
+    #         sorted(time_sigs_by_part[part_nr]),
+    #         sorted(key_sigs_by_part[part_nr]),
+    #         part_id="P{}".format(part_nr + 1),
+    #         part_name=part_names.get(part_nr, None),
+    #     )
+    #
+    #     # print(part.pretty())
+    #     # if this part has an associated part_group number we create a PartGroup
+    #     # if necessary, and add the part to that. The newly created PartGroup is
+    #     # then added to the partlist.
+    #     pg_nr = part_to_part_group[part_nr]
+    #     if pg_nr is None:
+    #         partlist.append(part)
+    #     else:
+    #         if pg_nr not in part_groups:
+    #             part_groups[pg_nr] = score.PartGroup(
+    #                 group_name=group_names.get(pg_nr, None)
+    #             )
+    #             partlist.append(part_groups[pg_nr])
+    #         part_groups[pg_nr].children.append(part)
+    #
+    # # add tempos to first part
+    # part = next(score.iter_parts(partlist))
+    # for t, qpm in global_tempos:
+    #     part.add(score.Tempo(qpm, unit="q"), t)
+    #
+    # if not ensure_list and len(partlist) == 1:
+    #     return partlist[0]
+    # else:
+    #     return partlist
 
 
 def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
