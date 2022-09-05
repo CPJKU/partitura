@@ -1503,7 +1503,8 @@ def note_array_from_part_list(
     include_key_signature=False,
     include_time_signature=False,
     include_grace_notes=False,
-    include_staff=False):
+    include_staff=False,
+    include_divs_per_quarter=False):
     """
     Construct a structured Note array from a list of Part objects
 
@@ -1534,6 +1535,8 @@ def note_array_from_part_list(
     include_staff : bool (optional)
         If `True`,  includes note staff number.
         Default is False
+    include_divs_per_quarter : bool(optional)
+        If `True`, inclused the number of divs per quarter note.
 
     Returns
     -------
@@ -1557,7 +1560,8 @@ def note_array_from_part_list(
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
                     include_grace_notes=include_grace_notes,
-                    include_staff=include_staff
+                    include_staff=include_staff,
+                    include_divs_per_quarter=True # necessary for correctly merging
                 )
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
@@ -1567,7 +1571,8 @@ def note_array_from_part_list(
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
                     include_grace_notes=include_grace_notes,
-                    include_staff=include_staff
+                    include_staff=include_staff,
+                    include_divs_per_quarter=True # necessary for correctly merging
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array
@@ -1577,6 +1582,16 @@ def note_array_from_part_list(
                 ["P{0:02d}_".format(i) + nid for nid in na["id"]], dtype=na["id"].dtype
             )
         note_array.append(na)
+
+    # rescale if parts have different divs
+    divs_per_parts = [part[0]["divs_pq"] for part in note_array]
+    lcm = np.lcm.reduce(divs_per_parts)
+    time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
+    for na, time_mult in zip(note_array,time_multiplier_per_part):
+        na["onset_div"] = na["onset_div"]*time_mult
+        na["duration_div"] = na["duration_div"]*time_mult
+        na["divs_pq"] = na["divs_pq"]*time_mult
+
 
     # concatenate note_arrays
     note_array = np.hstack(note_array)
@@ -1780,7 +1795,8 @@ def note_array_from_part(
     include_time_signature=False,
     include_metrical_position=False,
     include_grace_notes=False,
-    include_staff=False
+    include_staff=False,
+    include_divs_per_quarter=False
 ):
     """
     Create a structured array with note information
@@ -1815,6 +1831,13 @@ def note_array_from_part(
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
         grace note and the grace type "" for non grace notes).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes staff information
+        Default is False
+    include_divs_per_quarter : bool (optional)
+        If `True`,  include the number of divs (e.g. MIDI ticks, 
+        MusicXML ppq) per quarter note of the current part.
         Default is False
 
     Returns
@@ -1854,7 +1877,13 @@ def note_array_from_part(
 
         If 'include_grace_notes' is True:
             * 'is_grace': 1 if the note is a grace 0 otherwise
-            * 'grace_type' : the type of the grace notes "" for non grace notes.
+            * 'grace_type' : the type of the grace notes "" for non grace notes
+
+        If 'include_staff' is True:
+            * 'staff' : the staff number for each note
+
+        If 'include_divs_per_quarter' is True:
+            * 'divs_pq': the number of divs per quarter note
     Examples
     --------
     >>> from partitura import load_musicxml, EXAMPLE_MUSICXML
@@ -1896,6 +1925,21 @@ def note_array_from_part(
     else:
         metrical_position_map = None
 
+    if include_divs_per_quarter:
+        parts_quarter_times = part._quarter_times
+        parts_quarter_durations = part._quarter_durations
+        if not len(parts_quarter_durations) == 1:
+            raise Exception(
+                "Note array from parts with multiple divisions is not supported. Found divisions",
+                parts_quarter_durations,
+                "at times",
+                parts_quarter_times,
+            )
+        divs_per_quarter = parts_quarter_durations[0]
+    else:
+        divs_per_quarter = None
+
+
     note_array = note_array_from_note_list(
         note_list=part.notes_tied,
         beat_map=part.beat_map,
@@ -1905,7 +1949,8 @@ def note_array_from_part(
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
         include_grace_notes=include_grace_notes,
-        include_staff=include_staff
+        include_staff=include_staff,
+        divs_per_quarter = divs_per_quarter
     )
     
     return note_array
@@ -2005,7 +2050,8 @@ def note_array_from_note_list(
         metrical_position_map=None,
         include_pitch_spelling=False,
         include_grace_notes=False,
-        include_staff=False
+        include_staff=False,
+        divs_per_quarter=None
 ):
     """
     Create a structured array with note information
@@ -2049,6 +2095,11 @@ def note_array_from_note_list(
     include_staff : bool (optional)
         If `True`,  includes the staff number for every note.
         Default is False
+    divs_per_quarter : int or None (optional)
+        The number of divs (e.g. MIDI ticks, MusicXML ppq) per quarter 
+        note of the current part.
+        Default is None
+
 
     Returns
     -------
@@ -2092,6 +2143,7 @@ def note_array_from_note_list(
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
             * 'staff' : number of note staff.
+            * 'divs_pq' : number of parts per quarter note.
     """
 
     fields = []
@@ -2135,6 +2187,10 @@ def note_array_from_note_list(
     # field for staff
     if include_staff:
         fields += [("staff", "i4")]
+
+    # field for divs_pq
+    if divs_per_quarter:
+        fields += [("divs_pq", "i4")]
 
     note_array = []
     for note in note_list:
@@ -2198,6 +2254,9 @@ def note_array_from_note_list(
 
         if include_staff:
             note_info += (note.staff if note.staff else 0),
+
+        if divs_per_quarter:
+            note_info += (divs_per_quarter,)
 
         note_array.append(note_info)
 
@@ -2657,6 +2716,7 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
 
     return np.array(matched_idxs)
 
+    
 
 if __name__ == "__main__":
     import doctest
