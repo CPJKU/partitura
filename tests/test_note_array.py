@@ -7,11 +7,11 @@ the Part class.
 import unittest
 
 import partitura.score as score
-from partitura import load_musicxml
-from partitura.utils.music import note_array_from_part
+from partitura import load_musicxml, load_kern
+from partitura.utils.music import note_array_from_part, ensure_notearray
 import numpy as np
 
-from tests import NOTE_ARRAY_TESTFILES
+from tests import NOTE_ARRAY_TESTFILES, KERN_TESFILES
 
 
 class TestNoteArray(unittest.TestCase):
@@ -78,6 +78,19 @@ class TestNoteArray(unittest.TestCase):
         note_array = note_array_from_part(part, include_time_signature=True)
         expected_musical_beats = [2, 2, 3, 3, 3, 4, 4, 4, 4, 2, 2, 2, 2]
         self.assertTrue(np.array_equal(note_array["ts_beats"], expected_musical_beats))
+
+    def test_ensure_na_different_divs(self):
+        # check if divs are correctly rescaled when producing a note array from 
+        # parts with different divs values
+        parts = list(score.iter_parts(load_kern(KERN_TESFILES[7])))
+        # note_arrays = [p.note_array(include_divs_per_quarter= True) for p in parts]
+        merged_note_array = ensure_notearray(parts)
+        for note in merged_note_array[-4:]:
+            self.assertTrue(note["onset_div"] == 92)
+            self.assertTrue(note["duration_div"] == 4)
+            self.assertTrue(note["divs_pq"] == 4)
+
+
 
 
 if __name__ == "__main__":
