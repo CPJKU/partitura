@@ -1845,11 +1845,13 @@ def note_array_from_part(
         If `include_time_signature` is True:
             * 'ts_beats': number of beats in a measure
             * 'ts_beat_type': type of beats (denominator of the time signature)
+            * 'ts_mus_beat' : number of musical beats is it's set, otherwise ts_beats
 
         If `include_metrical_position` is True:
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
             * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
             * 'tot_measure_divs' : total number of divs in the note measure
+
         If 'include_grace_notes' is True:
             * 'is_grace': 1 if the note is a grace 0 otherwise
             * 'grace_type' : the type of the grace notes "" for non grace notes.
