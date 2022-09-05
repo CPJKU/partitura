@@ -2,7 +2,7 @@
 
 # -*- coding: utf-8 -*-
 
-import logging
+import warnings
 import os
 import zipfile
 
@@ -18,9 +18,8 @@ import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
 
-__all__ = ["load_musicxml"]
+__all__ = ["load_musicxml", "musicxml_to_notearray"]
 
-LOGGER = logging.getLogger(__name__)
 _MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None
 DYN_DIRECTIONS = {
@@ -151,7 +150,7 @@ def _parse_partlist(partlist):
                 part.parent = current_group
 
     if current_group is not None:
-        LOGGER.warning("part-group {0} was not ended".format(current_group.number))
+        warnings.warn("part-group {0} was not ended".format(current_group.number))
         structure.append(current_group)
 
     return structure, part_dict
@@ -274,24 +273,42 @@ def _parse_parts(document, part_dict):
         for o in part.iter_all(score.Ending, mode="ending"): 
             if o.start is None:
                 part.add(o,part.measure_map(o.end.t-1)[0],None)
-                LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"
+                warnings.warn("Found ending[stop] without a preceding ending[start]\n"
                     "Single measure bracket is assumed")
         
         for o in part.iter_all(score.Ending, mode="starting"):    
             if o.end is None:
                 part.add(o,None,part.measure_map(o.start.t)[1])
-                LOGGER.warning("Found ending[start] without a following ending[stop]\n"
+                warnings.warn("Found ending[start] without a following ending[stop]\n"
                     "Single measure bracket is assumed")
 
         # complete unstarted repeats 
+        volta_repeats = list()
         for o in part.iter_all(score.Repeat, mode="ending"): 
             if o.start is None:
+                if len(o.end.ending_objects[score.Ending]) > 0:
+                    ending = list(o.end.ending_objects[score.Ending].keys())[0]
+                    # if unstarted repeat from volta, continue for now
+                    if len(ending.start.ending_objects[score.Repeat]) > 0:
+                        volta_repeats.append(o)
+                        continue
+                
+                # go back to the end of the last repeat
                 start_times = [0] + \
-                    [r.start.t for r in part.iter_all(score.Repeat)]
+                    [r.end.t for r in part.iter_all(score.Repeat)]
                 start_time_id = np.searchsorted(start_times, o.end.t) - 1
                 part.add(o,start_times[start_time_id],None)
-                LOGGER.warning("Found repeat without start\n"
+                warnings.warn("Found repeat without start\n"
                     "Starting point {} is assumend".format(start_times[start_time_id]))
+        
+        # complete unstarted repeats in volta with start time of first repeat
+        for o in volta_repeats: 
+            start_times = [0] + \
+                [r.start.t for r in part.iter_all(score.Repeat)]       
+            start_time_id = np.searchsorted(start_times, o.end.t) - 1
+            part.add(o,start_times[start_time_id],None)
+            warnings.warn("Found repeat without start\n"
+                "Starting point {} is assumend".format(start_times[start_time_id]))
 
         # remove unfinished elements from the timeline        
         for k, o in ongoing.items():
@@ -317,10 +334,10 @@ def _parse_parts(document, part_dict):
                         gn.last_grace_note_in_seq.grace_next = no
 
             if gn.main_note is None:
-                LOGGER.warning(
+                warnings.warn(
                     "grace note without recoverable same voice main note: {}".format(gn)
                 )
-                LOGGER.warning("might be cadenza notation")
+                warnings.warn("might be cadenza notation")
 
         # set end times for various musical elements that only have a start time
         # when constructed from MusicXML
@@ -361,7 +378,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             position -= duration
 
             if position < measure.start.t:
-                LOGGER.warning(
+                warnings.warn(
                     ("<backup> crosses measure boundary, adjusting "
                      "position from {} to {} in Measure {}").format(
                         position, measure.start.t, measure.number
@@ -448,7 +465,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             # TODO: handle segno/fine/dacapo
 
         else:
-            LOGGER.debug("ignoring tag {0}".format(e.tag))
+            warnings.warn("ignoring tag {0}".format(e.tag), stacklevel=2)
 
     for obj in trailing_children:
         part.add(obj, measure_maxtime)
@@ -500,7 +517,7 @@ def _handle_ending(e, position, part, ongoing):
 
         if o is None:
 
-            LOGGER.warning("Found ending[stop] without a preceding ending[start]\n"+
+            warnings.warn("Found ending[stop] without a preceding ending[start]\n"+
                            "Single measure bracket is assumed")
             o = score.Ending(e.get("number"))
             part.add(o, None, position)
@@ -709,7 +726,7 @@ def _handle_direction(e, position, part, ongoing):
                     ending_directions.append(o)
                     del ongoing[key]
                 else:
-                    LOGGER.warning("Did not find a wedge start element for wedge stop!")
+                    warnings.warn("Did not find a wedge start element for wedge stop!")
 
         elif dt.tag == "dashes":
 
@@ -751,17 +768,17 @@ def _handle_direction(e, position, part, ongoing):
                     del ongoing[key]
 
                 else:
-                    LOGGER.warning("Did not find a pedal start element for pedal stop!")
+                    warnings.warn("Did not find a pedal start element for pedal stop!")
 
             else:
                 if pedal_type in ("change", "continue"):
-                    LOGGER.warning(
+                    warnings.warn(
                         'pedal types "change" and "continue" are '
                         "not supported. Ignoring direction."
                     )
 
         else:
-            LOGGER.warning("ignoring direction type: {} {}".format(dt.tag, dt.attrib))
+            warnings.warn("ignoring direction type: {} {}".format(dt.tag, dt.attrib))
 
     for dashes_key, dashes_type in dashes_keys.items():
 
@@ -773,7 +790,7 @@ def _handle_direction(e, position, part, ongoing):
 
             oo = ongoing.get(dashes_key)
             if oo is None:
-                LOGGER.warning("Dashes end without dashes start")
+                warnings.warn("Dashes end without dashes start")
             else:
                 ending_directions.extend(oo)
                 del ongoing[dashes_key]
@@ -803,7 +820,7 @@ def get_clefs(e):
     for clef in clefs:
         result.append(
             dict(
-                number=get_value_from_attribute(clef, "number", int),
+                staff=get_value_from_attribute(clef, "number", int) or 1,
                 sign=get_value_from_tag(clef, "sign", str),
                 line=get_value_from_tag(clef, "line", int),
                 octave_change=get_value_from_tag(clef, "clef-octave-change", int),
@@ -940,7 +957,7 @@ def _add_tempo_if_unique(position, part, tempo):
         if tempos == []:
             part.add(tempo, position)
         else:
-            LOGGER.warning("not adding duplicate or conflicting tempo indication")
+            warnings.warn("not adding duplicate or conflicting tempo indication")
 
 
 def _handle_sound(e, position, part):
@@ -956,8 +973,8 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
     duration = get_value_from_tag(e, "duration", int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
-    staff = get_value_from_tag(e, "staff", int) or None
-    voice = get_value_from_tag(e, "voice", int) or None
+    staff = get_value_from_tag(e, "staff", int) or 1
+    voice = get_value_from_tag(e, "voice", int) or 1
 
     # add support of uppercase "ID" tags
     note_id = (
@@ -995,8 +1012,15 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
         articulations = get_articulations(articulations_e)
     else:
         articulations = {}
+        
+    ornaments_e = e.find("notations/ornaments")
+    if ornaments_e is not None:
+        ornaments = get_ornaments(ornaments_e)
+    else:
+        ornaments = {}
 
     pitch = e.find("pitch")
+    unpitch = e.find("unpitched")
     if pitch is not None:
 
         step = get_value_from_tag(pitch, "step", str)
@@ -1017,6 +1041,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 staff=staff,
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
+                ornaments=ornaments,
                 steal_proportion=steal_proportion,
                 doc_order=doc_order,
             )
@@ -1032,11 +1057,39 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 staff=staff,
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
+                ornaments=ornaments,
                 doc_order=doc_order,
             )
 
         if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
             prev_note.grace_next = note
+            
+    elif unpitch is not None:
+        # note element is unpitched
+        step = get_value_from_tag(unpitch, "display-step", str)
+        octave = get_value_from_tag(unpitch, "display-octave", int)
+        noteheadtag = e.find("notehead")
+        noteheadstylebool = True
+        notehead = None
+        if noteheadtag is not None:
+            notehead = get_value_from_tag(e, "notehead", str)
+            noteheadstyle = get_value_from_attribute(noteheadtag, "filled", str)
+            if noteheadstyle is not None:
+                noteheadstylebool = {"no":False, "yes":True}[noteheadstyle]
+
+        note = score.UnpitchedNote(
+            step=step,
+            octave=octave,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            notehead=notehead,
+            noteheadstyle=noteheadstylebool,
+            articulations=articulations,
+            symbolic_duration=symbolic_duration,
+            doc_order=doc_order,
+        )
+        
     else:
         # note element is a rest
         note = score.Rest(
@@ -1202,9 +1255,9 @@ def handle_slurs(notations, ongoing, note, position):
 
             # if slur.end_note.start.t < position then the slur stop is
             # rogue. We drop it and treat the slur start like a fresh start
-            if slur is None or slur.end_note.start.t <= position:
+            if slur is None or slur.end_note.start.t < position:
 
-                if slur and slur.end_note.start.t <= position:
+                if slur and slur.end_note.start.t < position:
                     msg = (
                         "Dropping slur {} starting at {} ({}) and ending "
                         "at {} ({})".format(
@@ -1215,7 +1268,7 @@ def handle_slurs(notations, ongoing, note, position):
                             slur.end_note.id,
                         )
                     )
-                    LOGGER.warning(msg)
+                    warnings.warn(msg)
                     # remove the slur from the timeline
                     slur.end_note.start.remove_ending_object(slur)
                     # remove the reference to the slur in the end note
@@ -1234,9 +1287,9 @@ def handle_slurs(notations, ongoing, note, position):
 
             slur = ongoing.pop(start_slur_key, None)
 
-            if slur is None or slur.start_note.start.t >= position:
+            if slur is None or slur.start_note.start.t > position:
 
-                if slur and slur.start_note.start.t >= position:
+                if slur and slur.start_note.start.t > position:
                     msg = (
                         "Dropping slur {} starting at {} ({}) and ending "
                         "at {} ({})".format(
@@ -1247,7 +1300,7 @@ def handle_slurs(notations, ongoing, note, position):
                             note.id,
                         )
                     )
-                    LOGGER.warning(msg)
+                    warnings.warn(msg)
                     # remove the slur from the timeline
                     slur.start_note.start.remove_starting_object(slur)
                     # remove the reference to the slur in the end note
@@ -1315,6 +1368,43 @@ def get_articulations(e):
         "soft-accent",
     )
     return [a for a in articulations if e.find(a) is not None]
+
+def get_ornaments(e):
+    #  ornaments elements: 	
+    #  trill-mark 
+    #  turn 
+    #  delayed-turn 
+    #  inverted-turn 
+    #  delayed-inverted-turn 
+    #  vertical-turn 
+    #  inverted-vertical-turn 
+    #  shake 
+    #  wavy-line 
+    #  mordent 
+    #  inverted-mordent 
+    #  schleifer 
+    #  tremolo 
+    #  haydn 
+    #  other-ornament 
+
+    ornaments = (
+        "trill-mark",
+        "turn",
+        "delayed-turn",
+        "inverted-turn",
+        "delayed-inverted-turn",
+        "vertical-turn",
+        "inverted-vertical-turn",
+        "shake",
+        "wavy-line",
+        "mordent",
+        "inverted-mordent",
+        "schleifer",
+        "tremolo",
+        "haydn",
+        "other-ornament"
+    )
+    return [a for a in ornaments if e.find(a) is not None]
 
 
 def musicxml_to_notearray(

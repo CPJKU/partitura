@@ -6,7 +6,7 @@ spelling, voice assignment, and key signature.
 
 import pkg_resources
 
-from .io import load_score
+from .io import load_score, load_performance
 from .io.musescore import load_via_musescore
 from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
@@ -17,9 +17,11 @@ from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
 from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
+from .io.exportparangonada import save_csv_for_parangonada
 
 from .display import render
 from . import musicanalysis
+from .musicanalysis import make_note_features, compute_note_array, full_note_array
 
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version
