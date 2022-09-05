@@ -11,6 +11,7 @@ from typing import Union, Tuple
 # from packaging import version
 
 import numpy as np
+from matchfile_fields import FractionalSymbolicDuration
 
 # Define current version of the match file format
 CURRENT_MAJOR_VERSION = 1
@@ -83,7 +84,7 @@ class MatchLine(object):
     """
     Main class representing a match line.
 
-    This class should be subclassed for each different match lines.
+    This class should be subclassed for the different match lines.
     """
 
     version: Version
@@ -92,7 +93,7 @@ class MatchLine(object):
     out_pattern: str
     line_dict: dict
 
-    def __init__(self, version: Version, **kwargs):
+    def __init__(self, version: Version, **kwargs) -> None:
         # set version
         self.version = version
         # Get pattern
@@ -121,10 +122,23 @@ class MatchLine(object):
         """
         Generate matchline as a string.
         """
-        raise NotImplementedError
+        matchline = self.out_pattern.format(
+            **dict(
+                [
+                    (field, self.format_fun[field](getattr(self, field)))
+                    for field in self.field_names
+                ]
+            )
+        )
+
+        return matchline
 
     @classmethod
-    def from_matchline(cls, matchline: str, version: Version = CURRENT_MAJOR_VERSION):
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = CURRENT_MAJOR_VERSION,
+    ):
         """
         Create a new MatchLine object from a string
 
@@ -149,6 +163,9 @@ class MatchLine(object):
 
 
 # Dictionary of interpreter, formatters and datatypes for version 1.0.0
+# each entry in the dictionary is a tuple with
+# an intepreter (to parse the input), a formatter (for the output matchline)
+# and type
 INFO_LINE_INTERPRETERS_V_1_0_0 = {
     "matchFileVersion": (interpret_version, format_version, Version),
     "piece": (interpret_as_string, format_string, str),
@@ -173,9 +190,9 @@ INFO_LINE_INTERPRETERS_V_1_0_0 = {
 INFO_LINE = {
     Version(1, 0, 0): {
         "pattern": re.compile(
-            # CC Allow for spaces? I think we should be strict and do not do this.
+            # CC: Allow spaces? I think we should be strict and do not do this.
             # r"info\(\s*(?P<Attribute>[^,]+)\s*,\s*(?P<Value>.+)\s*\)\."
-            r"info\((?P<Attribute>[^,]+),(?P<Value>.+)\)\."
+            r"info\((?P<attribute>[^,]+),(?P<aalue>.+)\)\."
         ),
         "field_names": ("attribute", "value"),
         "matchline": "info({attribute},{value}).",
@@ -188,7 +205,7 @@ class MatchInfo(MatchLine):
 
     line_dict = INFO_LINE
 
-    def __init__(self, version: Version, **kwargs):
+    def __init__(self, version: Version, **kwargs) -> None:
         super().__init__(version, **kwargs)
 
         self.interpret_fun = self.line_dict[self.version]["value"][self.attribute][0]
@@ -199,7 +216,7 @@ class MatchInfo(MatchLine):
         }
 
     @property
-    def matchline(self):
+    def matchline(self) -> str:
         matchline = self.out_pattern.format(
             **dict(
                 [
@@ -254,6 +271,7 @@ class MatchInfo(MatchLine):
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
 
+
 SCOREPROP_LINE_INTERPRETERS_V_1_0_0 = {
     "keySignature": (interpret_as_string, format_string, str),
     "timeSignature": (interpret_as_string, format_string, str),
@@ -261,7 +279,9 @@ SCOREPROP_LINE_INTERPRETERS_V_1_0_0 = {
 
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
-        "pattern": None,
+        "pattern": re.compile(
+            r"scoreProp\((?P<attribute>[^,]+),(?P<value>[^,]+),(?P<measure>\d+):(?P<beat>[\d\/]*)\)\."
+        ),
         "field_names": (
             "attribute",
             "value",
@@ -278,24 +298,38 @@ SCOREPROP_LINE = {
 
 class MatchScoreProp(MatchLine):
 
-    field_names = ("Attribute", "Value", "Measure", "")
+    line_dict = SCOREPROP_LINE
 
-    pattern = re.compile(r"info\(\s*([^,]+)\s*,\s*(.+)\s*\)\.")
+    def __init__(self, version: Version, **kwargs) -> None:
+        super().__init__(version, **kwargs)
 
-    def __init__(self, attribute: str, value: str, bar: int, beat: float):
-        self.attribute = attribute
-        self.value = value
-        self.bar = bar
-        self.beat = beat
+        self.interpret_fun = self.line_dict[self.version]["value"]
 
-    @property
-    def matchline(self):
-        matchline = f"scoreprop({self.attribute},{self.value},{self.bar},{self.beat})."
-        return matchline
 
-    @classmethod
-    def from_matchline(cls, matchline: str):
-        pass
+class KeySignatureLine(MatchScoreProp):
+
+
+    def __init__(
+            self,
+            version: Version,
+            key_signature: str,
+            measure: int,
+            beat: int,
+            offset: Union[int, FractionalSymbolicDuration],
+            onset_in_beats: float
+    ) -> None:
+        super().__init__(
+            version=version,
+            attribute='keySignature',
+            value=key_signature,
+            measure=measure,
+            beat=beat,
+            offset=offset,
+            onset_in_beats=onset_in_beats
+        )
+
+        
+
 
 
 def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False):
