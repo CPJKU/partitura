@@ -133,9 +133,7 @@ class Part(object):
         """
         tss = np.array(
             [
-                (ts.start.t, ts.beats, ts.beat_type)
-                if self._use_musical_beat is False
-                else (ts.start.t, ts.musical_beats, ts.beat_type)
+                (ts.start.t, ts.beats, ts.beat_type, ts.musical_beats)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
@@ -319,8 +317,7 @@ class Part(object):
         """
         measure_map = self.measure_map
         ms = [measure_map(m.start.t)[0] for m in self.iter_all(Measure)]
-        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
-        
+        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]        
 
         if len(ms) < 2:
             warnings.warn("No or single measures found, metrical position 0 everywhere")
@@ -347,6 +344,7 @@ class Part(object):
                             measure_inter_function(input).astype(int) )
 
             return int_interp1d
+
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
@@ -981,7 +979,8 @@ class Part(object):
                     include_time_signature=False,
                     include_metrical_position=False,
                     include_grace_notes=False,
-                    include_staff=False):
+                    include_staff=False,
+                    include_divs_per_quarter=False):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -1012,11 +1011,9 @@ class Part(object):
             If `True`,  includes grace note information, i.e. if a note is a
             grace note and the grace type "" for non grace notes).
             Default is False
-        feature_functions : list or str
-            A list of feature functions. Elements of the list can be either
-            the functions themselves or the names of a feature function as
-            strings (or a mix). The feature functions specified by name are
-            looked up in the `featuremixer.featurefunctions` module.
+        include_divs_per_quarter : bool (optional)
+            If `True`,  includes the number of divs per quarter note.
+            Default is False
 
         Returns:
         
@@ -1028,7 +1025,8 @@ class Part(object):
                     include_time_signature=include_time_signature,
                     include_metrical_position=include_metrical_position,
                     include_grace_notes=include_grace_notes,
-                    include_staff=include_staff)
+                    include_staff=include_staff,
+                    include_divs_per_quarter=include_divs_per_quarter)
 
     def rest_array(self,
                    include_pitch_spelling=False,
