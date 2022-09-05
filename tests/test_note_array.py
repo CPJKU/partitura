@@ -77,7 +77,7 @@ class TestNoteArray(unittest.TestCase):
         part.use_musical_beat()
         note_array = note_array_from_part(part, include_time_signature=True)
         expected_musical_beats = [2, 2, 3, 3, 3, 4, 4, 4, 4, 2, 2, 2, 2]
-        self.assertTrue(np.array_equal(note_array["ts_beats"], expected_musical_beats))
+        self.assertTrue(np.array_equal(note_array["ts_mus_beats"], expected_musical_beats))
 
 
 if __name__ == "__main__":
