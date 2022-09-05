@@ -3,9 +3,10 @@
 [//]: # (<img src="./partitura/assets/partitura_logo_final.jpg" height="200">)
 
 [//]: # (</p>)
-
-<img align="center" src="partitura/assets/partitura_logo_black.png#gh-light-mode-only" height="200">
-<img align="center" src="./partitura/assets/partitura_logo_white.png#gh-dark-mode-only" height="200">
+<p align="center">
+    <img src="partitura/assets/partitura_logo_black.png#gh-light-mode-only" height="200">
+    <img align="center" src="./partitura/assets/partitura_logo_white.png#gh-dark-mode-only" height="200">
+</p>
 
 [![Latest Release](https://img.shields.io/github/v/release/cpjku/partitura)](https://github.com/cpjku/partitura/releases)
 [![Pypi Package](https://badge.fury.io/py/partitura.svg)](https://badge.fury.io/py/partitura)
