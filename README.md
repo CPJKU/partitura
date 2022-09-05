@@ -1,6 +1,11 @@
-<p align="center">
-  <img src="https://cpjku.github.io/docs/media/partitura_logo_hu2a91dd70e362b33019133ca1960e8f83_28693_1200x1200_fit_lanczos_2.png" height="200">
-</p>
+[//]: # (<p align="center"> )
+
+[//]: # (<img src="./partitura/assets/partitura_logo_final.jpg" height="200">)
+
+[//]: # (</p>)
+
+<img align="center" src="partitura/assets/partitura_logo_black.png#gh-light-mode-only" height="200">
+<img align="center" src="./partitura/assets/partitura_logo_white.png#gh-dark-mode-only" height="200">
 
 [![Latest Release](https://img.shields.io/github/v/release/cpjku/partitura)](https://github.com/cpjku/partitura/releases)
 [![Pypi Package](https://badge.fury.io/py/partitura.svg)](https://badge.fury.io/py/partitura)
