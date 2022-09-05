@@ -18,7 +18,7 @@ import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
 
-__all__ = ["load_musicxml"]
+__all__ = ["load_musicxml", "musicxml_to_notearray"]
 
 _MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None

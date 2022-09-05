@@ -15,7 +15,7 @@ from partitura.utils import (
 )
 import partitura.musicanalysis as analysis
 
-__all__ = ["load_score_midi", "load_performance_midi"]
+__all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
 

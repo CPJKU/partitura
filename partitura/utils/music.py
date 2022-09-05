@@ -1922,7 +1922,7 @@ def rest_array_from_part(
 ):
     """
     Create a structured array with rest information
-    from a `Part` object.
+    from a `Part` object Similar to note_array.
 
     Parameters
     ----------
