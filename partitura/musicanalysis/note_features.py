@@ -755,7 +755,7 @@ def metrical_feature(na, part):
 
     for i, n in enumerate(notes):
 
-        beats, beat_type = ts_map(n.start.t).astype(int)
+        beats, beat_type, mus_beats = ts_map(n.start.t).astype(int)
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 
         if measure:
@@ -820,7 +820,7 @@ def time_signature_feature(na, part):
              ['time_signature_den_{0}'.format(b) for b in possible_beat_types])
 
     for i, n in enumerate(na):
-        beats, beat_type = ts_map(n["onset_div"]).astype(int)
+        beats, beat_type, mus_beats = ts_map(n["onset_div"]).astype(int)
 
         if beats in possible_beats:
             W_beats[i, beats - 1] = 1

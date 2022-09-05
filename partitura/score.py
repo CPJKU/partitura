@@ -133,9 +133,7 @@ class Part(object):
         """
         tss = np.array(
             [
-                (ts.start.t, ts.beats, ts.beat_type)
-                if self._use_musical_beat is False
-                else (ts.start.t, ts.musical_beats, ts.beat_type)
+                (ts.start.t, ts.beats, ts.beat_type, ts.musical_beats)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
@@ -319,8 +317,7 @@ class Part(object):
         """
         measure_map = self.measure_map
         ms = [measure_map(m.start.t)[0] for m in self.iter_all(Measure)]
-        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
-        
+        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]        
 
         if len(ms) < 2:
             warnings.warn("No or single measures found, metrical position 0 everywhere")

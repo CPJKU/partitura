@@ -2121,7 +2121,7 @@ def note_array_from_note_list(
 
     # fields for time signature
     if time_signature_map is not None:
-        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
+        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4"), ("ts_mus_beats", "i4")]
 
     # fields for metrical position
     if metrical_position_map is not None:
@@ -2183,9 +2183,9 @@ def note_array_from_note_list(
             note_info += (fifths, mode)
 
         if time_signature_map is not None:
-            beats, beat_type = time_signature_map(note.start.t)
+            beats, beat_type, mus_beats = time_signature_map(note.start.t)
 
-            note_info += (beats, beat_type)
+            note_info += (beats, beat_type, mus_beats)
 
         if metrical_position_map is not None:
             rel_onset_div, tot_measure_div = metrical_position_map(note.start.t)
