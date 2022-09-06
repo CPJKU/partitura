@@ -19,7 +19,7 @@ from partitura.utils.music import MUSICAL_BEATS
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d, PPoly
-from typing import Union, List, Optional, Iterator
+from typing import Union, List, Optional, Iterator, Iterable as Itertype
 
 from partitura.utils import (
     ComparableMixin,
@@ -2847,7 +2847,7 @@ class Score(object):
     def __init__(
             self,
             id: str,
-            partlist: Iterable[Part, PartGroup],
+            partlist: Itertype[Union[Part, PartGroup]],
             title: Optional[str] = None,
             subtitle: Optional[str] = None,
             composer: Optional[str] = None,
@@ -2910,7 +2910,7 @@ class Score(object):
         objects in the score.
         """
         return note_array_from_part_list(
-            partlist=self.parts,
+            part_list=self.parts,
             unique_id_per_part=unique_id_per_part,
             include_pitch_spelling=include_pitch_spelling,
             include_key_signature=include_key_signature,
