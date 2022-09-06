@@ -2801,7 +2801,7 @@ class Score(object):
     id : str
         The identifier of the score. In order to be compatible with MusicXML
         the identifier should not start with a number.
-    partlist : list of `Part` or `PartGroup`.
+    partlist : `Part`, `PartGroup` or list of `Part` or `PartGroup` instances.
         List of  `Part` or `PartGroup` objects.
     title: str, optional
         Title of the score.
@@ -2847,7 +2847,7 @@ class Score(object):
     def __init__(
             self,
             id: str,
-            partlist: Itertype[Union[Part, PartGroup]],
+            partlist: Union[Part, PartGroup, Itertype[Union[Part, PartGroup]]],
             title: Optional[str] = None,
             subtitle: Optional[str] = None,
             composer: Optional[str] = None,
@@ -2866,7 +2866,15 @@ class Score(object):
         # Flat list of parts
         self.parts = list(iter_parts(partlist))
         # List of Parts and PartGroups
-        self.part_structure = list(partlist)
+
+        if isinstance(partlist, (Part, PartGroup)):
+            self.part_structure = [partlist]
+        elif isinstance(partlist, Iterable):
+            self.part_structure = list(partlist)
+        else:
+            raise ValueError(
+                "`partlist` should be a list, a `Part` or a `PartGrop` but is {type(partlist)}"
+            )
 
     def __getitem__(self, index: int) -> Part:
         """Get `Part in the score by index"""
@@ -3186,7 +3194,7 @@ def iter_parts(partlist):
 
     Parameters
     ----------
-    partlist : list, Part, or PartGroup
+    partlist : Score, list, Part, or PartGroup
         A :class:`partitura.score.Part` object,
         :class:`partitura.score.PartGroup` or a list of these
 

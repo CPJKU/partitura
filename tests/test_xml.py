@@ -68,7 +68,7 @@ class TestMusicXML(unittest.TestCase):
 
     def test_unfold_timeline(self):
         for fn, fn_target_1, fn_target_2 in MUSICXML_UNFOLD_TESTPAIRS:
-            part = load_musicxml(fn, validate=False)
+            part = load_musicxml(fn, validate=False)[0]
             part = score.unfold_part_maximal(part, update_ids=False)
             # Load Target
             with open(fn_target_1) as f:
@@ -99,7 +99,7 @@ class TestMusicXML(unittest.TestCase):
 
     def test_unfold_complex(self):
         for fn, fn_target in MUSICXML_UNFOLD_COMPLEX:
-            part = load_musicxml(fn, validate=False)
+            part = load_musicxml(fn, validate=False)[0]
             part = score.unfold_part_maximal(part)
             # Load Target
             with open(fn_target) as f:
@@ -117,7 +117,7 @@ class TestMusicXML(unittest.TestCase):
             
     def test_unfold_volta(self):
         for fn, fn_target in MUSICXML_UNFOLD_VOLTA:
-            part = load_musicxml(fn, validate=False)
+            part = load_musicxml(fn, validate=False)[0]
             part = score.unfold_part_maximal(part)
             # Load Target
             with open(fn_target) as f:
@@ -169,7 +169,7 @@ class TestMusicXML(unittest.TestCase):
             f.flush()
             f.seek(0)
             # load part from musicxml
-            part2 = load_musicxml(f)
+            part2 = load_musicxml(f)[0]
 
         # pretty print saved/loaded part:
         pstring2 = part2.pretty()
@@ -201,7 +201,7 @@ class TestMusicXML(unittest.TestCase):
             _tmp = f.read().decode("utf8")
             f.seek(0)
             # load part from musicxml
-            part2 = load_musicxml(f)
+            part2 = load_musicxml(f)[0]
 
         # pretty print saved/loaded part:
         pstring2 = part2.pretty()

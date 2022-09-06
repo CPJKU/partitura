@@ -252,9 +252,9 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
 
     # The identification tag has preference over credit
     if score_identification_el is not None:
-        
+
         copyright = get_value_from_tag(score_identification_el, "rights", str)
-        
+
         for cel in score_identification_el.findall("creator"):
             if get_value_from_attribute(cel, "type", str) == "composer":
                 composer = str(cel.text)
@@ -290,14 +290,6 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
     )
 
     return scr
-
-    # if not ensure_list and len(partlist) == 1:
-    #     return partlist[0]
-    # else:
-    #     return partlist
-
-
-
 
 
 def _parse_parts(document, part_dict):
