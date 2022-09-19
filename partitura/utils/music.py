@@ -1578,7 +1578,7 @@ def note_array_from_part_list(
                     include_divs_per_quarter=True # necessary for correctly merging
                 )
         elif isinstance(part, PerformedPart):
-            na = part.note_array
+            na = part.note_array()
         if unique_id_per_part:
             # Update id with part number
             na["id"] = np.array(

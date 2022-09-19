@@ -188,7 +188,6 @@ def save_alignment_for_ASAP(outfile, ppart, alignment):
                 outline_perf = notes_indexed_by_id[str(line["performance_id"])]
                 f.write('\t'.join(outline_score+outline_perf) + '\n')
 
-
 def load_alignment_from_ASAP(outfile): 
     """
     load a note alignment of the ASAP dataset.

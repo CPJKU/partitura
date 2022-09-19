@@ -48,7 +48,7 @@ def midi_to_notearray(fn):
     ppart = load_performance_midi(fn, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
     ppart.sustain_pedal_threshold = 128
-    return ppart.note_array
+    return ppart.note_array()
 
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):

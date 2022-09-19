@@ -718,6 +718,20 @@ def ornament_feature(na, part):
 
     return W, names
 
+def staff_feature(na, part):
+    """Staff feature
+
+    """
+    names = [ "staff"]
+    notes = {n.id:n.staff for n in part.notes_tied}
+    N = len(notes)
+    W = np.empty((N, 1))
+    for i, n in enumerate(na):
+        W[i,0] = notes[n["id"]]
+
+    return W, names
+
+
 
 # # for a subset of the articulations do e.g.
 # def staccato_feature(part):
