@@ -3678,7 +3678,7 @@ def add_segments(part):
                         
                     if str(current_volta_total_number) in current_volta_numbers:
                         # else just go to the segment after the last
-                        segment_info[ss]["to"].append("Z_Volta_"+segment_info[current_volta_end]["ID"])
+                        segment_info[ss]["to"].append(segment_info[current_volta_end]["ID"])
                 
                 
                 # NAVIGATION SYMBOLS
