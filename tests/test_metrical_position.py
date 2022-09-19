@@ -15,9 +15,9 @@ from tests import METRICAL_POSITION_TESTFILES
 
 class TestMetricalPosition(unittest.TestCase):
     def test_measure_map(self):
-        part = load_musicxml(METRICAL_POSITION_TESTFILES[0])
-        notes = part.notes
-        measures_for_notes = part.measure_map([n.start.t for n in notes])
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[0])
+        notes = score[0].notes
+        measures_for_notes = score[0].measure_map([n.start.t for n in notes])
         expected_measures_for_notes = np.array(  # the start and end of measures that we expect
             [(16 - 48, 16) for i in range(2)]
             + [(16, 64) for i in range(6)]
@@ -28,8 +28,8 @@ class TestMetricalPosition(unittest.TestCase):
         self.assertTrue(np.array_equal(measures_for_notes, expected_measures_for_notes))
 
     def test_metrical_position_map(self):
-        part = load_musicxml(METRICAL_POSITION_TESTFILES[0])
-        note_array = note_array_from_part(part, include_metrical_position=True)
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[0])
+        note_array = note_array_from_part(score[0], include_metrical_position=True)
         expected_notes_on_downbeat = [2, 3, 8, 9, 13, 21]
         expected_rel_positions = [
             32,
@@ -77,9 +77,9 @@ class TestMetricalPosition(unittest.TestCase):
         )
 
     def test_measure_number_map(self):
-        part = load_musicxml(METRICAL_POSITION_TESTFILES[0])
-        notes = part.notes
-        measure_numbers_for_notes = part.measure_number_map([n.start.t for n in notes])
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[0])
+        notes = score[0].notes
+        measure_numbers_for_notes = score[0].measure_number_map([n.start.t for n in notes])
         expected_measure_numbers_for_notes = np.array(  # the start and end of measures that we expect
             [1 for i in range(2)]
             + [2 for i in range(6)]
@@ -90,8 +90,8 @@ class TestMetricalPosition(unittest.TestCase):
         self.assertTrue(np.array_equal(measure_numbers_for_notes, expected_measure_numbers_for_notes))
 
     def test_anacrusis_downbeat(self):
-        part = load_musicxml(METRICAL_POSITION_TESTFILES[1])
-        note_array = note_array_from_part(part, include_metrical_position=True)
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[1])
+        note_array = note_array_from_part(score[0], include_metrical_position=True)
         # first note on the anacrusis is not a downbeat
         self.assertTrue(note_array["is_downbeat"][0] == 0)
         self.assertTrue(note_array["rel_onset_div"][0] == 3)

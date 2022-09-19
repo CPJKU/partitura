@@ -37,35 +37,35 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
 
     def test_notearray_musical_beats1(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
-        part.use_musical_beat()
-        note_array = note_array_from_part(part)
+        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        score[0].use_musical_beat()
+        note_array = note_array_from_part(score[0])
         expected_onset_beats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14]
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
         self.assertTrue(
-            np.array_equal(part.note_array()["onset_beat"], expected_onset_beats)
+            np.array_equal(score[0].note_array()["onset_beat"], expected_onset_beats)
         )
 
     def test_use_musical_beats1(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
-        part.use_musical_beat({"6/8": 3, "2/4": 1})
-        note_array = note_array_from_part(part)
+        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        score[0].use_musical_beat({"6/8": 3, "2/4": 1})
+        note_array = note_array_from_part(score[0])
         expected_onset_beats = [0, 1.5, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12.5]
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
-        self.assertTrue(np.array_equal(part.note_array(), note_array_from_part(part)))
+        self.assertTrue(np.array_equal(score[0].note_array(), note_array_from_part(score[0])))
 
     def test_use_musical_beats2(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
         # set musical beats
-        part.use_musical_beat()
-        note_array = part.note_array()
-        self.assertTrue(part._use_musical_beat == True)
+        score[0].use_musical_beat()
+        note_array = score[0].note_array()
+        self.assertTrue(score[0]._use_musical_beat == True)
         # unset musical beats
-        part.use_notated_beat()
-        self.assertTrue(part._use_musical_beat == False)
-        self.assertFalse(np.array_equal(part.note_array, note_array))
+        score[0].use_notated_beat()
+        self.assertTrue(score[0]._use_musical_beat == False)
+        self.assertFalse(np.array_equal(score[0].note_array(), note_array))
 
     def test_notearray_ts_beats(self):
         part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
