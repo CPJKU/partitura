@@ -136,8 +136,8 @@ class TestMusicXML(unittest.TestCase):
             
     def test_unfold_dacapo(self):
         for fn, fn_target in MUSICXML_UNFOLD_DACAPO:
-            part = load_musicxml(fn, validate=False)
-            part = score.unfold_part_maximal(part)
+            sc = load_musicxml(fn, validate=False)
+            part = score.unfold_part_maximal(sc[0])
             # Load Target
             with open(fn_target) as f:
                 target = f.read()
