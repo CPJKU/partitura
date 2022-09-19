@@ -18,7 +18,6 @@ import partitura.musicanalysis as analysis
 __all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
-
 # as key for the dict use channel * 128 (max number of pitches) + pitch
 def note_hash(channel, pitch):
     """Generate a note hash."""
@@ -86,10 +85,10 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10 ** 6 / default_bpm)
+    mpq = 60 * (10**6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10 ** 6)
+    time_conversion_factor = mpq / (ppq * 10**6)
 
     notes = []
     controls = []
@@ -113,7 +112,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                 mpq = msg.tempo
 
-                time_conversion_factor = mpq / (ppq * 10 ** 6)
+                time_conversion_factor = mpq / (ppq * 10**6)
 
                 warnings.warn(
                     (
@@ -185,17 +184,19 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         # fix note ids so that it is sorted lexicographically
         # by onset, pitch, offset, channel and track
         notes.sort(
-            key=lambda x: (x['note_on'],
-                           x['midi_pitch'],
-                           x['note_off'],
-                           x['channel'],
-                           x['track'])
+            key=lambda x: (
+                x["note_on"],
+                x["midi_pitch"],
+                x["note_off"],
+                x["channel"],
+                x["track"],
             )
+        )
 
         # add note id to every note
         for i, note in enumerate(notes):
             note["id"] = f"n{i}"
-    
+
     pp = performance.PerformedPart(notes, controls=controls, programs=programs)
     return performance.Performance(fn, pp)
 
@@ -337,7 +338,7 @@ or a list of these
             if msg.type == "key_signature":
                 key_sigs.append((t, msg.key))
             if msg.type == "set_tempo":
-                global_tempos.append((t, 60 * 10 ** 6 / msg.tempo))
+                global_tempos.append((t, 60 * 10**6 / msg.tempo))
             else:
                 note_on = msg.type == "note_on"
                 note_off = msg.type == "note_off"

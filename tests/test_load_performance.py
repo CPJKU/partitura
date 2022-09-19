@@ -15,7 +15,7 @@ from partitura.performance import PerformedPart, Performance
 
 class TestLoadScore(unittest.TestCase):
     def test_load_performance(self):
-        for fn in  MATCH_IMPORT_EXPORT_TESTFILES + [EXAMPLE_MIDI]:
+        for fn in MATCH_IMPORT_EXPORT_TESTFILES + [EXAMPLE_MIDI]:
             load_performance(fn)
 
     def load_performance(self, fn):

@@ -17,7 +17,6 @@ from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
 
 
-
 class MuseScoreNotFoundException(Exception):
     pass
 
@@ -152,7 +151,7 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
 
     """
     mscore_exec = find_musescore3()
-  
+
     if not mscore_exec:
 
         return None
@@ -191,13 +190,19 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
                         ps.returncode,
                         ps.stdout.decode("UTF-8"),
                         ps.stderr.decode("UTF-8"),
-                    ), SyntaxWarning, stacklevel=2
+                    ),
+                    SyntaxWarning,
+                    stacklevel=2,
                 )
                 return None
 
         except FileNotFoundError as f:
 
-            warnings.warn('Executing "{}" returned  {}.'.format(" ".join(cmd), f), ImportWarning, stacklevel=2)
+            warnings.warn(
+                'Executing "{}" returned  {}.'.format(" ".join(cmd), f),
+                ImportWarning,
+                stacklevel=2,
+            )
             return None
 
         # LOGGER.error('Command "{}" returned with code {}; stdout: {}; stderr: {}'

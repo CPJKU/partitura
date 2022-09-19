@@ -36,7 +36,10 @@ MUSICXML_UNFOLD_TESTPAIRS = [
 ]
 
 MUSICXML_UNFOLD_COMPLEX = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
     for fn1, fn2 in [("test_unfold_complex.xml", "test_unfold_complex_result.xml")]
 ]
 
@@ -46,12 +49,20 @@ MUSICXML_NOTE_FEATURES = [
 ]
 
 MUSICXML_UNFOLD_VOLTA = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
-    for fn1, fn2 in [("test_unfold_volta_numbers.xml", "test_unfold_volta_numbers_result.xml")]
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
+    for fn1, fn2 in [
+        ("test_unfold_volta_numbers.xml", "test_unfold_volta_numbers_result.xml")
+    ]
 ]
 
 MUSICXML_UNFOLD_DACAPO = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
     for fn1, fn2 in [("test_unfold_dacapo.xml", "test_unfold_dacapo_result.xml")]
 ]
 
@@ -81,7 +92,10 @@ METRICAL_POSITION_TESTFILES = [
     for fn in ["test_metrical_position.xml", "test_anacrusis.xml"]
 ]
 
-REST_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]]
+REST_ARRAY_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]
+]
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
 
@@ -144,9 +158,8 @@ KERN_TESFILES = [
         "tuple_durations.krn",
         "voice_dublifications.krn",
         "variable_length_pr_bug.krn",
-        "chor228.krn"
+        "chor228.krn",
     ]
 ]
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
-

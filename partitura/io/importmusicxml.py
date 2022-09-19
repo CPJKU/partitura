@@ -189,11 +189,13 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
         A `Score` instance.
 
     """
-    
+
     if type(xml) == str:
         if zipfile.is_zipfile(xml):
             with zipfile.ZipFile(xml) as zipped_xml:
-                xml = zipped_xml.open(os.path.splitext(os.path.basename(xml))[0]+".xml")
+                xml = zipped_xml.open(
+                    os.path.splitext(os.path.basename(xml))[0] + ".xml"
+                )
 
     if validate:
         validate_musicxml(xml, debug=True)
@@ -322,24 +324,27 @@ def _parse_parts(document, part_dict):
             position, doc_order = _handle_measure(
                 measure_el, position, part, ongoing, doc_order
             )
-        
-        
-        # complete unfinished endings
-        for o in part.iter_all(score.Ending, mode="ending"): 
-            if o.start is None:
-                part.add(o,part.measure_map(o.end.t-1)[0],None)
-                warnings.warn("Found ending[stop] without a preceding ending[start]\n"
-                    "Single measure bracket is assumed")
-        
-        for o in part.iter_all(score.Ending, mode="starting"):    
-            if o.end is None:
-                part.add(o,None,part.measure_map(o.start.t)[1])
-                warnings.warn("Found ending[start] without a following ending[stop]\n"
-                    "Single measure bracket is assumed")
 
-        # complete unstarted repeats 
+        # complete unfinished endings
+        for o in part.iter_all(score.Ending, mode="ending"):
+            if o.start is None:
+                part.add(o, part.measure_map(o.end.t - 1)[0], None)
+                warnings.warn(
+                    "Found ending[stop] without a preceding ending[start]\n"
+                    "Single measure bracket is assumed"
+                )
+
+        for o in part.iter_all(score.Ending, mode="starting"):
+            if o.end is None:
+                part.add(o, None, part.measure_map(o.start.t)[1])
+                warnings.warn(
+                    "Found ending[start] without a following ending[stop]\n"
+                    "Single measure bracket is assumed"
+                )
+
+        # complete unstarted repeats
         volta_repeats = list()
-        for o in part.iter_all(score.Repeat, mode="ending"): 
+        for o in part.iter_all(score.Repeat, mode="ending"):
             if o.start is None:
                 if len(o.end.ending_objects[score.Ending]) > 0:
                     ending = list(o.end.ending_objects[score.Ending].keys())[0]
@@ -347,28 +352,29 @@ def _parse_parts(document, part_dict):
                     if len(ending.start.ending_objects[score.Repeat]) > 0:
                         volta_repeats.append(o)
                         continue
-                
-                # go back to the end of the last repeat
-                start_times = [0] + \
-                    [r.end.t for r in part.iter_all(score.Repeat)]
-                start_time_id = np.searchsorted(start_times, o.end.t) - 1
-                part.add(o,start_times[start_time_id],None)
-                warnings.warn("Found repeat without start\n"
-                    "Starting point {} is assumend".format(start_times[start_time_id]))
-        
-        # complete unstarted repeats in volta with start time of first repeat
-        for o in volta_repeats: 
-            start_times = [0] + \
-                [r.start.t for r in part.iter_all(score.Repeat)]       
-            start_time_id = np.searchsorted(start_times, o.end.t) - 1
-            part.add(o,start_times[start_time_id],None)
-            warnings.warn("Found repeat without start\n"
-                "Starting point {} is assumend".format(start_times[start_time_id]))
 
-        # remove unfinished elements from the timeline        
+                # go back to the end of the last repeat
+                start_times = [0] + [r.end.t for r in part.iter_all(score.Repeat)]
+                start_time_id = np.searchsorted(start_times, o.end.t) - 1
+                part.add(o, start_times[start_time_id], None)
+                warnings.warn(
+                    "Found repeat without start\n"
+                    "Starting point {} is assumend".format(start_times[start_time_id])
+                )
+
+        # complete unstarted repeats in volta with start time of first repeat
+        for o in volta_repeats:
+            start_times = [0] + [r.start.t for r in part.iter_all(score.Repeat)]
+            start_time_id = np.searchsorted(start_times, o.end.t) - 1
+            part.add(o, start_times[start_time_id], None)
+            warnings.warn(
+                "Found repeat without start\n"
+                "Starting point {} is assumend".format(start_times[start_time_id])
+            )
+
+        # remove unfinished elements from the timeline
         for k, o in ongoing.items():
-            if (k not in ("page", "system","repeat") and 
-                k[0] not in ("tie","ending")):
+            if k not in ("page", "system", "repeat") and k[0] not in ("tie", "ending"):
                 if isinstance(o, list):
                     for o_i in o:
                         part.remove(o_i)
@@ -434,10 +440,10 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
             if position < measure.start.t:
                 warnings.warn(
-                    ("<backup> crosses measure boundary, adjusting "
-                     "position from {} to {} in Measure {}").format(
-                        position, measure.start.t, measure.number
-                    )
+                    (
+                        "<backup> crosses measure boundary, adjusting "
+                        "position from {} to {} in Measure {}"
+                    ).format(position, measure.start.t, measure.number)
                 )
                 position = measure.start.t
 
@@ -555,9 +561,8 @@ def _handle_repeat(e, position, part, ongoing):
         part.add(o, None, position)
 
 
-
 def _handle_ending(e, position, part, ongoing):
-    #key = "ending"
+    # key = "ending"
     key = ("ending", getattr(e, "number", "0"))
 
     if e.get("type") == "start":
@@ -572,8 +577,10 @@ def _handle_ending(e, position, part, ongoing):
 
         if o is None:
 
-            warnings.warn("Found ending[stop] without a preceding ending[start]\n"+
-                           "Single measure bracket is assumed")
+            warnings.warn(
+                "Found ending[stop] without a preceding ending[start]\n"
+                + "Single measure bracket is assumed"
+            )
             o = score.Ending(e.get("number"))
             part.add(o, None, position)
 
@@ -689,10 +696,10 @@ def _handle_direction(e, position, part, ongoing):
     # >
 
     staff = get_value_from_tag(e, "staff", int) or None
-    
+
     sound_directions = e.findall("sound")
     for sd in sound_directions:
-        
+
         if get_value_from_attribute(sd, "fine", str) == "yes":
             part.add(score.Fine(), position)
         if get_value_from_attribute(sd, "dacapo", str) == "yes":
@@ -1067,7 +1074,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
         articulations = get_articulations(articulations_e)
     else:
         articulations = {}
-        
+
     ornaments_e = e.find("notations/ornaments")
     if ornaments_e is not None:
         ornaments = get_ornaments(ornaments_e)
@@ -1118,7 +1125,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
         if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
             prev_note.grace_next = note
-            
+
     elif unpitch is not None:
         # note element is unpitched
         step = get_value_from_tag(unpitch, "display-step", str)
@@ -1130,7 +1137,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
             notehead = get_value_from_tag(e, "notehead", str)
             noteheadstyle = get_value_from_attribute(noteheadtag, "filled", str)
             if noteheadstyle is not None:
-                noteheadstylebool = {"no":False, "yes":True}[noteheadstyle]
+                noteheadstylebool = {"no": False, "yes": True}[noteheadstyle]
 
         note = score.UnpitchedNote(
             step=step,
@@ -1144,7 +1151,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
             symbolic_duration=symbolic_duration,
             doc_order=doc_order,
         )
-        
+
     else:
         # note element is a rest
         note = score.Rest(
@@ -1424,23 +1431,24 @@ def get_articulations(e):
     )
     return [a for a in articulations if e.find(a) is not None]
 
+
 def get_ornaments(e):
-    #  ornaments elements: 	
-    #  trill-mark 
-    #  turn 
-    #  delayed-turn 
-    #  inverted-turn 
-    #  delayed-inverted-turn 
-    #  vertical-turn 
-    #  inverted-vertical-turn 
-    #  shake 
-    #  wavy-line 
-    #  mordent 
-    #  inverted-mordent 
-    #  schleifer 
-    #  tremolo 
-    #  haydn 
-    #  other-ornament 
+    #  ornaments elements:
+    #  trill-mark
+    #  turn
+    #  delayed-turn
+    #  inverted-turn
+    #  delayed-inverted-turn
+    #  vertical-turn
+    #  inverted-vertical-turn
+    #  shake
+    #  wavy-line
+    #  mordent
+    #  inverted-mordent
+    #  schleifer
+    #  tremolo
+    #  haydn
+    #  other-ornament
 
     ornaments = (
         "trill-mark",
@@ -1457,7 +1465,7 @@ def get_ornaments(e):
         "schleifer",
         "tremolo",
         "haydn",
-        "other-ornament"
+        "other-ornament",
     )
     return [a for a in ornaments if e.find(a) is not None]
 
@@ -1514,7 +1522,8 @@ def musicxml_to_notearray(
             notearray_or_part=unfolded_part,
             include_pitch_spelling=include_pitch_spelling,
             include_key_signature=include_key_signature,
-            include_time_signature=include_time_signature)
+            include_time_signature=include_time_signature,
+        )
         note_arrays.append(note_array)
 
     if len(note_arrays) == 1:

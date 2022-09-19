@@ -45,7 +45,7 @@ from partitura.utils.music import (
     rest_array_from_part,
     rest_array_from_rest_list,
     ensure_rest_array,
-    rest_array_from_part_list
+    rest_array_from_part_list,
 )
 
 
@@ -61,5 +61,5 @@ __all__ = [
     "pitch_spelling_to_midi_pitch",
     "pitch_spelling_to_note_name",
     "show_diff",
-    "PrettyPrintTree"
+    "PrettyPrintTree",
 ]
