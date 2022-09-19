@@ -23,7 +23,7 @@ from partitura.utils import (
     note_array_from_note_list
 )
 
-from partitura.performance import PerformedPart
+from partitura.performance import PerformedPart, Performance
 
 import partitura.score as score
 from partitura.musicanalysis import estimate_voices, estimate_key
@@ -1407,19 +1407,26 @@ def load_match(
 
     # Generate PerformedPart
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
+        
+    performance = Performance(id=fn,performedparts= ppart)
     # Generate Part
     if create_part:
         if offset_duration_whole:
             spart = part_from_matchfile(mf, match_offset_duration_in_whole=True)
         else:
             spart = part_from_matchfile(mf, match_offset_duration_in_whole=False)
+            
+        scr = score.Score(
+            id=fn,
+            partlist=[spart]
+        )
     # Alignment
     alignment = alignment_from_matchfile(mf)
 
     if create_part:
-        return ppart, alignment, spart
+        return performance, alignment, scr
     else:
-        return ppart, alignment
+        return performance, alignment
 
 def alignment_from_matchfile(mf):
     result = []

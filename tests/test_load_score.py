@@ -21,7 +21,7 @@ from partitura import (
     EXAMPLE_MUSICXML,
 )
 from partitura.io import NotSupportedFormatError
-from partitura.score import Part, PartGroup
+from partitura.score import Part, PartGroup, Score
 
 
 EXAMPLE_FILES = [EXAMPLE_MIDI, EXAMPLE_KERN, EXAMPLE_MEI, EXAMPLE_MUSICXML]
@@ -42,6 +42,6 @@ class TestLoadScore(unittest.TestCase):
     def load_score(self, fn):
         try:
             score = load_score(fn)
-            self.assertTrue(type(score) in (Part, PartGroup, list))
+            self.assertTrue(type(score) in (Part, PartGroup, list, Score))
         except NotSupportedFormatError:
             self.assertTrue(False)

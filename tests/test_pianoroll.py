@@ -162,10 +162,10 @@ class TestNotesFromPianoroll(unittest.TestCase):
     def test_reconstruction_score(self):
 
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
-            spart = load_musicxml(fn)
-            note_array = spart.note_array()
+            score = load_musicxml(fn)
+            note_array = score[0].note_array()
             pr = compute_pianoroll(
-                spart, time_unit="div", time_div=1, remove_silence=False
+                score[0], time_unit="div", time_div=1, remove_silence=False
             )
 
             rec_note_array = pianoroll_to_notearray(pr, time_div=1, time_unit="div")

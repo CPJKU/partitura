@@ -145,23 +145,23 @@ def load_performance(
     # Catch exceptions
     exception_dictionary = dict()
     try:
-        performed_part = load_performance_midi(
+        performance = load_performance_midi(
             performance_fn,
             default_bpm=default_bpm,
             merge_tracks=merge_tracks,
         )
 
         # set threshold for sustain pedal
-        performed_part.sustain_pedal_threshold = pedal_threshold
+        performance[0].sustain_pedal_threshold = pedal_threshold
 
         if first_note_at_zero:
-            remove_silence_from_performed_part(performed_part)
+            remove_silence_from_performed_part(performance[0])
 
     except Exception as e:
         exception_dictionary["midi"] = e
 
     try:
-        performed_part, _ = load_match(
+        performance, _ = load_match(
             fn=performance_fn,
             first_note_at_zero=first_note_at_zero,
             pedal_threshold=pedal_threshold,
@@ -169,7 +169,7 @@ def load_performance(
     except Exception as e:
         exception_dictionary["match"] = e
 
-    if performed_part is None:
+    if performance is None:
         for file_format, exception in exception_dictionary.items():
             print(f"Error loading score as {file_format}:")
             print(exception)

@@ -5,7 +5,6 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
@@ -245,7 +244,7 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
 
     Parameters
     ----------
-    notearray_or_part : structured ndarray, `Part` or `PerformedPart`
+    notearray_or_part : structured ndarray, `Score`, `Part`, `PerformedPart`
         Input score information
 
     Returns
@@ -253,7 +252,7 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
     structured ndarray
         Structured array containing score information.
     """
-    from partitura.score import Part, PartGroup
+    from partitura.score import Part, PartGroup, Score
     from partitura.performance import PerformedPart
 
     if isinstance(notearray_or_part, np.ndarray):
@@ -268,9 +267,13 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
     elif isinstance(notearray_or_part, PartGroup):
         return note_array_from_part_list(notearray_or_part.children, *args, **kwargs)
 
+    elif isinstance(notearray_or_part, Score):
+        return note_array_from_part_list(notearray_or_part.parts, *args, **kwargs)
+
     elif isinstance(notearray_or_part, PerformedPart):
         return notearray_or_part.note_array()
-
+    elif isinstance(notearray_or_part, Score):
+        return notearray_or_part.note_array()
     elif isinstance(notearray_or_part, list):
         if all([isinstance(part, Part) for part in notearray_or_part]):
             return note_array_from_part_list(notearray_or_part, *args, **kwargs)

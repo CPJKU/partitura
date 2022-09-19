@@ -12,8 +12,8 @@ import numpy as np
 class TestingNoteFeatureExtraction(unittest.TestCase):
     def test_metrical_basis(self):
         for fn in METRICAL_POSITION_TESTFILES:
-            part = load_musicxml(fn)
-            make_note_feats(part, ['metrical_feature'])
+            score = load_musicxml(fn)
+            make_note_feats(score[0], ['metrical_feature'])
 
     def test_grace_basis(self):
         fn = [f for f in MEI_TESTFILES if f.endswith("test_grace_note.mei")][0]
@@ -22,18 +22,18 @@ class TestingNoteFeatureExtraction(unittest.TestCase):
 
     def test_all_basis(self):
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
-            part = load_musicxml(fn)
-            make_note_feats(part, "all")
+            score = load_musicxml(fn)
+            make_note_feats(score[0], "all")
             
-    def test_sclur_grace_art_dyn_orn(self):        
+    def test_slur_grace_art_dyn_orn(self):        
         for fn in MUSICXML_NOTE_FEATURES:
-            part = load_musicxml(fn, force_note_ids=True)
+            score = load_musicxml(fn, force_note_ids=True)
             feats = ["ornament_feature",
                     "articulation_feature",
                     "grace_feature",
                     "loudness_direction_feature",
                     "slur_feature"]       
-            na = compute_note_array(part,feature_functions=feats)
+            na = compute_note_array(score[0], feature_functions=feats)
             stactest = na["articulation_feature.staccato"] == np.array([1,0,0,0,0,0]) 
             tentest = na["articulation_feature.tenuto"] == np.array([0,1,0,0,0,0]) 
             trilltest = na["ornament_feature.trill-mark"] == np.array([0,0,1,0,0,0]) 

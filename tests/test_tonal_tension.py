@@ -16,7 +16,7 @@ import numpy as np
 
 class TestTonalTension(unittest.TestCase):
     score = load_musicxml(EXAMPLE_MUSICXML)
-    performance = load_performance_midi(EXAMPLE_MIDI)
+    performance = load_performance_midi(EXAMPLE_MIDI)[0]
 
     def test_prepare_notearray(self):
         target_note_array = np.array(

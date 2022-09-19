@@ -961,7 +961,7 @@ def save_musicxml(parts, out=None):
 
     Parameters
     ----------
-    parts : list, Part, or PartGroup
+    parts : Score, list, Part, or PartGroup
         A :class:`partitura.score.Part` object,
         :class:`partitura.score.PartGroup` or a list of these
     out: str, file-like object, or None, optional
@@ -974,6 +974,12 @@ def save_musicxml(parts, out=None):
         MusicXML data as a string. Otherwise the function returns None.
 
     """
+
+    if not isinstance(parts, score.Score):
+        parts = score.Score(
+            id=None,
+            partlist=parts,
+        )
 
     root = etree.Element("score-partwise")
 
@@ -1038,7 +1044,8 @@ def save_musicxml(parts, out=None):
 
             group_stack.append(pg)
 
-    for part in score.iter_parts(parts):
+    # for part in score.iter_parts(parts):
+    for part in parts:
 
         handle_parents(part)
 
