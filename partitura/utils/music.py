@@ -244,7 +244,7 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
 
     Parameters
     ----------
-    notearray_or_part : structured ndarray, `Part` or `PerformedPart`
+    notearray_or_part : structured ndarray, `Score`, `Part`, `PerformedPart`
         Input score information
 
     Returns
@@ -266,6 +266,9 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
 
     elif isinstance(notearray_or_part, PartGroup):
         return note_array_from_part_list(notearray_or_part.children, *args, **kwargs)
+
+    elif isinstance(notearray_or_part, Score):
+        return note_array_from_part_list(notearray_or_part.parts, *args, **kwargs)
 
     elif isinstance(notearray_or_part, PerformedPart):
         return notearray_or_part.note_array()
