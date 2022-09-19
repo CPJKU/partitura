@@ -30,14 +30,14 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(len(note_array) == 1)
 
     def test_notearray_beats(self):
-        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         note_array = score.note_array()
         expected_onset_beats = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 29, 30, 32]
 
         self.assertTrue(np.array_equal(note_array["onset_beat"], expected_onset_beats))
 
     def test_notearray_musical_beats1(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         part.use_musical_beat()
         note_array = note_array_from_part(part)
         expected_onset_beats = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14]
@@ -48,7 +48,7 @@ class TestNoteArray(unittest.TestCase):
         )
 
     def test_use_musical_beats1(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         part.use_musical_beat({"6/8": 3, "2/4": 1})
         note_array = note_array_from_part(part)
         expected_onset_beats = [0, 1.5, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.5, 12.5]
@@ -57,7 +57,7 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(np.array_equal(part.note_array(), note_array_from_part(part)))
 
     def test_use_musical_beats2(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         # set musical beats
         part.use_musical_beat()
         note_array = part.note_array()
@@ -68,7 +68,7 @@ class TestNoteArray(unittest.TestCase):
         self.assertFalse(np.array_equal(part.note_array, note_array))
 
     def test_notearray_ts_beats(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         note_array = note_array_from_part(part, include_time_signature=True)
         expected_beats = [6, 6, 9, 9, 9, 12, 12, 12, 12, 2, 2, 2, 2]
         self.assertTrue(np.array_equal(note_array["ts_beats"], expected_beats))

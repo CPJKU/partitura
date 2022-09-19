@@ -52,9 +52,9 @@ class TestMergeParts(unittest.TestCase):
         )
 
     def test_merge_single_part(self):
-        parts = load_musicxml(MERGE_PARTS_TESTFILES[3])
-        merged_part = merge_parts(parts)
-        self.assertTrue(merged_part == parts)
+        score = load_musicxml(MERGE_PARTS_TESTFILES[3])
+        merged_part = merge_parts(score.parts)
+        self.assertTrue(merged_part == score[0])
 
     # def test_merge_interpolation(self):
     #     parts = load_musicxml(MERGE_PARTS_TESTFILES[4])

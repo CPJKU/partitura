@@ -99,7 +99,10 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List],
     names : list
         The feature names
     """
-    part = score.merge_parts(part)
+    if isinstance(part, score.Score):
+        part = score.merge_parts(part.parts)
+    else:
+        part = score.merge_parts(part)
     na = ensure_notearray(part, 
                           include_metrical_position=True , 
                           include_grace_notes=True, 
@@ -184,7 +187,10 @@ def make_rest_features(part: Union[score.Part, score.PartGroup, List],
     names : list
         The feature names
     """
-    part = score.merge_parts(part)
+    if isinstance(part, score.Score):
+        part = score.merge_parts(part.parts)
+    else:
+        part = score.merge_parts(part)
     na = ensure_rest_array(part,
                           include_metrical_position=True,
                           include_grace_notes=True,
@@ -308,7 +314,10 @@ def compute_note_array(part,
     
     note_array : structured array
     """
-    part = score.merge_parts(part)
+    if isinstance(part, score.Score):
+        part = score.merge_parts(part.parts)
+    else:
+        part = score.merge_parts(part)
     na = ensure_notearray(part,
                         include_pitch_spelling=include_pitch_spelling,
                         include_key_signature=include_key_signature,

@@ -33,7 +33,7 @@ class TestingNoteFeatureExtraction(unittest.TestCase):
                     "grace_feature",
                     "loudness_direction_feature",
                     "slur_feature"]       
-            na = compute_note_array(part,feature_functions=feats)
+            na = compute_note_array(part, feature_functions=feats)
             stactest = na["articulation_feature.staccato"] == np.array([1,0,0,0,0,0]) 
             tentest = na["articulation_feature.tenuto"] == np.array([0,1,0,0,0,0]) 
             trilltest = na["ornament_feature.trill-mark"] == np.array([0,0,1,0,0,0]) 
