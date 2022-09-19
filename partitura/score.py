@@ -4448,7 +4448,10 @@ def merge_parts(parts, reassign = "voice"):
         raise ValueError("Only 'staff' and 'voice' are supported ressign values. Found", reassign)
 
     # unfold grouppart and list of parts in a list of parts
-    parts = list(iter_parts(parts))
+    if isinstance(parts, Score):
+        parts = parts.parts
+    else:
+        parts = list(iter_parts(parts))
 
     # if there is only one part (it could be a list with one part or a partGroup with one part)
     if len(parts) == 1:

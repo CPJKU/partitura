@@ -30,7 +30,7 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(len(note_array) == 1)
 
     def test_notearray_beats(self):
-        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         note_array = score.note_array()
         expected_onset_beats = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 29, 30, 32]
 
@@ -68,7 +68,7 @@ class TestNoteArray(unittest.TestCase):
         self.assertFalse(np.array_equal(score[0].note_array(), note_array))
 
     def test_notearray_ts_beats(self):
-        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         note_array = note_array_from_part(part, include_time_signature=True)
         expected_beats = [6, 6, 9, 9, 9, 12, 12, 12, 12, 2, 2, 2, 2]
         self.assertTrue(np.array_equal(note_array["ts_beats"], expected_beats))
