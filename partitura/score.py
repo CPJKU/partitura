@@ -230,8 +230,8 @@ class Part(object):
             1 + self.beat_map(0)
         )  # find the divs per beat in the first measure
         if (
-            measures[0][1] - measures[0][0]
-            < self.time_signature_map(0)[0] * divs_per_beat
+            measures[0][1] - measures[0][0] < 
+            self.time_signature_map(0)[0] * divs_per_beat
         ):
             measures[0][0] = (
                 measures[0][1] - self.time_signature_map(0)[0] * divs_per_beat
@@ -1137,7 +1137,7 @@ class Part(object):
             if mbeats_per_ts != {}:  # set the number of nbeats if specified
                 self.set_musical_beat_per_ts(mbeats_per_ts)
         else:
-            print("Musical beats were already being used!")
+            warnings.warn("Musical beats were already being used!")
 
     def use_notated_beat(self):
         """Consider the notated beat (numerator of time signature) 
@@ -1151,7 +1151,7 @@ class Part(object):
             # reset the number of musical beats to default values
             self.set_musical_beat_per_ts()
         else:
-            print("Notated beats were already being used!")
+            warnings.warn("Notated beats were already being used!")
 
     # @property
     # def part_names(self):
@@ -3676,6 +3676,12 @@ class Segment(TimedObject):
     
 
     Parameters
+    id: string
+        unique, ordererd identifier string
+    to: list
+        list of ids of possible destinations
+    await_to: 
+        list of ids of possible destinations after a jump    
     type : string, optional
         String for the type of the segment (either "default" or "leap_start" and "leap_end")
         A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
@@ -3684,9 +3690,13 @@ class Segment(TimedObject):
         String to describe the segment, used only for printing (pretty_segments)
     """
 
-    def __init__(self, id, to, force_seq = False, type = "default", info = ""):
+    def __init__(self, id, to, await_to, 
+                 force_seq = False, 
+                 type = "default", 
+                 info = ""):
         self.id = id
-        self.to = to    
+        self.to = to
+        self.await_to = await_to    
         self.force_full_sequence = force_seq  
         self.type = type     
         self.info = info  
@@ -3712,13 +3722,6 @@ def add_segments(part):
                         if r.start is not None and r.end is not None]
         valid_endings = [r for r in part.iter_all(Ending) 
                         if r.start is not None and r.end is not None]
-        # # add dummy repeats
-        # endings_clusters = defaultdict(dict)
-        # for e in valid_endings:
-        #     for k in ending_clusters.keys():
-        #         if
-
-
 
         for r in valid_repeats:
             boundaries[r.start.t]["repeat_start"] = r
@@ -3811,14 +3814,12 @@ def add_segments(part):
                                 current_volta_repeat_start = max(boundaries[se]["repeat_end"].start.t,
                                                                 current_volta_repeat_start)
                             repeat_start = current_volta_repeat_start
-                            segment_info[ss]["to"].append(segment_info[repeat_start]["ID"])
+                            segment_info[ss]["to"].append("Z_Volta_"+segment_info[repeat_start]["ID"])
                         
                     if str(current_volta_total_number) in current_volta_numbers:
                         # else just go to the segment after the last
                         segment_info[ss]["to"].append(segment_info[current_volta_end]["ID"])
-                    
-                    print("volta", segment_info[ss]["to"], current_volta_numbers, 
-                          current_volta_end, segment_info[current_volta_end]["ID"])    
+                
                 
                 # NAVIGATION SYMBOLS
                 if boundary_type == "coda":
@@ -3832,8 +3833,7 @@ def add_segments(part):
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # find the coda and jump there
                     coda_time = destinations["coda"][0]
-                    segment_info[ss]["to"].append(segment_info[coda_time]["ID"])
-                    segment_info[ss]["to"]
+                    segment_info[ss]["to"].append("Navigation2_"+segment_info[coda_time]["ID"])
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("al coda")
                     
@@ -3847,25 +3847,21 @@ def add_segments(part):
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # find the segno and jump there
                     segno_time = destinations["segno"][0]
-                    segment_info[ss]["to"].append(segment_info[segno_time]["ID"])
+                    segment_info[ss]["to"].append("Navigation1_"+segment_info[segno_time]["ID"])
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("dal segno")
                     
                 if boundary_type == "dacapo":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # jump to the start
-                    segment_info[ss]["to"].append(segment_info[part.first_point.t]["ID"])
-                    # TODO: check forcing
-                    # segment_info[ss]["force_full_sequence"] = True
+                    segment_info[ss]["to"].append("Navigation1_"+segment_info[part.first_point.t]["ID"])
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("da capo")
                 
                 if boundary_type == "fine":
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
                     # jump to the start
-                    segment_info[ss]["to"].append(segment_info[part.last_point.t]["ID"])
-                    # TODO: check forcing
-                    # segment_info[ss]["force_full_sequence"] = True
+                    segment_info[ss]["to"].append("Navigation2_"+segment_info[part.last_point.t]["ID"])
                     segment_info[ss]["info"].append("fine")
                     
                 # GENERIC
@@ -3877,35 +3873,54 @@ def add_segments(part):
                     segment_info[ss]["type"] = "leap_end"
         
         
+        # clean up and ORDER all the jump destination information
         for start_time in boundary_times[:-1]:
             destinations = segment_info[start_time]["to"]
-            
-            # print(destinations)
             destinations_no_volta = [dest for dest in destinations 
-                                     if "Volta_" not in dest]
+                                     if "Volta_" not in dest and "Navigation" not in dest]
             destinations_volta = [dest for dest in destinations 
                                   if "Volta_" in dest]
-            
+            # dal segno and da capo
+            destinations_navigation1 = [dest[12:] for dest in destinations 
+                                     if "Navigation1_" in dest]
+            # al coda and fine
+            destinations_navigation2 = [dest[12:] for dest in destinations 
+                                     if "Navigation2_" in dest]
+
+            # sort the repeats by ascending segment ID
+            destinations_no_volta = list(set(destinations_no_volta))
             # make sure the "END" destination is the last
-            if "END" in destinations:
+            destinations_except_await = destinations_volta + destinations_no_volta + destinations_navigation1
+            if "END" in destinations_except_await:
                 while "END" in destinations_no_volta:
                     destinations_no_volta.remove("END")
-                destinations_no_volta.sort()
-                destinations_no_volta.append("END")
-            else:
-                destinations_no_volta.sort()
+                destinations_navigation1.append("END")
+            
+            # sort repeat destinations by ascending ID
+            destinations_no_volta.sort()
             # sort destinations by volta number
             destinations_volta.sort()
             # keep only the segment IDs
             destinations_volta = [d[8:] for d in destinations_volta]
             # don't jump to volta brackets w/t number
             destinations_no_volta = [d for d in destinations_no_volta if d not in destinations_volta]
-            destinations = destinations_volta + destinations_no_volta
-            part.add(Segment(segment_info[start_time]["ID"],
-                            destinations,
-                            segment_info[start_time]["force_full_sequence"],
-                            segment_info[start_time]["type"],
-                            ", ".join(segment_info[start_time]["info"])),
+            destinations_cleaned = destinations_volta + destinations_no_volta + destinations_navigation1
+            
+            # if len(destinations_navigation2) > 0:
+            #     # keep only jumps to the past
+            #     await_to = [idx for idx in destinations_cleaned if idx <= segment_info[start_time]["ID"]]
+            #     # add the waiting destinations
+            #     await_to += destinations_navigation2
+                
+            # else:
+            #     await_to = destinations_cleaned
+                
+            part.add(Segment(id = segment_info[start_time]["ID"],
+                            to = destinations_cleaned,
+                            await_to = destinations_navigation2, #await_to,
+                            force_seq = segment_info[start_time]["force_full_sequence"],
+                            type = segment_info[start_time]["type"],
+                            info = ", ".join(segment_info[start_time]["info"])),
                         segment_info[start_time]["start"],
                         segment_info[start_time]["end"])
     
@@ -3965,13 +3980,16 @@ class Path:
     all_repeats : bool, optional
         Flag to generate all repeating jump destinations with list_of_destinations_from_last_segment
         (lower prority than no_repeats)
+    jumped: bool
+        indicates the presence of a da capo, dal segno, or al coda jump in this path
     """
     def __init__(self, 
                 path_list, 
                 segments, 
                 used_segment_jumps = None, 
                 no_repeats = False,
-                all_repeats = False):
+                all_repeats = False,
+                jumped = False):
         
         self.path = path_list
         self.segments = segments
@@ -3980,9 +3998,10 @@ class Path:
         else:
             self.used_segment_jumps = used_segment_jumps
         self.ended = False
+        self.jumped = False
         self.no_repeats = no_repeats
         self.all_repeats = all_repeats
-
+        self.jumped = jumped
         
     def __str__(self):
         """
@@ -4035,7 +4054,8 @@ class Path:
                     copy(self.segments),
                     copy(self.used_segment_jumps), 
                     no_repeats=self.no_repeats,
-                    all_repeats=self.all_repeats)
+                    all_repeats=self.all_repeats,
+                    jumped=self.jumped)
 
     def make_copy_with_jump_to(self, destination, ignore_leap_info=True):
         """
@@ -4048,9 +4068,24 @@ class Path:
         new_path.used_segment_jumps[new_path.path[-1]].append(destination)
         new_path.path.append(destination)
         if (self.segments[destination].type == "leap_end" and 
-            self.segments[self.path[-1]].type == "leap_start" and
-            not ignore_leap_info):
-            new_path.no_repeats = True
+            self.segments[self.path[-1]].type == "leap_start"):
+            if not self.jumped:
+                self.jumped = True
+                for segid in new_path.segments.keys():
+                    seg = new_path.segments[segid]
+                    # if destinations await the second round, add them
+                    if len(seg.await_to) > 0:
+                        # keep only jumps to the past
+                        to = [idx for idx in seg.to if idx <= seg.id]
+                        # add the waiting destinations
+                        to += seg.await_to
+                        # replace destinations
+                        seg.to = to
+                        # delete used destinations
+                        new_path.used_segment_jumps[segid] = list()
+                        
+            if not ignore_leap_info:
+                new_path.no_repeats = True
         return new_path
     
     @property
@@ -4093,7 +4128,7 @@ class Path:
                     return copy(destinations[last_destination_index+1:])
                 else:
                     return copy(destinations)
-
+                
 
 def unfold_paths(path, paths, ignore_leap_info=True):
     """
@@ -4413,7 +4448,10 @@ def merge_parts(parts, reassign = "voice"):
         raise ValueError("Only 'staff' and 'voice' are supported ressign values. Found", reassign)
 
     # unfold grouppart and list of parts in a list of parts
-    parts = list(iter_parts(parts))
+    if isinstance(parts, Score):
+        parts = parts.parts
+    else:
+        parts = list(iter_parts(parts))
 
     # if there is only one part (it could be a list with one part or a partGroup with one part)
     if len(parts) == 1:

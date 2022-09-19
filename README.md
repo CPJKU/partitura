@@ -223,6 +223,12 @@ If you find Partitura useful, we would appreciate if you could cite us!
 Acknowledgments
 ===============
 
+This project receives funding from the European Research Council (ERC) under 
+the European Union's Horizon 2020 research and innovation programme under grant 
+agreement No 101019375 ["Whither Music?"](https://www.jku.at/en/institute-of-computational-perception/research/projects/whither-music/).
+
+
+
 This work has received support from the European Research Council (ERC) under
 the European Union’s Horizon 2020 research and innovation programme under grant
 agreement No. 670035 project ["Con Espressione"](https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/)
