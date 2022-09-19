@@ -50,10 +50,16 @@ from partitura.utils.music import (
 
 
 __all__ = [
+    "ensure_notearray",
+    "ensure_rest_array",
+    "compute_pianoroll",
+    "pianoroll_to_notearray",
+    "slice_notearray_by_time",
     "key_name_to_fifths_mode",
     "fifths_mode_to_key_name",
     "key_mode_to_int",
     "pitch_spelling_to_midi_pitch",
-    "compute_pianoroll",
-    "pianoroll_to_notearray",
+    "pitch_spelling_to_note_name",
+    "show_diff",
+    "PrettyPrintTree"
 ]

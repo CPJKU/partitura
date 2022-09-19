@@ -15,7 +15,7 @@ from partitura.utils import (
 )
 import partitura.musicanalysis as analysis
 
-__all__ = ["load_score_midi", "load_performance_midi"]
+__all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
 
@@ -48,7 +48,7 @@ def midi_to_notearray(fn):
     ppart = load_performance_midi(fn, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
     ppart.sustain_pedal_threshold = 128
-    return ppart.note_array
+    return ppart.note_array()
 
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
@@ -606,7 +606,7 @@ def create_part(
     part.set_quarter_duration(0, ticks)
 
     clef = score.Clef(
-        number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
+        staff=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
     )
     part.add(clef, 0)
     for t, name in key_sigs:

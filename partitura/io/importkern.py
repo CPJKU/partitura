@@ -6,6 +6,8 @@ import partitura.score
 import partitura.score as score
 import numpy as np
 
+__all__ = ["load_kern"]
+
 
 class KernGlobalPart(object):
     def __init__(self, doc_name, part_id, qdivs):
@@ -63,6 +65,9 @@ class KernGlobalPart(object):
 
 
 class KernParserPart(KernGlobalPart):
+    """
+    Class for parsing kern file syntax.
+    """
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = int(init_pos)
@@ -219,7 +224,7 @@ class KernParserPart(KernGlobalPart):
             line = self.default_clef_lines[element[5]]
         else:
             line = int(element[6]) if element[6] != "v" else int(element[7])
-        new_clef = score.Clef(number=self.staff, sign=element[5], line=line, octave_change=0)
+        new_clef = score.Clef(staff=self.staff, sign=element[5], line=line, octave_change=0)
         self.part.add(new_clef, self.position)
 
     def _handle_rest(self, el, rest_id):

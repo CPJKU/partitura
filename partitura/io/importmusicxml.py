@@ -18,7 +18,7 @@ import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
 
-__all__ = ["load_musicxml"]
+__all__ = ["load_musicxml", "musicxml_to_notearray"]
 
 _MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None
@@ -820,7 +820,7 @@ def get_clefs(e):
     for clef in clefs:
         result.append(
             dict(
-                number=get_value_from_attribute(clef, "number", int),
+                staff=get_value_from_attribute(clef, "number", int) or 1,
                 sign=get_value_from_tag(clef, "sign", str),
                 line=get_value_from_tag(clef, "line", int),
                 octave_change=get_value_from_tag(clef, "clef-octave-change", int),
@@ -973,8 +973,8 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
     duration = get_value_from_tag(e, "duration", int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
-    staff = get_value_from_tag(e, "staff", int) or None
-    voice = get_value_from_tag(e, "voice", int) or None
+    staff = get_value_from_tag(e, "staff", int) or 1
+    voice = get_value_from_tag(e, "voice", int) or 1
 
     # add support of uppercase "ID" tags
     note_id = (
@@ -1020,6 +1020,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
         ornaments = {}
 
     pitch = e.find("pitch")
+    unpitch = e.find("unpitched")
     if pitch is not None:
 
         step = get_value_from_tag(pitch, "step", str)
@@ -1062,6 +1063,33 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
         if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
             prev_note.grace_next = note
+            
+    elif unpitch is not None:
+        # note element is unpitched
+        step = get_value_from_tag(unpitch, "display-step", str)
+        octave = get_value_from_tag(unpitch, "display-octave", int)
+        noteheadtag = e.find("notehead")
+        noteheadstylebool = True
+        notehead = None
+        if noteheadtag is not None:
+            notehead = get_value_from_tag(e, "notehead", str)
+            noteheadstyle = get_value_from_attribute(noteheadtag, "filled", str)
+            if noteheadstyle is not None:
+                noteheadstylebool = {"no":False, "yes":True}[noteheadstyle]
+
+        note = score.UnpitchedNote(
+            step=step,
+            octave=octave,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            notehead=notehead,
+            noteheadstyle=noteheadstylebool,
+            articulations=articulations,
+            symbolic_duration=symbolic_duration,
+            doc_order=doc_order,
+        )
+        
     else:
         # note element is a rest
         note = score.Rest(

@@ -82,6 +82,16 @@
           <tied type="stop"/>
         </notations>
       </note>
+      <note id="n05">
+        <unpitched>
+          <display-step>B</display-step>
+          <display-octave>3</display-octave>
+        </unpitched>
+        <notehead filled="no">diamond</notehead>
+        <duration>10</duration>
+        <voice>1</voice>
+        <type>quarter</type>
+      </note>
     </measure>
   </part>
 </score-partwise>

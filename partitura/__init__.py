@@ -21,7 +21,7 @@ from .io.exportparangonada import save_csv_for_parangonada
 
 from .display import render
 from . import musicanalysis
-from .musicanalysis import make_note_feats, compute_note_array, full_note_array
+from .musicanalysis import make_note_features, compute_note_array, full_note_array
 
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version

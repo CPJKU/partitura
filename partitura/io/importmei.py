@@ -818,7 +818,7 @@ class MeiParser:
         for i_layer, layer_el in enumerate(layers_el):
             end_positions.append(
                 self._handle_layer_in_staff_in_measure(
-                    layer_el, i_layer, staff_ind, position, part
+                    layer_el, i_layer + 1, staff_ind, position, part
                 )
             )
         # check if layers have equal duration (bad encoding, but it often happens)
@@ -890,7 +890,7 @@ class MeiParser:
                 end_positions = []
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
-                        self._handle_staff_in_measure(staff_el, i_s, position, part)
+                        self._handle_staff_in_measure(staff_el, i_s + 1, position, part)
                     )
                 # sanity check that all layers have equal duration
                 if not all([e == end_positions[0] for e in end_positions]):

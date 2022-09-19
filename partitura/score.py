@@ -133,9 +133,7 @@ class Part(object):
         """
         tss = np.array(
             [
-                (ts.start.t, ts.beats, ts.beat_type)
-                if self._use_musical_beat is False
-                else (ts.start.t, ts.musical_beats, ts.beat_type)
+                (ts.start.t, ts.beats, ts.beat_type, ts.musical_beats)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
@@ -231,8 +229,8 @@ class Part(object):
             1 + self.beat_map(0)
         )  # find the divs per beat in the first measure
         if (
-            measures[0][1] - measures[0][0]
-            < self.time_signature_map(0)[0] * divs_per_beat
+            measures[0][1] - measures[0][0] < 
+            self.time_signature_map(0)[0] * divs_per_beat
         ):
             measures[0][0] = (
                 measures[0][1] - self.time_signature_map(0)[0] * divs_per_beat
@@ -270,8 +268,9 @@ class Part(object):
             The mapping function
 
         """
-        measures = np.array([(m.start.t, m.end.t, m.number) for m in self.iter_all(Measure)])
-
+        # operations to avoid None values and filter them efficiently.
+        m_it = self.measures
+        measures = np.array([[m.start.t, m.end.t, (m_it[i-1].number if m.number==None else m.number)] for i, m in enumerate(m_it)])
         # correct for anacrusis
         divs_per_beat = self.inv_beat_map(
             1 + self.beat_map(0)
@@ -318,8 +317,7 @@ class Part(object):
         """
         measure_map = self.measure_map
         ms = [measure_map(m.start.t)[0] for m in self.iter_all(Measure)]
-        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
-        
+        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]        
 
         if len(ms) < 2:
             warnings.warn("No or single measures found, metrical position 0 everywhere")
@@ -346,6 +344,7 @@ class Part(object):
                             measure_inter_function(input).astype(int) )
 
             return int_interp1d
+
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
@@ -744,6 +743,17 @@ class Part(object):
                 self._points[i].next = self._points[i + 1]
                 self._points[i + 1].prev = self._points[i]
 
+    @property
+    def number_of_staves(self):
+        max_staves = 1
+        for e in self.iter_all():
+            if hasattr(e, "staff"):
+                if e.staff is not None and e.staff> max_staves:
+                    max_staves = e.staff
+        return max_staves
+
+
+
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
@@ -969,7 +979,8 @@ class Part(object):
                     include_time_signature=False,
                     include_metrical_position=False,
                     include_grace_notes=False,
-                    include_staff=False):
+                    include_staff=False,
+                    include_divs_per_quarter=False):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -1000,11 +1011,9 @@ class Part(object):
             If `True`,  includes grace note information, i.e. if a note is a
             grace note and the grace type "" for non grace notes).
             Default is False
-        feature_functions : list or str
-            A list of feature functions. Elements of the list can be either
-            the functions themselves or the names of a feature function as
-            strings (or a mix). The feature functions specified by name are
-            looked up in the `featuremixer.featurefunctions` module.
+        include_divs_per_quarter : bool (optional)
+            If `True`,  includes the number of divs per quarter note.
+            Default is False
 
         Returns:
         
@@ -1016,7 +1025,8 @@ class Part(object):
                     include_time_signature=include_time_signature,
                     include_metrical_position=include_metrical_position,
                     include_grace_notes=include_grace_notes,
-                    include_staff=include_staff)
+                    include_staff=include_staff,
+                    include_divs_per_quarter=include_divs_per_quarter)
 
     def rest_array(self,
                    include_pitch_spelling=False,
@@ -1853,6 +1863,62 @@ class Note(GenericNote):
         """
         return ALTER_SIGNS[self.alter]
 
+class UnpitchedNote(GenericNote):
+    """Subclass of GenericNote representing unpitched notes.
+
+    Parameters
+    ----------
+        Parameters
+    ----------
+    step : {'C', 'D', 'E', 'F', 'G', 'A', 'B'}
+        The note name of the pitch (in upper case). If a lower case
+        note name is given, it will be converted to upper case.
+    octave : int
+        An integer representing the octave of the pitch
+    notehead : string
+        A string representing the notehead.
+        Defaults to None
+    noteheadstyle : bool
+        A boolean indicating whether the notehead is filled.
+        Defaults to true
+    
+    """
+
+    def __init__(self, step, octave, beam=None, 
+                notehead=None, noteheadstyle=True, **kwargs):
+        super().__init__(**kwargs)
+        self.step = step.upper()
+        self.octave = octave
+        self.beam = beam
+        self.notehead = notehead
+        self.noteheadstyle = noteheadstyle
+
+        if self.beam is not None:
+            self.beam.append(self)
+
+    def __str__(self):
+        return " ".join(
+            (
+                super().__str__(),
+                "pitch={}{}{}".format(self.step, "", self.octave),
+            )
+        )
+
+    @property
+    def midi_pitch(self):
+        """The midi pitch value of the note (MIDI note number). 
+
+        Returns
+        -------
+        integer
+            The note's position as MIDI note number.
+
+        """
+        return pitch_spelling_to_midi_pitch(
+            step=self.step, octave=self.octave, alter=0
+        )
+
+
 
 class Rest(GenericNote):
     """A subclass of GenericNote representing a rest."""
@@ -2021,7 +2087,7 @@ class Clef(TimedObject):
 
     Parameters
     ----------
-    number : int, optional
+    staff : int, optional
         The number of the staff to which this clef belongs.
     sign : {'G', 'F', 'C', 'percussion', 'TAB', 'jianpu',  'none'}
         The sign of the clef
@@ -2033,7 +2099,7 @@ class Clef(TimedObject):
 
     Attributes
     ----------
-    nr : int
+    staff : int
         See parameters
     sign : {'G', 'F', 'C', 'percussion', 'TAB', 'jianpu',  'none'}
         See parameters
@@ -2044,10 +2110,10 @@ class Clef(TimedObject):
 
     """
 
-    def __init__(self, number, sign, line, octave_change):
+    def __init__(self, staff, sign, line, octave_change):
 
         super().__init__()
-        self.number = number
+        self.staff = staff
         self.sign = sign
         self.line = line
         self.octave_change = octave_change
@@ -2055,7 +2121,7 @@ class Clef(TimedObject):
     def __str__(self):
         return (
             f"{super().__str__()} sign={self.sign} "
-            f"line={self.line} number={self.number}"
+            f"line={self.line} number={self.staff}"
         )
 
 
@@ -2803,7 +2869,7 @@ class ScoreVariant(object):
                     elif isinstance(o, Clef):
                         prev = next(tp_new.iter_prev(Clef), None)
                         if (prev is not None) and (
-                            (o.sign, o.line, o.number) == (prev.sign, prev.line, prev.number)
+                            (o.sign, o.line, o.staff) == (prev.sign, prev.line, prev.staff)
                         ):
                             continue
 
@@ -4209,7 +4275,7 @@ def make_score_variants(part):
     return svs
 
 
-def merge_parts(parts):
+def merge_parts(parts, reassign = "voice"):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
     and quarter division.
@@ -4223,14 +4289,24 @@ def merge_parts(parts):
 
     Parameters
     ----------
-    prev_id : PartGroup, list of parts and partGroups
+    parts : PartGroup, list of parts and partGroups
         The parts to merge
+    reassign: string (optional)
+        If "staff" the new part have as many staves as the sum
+        of the staves in parts, and the staff numbers get reassigned.
+        If "voice", the new part have only one staff, and as manually
+        voices as the sum of the voices in parts; the voice number
+        get reassigned.
 
     Returns
     -------
     Part
         A new part that contains the elements of the old parts
     """
+    # check if reassign has valid values
+    if reassign not in ["staff","voice"]:
+        raise ValueError("Only 'staff' and 'voice' are supported ressign values. Found", reassign)
+
     # unfold grouppart and list of parts in a list of parts
     parts = list(iter_parts(parts))
 
@@ -4260,14 +4336,28 @@ def merge_parts(parts):
     new_part._quarter_times = [0]
     new_part._quarter_durations = [lcm]
 
-    for p_ind, p in enumerate(parts):
-        for e in p.iter_all():
-            # full copy the first part and partially copy the others
-            # we don't copy elements like duplicate barlines, clefs or time signatures for others
-            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
-            if p_ind == 0 or not isinstance(
-                e,
-                (
+    note_arrays = [part.note_array(include_staff = True) for part in parts]
+    # find the maximum number of voices for each part (voice number start from 1)
+    maximum_voices = [max(note_array["voice"]) if max(note_array["voice"])!=0 else 1 for note_array in note_arrays]
+    # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
+    maximum_staves = [max(note_array["staff"]) if max(note_array["staff"])!=0 else 1  for note_array in note_arrays]
+
+    if reassign == "staff":
+        el_to_discard = (
+                    Barline,
+                    Page,
+                    System,
+                    Measure,
+                    TimeSignature,
+                    KeySignature,
+                    DaCapo,
+                    Fine,
+                    Fermata,
+                    Ending,
+                    Tempo,
+                )
+    elif reassign == "voice":
+        el_to_discard = (
                     Barline,
                     Page,
                     System,
@@ -4280,7 +4370,16 @@ def merge_parts(parts):
                     Fermata,
                     Ending,
                     Tempo,
-                ),
+                )
+
+    for p_ind, p in enumerate(parts):
+        for e in p.iter_all():
+            # full copy the first part and partially copy the others
+            # we don't copy elements like duplicate barlines, clefs or time signatures for others
+            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+            if p_ind == 0 or not isinstance(
+                e,
+                el_to_discard,
             ):  # a time multiplier is used to account for different divisions
                 new_start = e.start.t * time_multiplier_per_part[p_ind]
                 new_end = (
@@ -4288,6 +4387,14 @@ def merge_parts(parts):
                     if not e.end is None
                     else None
                 )
+                if reassign == "voice":
+                    if isinstance(e, GenericNote):
+                        e.voice = e.voice + sum(maximum_voices[:p_ind])
+                elif reassign == "staff":
+                    if isinstance(e, (GenericNote,Words,Direction)):
+                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+                    elif isinstance(e, Clef): #TODO: to update if "number" get changed in "staff"
+                        e.staff = e.staff + sum(maximum_staves[:p_ind])
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)

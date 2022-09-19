@@ -89,6 +89,8 @@ MERGE_PARTS_TESTFILES = [
         "test_metrical_position.xml",
         "test_merge_interpolation.xml",
         "test_single_part_change_divs.xml",
+        "test_merge_voices1.xml",
+        "test_merge_voices2.xml",
     ]
 ]
 
@@ -136,6 +138,8 @@ KERN_TESFILES = [
         "fine_with_repeat.krn",
         "tuple_durations.krn",
         "voice_dublifications.krn",
+        "variable_length_pr_bug.krn",
+        "chor228.krn"
     ]
 ]
 
