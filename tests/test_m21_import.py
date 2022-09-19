@@ -27,8 +27,6 @@ class TestImportMEI(unittest.TestCase):
         grace_notes = list(part.iter_all(score.GraceNote))
         self.assertTrue(len(part.note_array()) == 7)
         self.assertTrue(len(grace_notes) == 4)
-        self.assertTrue(grace_notes[0].grace_type == "acciaccatura")
-        self.assertTrue(grace_notes[1].grace_type == "appoggiatura")
 
     def test_clef(self):
         m21_score = m21.converter.parse(M21_TESTFILES[0])

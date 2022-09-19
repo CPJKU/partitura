@@ -80,7 +80,7 @@ class M21Parser:
                         step=pitch.step,
                         octave=pitch.octave,
                         alter=pitch.accidental.alter if pitch.accidental is not None else None,
-                        id=generic_note.id + "_{}".format(i_pitch),
+                        id= "{}_{}".format(generic_note.id,i_pitch),
                         voice=self.find_voice(generic_note),
                         staff=part_idx + 1,
                         symbolic_duration=generic_note.duration.type,
