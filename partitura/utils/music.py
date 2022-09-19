@@ -608,7 +608,7 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3):
+def estimate_symbolic_duration(dur, div, eps=10 ** -3):
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
@@ -1562,9 +1562,11 @@ def note_array_from_part_list(
     from partitura.score import Part, PartGroup
     from partitura.performance import PerformedPart
 
+    is_score = False
     note_array = []
     for i, part in enumerate(part_list):
         if isinstance(part, (Part, PartGroup)):
+            is_score = True
             if isinstance(part, Part):
                 na = note_array_from_part(
                     part=part,
@@ -1589,21 +1591,22 @@ def note_array_from_part_list(
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array()
-        if unique_id_per_part:
+        if unique_id_per_part and len(part_list) > 1:
             # Update id with part number
             na["id"] = np.array(
                 ["P{0:02d}_".format(i) + nid for nid in na["id"]], dtype=na["id"].dtype
             )
         note_array.append(na)
 
-    # rescale if parts have different divs
-    divs_per_parts = [part[0]["divs_pq"] for part in note_array]
-    lcm = np.lcm.reduce(divs_per_parts)
-    time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
-    for na, time_mult in zip(note_array, time_multiplier_per_part):
-        na["onset_div"] = na["onset_div"] * time_mult
-        na["duration_div"] = na["duration_div"] * time_mult
-        na["divs_pq"] = na["divs_pq"] * time_mult
+    if is_score:
+        # rescale if parts have different divs
+        divs_per_parts = [part[0]["divs_pq"] for part in note_array]
+        lcm = np.lcm.reduce(divs_per_parts)
+        time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
+        for na, time_mult in zip(note_array, time_multiplier_per_part):
+            na["onset_div"] = na["onset_div"] * time_mult
+            na["duration_div"] = na["duration_div"] * time_mult
+            na["divs_pq"] = na["divs_pq"] * time_mult
 
     # concatenate note_arrays
     note_array = np.hstack(note_array)
@@ -2664,7 +2667,8 @@ def get_time_maps_from_alignment(
 
     else:
         score_unique_onset_idxs = np.array(
-            [np.where(score_onsets == u)[0] for u in score_unique_onsets], dtype=object
+            [np.where(score_onsets == u)[0] for u in score_unique_onsets],
+            dtype=object,
         )
 
     # For chords, we use the average performed onset as a proxy for
