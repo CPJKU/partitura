@@ -45,7 +45,7 @@ def midi_to_notearray(fn):
         Structured array with onset, duration, pitch, velocity, and
         ID fields.
     """
-    ppart = load_performance_midi(fn, merge_tracks=True)
+    ppart = load_performance_midi(fn, merge_tracks=True)[0]
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
     ppart.sustain_pedal_threshold = 128
     return ppart.note_array()
@@ -77,8 +77,8 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
     Returns
     -------
-    :class:`partitura.performance.PerformedPart`
-        A PerformedPart instance.
+    :class:`partitura.performance.Performance`
+        A Performance instance.
 
 
     """
@@ -195,8 +195,9 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         # add note id to every note
         for i, note in enumerate(notes):
             note["id"] = f"n{i}"
-
-    return performance.PerformedPart(notes, controls=controls, programs=programs)
+    
+    pp = performance.PerformedPart(notes, controls=controls, programs=programs)
+    return performance.Performance(fn, pp)
 
 
 def load_score_midi(
