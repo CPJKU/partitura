@@ -11,7 +11,8 @@ from tempfile import TemporaryFile
 from tests import ( MUSICXML_IMPORT_EXPORT_TESTFILES, 
                 MUSICXML_UNFOLD_TESTPAIRS,
                 MUSICXML_UNFOLD_COMPLEX,
-                MUSICXML_UNFOLD_VOLTA)
+                MUSICXML_UNFOLD_VOLTA,
+                MUSICXML_UNFOLD_DACAPO)
 
 from partitura import load_musicxml, save_musicxml
 from partitura.directions import parse_direction
@@ -117,6 +118,24 @@ class TestMusicXML(unittest.TestCase):
             
     def test_unfold_volta(self):
         for fn, fn_target in MUSICXML_UNFOLD_VOLTA:
+            part = load_musicxml(fn, validate=False)
+            part = score.unfold_part_maximal(part)
+            # Load Target
+            with open(fn_target) as f:
+                target = f.read()
+            # Transform part to musicxml
+            result = save_musicxml(part).decode("UTF-8")
+
+            equal = target == result
+            if not equal:
+                show_diff(result, target)
+            msg = "Unfolding volta part of MusicXML file {} does not yield expected result".format(
+                fn
+            )
+            self.assertTrue(equal, msg)
+            
+    def test_unfold_dacapo(self):
+        for fn, fn_target in MUSICXML_UNFOLD_DACAPO:
             part = load_musicxml(fn, validate=False)
             part = score.unfold_part_maximal(part)
             # Load Target
