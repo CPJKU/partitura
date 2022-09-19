@@ -154,7 +154,7 @@ def estimate_voices(note_info, monophonic_voices=True):
     rvoices = rename_voices(voices)
 
     # reverse voice numbers so that the high voices have the low numbers, like in musicxml
-    rrvoices = max(rvoices) - rvoices +1  
+    rrvoices = max(rvoices) - rvoices + 1
 
     return rrvoices
 

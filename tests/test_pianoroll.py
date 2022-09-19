@@ -308,8 +308,14 @@ class TestPianorollFromScores(unittest.TestCase):
         # get the maximum length of all parts to avoid shorter pianorolls
         end_time = max([part.beat_map([part._points[-1].t]) for part in parts])
         # define the parameters of the compute_pianoroll function
-        get_pianoroll = partial(partitura.utils.compute_pianoroll, time_unit = "beat", time_div = 12, piano_range = True, remove_silence = False, end_time = end_time)
+        get_pianoroll = partial(
+            partitura.utils.compute_pianoroll,
+            time_unit="beat",
+            time_div=12,
+            piano_range=True,
+            remove_silence=False,
+            end_time=end_time,
+        )
         # compute pianorolls for all separated voices
-        prs = [get_pianoroll(part) for part in parts] 
+        prs = [get_pianoroll(part) for part in parts]
         self.assertTrue(pr.shape == prs[0].shape for pr in prs)
-

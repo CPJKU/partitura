@@ -15,8 +15,6 @@ import warnings
 import numpy as np
 
 
-
-
 def load_mei(mei_path: str) -> list:
     """
     Loads a Mei score from path and returns a list of Partitura.Part
@@ -338,7 +336,7 @@ class MeiParser:
             symbolic_duration = self._get_symbolic_duration(el)
             intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
             # double the value if we have dots, to be sure be able to encode that with integers in partitura
-            durs.append(intsymdur * (2 ** dots))
+            durs.append(intsymdur * (2**dots))
 
         # add 4 to be sure to not go under 1 ppq
         durs.append(4)
@@ -437,7 +435,7 @@ class MeiParser:
     # functions to parse the content of parts
 
     def _note_el_to_accid_int(self, note_el) -> int:
-        """Accidental strings to integer pitch. 
+        """Accidental strings to integer pitch.
         It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)"""
         if note_el.get("accid") is not None:
             return SIGN_TO_ALTER[note_el.get("accid")]
@@ -832,7 +830,7 @@ class MeiParser:
         return max(end_positions)
 
     def _find_dir_positions(self, dir_el, bar_position):
-        """Compute the position for a <dir> element. 
+        """Compute the position for a <dir> element.
         Returns an array, one position for each part."""
         delta_position_beat = float(dir_el.get("tstamp"))
         return [
@@ -1023,4 +1021,3 @@ class MeiParser:
         for bl in self.barlines:
             for part in score.iter_parts(self.parts):
                 part.add(score.Barline(bl["type"]), bl["pos"])
-

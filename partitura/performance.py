@@ -227,8 +227,6 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
         note["sound_off"] = offset
 
 
-  
-
 class Performance(object):
     """Main object for representing a performance.
 
@@ -271,17 +269,17 @@ class Performance(object):
     """
 
     def __init__(
-            self,
-            id: str,
-            performedparts: PerformedPart,
-            performer: Optional[str] = None,
-            title: Optional[str] = None,
-            subtitle: Optional[str] = None,
-            composer: Optional[str] = None,
-            lyricist: Optional[str] = None,
-            copyright: Optional[str] = None,
+        self,
+        id: str,
+        performedparts: PerformedPart,
+        performer: Optional[str] = None,
+        title: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        composer: Optional[str] = None,
+        lyricist: Optional[str] = None,
+        copyright: Optional[str] = None,
     ) -> None:
-        self.id = id   
+        self.id = id
         self.performedparts = [performedparts]
         # Metadata
         self.performer = performer
@@ -290,8 +288,6 @@ class Performance(object):
         self.composer = composer
         self.lyricist = lyricist
         self.copyright = copyright
-
-       
 
     def __getitem__(self, index: int) -> PerformedPart:
         """Get `Part in the score by index"""
@@ -319,13 +315,9 @@ class Performance(object):
         """
         return len(self.performedparts)
 
-    def note_array(
-            self
-    ) -> np.ndarray:
+    def note_array(self) -> np.ndarray:
         """
         Get a note array that concatenates the note arrays of all Part/PartGroup
         objects in the score.
         """
-        return note_array_from_part_list(
-            part_list=self.performedparts
-        )
+        return note_array_from_part_list(part_list=self.performedparts)

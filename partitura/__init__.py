@@ -53,5 +53,5 @@ __all__ = [
     "EXAMPLE_MUSICXML",
     "EXAMPLE_MIDI",
     "EXAMPLE_MEI",
-    "EXAMPLE_KERN"
+    "EXAMPLE_KERN",
 ]

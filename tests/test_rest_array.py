@@ -30,9 +30,13 @@ class TestNoteArray(unittest.TestCase):
     def test_rest_array(self):
         sc = load_musicxml(REST_ARRAY_TESTFILES[0])
         sc[0].use_musical_beat()
-        rest_array = sc[0].rest_array(include_metrical_position=True, include_staff=True)
+        rest_array = sc[0].rest_array(
+            include_metrical_position=True, include_staff=True
+        )
         expected_musical_beats = [14, 18]
-        self.assertTrue(np.array_equal(rest_array["onset_beat"], expected_musical_beats))
+        self.assertTrue(
+            np.array_equal(rest_array["onset_beat"], expected_musical_beats)
+        )
 
     def test_rest_collapse(self):
         sc = load_musicxml(REST_ARRAY_TESTFILES[1])

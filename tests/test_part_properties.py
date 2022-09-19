@@ -13,11 +13,11 @@ class TestingPartProperties(unittest.TestCase):
         part.add(score.Note(id="n0", step="A", octave=4), start=0, end=10)
         part.add(score.Rest(id="r0"), start=10, end=20)
         part.add(score.Note(id="n1", step="A", octave=4), start=20, end=70)
-        part.add(score.ImpulsiveLoudnessDirection("sfz","sfz"), start=20, end=20)
-        part.add(score.ArticulationDirection("staccato","staccato"), start=0, end=0)
+        part.add(score.ImpulsiveLoudnessDirection("sfz", "sfz"), start=20, end=20)
+        part.add(score.ArticulationDirection("staccato", "staccato"), start=0, end=0)
         score.add_measures(part)
         score.tie_notes(part)
-        
+
         self.assertTrue(len(part.notes) == 3)
         self.assertTrue(len(part.notes_tied) == 2)
         self.assertTrue(len(part.measures) == 2)
@@ -29,5 +29,5 @@ class TestingPartProperties(unittest.TestCase):
         self.assertTrue(len(part.repeats) == 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

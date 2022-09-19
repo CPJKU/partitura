@@ -100,7 +100,7 @@ def save_performance_midi(
     for c in performed_part.controls:
         track = c.get("track", 0)
         ch = c.get("channel", 1)
-        t = int(np.round(10 ** 6 * ppq * c["time"] / mpq))
+        t = int(np.round(10**6 * ppq * c["time"] / mpq))
         track_events[track][t].append(
             Message("control_change", control=c["number"], value=c["value"], channel=ch)
         )
@@ -108,8 +108,8 @@ def save_performance_midi(
     for n in performed_part.notes:
         track = n.get("track", 0)
         ch = n.get("channel", 1)
-        t_on = int(np.round(10 ** 6 * ppq * n["note_on"] / mpq))
-        t_off = int(np.round(10 ** 6 * ppq * n["note_off"] / mpq))
+        t_on = int(np.round(10**6 * ppq * n["note_on"] / mpq))
+        t_off = int(np.round(10**6 * ppq * n["note_off"] / mpq))
         vel = n.get("velocity", default_velocity)
         track_events[track][t_on].append(
             Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
@@ -121,7 +121,7 @@ def save_performance_midi(
     for p in performed_part.programs:
         track = p.get("track", 0)
         ch = p.get("channel", 1)
-        t = int(np.round(10 ** 6 * ppq * p["time"] / mpq))
+        t = int(np.round(10**6 * ppq * p["time"] / mpq))
         track_events[track][t].append(
             Message("program_change", program=int(p["program"]), channel=ch)
         )

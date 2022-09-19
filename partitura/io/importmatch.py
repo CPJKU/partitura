@@ -20,7 +20,7 @@ from partitura.utils import (
     iter_current_next,
     partition,
     estimate_clef_properties,
-    note_array_from_note_list
+    note_array_from_note_list,
 )
 
 from partitura.performance import PerformedPart, Performance
@@ -319,11 +319,14 @@ class MatchInfo(MatchLine):
     def matchline(self):
         return self.out_pattern.format(Attribute=self.Attribute, Value=self.Value)
 
+
 class MatchScoreprop(MatchLine):
     # scoreprop(timeSignature,TimeSigValue,Measure:Beat,Offset,OnsetInBeats).
 
-    out_pattern = "scoreprop({Attribute},{Value},{Measure},{Beat},{Offset},{TimeInBeats})."
-    field_names = ["Attribute", "Value", "Measure", "Beat", "Offset","TimeInBeats"]
+    out_pattern = (
+        "scoreprop({Attribute},{Value},{Measure},{Beat},{Offset},{TimeInBeats})."
+    )
+    field_names = ["Attribute", "Value", "Measure", "Beat", "Offset", "TimeInBeats"]
     pattern = r"scoreprop\(([^,]+),([^,]+),([^,]+):([^,]+),([^,]+),([^,]+)\)\."
     re_obj = re.compile(pattern)
     field_interpreter = interpret_field
@@ -346,6 +349,7 @@ class MatchScoreprop(MatchLine):
             Offset=self.Offset,
             TimeInBeats=self.TimeInBeats,
         )
+
 
 class MatchMeta(MatchLine):
 
@@ -383,8 +387,10 @@ class MatchSnote(MatchLine):
         + "[{ScoreAttributesList}])"
     )
 
-    pattern = (r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),"
-               r"([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)")
+    pattern = (
+        r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),"
+        r"([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
+    )
     re_obj = re.compile(pattern)
 
     field_names = [
@@ -502,11 +508,12 @@ class MatchSnote(MatchLine):
             ScoreAttributesList=",".join(self.ScoreAttributesList),
         )
 
+
 class MatchNoteNew(MatchLine):
     """
     Class representing the performed note part of a match line
     """
-    
+
     # For forwards compatibility with Matchfile Version 1.0.0
     field_names_v100 = [
         "Number",
@@ -515,22 +522,12 @@ class MatchNoteNew(MatchLine):
         "Offset",
         "Velocity",
         "Channel",
-        "Track"
+        "Track",
     ]
     pattern_v100 = r"note\(([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
     re_obj_v100 = re.compile(pattern_v100)
-    
 
-    def __init__(
-        self,
-        Number,
-        Pitch,
-        Onset,
-        Offset,
-        Velocity,
-        Channel,
-        Track
-    ):
+    def __init__(self, Number, Pitch, Onset, Offset, Velocity, Channel, Track):
 
         self.Number = Number
         self.MidiPitch = Pitch
@@ -550,7 +547,7 @@ class MatchNoteNew(MatchLine):
             Offset=self.Offset,
             Velocity=self.Velocity,
             Channel=self.Channel,
-            Track=self.Track
+            Track=self.Track,
         )
 
     @property
@@ -564,7 +561,7 @@ class MatchNoteNew(MatchLine):
     def from_matchline(cls, matchline, pos=0):
         """Create a MatchNote from a line"""
         match_pattern = cls.re_obj_v100.search(matchline, pos)
-    
+
         if match_pattern is not None:
             groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
             kwargs = dict(zip(cls.field_names_v1, groups))
@@ -573,7 +570,7 @@ class MatchNoteNew(MatchLine):
         else:
             raise MatchError("Input matchline does not fit expected pattern")
 
-        
+
 class MatchNote(MatchLine):
     """
     Class representing the performed note part of a match line
@@ -612,8 +609,6 @@ class MatchNote(MatchLine):
     ]
     pattern_v1 = r"note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+)\)"
     re_obj_v1 = re.compile(pattern_v1)
-
-    
 
     def __init__(
         self,
@@ -742,6 +737,7 @@ class MatchSnoteNoteNew(MatchLine):
     TODO:
     * More readable __str__ method
     """
+
     # for version 100
     out_pattern = "{SnoteLine}-{NoteLineNew}."
     pattern_v100 = MatchSnote.pattern + "-" + MatchNoteNew.pattern_v100
@@ -751,7 +747,7 @@ class MatchSnoteNoteNew(MatchLine):
     def __init__(self, snote, note):
         self.snote = snote
         self.note = note
-        
+
     @property
     def matchline(self):
         return self.out_pattern.format(
@@ -769,7 +765,9 @@ class MatchSnoteNoteNew(MatchLine):
                 zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
             )
             note_kwargs = dict(
-                zip(MatchNoteNew.field_names_v100, groups[len(MatchSnote.field_names):])
+                zip(
+                    MatchNoteNew.field_names_v100, groups[len(MatchSnote.field_names) :]
+                )
             )
 
             snote = MatchSnote(**snote_kwargs)
@@ -784,6 +782,7 @@ class MatchSnoteNoteNew(MatchLine):
         # TODO:
         # Nicer print?
         return str(self.snote) + "\n" + str(self.note)
+
 
 class MatchSnoteNote(MatchLine):
     """
@@ -829,7 +828,6 @@ class MatchSnoteNote(MatchLine):
         if match_pattern is None:
             match_pattern = cls.re_obj_v1.search(matchline, pos)
 
-
             if match_pattern is not None:
                 groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
 
@@ -837,7 +835,7 @@ class MatchSnoteNote(MatchLine):
                     zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
                 )
                 note_kwargs = dict(
-                    zip(MatchNote.field_names_v1, groups[len(MatchSnote.field_names):])
+                    zip(MatchNote.field_names_v1, groups[len(MatchSnote.field_names) :])
                 )
                 note_kwargs["version"] = 1.0
                 note_kwargs["AdjOffset"] = None
@@ -855,7 +853,7 @@ class MatchSnoteNote(MatchLine):
                 zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
             )
             note_kwargs = dict(
-                zip(MatchNote.field_names, groups[len(MatchSnote.field_names):])
+                zip(MatchNote.field_names, groups[len(MatchSnote.field_names) :])
             )
             snote = MatchSnote(**snote_kwargs)
             note = MatchNote(**note_kwargs)
@@ -1097,7 +1095,7 @@ def parse_matchline(line):
         MatchSoftPedal.from_matchline,
         MatchInfo.from_matchline,
         MatchMeta.from_matchline,
-        MatchScoreprop.from_matchline
+        MatchScoreprop.from_matchline,
     ]
     matchline = False
     for from_matchline in from_matchline_methods:
@@ -1407,19 +1405,16 @@ def load_match(
 
     # Generate PerformedPart
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
-        
-    performance = Performance(id=fn,performedparts= ppart)
+
+    performance = Performance(id=fn, performedparts=ppart)
     # Generate Part
     if create_part:
         if offset_duration_whole:
             spart = part_from_matchfile(mf, match_offset_duration_in_whole=True)
         else:
             spart = part_from_matchfile(mf, match_offset_duration_in_whole=False)
-            
-        scr = score.Score(
-            id=fn,
-            partlist=[spart]
-        )
+
+        scr = score.Score(id=fn, partlist=[spart])
     # Alignment
     alignment = alignment_from_matchfile(mf)
 
@@ -1428,16 +1423,17 @@ def load_match(
     else:
         return performance, alignment
 
+
 def alignment_from_matchfile(mf):
     result = []
-    
+
     for line in mf.lines:
         if isinstance(line, MatchSnoteNote):
             result.append(
                 dict(
                     label="match",
                     score_id=line.snote.Anchor,
-                    performance_id=line.note.Number
+                    performance_id=line.note.Number,
                 )
             )
         elif isinstance(line, MatchSnoteNoteNew):
@@ -1445,10 +1441,10 @@ def alignment_from_matchfile(mf):
                 dict(
                     label="match",
                     score_id=line.snote.Anchor,
-                    performance_id=line.note.Number
+                    performance_id=line.note.Number,
                 )
             )
-            
+
         elif isinstance(line, MatchSnoteDeletion):
             if "leftOutTied" in line.snote.ScoreAttributesList:
                 continue
@@ -1620,7 +1616,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
         )
 
         # check anacrusis measure beat counting type for the first note
-        if (bar_start < 0 and (bar_offset != 0 or beat_offset != 0) and ni == 0):
+        if bar_start < 0 and (bar_offset != 0 or beat_offset != 0) and ni == 0:
             # in case of fully counted anacrusis we set the bar_start
             # to -bar_duration (in quarters) so that the below calculation is correct
             # not active for shortened anacrusis measures
@@ -1634,8 +1630,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
         if not np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01):
             warnings.warn(
-                "Calculated `onset_divs` does not match `OnsetInBeats` "
-                "information!."
+                "Calculated `onset_divs` does not match `OnsetInBeats` " "information!."
             )
             onset_divs = onset_in_divs[ni]
         assert onset_divs >= 0
@@ -1851,8 +1846,7 @@ def add_staffs_v1(part):
 
     notes = part.notes_tied
     # estimate voices in strictly monophonic way
-    voices = estimate_voices(note_array_from_note_list(notes),
-                             monophonic_voices=True)
+    voices = estimate_voices(note_array_from_note_list(notes), monophonic_voices=True)
 
     # group notes by voice
     by_voice = partition(itemgetter(0), zip(voices, notes))
@@ -1968,7 +1962,7 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
 
     first_note = next(mf.iter_notes(), None)
     if first_note and first_note_at_zero:
-        offset = first_note.Onset * mpq / (10 ** 6 * ppq)
+        offset = first_note.Onset * mpq / (10**6 * ppq)
     else:
         offset = 0
 
@@ -1980,9 +1974,9 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
             dict(
                 id=note.Number,
                 midi_pitch=note.MidiPitch,
-                note_on=note.Onset * mpq / (10 ** 6 * ppq) - offset,
-                note_off=note.Offset * mpq / (10 ** 6 * ppq) - offset,
-                sound_off=sound_off * mpq / (10 ** 6 * ppq) - offset,
+                note_on=note.Onset * mpq / (10**6 * ppq) - offset,
+                note_off=note.Offset * mpq / (10**6 * ppq) - offset,
+                sound_off=sound_off * mpq / (10**6 * ppq) - offset,
                 velocity=note.Velocity,
             )
         )
@@ -1993,7 +1987,7 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
         sustain_pedal.append(
             dict(
                 number=64,  # type='sustain_pedal',
-                time=ped.Time * mpq / (10 ** 6 * ppq),
+                time=ped.Time * mpq / (10**6 * ppq),
                 value=ped.Value,
             )
         )

@@ -14,16 +14,18 @@ import os
 import sys
 import pkg_resources
 
-sys.path.insert(0, os.path.abspath('../partitura'))
+sys.path.insert(0, os.path.abspath("../partitura"))
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # -- Project information -----------------------------------------------------
 
-project = 'partitura'
+project = "partitura"
 # copyright = '2019, Maarten Grachten'
-author = 'Maarten Grachten, Carlos Eduardo Cancino Chacón, Silvan Peter, Thassilo Gadermaier'
+author = (
+    "Maarten Grachten, Carlos Eduardo Cancino Chacón, Silvan Peter, Thassilo Gadermaier"
+)
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -50,41 +52,41 @@ language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ["_build"]
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.doctest',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.doctest",
+    "sphinx.ext.todo",
+    "sphinx.ext.coverage",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
     # 'sphinxcontrib.napoleon',
-    'sphinx.ext.napoleon',
+    "sphinx.ext.napoleon",
 ]
 
 # see http://stackoverflow.com/q/12206334/562769
 numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -93,9 +95,10 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # a list of builtin themes.
 #
 # only import and set the theme if we're building docs locally
-if os.environ.get('READTHEDOCS') != 'True':
+if os.environ.get("READTHEDOCS") != "True":
     import sphinx_rtd_theme
-    html_theme = 'sphinx_rtd_theme'
+
+    html_theme = "sphinx_rtd_theme"
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -104,4 +107,4 @@ if os.environ.get('READTHEDOCS') != 'True':
 # html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'partituradoc'
+htmlhelp_basename = "partituradoc"

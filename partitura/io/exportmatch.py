@@ -27,9 +27,8 @@ from partitura.utils.music import midi_pitch_to_pitch_spelling, MAJOR_KEYS, MINO
 __all__ = ["save_match"]
 
 
-
 def seconds_to_midi_ticks(t, mpq=500000, ppq=480):
-    return int(np.round(10 ** 6 * ppq * t / mpq))
+    return int(np.round(10**6 * ppq * t / mpq))
 
 
 def _fifths_mode_to_match_key_name(fifths, mode):

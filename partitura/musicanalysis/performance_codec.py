@@ -8,7 +8,9 @@ from scipy.interpolate import interp1d
 __all__ = ["encode_performance", "decode_performance"]
 
 
-def encode_performance(part: Part, ppart: PerformedPart, alignment : list, return_u_onset_idx=False):
+def encode_performance(
+    part: Part, ppart: PerformedPart, alignment: list, return_u_onset_idx=False
+):
     """
     Encode expressive parameters from a matched performance
 
@@ -38,16 +40,16 @@ def encode_performance(part: Part, ppart: PerformedPart, alignment : list, retur
     m_score, snote_ids = to_matched_score(part, ppart, alignment)
 
     # Get time-related parameters
-    (time_params,
-     unique_onset_idxs) = encode_tempo(
-        score_onsets=m_score['onset'],
-        performed_onsets=m_score['p_onset'],
-        score_durations=m_score['duration'],
-        performed_durations=m_score['p_duration'],
-        return_u_onset_idx=True)
+    (time_params, unique_onset_idxs) = encode_tempo(
+        score_onsets=m_score["onset"],
+        performed_onsets=m_score["p_onset"],
+        score_durations=m_score["duration"],
+        performed_durations=m_score["p_duration"],
+        return_u_onset_idx=True,
+    )
 
     # Get dynamics-related parameters
-    dynamics_params = np.array(m_score['velocity'] / 127.0, dtype=[('velocity', 'f4')])
+    dynamics_params = np.array(m_score["velocity"] / 127.0, dtype=[("velocity", "f4")])
 
     # Fixing random error
     parameters = time_params
@@ -59,12 +61,16 @@ def encode_performance(part: Part, ppart: PerformedPart, alignment : list, retur
         return parameters, snote_ids
 
 
-def decode_performance(part : Part, performance_array : np.ndarray,
-                       snote_ids=None,
-                       part_id=None,
-                       part_name=None,
-                       return_alignment=False,
-                       *args, **kwargs) -> PerformedPart:
+def decode_performance(
+    part: Part,
+    performance_array: np.ndarray,
+    snote_ids=None,
+    part_id=None,
+    part_name=None,
+    return_alignment=False,
+    *args,
+    **kwargs
+) -> PerformedPart:
     """
     Given a Part (score) and a performance array return a PerformedPart.
 
@@ -95,50 +101,66 @@ def decode_performance(part : Part, performance_array : np.ndarray,
 
     # sort
     snote_dict = dict((n.id, n) for n in snotes)
-    snote_info = np.array([(snote_dict[i].midi_pitch, snote_dict[i].start.t,
-                            snote_dict[i].start.t + snote_dict[i].duration_tied)
-                           for i in snote_ids],
-                          dtype=[('pitch', 'i4'), ('onset', 'f4'), ('offset', 'f4')])
-    sort_idx = np.lexsort((snote_info['pitch'], snote_info['onset']))
+    snote_info = np.array(
+        [
+            (
+                snote_dict[i].midi_pitch,
+                snote_dict[i].start.t,
+                snote_dict[i].start.t + snote_dict[i].duration_tied,
+            )
+            for i in snote_ids
+        ],
+        dtype=[("pitch", "i4"), ("onset", "f4"), ("offset", "f4")],
+    )
+    sort_idx = np.lexsort((snote_info["pitch"], snote_info["onset"]))
 
     bm = part.beat_map
-    onsets = bm(snote_info['onset'])[sort_idx]
-    durations = (bm(snote_info['offset']) - bm(snote_info['onset']))[sort_idx]
-    pitches = snote_info['pitch'][sort_idx]
+    onsets = bm(snote_info["onset"])[sort_idx]
+    durations = (bm(snote_info["offset"]) - bm(snote_info["onset"]))[sort_idx]
+    pitches = snote_info["pitch"][sort_idx]
 
     pitches = np.clip(pitches, 1, 127)
 
     dynamics_params = performance_array["velocity"][sort_idx]
-    time_params = performance_array[list(("beat_period", 'timing', 'articulation_log'))][sort_idx]
+    time_params = performance_array[
+        list(("beat_period", "timing", "articulation_log"))
+    ][sort_idx]
 
     onsets_durations = decode_time(
         score_onsets=onsets,
         score_durations=durations,
-        parameters=time_params, *args, **kwargs)
+        parameters=time_params,
+        *args,
+        **kwargs
+    )
 
-    velocities = np.round(dynamics_params*127.0)
+    velocities = np.round(dynamics_params * 127.0)
 
     velocities = np.clip(velocities, 1, 127)
 
     notes = []
-    for nid, (onset, duration), velocity, pitch in zip(snote_ids, onsets_durations, velocities, pitches):
-        notes.append(dict(id=nid,
-                          midi_pitch=int(pitch),
-                          note_on=onset,
-                          note_off=onset + duration,
-                          sound_off=onset + duration,
-                          velocity=int(velocity)))
+    for nid, (onset, duration), velocity, pitch in zip(
+        snote_ids, onsets_durations, velocities, pitches
+    ):
+        notes.append(
+            dict(
+                id=nid,
+                midi_pitch=int(pitch),
+                note_on=onset,
+                note_off=onset + duration,
+                sound_off=onset + duration,
+                velocity=int(velocity),
+            )
+        )
     # * rescale according to default values?
-    ppart = PerformedPart(id=part_id,
-                          part_name=part_name,
-                          notes=notes)
+    ppart = PerformedPart(id=part_id, part_name=part_name, notes=notes)
 
     if return_alignment:
         alignment = []
         for snote, pnote in zip(part.notes_tied, ppart.notes):
-            alignment.append(dict(label='match',
-                                  score_id=snote.id,
-                                  performance_id=pnote['id']))
+            alignment.append(
+                dict(label="match", score_id=snote.id, performance_id=pnote["id"])
+            )
 
         return ppart, alignment
     else:
@@ -146,8 +168,7 @@ def decode_performance(part : Part, performance_array : np.ndarray,
         return ppart
 
 
-def decode_time(score_onsets, score_durations,
-               parameters, *args, **kwargs):
+def decode_time(score_onsets, score_durations, parameters, *args, **kwargs):
     """
     Decode a performance into onsets and durations in seconds
     for each note in the score.
@@ -155,17 +176,19 @@ def decode_time(score_onsets, score_durations,
     score_onsets = score_onsets.astype(float, copy=False)
     score_durations = score_durations.astype(float, copy=False)
 
-    score_info = get_unique_seq(onsets=score_onsets,
-                                offsets=score_onsets + score_durations,
-                                unique_onset_idxs=None,
-                                return_diff=True)
-    unique_onset_idxs = score_info['unique_onset_idxs']
-    diff_u_onset_score = score_info['diff_u_onset']
+    score_info = get_unique_seq(
+        onsets=score_onsets,
+        offsets=score_onsets + score_durations,
+        unique_onset_idxs=None,
+        return_diff=True,
+    )
+    unique_onset_idxs = score_info["unique_onset_idxs"]
+    diff_u_onset_score = score_info["diff_u_onset"]
 
     time_param = np.array(
-        [tuple([np.mean(parameters["beat_period"][uix])])
-         for uix in unique_onset_idxs],
-        dtype=[("beat_period", 'f4')])
+        [tuple([np.mean(parameters["beat_period"][uix])]) for uix in unique_onset_idxs],
+        dtype=[("beat_period", "f4")],
+    )
 
     beat_period = time_param["beat_period"]
 
@@ -177,38 +200,41 @@ def decode_time(score_onsets, score_durations,
 
     for i, jj in enumerate(unique_onset_idxs):
         # decode onset
-        performance[jj, 0] = eq_onset[i] - parameters['timing'][jj]
+        performance[jj, 0] = eq_onset[i] - parameters["timing"][jj]
         # decode duration
         performance[jj, 1] = decode_articulation(
             score_durations=score_durations[jj],
-            articulation_parameter=parameters['articulation_log'][jj],
-            beat_period=beat_period[i])
+            articulation_parameter=parameters["articulation_log"][jj],
+            beat_period=beat_period[i],
+        )
 
     performance[:, 0] -= np.min(performance[:, 0])
 
     return performance
 
 
-def decode_articulation(score_durations, articulation_parameter,
-                        beat_period):
+def decode_articulation(score_durations, articulation_parameter, beat_period):
     """
     Decode articulation
     """
-    art_ratio = (2 ** articulation_parameter)
+    art_ratio = 2**articulation_parameter
     dur = art_ratio * score_durations * beat_period
 
     return dur
 
 
-def encode_tempo(score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
-                 score_durations, performed_durations,
-                 return_u_onset_idx : bool = False) -> numpy.ndarray:
+def encode_tempo(
+    score_onsets: numpy.ndarray,
+    performed_onsets: numpy.ndarray,
+    score_durations,
+    performed_durations,
+    return_u_onset_idx: bool = False,
+) -> numpy.ndarray:
     """
     Compute time-related performance parameters from a performance
     """
     if score_onsets.shape != performed_onsets.shape:
-        raise ValueError('The performance and the score should be of '
-                         'the same size')
+        raise ValueError("The performance and the score should be of " "the same size")
 
     # use float64, float32 led to problems that x == x + eps evaluated to True
     # Maybe replace by np.isclose
@@ -225,11 +251,14 @@ def encode_tempo(score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
         performed_onsets=performance[:, 0],
         score_durations=score[:, 1],
         performed_durations=performance[:, 1],
-        return_onset_idxs=True)
+        return_onset_idxs=True,
+    )
 
     # Compute equivalent onsets
-    eq_onsets = (np.cumsum(np.r_[0, beat_period[:-1] * np.diff(s_onsets)]) +
-                 performance[unique_onset_idxs[0], 0].mean())
+    eq_onsets = (
+        np.cumsum(np.r_[0, beat_period[:-1] * np.diff(s_onsets)])
+        + performance[unique_onset_idxs[0], 0].mean()
+    )
 
     # Compute tempo parameter
     # TODO fix normalization
@@ -240,17 +269,17 @@ def encode_tempo(score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
         score_durations=score[:, 1],
         performed_durations=performance[:, 1],
         unique_onset_idxs=unique_onset_idxs,
-        beat_period=beat_period)
+        beat_period=beat_period,
+    )
 
     # Initialize array of parameters
-    parameter_names = ['beat_period', 'velocity', 'timing', 'articulation_log']
-    parameters = np.zeros(len(score),
-                          dtype=[(pn, 'f4') for pn in parameter_names])
-    parameters['articulation_log'] = articulation_param
+    parameter_names = ["beat_period", "velocity", "timing", "articulation_log"]
+    parameters = np.zeros(len(score), dtype=[(pn, "f4") for pn in parameter_names])
+    parameters["articulation_log"] = articulation_param
     for i, jj in enumerate(unique_onset_idxs):
         parameters["beat_period"][jj] = tempo_params[0][i]
         # Defined as in Eq. (3.9) in Thesis (pp. 34)
-        parameters['timing'][jj] = eq_onsets[i] - performance[jj, 0]
+        parameters["timing"][jj] = eq_onsets[i] - performance[jj, 0]
 
     if return_u_onset_idx:
         return parameters, unique_onset_idxs
@@ -258,11 +287,15 @@ def encode_tempo(score_onsets : numpy.ndarray, performed_onsets : numpy.ndarray,
         return parameters
 
 
-def tempo_by_average(score_onsets, performed_onsets,
-                     score_durations, performed_durations,
-                     unique_onset_idxs=None,
-                     input_onsets=None,
-                     return_onset_idxs=False):
+def tempo_by_average(
+    score_onsets,
+    performed_onsets,
+    score_durations,
+    performed_durations,
+    unique_onset_idxs=None,
+    input_onsets=None,
+    return_onset_idxs=False,
+):
     """
     Computes a tempo curve using the average of the onset times of all
     notes belonging to the same score onset.
@@ -312,31 +345,40 @@ def tempo_by_average(score_onsets, performed_onsets,
         unique_onset_idxs = get_unique_onset_idxs((1e4 * score_onsets).astype(int))
 
     # Get score information
-    score_info = get_unique_seq(onsets=score_onsets,
-                                offsets=score_onsets + score_durations,
-                                unique_onset_idxs=unique_onset_idxs)
+    score_info = get_unique_seq(
+        onsets=score_onsets,
+        offsets=score_onsets + score_durations,
+        unique_onset_idxs=unique_onset_idxs,
+    )
     # Get performance information
-    perf_info = get_unique_seq(onsets=performed_onsets,
-                               offsets=performed_onsets + performed_durations,
-                               unique_onset_idxs=unique_onset_idxs)
+    perf_info = get_unique_seq(
+        onsets=performed_onsets,
+        offsets=performed_onsets + performed_durations,
+        unique_onset_idxs=unique_onset_idxs,
+    )
 
     # unique score onsets
-    unique_s_onsets = score_info['u_onset']
+    unique_s_onsets = score_info["u_onset"]
     # equivalent onsets
-    eq_onsets = perf_info['u_onset']
+    eq_onsets = perf_info["u_onset"]
 
     # Monotonize times
-    eq_onset_mt, unique_s_onsets_mt = monotonize_times(eq_onsets,
-                                                       deltas=unique_s_onsets)
+    eq_onset_mt, unique_s_onsets_mt = monotonize_times(
+        eq_onsets, deltas=unique_s_onsets
+    )
 
     # Estimate Beat Period
     perf_iois = np.diff(eq_onset_mt)
     s_iois = np.diff(unique_s_onsets_mt)
     beat_period = perf_iois / s_iois
 
-    tempo_fun = interp1d(unique_s_onsets_mt[:-1], beat_period, kind='zero',
-                         bounds_error=False,
-                         fill_value=(beat_period[0], beat_period[-1]))
+    tempo_fun = interp1d(
+        unique_s_onsets_mt[:-1],
+        beat_period,
+        kind="zero",
+        bounds_error=False,
+        fill_value=(beat_period[0], beat_period[-1]),
+    )
 
     if input_onsets is None:
         input_onsets = unique_s_onsets[:-1]
@@ -371,16 +413,18 @@ def get_unique_seq(onsets, offsets, unique_onset_idxs=None, return_diff=False):
     u_onset = np.r_[u_onset, last_time]
 
     output_dict = dict(
-        u_onset=u_onset,
-        total_dur=total_dur,
-        unique_onset_idxs=unique_onset_idxs)
+        u_onset=u_onset, total_dur=total_dur, unique_onset_idxs=unique_onset_idxs
+    )
 
     if return_diff:
-        output_dict['diff_u_onset'] = np.diff(u_onset)
+        output_dict["diff_u_onset"] = np.diff(u_onset)
 
     return output_dict
 
-def get_unique_onset_idxs(onsets, eps:float=1e-6, return_unique_onsets:bool=False):
+
+def get_unique_onset_idxs(
+    onsets, eps: float = 1e-6, return_unique_onsets: bool = False
+):
     """
     Get unique onsets and their indices.
     Parameters
@@ -405,14 +449,13 @@ def get_unique_onset_idxs(onsets, eps:float=1e-6, return_unique_onsets:bool=Fals
     # (use a stable sorting algorithm for preserving the order
     # of elements with the same onset, which is useful e.g. if the
     # notes within a same onset are ordered by pitch)
-    sort_idx = np.argsort(onsets, kind='mergesort')
+    sort_idx = np.argsort(onsets, kind="mergesort")
     split_idx = np.where(np.diff(onsets[sort_idx]) > eps)[0] + 1
     unique_onset_idxs = np.split(sort_idx, split_idx)
 
     if return_unique_onsets:
         # Instead of np.unique(onsets)
-        unique_onsets = np.array([onsets[uix].mean()
-                                  for uix in unique_onset_idxs])
+        unique_onsets = np.array([onsets[uix].mean() for uix in unique_onset_idxs])
 
         return unique_onset_idxs, unique_onsets
     else:
@@ -422,20 +465,21 @@ def get_unique_onset_idxs(onsets, eps:float=1e-6, return_unique_onsets:bool=Fals
 def to_matched_score(part, ppart, alignment):
     # remove repetitions from aligment note ids
     for a in alignment:
-        if a['label'] == 'match':
+        if a["label"] == "match":
             # FOR MAGALOFF/ZEILINGER DO SPLIT:
             # a['score_id'] = str(a['score_id']).split('-')[0]
-            a['score_id'] = str(a['score_id'])
+            a["score_id"] = str(a["score_id"])
 
     part_by_id = dict((n.id, n) for n in part.notes_tied)
-    ppart_by_id = dict((n['id'], n) for n in ppart.notes)
+    ppart_by_id = dict((n["id"], n) for n in ppart.notes)
 
     # pair matched score and performance notes
 
-    note_pairs = [(part_by_id[a['score_id']],
-                   ppart_by_id[a['performance_id']])
-                  for a in alignment if (a['label'] == 'match' and
-                                         a['score_id'] in part_by_id)]
+    note_pairs = [
+        (part_by_id[a["score_id"]], ppart_by_id[a["performance_id"]])
+        for a in alignment
+        if (a["label"] == "match" and a["score_id"] in part_by_id)
+    ]
 
     ms = []
     # sort according to onset (primary) and pitch (secondary)
@@ -449,18 +493,25 @@ def to_matched_score(part, ppart, alignment):
         sn_on, sn_off = beat_map([sn.start.t, sn.start.t + sn.duration_tied])
         sn_dur = sn_off - sn_on
         # hack for notes with negative durations
-        n_dur = max(n['sound_off'] - n['note_on'], 60 / 200 * 0.25)
-        ms.append((sn_on, sn_dur, sn.midi_pitch, n['note_on'], n_dur, n['velocity']))
+        n_dur = max(n["sound_off"] - n["note_on"], 60 / 200 * 0.25)
+        ms.append((sn_on, sn_dur, sn.midi_pitch, n["note_on"], n_dur, n["velocity"]))
         snote_ids.append(sn.id)
 
-    fields = [('onset', 'f4'), ('duration', 'f4'), ('pitch', 'i4'),
-              ('p_onset', 'f4'), ('p_duration', 'f4'), ('velocity', 'i4')]
+    fields = [
+        ("onset", "f4"),
+        ("duration", "f4"),
+        ("pitch", "i4"),
+        ("p_onset", "f4"),
+        ("p_duration", "f4"),
+        ("velocity", "i4"),
+    ]
 
     return np.array(ms, dtype=fields), snote_ids
 
 
-def encode_articulation(score_durations, performed_durations,
-                        unique_onset_idxs, beat_period):
+def encode_articulation(
+    score_durations, performed_durations, unique_onset_idxs, beat_period
+):
     """
     Encode articulation
     """
@@ -510,6 +561,3 @@ def monotonize_times(s, deltas=None):
     idx = np.arange(_s.shape[0])
     s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
     return _s[mask], _deltas[mask]
-
-
-
