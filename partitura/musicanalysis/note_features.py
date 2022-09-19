@@ -74,7 +74,7 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List],
     total number of descriptors of all feature functions that occur in
     part.
 
-    Furthermore the function returns the names of the feature functions.
+    Furthermore, the function returns the names of the feature functions.
     A list of strings of size M. The names have the name of the
     function prepended to the name of the descriptor. For example if a
     function named `abc_feature` returns descriptors `a`, `b`, and `c`,
@@ -90,7 +90,9 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List],
         A list of feature functions. Elements of the list can be either
         the functions themselves or the names of a feature function as
         strings (or a mix), or the keywork "all". The feature functions specified by name are
-        looked up in the `featuremixer.featurefunctions` module.
+        looked up in the featurefunctions module.
+    add_idx : bool
+        Add note ids and return a structured array.
 
     Returns
     -------
@@ -416,7 +418,7 @@ def grace_feature(na, part):
     W = np.zeros((len(na), 3))
     W[:, 0] = na["is_grace"]
     grace_notes = na[np.nonzero(na["is_grace"])]
-    notes = {n.id:n for n in part.notes_tied} if not np.all(na["pitch"] == 0) else {n.id:n for n in part.rests}
+    notes = {n.id: n for n in part.notes_tied} if not np.all(na["pitch"] == 0) else {n.id:n for n in part.rests}
     indices = np.nonzero(na["is_grace"])[0]
     for i, index in enumerate(indices):
         grace = grace_notes[i]
@@ -661,8 +663,10 @@ def articulation_feature(na, part):
              'caesura', 'stress', 'unstress', 'soft-accent']
     feature_by_name = {}
     notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes = {n.id: n for n in notes}
     N = len(notes)
-    for i, n in enumerate(notes):
+    for i, idx in enumerate(na["id"]):
+        n = notes[idx]
         if n.articulations:
             for art in n.articulations:
                 if art in names:
@@ -697,9 +701,10 @@ def ornament_feature(na, part):
         "shake", "wavy-line", "mordent", "inverted-mordent",
         "schleifer", "tremolo", "haydn", "other-ornament"]
     feature_by_name = {}
-    notes = part.notes_tied
+    notes = {n.id: n for n in part.notes_tied}
     N = len(notes)
-    for i, n in enumerate(notes):
+    for i, idx in enumerate(na["id"]):
+        n = notes[idx]
         if n.ornaments:
             for art in n.ornaments:
                 if art in names:
@@ -723,7 +728,7 @@ def staff_feature(na, part):
 
     """
     names = [ "staff"]
-    notes = {n.id:n.staff for n in part.notes_tied}
+    notes = {n.id: n.staff for n in part.notes_tied}
     N = len(notes)
     W = np.empty((N, 1))
     for i, n in enumerate(na):
@@ -775,9 +780,9 @@ def metrical_feature(na, part):
     bm = part.beat_map
     feature_by_name = {}
     eps = 10 ** -6
-
-    for i, n in enumerate(notes):
-
+    notes = {(n.id if n.id != "None" else i): n for i, n in enumerate(notes)}
+    for i, idx in enumerate(na["id"]):
+        n = notes[idx] if idx != 'None' else part.notes_tied[i]
         beats, beat_type, mus_beats = ts_map(n.start.t).astype(int)
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 
@@ -793,11 +798,10 @@ def metrical_feature(na, part):
         else:
             name = 'metrical_{}_{}_weak'.format(beats, beat_type)
 
-        j, bf = feature_by_name.setdefault(name,
-                                         (len(feature_by_name), np.zeros(len(notes))))
+        j, bf = feature_by_name.setdefault(name, (len(feature_by_name), np.zeros(len(na))))
         bf[i] = 1
 
-    W = np.empty((len(notes), len(feature_by_name)))
+    W = np.empty((len(na), len(feature_by_name)))
     names = [None] * len(feature_by_name)
     for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
