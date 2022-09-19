@@ -6,6 +6,8 @@ import partitura.score
 import partitura.score as score
 import numpy as np
 
+__all__ = ["load_kern"]
+
 
 class KernGlobalPart(object):
     def __init__(self, doc_name, part_id, qdivs):
@@ -63,6 +65,9 @@ class KernGlobalPart(object):
 
 
 class KernParserPart(KernGlobalPart):
+    """
+    Class for parsing kern file syntax.
+    """
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = int(init_pos)

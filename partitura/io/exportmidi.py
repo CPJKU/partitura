@@ -250,7 +250,7 @@ def save_score_midi(
         elif anacrusis_behavior == "pad_bar":
             time_signatures = []
             for qm, part in zip(quarter_maps, score.iter_parts(parts)):
-                ts_beats, ts_beat_type = part.time_signature_map(0)
+                ts_beats, ts_beat_type, ts_mus_beats = part.time_signature_map(0)
                 time_signatures.append((ts_beats, ts_beat_type, qm(0)))
             # sort ts according to time
             time_signatures.sort(key=lambda x: x[2])

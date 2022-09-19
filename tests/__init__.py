@@ -139,6 +139,8 @@ KERN_TESFILES = [
         "fine_with_repeat.krn",
         "tuple_durations.krn",
         "voice_dublifications.krn",
+        "variable_length_pr_bug.krn",
+        "chor228.krn"
     ]
 ]
 

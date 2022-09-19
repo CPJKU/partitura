@@ -19,6 +19,7 @@ from partitura.utils.music import MUSICAL_BEATS
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d, PPoly
+from typing import Union, List, Optional, Iterator, Iterable as Itertype
 
 from partitura.utils import (
     ComparableMixin,
@@ -133,9 +134,7 @@ class Part(object):
         """
         tss = np.array(
             [
-                (ts.start.t, ts.beats, ts.beat_type)
-                if self._use_musical_beat is False
-                else (ts.start.t, ts.musical_beats, ts.beat_type)
+                (ts.start.t, ts.beats, ts.beat_type, ts.musical_beats)
                 for ts in self.iter_all(TimeSignature)
             ]
         )
@@ -319,8 +318,7 @@ class Part(object):
         """
         measure_map = self.measure_map
         ms = [measure_map(m.start.t)[0] for m in self.iter_all(Measure)]
-        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]
-        
+        me = [measure_map(m.start.t)[1] for m in self.iter_all(Measure)]        
 
         if len(ms) < 2:
             warnings.warn("No or single measures found, metrical position 0 everywhere")
@@ -347,6 +345,7 @@ class Part(object):
                             measure_inter_function(input).astype(int) )
 
             return int_interp1d
+
 
     def _time_interpolator(self, quarter=False, inv=False, musical_beat=False):
 
@@ -981,7 +980,8 @@ class Part(object):
                     include_time_signature=False,
                     include_metrical_position=False,
                     include_grace_notes=False,
-                    include_staff=False):
+                    include_staff=False,
+                    include_divs_per_quarter=False):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -1012,11 +1012,9 @@ class Part(object):
             If `True`,  includes grace note information, i.e. if a note is a
             grace note and the grace type "" for non grace notes).
             Default is False
-        feature_functions : list or str
-            A list of feature functions. Elements of the list can be either
-            the functions themselves or the names of a feature function as
-            strings (or a mix). The feature functions specified by name are
-            looked up in the `featuremixer.featurefunctions` module.
+        include_divs_per_quarter : bool (optional)
+            If `True`,  includes the number of divs per quarter note.
+            Default is False
 
         Returns:
         
@@ -1028,7 +1026,8 @@ class Part(object):
                     include_time_signature=include_time_signature,
                     include_metrical_position=include_metrical_position,
                     include_grace_notes=include_grace_notes,
-                    include_staff=include_staff)
+                    include_staff=include_staff,
+                    include_divs_per_quarter=include_divs_per_quarter)
 
     def rest_array(self,
                    include_pitch_spelling=False,
@@ -2791,6 +2790,145 @@ class PartGroup(object):
         return rest_array_from_part_list(self.children, *args, **kwargs)
 
 
+class Score(object):
+    """Main object for representing a score.
+
+    The `Score` object is basically an iterable that provides access to all
+    `Part` objects in a musical score.
+
+    Parameters
+    ----------
+    id : str
+        The identifier of the score. In order to be compatible with MusicXML
+        the identifier should not start with a number.
+    partlist : `Part`, `PartGroup` or list of `Part` or `PartGroup` instances.
+        List of  `Part` or `PartGroup` objects.
+    title: str, optional
+        Title of the score.
+    subtitle: str, optional
+        Subtitle of the score.
+    composer: str, optional
+        Composer of the score.
+    lyricist: str, optional
+        Lyricist of the score.
+    copyright: str, optional.
+        Copyright notice of the score.
+
+    Attributes
+    ----------
+    id : str
+        See parameters.
+    parts : list of `Part` objects
+        All `Part` objects.
+    part_structure: list of `Part` or `PartGrop`
+        List of all `Part` or `PartGroup` objects that specify the structure of
+        the score.
+     title: str
+        See parameters.
+    subtitle: str
+        See parameters.
+    composer: str
+        See parameters.
+    lyricist: str
+        See parameters.
+    copyright: str.
+        See parameters.
+    """
+
+    id: Optional[str]
+    title: Optional[str]
+    subtitle: Optional[str]
+    composer: Optional[str]
+    lyricist: Optional[str]
+    copyright: Optional[str]
+    parts: List[Part]
+    part_structure: List[Union[Part, PartGroup]]
+
+    def __init__(
+            self,
+            id: str,
+            partlist: Union[Part, PartGroup, Itertype[Union[Part, PartGroup]]],
+            title: Optional[str] = None,
+            subtitle: Optional[str] = None,
+            composer: Optional[str] = None,
+            lyricist: Optional[str] = None,
+            copyright: Optional[str] = None,
+    ) -> None:
+        self.id = id
+
+        # Score Information (default from MuseScore/MusicXML)
+        self.title = title
+        self.subtitle = subtitle
+        self.composer = composer
+        self.lyricist = lyricist
+        self.copyright = copyright
+
+        # Flat list of parts
+        self.parts = list(iter_parts(partlist))
+        # List of Parts and PartGroups
+
+        if isinstance(partlist, (Part, PartGroup)):
+            self.part_structure = [partlist]
+        elif isinstance(partlist, Iterable):
+            self.part_structure = list(partlist)
+        else:
+            raise ValueError(
+                "`partlist` should be a list, a `Part` or a `PartGrop` but is {type(partlist)}"
+            )
+
+    def __getitem__(self, index: int) -> Part:
+        """Get `Part in the score by index"""
+        return self.parts[index]
+
+    def __setitem__(self, index: int, part: Part) -> None:
+        """Set `Part` in the score by index"""
+        # TODO: How to update the score structure as well?
+        self.parts[index] = part
+
+    def __iter__(self) -> Iterator[Part]:
+        self.iter_idx = 0
+        return self
+
+    def __next__(self) -> Part:
+        if self.iter_idx == len(self.parts):
+            raise StopIteration
+        res = self[self.iter_idx]
+        self.iter_idx += 1
+        return res
+
+    def __len__(self) -> int:
+        """
+        The lenght of the score is the number of part objects in `self.parts`
+        """
+        return len(self.parts)
+
+    def note_array(
+            self,
+            unique_id_per_part=True,
+            include_pitch_spelling=False,
+            include_key_signature=False,
+            include_time_signature=False,
+            include_metrical_position=False,
+            include_grace_notes=False,
+            include_staff=False,
+            include_divs_per_quarter=False,
+    ) -> np.ndarray:
+        """
+        Get a note array that concatenates the note arrays of all Part/PartGroup
+        objects in the score.
+        """
+        return note_array_from_part_list(
+            part_list=self.parts,
+            unique_id_per_part=unique_id_per_part,
+            include_pitch_spelling=include_pitch_spelling,
+            include_key_signature=include_key_signature,
+            include_time_signature=include_time_signature,
+            include_grace_notes=include_grace_notes,
+            include_staff=include_staff,
+            include_divs_per_quarter=include_divs_per_quarter
+        )
+
+
 class ScoreVariant(object):
     # non-public
 
@@ -3056,7 +3194,7 @@ def iter_parts(partlist):
 
     Parameters
     ----------
-    partlist : list, Part, or PartGroup
+    partlist : Score, list, Part, or PartGroup
         A :class:`partitura.score.Part` object,
         :class:`partitura.score.PartGroup` or a list of these
 

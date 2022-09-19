@@ -18,7 +18,7 @@ import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
 
-__all__ = ["load_musicxml"]
+__all__ = ["load_musicxml", "musicxml_to_notearray"]
 
 _MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None
@@ -185,8 +185,8 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
 
     Returns
     -------
-    partlist : list
-        A list of either Part or PartGroup objects
+    scr: Score
+        A `Score` instance.
 
     """
     
@@ -228,13 +228,68 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
     if force_note_ids is True or force_note_ids == "keep":
         assign_note_ids(partlist, force_note_ids == "keep")
 
-    if not ensure_list and len(partlist) == 1:
-        return partlist[0]
-    else:
-        return partlist
+    composer = None
+    scid = None
+    title = None
+    subtitle = None
+    lyricist = None
+    copyright = None
 
+    # The work tag is preferred for the title of the score, otherwise
+    # this method will search in the credit tags
+    work_info_el = document.find("work")
 
+    if work_info_el is not None:
+        scid = get_value_from_tag(
+            e=work_info_el,
+            tag="work-title",
+            as_type=str,
+        )
 
+        title = scid
+
+    score_identification_el = document.find("identification")
+
+    # The identification tag has preference over credit
+    if score_identification_el is not None:
+
+        copyright = get_value_from_tag(score_identification_el, "rights", str)
+
+        for cel in score_identification_el.findall("creator"):
+            if get_value_from_attribute(cel, "type", str) == "composer":
+                composer = str(cel.text)
+            if get_value_from_attribute(cel, "type", str) == "lyricist":
+                lyricist = str(cel.text)
+
+    for cel in document.findall("credit"):
+
+        credit_type = get_value_from_tag(cel, "credit-type", str)
+        if credit_type == "title" and title is None:
+            title = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "subtitle" and subtitle is None:
+            subtitle = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "composer" and composer is None:
+            composer = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "lyricist" and lyricist is None:
+            lyricist = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "rights" and copyright is None:
+            copyright = get_value_from_tag(cel, "credit-words", str)
+
+    scr = score.Score(
+        id=scid,
+        partlist=partlist,
+        title=title,
+        subtitle=subtitle,
+        composer=composer,
+        lyricist=lyricist,
+        copyright=copyright,
+    )
+
+    return scr
 
 
 def _parse_parts(document, part_dict):

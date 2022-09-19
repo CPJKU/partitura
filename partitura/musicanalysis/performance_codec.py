@@ -5,10 +5,15 @@ from partitura.score import Part
 from partitura.performance import PerformedPart
 from scipy.interpolate import interp1d
 
+__all__ = ["encode_performance", "decode_performance"]
+
 
 def encode_performance(part: Part, ppart: PerformedPart, alignment : list, return_u_onset_idx=False):
     """
     Encode expressive parameters from a matched performance
+
+
+
     Parameters
     ----------
     part : partitura.Part
@@ -19,6 +24,15 @@ def encode_performance(part: Part, ppart: PerformedPart, alignment : list, retur
         The score--performance alignment, a list of dictionaries
     return_u_onset_idx : bool
         Return the indices of the unique score onsets
+
+    Returns
+    -------
+    parameters : structured array
+        A performance array with 4 fields: beat_period, velocity, timing, and rticulation_log.
+    snote_ids : dict
+        A dict of snote_ids corresponding to performance notes.
+    unique_onset_idxs : list (optional)
+        List of unique onset ids. Returned only when return_u_onset_idx is set to True.
     """
 
     m_score, snote_ids = to_matched_score(part, ppart, alignment)

@@ -8,6 +8,17 @@ import types
 from typing import List, Union, Tuple
 from partitura.utils import ensure_notearray, ensure_rest_array
 
+__all__ = [
+    "list_note_feats_functions",
+    "make_note_features",
+    "make_note_feats",
+    "full_note_array",
+    "compute_note_array",
+    "full_note_array",
+    "make_rest_feats",
+    "make_rest_features"]
+
+
 class InvalidNoteFeatureException(Exception):
     pass
 
@@ -27,9 +38,9 @@ def print_note_feats_functions():
 
 
 def list_note_feats_functions():
-    """Return a list of all featurefunction names defined in this module.
+    """Return a list of all feature function names defined in this module.
 
-    The featurefunction names listed here can be specified by name in
+    The feature function names listed here can be specified by name in
     the `make_feature` function. For example:
 
     >>> feature, names = make_note_feats(part, ['metrical_feature', 'articulation_feature'])
@@ -78,7 +89,7 @@ def make_note_features(part: Union[score.Part, score.PartGroup, List],
     feature_functions : list or str
         A list of feature functions. Elements of the list can be either
         the functions themselves or the names of a feature function as
-        strings (or a mix). The feature functions specified by name are
+        strings (or a mix), or the keywork "all". The feature functions specified by name are
         looked up in the `featuremixer.featurefunctions` module.
 
     Returns
@@ -163,7 +174,7 @@ def make_rest_features(part: Union[score.Part, score.PartGroup, List],
     feature_functions : list or str
         A list of feature functions. Elements of the list can be either
         the functions themselves or the names of a feature function as
-        strings (or a mix). The feature functions specified by name are
+        strings (or a mix), or the keywork "all". The feature functions specified by name are
         looked up in the `featuremixer.featurefunctions` module.
 
     Returns
@@ -744,7 +755,7 @@ def metrical_feature(na, part):
 
     for i, n in enumerate(notes):
 
-        beats, beat_type = ts_map(n.start.t).astype(int)
+        beats, beat_type, mus_beats = ts_map(n.start.t).astype(int)
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 
         if measure:
@@ -809,7 +820,7 @@ def time_signature_feature(na, part):
              ['time_signature_den_{0}'.format(b) for b in possible_beat_types])
 
     for i, n in enumerate(na):
-        beats, beat_type = ts_map(n["onset_div"]).astype(int)
+        beats, beat_type, mus_beats = ts_map(n["onset_div"]).astype(int)
 
         if beats in possible_beats:
             W_beats[i, beats - 1] = 1
