@@ -1,5 +1,5 @@
 """
-This file contains test functions for MEI export
+This file contains test functions for MEI import
 """
 
 import unittest

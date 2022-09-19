@@ -4,6 +4,7 @@ from .musescore import load_via_musescore
 from .importmatch import load_match
 from .importmei import load_mei
 from .importkern import load_kern
+from .importmusic21 import load_music21
 
 
 class NotSupportedFormatError(Exception):

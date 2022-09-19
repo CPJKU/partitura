@@ -45,36 +45,42 @@ class M21Parser:
         
     def fill_parts(self):
         # fill parts with the content of the score
-        for part_idx, m21_part, pt_part in enumerate(zip(self.m21_score.parts, self.parts)):
+        for part_idx, (m21_part, pt_part) in enumerate(zip(self.m21_score.parts, self.parts)):
             # fill notes
             self.fill_part_notes(m21_part,pt_part, part_idx)
             # fill rests
-            self.fill_part_rests(self, m21_part,pt_part, part_idx)
+            self.fill_part_rests(m21_part,pt_part, part_idx)
+            # fill key signatures
+            self.fill_part_ks(m21_part,pt_part, part_idx)
+            # fill time signatures
+            self.fill_part_ts(m21_part,pt_part, part_idx)
+            # fill with clefs
+            self.fill_part_clefs(m21_part,pt_part, part_idx)
 
     def fill_part_rests(self, m21_part,pt_part, part_idx):
-        for rest in m21_part.recurse().getElementsByClass(m21.note.Rest):
-            rest = pt.score.Rest(
-                id=rest.id,
-                voice=self.find_voice(rest),
+        for m21_rest in m21_part.recurse().getElementsByClass(m21.note.Rest):
+            pt_rest = pt.score.Rest(
+                id=m21_rest.id,
+                voice=self.find_voice(m21_rest),
                 staff=part_idx + 1,
-                symbolic_duration=rest.duration.type,
+                symbolic_duration=m21_rest.duration.type,
                 articulations=None,
             )
             # add rest to the part
-            position = int(rest.getOffsetInHierarchy(self.m21_score)*self.ppq)
-            duration = int(rest.duration.quarterLength*self.ppq)
-            pt_part.add(rest, position, position + duration)
+            position = int(m21_rest.getOffsetBySite(self.m21_score.recurse())*self.ppq)
+            duration = int(m21_rest.duration.quarterLength*self.ppq)
+            pt_part.add(pt_rest, position, position + duration)
 
     def fill_part_notes(self, m21_part,pt_part, part_idx):
         for generic_note in m21_part.recurse().notes:
-            for pitch in generic_note.pitches:
-                if generic_note.duration.is_grace:
+            for i_pitch, pitch in enumerate(generic_note.pitches):
+                if generic_note.duration.isGrace:
                     note = pt.score.GraceNote(
                         grace_type="acciaccatura" if generic_note.duration.slash else "appoggiatura",
                         step=pitch.step,
                         octave=pitch.octave,
                         alter=pitch.accidental.alter if pitch.accidental is not None else None,
-                        id=pitch.id,
+                        id=generic_note.id + "_{}".format(i_pitch),
                         voice=self.find_voice(generic_note),
                         staff=part_idx + 1,
                         symbolic_duration=generic_note.duration.type,
@@ -85,7 +91,7 @@ class M21Parser:
                         step= pitch.step,
                         octave= pitch.octave,
                         alter=pitch.accidental.alter if pitch.accidental is not None else None,
-                        id=pitch.id,
+                        id="{}_{}".format(generic_note.id,i_pitch),
                         voice= self.find_voice(generic_note),
                         staff= part_idx + 1,
                         symbolic_duration=generic_note.duration.type,
@@ -94,14 +100,29 @@ class M21Parser:
                 position = int(generic_note.getOffsetInHierarchy(self.m21_score)*self.ppq)
                 duration = int(generic_note.duration.quarterLength*self.ppq)
                 pt_part.add(note, position, position + duration)
+
+    def fill_part_ts(self, m21_part,pt_part, part_idx):
+        for ts in m21_part.recurse().getElementsByClass(m21.meter.TimeSignature):
+            new_time_signature = pt.score.TimeSignature(ts.numerator, ts.denominator)
+            position = int(ts.getOffsetInHierarchy(self.m21_score)*self.ppq)
+            pt_part.add(new_time_signature, position)
+
+    def fill_part_ks(self, m21_part,pt_part, part_idx):
+        for ks in m21_part.recurse().getElementsByClass(m21.key.KeySignature):
+            new_key_signature = pt.score.KeySignature(ks.sharps, None)
+            position = int(ks.getOffsetInHierarchy(self.m21_score)*self.ppq)
+            pt_part.add(new_key_signature, position)
+
+    def fill_part_clefs(self, m21_part,pt_part, part_idx):
+        for m21_clef in m21_part.recurse().getElementsByClass(m21.clef.Clef):
+            pt_clef = pt.score.Clef(int(part_idx) +1 , m21_clef.sign, int(m21_clef.line), m21_clef.octaveChange)
+            position = int(m21_clef.getOffsetInHierarchy(self.m21_score)*self.ppq)
+            pt_part.add(pt_clef, position)
+
                 
     def find_voice(self, m21_general_note):
         """Return the voice for an music21 general note"""
         return 1 if type(m21_general_note.activeSite) is m21.stream.Measure else m21_general_note.activeSite.id
-
-    def find_staff(self, m21_general_note):
-        """Return the staff for an music21 general note"""
-        return [e for e in m21_general_note.containerHierarchy() if type(e) is m21.score.Staff][0].
 
 
     def find_ppq(self):

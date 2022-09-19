@@ -18,6 +18,7 @@ from .io.importmatch import load_match
 from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
 from .io.exportparangonada import save_csv_for_parangonada
+from .io.importmusic21 import load_music21
 
 from .display import render
 from . import musicanalysis

@@ -13,6 +13,7 @@ MEI_PATH = os.path.join(DATA_PATH, "mei")
 KERN_PATH = os.path.join(DATA_PATH, "kern")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
+M21_PATH = DATA_PATH
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -143,3 +144,4 @@ KERN_TESFILES = [
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
 
+M21_TESTFILES = [os.path.join(DATA_PATH, "musicxml","test_clefs_tss.xml"), os.path.join(DATA_PATH, "musicxml","test_grace_note.xml")]
