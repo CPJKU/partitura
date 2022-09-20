@@ -7,7 +7,7 @@ Version 1.0.0 (Released on 2022-09-20)
 API changes:
 
 * Different `__call__` for `note_array` attribute (in `Score`, `Part`, `PerformedPart` and `PartGroup`).  `note_array` is now called as a method with brackets. One can specify additional fields for the note array such as key, pitch spelling, time signature, and others.
-* Every score is imported as a `score` object where each part can be accessed individually.
+* Every score is imported as a `Score` object where each part can be accessed individually.
 
 
 New features:
