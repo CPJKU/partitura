@@ -301,7 +301,8 @@ class TestPianorollFromScores(unittest.TestCase):
 
     def test_pianoroll_length(self):
         score = load_score(KERN_TESFILES[7], ensure_list=True)
-        parts = list(partitura.score.iter_parts(score))
+        parts = score.parts
+        # parts = list(partitura.score.iter_parts(score))
         # set musical beat if requested
         for part in parts:
             part.use_musical_beat()

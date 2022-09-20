@@ -48,6 +48,12 @@ from partitura.utils.music import (
     rest_array_from_part_list,
 )
 
+from .misc import (
+    PathLike,
+    get_document_name,
+    deprecated_alias
+)
+
 
 __all__ = [
     "ensure_notearray",

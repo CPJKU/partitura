@@ -7,34 +7,42 @@ from partitura.utils.music import (
     SIGN_TO_ALTER,
     estimate_symbolic_duration,
 )
+from partitura.utils import PathLike, get_document_name
 
 import re
-import logging
 import warnings
 
 import numpy as np
 
 
-def load_mei(mei_path: str) -> list:
+def load_mei(filename: PathLike) -> score.Score:
     """
     Loads a Mei score from path and returns a list of Partitura.Part
 
     Parameters
     ----------
-    mei_path : str
+    filename : PathLike
         The path to an MEI score.
 
     Returns
     -------
-    part_list : list
-        A list of Partitura Part or GroupPart Objects.
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
-    parser = MeiParser(mei_path)
+    parser = MeiParser(filename)
+    doc_name = get_document_name(filename)
     # create parts from the specifications in the mei
     parser.create_parts()
     # fill parts with the content from the mei
     parser.fill_parts()
-    return parser.parts
+
+    # TODO: Parse score info (composer, lyricist, etc.)
+    scr = score.Score(
+        id=doc_name,
+        partlist=parser.parts,
+    )
+
+    return scr
 
 
 class MeiParser:

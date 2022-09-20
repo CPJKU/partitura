@@ -3252,9 +3252,15 @@ def iter_parts(partlist):
     """
 
     if not isinstance(partlist, (list, tuple, set)):
-        partlist = [partlist]
+        _partlist = [partlist]
 
-    for el in partlist:
+    elif isinstance(partlist, Score):
+        _partlist = partlist.parts
+
+    else:
+        _partlist = partlist
+
+    for el in _partlist:
         if isinstance(el, Part):
             yield el
         else:

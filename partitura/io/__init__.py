@@ -43,7 +43,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MusicXML
     try:
         return load_musicxml(
-            xml=score_fn,
+            filename=score_fn,
             ensure_list=ensure_list,
             force_note_ids=force_note_ids,
         )
@@ -64,13 +64,13 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         exception_dictionary["MIDI"] = e
     # Load MEI
     try:
-        return load_mei(mei_path=score_fn)
+        return load_mei(filename=score_fn)
     except Exception as e:
         exception_dictionary["MEI"] = e
     # Load Kern
     try:
         return load_kern(
-            kern_path=score_fn,
+            filename=score_fn,
             ensure_list=ensure_list,
             force_note_ids=force_note_ids,
         )
@@ -79,7 +79,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MuseScore
     try:
         return load_via_musescore(
-            fn=score_fn,
+            filename=score_fn,
             force_note_ids=force_note_ids,
             ensure_list=ensure_list,
         )

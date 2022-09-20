@@ -12,9 +12,12 @@ import shutil
 import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory, gettempdir
+from typing import Optional, Union
 
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
+from partitura.score import Score
+from partitura.utils import PathLike
 
 
 class MuseScoreNotFoundException(Exception):
@@ -58,7 +61,12 @@ def find_musescore3():
     return result
 
 
-def load_via_musescore(fn, ensure_list=False, validate=False, force_note_ids=True):
+def load_via_musescore(
+    filename: PathLike,
+    ensure_list: bool = False,
+    validate: bool = False,
+    force_note_ids: Optional[Union[bool, str]] = True,
+) -> Score:
     """Load a score through through the MuseScore program.
 
     This function attempts to load the file in MuseScore, export it as
@@ -68,7 +76,7 @@ def load_via_musescore(fn, ensure_list=False, validate=False, force_note_ids=Tru
 
     Parameters
     ----------
-    fn : str
+    filename : str
         Filename of the score to load
     ensure_list : bool, optional
         When True return a list independent of how many part or
@@ -104,7 +112,7 @@ or a list of these
 
     with NamedTemporaryFile(suffix=".musicxml") as xml_fh:
 
-        cmd = [mscore_exec, "-o", xml_fh.name, fn]
+        cmd = [mscore_exec, "-o", xml_fh.name, filename]
 
         try:
 

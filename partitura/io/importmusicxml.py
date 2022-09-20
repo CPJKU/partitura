@@ -156,7 +156,7 @@ def _parse_partlist(partlist):
     return structure, part_dict
 
 
-def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
+def load_musicxml(filename, ensure_list=False, validate=False, force_note_ids=None):
     """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
@@ -190,12 +190,16 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
 
     """
 
-    if type(xml) == str:
-        if zipfile.is_zipfile(xml):
-            with zipfile.ZipFile(xml) as zipped_xml:
+    xml = None
+    if type(filename) == str:
+        if zipfile.is_zipfile(filename):
+            with zipfile.ZipFile(filename) as zipped_xml:
                 xml = zipped_xml.open(
-                    os.path.splitext(os.path.basename(xml))[0] + ".xml"
+                    os.path.splitext(os.path.basename(filename))[0] + ".xml"
                 )
+
+    if xml is None:
+        xml = filename
 
     if validate:
         validate_musicxml(xml, debug=True)

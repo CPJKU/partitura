@@ -12,6 +12,9 @@ from partitura.utils import (
     key_name_to_fifths_mode,
     fifths_mode_to_key_name,
     estimate_clef_properties,
+    deprecated_alias,
+    PathLike,
+    get_document_name,
 )
 import partitura.musicanalysis as analysis
 
@@ -19,12 +22,13 @@ __all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
 # as key for the dict use channel * 128 (max number of pitches) + pitch
-def note_hash(channel, pitch):
+def note_hash(channel: int, pitch: int) -> int:
     """Generate a note hash."""
     return channel * 128 + pitch
 
 
-def midi_to_notearray(fn):
+@deprecated_alias(fn="filename")
+def midi_to_notearray(filename: PathLike) -> np.ndarray:
     """Load a MIDI file in a note_array.
 
     This function should be used to load MIDI files into an
@@ -36,7 +40,7 @@ def midi_to_notearray(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         Path to MIDI file
     Returns
     -------
@@ -44,13 +48,14 @@ def midi_to_notearray(fn):
         Structured array with onset, duration, pitch, velocity, and
         ID fields.
     """
-    ppart = load_performance_midi(fn, merge_tracks=True)[0]
+    ppart = load_performance_midi(filename, merge_tracks=True)[0]
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
     ppart.sustain_pedal_threshold = 128
     return ppart.note_array()
 
 
-def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
+@deprecated_alias(fn="filename")
+def load_performance_midi(filename, default_bpm=120, merge_tracks=False):
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -65,7 +70,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         Path to MIDI file
     default_bpm : number, optional
         Tempo to use wherever the MIDI does not specify a tempo.
@@ -81,14 +86,14 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
 
     """
-    mid = mido.MidiFile(fn)
+    mid = mido.MidiFile(filename)
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10**6 / default_bpm)
+    mpq = 60 * (10 ** 6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10**6)
+    time_conversion_factor = mpq / (ppq * 10 ** 6)
 
     notes = []
     controls = []
@@ -112,7 +117,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                 mpq = msg.tempo
 
-                time_conversion_factor = mpq / (ppq * 10**6)
+                time_conversion_factor = mpq / (ppq * 10 ** 6)
 
                 warnings.warn(
                     (
@@ -198,11 +203,14 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
             note["id"] = f"n{i}"
 
     pp = performance.PerformedPart(notes, controls=controls, programs=programs)
-    return performance.Performance(fn, pp)
+
+    perf = performance.Performance(id=get_document_name(filename), performedparts=pp)
+    return perf
 
 
+@deprecated_alias(fn="filename")
 def load_score_midi(
-    fn,
+    filename: PathLike,
     part_voice_assign_mode=0,
     ensure_list=False,
     quantization_unit=None,
@@ -293,7 +301,7 @@ or a list of these
            Oxford University Press, New York.
 
     """
-    mid = mido.MidiFile(fn)
+    mid = mido.MidiFile(filename)
     divs = mid.ticks_per_beat
 
     # these lists will contain information from dedicated tracks for meta
@@ -338,7 +346,7 @@ or a list of these
             if msg.type == "key_signature":
                 key_sigs.append((t, msg.key))
             if msg.type == "set_tempo":
-                global_tempos.append((t, 60 * 10**6 / msg.tempo))
+                global_tempos.append((t, 60 * 10 ** 6 / msg.tempo))
             else:
                 note_on = msg.type == "note_on"
                 note_off = msg.type == "note_off"
@@ -511,10 +519,13 @@ or a list of these
     for t, qpm in global_tempos:
         part.add(score.Tempo(qpm, unit="q"), t)
 
-    if not ensure_list and len(partlist) == 1:
-        return partlist[0]
-    else:
-        return partlist
+    # TODO: Add info (composer, etc.)
+    scr = score.Score(
+        id=get_document_name(filename),
+        partlist=partlist,
+    )
+
+    return scr
 
 
 def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
