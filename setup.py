@@ -14,9 +14,9 @@ DESCRIPTION = "A package for handling symbolic musical information"
 KEYWORDS = "music notation musicxml midi"
 URL = "https://github.com/CPJKU/partitura"
 EMAIL = "partitura-users@googlegroups.com"
-AUTHOR = "Maarten Grachten, Carlos Cancino-Chacón, Silvan Peter, Thassilo Gadermaier"
+AUTHOR = "Maarten Grachten, Carlos Cancino-Chacón, Silvan Peter, Emmanouil Karystinaios, Francesco Foscarin, Thassilo Gadermaier"
 REQUIRES_PYTHON = ">=3.6"
-VERSION = "0.4.0"
+VERSION = "1.0.0"
 
 # What packages are required for this module to be executed?
 REQUIRED = ["numpy", "scipy", "lxml", "lark-parser", "xmlschema", "mido"]
@@ -47,7 +47,7 @@ setup(
     version=about["__version__"],
     description=DESCRIPTION,
     long_description=long_description,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="text/markdown",
     keywords=KEYWORDS,
     author=AUTHOR,
     author_email=EMAIL,
