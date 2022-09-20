@@ -1,6 +1,47 @@
 Release Notes
 =============
 
+Version 1.0.0 (Released on 2022-09-20)
+--------------------------------------
+
+API changes:
+
+* Different `__call__` for `note_array` attribute (in `Score`, `Part`, `PerformedPart` and `PartGroup`).  `note_array` is now called as a method with brackets. One can specify additional fields for the note array such as key, pitch spelling, time signature, and others.
+* Every score is imported as a `score` object where each part can be accessed individually.
+
+
+New features:
+
+* We now support import from humdrum **kern, and MEI (coming soon import Musescore and Music21, export MEI).
+* The music analysis functions now include:
+  + The basis features (from the Basis Mixer) use by typing : `partitura.utils.make_note_features(part)`.
+  + A simple version of the Performance Codec with encode, and decode functions.
+* The part object now contains several new methods such as: `part.measures()`, `part.use_musical_beat()`, and others.
+* Multiple parts of the same score can now be merged to one even if they contain different divs, call: `partitura.score.merge_parts([p1, p2, ...])`.
+* Ornaments now are supported.
+* Added i/o functionality for parangonada
+* There is now an unpitched note class.
+* Added unzipping for compressed musicxml files on import.
+* Added unifying function for import of individual score formats as a `load_score` function.
+* Added score unfolding features.
+
+Bug fixes:
+
+* Pianoroll starting with silence mismatch on pianoroll creation fixed.
+* Fixed consistency of time signature map.
+* Fixed pianoroll to note_array.
+* Fix for unpitch musicxml elements.
+* updated music analysis algorithm for Voice Separation based on Chew.
+* `ensure_note_array` now works even with parts with different divs.
+
+Other changes:
+
+* Logger is replaced by warnings.
+* Add documentation
+* Code cleanup
+* Coverage support
+* Unitesting running as a workflow
+
 Version 0.4.0 (Released on 2021-05-28)
 --------------------------------------
 
