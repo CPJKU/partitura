@@ -234,9 +234,9 @@ the European Union’s Horizon 2020 research and innovation programme under gran
 agreement No. 670035 project ["Con Espressione"](https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/)
 and the Austrian Science Fund (FWF) under grant P 29840-G26 (project
 ["Computer-assisted Analysis of Herbert von Karajan's Musical Conducting Style"](https://karajan-research.org/programs/musical-interpretation-karajan))
-<p align="center">
-    <img src="./docs/images/LOGO_ERC-FLAG_EU_.jpg#gh-light-mode-only" height="200">
-    <img src="./docs/images/LOGO_ERC-FLAG_EU%20NEGATIF.jpg#gh-dark-mode-only" height="200">
+<p align="left">
+    <img src="./docs/images/aknowledge_logo.png#gh-light-mode-only" height="200">
+    <img src="./docs/images/aknowledge_logo_negative.png#gh-dark-mode-only" height="200">
 </p>
 
 [//]: # ()
