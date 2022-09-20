@@ -6,7 +6,7 @@ backend for loading and rendering scores.
 """
 
 import platform
-import logging
+import warnings
 import os
 import shutil
 import subprocess
@@ -15,8 +15,6 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory, gettempdir
 
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
-
-LOGGER = logging.getLogger(__name__)
 
 
 class MuseScoreNotFoundException(Exception):
@@ -46,15 +44,16 @@ def find_musescore3():
     if result is None:
         result = shutil.which("mscore3")
 
-    if platform.system() == "Linux":
-        pass
+    if result is None:
+        if platform.system() == "Linux":
+            pass
 
-    elif platform.system() == "Darwin":
+        elif platform.system() == "Darwin":
 
-        result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
+            result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
 
-    elif platform.system() == "Windows":
-        pass
+        elif platform.system() == "Windows":
+            result = shutil.which(r"C:\Program Files\MuseScore 3\bin\MuseScore.exe")
 
     return result
 
@@ -114,10 +113,10 @@ or a list of these
             if ps.returncode != 0:
 
                 raise FileImportException(
-                    ("Command {} failed with code {}. MuseScore "
-                     "error messages:\n {}").format(
-                        cmd, ps.returncode, ps.stderr.decode("UTF-8")
-                    )
+                    (
+                        "Command {} failed with code {}. MuseScore "
+                        "error messages:\n {}"
+                    ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
                 )
         except FileNotFoundError as f:
 
@@ -159,7 +158,7 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
 
     if fmt not in ("png", "pdf"):
 
-        LOGGER.warning("warning: unsupported output format")
+        warnings.warn("warning: unsupported output format")
         return None
 
     # with NamedTemporaryFile(suffix='.musicxml') as xml_fh, \
@@ -185,19 +184,25 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             if ps.returncode != 0:
-                LOGGER.error(
+                warnings.warn(
                     "Command {} failed with code {}; stdout: {}; stderr: {}".format(
                         cmd,
                         ps.returncode,
                         ps.stdout.decode("UTF-8"),
                         ps.stderr.decode("UTF-8"),
-                    )
+                    ),
+                    SyntaxWarning,
+                    stacklevel=2,
                 )
                 return None
 
         except FileNotFoundError as f:
 
-            LOGGER.error('Executing "{}" returned  {}.'.format(" ".join(cmd), f))
+            warnings.warn(
+                'Executing "{}" returned  {}.'.format(" ".join(cmd), f),
+                ImportWarning,
+                stacklevel=2,
+            )
             return None
 
         # LOGGER.error('Command "{}" returned with code {}; stdout: {}; stderr: {}'

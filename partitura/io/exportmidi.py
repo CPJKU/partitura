@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import logging
 import numpy as np
 
 from collections import defaultdict, OrderedDict
@@ -10,8 +9,6 @@ import partitura.score as score
 from partitura.utils import partition
 
 __all__ = ["save_score_midi", "save_performance_midi"]
-
-LOGGER = logging.getLogger(__name__)
 
 
 def get_partgroup(part):
@@ -103,7 +100,7 @@ def save_performance_midi(
     for c in performed_part.controls:
         track = c.get("track", 0)
         ch = c.get("channel", 1)
-        t = int(np.round(10 ** 6 * ppq * c["time"] / mpq))
+        t = int(np.round(10**6 * ppq * c["time"] / mpq))
         track_events[track][t].append(
             Message("control_change", control=c["number"], value=c["value"], channel=ch)
         )
@@ -111,8 +108,8 @@ def save_performance_midi(
     for n in performed_part.notes:
         track = n.get("track", 0)
         ch = n.get("channel", 1)
-        t_on = int(np.round(10 ** 6 * ppq * n["note_on"] / mpq))
-        t_off = int(np.round(10 ** 6 * ppq * n["note_off"] / mpq))
+        t_on = int(np.round(10**6 * ppq * n["note_on"] / mpq))
+        t_off = int(np.round(10**6 * ppq * n["note_off"] / mpq))
         vel = n.get("velocity", default_velocity)
         track_events[track][t_on].append(
             Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
@@ -124,7 +121,7 @@ def save_performance_midi(
     for p in performed_part.programs:
         track = p.get("track", 0)
         ch = p.get("channel", 1)
-        t = int(np.round(10 ** 6 * ppq * p["time"] / mpq))
+        t = int(np.round(10**6 * ppq * p["time"] / mpq))
         track_events[track][t].append(
             Message("program_change", program=int(p["program"]), channel=ch)
         )
@@ -253,7 +250,7 @@ def save_score_midi(
         elif anacrusis_behavior == "pad_bar":
             time_signatures = []
             for qm, part in zip(quarter_maps, score.iter_parts(parts)):
-                ts_beats, ts_beat_type = part.time_signature_map(0)
+                ts_beats, ts_beat_type, ts_mus_beats = part.time_signature_map(0)
                 time_signatures.append((ts_beats, ts_beat_type, qm(0)))
             # sort ts according to time
             time_signatures.sort(key=lambda x: x[2])

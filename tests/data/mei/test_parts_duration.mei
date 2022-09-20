@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="4.0.0">
+    <meiHead>
+        <fileDesc>
+            <titleStmt>
+                <title>Elf neue Bagatellen</title>
+                <title type="subordinate" n="2" label="Opus number">Op. 119</title>
+                <title type="subordinate" n="3" label="Number">No. 5</title>
+                <respStmt>
+                    <persName role="composer">Ludwig van Beethoven</persName>
+                    <persName role="encoder" enddate="2019-12-17T21:16:10">Werner Goebl</persName>
+                </respStmt>
+            </titleStmt>
+            <pubStmt>
+                <respStmt>
+                    <persName role="encoder" auth.uri="http://d-nb.info/gnd" auth="GND" codedval="1138881465">Werner Goebl</persName>
+                </respStmt>
+            </pubStmt>
+        </fileDesc>
+        <encodingDesc xml:id="encodingdesc-0000000231788800">
+            <appInfo xml:id="appinfo-0000000139025942">
+                <application xml:id="application-0000000146799258" isodate="2019-12-18T11:11:32" version="2.4.0-dev-6be23e2">
+                    <name xml:id="name-0000001943902450">Verovio</name>
+                    <p xml:id="p-0000001499755339">Transcoded from MusicXML</p>
+                </application>
+            </appInfo>
+        </encodingDesc>
+    </meiHead>
+    <music>
+        <body>
+            <mdiv xml:id="Nr-5">
+                <score xml:id="score-0000000103002911">
+                    <scoreDef xml:id="scoredef-0000001189312511" key.mode="minor" key.sig="3f" meter.count="6" meter.unit="8">
+                        <pgHead/>
+                        <pgFoot xml:id="pgfoot-0000000472217220">
+                            <rend xml:id="rend-0000001325220316" halign="center" fontsize="100.00%">B.189.</rend>
+                        </pgFoot>
+                        <pgFoot2 xml:id="pgfoot2-0000001694763880">
+                            <rend xml:id="rend-0000001820920999" halign="center" valign="bottom">
+                                <rend xml:id="rend-0000000429776796" fontsize="100.00%">B.189.</rend>
+                            </rend>
+                        </pgFoot2>
+                        <staffGrp xml:id="staffgrp-0000001617444594" symbol="brace" bar.thru="true">
+                            <label xml:id="label-0000001379585511">
+                                <rend xml:id="rend-0000001328416153" fontsize="x-large" fontweight="bold">No. 5.</rend>
+                            </label>
+                            <staffDef xml:id="staffdef-0000001249802641" n="1" lines="5" clef.shape="G" clef.line="2">
+                                <instrDef xml:id="instrdef-0000001543287632" midi.channel="0" midi.instrnum="0" midi.volume="78.00%"/>
+                            </staffDef>
+                            <staffDef xml:id="staffdef-0000000751036340" n="2" lines="5" clef.shape="F" clef.line="4" meter.count="6" meter.unit="8">
+                                <instrDef xml:id="instrdef-0000001161554976" midi.channel="1" midi.instrnum="0" midi.volume="68.00%"/>
+                            </staffDef>
+                        </staffGrp>
+                    </scoreDef>
+                        <section xml:id="A">
+                            <measure xml:id="measure-0000001449296526" left="rptstart" n="1">
+                                <staff xml:id="staff-0000000221809611" n="1">
+                                    <layer xml:id="layer-0000002070004532" n="1">
+                                        <note xml:id="note-0000001331087924" dur="8" oct="4" pname="g" grace="unacc" stem.dir="up" stem.mod="1slash"/>
+                                        <beam xml:id="beam-0000000745260509">
+                                            <note xml:id="note-0000001468745459" dots="1" dur="8" oct="5" pname="c" stem.dir="up"/>
+                                            <note xml:id="note-0000002027890795" dur="16" oct="4" pname="c" stem.dir="up"/>
+                                            <note xml:id="note-0000000047630028" dur="8" oct="4" pname="e" stem.dir="up" accid.ges="f"/>
+                                        </beam>
+                                        <note xml:id="note-0000001143142216" dur="8" oct="4" pname="e" grace="unacc" stem.dir="up" stem.mod="1slash" accid.ges="f"/>
+                                        <beam xml:id="beam-0000000935066494">
+                                            <note xml:id="note-0000000377235912" dots="1" dur="8" oct="4" pname="g" stem.dir="down"/>
+                                            <note xml:id="note-0000000832247040" dur="16" oct="5" pname="c" stem.dir="down"/>
+                                            <note xml:id="note-0000001015008369" dur="8" oct="5" pname="e" stem.dir="down" accid.ges="f"/>
+                                        </beam>
+                                    </layer>
+                                </staff>
+                                <staff xml:id="staff-0000000884151242" n="2">
+                                    <layer xml:id="layer-0000001490570701" n="1">
+                                        <chord xml:id="chord-0000000172977218" dur="4" stem.dir="down">
+                                            <note xml:id="note-0000001625029452" oct="3" pname="c"/>
+                                            <note xml:id="note-0000001682728535" oct="3" pname="e" accid.ges="f"/>
+                                            <note xml:id="note-0000001158117532" oct="3" pname="g"/>
+                                        </chord>
+                                        <chord xml:id="chord-0000001222138422" dur="8" stem.dir="down">
+                                            <note xml:id="note-0000001837067563" oct="3" pname="c"/>
+                                            <note xml:id="note-0000001946858646" oct="3" pname="e" accid.ges="f"/>
+                                            <note xml:id="note-0000000262507294" oct="3" pname="g"/>
+                                        </chord>
+                                        <chord xml:id="chord-0000001769972890" dur="4" stem.dir="down">
+                                            <note xml:id="note-0000001028679320" oct="3" pname="c"/>
+                                            <note xml:id="note-0000000990883986" oct="3" pname="e" accid.ges="f"/>
+                                            <note xml:id="note-0000001771511025" oct="3" pname="g"/>
+                                        </chord>
+                                        <chord xml:id="chord-0000001932162498" dur="8" stem.dir="down">
+                                            <note xml:id="note-0000001072515167" oct="3" pname="c"/>
+                                            <note xml:id="note-0000001754877599" oct="3" pname="e" accid.ges="f"/>
+                                            <note xml:id="note-0000001791968252" oct="3" pname="g"/>
+                                        </chord>
+                                    </layer>
+                                </staff>
+                            </measure>
+                    </section>
+                </score>
+            </mdiv>
+        </body>
+    </music>
+</mei>

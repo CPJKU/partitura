@@ -5,7 +5,7 @@
 <score-partwise>
   <part-list>
     <score-part id="P1">
-      <part-name>MüsicXML Part</part-name>
+      <part-name>MusicXML Part</part-name>
     </score-part>
   </part-list>
   <part id="P1">
@@ -18,7 +18,6 @@
           <beat-type>4</beat-type>
         </time>
       </attributes>
-      <print new-page="yes" new-system="yes"/>
       <note>
         <rest/>
         <duration>10</duration>
@@ -56,7 +55,6 @@
       <barline location="left">
         <fermata/>
       </barline>
-      <print new-page="yes" new-system="yes"/>
       <note>
         <rest/>
         <duration>10</duration>

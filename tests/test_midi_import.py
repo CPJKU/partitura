@@ -41,7 +41,7 @@ def make_assignment_mode_example():
     mid = mido.MidiFile(ticks_per_beat=divs)
     track_1 = mido.MidiTrack()
     mid.tracks.append(track_1)
-    tempo = int(0.5 * 10 ** 6)
+    tempo = int(0.5 * 10**6)
     track_1.append(mido.MetaMessage("track_name", name="Track 1"))
     # track_1.append(mido.MetaMessage('instrument_name', name='Instrument 1'))
     # track_1.append(mido.Message('program_change', channel=0, program=1))
@@ -143,7 +143,7 @@ class TestMIDITuplets(unittest.TestCase):
     def test_tuplets(self):
         for example_gen_func in self.example_gen_funcs:
             mid, actual, normal = example_gen_func()
-            with NamedTemporaryFile(suffix=".mid") as fh:
+            with NamedTemporaryFile(suffix=".mid", delete=False) as fh:
                 mid.save(fh.name)
                 part = load_score_midi(fh.name, part_voice_assign_mode=0)
                 notes = part.notes
@@ -169,7 +169,7 @@ class TestMIDIImportModes(unittest.TestCase):
     def setUp(self):
         self.mid = make_assignment_mode_example()
         self.notes_per_tr_ch = get_track_voice_numbers(self.mid)
-        self.tmpfile = NamedTemporaryFile(suffix=".mid")
+        self.tmpfile = NamedTemporaryFile(suffix=".mid", delete=False)
         self.mid.save(self.tmpfile.name)
 
     def test_midi_import_mode_0(self):

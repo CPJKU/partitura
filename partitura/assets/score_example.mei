@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="4.0.0">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title />
+            <respStmt />
+         </titleStmt>
+         <pubStmt></pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-2o9bqo">
+         <appInfo xml:id="appinfo-j7rtco">
+            <application xml:id="application-hc9py4" isodate="2021-12-09T11:27:15" version="3.8.0-dev-45c3f2c">
+               <name xml:id="name-symba1">Verovio</name>
+               <p xml:id="p-roup2t">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="mhblkrl">
+            <score xml:id="ssc72wy">
+               <scoreDef xml:id="s3uaoz5">
+                  <staffGrp xml:id="sjczhy0">
+                     <staffDef xml:id="P1" n="1" lines="5" ppq="12">
+                        <label xml:id="lezfcog">Piano</label>
+                        <meterSig xml:id="mhw0sp2" count="4" unit="4" />
+                     </staffDef>
+                  </staffGrp>
+               </scoreDef>
+               <sb xml:id="st1gphw" />
+               <section xml:id="swgpvx8">
+                  <pb xml:id="paw6v6b" />
+                  <measure xml:id="mz87quy" n="1">
+                     <staff xml:id="sxxu2aq" n="1">
+                        <layer xml:id="llktcv2" n="1">
+                           <note xml:id="n01" dur.ppq="48" dur="1" staff="2" oct="4" pname="a" />
+                        </layer>
+                        <layer xml:id="lgap59p" n="2">
+                           <rest xml:id="r01" dur.ppq="24" dur="2" />
+                           <chord xml:id="carc8ao" dur.ppq="24" dur="2">
+                              <note xml:id="n02" oct="5" pname="c" />
+                              <note xml:id="n03" oct="5" pname="e" />
+                           </chord>
+                        </layer>
+                     </staff>
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>

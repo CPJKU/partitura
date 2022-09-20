@@ -8,7 +8,7 @@ import logging
 import unittest
 from tempfile import TemporaryFile
 
-from . import MATCH_IMPORT_EXPORT_TESTFILES
+from tests import MATCH_IMPORT_EXPORT_TESTFILES
 
 from partitura.io.importmatch import MatchFile, parse_matchline
 from partitura import load_match

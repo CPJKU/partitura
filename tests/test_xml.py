@@ -8,12 +8,19 @@ import logging
 import unittest
 from tempfile import TemporaryFile
 
-from . import MUSICXML_IMPORT_EXPORT_TESTFILES, MUSICXML_UNFOLD_TESTPAIRS
+from tests import (
+    MUSICXML_IMPORT_EXPORT_TESTFILES,
+    MUSICXML_UNFOLD_TESTPAIRS,
+    MUSICXML_UNFOLD_COMPLEX,
+    MUSICXML_UNFOLD_VOLTA,
+    MUSICXML_UNFOLD_DACAPO,
+)
 
 from partitura import load_musicxml, save_musicxml
 from partitura.directions import parse_direction
 from partitura.utils import show_diff
 import partitura.score as score
+from lxml import etree
 
 LOGGER = logging.getLogger(__name__)
 
@@ -64,11 +71,14 @@ class TestMusicXML(unittest.TestCase):
 
     def test_unfold_timeline(self):
         for fn, fn_target_1, fn_target_2 in MUSICXML_UNFOLD_TESTPAIRS:
-            part = load_musicxml(fn, validate=False)
-            part = score.unfold_part_maximal(part)
-            result = save_musicxml(part).decode("UTF-8")
+            part = load_musicxml(fn, validate=False)[0]
+            part = score.unfold_part_maximal(part, update_ids=False)
+            # Load Target
             with open(fn_target_1) as f:
                 target = f.read()
+            # Transform part to musicxml
+            result = save_musicxml(part).decode("UTF-8")
+
             equal = target == result
             if not equal:
                 show_diff(result, target)
@@ -86,6 +96,60 @@ class TestMusicXML(unittest.TestCase):
             if not equal:
                 show_diff(result, target)
             msg = "Unfolding part of MusicXML file {} does not yield expected result".format(
+                fn
+            )
+            self.assertTrue(equal, msg)
+
+    def test_unfold_complex(self):
+        for fn, fn_target in MUSICXML_UNFOLD_COMPLEX:
+            part = load_musicxml(fn, validate=False)[0]
+            part = score.unfold_part_maximal(part)
+            # Load Target
+            with open(fn_target) as f:
+                target = f.read()
+            # Transform part to musicxml
+            result = save_musicxml(part).decode("UTF-8")
+
+            equal = target == result
+            if not equal:
+                show_diff(result, target)
+            msg = "Unfolding complex part of MusicXML file {} does not yield expected result".format(
+                fn
+            )
+            self.assertTrue(equal, msg)
+
+    def test_unfold_volta(self):
+        for fn, fn_target in MUSICXML_UNFOLD_VOLTA:
+            part = load_musicxml(fn, validate=False)[0]
+            part = score.unfold_part_maximal(part)
+            # Load Target
+            with open(fn_target) as f:
+                target = f.read()
+            # Transform part to musicxml
+            result = save_musicxml(part).decode("UTF-8")
+
+            equal = target == result
+            if not equal:
+                show_diff(result, target)
+            msg = "Unfolding volta part of MusicXML file {} does not yield expected result".format(
+                fn
+            )
+            self.assertTrue(equal, msg)
+
+    def test_unfold_dacapo(self):
+        for fn, fn_target in MUSICXML_UNFOLD_DACAPO:
+            sc = load_musicxml(fn, validate=False)
+            part = score.unfold_part_maximal(sc[0])
+            # Load Target
+            with open(fn_target) as f:
+                target = f.read()
+            # Transform part to musicxml
+            result = save_musicxml(part).decode("UTF-8")
+
+            equal = target == result
+            if not equal:
+                show_diff(result, target)
+            msg = "Unfolding volta part of MusicXML file {} does not yield expected result".format(
                 fn
             )
             self.assertTrue(equal, msg)
@@ -125,7 +189,7 @@ class TestMusicXML(unittest.TestCase):
             f.flush()
             f.seek(0)
             # load part from musicxml
-            part2 = load_musicxml(f)
+            part2 = load_musicxml(f)[0]
 
         # pretty print saved/loaded part:
         pstring2 = part2.pretty()
@@ -157,7 +221,7 @@ class TestMusicXML(unittest.TestCase):
             _tmp = f.read().decode("utf8")
             f.seek(0)
             # load part from musicxml
-            part2 = load_musicxml(f)
+            part2 = load_musicxml(f)[0]
 
         # pretty print saved/loaded part:
         pstring2 = part2.pretty()

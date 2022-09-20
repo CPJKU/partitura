@@ -7,7 +7,7 @@ application.
 """
 
 import platform
-import logging
+import warnings
 import os
 import subprocess
 from tempfile import NamedTemporaryFile, TemporaryFile
@@ -15,7 +15,6 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 from partitura import save_musicxml
 from partitura.io.musescore import render_musescore
 
-LOGGER = logging.getLogger(__name__)
 
 __all__ = ["render"]
 
@@ -103,12 +102,17 @@ def render_lilypond(part, fmt="png"):
                 cmd1, stdin=xml_fh, stdout=subprocess.PIPE, check=False
             )
             if ps1.returncode != 0:
-                LOGGER.error(
-                    "Command {} failed with code {}".format(cmd1, ps1.returncode)
+                warnings.warn(
+                    "Command {} failed with code {}".format(cmd1, ps1.returncode),
+                    stacklevel=2,
                 )
                 return None
         except FileNotFoundError as f:
-            LOGGER.error('Executing "{}" returned  {}.'.format(" ".join(cmd1), f))
+            warnings.warn(
+                'Executing "{}" returned  {}.'.format(" ".join(cmd1), f),
+                ImportWarning,
+                stacklevel=2,
+            )
             return None
 
         # convert lilypond format (read from pipe of ps1) to image, and save to
@@ -124,12 +128,17 @@ def render_lilypond(part, fmt="png"):
         try:
             ps2 = subprocess.run(cmd2, input=ps1.stdout, check=False)
             if ps2.returncode != 0:
-                LOGGER.error(
-                    "Command {} failed with code {}".format(cmd2, ps2.returncode)
+                warnings.warn(
+                    "Command {} failed with code {}".format(cmd2, ps2.returncode),
+                    stacklevel=2,
                 )
                 return None
         except FileNotFoundError as f:
-            LOGGER.error('Executing "{}" returned {}.'.format(" ".join(cmd2), f))
+            warnings.warn(
+                'Executing "{}" returned {}.'.format(" ".join(cmd2), f),
+                ImportWarning,
+                stacklevel=2,
+            )
             return
 
         return img_fh.name

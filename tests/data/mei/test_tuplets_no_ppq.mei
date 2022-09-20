@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<?xml-model href="https://music-encoding.org/schema/4.0.0/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="4.0.0">
+   <meiHead>
+      <fileDesc>
+         <titleStmt>
+            <title>test tuplets</title>
+            <respStmt />
+         </titleStmt>
+         <pubStmt><date isodate="2021-11-02" type="encoding-date">2021-11-02</date>
+         </pubStmt>
+      </fileDesc>
+      <encodingDesc xml:id="encodingdesc-6pd5b2">
+         <appInfo xml:id="appinfo-xy5siy">
+            <application xml:id="application-fal2vi" isodate="2021-11-02T17:34:25" version="3.7.0-dev-dc5fd8e">
+               <name xml:id="name-8rg9jq">Verovio</name>
+               <p xml:id="p-u9jd1s">Transcoded from MusicXML</p>
+            </application>
+         </appInfo>
+      </encodingDesc>
+   </meiHead>
+   <music>
+      <body>
+         <mdiv xml:id="mr3ndh4">
+            <score xml:id="sbq5py">
+               <scoreDef xml:id="sotly0q">
+                  <pgHead xml:id="p1a8xv9">
+                     <rend xml:id="r8zckxy" halign="center" valign="top">test tuplets</rend>
+                  </pgHead>
+                  <staffGrp xml:id="scf53o7">
+                     <staffGrp xml:id="s6sj3w4">
+                        <grpSym xml:id="gfptwlv" symbol="brace" />
+                        <staffDef xml:id="P1" n="1" lines="5">
+                           <label xml:id="l6jpc6l">Piano</label>
+                           <labelAbbr xml:id="ls1d7gx">Pno.</labelAbbr>
+                           <instrDef xml:id="iz0feak" midi.channel="0" midi.instrnum="0" midi.volume="78.00%" />
+                           <clef xml:id="cs7obbh" shape="G" line="2" />
+                           <keySig xml:id="klecpw7" sig="2s" />
+                           <meterSig xml:id="mqm2iyp" count="4" unit="4" />
+                        </staffDef>
+                     </staffGrp>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="sefzal4">
+                  <measure xml:id="mv0akgq" n="1">
+                     <staff xml:id="svdlrwu" n="1">
+                        <layer xml:id="l7hooah" n="1">
+                           <beam xml:id="b5jum53">
+                              <tuplet xml:id="tdc61lq" num="3" numbase="2" bracket.visible="false">
+                                 <note xml:id="np86ufp" dur="8" oct="4" pname="f" stem.dir="up" accid.ges="s" />
+                                 <note xml:id="n6crswj" dur="8" oct="4" pname="g" stem.dir="up" />
+                                 <note xml:id="nylrn4z" dur="8" oct="4" pname="a" stem.dir="up" />
+                              </tuplet>
+                           </beam>
+                           <note xml:id="n8ha9sv"  dur="4" oct="4" pname="g" stem.dir="up" />
+                           <note xml:id="nbx0svq"  dur="4" oct="4" pname="g" stem.dir="up" />
+                           <beam xml:id="bhz9omj">
+                              <tuplet xml:id="tr33znx" num="5" numbase="4" bracket.visible="false">
+                                 <note xml:id="nrxtz22" dur="16" oct="4" pname="g" stem.dir="down" />
+                                 <note xml:id="nxxic4e" dur="16" oct="4" pname="a" stem.dir="down" />
+                                 <note xml:id="n84wagz" dur="16" oct="4" pname="b" stem.dir="down" />
+                                 <note xml:id="nejp1vu" dur="16" oct="5" pname="c" stem.dir="down" accid.ges="s" />
+                                 <note xml:id="ncy73ze" dur="16" oct="5" pname="d" stem.dir="down" />
+                              </tuplet>
+                           </beam>
+                        </layer>
+                     </staff>
+                     <tie xml:id="tvo2pnl" startid="#n8ha9sv" endid="#nbx0svq" />
+                  </measure>
+                  <measure xml:id="mk7amqj" right="end" n="2">
+                     <staff xml:id="shr1hxj" n="1">
+                        <layer xml:id="lckwmuj" n="1">
+                           <note xml:id="nfo5lsh" dur="1" oct="4" pname="d" />
+                        </layer>
+                     </staff>
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>

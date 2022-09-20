@@ -2,7 +2,6 @@
 import numpy as np
 from collections import defaultdict
 import warnings
-import logging
 
 import mido
 
@@ -16,9 +15,7 @@ from partitura.utils import (
 )
 import partitura.musicanalysis as analysis
 
-__all__ = ["load_score_midi", "load_performance_midi"]
-
-LOGGER = logging.getLogger(__name__)
+__all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
 # as key for the dict use channel * 128 (max number of pitches) + pitch
@@ -47,10 +44,10 @@ def midi_to_notearray(fn):
         Structured array with onset, duration, pitch, velocity, and
         ID fields.
     """
-    ppart = load_performance_midi(fn, merge_tracks=True)
+    ppart = load_performance_midi(fn, merge_tracks=True)[0]
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
     ppart.sustain_pedal_threshold = 128
-    return ppart.note_array
+    return ppart.note_array()
 
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
@@ -73,11 +70,14 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     default_bpm : number, optional
         Tempo to use wherever the MIDI does not specify a tempo.
         Defaults to 120.
+    merge_tracks: bool, optional
+        For MIDI files, merges all tracks into a single track.
+
 
     Returns
     -------
-    :class:`partitura.performance.PerformedPart`
-        A PerformedPart instance.
+    :class:`partitura.performance.Performance`
+        A Performance instance.
 
 
     """
@@ -85,10 +85,10 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10 ** 6 / default_bpm)
+    mpq = 60 * (10**6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10 ** 6)
+    time_conversion_factor = mpq / (ppq * 10**6)
 
     notes = []
     controls = []
@@ -112,9 +112,9 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                 mpq = msg.tempo
 
-                time_conversion_factor = mpq / (ppq * 10 ** 6)
+                time_conversion_factor = mpq / (ppq * 10**6)
 
-                LOGGER.info(
+                warnings.warn(
                     (
                         "change of Tempo to mpq = {0} "
                         " and resulting seconds per tick = {1}"
@@ -168,7 +168,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                     notes.append(
                         dict(
-                            id=f"n{len(notes)}",
+                            # id=f"n{len(notes)}",
                             midi_pitch=msg.note,
                             note_on=(sounding_notes[note][0]),
                             note_off=(t),
@@ -181,7 +181,24 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
                     # remove hash from dict
                     del sounding_notes[note]
 
-    return performance.PerformedPart(notes, controls=controls, programs=programs)
+        # fix note ids so that it is sorted lexicographically
+        # by onset, pitch, offset, channel and track
+        notes.sort(
+            key=lambda x: (
+                x["note_on"],
+                x["midi_pitch"],
+                x["note_off"],
+                x["channel"],
+                x["track"],
+            )
+        )
+
+        # add note id to every note
+        for i, note in enumerate(notes):
+            note["id"] = f"n{i}"
+
+    pp = performance.PerformedPart(notes, controls=controls, programs=programs)
+    return performance.Performance(fn, pp)
 
 
 def load_score_midi(
@@ -321,7 +338,7 @@ or a list of these
             if msg.type == "key_signature":
                 key_sigs.append((t, msg.key))
             if msg.type == "set_tempo":
-                global_tempos.append((t, 60 * 10 ** 6 / msg.tempo))
+                global_tempos.append((t, 60 * 10**6 / msg.tempo))
             else:
                 note_on = msg.type == "note_on"
                 note_off = msg.type == "note_off"
@@ -401,11 +418,11 @@ or a list of these
         dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
     )
 
-    LOGGER.debug("pitch spelling")
+    warnings.warn("pitch spelling")
     spelling_global = analysis.estimate_spelling(note_array)
 
     if estimate_voice_info:
-        LOGGER.debug("voice estimation")
+        warnings.warn("voice estimation", stacklevel=2)
         # TODO: deal with zero duration notes in note_array.
         # Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
@@ -415,7 +432,7 @@ or a list of these
                 part_voice[1] = voice_est
 
     if estimate_key:
-        LOGGER.debug("key estimation")
+        warnings.warn("key estimation", stacklevel=2)
         _, mode, fifths = analysis.estimate_key(note_array)
         key_sigs_by_track = {}
         global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
@@ -585,20 +602,20 @@ def create_part(
     part_id=None,
     part_name=None,
 ):
-    LOGGER.debug("create_part")
+    warnings.warn("create_part", stacklevel=2)
 
     part = score.Part(part_id, part_name=part_name)
     part.set_quarter_duration(0, ticks)
 
     clef = score.Clef(
-        number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
+        staff=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
     )
     part.add(clef, 0)
     for t, name in key_sigs:
         fifths, mode = key_name_to_fifths_mode(name)
         part.add(score.KeySignature(fifths, mode), t)
 
-    LOGGER.debug("add notes")
+    warnings.warn("add notes", stacklevel=2)
 
     for (onset, pitch, duration), (step, alter, octave), voice, note_id in zip(
         notes, spellings, voices, note_ids
@@ -635,7 +652,7 @@ def create_part(
     ts_end_times = np.r_[time_sigs[1:, 0], np.iinfo(int).max]
     time_sigs = np.column_stack((time_sigs, ts_end_times))
 
-    LOGGER.debug("add time sigs and measures")
+    warnings.warn("add time sigs and measures", stacklevel=2)
 
     for ts_start, num, den, ts_end in time_sigs:
         time_sig = score.TimeSignature(num.item(), den.item())
@@ -662,16 +679,16 @@ def create_part(
     #     if np.isinf(ts_end):
     #         ts_end = m_end
 
-    LOGGER.debug("tie notes")
+    warnings.warn("tie notes", stacklevel=2)
     # tie notes where necessary (across measure boundaries, and within measures
     # notes with compound duration)
     score.tie_notes(part)
 
-    LOGGER.debug("find tuplets")
+    warnings.warn("find tuplets", stacklevel=2)
     # apply simplistic tuplet finding heuristic
     score.find_tuplets(part)
 
-    LOGGER.debug("done create_part")
+    warnings.warn("done create_part", stacklevel=2)
     return part
 
 
