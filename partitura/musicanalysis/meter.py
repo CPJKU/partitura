@@ -26,12 +26,12 @@ MIN_INTERVAL = 0.01
 MAX_INTERVAL = 2  # in seconds
 CLUSTER_WIDTH = 1/12  # in seconds
 N_CLUSTERS = 100
-INIT_DURATION = 5  # in seconds
+INIT_DURATION = 10  # in seconds
 TIMEOUT = 10  # in seconds
-TOLERANCE_POST = 0.2  # propotion of beat_interval
-TOLERANCE_PRE = 0.1  # proportion of beat_interval
+TOLERANCE_POST = 0.4  # propotion of beat_interval
+TOLERANCE_PRE = 0.2  # proportion of beat_interval
 TOLERANCE_INNER = 1/12 
-CORRECTION_FACTOR = 1/5  # higher => more correction (speed changes)
+CORRECTION_FACTOR = 1/4  # higher => more correction (speed changes)
 MAX_AGENTS = 100  # delete low-scoring agents when there are more than MAX_AGENTS
 CHORD_SPREAD_TIME = 1/12 # for onset aggregation
 
@@ -237,22 +237,26 @@ class Agent():
     
     def getTimeSignatureNum(self):
         possibleNums = [2, 3, 4, 6, 9, 12, 24]
-        bestNum = 0
-        bestVal = 0
+        bestVal = {num:0 for num in possibleNums}
         salience = list(zip(*self.history))[1]
         sumSalience = sum(salience)
         f = 1.005
         for num in possibleNums:
             for startIdx in range(num):    
-                downbeatSalience = sum(salience[startIdx::num])
-                otherSalience = (sumSalience - downbeatSalience) / (num-1)
-                ratio = downbeatSalience/otherSalience
-        
-                if ratio > f * bestVal:
+                dbs = len(salience[startIdx::num])
+                if dbs > 1:
+                    downbeatSalience = sum(salience[startIdx::num])/dbs
+                    sumSalience = sum(salience[:(dbs-1)*num]) 
+                    otherSalience = (sumSalience-downbeatSalience*dbs)/((num-1)*(dbs-1))
+                else:
+                    downbeatSalience = 0
+                    otherSalience = 1
                     
-                    bestNum = num
-                    bestVal = ratio * f
-            f *= f
+                ratio = downbeatSalience/otherSalience
+                bestVal[num] = max(bestVal[num], ratio)
+
+        bestNum = max(bestVal, key=bestVal.get)    
+            
         return bestNum
 
 
@@ -278,12 +282,10 @@ def estimate_time(note_info):
     """         
 
     note_array = ensure_notearray(note_info)
-    onset_kw, duration_kw = get_time_units_from_note_array(note_array)
-    
-    
+    onset_kw, _ = get_time_units_from_note_array(note_array)
     onsets_raw = note_array[onset_kw]
     
-
+    # aggregate notes in clusters
     aggregated_notes = [(0,0)]
     for note_on in onsets_raw:
         prev_note_on = aggregated_notes[-1][0]
@@ -292,7 +294,8 @@ def estimate_time(note_info):
             aggregated_notes[-1] = (note_on, prev_note_salience + 1)
         else:
             aggregated_notes.append((note_on, 1))
-            
+        
+    print(aggregated_notes)    
     onsets, saliences = list(zip(*aggregated_notes))
     
     ma = MultipleAgents()
