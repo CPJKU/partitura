@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Meter, Beat, Time Signature, Downbeat, and Tempo estimation
+Meter numerator, Beat, and Tempo estimation.
+
+Implementation adapted from Jakob Woegerbauer 
+based on a model published by Simon Dixon.[1]
 
 References
 ----------
 
-.. [1] Simon Dixon.
-    Automatic extraction of tempo and beat from expressive performances.
-    Journal of New Music Research, 30(1):39–58, 2001.
+.. [1] Simon Dixon (2001), Automatic extraction of 
+    tempo and beat from expressive performances.
+    Journal of New Music Research, 30(1):39–58
 """
+
 import warnings
 import numpy as np
 # import scipy.spatial.distance as distance
