@@ -68,7 +68,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=filename,
+            filename=filename,
             assign_note_ids=assign_note_ids,
         )
     except Exception as e:
