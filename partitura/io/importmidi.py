@@ -227,7 +227,6 @@ def load_performance_midi(
 def load_score_midi(
     filename: PathLike,
     part_voice_assign_mode: Optional[int] = 0,
-    # ensure_list=False,
     quantization_unit: Optional[int] = None,
     estimate_voice_info: bool = True,
     estimate_key: bool = False,
@@ -620,7 +619,7 @@ def create_part(
     key_sigs,
     part_id=None,
     part_name=None,
-):
+) -> score.Part:
     warnings.warn("create_part", stacklevel=2)
 
     part = score.Part(part_id, part_name=part_name)

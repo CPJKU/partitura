@@ -20,11 +20,7 @@ class NotSupportedFormatError(Exception):
 
 @deprecated_alias(score_fn="filename")
 @deprecated_parameter("ensure_list")
-def load_score(
-        filename: PathLike,
-        ensure_list=False,
-        force_note_ids="keep"
-) -> Score:
+def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     """
     Load a score format supported by partitura. Currently the accepted formats
     are MusicXML, MIDI, Kern and MEI, plus all formats for which
@@ -58,7 +54,6 @@ def load_score(
     try:
         return load_musicxml(
             filename=filename,
-            # ensure_list=ensure_list,
             force_note_ids=force_note_ids,
         )
     except Exception as e:
@@ -72,7 +67,6 @@ def load_score(
         return load_score_midi(
             fn=filename,
             assign_note_ids=assign_note_ids,
-            ensure_list=ensure_list,
         )
     except Exception as e:
         exception_dictionary["MIDI"] = e
@@ -85,7 +79,6 @@ def load_score(
     try:
         return load_kern(
             filename=filename,
-            ensure_list=ensure_list,
             force_note_ids=force_note_ids,
         )
     except Exception as e:
@@ -95,18 +88,16 @@ def load_score(
         return load_via_musescore(
             filename=filename,
             force_note_ids=force_note_ids,
-            ensure_list=ensure_list,
         )
     except Exception as e:
         exception_dictionary["MuseScore"] = e
     try:
         # Load the score information from a Matchfile
-        _, _, part = load_match(filename, create_part=True)
+        _, _, part = load_match(
+            filename=filename,
+            create_score=True,
+        )
 
-        if ensure_list:
-            return [part]
-        else:
-            return part
     except Exception as e:
         exception_dictionary["matchfile"] = e
     if part is None:
