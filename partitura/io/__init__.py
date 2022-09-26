@@ -1,3 +1,5 @@
+from typing import Union
+
 from .importmusicxml import load_musicxml
 from .importmidi import load_score_midi, load_performance_midi
 from .musescore import load_via_musescore
@@ -12,6 +14,7 @@ from partitura.utils.misc import (
 )
 
 from partitura.score import Score
+from partitura.performance import Performance
 
 
 class NotSupportedFormatError(Exception):
@@ -43,8 +46,8 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
 
     Returns
     -------
-    part: list or Part
-        A score part. If `ensure_list` the output will be a list.
+    scr: :class:`partitura.score.Score`
+        A score instance.
     """
     part = None
 
@@ -108,20 +111,21 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         raise NotSupportedFormatError
 
 
+@deprecated_alias(performance_fn="filename")
 def load_performance(
-    performance_fn,
-    default_bpm=120,
-    merge_tracks=False,
-    first_note_at_zero=False,
-    pedal_threshold=64,
-):
+    filename: PathLike,
+    default_bpm: Union[float, int] = 120,
+    merge_tracks: bool = False,
+    first_note_at_zero: bool = False,
+    pedal_threshold: int = 64,
+) -> Performance:
     """
     Load a performance format supported by partitura. Currently the accepted formats
     are MIDI and matchfiles.
 
     Parameters
     ----------
-    performance_fn: str or file-like  object
+    filename: str or file-like  object
         Filename of the score to parse, or a file-like object
     default_bpm : number, optional
         Tempo to use wherever the MIDI does not specify a tempo.
@@ -136,8 +140,8 @@ def load_performance(
 
     Returns
     -------
-    performed_part: :class:`partitura.performance.PerformedPart`
-        A PerformedPart instance.
+    performance: :class:`partitura.performance.Performance`
+        A `Performance` instance.
 
     TODO
     ----
@@ -145,13 +149,13 @@ def load_performance(
     """
     from partitura.utils.music import remove_silence_from_performed_part
 
-    performed_part = None
+    performance = None
 
     # Catch exceptions
     exception_dictionary = dict()
     try:
         performance = load_performance_midi(
-            performance_fn,
+            filename=filename,
             default_bpm=default_bpm,
             merge_tracks=merge_tracks,
         )
@@ -167,7 +171,7 @@ def load_performance(
 
     try:
         performance, _ = load_match(
-            fn=performance_fn,
+            filename=filename,
             first_note_at_zero=first_note_at_zero,
             pedal_threshold=pedal_threshold,
         )
@@ -180,4 +184,4 @@ def load_performance(
             print(exception)
         raise NotSupportedFormatError
 
-    return performed_part
+    return performance
