@@ -51,7 +51,8 @@ from partitura.utils.music import (
 from .misc import (
     PathLike,
     get_document_name,
-    deprecated_alias
+    deprecated_alias,
+    deprecated_parameter,
 )
 
 

@@ -2,7 +2,7 @@ import functools
 import os
 import warnings
 
-from typing import Union, Callable, Dict, Any
+from typing import Union, Callable, Dict, Any, Iterable
 
 # Recommended by PEP 519
 PathLike = Union[str, bytes, os.PathLike]
@@ -28,7 +28,7 @@ def get_document_name(filename: PathLike) -> str:
 
 def deprecated_alias(**aliases: str) -> Callable:
     """
-    Decorator for deprecated function and method arguments.
+    Decorator for aliasing deprecated function and method arguments.
 
     Use as follows:
 
@@ -53,13 +53,35 @@ def deprecated_alias(**aliases: str) -> Callable:
     return deco
 
 
+def deprecated_parameter(deprecated_kwargs: Iterable[str]) -> Callable:
+    """
+    Decorator for deprecating function and method arguments.
+
+    Use as follows:
+
+    @deprecated_parameter(["old_argument"])
+    def func(new_arg):
+        ...
+    """
+
+    def deco(f: Callable):
+        @functools.wraps(f)
+        def wrapper(*args, **kwargs):
+            to_be_deprecated(f.__name__, kwargs, deprecated_kwargs)
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return deco
+
+
 def rename_kwargs(
     func_name: str,
     kwargs: Dict[str, Any],
     aliases: Dict[str, str],
 ) -> None:
     """
-    Helper function for deprecating function arguments.
+    Helper function for renaming deprecated function arguments.
     This function edits the dictionary of keyword arguments in-place.
 
     Parameters
@@ -92,3 +114,37 @@ def rename_kwargs(
                 stacklevel=3,
             )
             kwargs[new] = kwargs.pop(alias)
+
+
+def to_be_deprecated(
+    func_name: str,
+    kwargs: Dict[str, Any],
+    deprecated_kwargs: Iterable[str],
+) -> None:
+    """
+    Helper function for deprecating function arguments.
+    This function edits the dictionary of keyword arguments in-place.
+
+    Parameters
+    ----------
+    func_name : str
+        Name of the function which keyword arguments have been deprecated.
+    kwargs : dictionary
+        Dictionary of keyword arguments to be passed to the function
+    deprecated_kwargs: Iterable[str]
+        An iterable specifiying the parameters to be deprecated.
+    """
+
+    for deprecated_kwarg in deprecated_kwargs:
+        if deprecated_kwarg in kwargs:
+            # raise warning
+            warnings.warn(
+                message=(
+                    f"`{deprecated_kwarg}` is a deprecatd argument of `{func_name}`"
+                    " and will be ignored."
+                ),
+                category=DeprecationWarning,
+                stacklevel=3,
+            )
+            # Remove deprecated kwarg from kwargs
+            kwargs.pop(deprecated_kwarg)
