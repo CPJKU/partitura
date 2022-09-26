@@ -8,6 +8,7 @@ from partitura.utils.music import (
     estimate_symbolic_duration,
 )
 from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias
 
 import re
 import warnings
@@ -15,6 +16,7 @@ import warnings
 import numpy as np
 
 
+@deprecated_alias(mei_path="filename")
 def load_mei(filename: PathLike) -> score.Score:
     """
     Loads a Mei score from path and returns a list of Partitura.Part
@@ -45,8 +47,8 @@ def load_mei(filename: PathLike) -> score.Score:
     return scr
 
 
-class MeiParser:
-    def __init__(self, mei_path):
+class MeiParser(object):
+    def __init__(self, mei_path: PathLike) -> None:
         document, ns = self._parse_mei(mei_path)
         self.document = document
         self.ns = ns  # the namespace in the MEI file
@@ -344,7 +346,7 @@ class MeiParser:
             symbolic_duration = self._get_symbolic_duration(el)
             intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
             # double the value if we have dots, to be sure be able to encode that with integers in partitura
-            durs.append(intsymdur * (2**dots))
+            durs.append(intsymdur * (2 ** dots))
 
         # add 4 to be sure to not go under 1 ppq
         durs.append(4)

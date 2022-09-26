@@ -1,7 +1,10 @@
 #!/usr/bin/env python
-import numpy as np
-from collections import defaultdict
 import warnings
+
+from collections import defaultdict
+from typing import Union, Optional
+import numpy as np
+
 
 import mido
 
@@ -13,6 +16,7 @@ from partitura.utils import (
     fifths_mode_to_key_name,
     estimate_clef_properties,
     deprecated_alias,
+    deprecated_parameter,
     PathLike,
     get_document_name,
 )
@@ -55,7 +59,11 @@ def midi_to_notearray(filename: PathLike) -> np.ndarray:
 
 
 @deprecated_alias(fn="filename")
-def load_performance_midi(filename, default_bpm=120, merge_tracks=False):
+def load_performance_midi(
+    filename: PathLike,
+    default_bpm: Union[int, float] = 120,
+    merge_tracks: bool = False,
+) -> performance.Performance:
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -83,8 +91,6 @@ def load_performance_midi(filename, default_bpm=120, merge_tracks=False):
     -------
     :class:`partitura.performance.Performance`
         A Performance instance.
-
-
     """
     mid = mido.MidiFile(filename)
     # parts per quarter
@@ -142,7 +148,12 @@ def load_performance_midi(filename, default_bpm=120, merge_tracks=False):
             elif msg.type == "program_change":
 
                 programs.append(
-                    dict(time=t, program=msg.program, track=i, channel=msg.channel)
+                    dict(
+                        time=t,
+                        program=msg.program,
+                        track=i,
+                        channel=msg.channel,
+                    )
                 )
 
             else:
@@ -204,20 +215,24 @@ def load_performance_midi(filename, default_bpm=120, merge_tracks=False):
 
     pp = performance.PerformedPart(notes, controls=controls, programs=programs)
 
-    perf = performance.Performance(id=get_document_name(filename), performedparts=pp)
+    perf = performance.Performance(
+        id=get_document_name(filename),
+        performedparts=pp,
+    )
     return perf
 
 
+@deprecated_parameter("ensure_list")
 @deprecated_alias(fn="filename")
 def load_score_midi(
     filename: PathLike,
-    part_voice_assign_mode=0,
-    ensure_list=False,
-    quantization_unit=None,
-    estimate_voice_info=True,
-    estimate_key=False,
-    assign_note_ids=True,
-):
+    part_voice_assign_mode: Optional[int] = 0,
+    # ensure_list=False,
+    quantization_unit: Optional[int] = None,
+    estimate_voice_info: bool = True,
+    estimate_key: bool = False,
+    assign_note_ids: bool = True,
+) -> score.Score:
     """Load a musical score from a MIDI file and return it as a Part
     instance.
 
@@ -260,13 +275,6 @@ def load_score_midi(
         5
             Return one Part per <track, channel> combination, without
             voices  Defaults to 0.
-    ensure_list : bool, optional
-        When True, return a list independent of how many part or partgroup
-        elements were created from the MIDI file. By default, when the
-        return value of `load_score_midi` produces a single
-        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
-        element, the element itself is returned instead of a list
-        containing the element. Defaults to False.
     quantization_unit : integer or None, optional
         Quantize MIDI times to multiples of this unit. If None, the
         quantization unit is chosen automatically as the smallest

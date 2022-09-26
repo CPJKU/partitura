@@ -145,7 +145,8 @@ class TestMIDITuplets(unittest.TestCase):
             mid, actual, normal = example_gen_func()
             with NamedTemporaryFile(suffix=".mid", delete=False) as fh:
                 mid.save(fh.name)
-                part = load_score_midi(fh.name, part_voice_assign_mode=0)
+                scr = load_score_midi(fh.name, part_voice_assign_mode=0)
+                part = scr[0]
                 notes = part.notes
 
                 if len(actual) != len(normal):
