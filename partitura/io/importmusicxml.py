@@ -2,12 +2,14 @@
 
 # -*- coding: utf-8 -*-
 
-import warnings
 import os
+import warnings
 import zipfile
 
+from typing import Union, Optional
 import numpy as np
 from lxml import etree
+
 
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
@@ -17,6 +19,7 @@ from partitura.directions import parse_direction
 import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
+from partitura.utils.misc import deprecated_alias, deprecated_parameter, PathLike
 
 __all__ = ["load_musicxml", "musicxml_to_notearray"]
 
@@ -156,7 +159,13 @@ def _parse_partlist(partlist):
     return structure, part_dict
 
 
-def load_musicxml(filename, ensure_list=False, validate=False, force_note_ids=None):
+@deprecated_alias(xml="filename")
+@deprecated_parameter(["ensure_list"])
+def load_musicxml(
+        filename: PathLike,
+        validate: bool = False,
+        force_note_ids: Optional[Union[bool, str]] = None
+) -> score.Score:
     """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
@@ -164,14 +173,6 @@ def load_musicxml(filename, ensure_list=False, validate=False, force_note_ids=No
     ----------
     xml : str or file-like  object
         Path to the MusicXML file to be parsed, or a file-like object
-    ensure_list : bool, optional
-        When True return a list independent of how many part or
-        partgroup elements were created from the MusicXML file. By
-        default, when the return value of `load_musicxml` produces a
-    single : class:`partitura.score.Part` or
-        :Class:`partitura.score.PartGroup` element, the element itself
-        is returned instead of a list containing the element. Defaults
-        to False.
     validate : bool, optional
         When True the validity of the MusicXML is checked against the
         MusicXML 3.1 specification before loading the file. An
@@ -191,7 +192,8 @@ def load_musicxml(filename, ensure_list=False, validate=False, force_note_ids=No
     """
 
     xml = None
-    if type(filename) == str:
+    # if type(filename) == str:
+    if isinstance(filename, str):
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
                 xml = zipped_xml.open(
