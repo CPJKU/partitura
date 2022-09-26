@@ -160,7 +160,7 @@ def _parse_partlist(partlist):
 
 
 @deprecated_alias(xml="filename")
-@deprecated_parameter(["ensure_list"])
+@deprecated_parameter("ensure_list")
 def load_musicxml(
         filename: PathLike,
         validate: bool = False,

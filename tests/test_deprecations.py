@@ -16,7 +16,7 @@ class TestDeprecations(unittest.TestCase):
         self.assertTrue(new_p1 is not None)
         self.assertTrue(new_p2 is not None)
 
-    @deprecated_parameter([f"deprecated{i}" for i in range(10)])
+    @deprecated_parameter(*[f"deprecated{i}" for i in range(10)])
     def func_parameter(self, new_p1=None, new_p2=None, **kwargs):
 
         crit = not any([f"deprecated{i}" in kwargs for i in range(10)])

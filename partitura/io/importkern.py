@@ -7,6 +7,7 @@ import numpy as np
 
 import partitura.score as score
 from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias, deprecated_parameter
 
 
 __all__ = ["load_kern"]
@@ -520,13 +521,13 @@ class KernParser:
 
 
 # functions to initialize the kern parser
-def parse_kern(kern_path):
+def parse_kern(kern_path: PathLike) -> np.ndarray:
     """
     Parses an KERN file from path to an regular expression.
 
     Parameters
     ----------
-    kern_path : str
+    kern_path : PathLike
         The path of the KERN document.
     Returns
     -------
@@ -566,12 +567,15 @@ def parse_kern(kern_path):
                 elif i < k:
                     temp.append(i)
             merge_index = temp
-    # Final filter for mistabs and inconsistent tabs that would create extra empty voice and would mess the parsing.
+    # Final filter for mistabs and inconsistent tabs that would create
+    # extra empty voice and would mess the parsing.
     striped_parts = [[el for el in part if el != ""] for part in striped_parts]
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
 
 
+@deprecated_alias(kern_path="filename")
+@deprecated_parameter("ensure_list")
 def load_kern(
     filename: PathLike,
     ensure_list: bool = True,

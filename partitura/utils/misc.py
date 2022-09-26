@@ -53,13 +53,13 @@ def deprecated_alias(**aliases: str) -> Callable:
     return deco
 
 
-def deprecated_parameter(deprecated_kwargs: Iterable[str]) -> Callable:
+def deprecated_parameter(*deprecated_kwargs: str) -> Callable:
     """
     Decorator for deprecating function and method arguments.
 
     Use as follows:
 
-    @deprecated_parameter(["old_argument"])
+    @deprecated_parameter("old_argument1", "old_argument2")
     def func(new_arg):
         ...
     """
