@@ -17,7 +17,13 @@ from typing import Optional, Union
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
 from partitura.score import Score
-from partitura.utils import PathLike
+
+from partitura.utils.misc import (
+    deprecated_alias,
+    deprecated_parameter,
+    PathLike,
+)
+
 
 
 class MuseScoreNotFoundException(Exception):
@@ -61,9 +67,10 @@ def find_musescore3():
     return result
 
 
+@deprecated_alias(fn="filename")
+@deprecated_parameter("ensure_list")
 def load_via_musescore(
     filename: PathLike,
-    ensure_list: bool = False,
     validate: bool = False,
     force_note_ids: Optional[Union[bool, str]] = True,
 ) -> Score:
@@ -133,8 +140,7 @@ or a list of these
             )
 
         return load_musicxml(
-            xml_fh.name,
-            ensure_list=ensure_list,
+            filename=xml_fh.name,
             validate=validate,
             force_note_ids=force_note_ids,
         )
