@@ -561,3 +561,44 @@ def monotonize_times(s, deltas=None):
     idx = np.arange(_s.shape[0])
     s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
     return _s[mask], _deltas[mask]
+
+
+def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
+    """Agregate basis functions per onset
+    """
+    if isinstance(notewise_inputs, np.ndarray):
+        if notewise_inputs.ndim == 1:
+            shape = len(unique_onset_idxs)
+        else:
+            shape = (len(unique_onset_idxs), ) + notewise_inputs.shape[1:]
+        onsetwise_inputs = np.zeros(shape,
+                                    dtype=notewise_inputs.dtype)
+    elif isinstance(notewise_inputs, torch.Tensor):
+        onsetwise_inputs = torch.zeros((len(unique_onset_idxs),
+                                        notewise_inputs.shape[1]),
+                                       dtype=notewise_inputs.dtype)
+
+    for i, uix in enumerate(unique_onset_idxs):
+        try:
+            onsetwise_inputs[i] = notewise_inputs[uix].mean(0)
+        except TypeError:
+            for tn in notewise_inputs.dtype.names:
+                onsetwise_inputs[i][tn] = notewise_inputs[uix][tn].mean()
+    return onsetwise_inputs
+
+
+def onsetwise_to_notewise(onsetwise_input, unique_onset_idxs):
+    """Expand onsetwise predictions for each note
+    """
+    n_notes = sum([len(uix) for uix in unique_onset_idxs])
+    if isinstance(onsetwise_input, np.ndarray):
+        if onsetwise_input.ndim == 1:
+            shape = n_notes
+        else:
+            shape = (n_notes, ) + onsetwise_input.shape[1:]        
+        notewise_inputs = np.zeros(shape, dtype=onsetwise_input.dtype)
+    elif isinstance(onsetwise_input, torch.Tensor):
+        notewise_inputs = torch.zeros(n_notes, dtype=onsetwise_input.dtype)
+    for i, uix in enumerate(unique_onset_idxs):
+        notewise_inputs[uix] = onsetwise_input[[i]]
+    return notewise_inputs
