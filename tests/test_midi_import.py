@@ -209,7 +209,9 @@ class TestMIDIImportModes(unittest.TestCase):
             self.assertEqual(n_ch_notes, n_voice_notes, msg)
 
     def test_midi_import_mode_1(self):
-        parts = load_score_midi(self.tmpfile.name, part_voice_assign_mode=1)
+        scr = load_score_midi(self.tmpfile.name, part_voice_assign_mode=1)
+
+        parts = scr.part_structure
         by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
         msg = (
             "Number of partgroups {} does not equal number of tracks {} while "
@@ -240,7 +242,9 @@ class TestMIDIImportModes(unittest.TestCase):
                 self.assertEqual(notes_in_part, notes_in_track)
 
     def test_midi_import_mode_2(self):
-        part = load_score_midi(self.tmpfile.name, part_voice_assign_mode=2)
+        scr = load_score_midi(self.tmpfile.name, part_voice_assign_mode=2)
+        self.assertTrue(len(scr) == 1)
+        part = scr.part_structure[0]
         msg = "{} should be a Part instance but it is not".format(part)
         self.assertTrue(isinstance(part, score.Part), msg)
         by_track = partition(itemgetter(0), self.notes_per_tr_ch.keys())
@@ -279,7 +283,9 @@ class TestMIDIImportModes(unittest.TestCase):
             self.assertEqual(n_track_notes, n_part_notes, msg)
 
     def test_midi_import_mode_4(self):
-        part = load_score_midi(self.tmpfile.name, part_voice_assign_mode=4)
+        scr = load_score_midi(self.tmpfile.name, part_voice_assign_mode=4)
+        # this shold be a part
+        part = scr.part_structure[0]
         msg = "{} should be a Part instance but it is not".format(part)
         self.assertTrue(isinstance(part, score.Part), msg)
         midi_notes = sum(self.notes_per_tr_ch.values())

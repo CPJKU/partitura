@@ -5,12 +5,26 @@ from .importmatch import load_match
 from .importmei import load_mei
 from .importkern import load_kern
 
+from partitura.utils.misc import (
+    deprecated_alias,
+    deprecated_parameter,
+    PathLike,
+)
+
+from partitura.score import Score
+
 
 class NotSupportedFormatError(Exception):
     pass
 
 
-def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
+@deprecated_alias(score_fn="filename")
+@deprecated_parameter("ensure_list")
+def load_score(
+        filename: PathLike,
+        ensure_list=False,
+        force_note_ids="keep"
+) -> Score:
     """
     Load a score format supported by partitura. Currently the accepted formats
     are MusicXML, MIDI, Kern and MEI, plus all formats for which
@@ -18,7 +32,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
 
     Parameters
     ----------
-    score_fn : str or file-like  object
+    filename : str or file-like  object
         Filename of the score to parse, or a file-like object
     ensure_list : bool
         When True, return a list independent of how many part or
@@ -43,8 +57,8 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MusicXML
     try:
         return load_musicxml(
-            filename=score_fn,
-            ensure_list=ensure_list,
+            filename=filename,
+            # ensure_list=ensure_list,
             force_note_ids=force_note_ids,
         )
     except Exception as e:
@@ -56,7 +70,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=score_fn,
+            fn=filename,
             assign_note_ids=assign_note_ids,
             ensure_list=ensure_list,
         )
@@ -64,13 +78,13 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         exception_dictionary["MIDI"] = e
     # Load MEI
     try:
-        return load_mei(filename=score_fn)
+        return load_mei(filename=filename)
     except Exception as e:
         exception_dictionary["MEI"] = e
     # Load Kern
     try:
         return load_kern(
-            filename=score_fn,
+            filename=filename,
             ensure_list=ensure_list,
             force_note_ids=force_note_ids,
         )
@@ -79,7 +93,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MuseScore
     try:
         return load_via_musescore(
-            filename=score_fn,
+            filename=filename,
             force_note_ids=force_note_ids,
             ensure_list=ensure_list,
         )
@@ -87,7 +101,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         exception_dictionary["MuseScore"] = e
     try:
         # Load the score information from a Matchfile
-        _, _, part = load_match(score_fn, create_part=True)
+        _, _, part = load_match(filename, create_part=True)
 
         if ensure_list:
             return [part]
