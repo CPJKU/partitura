@@ -18,7 +18,7 @@ import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
 
-__all__ = ["load_musicxml"]
+__all__ = ["load_musicxml", "musicxml_to_notearray"]
 
 _MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
 _XML_VALIDATOR = None
@@ -185,15 +185,17 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
 
     Returns
     -------
-    partlist : list
-        A list of either Part or PartGroup objects
+    scr: Score
+        A `Score` instance.
 
     """
-    
+
     if type(xml) == str:
         if zipfile.is_zipfile(xml):
             with zipfile.ZipFile(xml) as zipped_xml:
-                xml = zipped_xml.open(os.path.splitext(os.path.basename(xml))[0]+".xml")
+                xml = zipped_xml.open(
+                    os.path.splitext(os.path.basename(xml))[0] + ".xml"
+                )
 
     if validate:
         validate_musicxml(xml, debug=True)
@@ -228,13 +230,68 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
     if force_note_ids is True or force_note_ids == "keep":
         assign_note_ids(partlist, force_note_ids == "keep")
 
-    if not ensure_list and len(partlist) == 1:
-        return partlist[0]
-    else:
-        return partlist
+    composer = None
+    scid = None
+    title = None
+    subtitle = None
+    lyricist = None
+    copyright = None
 
+    # The work tag is preferred for the title of the score, otherwise
+    # this method will search in the credit tags
+    work_info_el = document.find("work")
 
+    if work_info_el is not None:
+        scid = get_value_from_tag(
+            e=work_info_el,
+            tag="work-title",
+            as_type=str,
+        )
 
+        title = scid
+
+    score_identification_el = document.find("identification")
+
+    # The identification tag has preference over credit
+    if score_identification_el is not None:
+
+        copyright = get_value_from_tag(score_identification_el, "rights", str)
+
+        for cel in score_identification_el.findall("creator"):
+            if get_value_from_attribute(cel, "type", str) == "composer":
+                composer = str(cel.text)
+            if get_value_from_attribute(cel, "type", str) == "lyricist":
+                lyricist = str(cel.text)
+
+    for cel in document.findall("credit"):
+
+        credit_type = get_value_from_tag(cel, "credit-type", str)
+        if credit_type == "title" and title is None:
+            title = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "subtitle" and subtitle is None:
+            subtitle = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "composer" and composer is None:
+            composer = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "lyricist" and lyricist is None:
+            lyricist = get_value_from_tag(cel, "credit-words", str)
+
+        elif credit_type == "rights" and copyright is None:
+            copyright = get_value_from_tag(cel, "credit-words", str)
+
+    scr = score.Score(
+        id=scid,
+        partlist=partlist,
+        title=title,
+        subtitle=subtitle,
+        composer=composer,
+        lyricist=lyricist,
+        copyright=copyright,
+    )
+
+    return scr
 
 
 def _parse_parts(document, part_dict):
@@ -267,35 +324,57 @@ def _parse_parts(document, part_dict):
             position, doc_order = _handle_measure(
                 measure_el, position, part, ongoing, doc_order
             )
-        
-        
+
         # complete unfinished endings
-        for o in part.iter_all(score.Ending, mode="ending"): 
+        for o in part.iter_all(score.Ending, mode="ending"):
             if o.start is None:
-                part.add(o,part.measure_map(o.end.t-1)[0],None)
-                warnings.warn("Found ending[stop] without a preceding ending[start]\n"
-                    "Single measure bracket is assumed")
-        
-        for o in part.iter_all(score.Ending, mode="starting"):    
+                part.add(o, part.measure_map(o.end.t - 1)[0], None)
+                warnings.warn(
+                    "Found ending[stop] without a preceding ending[start]\n"
+                    "Single measure bracket is assumed"
+                )
+
+        for o in part.iter_all(score.Ending, mode="starting"):
             if o.end is None:
-                part.add(o,None,part.measure_map(o.start.t)[1])
-                warnings.warn("Found ending[start] without a following ending[stop]\n"
-                    "Single measure bracket is assumed")
+                part.add(o, None, part.measure_map(o.start.t)[1])
+                warnings.warn(
+                    "Found ending[start] without a following ending[stop]\n"
+                    "Single measure bracket is assumed"
+                )
 
-        # complete unstarted repeats 
-        for o in part.iter_all(score.Repeat, mode="ending"): 
+        # complete unstarted repeats
+        volta_repeats = list()
+        for o in part.iter_all(score.Repeat, mode="ending"):
             if o.start is None:
-                start_times = [0] + \
-                    [r.start.t for r in part.iter_all(score.Repeat)]
-                start_time_id = np.searchsorted(start_times, o.end.t) - 1
-                part.add(o,start_times[start_time_id],None)
-                warnings.warn("Found repeat without start\n"
-                    "Starting point {} is assumend".format(start_times[start_time_id]))
+                if len(o.end.ending_objects[score.Ending]) > 0:
+                    ending = list(o.end.ending_objects[score.Ending].keys())[0]
+                    # if unstarted repeat from volta, continue for now
+                    if len(ending.start.ending_objects[score.Repeat]) > 0:
+                        volta_repeats.append(o)
+                        continue
 
-        # remove unfinished elements from the timeline        
+                # go back to the end of the last repeat
+                start_times = [0] + [r.end.t for r in part.iter_all(score.Repeat)]
+                start_time_id = np.searchsorted(start_times, o.end.t) - 1
+                part.add(o, start_times[start_time_id], None)
+                warnings.warn(
+                    "Found repeat without start\n"
+                    "Starting point {} is assumend".format(start_times[start_time_id])
+                )
+
+        # complete unstarted repeats in volta with start time of first repeat
+        for o in volta_repeats:
+            start_times = [0] + [r.start.t for r in part.iter_all(score.Repeat)]
+            start_time_id = np.searchsorted(start_times, o.end.t) - 1
+            part.add(o, start_times[start_time_id], None)
+            warnings.warn(
+                "Found repeat without start\n"
+                "Starting point {} is assumend".format(start_times[start_time_id])
+            )
+
+        # remove unfinished elements from the timeline
         for k, o in ongoing.items():
-            if (k not in ("page", "system","repeat") and 
-                k[0] not in ("tie","ending")):
+            if k not in ("page", "system", "repeat") and k[0] not in ("tie", "ending"):
                 if isinstance(o, list):
                     for o_i in o:
                         part.remove(o_i)
@@ -361,10 +440,10 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
             if position < measure.start.t:
                 warnings.warn(
-                    ("<backup> crosses measure boundary, adjusting "
-                     "position from {} to {} in Measure {}").format(
-                        position, measure.start.t, measure.number
-                    )
+                    (
+                        "<backup> crosses measure boundary, adjusting "
+                        "position from {} to {} in Measure {}"
+                    ).format(position, measure.start.t, measure.number)
                 )
                 position = measure.start.t
 
@@ -482,9 +561,8 @@ def _handle_repeat(e, position, part, ongoing):
         part.add(o, None, position)
 
 
-
 def _handle_ending(e, position, part, ongoing):
-    #key = "ending"
+    # key = "ending"
     key = ("ending", getattr(e, "number", "0"))
 
     if e.get("type") == "start":
@@ -499,8 +577,10 @@ def _handle_ending(e, position, part, ongoing):
 
         if o is None:
 
-            warnings.warn("Found ending[stop] without a preceding ending[start]\n"+
-                           "Single measure bracket is assumed")
+            warnings.warn(
+                "Found ending[stop] without a preceding ending[start]\n"
+                + "Single measure bracket is assumed"
+            )
             o = score.Ending(e.get("number"))
             part.add(o, None, position)
 
@@ -616,10 +696,10 @@ def _handle_direction(e, position, part, ongoing):
     # >
 
     staff = get_value_from_tag(e, "staff", int) or None
-    
+
     sound_directions = e.findall("sound")
     for sd in sound_directions:
-        
+
         if get_value_from_attribute(sd, "fine", str) == "yes":
             part.add(score.Fine(), position)
         if get_value_from_attribute(sd, "dacapo", str) == "yes":
@@ -802,7 +882,7 @@ def get_clefs(e):
     for clef in clefs:
         result.append(
             dict(
-                number=get_value_from_attribute(clef, "number", int),
+                staff=get_value_from_attribute(clef, "number", int) or 1,
                 sign=get_value_from_tag(clef, "sign", str),
                 line=get_value_from_tag(clef, "line", int),
                 octave_change=get_value_from_tag(clef, "clef-octave-change", int),
@@ -955,8 +1035,8 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
     duration = get_value_from_tag(e, "duration", int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
-    staff = get_value_from_tag(e, "staff", int) or None
-    voice = get_value_from_tag(e, "voice", int) or None
+    staff = get_value_from_tag(e, "staff", int) or 1
+    voice = get_value_from_tag(e, "voice", int) or 1
 
     # add support of uppercase "ID" tags
     note_id = (
@@ -995,7 +1075,14 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
     else:
         articulations = {}
 
+    ornaments_e = e.find("notations/ornaments")
+    if ornaments_e is not None:
+        ornaments = get_ornaments(ornaments_e)
+    else:
+        ornaments = {}
+
     pitch = e.find("pitch")
+    unpitch = e.find("unpitched")
     if pitch is not None:
 
         step = get_value_from_tag(pitch, "step", str)
@@ -1016,6 +1103,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 staff=staff,
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
+                ornaments=ornaments,
                 steal_proportion=steal_proportion,
                 doc_order=doc_order,
             )
@@ -1031,11 +1119,39 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
                 staff=staff,
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
+                ornaments=ornaments,
                 doc_order=doc_order,
             )
 
         if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
             prev_note.grace_next = note
+
+    elif unpitch is not None:
+        # note element is unpitched
+        step = get_value_from_tag(unpitch, "display-step", str)
+        octave = get_value_from_tag(unpitch, "display-octave", int)
+        noteheadtag = e.find("notehead")
+        noteheadstylebool = True
+        notehead = None
+        if noteheadtag is not None:
+            notehead = get_value_from_tag(e, "notehead", str)
+            noteheadstyle = get_value_from_attribute(noteheadtag, "filled", str)
+            if noteheadstyle is not None:
+                noteheadstylebool = {"no": False, "yes": True}[noteheadstyle]
+
+        note = score.UnpitchedNote(
+            step=step,
+            octave=octave,
+            id=note_id,
+            voice=voice,
+            staff=staff,
+            notehead=notehead,
+            noteheadstyle=noteheadstylebool,
+            articulations=articulations,
+            symbolic_duration=symbolic_duration,
+            doc_order=doc_order,
+        )
+
     else:
         # note element is a rest
         note = score.Rest(
@@ -1201,9 +1317,9 @@ def handle_slurs(notations, ongoing, note, position):
 
             # if slur.end_note.start.t < position then the slur stop is
             # rogue. We drop it and treat the slur start like a fresh start
-            if slur is None or slur.end_note.start.t <= position:
+            if slur is None or slur.end_note.start.t < position:
 
-                if slur and slur.end_note.start.t <= position:
+                if slur and slur.end_note.start.t < position:
                     msg = (
                         "Dropping slur {} starting at {} ({}) and ending "
                         "at {} ({})".format(
@@ -1233,9 +1349,9 @@ def handle_slurs(notations, ongoing, note, position):
 
             slur = ongoing.pop(start_slur_key, None)
 
-            if slur is None or slur.start_note.start.t >= position:
+            if slur is None or slur.start_note.start.t > position:
 
-                if slur and slur.start_note.start.t >= position:
+                if slur and slur.start_note.start.t > position:
                     msg = (
                         "Dropping slur {} starting at {} ({}) and ending "
                         "at {} ({})".format(
@@ -1316,6 +1432,44 @@ def get_articulations(e):
     return [a for a in articulations if e.find(a) is not None]
 
 
+def get_ornaments(e):
+    #  ornaments elements:
+    #  trill-mark
+    #  turn
+    #  delayed-turn
+    #  inverted-turn
+    #  delayed-inverted-turn
+    #  vertical-turn
+    #  inverted-vertical-turn
+    #  shake
+    #  wavy-line
+    #  mordent
+    #  inverted-mordent
+    #  schleifer
+    #  tremolo
+    #  haydn
+    #  other-ornament
+
+    ornaments = (
+        "trill-mark",
+        "turn",
+        "delayed-turn",
+        "inverted-turn",
+        "delayed-inverted-turn",
+        "vertical-turn",
+        "inverted-vertical-turn",
+        "shake",
+        "wavy-line",
+        "mordent",
+        "inverted-mordent",
+        "schleifer",
+        "tremolo",
+        "haydn",
+        "other-ornament",
+    )
+    return [a for a in ornaments if e.find(a) is not None]
+
+
 def musicxml_to_notearray(
     fn,
     flatten_parts=True,
@@ -1368,7 +1522,8 @@ def musicxml_to_notearray(
             notearray_or_part=unfolded_part,
             include_pitch_spelling=include_pitch_spelling,
             include_key_signature=include_key_signature,
-            include_time_signature=include_time_signature)
+            include_time_signature=include_time_signature,
+        )
         note_arrays.append(note_array)
 
     if len(note_arrays) == 1:

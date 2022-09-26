@@ -8,11 +8,11 @@ from partitura.utils.music import (
     estimate_symbolic_duration,
 )
 
+import re
+import logging
 import warnings
 
 import numpy as np
-
-
 
 
 def load_mei(mei_path: str) -> list:
@@ -45,6 +45,13 @@ class MeiParser:
         self.parts = (
             None  # parts get initialized in create_parts() and filled in fill_parts()
         )
+        self.repetitions = (
+            []
+        )  # to be filled when we encounter repetitions and process in the end
+        self.barlines = (
+            []
+        )  # to be filled when we encounter barlines and process in the end
+        self.endings = []
 
     def create_parts(self):
         # handle main scoreDef info: create the part list
@@ -66,6 +73,12 @@ class MeiParser:
 
         # handles ties
         self._tie_notes(scores_el[0], self.parts)
+
+        # handle repetitions
+        self._insert_repetitions()
+
+        # handle barlines
+        self._insert_barlines()
 
     # -------------- Functions to initialize the xml tree -----------------
 
@@ -323,7 +336,7 @@ class MeiParser:
             symbolic_duration = self._get_symbolic_duration(el)
             intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
             # double the value if we have dots, to be sure be able to encode that with integers in partitura
-            durs.append(intsymdur * (2 ** dots))
+            durs.append(intsymdur * (2**dots))
 
         # add 4 to be sure to not go under 1 ppq
         durs.append(4)
@@ -421,12 +434,17 @@ class MeiParser:
 
     # functions to parse the content of parts
 
-    def _accidstring_to_int(self, accid_string: str) -> int:
-        """Accidental string to intiger pitch manipulation."""
-        if accid_string is None:
-            return None
+    def _note_el_to_accid_int(self, note_el) -> int:
+        """Accidental strings to integer pitch.
+        It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)"""
+        if note_el.get("accid") is not None:
+            return SIGN_TO_ALTER[note_el.get("accid")]
+        elif note_el.get("accid.ges") is not None:
+            return SIGN_TO_ALTER[note_el.get("accid.ges")]
+        elif note_el.find(self._ns_name("accid")) is not None:
+            return SIGN_TO_ALTER[note_el.find(self._ns_name("accid")).get("accid")]
         else:
-            return SIGN_TO_ALTER[accid_string]
+            return None
 
     def _pitch_info(self, note_el):
         """
@@ -447,7 +465,8 @@ class MeiParser:
         """
         step = note_el.attrib["pname"]
         octave = int(note_el.attrib["oct"])
-        alter = self._accidstring_to_int(note_el.get("accid"))
+        # accidentals can be accid, accid.ges or accid children elements
+        alter = self._note_el_to_accid_int(note_el)
         return step, octave, alter
 
     def _get_symbolic_duration(self, el):
@@ -705,6 +724,26 @@ class MeiParser:
         space_id, duration, symbolic_duration = self._duration_info(e, part)
         return position + duration
 
+    def _handle_barline_symbols(self, measure_el, position: int, left_or_right: str):
+        barline = measure_el.get(left_or_right)
+        if barline is not None:
+            if barline == "rptstart":
+                self.repetitions.append({"type": "start", "pos": position})
+                self.barlines.append({"type": "heavy-light", "pos": position})
+            elif barline == "rptend":
+                self.repetitions.append({"type": "stop", "pos": position})
+                self.barlines.append({"type": "light-heavy", "pos": position})
+            elif barline == "dbl":
+                self.barlines.append({"type": "light-light", "pos": position})
+            elif barline == "end":
+                self.barlines.append({"type": "light-heavy", "pos": position})
+            elif barline == "dashed":
+                self.barlines.append({"type": "dashed", "pos": position})
+            else:
+                print(
+                    f"{barline} in measure {measure_el.attrib[self._ns_name('id', XML_NAMESPACE)]} is a non supported barline type."
+                )
+
     def _handle_layer_in_staff_in_measure(
         self, layer_el, ind_layer: int, ind_staff: int, position: int, part
     ) -> int:
@@ -777,7 +816,7 @@ class MeiParser:
         for i_layer, layer_el in enumerate(layers_el):
             end_positions.append(
                 self._handle_layer_in_staff_in_measure(
-                    layer_el, i_layer, staff_ind, position, part
+                    layer_el, i_layer + 1, staff_ind, position, part
                 )
             )
         # check if layers have equal duration (bad encoding, but it often happens)
@@ -789,6 +828,35 @@ class MeiParser:
         # add end time of measure
         part.add(measure, None, max(end_positions))
         return max(end_positions)
+
+    def _find_dir_positions(self, dir_el, bar_position):
+        """Compute the position for a <dir> element.
+        Returns an array, one position for each part."""
+        delta_position_beat = float(dir_el.get("tstamp"))
+        return [
+            p.inv_beat_map(p.beat_map(bar_position) + delta_position_beat - 1)
+            for p in score.iter_parts(self.parts)
+        ]
+
+    def _add_in_all_parts(self, tobj, starts):
+        for part, start in zip(score.iter_parts(self.parts), starts):
+            part.add(tobj, start)
+
+    def _handle_dir_element(self, dir_el, position):
+        # find the kind of element
+        kind = dir_el.get("type")
+        if kind is None:
+            return
+        dir_pos = self._find_dir_positions(dir_el, position)
+        if kind == "fine":
+            self._add_in_all_parts(score.Fine(), dir_pos)
+        elif kind == "dacapo":
+            self._add_in_all_parts(score.DaCapo(), dir_pos)
+
+    def _handle_directives(self, measure_el, position):
+        dir_els = measure_el.findall(self._ns_name("dir"))
+        for dir_el in dir_els:
+            self._handle_dir_element(dir_el, position)
 
     def _handle_section(self, section_el, parts, position: int):
         """
@@ -811,20 +879,28 @@ class MeiParser:
         for i_el, element in enumerate(section_el):
             # handle measures
             if element.tag == self._ns_name("measure"):
+                # handle left barline symbols
+                self._handle_barline_symbols(element, position, "left")
+                # handle staves
                 staves_el = element.findall(self._ns_name("staff"))
                 if len(list(staves_el)) != len(list(parts)):
                     raise Exception("Not all parts are specified in measure" + i_el)
                 end_positions = []
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
-                        self._handle_staff_in_measure(staff_el, i_s, position, part)
+                        self._handle_staff_in_measure(staff_el, i_s + 1, position, part)
                     )
                 # sanity check that all layers have equal duration
                 if not all([e == end_positions[0] for e in end_positions]):
                     warnings.warn(
                         f"Warning : parts have measures of different duration in measure {element.attrib[self._ns_name('id',XML_NAMESPACE)]}"
                     )
+                # handle directives (dir elements)
+                self._handle_directives(element, position)
+                # move the position at the end of the bar
                 position = max(end_positions)
+                # handle right barline symbol
+                self._handle_barline_symbols(element, position, "right")
             # handle staffDef elements
             elif element.tag == self._ns_name("scoreDef"):
                 # meter modifications
@@ -843,8 +919,11 @@ class MeiParser:
             elif element.tag == self._ns_name("section"):
                 position = self._handle_section(element, parts, position)
             elif element.tag == self._ns_name("ending"):
+                ending_start = position
                 position = self._handle_section(element, parts, position)
-                # TODO : add the volta symbol and measure separator
+                # insert the ending element
+                ending_number = int(re.sub("[^0-9]", "", element.attrib["n"]))
+                self._add_ending(ending_start, position, ending_number, parts)
             # explicit repetition expansions
             elif element.tag == self._ns_name("expansion"):
                 pass
@@ -858,6 +937,10 @@ class MeiParser:
                 raise Exception(f"element {element.tag} is not yet supported")
 
         return position
+
+    def _add_ending(self, start_ending, end_ending, ending_string, parts):
+        for part in score.iter_parts(parts):
+            part.add(score.Ending(ending_string), start_ending, end_ending)
 
     def _tie_notes(self, section_el, part_list):
         """Ties all notes in a part.
@@ -886,3 +969,55 @@ class MeiParser:
                 all_notes_dict[start_id].tie_next = all_notes_dict[end_id]
                 all_notes_dict[end_id].tie_prev = all_notes_dict[start_id]
 
+    def _insert_repetitions(self):
+        if len(self.repetitions) == 0:
+            return
+        ## sanitize the found repetitions in case a starting rep is missing
+        if self.repetitions[0]["type"] == "stop":
+            # add a start symbol at 0
+            print(
+                "WARNING : unmatched repetitions. adding a repetition start at position 0"
+            )
+            self.repetitions.insert(0, {"type": "start", "pos": 0})
+        status = "stop"
+        sanitized_repetition_list = []
+        # check if start-stop are alternate
+        for i_rep, rep in enumerate(self.repetitions):
+            if rep["type"] != status:
+                sanitized_repetition_list.append(rep)
+            else:
+                if (
+                    rep["type"] == "start"
+                ):  # missing stop, inserting one right before start
+                    print(
+                        f"WARNING : unmatched repetitions. adding a repetition stop at position {rep['pos']}"
+                    )
+                    sanitized_repetition_list.append(
+                        {"type": "stop", "pos": rep["pos"]}
+                    )
+                else:  # missing start, inserting one at the last stop
+                    print(
+                        f"WARNING : unmatched repetitions. adding a repetition start at position {sanitized_repetition_list[-1]['pos']}"
+                    )
+                    sanitized_repetition_list.append(
+                        {"type": "start", "pos": sanitized_repetition_list[-1]["pos"]}
+                    )
+                # proceed by inserting rep
+                sanitized_repetition_list.append(rep)
+            # switch the status
+            status = "stop" if status == "start" else "start"
+        # check if ending with a start
+        if sanitized_repetition_list[-1] == "start":
+            print("WARNING : unmatched repetitions. Ignoring last start")
+        self.repetitions = sanitized_repetition_list
+
+        ## insert the repetitions to all parts
+        for rep_start, rep_stop in zip(self.repetitions[:-1:2], self.repetitions[1::2]):
+            assert rep_start["type"] == "start" and rep_stop["type"] == "stop"
+            for part in score.iter_parts(self.parts):
+                part.add(score.Repeat(), rep_start["pos"], rep_stop["pos"])
+
+    def _insert_barlines(self):
+        for bl in self.barlines:
+            for part in score.iter_parts(self.parts):
+                part.add(score.Barline(bl["type"]), bl["pos"])

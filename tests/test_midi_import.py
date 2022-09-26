@@ -41,7 +41,7 @@ def make_assignment_mode_example():
     mid = mido.MidiFile(ticks_per_beat=divs)
     track_1 = mido.MidiTrack()
     mid.tracks.append(track_1)
-    tempo = int(0.5 * 10 ** 6)
+    tempo = int(0.5 * 10**6)
     track_1.append(mido.MetaMessage("track_name", name="Track 1"))
     # track_1.append(mido.MetaMessage('instrument_name', name='Instrument 1'))
     # track_1.append(mido.Message('program_change', channel=0, program=1))

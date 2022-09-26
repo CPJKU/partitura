@@ -6,10 +6,7 @@ corresp file formats.
 """
 
 import unittest
-from partitura.io.importnakamura import (
-    load_nakamuracorresp,
-    load_nakamuramatch
-)
+from partitura.io.importnakamura import load_nakamuracorresp, load_nakamuramatch
 
 from tests import NAKAMURA_IMPORT_TESTFILES
 

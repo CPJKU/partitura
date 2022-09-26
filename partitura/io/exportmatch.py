@@ -27,9 +27,8 @@ from partitura.utils.music import midi_pitch_to_pitch_spelling, MAJOR_KEYS, MINO
 __all__ = ["save_match"]
 
 
-
 def seconds_to_midi_ticks(t, mpq=500000, ppq=480):
-    return int(np.round(10 ** 6 * ppq * t / mpq))
+    return int(np.round(10**6 * ppq * t / mpq))
 
 
 def _fifths_mode_to_match_key_name(fifths, mode):
@@ -148,7 +147,7 @@ def matchfile_from_alignment(
             onset, offset = spart.beat_map([n.start.t, n.start.t + n.duration_tied])
             duration = offset - onset
             beat = (onset - bar_start) // 1
-            ts_num, ts_den = spart.time_signature_map(n.start.t)
+            ts_num, ts_den, _ = spart.time_signature_map(n.start.t)
             # In metrical offset in whole notes
             moffset = (onset - bar_start - beat) / ts_den
             # offset = onset + duration

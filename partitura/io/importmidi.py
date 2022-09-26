@@ -15,8 +15,7 @@ from partitura.utils import (
 )
 import partitura.musicanalysis as analysis
 
-__all__ = ["load_score_midi", "load_performance_midi"]
-
+__all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
 # as key for the dict use channel * 128 (max number of pitches) + pitch
@@ -45,10 +44,10 @@ def midi_to_notearray(fn):
         Structured array with onset, duration, pitch, velocity, and
         ID fields.
     """
-    ppart = load_performance_midi(fn, merge_tracks=True)
+    ppart = load_performance_midi(fn, merge_tracks=True)[0]
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
     ppart.sustain_pedal_threshold = 128
-    return ppart.note_array
+    return ppart.note_array()
 
 
 def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
@@ -77,8 +76,8 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
     Returns
     -------
-    :class:`partitura.performance.PerformedPart`
-        A PerformedPart instance.
+    :class:`partitura.performance.Performance`
+        A Performance instance.
 
 
     """
@@ -86,10 +85,10 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10 ** 6 / default_bpm)
+    mpq = 60 * (10**6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10 ** 6)
+    time_conversion_factor = mpq / (ppq * 10**6)
 
     notes = []
     controls = []
@@ -113,7 +112,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
                 mpq = msg.tempo
 
-                time_conversion_factor = mpq / (ppq * 10 ** 6)
+                time_conversion_factor = mpq / (ppq * 10**6)
 
                 warnings.warn(
                     (
@@ -185,18 +184,21 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         # fix note ids so that it is sorted lexicographically
         # by onset, pitch, offset, channel and track
         notes.sort(
-            key=lambda x: (x['note_on'],
-                           x['midi_pitch'],
-                           x['note_off'],
-                           x['channel'],
-                           x['track'])
+            key=lambda x: (
+                x["note_on"],
+                x["midi_pitch"],
+                x["note_off"],
+                x["channel"],
+                x["track"],
             )
+        )
 
         # add note id to every note
         for i, note in enumerate(notes):
             note["id"] = f"n{i}"
 
-    return performance.PerformedPart(notes, controls=controls, programs=programs)
+    pp = performance.PerformedPart(notes, controls=controls, programs=programs)
+    return performance.Performance(fn, pp)
 
 
 def load_score_midi(
@@ -336,7 +338,7 @@ or a list of these
             if msg.type == "key_signature":
                 key_sigs.append((t, msg.key))
             if msg.type == "set_tempo":
-                global_tempos.append((t, 60 * 10 ** 6 / msg.tempo))
+                global_tempos.append((t, 60 * 10**6 / msg.tempo))
             else:
                 note_on = msg.type == "note_on"
                 note_off = msg.type == "note_off"
@@ -606,7 +608,7 @@ def create_part(
     part.set_quarter_duration(0, ticks)
 
     clef = score.Clef(
-        number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
+        staff=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
     )
     part.add(clef, 0)
     for t, name in key_sigs:
