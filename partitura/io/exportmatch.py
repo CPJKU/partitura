@@ -147,7 +147,7 @@ def matchfile_from_alignment(
             onset, offset = spart.beat_map([n.start.t, n.start.t + n.duration_tied])
             duration = offset - onset
             beat = (onset - bar_start) // 1
-            ts_num, ts_den = spart.time_signature_map(n.start.t)
+            ts_num, ts_den, _ = spart.time_signature_map(n.start.t)
             # In metrical offset in whole notes
             moffset = (onset - bar_start - beat) / ts_den
             # offset = onset + duration
