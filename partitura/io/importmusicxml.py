@@ -192,7 +192,6 @@ def load_musicxml(
     """
 
     xml = None
-    # if type(filename) == str:
     if isinstance(filename, str):
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
@@ -1476,8 +1475,9 @@ def get_ornaments(e):
     return [a for a in ornaments if e.find(a) is not None]
 
 
+@deprecated_alias(fn="filename")
 def musicxml_to_notearray(
-    fn,
+    filename,
     flatten_parts=True,
     include_pitch_spelling=False,
     include_key_signature=False,
@@ -1512,15 +1512,19 @@ def musicxml_to_notearray(
 
     Returns
     -------
-    score : structured array or list of structured arrays
+    note_arrays : structured array or list of structured arrays
         Structured array or list of structured arrays containing
         score information.
     """
 
-    parts = load_musicxml(fn, ensure_list=True, force_note_ids="keep")
+    # parts = load_musicxml(fn, ensure_list=True, force_note_ids="keep")
+    scr = load_musicxml(
+        filename=filename,
+        force_note_ids="keep",
+    )
 
     note_arrays = []
-    for part in score.iter_parts(parts):
+    for part in scr.parts:
         # Unfold any repetitions in part
         unfolded_part = score.unfold_part_maximal(part)
         # Compute note array
