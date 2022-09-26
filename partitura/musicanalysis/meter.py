@@ -22,8 +22,6 @@ import numpy as np
 from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
 
 
-#__all__ = ["estimate_tonaltension"]
-
 # Scaling factors
 MAX = 9999999999999
 MIN_INTERVAL = 0.01
@@ -41,6 +39,11 @@ CHORD_SPREAD_TIME = 1/12 # for onset aggregation
 
 
 class MultipleAgents():
+    """
+    Class to compute inter onset interval clusters
+    and to instantiate a number of agents to 
+    approximate beat positions.
+    """
     def run(self, onsets, salience):
         self.clusters = []
         self.agents = []
@@ -197,6 +200,15 @@ class MultipleAgents():
 
 
 class Cluster():
+    """
+    Class for inter onset interval clusters.
+    
+    Parameters
+    ----------
+    ioi : float
+        an initial inter onset interval 
+    
+    """
     
     def __init__(self, ioi) -> None:
         self.iois = np.zeros(0)
@@ -223,6 +235,9 @@ class Cluster():
         return 0
 
 class Agent():
+    """
+    Class for beat induction agents.
+    """
 
     def __init__(self) -> None:
         self.beat_interval = 0
@@ -308,3 +323,4 @@ def estimate_time(note_info):
     return dict(tempo=ma.getTempo(),
                 meter_numerator=ma.getNum(),
                 beats=ma.getBeats())
+    
