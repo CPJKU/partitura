@@ -71,7 +71,7 @@ def midi_pitch_to_natural_frequency(
     to the A in the same octave as the note in question (e.g.,
     C4 is a descending major sixth with respect to A4, E5 is descending
     perfect fourth computed with respect to A5, etc.).
-    
+
 
     TODO
     ----
@@ -108,6 +108,16 @@ def exp_in_exp_out(
 ) -> np.ndarray:
     """
     Sound envelope with exponential attack and decay
+
+    Parameters
+    ----------
+    num_frames : int
+        Size of the window in frames.
+
+    Returns
+    -------
+    envelope : np.ndarray
+        1D array with the envelope.
     """
     # Initialize envelope
     envelope = np.ones(num_frames, dtype=DTYPE)
@@ -125,6 +135,16 @@ def exp_in_exp_out(
 def lin_in_lin_out(num_frames: int) -> np.ndarray:
     """
     Sound envelope with linear attack and decay
+
+    Parameters
+    ----------
+    num_frames : int
+        Size of the window in frames.
+
+    Returns
+    -------
+    envelope : np.ndarray
+        1D array with the envelope.
     """
     # Initialize envelope
     envelope = np.ones(num_frames, dtype=DTYPE)
@@ -142,11 +162,21 @@ def additive_synthesis(
     freqs: Union[int, float, np.ndarray],
     duration: float,
     samplerate: Union[int, float] = SAMPLE_RATE,
-    weights="equal",
+    weights: Union[int, float, str, np.ndarray] = "equal",
     envelope_fun="linear",
 ) -> np.ndarray:
     """
-    Additive synthesis
+    Additive synthesis for a single note
+
+    Parameters
+    ----------
+    freqs: Union[int, float, np.ndarray]
+        Frequencies of the spectrum of the note.
+    duration: float
+        Duration of the note in seconds.
+    samplerate: int, float
+        Sample rate of the note.
+
     """
     if isinstance(freqs, (int, float)):
         freqs = [freqs]
@@ -197,7 +227,9 @@ class ShepardTones(object):
     Generate Shepard Tones
     """
 
-    def __init__(self, min_freq: Union[float, int] = 77.8, max_freq: Union[float, int] = 2349):
+    def __init__(
+        self, min_freq: Union[float, int] = 77.8, max_freq: Union[float, int] = 2349
+    ):
 
         self.min_freq = min_freq
         self.max_freq = max_freq
@@ -237,10 +269,10 @@ def check_instance(fn):
     Checks if input is Partitura part object or structured array
 
     """
-    from partitura.score import Part, PartGroup
-    from partitura.performance import PerformedPart
+    from partitura.score import Part, PartGroup, Score
+    from partitura.performance import PerformedPart, Performance
 
-    if isinstance(fn, (Part, PartGroup, PerformedPart)):
+    if isinstance(fn, (Part, PartGroup, PerformedPart, Score, Performance)):
         return True
     elif isinstance(fn, list) and isinstance(fn[0], Part):
         return True
@@ -334,7 +366,7 @@ def synthesize(
         harmonic_dist = DistributedHarmonics(harmonic_dist)
 
     elif isinstance(harmonic_dist, str):
-        if harmonic_dist in ('shepard', ):
+        if harmonic_dist in ("shepard",):
             harmonic_dist = ShepardTones()
 
     for (f, oif, dur) in zip(freq_in_hz, onsets_in_frames, duration):
