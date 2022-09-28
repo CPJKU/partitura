@@ -6,7 +6,7 @@ spelling, voice assignment, and key signature.
 
 import pkg_resources
 
-from .io import load_score, load_performance
+from .io import load_score, load_performance, lp
 from .io.musescore import load_via_musescore
 from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
@@ -35,6 +35,9 @@ EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example
 EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.krn")
 
 __all__ = [
+    "load_score",
+    "load_performance",
+    "lp",
     "load_musicxml",
     "save_musicxml",
     "load_mei",
