@@ -13,7 +13,7 @@ from partitura.utils.misc import (
     PathLike,
 )
 
-from partitura.score import Score
+from partitura.score import Score, Part, merge_parts
 from partitura.performance import Performance
 
 
@@ -106,6 +106,27 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             print(exception)
 
         raise NotSupportedFormatError
+    
+    
+def lp(filename: PathLike) -> Part:
+    """
+    load part helper function:
+    Load a score format supported by partitura and 
+    merge the result in a single part
+
+    Parameters
+    ----------
+    filename : str or file-like  object
+        Filename of the score to parse, or a file-like object
+    
+    Returns
+    -------
+    part: :class:`partitura.score.Part`
+        A part instance.
+    """
+    scr = load_score(filename)
+    part = merge_parts(scr.parts)
+    return part
 
 
 @deprecated_alias(performance_fn="filename")
