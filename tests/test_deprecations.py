@@ -1,4 +1,5 @@
 import unittest
+import warnings
 import numpy as np
 
 from partitura.utils import deprecated_alias, deprecated_parameter
@@ -26,14 +27,17 @@ class TestDeprecations(unittest.TestCase):
         self.assertTrue(new_p2 is not None)
 
     def test_deprecated_alias(self):
-
-        for old_p1, old_p2 in RNG.rand(10, 2):
-            self.func_alias(old_p1=old_p1, old_p2=old_p2)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for old_p1, old_p2 in RNG.rand(10, 2):
+                self.func_alias(old_p1=old_p1, old_p2=old_p2)
 
     def test_deprecated_parameter(self):
-        for rp in RNG.rand(10, 12):
-            kwargs = dict(
-                [("new_p1", rp[0]), ("new_p2", rp[1])]
-                + [(f"deprecated{i}", rp[i + 2]) for i in range(10)]
-            )
-            self.func_parameter(**kwargs)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for rp in RNG.rand(10, 12):
+                kwargs = dict(
+                    [("new_p1", rp[0]), ("new_p2", rp[1])]
+                    + [(f"deprecated{i}", rp[i + 2]) for i in range(10)]
+                )
+                self.func_parameter(**kwargs)
