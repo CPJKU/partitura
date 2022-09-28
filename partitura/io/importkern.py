@@ -578,7 +578,6 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
 @deprecated_parameter("ensure_list")
 def load_kern(
     filename: PathLike,
-    ensure_list: bool = True,
     force_note_ids: Optional[Union[bool, str]] = None,
     parallel: bool = False,
 ) -> score.Score:
@@ -589,14 +588,6 @@ def load_kern(
     ----------
     filename : PathLike
         Path to the Kern file to be parsed
-    ensure_list : bool, optional
-        When True return a list independent of how many part or
-        partgroup elements were created from the MIDI file. By
-        default, when the return value of `load_musicxml` produces a
-    single : class:`score.Part` or
-        :Class:`score.PartGroup` element, the element itself
-        is returned instead of a list containing the element. Defaults
-        to False.
     force_note_ids : (bool, 'keep') optional.
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in

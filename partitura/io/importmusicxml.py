@@ -1517,7 +1517,6 @@ def musicxml_to_notearray(
         score information.
     """
 
-    # parts = load_musicxml(fn, ensure_list=True, force_note_ids="keep")
     scr = load_musicxml(
         filename=filename,
         force_note_ids="keep",

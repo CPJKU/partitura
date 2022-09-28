@@ -33,9 +33,6 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     ----------
     filename : str or file-like  object
         Filename of the score to parse, or a file-like object
-    ensure_list : bool
-        When True, return a list independent of how many part or
-        group elements where created.
     force_note_ids : (None, bool or "keep")
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
