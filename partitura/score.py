@@ -2514,7 +2514,7 @@ class Tempo(TimedObject):
 
         """
         return int(
-            np.round(60 * (10**6 / to_quarter_tempo(self.unit or "q", self.bpm)))
+            np.round(60 * (10 ** 6 / to_quarter_tempo(self.unit or "q", self.bpm)))
         )
 
     def __str__(self):
@@ -2963,6 +2963,10 @@ class Score(object):
             include_staff=include_staff,
             include_divs_per_quarter=include_divs_per_quarter,
         )
+
+
+# Alias for typing score-like objects
+ScoreInfo = Union[List[Union[Part, PartGroup]], Part, PartGroup, Score]
 
 
 class ScoreVariant(object):

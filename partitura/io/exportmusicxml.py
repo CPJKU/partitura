@@ -5,9 +5,12 @@ from collections import defaultdict
 from lxml import etree
 import partitura.score as score
 from operator import itemgetter
+from typing import Optional
 
 from .importmusicxml import DYN_DIRECTIONS, PEDAL_DIRECTIONS
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
+
+from partitura.utils.misc import deprecated_alias, PathLike
 
 __all__ = ["save_musicxml"]
 
@@ -960,12 +963,17 @@ def do_attributes(part, start, end):
     return result
 
 
-def save_musicxml(parts, out=None):
-    """Save a one or more Part or PartGroup instances in MusicXML format.
+@deprecated_alias(parts="score_info")
+def save_musicxml(
+        score_info: score.ScoreInfo,
+        out: Optional[PathLike] = None,
+) -> Optional[str]:
+    """
+    Save a one or more Part or PartGroup instances in MusicXML format.
 
     Parameters
     ----------
-    parts : Score, list, Part, or PartGroup
+    score_info : Score, list, Part, or PartGroup
         A :class:`partitura.score.Part` object,
         :class:`partitura.score.PartGroup` or a list of these
     out: str, file-like object, or None, optional
@@ -979,10 +987,10 @@ def save_musicxml(parts, out=None):
 
     """
 
-    if not isinstance(parts, score.Score):
-        parts = score.Score(
+    if not isinstance(score_info, score.Score):
+        score_info = score.Score(
             id=None,
-            partlist=parts,
+            partlist=score_info,
         )
 
     root = etree.Element("score-partwise")
@@ -1048,8 +1056,7 @@ def save_musicxml(parts, out=None):
 
             group_stack.append(pg)
 
-    # for part in score.iter_parts(parts):
-    for part in parts:
+    for part in score_info:
 
         handle_parents(part)
 

@@ -321,3 +321,7 @@ class Performance(object):
         objects in the score.
         """
         return note_array_from_part_list(part_list=self.performedparts)
+
+
+# Alias for typing performance-like objects
+PerformanceInfo = Union[List[PerformedPart], PerformedPart, Performance]
