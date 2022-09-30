@@ -60,7 +60,7 @@ def midi_to_notearray(filename: PathLike) -> np.ndarray:
 
 @deprecated_alias(fn="filename")
 def load_performance_midi(
-    filename: PathLike,
+    filename: Union[PathLike, mido.MidiFile],
     default_bpm: Union[int, float] = 120,
     merge_tracks: bool = False,
 ) -> performance.Performance:
@@ -92,7 +92,12 @@ def load_performance_midi(
     :class:`partitura.performance.Performance`
         A Performance instance.
     """
-    mid = mido.MidiFile(filename)
+
+    if isinstance(filename, mido.MidiFile):
+        mid = filename
+    else:
+        mid = mido.MidiFile(filename)
+
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter

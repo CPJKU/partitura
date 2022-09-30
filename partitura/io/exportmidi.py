@@ -112,17 +112,16 @@ def save_performance_midi(
     """
 
     if isinstance(performance_info, Performance):
-        performed_part = performance_info[0]
-        num_tracks = performance_info.num_tracks
+        performed_parts = performance_info.performedparts
     elif isinstance(performance_info, PerformedPart):
-        performed_part = performance_info
+        performed_parts = [performance_info]
     elif isinstance(performance_info, Iterable):
         if not all(isinstance(pp, PerformedPart) for pp in performance_info):
             raise ValueError(
                 "`performance_info` should be a `Performance`, a `PerformedPart`,"
                 " or a list of  `PerformedPart` instances"
             )
-        performed_part = performance_info[0]
+        performed_parts = performed_parts
 
     else:
         raise ValueError(
@@ -132,67 +131,71 @@ def save_performance_midi(
 
     track_events = defaultdict(lambda: defaultdict(list))
 
-    
-
-    for c in performed_part.controls:
-        track = c.get("track", 0)
-        ch = c.get("channel", 1)
-        t = int(np.round(10 ** 6 * ppq * c["time"] / mpq))
-        track_events[track][t].append(
-            Message("control_change", control=c["number"], value=c["value"], channel=ch)
-        )
-
-    for n in performed_part.notes:
-        track = n.get("track", 0)
-        ch = n.get("channel", 1)
-        t_on = int(np.round(10 ** 6 * ppq * n["note_on"] / mpq))
-        t_off = int(np.round(10 ** 6 * ppq * n["note_off"] / mpq))
-        vel = n.get("velocity", default_velocity)
-        track_events[track][t_on].append(
-            Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
-        )
-        track_events[track][t_off].append(
-            Message("note_off", note=n["midi_pitch"], velocity=0, channel=ch)
-        )
-
-    for p in performed_part.programs:
-        track = p.get("track", 0)
-        ch = p.get("channel", 1)
-        t = int(np.round(10 ** 6 * ppq * p["time"] / mpq))
-        track_events[track][t].append(
-            Message("program_change", program=int(p["program"]), channel=ch)
-        )
-
-    if len(performed_part.programs) == 0:
-        # Add default program (to each track/channel)
-        channels_and_tracks = np.array(
-            list(
-                set(
-                    [
-                        (c.get("channel", 1), c.get("track", 0))
-                        for c in performed_part.controls
-                    ]
-                    + [
-                        (n.get("channel", 1), n.get("track", 0))
-                        for n in performed_part.notes
-                    ]
+    for performed_part in performed_parts:
+        for c in performed_part.controls:
+            track = c.get("track", 0)
+            ch = c.get("channel", 1)
+            t = int(np.round(10 ** 6 * ppq * c["time"] / mpq))
+            track_events[track][t].append(
+                Message(
+                    "control_change",
+                    control=c["number"],
+                    value=c["value"],
+                    channel=ch,
                 )
-            ),
-            dtype=int,
-        )
+            )
 
-        timepoints = []
-        for tr in track_events.keys():
-            timepoints += list(track_events[tr].keys())
-        timepoints = list(set(timepoints))
+        for n in performed_part.notes:
+            track = n.get("track", 0)
+            ch = n.get("channel", 1)
+            t_on = int(np.round(10 ** 6 * ppq * n["note_on"] / mpq))
+            t_off = int(np.round(10 ** 6 * ppq * n["note_off"] / mpq))
+            vel = n.get("velocity", default_velocity)
+            track_events[track][t_on].append(
+                Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
+            )
+            track_events[track][t_off].append(
+                Message("note_off", note=n["midi_pitch"], velocity=0, channel=ch)
+            )
 
-        for tr in np.unique(channels_and_tracks[:, 1]):
-            channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
-            track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
-            for ch in track_channels:
-                track_events[tr][min(timepoints)].append(
-                    Message("program_change", program=0, channel=ch)
-                )
+        for p in performed_part.programs:
+            track = p.get("track", 0)
+            ch = p.get("channel", 1)
+            t = int(np.round(10 ** 6 * ppq * p["time"] / mpq))
+            track_events[track][t].append(
+                Message("program_change", program=int(p["program"]), channel=ch)
+            )
+
+        if len(performed_part.programs) == 0:
+            # Add default program (to each track/channel)
+            channels_and_tracks = np.array(
+                list(
+                    set(
+                        [
+                            (c.get("channel", 1), c.get("track", 0))
+                            for c in performed_part.controls
+                        ]
+                        + [
+                            (n.get("channel", 1), n.get("track", 0))
+                            for n in performed_part.notes
+                        ]
+                    )
+                ),
+                dtype=int,
+            )
+
+            timepoints = []
+            for tr in track_events.keys():
+                timepoints += list(track_events[tr].keys())
+            timepoints = list(set(timepoints))
+
+            for tr in np.unique(channels_and_tracks[:, 1]):
+                channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
+                track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
+                for ch in track_channels:
+                    track_events[tr][min(timepoints)].append(
+                        Message("program_change", program=0, channel=ch)
+                    )
 
     midi_type = 0 if len(track_events) == 1 else 1
 

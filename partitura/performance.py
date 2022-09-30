@@ -117,7 +117,13 @@ class PerformedPart(object):
     @property
     def num_tracks(self) -> int:
         """Number of tracks"""
-        return len(set([n.get("track", -1) for n in self.notes]))
+        return len(
+            set(
+                [n.get("track", -1) for n in self.notes]
+                + [c.get("track", -1) for c in self.controls]
+                + [p.get("track", -1) for p in self.programs]
+            )
+        )
 
     def note_array(self) -> np.ndarray:
         """Structured array containing performance information.
@@ -322,8 +328,8 @@ class Performance(object):
         self.lyricist = lyricist
         self.copyright = copyright
 
-        # if ensure_unique_tracks:
-        #     self.sanitize_track_numbers()
+        if ensure_unique_tracks:
+            self.sanitize_track_numbers()
 
     @property
     def num_tracks(self) -> int:
