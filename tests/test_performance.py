@@ -6,9 +6,6 @@ This file contains test functions for the `performance` module
 import unittest
 import numpy as np
 
-from tests import MATCH_IMPORT_EXPORT_TESTFILES
-
-from partitura.io import NotSupportedFormatError
 from partitura.performance import PerformedPart, Performance
 
 RNG = np.random.RandomState(1984)
@@ -57,10 +54,43 @@ class TestPerformance(unittest.TestCase):
             # test that the number of tracks within each performed part is correct
             self.assertTrue(all([pp.num_tracks == ntracks for pp in performedparts]))
 
-            performance = Performance(id="", performedparts=performedparts)
+            performance = Performance(
+                id="", performedparts=performedparts, ensure_unique_tracks=False
+            )
 
             # test whether the number of parts is correct
             self.assertEqual(performance.num_tracks, nparts * ntracks)
+
+    def test_sanitize_track_numbers(self):
+
+        num_parts_tracks = RNG.randint(3, 10, (10, 2))
+
+        for nparts, ntracks in num_parts_tracks:
+
+            note_arrays = [
+                generate_random_note_array(100, n_tracks=ntracks) for i in range(nparts)
+            ]
+
+            performedparts = [PerformedPart.from_note_array(na) for na in note_arrays]
+
+            performance = Performance(
+                id="", performedparts=performedparts, ensure_unique_tracks=False
+            )
+
+            note_array_before = performance.note_array()
+
+            tracks = np.unique(note_array_before["track"])
+
+            self.assertTrue(np.all(tracks == np.arange(ntracks)))
+
+            # sanitize track numbers
+            performance.sanitize_track_numbers()
+
+            note_array_after = performance.note_array()
+
+            after_tracks = np.unique(note_array_after["track"])
+
+            self.assertTrue(np.all(after_tracks == np.arange(ntracks * nparts)))
 
 
 def generate_random_note_array(n_notes=100, beat_period=0.5, n_tracks=3):
