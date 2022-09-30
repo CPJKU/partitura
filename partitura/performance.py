@@ -13,7 +13,10 @@ from typing import Union, List, Optional, Iterator, Iterable as Itertype
 import numpy as np
 from partitura.utils import note_array_from_part_list
 
-__all__ = ["PerformedPart"]
+__all__ = [
+    "PerformedPart",
+    "Performance",
+]
 
 
 class PerformedPart(object):
@@ -110,6 +113,11 @@ class PerformedPart(object):
         adjust_offsets_w_sustain(
             self.notes, self.controls, self._sustain_pedal_threshold
         )
+
+    @property
+    def num_tracks(self):
+        """Number of tracks"""
+        return len(set([n.get("track", -1) for n in self.notes]))
 
     def note_array(self):
         """Structured array containing performance information.
@@ -271,16 +279,32 @@ class Performance(object):
     def __init__(
         self,
         id: str,
-        performedparts: PerformedPart,
+        performedparts: Union[PerformedPart, Itertype[PerformedPart]],
         performer: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
         composer: Optional[str] = None,
         lyricist: Optional[str] = None,
         copyright: Optional[str] = None,
+        ensure_unique_tracks: bool = True,
     ) -> None:
         self.id = id
-        self.performedparts = [performedparts]
+
+        if isinstance(performedparts, PerformedPart):
+            self.performedparts = [performedparts]
+        elif isinstance(performedparts, Itertype):
+
+            if not all([isinstance(pp, PerformedPart) for pp in performedparts]):
+                raise ValueError(
+                    "`performedparts` should be a list of  `PerformedPart` objects!"
+                )
+            self.performedparts = list(performedparts)
+        else:
+            raise ValueError(
+                "`performedparts` should be a `PerformedPart` or a list of "
+                f"`PerformedPart` objects but is {type(performedparts)}."
+            )
+
         # Metadata
         self.performer = performer
         self.title = title
@@ -288,6 +312,25 @@ class Performance(object):
         self.composer = composer
         self.lyricist = lyricist
         self.copyright = copyright
+
+        # if ensure_unique_tracks:
+        #     self.sanitize_track_numbers()
+
+    @property
+    def num_tracks(self) -> int:
+        """
+        Number of tracks in the performance
+        """
+        n_tracks = len(
+            set(
+                [(i, n.get("track", -1)) for i, pp in enumerate(self) for n in pp.notes]
+            )
+        )
+
+        return n_tracks
+
+    # def sanitize_track_numbers(self) -> None:
+    #     total_tracks =
 
     def __getitem__(self, index: int) -> PerformedPart:
         """Get `Part in the score by index"""

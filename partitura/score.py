@@ -2909,7 +2909,8 @@ class Score(object):
             self.part_structure = list(partlist)
         else:
             raise ValueError(
-                "`partlist` should be a list, a `Part` or a `PartGrop` but is {type(partlist)}"
+                "`partlist` should be a list, a `Part` or a `PartGrop` but"
+                f" is {type(partlist)}."
             )
 
     def __getitem__(self, index: int) -> Part:
