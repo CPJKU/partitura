@@ -113,3 +113,40 @@ modeling, or music generation.  Although it is not the main aim of the
 package to provide music analysis tools, the package does offer
 functionality for pitch spelling, voice assignment and key estimation.
 
+Credits
+=======
+
+Citing Partitura
+----------------
+
+If you find Partitura useful, we would appreciate if you could cite us!
+
+
+>>> @inproceedings{partitura_mec,
+  title={{Partitura: A Python Package for Symbolic Music Processing}},
+  author={Cancino-Chac\'{o}n, Carlos Eduardo and Peter, Silvan David and Karystinaios, Emmanouil and Foscarin, Francesco and Grachten, Maarten and Widmer, Gerhard},
+  booktitle={{Proceedings of the Music Encoding Conference (MEC2022)}},
+  address={Halifax, Canada},
+  year={2022}
+}
+
+
+Acknowledgments
+---------------
+
+This project receives funding from the European Research Council (ERC) under
+the European Union's Horizon 2020 research and innovation programme under grant
+agreement No 101019375 `"Whither Music?" <https://www.jku.at/en/institute-of-computational-perception/research/projects/whither-music/>`_
+
+
+
+This work has received support from the European Research Council (ERC) under
+the European Union’s Horizon 2020 research and innovation programme under grant
+agreement No. 670035 project `"Con Espressione" <https://www.jku.at/en/institute-of-computational-perception/research/projects/con-espressione/>`_
+and the Austrian Science Fund (FWF) under grant P 29840-G26 (project
+`Computer-assisted Analysis of Herbert von Karajan's Musical Conducting Style <https://karajan-research.org/programs/musical-interpretation-karajan>`_ )
+
+.. image:: ./images/aknowledge_logo.png
+   :alt: ERC-FWF Logo.
+   :align: center
+
