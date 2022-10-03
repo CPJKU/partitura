@@ -2882,8 +2882,8 @@ class Score(object):
 
     def __init__(
         self,
-        id: str,
         partlist: Union[Part, PartGroup, Itertype[Union[Part, PartGroup]]],
+        id: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
         composer: Optional[str] = None,
@@ -4643,7 +4643,8 @@ def merge_parts(parts, reassign="voice"):
     for p_ind, p in enumerate(parts):
         for e in p.iter_all():
             # full copy the first part and partially copy the others
-            # we don't copy elements like duplicate barlines, clefs or time signatures for others
+            # we don't copy elements like duplicate barlines, clefs or
+            # time signatures for others
             # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
             if p_ind == 0 or not isinstance(
                 e,
@@ -4652,7 +4653,7 @@ def merge_parts(parts, reassign="voice"):
                 new_start = e.start.t * time_multiplier_per_part[p_ind]
                 new_end = (
                     e.end.t * time_multiplier_per_part[p_ind]
-                    if not e.end is None
+                    if e.end is not None
                     else None
                 )
                 if reassign == "voice":

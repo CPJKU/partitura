@@ -7,7 +7,7 @@ from tempfile import TemporaryFile
 import mido
 import numpy as np
 
-from partitura import save_score_midi, save_performance_midi
+from partitura import save_score_midi, save_performance_midi, load_performance_midi
 from partitura.utils import partition
 import partitura.score as score
 
@@ -355,7 +355,7 @@ def export_and_read_performance(perf_info, **kwargs):
 
     with TemporaryFile(suffix=".mid") as f:
         save_performance_midi(
-            performance_info=perf_info,
+            performance_data=perf_info,
             out=f,
             **kwargs,
         )
@@ -365,20 +365,8 @@ def export_and_read_performance(perf_info, **kwargs):
 
 
 class TestExportPerformanceMIDI(unittest.TestCase):
-    # def _export_and_read(self, perf_info, **kwargs):
-    #     return export_and_read_performance(perf_info, **kwargs)
-
     def _export_and_read(self, perf_info, **kwargs):
-
-        with TemporaryFile(suffix=".mid") as f:
-            save_performance_midi(
-                performance_data=perf_info,
-                out=f,
-                **kwargs,
-            )
-            f.flush()
-            f.seek(0)
-            return mido.MidiFile(file=f)
+        return export_and_read_performance(perf_info, **kwargs)
 
     def test_save_single_track(self):
 
@@ -393,6 +381,18 @@ class TestExportPerformanceMIDI(unittest.TestCase):
         mf_from_ppart = self._export_and_read(ppart)
 
         self.assertEqual(ppart.num_tracks, len(mf_from_ppart.tracks))
+
+    def test_save_multiple_track(self):
+        n_tracks = RNG.randint(2, 10, 10)
+        for nt in n_tracks:
+
+            ppart = generate_random_performance(n_notes=10*nt, n_tracks=nt)
+
+            performance = Performance(
+                performedparts=ppart
+            )
+            mf_from_perf = self._export_and_read(performance)
+            self.assertEqual(performance.num_tracks, len(mf_from_perf.tracks))
 
 
 def generate_random_performance(n_notes=100, beat_period=0.5, n_tracks=3):

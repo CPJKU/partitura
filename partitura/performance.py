@@ -291,10 +291,17 @@ class Performance(object):
         See parameters.
     """
 
+    id: Optional[str]
+    title: Optional[str]
+    subtitle: Optional[str]
+    lyricist: Optional[str]
+    copyright: Optional[str]
+    performedparts: List[PerformedPart]
+
     def __init__(
         self,
-        id: str,
         performedparts: Union[PerformedPart, Itertype[PerformedPart]],
+        id: str = None,
         performer: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
@@ -355,7 +362,11 @@ class Performance(object):
         return n_tracks
 
     def sanitize_track_numbers(self) -> None:
-
+        """
+        Ensure that the track number info in each `PerformedPart` in
+        self.performedparts is unique (i.e., that a track number does not appear
+        in multiple `PerformedPart` instances)
+        """
         unique_track_ids = list(
             set(
                 [(i, n.get("track", -1)) for i, pp in enumerate(self) for n in pp.notes]

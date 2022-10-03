@@ -95,8 +95,10 @@ def load_performance_midi(
 
     if isinstance(filename, mido.MidiFile):
         mid = filename
+        doc_name = filename.filename
     else:
         mid = mido.MidiFile(filename)
+        doc_name = get_document_name(filename)
 
     # parts per quarter
     ppq = mid.ticks_per_beat
@@ -221,7 +223,7 @@ def load_performance_midi(
     pp = performance.PerformedPart(notes, controls=controls, programs=programs)
 
     perf = performance.Performance(
-        id=get_document_name(filename),
+        id=doc_name,
         performedparts=pp,
     )
     return perf
@@ -230,7 +232,7 @@ def load_performance_midi(
 @deprecated_parameter("ensure_list")
 @deprecated_alias(fn="filename")
 def load_score_midi(
-    filename: PathLike,
+    filename: Union[PathLike, mido.MidiFile],
     part_voice_assign_mode: Optional[int] = 0,
     quantization_unit: Optional[int] = None,
     estimate_voice_info: bool = True,
@@ -255,8 +257,8 @@ def load_score_midi(
 
     Parameters
     ----------
-    fn : str
-        Path to MIDI file
+    filename : PathLike or mido.MidiFile
+        Path to MIDI file or mido.MidiFile object.
     part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
         This keyword controls how part and voice information is
         associated to track and channel information in the MIDI file.
@@ -313,7 +315,14 @@ or a list of these
            Oxford University Press, New York.
 
     """
-    mid = mido.MidiFile(filename)
+
+    if isinstance(filename, mido.MidiFile):
+        mid = filename
+        doc_name = filename.filename
+    else:
+        mid = mido.MidiFile(filename)
+        doc_name = get_document_name(filename)
+
     divs = mid.ticks_per_beat
 
     # these lists will contain information from dedicated tracks for meta
@@ -533,7 +542,7 @@ or a list of these
 
     # TODO: Add info (composer, etc.)
     scr = score.Score(
-        id=get_document_name(filename),
+        id=doc_name,
         partlist=partlist,
     )
 
