@@ -32,9 +32,9 @@ author = (
 # built documents.
 #
 # The short X.Y version.
-version = pkg_resources.get_distribution("partitura").version
+version = "1.1.0" # pkg_resources.get_distribution("partitura").version
 # The full version, including alpha/beta/rc tags.
-release = version
+release = "1.1.0"
 
 # # The full version, including alpha/beta/rc tags
 # release = pkg_resources.get_distribution("partitura").version
@@ -45,7 +45,7 @@ release = version
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "python"
 
 
 # -- General configuration ---------------------------------------------------
@@ -70,7 +70,23 @@ extensions = [
     "sphinx.ext.viewcode",
     # 'sphinxcontrib.napoleon',
     "sphinx.ext.napoleon",
+    'nbsphinx',
+    # 'sphinxcontrib.bibtex',  # for bibliographic references
+    # 'sphinxcontrib.rsvgconverter',  # for SVG->PDF conversion in LaTeX output
+    # 'sphinx_gallery.load_style',  # load CSS for gallery (needs SG >= 0.6)
+    # 'sphinx_last_updated_by_git',  #? get "last updated" from Git
+    # 'sphinx_codeautolink',  # automatic links from code to documentation
+    # 'sphinx.ext.intersphinx',  # links to other Sphinx projects (e.g. NumPy)
 ]
+
+# These projects are also used for the sphinx_codeautolink extension:
+intersphinx_mapping = {
+    'IPython': ('https://ipython.readthedocs.io/en/stable/', None),
+    'matplotlib': ('https://matplotlib.org/', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
+    'python': ('https://docs.python.org/3/', None),
+}
 
 # see http://stackoverflow.com/q/12206334/562769
 numpydoc_show_class_members = False

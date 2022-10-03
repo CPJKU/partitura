@@ -11,6 +11,7 @@ Partitura documentation
 
    introduction
    usage
+   Tutorial/notebook.ipynb
    genindex
 
 .. _api_reference:
