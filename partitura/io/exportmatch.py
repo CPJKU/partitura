@@ -322,7 +322,7 @@ def save_match(
     performer: Optional[str] = None,
     composer: Optional[str] = None,
     piece: Optional[str] = None,
-):
+) -> Optional[MatchFile]:
     """
     Save an Alignment of a PerformedPart to a Part in a match file.
 
@@ -331,10 +331,12 @@ def save_match(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
-    ppart : partitura.performance.PerformedPart
-        An instance of `PerformedPart` containing performance information.
-    spart : partitura.score.Part
-        An instance of `Part` containing score information.
+    performance_data : PerformanceLike
+        The performance information.
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out : str
         Out to export the matchfile.
     mpq : int
@@ -347,6 +349,12 @@ def save_match(
         Name(s) of the composer(s) of the piece represented by `Part`.
     piece : str or None:
         Name of the piece represented by `Part`.
+
+    Returns
+    -------
+    None or MatchFile
+        If no output is specified using `out`, the function returns
+        a `MatchFile` object. Otherwise, the function returns None.
     """
 
     # For now, we assume that we align only one Part and a PerformedPart

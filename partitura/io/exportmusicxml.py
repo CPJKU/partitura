@@ -985,7 +985,6 @@ def save_musicxml(
     None or str
         If no output file is specified using `out` the function returns the
         MusicXML data as a string. Otherwise the function returns None.
-
     """
 
     if not isinstance(score_data, score.Score):

@@ -90,7 +90,7 @@ def save_performance_midi(
 
     Parameters
     ----------
-    performance_data : :class:`~partitura.performance.PerformanceLike`
+    performance_data : PerformanceLike
         The performance to be saved.
     out : str or file-like object
         Either a filename or a file-like object to write the MIDI data
@@ -107,8 +107,9 @@ def save_performance_midi(
 
     Returns
     -------
-    mf : MidiFile
-        Output MidiFile instance
+    None or MidiFile
+        If no output is specified using `out`, the function returns
+        a `MidiFile` object. Otherwise, the function returns None.
     """
 
     if isinstance(performance_data, Performance):
@@ -277,6 +278,12 @@ def save_score_midi(
         time points are shifted by the anacrusis (i.e., the first
         note starts at 0). If "pad_bar", the "incomplete" bar  of
         the anacrusis is padded with silence. Defaults to 'shift'.
+
+    Returns
+    -------
+    None or MidiFile
+        If no output is specified using `out`, the function returns
+        a `MidiFile` object. Otherwise, the function returns None.
     """
 
     if isinstance(score_data, Score):
