@@ -28,11 +28,11 @@ __version__ = pkg_resources.get_distribution("partitura").version
 
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
-    "partitura", os.path.join("assets", "score_example.musicxml"))
+    "partitura", "assets/score_example.musicxml")
 
-EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", os.path.join("assets", "score_example.musicxml"))
-EXAMPLE_MEI = pkg_resources.resource_filename("partitura", os.path.join("assets", "score_example.musicxml"))
-EXAMPLE_KERN = pkg_resources.resource_filename("partitura", os.path.join("assets", "score_example.musicxml"))
+EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.musicxml")
+EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.musicxml")
+EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.musicxml")
 
 __all__ = [
     "load_musicxml",
