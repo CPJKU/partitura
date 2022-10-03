@@ -1,9 +1,18 @@
-from partitura.utils import ensure_notearray
-import numpy as np
 import os
 
+import numpy as np
 
-def alignment_dicts_to_array(alignment):
+from typing import Union, List, Iterable, Tuple, Optional
+
+from partitura.score import ScoreLike, Score
+from partitura.performance import PerformanceLike, Performance
+
+from partitura.utils import ensure_notearray
+
+from partitura.utils.misc import PathLike, deprecated_alias
+
+
+def alignment_dicts_to_array(alignment: List[dict]) -> np.ndarray:
     """
     create structured array from list of dicts type alignment.
 
@@ -39,7 +48,15 @@ def alignment_dicts_to_array(alignment):
     return alignarray
 
 
-def save_csv_for_parangonada(outdir, part, ppart, align, zalign=None, feature=None):
+@deprecated_alias(spart="score_data", ppart="performance_data")
+def save_csv_for_parangonada(
+    outdir: PathLike,
+    score_data: Union[ScoreLike, np.ndarray],
+    performance_data: Union[PerformanceLike, np.ndarray],
+    align: List[dict],
+    zalign: Optional[List[dict]] = None,
+    feature: Optional[List[dict]] = None,
+) -> Optional[Tuple[np.ndarray]]:
     """
     Save an alignment for visualization with parangonda.
 
@@ -60,8 +77,18 @@ def save_csv_for_parangonada(outdir, part, ppart, align, zalign=None, feature=No
 
     """
 
-    part = ensure_notearray(part)
-    ppart = ensure_notearray(ppart)
+    if isinstance(score_data, (Score, Iterable)):
+        # Only use the first part if the score has more than one part
+        part = ensure_notearray(score_data[0])
+    else:
+        part = ensure_notearray(part)
+
+    if isinstance(performance_data, (Performance, Iterable)):
+        # Only use the first performed part if the performance has more
+        # than one part
+        ppart = ensure_notearray(performance_data[0])
+    else:
+        ppart = ensure_notearray(performance_data)
 
     ffields = [
         ("velocity", "<f4"),
@@ -95,46 +122,54 @@ def save_csv_for_parangonada(outdir, part, ppart, align, zalign=None, feature=No
     else:  # if no zalign is available, save the same alignment twice
         zalignarray = alignment_dicts_to_array(align)
 
-    np.savetxt(
-        outdir + os.path.sep + "ppart.csv",
-        ppart,
-        fmt="%.20s",
-        delimiter=",",
-        header=",".join(ppart.dtype.names),
-        comments="",
-    )
-    np.savetxt(
-        outdir + os.path.sep + "part.csv",
-        part,
-        fmt="%.20s",
-        delimiter=",",
-        header=",".join(part.dtype.names),
-        comments="",
-    )
-    np.savetxt(
-        outdir + os.path.sep + "align.csv",
-        alignarray,
-        fmt="%.20s",
-        delimiter=",",
-        header=",".join(alignarray.dtype.names),
-        comments="",
-    )
-    np.savetxt(
-        outdir + os.path.sep + "zalign.csv",
-        zalignarray,
-        fmt="%.20s",
-        delimiter=",",
-        header=",".join(zalignarray.dtype.names),
-        comments="",
-    )
-    np.savetxt(
-        outdir + os.path.sep + "feature.csv",
-        featurearray,
-        fmt="%.20s",
-        delimiter=",",
-        header=",".join(featurearray.dtype.names),
-        comments="",
-    )
+    if outdir is not None:
+        np.savetxt(
+            os.path.join(outdir, "ppart.csv"),
+            # outdir + os.path.sep + "ppart.csv",
+            ppart,
+            fmt="%.20s",
+            delimiter=",",
+            header=",".join(ppart.dtype.names),
+            comments="",
+        )
+        np.savetxt(
+            os.path.join(outdir, "part.csv"),
+            # outdir + os.path.sep + "part.csv",
+            part,
+            fmt="%.20s",
+            delimiter=",",
+            header=",".join(part.dtype.names),
+            comments="",
+        )
+        np.savetxt(
+            os.path.join(outdir, "align.csv"),
+            # outdir + os.path.sep + "align.csv",
+            alignarray,
+            fmt="%.20s",
+            delimiter=",",
+            header=",".join(alignarray.dtype.names),
+            comments="",
+        )
+        np.savetxt(
+            os.path.join(outdir, "zalign.csv"),
+            # outdir + os.path.sep + "zalign.csv",
+            zalignarray,
+            fmt="%.20s",
+            delimiter=",",
+            header=",".join(zalignarray.dtype.names),
+            comments="",
+        )
+        np.savetxt(
+            os.path.join(outdir, "feature.csv"),
+            # outdir + os.path.sep + "feature.csv",
+            featurearray,
+            fmt="%.20s",
+            delimiter=",",
+            header=",".join(featurearray.dtype.names),
+            comments="",
+        )
+    else:
+        return (ppart, part, alignarray, zalignarray, featurearray)
 
 
 def save_alignment_for_parangonada(outfile, align):
