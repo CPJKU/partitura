@@ -8,8 +8,8 @@ from typing import Union, Optional, Iterable
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 import partitura.score as score
-from partitura.score import Score, ScoreInfo
-from partitura.performance import Performance, PerformedPart, PerformanceInfo
+from partitura.score import Score, ScoreLike
+from partitura.performance import Performance, PerformedPart, PerformanceLike
 from partitura.utils import partition
 
 from partitura.utils.misc import deprecated_alias, PathLike
@@ -77,9 +77,9 @@ def get_ppq(parts):
     return ppq
 
 
-@deprecated_alias(performed_part="performance_info")
+@deprecated_alias(performed_part="performance_data")
 def save_performance_midi(
-    performance_info: PerformanceInfo,
+    performance_data: PerformanceLike,
     out: Optional[PathLike],
     mpq: int = 500000,
     ppq: int = 480,
@@ -111,22 +111,22 @@ def save_performance_midi(
         Output MidiFile instance
     """
 
-    if isinstance(performance_info, Performance):
-        performed_parts = performance_info.performedparts
-    elif isinstance(performance_info, PerformedPart):
-        performed_parts = [performance_info]
-    elif isinstance(performance_info, Iterable):
-        if not all(isinstance(pp, PerformedPart) for pp in performance_info):
+    if isinstance(performance_data, Performance):
+        performed_parts = performance_data.performedparts
+    elif isinstance(performance_data, PerformedPart):
+        performed_parts = [performance_data]
+    elif isinstance(performance_data, Iterable):
+        if not all(isinstance(pp, PerformedPart) for pp in performance_data):
             raise ValueError(
-                "`performance_info` should be a `Performance`, a `PerformedPart`,"
+                "`performance_data` should be a `Performance`, a `PerformedPart`,"
                 " or a list of  `PerformedPart` instances"
             )
         performed_parts = performed_parts
 
     else:
         raise ValueError(
-            "`performance_info` should be a `Performance`, a `PerformedPart`,"
-            f" or a list of  `PerformedPart` instances but is {type(performance_info)}"
+            "`performance_data` should be a `Performance`, a `PerformedPart`,"
+            f" or a list of  `PerformedPart` instances but is {type(performance_data)}"
         )
 
     track_events = defaultdict(lambda: defaultdict(list))

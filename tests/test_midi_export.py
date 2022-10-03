@@ -358,7 +358,7 @@ def export_and_read_performance(perf_info, **kwargs):
             performance_info=perf_info,
             out=f,
             **kwargs,
-            )
+        )
         f.flush()
         f.seek(0)
         return mido.MidiFile(file=f)
@@ -372,14 +372,13 @@ class TestExportPerformanceMIDI(unittest.TestCase):
 
         with TemporaryFile(suffix=".mid") as f:
             save_performance_midi(
-                performance_info=perf_info,
+                performance_data=perf_info,
                 out=f,
                 **kwargs,
             )
             f.flush()
             f.seek(0)
             return mido.MidiFile(file=f)
-
 
     def test_save_single_track(self):
 

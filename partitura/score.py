@@ -2967,7 +2967,7 @@ class Score(object):
 
 
 # Alias for typing score-like objects
-ScoreInfo = Union[List[Union[Part, PartGroup]], Part, PartGroup, Score]
+ScoreLike = Union[List[Union[Part, PartGroup]], Part, PartGroup, Score]
 
 
 class ScoreVariant(object):

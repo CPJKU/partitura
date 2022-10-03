@@ -963,9 +963,9 @@ def do_attributes(part, start, end):
     return result
 
 
-@deprecated_alias(parts="score_info")
+@deprecated_alias(parts="score_data")
 def save_musicxml(
-        score_info: score.ScoreInfo,
+        score_data: score.ScoreLike,
         out: Optional[PathLike] = None,
 ) -> Optional[str]:
     """
@@ -973,7 +973,7 @@ def save_musicxml(
 
     Parameters
     ----------
-    score_info : Score, list, Part, or PartGroup
+    score_data : Score, list, Part, or PartGroup
         A :class:`partitura.score.Part` object,
         :class:`partitura.score.PartGroup` or a list of these
     out: str, file-like object, or None, optional
@@ -987,10 +987,10 @@ def save_musicxml(
 
     """
 
-    if not isinstance(score_info, score.Score):
-        score_info = score.Score(
+    if not isinstance(score_data, score.Score):
+        score_data = score.Score(
             id=None,
-            partlist=score_info,
+            partlist=score_data,
         )
 
     root = etree.Element("score-partwise")
@@ -1056,7 +1056,7 @@ def save_musicxml(
 
             group_stack.append(pg)
 
-    for part in score_info:
+    for part in score_data:
 
         handle_parents(part)
 

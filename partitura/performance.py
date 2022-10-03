@@ -421,4 +421,4 @@ class Performance(object):
 
 
 # Alias for typing performance-like objects
-PerformanceInfo = Union[List[PerformedPart], PerformedPart, Performance]
+PerformanceLike = Union[List[PerformedPart], PerformedPart, Performance]
