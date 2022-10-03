@@ -90,8 +90,8 @@ def save_performance_midi(
 
     Parameters
     ----------
-    performed_part : :class:`~partitura.performance.PerformedPart`
-        The performed part to save
+    performance_data : :class:`~partitura.performance.PerformanceLike`
+        The performance to be saved.
     out : str or file-like object
         Either a filename or a file-like object to write the MIDI data
         to.
@@ -285,6 +285,12 @@ def save_score_midi(
         parts = [score_data]
     elif isinstance(score_data, Iterable):
         parts = score_data
+
+    else:
+        raise ValueError(
+            "`score_data` should be a `Score`, a `Part`, a `PartGroup"
+            f" or a list of  `Part` instances but is {type(score_data)}"
+        )
     ppq = get_ppq(parts)
 
     events = defaultdict(lambda: defaultdict(list))
