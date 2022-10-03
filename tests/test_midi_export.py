@@ -342,6 +342,42 @@ class TestMIDIExportModes(unittest.TestCase):
                 assert t == 3, f"Incorrect time of first note on: {t} (should be 3)"
                 break
 
+    def test_midi_export_score(self):
+
+        part = score.Part("id")
+        # 1 div is 1 quarter
+        part.set_quarter_duration(0, 1)
+        # 4/4 at t=0
+        part.add(score.TimeSignature(4, 4), 0)
+
+        # ANACRUSIS
+        # quarter note from t=0 to t=1
+        part.add(score.Note("c", 4), 0, 1)
+        # incomplete measure from t=0 to t=1
+        part.add(score.Measure(), 0, 1)
+
+        # whole note from t=1 to t=5
+        part.add(score.Note("c", 4), 1, 5)
+        # add missing measures
+        score.add_measures(part)
+
+        scr = score.Score(part)
+        mid = export_and_read(scr, anacrusis_behavior="shift")
+        t = 0
+        for msg in mid.tracks[0]:
+            t += msg.time
+            if msg.type == "note_on":
+                self.assertEqual(t, 0)
+                break
+
+        mid = export_and_read(scr, anacrusis_behavior="pad_bar")
+        t = 0
+        for msg in mid.tracks[0]:
+            t += msg.time
+            if msg.type == "note_on":
+                self.assertEqual(t, 3)
+                break
+
 
 def n_items_per_part_voice(pg, cls):
     n_items = []
@@ -386,11 +422,9 @@ class TestExportPerformanceMIDI(unittest.TestCase):
         n_tracks = RNG.randint(2, 10, 10)
         for nt in n_tracks:
 
-            ppart = generate_random_performance(n_notes=10*nt, n_tracks=nt)
+            ppart = generate_random_performance(n_notes=10 * nt, n_tracks=nt)
 
-            performance = Performance(
-                performedparts=ppart
-            )
+            performance = Performance(performedparts=ppart)
             mf_from_perf = self._export_and_read(performance)
             self.assertEqual(performance.num_tracks, len(mf_from_perf.tracks))
 

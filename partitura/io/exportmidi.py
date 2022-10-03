@@ -8,7 +8,7 @@ from typing import Union, Optional, Iterable
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 import partitura.score as score
-from partitura.score import Score, ScoreLike
+from partitura.score import Score, Part, PartGroup, ScoreLike
 from partitura.performance import Performance, PerformedPart, PerformanceLike
 from partitura.utils import partition
 
@@ -222,15 +222,22 @@ def save_performance_midi(
         return mf
 
 
+@deprecated_alias(parts="score_data")
 def save_score_midi(
-    parts, out, part_voice_assign_mode=0, velocity=64, anacrusis_behavior="shift"
-):
+    score_data: ScoreLike,
+    out: Optional[PathLike],
+    part_voice_assign_mode: int = 0,
+    velocity: int = 64,
+    anacrusis_behavior: str = "shift",
+) -> Optional[MidiFile]:
     """Write data from Part objects to a MIDI file
 
     Parameters
     ----------
-    parts : Part, PartGroup or list of these
-        The musical score to be saved.
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out : str or file-like object
         Either a filename or a file-like object to write the MIDI data
         to.
@@ -272,6 +279,12 @@ def save_score_midi(
         the anacrusis is padded with silence. Defaults to 'shift'.
     """
 
+    if isinstance(score_data, Score):
+        parts = score_data.parts
+    elif isinstance(score_data, (Part, PartGroup)):
+        parts = [score_data]
+    elif isinstance(score_data, Iterable):
+        parts = score_data
     ppq = get_ppq(parts)
 
     events = defaultdict(lambda: defaultdict(list))
@@ -395,3 +408,5 @@ def save_score_midi(
             mf.save(file=out)
         else:
             mf.save(out)
+    else:
+        return mf

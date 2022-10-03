@@ -974,8 +974,9 @@ def save_musicxml(
     Parameters
     ----------
     score_data : Score, list, Part, or PartGroup
-        A :class:`partitura.score.Part` object,
-        :class:`partitura.score.PartGroup` or a list of these
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out: str, file-like object, or None, optional
         Output file
 
