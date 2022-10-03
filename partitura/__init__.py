@@ -27,13 +27,12 @@ from .musicanalysis import make_note_features, compute_note_array, full_note_arr
 __version__ = pkg_resources.get_distribution("partitura").version
 
 #: An example MusicXML file for didactic purposes
-dirname = os.path.dirname(__file__)
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
-    "partitura", os.path.join(dirname, "assets", "score_example.musicxml"))
+    "partitura", os.path.join("assets", "score_example.musicxml"))
 
-EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", os.path.join(dirname, "assets", "score_example.musicxml"))
-EXAMPLE_MEI = pkg_resources.resource_filename("partitura", os.path.join(dirname, "assets", "score_example.musicxml"))
-EXAMPLE_KERN = pkg_resources.resource_filename("partitura", os.path.join(dirname, "assets", "score_example.musicxml"))
+EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", os.path.join("assets", "score_example.musicxml"))
+EXAMPLE_MEI = pkg_resources.resource_filename("partitura", os.path.join("assets", "score_example.musicxml"))
+EXAMPLE_KERN = pkg_resources.resource_filename("partitura", os.path.join("assets", "score_example.musicxml"))
 
 __all__ = [
     "load_musicxml",
