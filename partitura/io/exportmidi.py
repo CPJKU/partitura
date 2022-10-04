@@ -85,8 +85,8 @@ def save_performance_midi(
     ppq: int = 480,
     default_velocity: int = 64,
 ) -> Optional[MidiFile]:
-    """Save a :class:`~partitura.performance.PerformedPart` instance as a
-    MIDI file.
+    """Save a :class:`~partitura.performance.PerformedPart` or
+    a :class:`~partitura.performance.Performance` as a MIDI file
 
     Parameters
     ----------
