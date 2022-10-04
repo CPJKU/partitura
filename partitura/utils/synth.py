@@ -2,23 +2,22 @@
 Synthesize Partitura Part or Note array to wav using additive synthesis
 
 TODO
-* Add other tuning systems
+* Add other tuning systems?
 
 """
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict, Optional
 
 import numpy as np
 
 from scipy.interpolate import interp1d
-from scipy.io import wavfile
+
 
 from partitura.utils.music import (
-    midi_pitch_to_frequency,
     A4,
-    get_time_units_from_note_array,
     ensure_notearray,
+    get_time_units_from_note_array,
+    midi_pitch_to_frequency,
 )
-
 
 TWO_PI = 2 * np.pi
 SAMPLE_RATE = 44100
@@ -44,7 +43,7 @@ NATURAL_INTERVAL_RATIOS = {
 def midi_pitch_to_natural_frequency(
     midi_pitch: Union[int, float, np.ndarray],
     a4: Union[int, float] = A4,
-    natural_interval_ratios: dict = NATURAL_INTERVAL_RATIOS,
+    natural_interval_ratios: Dict[int, float] = NATURAL_INTERVAL_RATIOS,
 ) -> Union[float, np.ndarray]:
     """
     Convert MIDI pitch to frequency in Hz using natural tunning (i.e., with
@@ -105,6 +104,7 @@ def midi_pitch_to_natural_frequency(
 
 def exp_in_exp_out(
     num_frames: int,
+    dtype: type = DTYPE,
 ) -> np.ndarray:
     """
     Sound envelope with exponential attack and decay
@@ -120,19 +120,19 @@ def exp_in_exp_out(
         1D array with the envelope.
     """
     # Initialize envelope
-    envelope = np.ones(num_frames, dtype=DTYPE)
+    envelope = np.ones(num_frames, dtype=dtype)
     # number of frames for decay
     decay_frames = np.minimum(num_frames // 10, 1000)
     # number of frames for attack
     attack_frames = np.minimum(num_frames // 100, 1000)
     # Compute envelope
-    envelope[-decay_frames:] = np.exp(-np.linspace(0, 100, decay_frames)).astype(DTYPE)
-    envelope[:attack_frames] = np.exp(np.linspace(-100, 0, attack_frames)).astype(DTYPE)
+    envelope[-decay_frames:] = np.exp(-np.linspace(0, 100, decay_frames)).astype(dtype)
+    envelope[:attack_frames] = np.exp(np.linspace(-100, 0, attack_frames)).astype(dtype)
 
     return envelope
 
 
-def lin_in_lin_out(num_frames: int) -> np.ndarray:
+def lin_in_lin_out(num_frames: int, dtype: type = DTYPE) -> np.ndarray:
     """
     Sound envelope with linear attack and decay
 
@@ -147,14 +147,14 @@ def lin_in_lin_out(num_frames: int) -> np.ndarray:
         1D array with the envelope.
     """
     # Initialize envelope
-    envelope = np.ones(num_frames, dtype=DTYPE)
+    envelope = np.ones(num_frames, dtype=dtype)
     # Number of frames for decay
     decay_frames = np.minimum(num_frames // 10, 1000)
     # number of frames for attack
     attack_frames = np.minimum(num_frames // 100, 1000)
     # Compute envelope
-    envelope[-decay_frames:] = np.linspace(1, 0, decay_frames, dtype=DTYPE)
-    envelope[:attack_frames] = np.linspace(0, 1, attack_frames, dtype=DTYPE)
+    envelope[-decay_frames:] = np.linspace(1, 0, decay_frames, dtype=dtype)
+    envelope[:attack_frames] = np.linspace(0, 1, attack_frames, dtype=dtype)
     return envelope
 
 
@@ -207,7 +207,11 @@ def additive_synthesis(
 
 
 class DistributedHarmonics(object):
-    def __init__(self, n_harmonics: int, weights: Union[np.ndarray, str] = "equal"):
+    def __init__(
+        self,
+        n_harmonics: int,
+        weights: Union[np.ndarray, str] = "equal",
+    ) -> None:
 
         self.n_harmonics = n_harmonics
         self.weights = weights
@@ -217,7 +221,7 @@ class DistributedHarmonics(object):
 
         self._overtones = np.arange(1, self.n_harmonics + 2)
 
-    def __call__(self, freq: float) -> Tuple[np.ndarray, np.ndarray]:
+    def __call__(self, freq: float) -> Tuple[np.ndarray]:
 
         return self._overtones * freq, self.weights
 
@@ -228,8 +232,10 @@ class ShepardTones(object):
     """
 
     def __init__(
-        self, min_freq: Union[float, int] = 77.8, max_freq: Union[float, int] = 2349
-    ):
+        self,
+        min_freq: Union[float, int] = 77.8,
+        max_freq: Union[float, int] = 2349,
+    ) -> None:
 
         self.min_freq = min_freq
         self.max_freq = max_freq
@@ -246,7 +252,7 @@ class ShepardTones(object):
             fill_value=weights.min(),
         )
 
-    def __call__(self, freq):
+    def __call__(self, freq) -> Tuple[np.ndarray]:
 
         min_freq = self.min_f(freq)
 
@@ -258,37 +264,17 @@ class ShepardTones(object):
         n = np.floor(np.log2(freq) - np.log2(self.min_freq))
         return freq / (2 ** n)
 
-    def max_f(self, freq):
+    def max_f(self, freq: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         n = np.floor(np.log2(self.max_freq) - np.log2(freq))
-
         return freq * (2 ** n)
-
-
-def check_instance(fn):
-    """
-    Checks if input is Partitura part object or structured array
-
-    """
-    from partitura.score import Part, PartGroup, Score
-    from partitura.performance import PerformedPart, Performance
-
-    if isinstance(fn, (Part, PartGroup, PerformedPart, Score, Performance)):
-        return True
-    elif isinstance(fn, list) and isinstance(fn[0], Part):
-        return True
-    elif isinstance(fn, np.ndarray):
-        return False
-    else:
-        raise TypeError("The file type is not supported.")
 
 
 def synthesize(
     note_info,
-    out_fn=None,
-    samplerate=SAMPLE_RATE,
-    envelope_fun="linear",
-    tuning="equal_temperament",
-    harmonic_dist=None,
+    samplerate: int = SAMPLE_RATE,
+    envelope_fun: str = "linear",
+    tuning: str = "equal_temperament",
+    harmonic_dist: Optional[Union[str, int]] = None,
     bpm: Union[float, int] = 60,
 ) -> np.ndarray:
     """
@@ -297,9 +283,9 @@ def synthesize(
 
     Parameters
     ----------
-    note_info : Part, PerformedPart or structured array
+    note_info : ScoreLike, PerformanceLike or np.ndarray
         A partitura Part Object (or group part or part list) or a Note array.
-    out_fn : str (optional)
+    out : str (optional)
         filname of the output audio file
     envelope_fun: str
         The type of envelop to apply to the individual sines
@@ -313,10 +299,8 @@ def synthesize(
     audio_signal : np.ndarray
        Audio signal as a 1D array.
     """
-    if check_instance(note_info):
-        note_array = ensure_notearray(note_info)
-    else:
-        note_array = note_info
+
+    note_array = ensure_notearray(note_info)
 
     onset_unit, duration_unit = get_time_units_from_note_array(note_array)
     if np.min(note_array[onset_unit]) <= 0:
@@ -389,9 +373,5 @@ def synthesize(
 
     # normalize audio
     audio_signal /= norm_term
-
-    if out_fn is not None:
-        # Write audio signal
-        wavfile.write(out_fn, samplerate, audio_signal)
 
     return audio_signal
