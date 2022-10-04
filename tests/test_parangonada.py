@@ -17,7 +17,7 @@ from partitura.io.exportparangonada import (
 )
 
 from partitura.io.importparangonada import (
-    load_alignment_from_parangonada,
+    load_parangonada_alignment,
     load_alignment_from_ASAP,
     _load_csv,
     load_parangonada_csv,
@@ -99,7 +99,7 @@ class TestIO(unittest.TestCase):
             save_parangonada_alignment(
                 out=os.path.join(tmpdirname, "align.csv"), alignment=test_alignment
             )
-            import_alignment = load_alignment_from_parangonada(
+            import_alignment = load_parangonada_alignment(
                 os.path.join(tmpdirname, "align.csv")
             )
             equal = test_alignment == import_alignment
