@@ -19,6 +19,7 @@ from partitura.utils import (
     deprecated_parameter,
     PathLike,
     get_document_name,
+    ensure_notearray
 )
 import partitura.musicanalysis as analysis
 
@@ -52,10 +53,14 @@ def midi_to_notearray(filename: PathLike) -> np.ndarray:
         Structured array with onset, duration, pitch, velocity, and
         ID fields.
     """
-    ppart = load_performance_midi(filename, merge_tracks=True)[0]
+    perf = load_performance_midi(filename, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
-    ppart.sustain_pedal_threshold = 128
-    return ppart.note_array()
+
+    for ppart in perf:
+        ppart.sustain_pedal_threshold = 128
+
+    note_array = ensure_notearray(perf)
+    return note_array
 
 
 @deprecated_alias(fn="filename")
