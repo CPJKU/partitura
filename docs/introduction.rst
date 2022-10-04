@@ -1,9 +1,9 @@
 ============
 Introduction
 ============
-Partitura is a lightweight Python package for handling the musical information contained symbolic music formats, 
-such as musical scores and MIDI performances. The package is built for the researcher in music information research (MIR)
-that need easy access to a large amount of music information.
+Partitura is a lightweight Python package for handling the musical information contained in symbolic music formats,
+such as musical scores and MIDI performances. The package is built for researchers in the music information research (MIR) field
+that need easy access to a large amount of musical information.
 
 As opposed to audio files, symbolically encoded music
 contains explicit note information, and organizes them notes in temporal and organizational structures such as measures, beats, parts, and voices.
@@ -61,7 +61,7 @@ and `GuitarPro`. This requires a working installation of MuseScore on your
 computer.
 
 Score-performance alignments can be read from different file types by
-`partitura`.  Firstly it supports reading from the `Matchfile` format used by
+`partitura`.  Firstly, it supports reading from the `Matchfile` format used by
 the publicly available `Vienna4x22 piano corpus research dataset
 <https://repo.mdw.ac.at/projects/IWK/the_vienna_4x22_piano_corpus/data/index.html>`_.
 Secondly there is read support for `Match` and `Corresp` files produced by
@@ -128,7 +128,7 @@ Relation to `music21 <https://web.mit.edu/music21/>`_
 The `music21` package has been around since 2008, and is one of the few
 python packages available for working with symbolic musical data. It is
 both more mature and more elaborate than `partitura` for tasks like creating
-and manipulating score informations and we suggest using it if 
+and manipulating score information and we suggest using it if
 you are working in computational musicology. 
 
 `Partitura` is instead built specifically for people that wants to apply machine 
@@ -138,17 +138,14 @@ that require a minimal musical knowledge.
 Moreover partitura supports MIDI performances and score-to-performances 
 alignments, that are not handled by music21.
 
-A hybrid music21 and partitura usage is also possible thanks to the music21 import function.
-For example, you can load a score in music21, modify it, and then use the music21 to partitura converter
-to get the score features that can be computed by partitura.
+.. A hybrid music21 and partitura usage is also possible thanks to the music21 import function.
+.. For example, you can load a score in music21, modify it, and then use the music21 to partitura converter
+.. to get the score features that can be computed by partitura.
 
 .. `partitura` are different from and more modest than those of `music21`,
-which aims to provide a toolkit for computer-aided musicology. Instead,
-`partitura` intends to provide a convenient way to work with symbolic
-musical data in the context of problems such as musical expression
-modeling, or music generation.  Although it is not the main aim of the
-package to provide music analysis tools, the package does offer
-functionality for pitch spelling, voice assignment and key estimation.
+.. which aims to provide a toolkit for computer-aided musicology. Instead,
+.. `partitura` intends to provide a convenient way to work with symbolic
+.. musical data in the context of problems such as musical expression modeling, or music generation.  Although it is not the main aim of the package to provide music analysis tools, the package does offer functionality for pitch spelling, voice assignment and key estimation.
 
 Credits
 =======
