@@ -4,5 +4,4 @@ xmlschema
 lxml
 lark-parser
 mido
-sphinx==5.1.1
 nbsphinx
