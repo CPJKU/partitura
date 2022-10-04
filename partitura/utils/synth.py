@@ -5,7 +5,7 @@ TODO
 * Add other tuning systems?
 
 """
-from typing import Union, Tuple, Dict, Optional
+from typing import Union, Tuple, Dict, Optional, Any, Callable
 
 import numpy as np
 
@@ -274,25 +274,30 @@ def synthesize(
     samplerate: int = SAMPLE_RATE,
     envelope_fun: str = "linear",
     tuning: str = "equal_temperament",
+    tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
     bpm: Union[float, int] = 60,
 ) -> np.ndarray:
     """
-    Synthesize_data from part or note array.
+    Synthesize a partitura object with note information
+    using additive synthesis
 
 
     Parameters
     ----------
     note_info : ScoreLike, PerformanceLike or np.ndarray
-        A partitura Part Object (or group part or part list) or a Note array.
-    out : str (optional)
-        filname of the output audio file
-    envelope_fun: str
-        The type of envelop to apply to the individual sines
-    harmonic_dist : int, str or None (optional)
-        Default is None.
+        A partitura object with note information.
+    samplerate: int
+        The sample rate of the audio file in Hz.
+    envelope_fun: {"linear", "exp" }
+        The type of envelop to apply to the individual sine waves.
+    tuning: {"equal_temperament", "natural"}
+    harmonic_dist : int,  "shepard" or None (optional)
+        Distribution of harmonics. If an integer, it is the number
+        of harmonics to be considered. If "shepard", it uses Shepard tones.
+        Default is None (i.e., only consider the fundamental frequency)
     bpm : int
-        The bpm (if the input is a score)
+        The bpm to render the output (if the input is a score-like object)
 
     Returns
     -------
@@ -336,9 +341,11 @@ def synthesize(
 
     # frequency of the note in herz
     if tuning == "equal_temperament":
-        freq_in_hz = midi_pitch_to_frequency(pitch)
+        freq_in_hz = midi_pitch_to_frequency(pitch, **tuning_kwargs)
     elif tuning == "natural":
-        freq_in_hz = midi_pitch_to_natural_frequency(pitch)
+        if tuning_kwargs is None:
+            tuning_kwargs = {}
+        freq_in_hz = midi_pitch_to_natural_frequency(pitch, **tuning_kwargs)
 
     if harmonic_dist is None:
 
