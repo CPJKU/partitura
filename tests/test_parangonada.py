@@ -12,11 +12,15 @@ import os
 from partitura import load_score, load_match
 from partitura.io.exportparangonada import (
     save_alignment_for_parangonada,
-    load_alignment_from_parangonada,
+    # load_alignment_from_parangonada,
     save_alignment_for_ASAP,
-    load_alignment_from_ASAP,
+    # load_alignment_from_ASAP,
 )
 
+from partitura.io.importparangonada import (
+    load_alignment_from_parangonada,
+    load_alignment_from_ASAP,
+)
 import numpy as np
 
 from tests import MOZART_VARIATION_FILES
@@ -29,13 +33,22 @@ test_alignment = [
     {"label": "deletion", "score_id": "n02"},
 ]
 
-def load_files():
-    score = load_score(MOZART_VARIATION_FILES['musicxml'])
-    performance, alignment = load_match(filename=MOZART_VARIATION_FILES['match'])
-    parangonada_align = np.loadtxt(
+
+_performance, _alignment = load_match(filename=MOZART_VARIATION_FILES["match"])
+MOZART_VARIATION_DATA = dict(
+    score=load_score(MOZART_VARIATION_FILES["musicxml"]),
+    performance=_performance,
+    alignment=_alignment,
+    parangonada_align=np.loadtxt(
         fname=MOZART_VARIATION_FILES["parangonada_align"],
-    )
-    
+    ),
+    parangonada_zalign=np.loadtxt(
+        fname=MOZART_VARIATION_FILES["parangonada_zalign"],
+    ),
+    parangonada_feature=np.loadtxt(fname=MOZART_VARIATION_FILES["parangonada_feature"]),
+    parangonada_ppart=np.loadtxt(fname=MOZART_VARIATION_FILES["parangonada_ppart"]),
+    parangonada_spart=np.loadtxt(fname=MOZART_VARIATION_FILES["parangonada_spart"]),
+)
 
 
 class Ppart:

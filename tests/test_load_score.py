@@ -8,7 +8,7 @@ import unittest
 from tests import (
     MUSICXML_IMPORT_EXPORT_TESTFILES,
     MEI_TESTFILES,
-    KERN_TESFILES,
+    KERN_TESTFILES,
     MATCH_IMPORT_EXPORT_TESTFILES,
 )
 
@@ -33,7 +33,7 @@ class TestLoadScore(unittest.TestCase):
         for fn in (
             MUSICXML_IMPORT_EXPORT_TESTFILES
             + MEI_TESTFILES
-            + KERN_TESFILES
+            + KERN_TESTFILES
             + MATCH_IMPORT_EXPORT_TESTFILES
             + EXAMPLE_FILES
         ):

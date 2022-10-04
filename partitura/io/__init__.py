@@ -6,6 +6,7 @@ from .musescore import load_via_musescore
 from .importmatch import load_match
 from .importmei import load_mei
 from .importkern import load_kern
+from .importparangonada import load_parangonada_csv
 
 from partitura.utils.misc import (
     deprecated_alias,
@@ -106,19 +107,19 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             print(exception)
 
         raise NotSupportedFormatError
-    
-    
+
+
 def lp(filename: PathLike) -> Part:
     """
     load part helper function:
-    Load a score format supported by partitura and 
+    Load a score format supported by partitura and
     merge the result in a single part
 
     Parameters
     ----------
     filename : str or file-like  object
         Filename of the score to parse, or a file-like object
-    
+
     Returns
     -------
     part: :class:`partitura.score.Part`

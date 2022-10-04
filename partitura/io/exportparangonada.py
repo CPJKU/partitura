@@ -89,6 +89,9 @@ def save_csv_for_parangonada(
         The performance note array. Only returned if `outdir` is None.
     score_note_array: np.ndarray
         The note array from the score. Only returned if `outdir` is None.
+    alignarray: np.ndarray
+    zalignarray: np.ndarray
+    featurearray: np.ndarray
     """
 
     if isinstance(score_data, (Score, Iterable)):
@@ -193,7 +196,10 @@ def save_csv_for_parangonada(
         )
 
 
-def save_alignment_for_parangonada(outfile, align):
+@deprecated_alias(align="alignment", outfile="out")
+def save_alignment_for_parangonada(
+    alignment: List[dict], out: Optional[PathLike] = None
+):
     """
     Save only an alignment csv for visualization with parangonda.
     For score, performance, and expressive features use
@@ -201,57 +207,32 @@ def save_alignment_for_parangonada(outfile, align):
 
     Parameters
     ----------
-    outdir : str
-        A directory to save the files into.
     align : list
         A list of note alignment dictionaries.
 
-    """
-    alignarray = alignment_dicts_to_array(align)
+    outdir : str
+        A directory to save the files into.
 
-    np.savetxt(
-        outfile,
-        alignarray,
-        fmt="%.20s",
-        delimiter=",",
-        header=",".join(alignarray.dtype.names),
-        comments="",
-    )
-
-
-def load_alignment_from_parangonada(outfile):
-    """
-    load an alignment exported from parangonda.
-
-    Parameters
-    ----------
-    outfile : str
-        A path to the alignment csv file
 
     Returns
     -------
-    alignlist : list
-        A list of note alignment dictionaries.
+    alignarray : np.ndarray
+        Array containing the alignment. This array will only be returned if `out`
+        is not None
     """
-    array = np.loadtxt(outfile, dtype=str, delimiter=",")
-    alignlist = list()
-    # match = 0, deletion  = 1, insertion = 2
-    for k in range(1, array.shape[0]):
-        if int(array[k, 1]) == 0:
-            alignlist.append(
-                {
-                    "label": "match",
-                    "score_id": array[k, 2],
-                    "performance_id": array[k, 3],
-                }
-            )
+    alignarray = alignment_dicts_to_array(alignment)
 
-        elif int(array[k, 1]) == 2:
-            alignlist.append({"label": "insertion", "performance_id": array[k, 3]})
-
-        elif int(array[k, 1]) == 1:
-            alignlist.append({"label": "deletion", "score_id": array[k, 2]})
-    return alignlist
+    if out is not None:
+        np.savetxt(
+            out,
+            alignarray,
+            fmt="%.20s",
+            delimiter=",",
+            header=",".join(alignarray.dtype.names),
+            comments="",
+        )
+    else:
+        return alignarray
 
 
 def save_alignment_for_ASAP(outfile, ppart, alignment):
@@ -292,38 +273,3 @@ def save_alignment_for_ASAP(outfile, ppart, alignment):
                 outline_score = ["insertion"]
                 outline_perf = notes_indexed_by_id[str(line["performance_id"])]
                 f.write("\t".join(outline_score + outline_perf) + "\n")
-
-
-@deprecated_alias(outfile="filename")
-def load_alignment_from_ASAP(filename: PathLike) -> List[dict]:
-    """
-    load a note alignment of the ASAP dataset.
-
-    Parameters
-    ----------
-    filename : str
-        A path to the alignment tsv file
-
-    Returns
-    -------
-    alignment : list
-        A list of note alignment dictionaries.
-    """
-    alignment = list()
-    with open(filename, "r") as f:
-        for line in f.readlines():
-            fields = line.split("\t")
-            if fields[0][0] == "n" and "deletion" not in fields[1]:
-                alignment.append(
-                    {
-                        "label": "match",
-                        "score_id": fields[0],
-                        "performance_id": fields[1],
-                    }
-                )
-            elif fields[0] == "insertion":
-                alignment.append({"label": "insertion", "performance_id": fields[1]})
-            elif fields[0][0] == "n" and "deletion" in fields[1]:
-                alignment.append({"label": "deletion", "score_id": fields[0]})
-
-    return alignment
