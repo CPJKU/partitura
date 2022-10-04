@@ -109,7 +109,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         raise NotSupportedFormatError
 
 
-def lp(filename: PathLike) -> Part:
+def load_score_as_part(filename: PathLike) -> Part:
     """
     load part helper function:
     Load a score format supported by partitura and
@@ -128,6 +128,10 @@ def lp(filename: PathLike) -> Part:
     scr = load_score(filename)
     part = merge_parts(scr.parts)
     return part
+
+
+# alias
+lp = load_score_as_part
 
 
 @deprecated_alias(performance_fn="filename")
