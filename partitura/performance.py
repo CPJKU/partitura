@@ -125,7 +125,7 @@ class PerformedPart(object):
             )
         )
 
-    def note_array(self) -> np.ndarray:
+    def note_array(self, *args, **kwargs) -> np.ndarray:
         """Structured array containing performance information.
         The fields are 'id', 'pitch', 'onset_div', 'duration_div',
         'onset_sec', 'duration_sec' and 'velocity'.
@@ -423,12 +423,12 @@ class Performance(object):
         """
         return len(self.performedparts)
 
-    def note_array(self) -> np.ndarray:
+    def note_array(self, *args, **kwargs) -> np.ndarray:
         """
         Get a note array that concatenates the note arrays of all Part/PartGroup
         objects in the score.
         """
-        return note_array_from_part_list(part_list=self.performedparts)
+        return note_array_from_part_list(self.performedparts, *args, **kwargs)
 
 
 # Alias for typing performance-like objects

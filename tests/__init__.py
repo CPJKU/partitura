@@ -172,8 +172,10 @@ MOZART_VARIATION_FILES = dict(
     midi=os.path.join(MIDI_PATH, "mozart_k265_var1.mid"),
     match=os.path.join(MATCH_PATH, "mozart_k265_var1.match"),
     parangonada_align=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "align.csv"),
-    parangonada_feature=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "feature.csv"),
-    parangonada_part=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "part.csv"),
+    parangonada_feature=os.path.join(
+        PARANGONADA_PATH, "mozart_k265_var1", "feature.csv"
+    ),
+    parangonada_spart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "part.csv"),
     parangonada_ppart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "ppart.csv"),
     parangonada_zalign=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "zalign.csv"),
 )

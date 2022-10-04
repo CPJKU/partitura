@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for saving Parangonada csv files
+"""
+
 import os
 
 import numpy as np
@@ -5,11 +11,16 @@ import numpy as np
 from typing import Union, List, Iterable, Tuple, Optional
 
 from partitura.score import ScoreLike, Score
-from partitura.performance import PerformanceLike, Performance
+from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 from partitura.utils import ensure_notearray
 
 from partitura.utils.misc import PathLike, deprecated_alias
+
+__all__ = [
+    "save_parangonada_csv",
+    "save_parangonada_alignment",
+]
 
 
 def alignment_dicts_to_array(alignment: List[dict]) -> np.ndarray:
@@ -37,12 +48,14 @@ def alignment_dicts_to_array(alignment: List[dict]) -> np.ndarray:
     # for all dicts create an appropriate entry in an array:
     # match = 0, deletion  = 1, insertion = 2
     for no, i in enumerate(alignment):
+
         if i["label"] == "match":
             array.append((no, "0", i["score_id"], str(i["performance_id"])))
         elif i["label"] == "insertion":
             array.append((no, "2", "undefined", str(i["performance_id"])))
         elif i["label"] == "deletion":
             array.append((no, "1", i["score_id"], "undefined"))
+
     alignarray = np.array(array, dtype=fields)
 
     return alignarray
@@ -53,7 +66,7 @@ def alignment_dicts_to_array(alignment: List[dict]) -> np.ndarray:
     ppart="performance_data",
     align="alignment",
 )
-def save_csv_for_parangonada(
+def save_parangonada_csv(
     alignment: List[dict],
     performance_data: Union[PerformanceLike, np.ndarray],
     score_data: Union[ScoreLike, np.ndarray],
@@ -142,7 +155,7 @@ def save_csv_for_parangonada(
 
     if outdir is not None:
         np.savetxt(
-            os.path.join(outdir, "perf_note_array.csv"),
+            os.path.join(outdir, "ppart.csv"),
             # outdir + os.path.sep + "perf_note_array.csv",
             perf_note_array,
             fmt="%.20s",
@@ -151,7 +164,7 @@ def save_csv_for_parangonada(
             comments="",
         )
         np.savetxt(
-            os.path.join(outdir, "score_note_array.csv"),
+            os.path.join(outdir, "part.csv"),
             # outdir + os.path.sep + "score_note_array.csv",
             score_note_array,
             fmt="%.20s",
@@ -196,9 +209,14 @@ def save_csv_for_parangonada(
         )
 
 
+# alias
+save_csv_for_parangonada = save_parangonada_csv
+
+
 @deprecated_alias(align="alignment", outfile="out")
-def save_alignment_for_parangonada(
-    alignment: List[dict], out: Optional[PathLike] = None
+def save_parangonada_alignment(
+    alignment: List[dict],
+    out: Optional[PathLike] = None,
 ):
     """
     Save only an alignment csv for visualization with parangonda.
@@ -235,20 +253,32 @@ def save_alignment_for_parangonada(
         return alignarray
 
 
-def save_alignment_for_ASAP(outfile, ppart, alignment):
+# alias
+save_alignment_for_parangonada = save_parangonada_alignment
+
+
+@deprecated_alias(outfile="out", ppart="performance_data")
+def save_alignment_for_ASAP(
+    alignment: List[dict],
+    performance_data: PerformanceLike,
+    out: PathLike,
+) -> None:
     """
     load an alignment exported from parangonda.
 
     Parameters
     ----------
-    outfile : str
-        A path for the alignment tsv file.
-    ppart : PerformedPart, structured ndarray
-        A PerformedPart or its note_array.
-    align : list
+    alignment : list
         A list of note alignment dictionaries.
-
+    performance_data : PerformanceLike
+        A performance.
+    out : str
+        A path for the alignment tsv file.
     """
+    if isinstance(performance_data, (Performance, Iterable)):
+        ppart = performance_data[0]
+    elif isinstance(performance_data, PerformedPart):
+        ppart = performance_data
     notes_indexed_by_id = {
         str(n["id"]): [
             str(n["id"]),
@@ -259,7 +289,7 @@ def save_alignment_for_ASAP(outfile, ppart, alignment):
         ]
         for n in ppart.notes
     }
-    with open(outfile, "w") as f:
+    with open(out, "w") as f:
         f.write("xml_id\tmidi_id\ttrack\tchannel\tpitch\tonset\n")
         for line in alignment:
             if line["label"] == "match":

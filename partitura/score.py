@@ -997,16 +997,7 @@ class Part(object):
         """
         return self._points[0] if len(self._points) > 0 else None
 
-    def note_array(
-        self,
-        include_pitch_spelling=False,
-        include_key_signature=False,
-        include_time_signature=False,
-        include_metrical_position=False,
-        include_grace_notes=False,
-        include_staff=False,
-        include_divs_per_quarter=False,
-    ):
+    def note_array(self, **kwargs):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -1045,16 +1036,7 @@ class Part(object):
 
         note_array : structured array
         """
-        return note_array_from_part(
-            self,
-            include_pitch_spelling=include_pitch_spelling,
-            include_key_signature=include_key_signature,
-            include_time_signature=include_time_signature,
-            include_metrical_position=include_metrical_position,
-            include_grace_notes=include_grace_notes,
-            include_staff=include_staff,
-            include_divs_per_quarter=include_divs_per_quarter,
-        )
+        return note_array_from_part(self, **kwargs)
 
     def rest_array(
         self,
@@ -2950,6 +2932,7 @@ class Score(object):
         include_grace_notes=False,
         include_staff=False,
         include_divs_per_quarter=False,
+        **kwargs,
     ) -> np.ndarray:
         """
         Get a note array that concatenates the note arrays of all Part/PartGroup
@@ -2964,6 +2947,7 @@ class Score(object):
             include_grace_notes=include_grace_notes,
             include_staff=include_staff,
             include_divs_per_quarter=include_divs_per_quarter,
+            **kwargs,
         )
 
 

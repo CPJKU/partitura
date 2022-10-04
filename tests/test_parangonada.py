@@ -11,17 +11,18 @@ import os
 
 from partitura import load_score, load_match
 from partitura.io.exportparangonada import (
-    save_alignment_for_parangonada,
-    # load_alignment_from_parangonada,
+    save_parangonada_alignment,
     save_alignment_for_ASAP,
-    # load_alignment_from_ASAP,
+    save_parangonada_csv,
 )
 
 from partitura.io.importparangonada import (
     load_alignment_from_parangonada,
     load_alignment_from_ASAP,
+    _load_csv,
+    load_parangonada_csv,
 )
-import numpy as np
+
 
 from tests import MOZART_VARIATION_FILES
 
@@ -39,15 +40,15 @@ MOZART_VARIATION_DATA = dict(
     score=load_score(MOZART_VARIATION_FILES["musicxml"]),
     performance=_performance,
     alignment=_alignment,
-    parangonada_align=np.loadtxt(
-        fname=MOZART_VARIATION_FILES["parangonada_align"],
+    parangonada_align=_load_csv(
+        MOZART_VARIATION_FILES["parangonada_align"],
     ),
-    parangonada_zalign=np.loadtxt(
-        fname=MOZART_VARIATION_FILES["parangonada_zalign"],
+    parangonada_zalign=_load_csv(
+        MOZART_VARIATION_FILES["parangonada_zalign"],
     ),
-    parangonada_feature=np.loadtxt(fname=MOZART_VARIATION_FILES["parangonada_feature"]),
-    parangonada_ppart=np.loadtxt(fname=MOZART_VARIATION_FILES["parangonada_ppart"]),
-    parangonada_spart=np.loadtxt(fname=MOZART_VARIATION_FILES["parangonada_spart"]),
+    parangonada_feature=_load_csv(MOZART_VARIATION_FILES["parangonada_feature"]),
+    parangonada_ppart=_load_csv(MOZART_VARIATION_FILES["parangonada_ppart"]),
+    parangonada_spart=_load_csv(MOZART_VARIATION_FILES["parangonada_spart"]),
 )
 
 
@@ -70,6 +71,19 @@ class Ppart:
             },
         ]
 
+    # Make dummy Ppart iterable
+    def __getitem__(self, index):
+        return self
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self
+
+    def __len__(self):
+        return 1
+
 
 test_ppart = Ppart()
 
@@ -82,8 +96,8 @@ class TestIO(unittest.TestCase):
 
     def test_csv_import_export(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
-            save_alignment_for_parangonada(
-                os.path.join(tmpdirname, "align.csv"), test_alignment
+            save_parangonada_alignment(
+                out=os.path.join(tmpdirname, "align.csv"), alignment=test_alignment
             )
             import_alignment = load_alignment_from_parangonada(
                 os.path.join(tmpdirname, "align.csv")
@@ -94,7 +108,9 @@ class TestIO(unittest.TestCase):
     def test_tsv_import_export(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
             save_alignment_for_ASAP(
-                os.path.join(tmpdirname, "align.tsv"), test_ppart, test_alignment
+                out=os.path.join(tmpdirname, "align.tsv"),
+                performance_data=test_ppart,
+                alignment=test_alignment,
             )
             import_alignment = load_alignment_from_ASAP(
                 os.path.join(tmpdirname, "align.tsv")
@@ -102,8 +118,20 @@ class TestIO(unittest.TestCase):
             equal = test_alignment == import_alignment
             self.assertTrue(equal)
 
-    def test_save_csv_for_parangonada(self):
-        pass
+    def test_save_parangonada_csv(self):
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+
+            save_parangonada_csv(
+                alignment=MOZART_VARIATION_DATA["alignment"],
+                performance_data=MOZART_VARIATION_DATA["performance"],
+                score_data=MOZART_VARIATION_DATA["score"],
+                outdir=tmpdirname,
+            )
+
+            performance, alignment, _, _ = load_parangonada_csv(tmpdirname)
+
+            self.assertTrue(alignment == MOZART_VARIATION_DATA["alignment"])
 
 
 if __name__ == "__main__":
