@@ -9,9 +9,9 @@ notes as well as continuous control parameters, such as sustain pedal.
 """
 
 
-
+from typing import Union, List, Optional, Iterator, Iterable as Itertype
 import numpy as np
-
+from partitura.utils import note_array_from_part_list
 
 __all__ = ["PerformedPart"]
 
@@ -111,7 +111,6 @@ class PerformedPart(object):
             self.notes, self.controls, self._sustain_pedal_threshold
         )
 
-    @property
     def note_array(self):
         """Structured array containing performance information.
         The fields are 'id', 'pitch', 'onset_div', 'duration_div',
@@ -226,3 +225,99 @@ def adjust_offsets_w_sustain(notes, controls, threshold=64):
 
     for offset, note in zip(offs, notes):
         note["sound_off"] = offset
+
+
+class Performance(object):
+    """Main object for representing a performance.
+
+    The `Performance` object is basically an iterable that provides access to all
+    `PerformedPart` objects in a musical score.
+
+    Parameters
+    ----------
+    id : str
+        The identifier of the performance.
+    performer: str, optional.
+        The person or machine performing.
+    title: str, optional
+        Title of the score.
+    subtitle: str, optional
+        Subtitle of the score.
+    composer: str, optional
+        Composer of the score.
+    lyricist: str, optional
+        Lyricist of the score.
+    copyright: str, optional.
+        Copyright notice of the score.
+
+    Attributes
+    ----------
+    id : str
+        See parameters.
+    performer: str
+        See parameters.
+    title: str
+        See parameters.
+    subtitle: str
+        See parameters.
+    composer: str
+        See parameters.
+    lyricist: str
+        See parameters.
+    copyright: str.
+        See parameters.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        performedparts: PerformedPart,
+        performer: Optional[str] = None,
+        title: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        composer: Optional[str] = None,
+        lyricist: Optional[str] = None,
+        copyright: Optional[str] = None,
+    ) -> None:
+        self.id = id
+        self.performedparts = [performedparts]
+        # Metadata
+        self.performer = performer
+        self.title = title
+        self.subtitle = subtitle
+        self.composer = composer
+        self.lyricist = lyricist
+        self.copyright = copyright
+
+    def __getitem__(self, index: int) -> PerformedPart:
+        """Get `Part in the score by index"""
+        return self.performedparts[index]
+
+    def __setitem__(self, index: int, pp: PerformedPart) -> None:
+        """Set `Part` in the score by index"""
+        # TODO: How to update the score structure as well?
+        self.performedparts[index] = pp
+
+    def __iter__(self) -> Iterator[PerformedPart]:
+        self.iter_idx = 0
+        return self
+
+    def __next__(self) -> PerformedPart:
+        if self.iter_idx == len(self.performedparts):
+            raise StopIteration
+        res = self[self.iter_idx]
+        self.iter_idx += 1
+        return res
+
+    def __len__(self) -> int:
+        """
+        The lenght of the score is the number of part objects in `self.parts`
+        """
+        return len(self.performedparts)
+
+    def note_array(self) -> np.ndarray:
+        """
+        Get a note array that concatenates the note arrays of all Part/PartGroup
+        objects in the score.
+        """
+        return note_array_from_part_list(part_list=self.performedparts)

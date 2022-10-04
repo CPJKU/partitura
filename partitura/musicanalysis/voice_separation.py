@@ -67,7 +67,7 @@ def argmax_pitch(idx, pitches):
     return idx[np.argmax(pitches[idx])]
 
 
-def estimate_voices(note_info, monophonic_voices=False):
+def estimate_voices(note_info, monophonic_voices=True):
     """Voice estimation using the voice separation algorithm
        proposed in [6]_.
 
@@ -141,7 +141,7 @@ def estimate_voices(note_info, monophonic_voices=False):
         input_array = notearray[sorted(idx_equivs.keys())]
 
     # Perform voice separation
-    v_notearray = VoSA(input_array).note_array
+    v_notearray = VoSA(input_array).note_array()
 
     # map the voices to the original notes
     voices = np.empty(len(notearray), dtype=int)
@@ -153,7 +153,10 @@ def estimate_voices(note_info, monophonic_voices=False):
     # occurring voice has number 2, etc.
     rvoices = rename_voices(voices)
 
-    return rvoices
+    # reverse voice numbers so that the high voices have the low numbers, like in musicxml
+    rrvoices = max(rvoices) - rvoices + 1
+
+    return rrvoices
 
 
 def pairwise_cost(prev, nxt):
@@ -869,7 +872,8 @@ class VoSA(VSBaseScore):
             notes_per_voice = [note for note in self.notes if note.voice == vn]
             self.voices.append(NoteStream(notes_per_voice, voice=vn))
 
-    @property
+    # Removed property flag for consistancy.
+    # @property
     def note_array(self):
         """
         TODO:

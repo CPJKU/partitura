@@ -13,6 +13,7 @@ The functionality is provided by the function `parse_words`
 
 import re
 import warnings
+
 try:
     from lark import Lark
 
@@ -21,7 +22,9 @@ except ImportError:
     warnings.warn(
         '''package "lark" not found; Textual directions will not be
 parsed to form `score.Direction` objects but included as `score.Words`
-instead; Install using "pip install lark-parser"''', ImportWarning, stacklevel=2
+instead; Install using "pip install lark-parser"''',
+        ImportWarning,
+        stacklevel=2,
     )
     HAVE_LARK = False
 

@@ -26,11 +26,11 @@ class TestKeyEstimation(unittest.TestCase):
     score = load_musicxml(EXAMPLE_MUSICXML)
 
     def test_part(self):
-        spelling = estimate_spelling(self.score)
-        comparisons = compare_spelling(spelling, self.score.notes)
+        spelling = estimate_spelling(self.score[0])
+        comparisons = compare_spelling(spelling, self.score[0].notes)
         self.assertTrue(np.all(comparisons), "Incorrect spelling")
 
     def test_note_array(self):
-        spelling = estimate_spelling(self.score.note_array)
-        comparisons = compare_spelling(spelling, self.score.notes)
+        spelling = estimate_spelling(self.score[0].note_array())
+        comparisons = compare_spelling(spelling, self.score[0].notes)
         self.assertTrue(np.all(comparisons), "Incorrect spelling")
