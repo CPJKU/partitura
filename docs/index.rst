@@ -10,7 +10,6 @@ Partitura documentation
    :maxdepth: 2
 
    introduction
-   usage
    Tutorial/notebook.ipynb
    genindex
 
