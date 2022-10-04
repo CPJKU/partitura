@@ -34,8 +34,11 @@ def save_wav(
     ----------
     input_data : ScoreLike, PerformanceLike or np.ndarray
         A partitura object with note information.
+    out : PathLike or None
+        Path of the output Wave file. If None, the method outputs
+        the audio signal as an array (see `audio_signal` below).
     samplerate: int
-        The sample rate of the audio file in Hz.
+        The sample rate of the audio file in Hz. The default is 44100Hz.
     envelope_fun: {"linear", "exp" }
         The type of envelop to apply to the individual sine waves.
     tuning: {"equal_temperament", "natural"}
@@ -64,5 +67,5 @@ def save_wav(
     if out is not None:
         # Write audio signal
         wavfile.write(out, samplerate, audio_signal)
-
-    return audio_signal
+    else:
+        return audio_signal

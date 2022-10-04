@@ -139,7 +139,7 @@ print(beat_map(pianoroll[:, 1]))
 ```
 
 
-The following commands save the part to MIDI and MusicXML, respectively:
+The following commands save the part to MIDI and MusicXML, or export it as a WAV file (using [additive synthesis](https://en.wikipedia.org/wiki/Additive_synthesis)), respectively:
 
 ```python
 # Save Score MIDI to file.
@@ -147,6 +147,9 @@ pt.save_score_midi(part, 'mypart.mid')
 
 # Save Score MusicXML to file.
 pt.save_musicxml(part, 'mypart.musicxml')
+
+# Save as audio file using additive synthesis
+pt.save_wav(part, 'mypart.wav')
 ```
 
 
