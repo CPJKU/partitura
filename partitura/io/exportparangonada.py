@@ -48,12 +48,16 @@ def alignment_dicts_to_array(alignment: List[dict]) -> np.ndarray:
     return alignarray
 
 
-@deprecated_alias(spart="score_data", ppart="performance_data")
+@deprecated_alias(
+    spart="score_data",
+    ppart="performance_data",
+    align="alignment",
+)
 def save_csv_for_parangonada(
-    outdir: PathLike,
-    score_data: Union[ScoreLike, np.ndarray],
+    alignment: List[dict],
     performance_data: Union[PerformanceLike, np.ndarray],
-    align: List[dict],
+    score_data: Union[ScoreLike, np.ndarray],
+    outdir: Optional[PathLike] = None,
     zalign: Optional[List[dict]] = None,
     feature: Optional[List[dict]] = None,
 ) -> Optional[Tuple[np.ndarray]]:
@@ -62,33 +66,44 @@ def save_csv_for_parangonada(
 
     Parameters
     ----------
-    outdir : str
+    alignment : list
+        A list of note alignment dictionaries.
+    performance_data : Performance, PerformedPart, structured ndarray
+        The performance information
+    score_data : ScoreLike
+        The musical score. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
+    outdir : PathLike
         A directory to save the files into.
-    part : Part, structured ndarray
-        A score part or its note_array.
     ppart : PerformedPart, structured ndarray
         A PerformedPart or its note_array.
-    align : list
-        A list of note alignment dictionaries.
     zalign : list, optional
         A second list of note alignment dictionaries.
     feature : list, optional
         A list of expressive feature dictionaries.
 
+    Returns
+    -------
+    perf_note_array : np.ndarray
+        The performance note array. Only returned if `outdir` is None.
+    score_note_array: np.ndarray
+        The note array from the score. Only returned if `outdir` is None.
     """
 
     if isinstance(score_data, (Score, Iterable)):
-        # Only use the first part if the score has more than one part
-        part = ensure_notearray(score_data[0])
+        # Only use the first score_note_array if the score
+        # has more than one score_note_array
+        score_note_array = ensure_notearray(score_data[0])
     else:
-        part = ensure_notearray(part)
+        score_note_array = ensure_notearray(score_note_array)
 
     if isinstance(performance_data, (Performance, Iterable)):
-        # Only use the first performed part if the performance has more
-        # than one part
-        ppart = ensure_notearray(performance_data[0])
+        # Only use the first performed score_note_array if
+        # the performance has more than one score_note_array
+        perf_note_array = ensure_notearray(performance_data[0])
     else:
-        ppart = ensure_notearray(performance_data)
+        perf_note_array = ensure_notearray(performance_data)
 
     ffields = [
         ("velocity", "<f4"),
@@ -98,7 +113,7 @@ def save_csv_for_parangonada(
     ]
 
     farray = []
-    notes = list(part["id"])
+    notes = list(score_note_array["id"])
     if feature is not None:
         # veloctiy, timing, articulation, note
         for no, i in enumerate(list(feature["id"])):
@@ -115,30 +130,30 @@ def save_csv_for_parangonada(
             farray.append((0, 0, 0, i))
 
     featurearray = np.array(farray, dtype=ffields)
-    alignarray = alignment_dicts_to_array(align)
+    alignarray = alignment_dicts_to_array(alignment)
 
     if zalign is not None:
         zalignarray = alignment_dicts_to_array(zalign)
     else:  # if no zalign is available, save the same alignment twice
-        zalignarray = alignment_dicts_to_array(align)
+        zalignarray = alignment_dicts_to_array(alignment)
 
     if outdir is not None:
         np.savetxt(
-            os.path.join(outdir, "ppart.csv"),
-            # outdir + os.path.sep + "ppart.csv",
-            ppart,
+            os.path.join(outdir, "perf_note_array.csv"),
+            # outdir + os.path.sep + "perf_note_array.csv",
+            perf_note_array,
             fmt="%.20s",
             delimiter=",",
-            header=",".join(ppart.dtype.names),
+            header=",".join(perf_note_array.dtype.names),
             comments="",
         )
         np.savetxt(
-            os.path.join(outdir, "part.csv"),
-            # outdir + os.path.sep + "part.csv",
-            part,
+            os.path.join(outdir, "score_note_array.csv"),
+            # outdir + os.path.sep + "score_note_array.csv",
+            score_note_array,
             fmt="%.20s",
             delimiter=",",
-            header=",".join(part.dtype.names),
+            header=",".join(score_note_array.dtype.names),
             comments="",
         )
         np.savetxt(
@@ -169,7 +184,13 @@ def save_csv_for_parangonada(
             comments="",
         )
     else:
-        return (ppart, part, alignarray, zalignarray, featurearray)
+        return (
+            perf_note_array,
+            score_note_array,
+            alignarray,
+            zalignarray,
+            featurearray,
+        )
 
 
 def save_alignment_for_parangonada(outfile, align):
@@ -273,26 +294,27 @@ def save_alignment_for_ASAP(outfile, ppart, alignment):
                 f.write("\t".join(outline_score + outline_perf) + "\n")
 
 
-def load_alignment_from_ASAP(outfile):
+@deprecated_alias(outfile="filename")
+def load_alignment_from_ASAP(filename: PathLike) -> List[dict]:
     """
     load a note alignment of the ASAP dataset.
 
     Parameters
     ----------
-    outfile : str
+    filename : str
         A path to the alignment tsv file
 
     Returns
     -------
-    alignlist : list
+    alignment : list
         A list of note alignment dictionaries.
     """
-    alignlist = list()
-    with open(outfile, "r") as f:
+    alignment = list()
+    with open(filename, "r") as f:
         for line in f.readlines():
             fields = line.split("\t")
             if fields[0][0] == "n" and "deletion" not in fields[1]:
-                alignlist.append(
+                alignment.append(
                     {
                         "label": "match",
                         "score_id": fields[0],
@@ -300,8 +322,8 @@ def load_alignment_from_ASAP(outfile):
                     }
                 )
             elif fields[0] == "insertion":
-                alignlist.append({"label": "insertion", "performance_id": fields[1]})
+                alignment.append({"label": "insertion", "performance_id": fields[1]})
             elif fields[0][0] == "n" and "deletion" in fields[1]:
-                alignlist.append({"label": "deletion", "score_id": fields[0]})
+                alignment.append({"label": "deletion", "score_id": fields[0]})
 
-    return alignlist
+    return alignment

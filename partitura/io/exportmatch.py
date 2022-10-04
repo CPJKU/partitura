@@ -331,10 +331,10 @@ def save_match(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
-    performance_data : PerformanceLike
-        The performance information.
-    score_data : Score, list, Part, or PartGroup
-        The musical score to be saved. A :class:`partitura.score.Score` object,
+    performance_data : `PerformanceLike
+        The performance information as a `Performance`
+    score_data : `ScoreLike`
+        The musical score. A :class:`partitura.score.Score` object,
         a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
         a list of these.
     out : str
@@ -352,7 +352,7 @@ def save_match(
 
     Returns
     -------
-    None or MatchFile
+    matchfile: MatchFile
         If no output is specified using `out`, the function returns
         a `MatchFile` object. Otherwise, the function returns None.
     """
