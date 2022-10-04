@@ -12,7 +12,7 @@
 [![Pypi Package](https://badge.fury.io/py/partitura.svg)](https://badge.fury.io/py/partitura)
 [![Unittest Status](https://github.com/CPJKU/partitura/workflows/Partitura%20Unittests/badge.svg)](https://github.com/CPJKU/partitura/actions?query=workflow%3A%22Partitura+Unittests%22)
 [![CodeCov Status](https://codecov.io/gh/CPJKU/partitura/branch/develop/graph/badge.svg?token=mnZ234sGSA)](https://codecov.io/gh/CPJKU/partitura)
-
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 
 
