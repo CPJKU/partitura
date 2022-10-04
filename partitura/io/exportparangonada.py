@@ -10,7 +10,7 @@ import numpy as np
 
 from typing import Union, List, Iterable, Tuple, Optional
 
-from partitura.score import ScoreLike, Score
+from partitura.score import ScoreLike
 from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 from partitura.utils import ensure_notearray
@@ -107,19 +107,9 @@ def save_parangonada_csv(
     featurearray: np.ndarray
     """
 
-    if isinstance(score_data, (Score, Iterable)):
-        # Only use the first score_note_array if the score
-        # has more than one score_note_array
-        score_note_array = ensure_notearray(score_data[0])
-    else:
-        score_note_array = ensure_notearray(score_note_array)
+    score_note_array = ensure_notearray(score_data)
 
-    if isinstance(performance_data, (Performance, Iterable)):
-        # Only use the first performed score_note_array if
-        # the performance has more than one score_note_array
-        perf_note_array = ensure_notearray(performance_data[0])
-    else:
-        perf_note_array = ensure_notearray(performance_data)
+    perf_note_array = ensure_notearray(performance_data)
 
     ffields = [
         ("velocity", "<f4"),
