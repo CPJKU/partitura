@@ -30,8 +30,8 @@ EXAMPLE_MUSICXML = pkg_resources.resource_filename(
     "partitura", "assets/score_example.musicxml")
 
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
-# EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
-# EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.krn")
+EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
+EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.krn")
 
 __all__ = [
     "load_musicxml",
@@ -48,9 +48,5 @@ __all__ = [
     "save_match",
     "load_nakamuramatch",
     "load_nakamuracorresp",
-    "render",
-    "EXAMPLE_MUSICXML",
-    "EXAMPLE_MIDI",
-    "EXAMPLE_MEI",
-    "EXAMPLE_KERN",
+    "render"
 ]
