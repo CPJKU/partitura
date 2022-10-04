@@ -15,6 +15,7 @@ MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 MIDI_PATH = os.path.join(DATA_PATH, "midi")
 PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
+WAV_PATH = os.path.join(DATA_PATH, "wav")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -179,3 +180,11 @@ MOZART_VARIATION_FILES = dict(
     parangonada_ppart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "ppart.csv"),
     parangonada_zalign=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "zalign.csv"),
 )
+
+
+WAV_TESTFILES = [
+    os.path.join(WAV_PATH, fn)
+    for fn in [
+        "example_linear_equal_temperament_sr8000.wav",
+    ]
+]

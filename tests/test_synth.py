@@ -1,15 +1,24 @@
 import unittest
 
 import numpy as np
+from scipy.io import wavfile
+import tempfile
 
 from partitura.utils.synth import (
     midi_pitch_to_natural_frequency,
     exp_in_exp_out,
     lin_in_lin_out,
     additive_synthesis,
+    synthesize,
 )
 
+from partitura import EXAMPLE_MUSICXML, load_score
+
+from partitura import save_wav
+
 RNG = np.random.RandomState(1984)
+
+from tests import WAV_TESTFILES
 
 
 class TestMidiPitchToNaturalFrequency(unittest.TestCase):
@@ -103,10 +112,51 @@ class TestAdditiveSynthesis(unittest.TestCase):
 
                 expected_length = dur * sr
 
-                y = additive_synthesis(
-                    freqs=440,
-                    duration=dur,
-                    samplerate=sr
-                )
+                y = additive_synthesis(freqs=440, duration=dur, samplerate=sr)
 
                 self.assertTrue(len(y) == expected_length)
+
+
+class TestSynthExport(unittest.TestCase):
+
+    score = load_score(EXAMPLE_MUSICXML)
+
+    def test_synthesize(self):
+
+        for fn in WAV_TESTFILES:
+
+            sr, original_audio = wavfile.read(fn)
+
+            target_audio = synthesize(
+                note_info=self.score,
+                samplerate=sr,
+                envelope_fun="linear",
+                tuning="equal_temperament",
+                bpm=60,
+            )
+
+            self.assertTrue(all(target_audio == original_audio))
+
+    def test_export(self):
+
+        for fn in WAV_TESTFILES:
+            sr, original_audio = wavfile.read(fn)
+            with tempfile.TemporaryFile(suffix=".mid") as filename:
+
+                save_wav(
+                    input_data=self.score,
+                    out=filename,
+                    samplerate=sr,
+                    tuning="equal_temperament",
+                    bpm=60,
+                    envelope_fun="linear",
+                )
+
+                sr_rec, rec_audio = wavfile.read(filename)
+
+                self.assertTrue(sr_rec == sr)
+                self.assertTrue(all(rec_audio == original_audio))
+
+
+if __name__ == "__main__":
+    unittest.main()

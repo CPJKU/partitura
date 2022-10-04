@@ -12,6 +12,8 @@ from partitura.utils.synth import synthesize, SAMPLE_RATE
 
 from partitura.utils.misc import PathLike
 
+__all__ = ["save_wav"]
+
 
 def save_wav(
     input_data: Union[ScoreLike, PerformanceLike, np.ndarray],
@@ -27,7 +29,27 @@ def save_wav(
     a performance (`Performance`, `PerformedPart` or list of `PerformedPart` instances)
     as a WAV file using additive synthesis
 
-    
+
+    Parameters
+    ----------
+    input_data : ScoreLike, PerformanceLike or np.ndarray
+        A partitura object with note information.
+    samplerate: int
+        The sample rate of the audio file in Hz.
+    envelope_fun: {"linear", "exp" }
+        The type of envelop to apply to the individual sine waves.
+    tuning: {"equal_temperament", "natural"}
+    harmonic_dist : int,  "shepard" or None (optional)
+        Distribution of harmonics. If an integer, it is the number
+        of harmonics to be considered. If "shepard", it uses Shepard tones.
+        Default is None (i.e., only consider the fundamental frequency)
+    bpm : int
+        The bpm to render the output (if the input is a score-like object)
+
+    Returns
+    -------
+    audio_signal : np.ndarray
+       Audio signal as a 1D array. Only returned if `out` is None.
     """
     # synthesize audio signal
     audio_signal = synthesize(

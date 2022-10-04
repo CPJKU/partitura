@@ -343,8 +343,6 @@ def synthesize(
     if tuning == "equal_temperament":
         freq_in_hz = midi_pitch_to_frequency(pitch, **tuning_kwargs)
     elif tuning == "natural":
-        if tuning_kwargs is None:
-            tuning_kwargs = {}
         freq_in_hz = midi_pitch_to_natural_frequency(pitch, **tuning_kwargs)
 
     if harmonic_dist is None:
