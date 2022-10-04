@@ -246,6 +246,8 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
     ----------
     notearray_or_part : structured ndarray, `Score`, `Part`, `PerformedPart`
         Input score information
+    kwargs : dict
+        Additional arguments to be passed to `partitura.utils.note_array_from_part()`.
 
     Returns
     -------
@@ -1511,12 +1513,7 @@ def remove_silence_from_performed_part(ppart):
 def note_array_from_part_list(
     part_list,
     unique_id_per_part=True,
-    include_pitch_spelling=False,
-    include_key_signature=False,
-    include_time_signature=False,
-    include_grace_notes=False,
-    include_staff=False,
-    include_divs_per_quarter=False,
+    **kwargs,
 ):
     """
     Construct a structured Note array from a list of Part objects
@@ -1528,28 +1525,9 @@ def note_array_from_part_list(
        the list must be of the same type (i.e., no mixing `Part`
        and `PerformedPart` objects in the same list.
     unique_id_per_part : bool (optional)
-       Indicate from which part do each note come from in the note ids.
-    include_pitch_spelling: bool (optional)
-       Include pitch spelling information in note array. Only valid
-       if parts in `part_list` are `Part` objects. See `note_array_from_part`
-       for more info. Default is False.
-    include_key_signature: bool (optional)
-       Include key signature information in output note array.
-       Only valid if parts in `part_list` are `Part` objects.
-       See `note_array_from_part` for more info. Default is False.
-    include_time_signature : bool (optional)
-       Include time signature information in output note array.
-       Only valid if parts in `part_list` are `Part` objects.
-       See `note_array_from_part` for more info. Default is False.
-    include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a
-        grace note and the grace type "" for non grace notes).
-        Default is False
-    include_staff : bool (optional)
-        If `True`,  includes note staff number.
-        Default is False
-    include_divs_per_quarter : bool(optional)
-        If `True`, inclused the number of divs per quarter note.
+       Indicate from which part do each note come from in the note ids. Default is True.
+    **kwargs : dict
+         Additional keyword arguments to pass to `utils.music.note_array_from_part()`
 
     Returns
     -------
@@ -1566,28 +1544,19 @@ def note_array_from_part_list(
     note_array = []
     for i, part in enumerate(part_list):
         if isinstance(part, (Part, PartGroup)):
+            # set include_divs_per_quarter, to correctly merge different divs
+            kwargs["include_divs_per_quarter"] = True
             is_score = True
             if isinstance(part, Part):
                 na = note_array_from_part(
-                    part=part,
-                    unique_id_per_part=unique_id_per_part,
-                    include_pitch_spelling=include_pitch_spelling,
-                    include_key_signature=include_key_signature,
-                    include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes,
-                    include_staff=include_staff,
-                    include_divs_per_quarter=True,  # necessary for correctly merging
+                    part,
+                    **kwargs
                 )
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
-                    part_list=part.children,
+                    part.children,
                     unique_id_per_part=unique_id_per_part,
-                    include_pitch_spelling=include_pitch_spelling,
-                    include_key_signature=include_key_signature,
-                    include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes,
-                    include_staff=include_staff,
-                    include_divs_per_quarter=True,  # necessary for correctly merging
+                    **kwargs
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array()
@@ -1803,7 +1772,6 @@ def slice_notearray_by_time(
 
 def note_array_from_part(
     part,
-    unique_id_per_part=False,
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
@@ -1971,7 +1939,6 @@ def note_array_from_part(
 
 def rest_array_from_part(
     part,
-    unique_id_per_part=False,
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,

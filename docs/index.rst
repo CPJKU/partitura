@@ -11,18 +11,19 @@ Partitura documentation
 
    introduction
    usage
+   Tutorial/notebook.ipynb
    genindex
 
 .. _api_reference:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: API Reference
 
-   modules/partitura
-   modules/partitura.score
-   modules/partitura.performance
-   modules/partitura.musicanalysis
-   modules/partitura.utils
+   ./modules/partitura
+   ./modules/partitura.score
+   ./modules/partitura.performance
+   ./modules/partitura.musicanalysis
+   ./modules/partitura.utils
 
 
