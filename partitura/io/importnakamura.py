@@ -13,14 +13,19 @@ import warnings
 import re
 import numpy as np
 
+from typing import Union, Tuple
+
 from partitura.utils import note_name_to_midi_pitch
 from partitura.utils.music import SIGN_TO_ALTER
+
+from partitura.utils.misc import PathLike, deprecated_alias
 
 
 NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
 
-def load_nakamuracorresp(fn):
+@deprecated_alias(fn="filename")
+def load_nakamuracorresp(filename: PathLike) -> Tuple[Union[np.ndarray, list]]:
     """Load a corresp file as returned by Nakamura et al.'s MIDI to MIDI alignment.
 
     Fields of the file format as specified in [8]_:
@@ -28,7 +33,7 @@ def load_nakamuracorresp(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The nakamura match.txt-file
 
     Returns
@@ -53,7 +58,7 @@ def load_nakamuracorresp(fn):
         ("refPitch", "i"),
         ("refOnvel", "i"),
     ]
-    result = np.loadtxt(fn, dtype=dtype, comments="//")
+    result = np.loadtxt(filename, dtype=dtype, comments="//")
 
     align_valid = result["alignID"] != "*"
     n_align = sum(align_valid)
@@ -78,7 +83,8 @@ def load_nakamuracorresp(fn):
     return align, ref, alignment
 
 
-def load_nakamuramatch(fn):
+@deprecated_alias(fn="filename")
+def load_nakamuramatch(filename: PathLike) -> Tuple[Union[np.ndarray, list]]:
     """Load a match file as returned by Nakamura et al.'s MIDI to musicxml alignment
 
     Fields of the file format as specified in [8]_:
@@ -87,7 +93,7 @@ def load_nakamuramatch(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The nakamura match.txt-file
 
     Returns
@@ -137,9 +143,9 @@ def load_nakamuramatch(fn):
     dtype_missing = [("refOntime", "f"), ("refID", "U256")]
     pattern = r"//Missing\s(\d+)\t(.+)"
     # load alignment notes
-    result = np.loadtxt(fn, dtype=dtype, comments="//")
+    result = np.loadtxt(filename, dtype=dtype, comments="//")
     # load missing notes
-    missing = np.fromregex(fn, pattern, dtype=dtype_missing)
+    missing = np.fromregex(filename, pattern, dtype=dtype_missing)
 
     midi_pitch = np.array(
         [note_name_to_midi_pitch(n.replace("#", r"\#")) for n in result["alignSitch"]]
@@ -199,7 +205,8 @@ def load_nakamuramatch(fn):
     return align, ref, alignment
 
 
-def load_nakamuraspr(fn):
+@deprecated_alias(fn="filename")
+def load_nakamuraspr(filename: PathLike) -> np.ndarray:
     """Load a spr file as returned by Nakamura et al.'s alignment methods.
 
     Fields of the file format as specified in [8]_:
@@ -212,7 +219,7 @@ def load_nakamuraspr(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The nakamura match.txt-file
 
     Returns
@@ -249,7 +256,7 @@ def load_nakamuraspr(fn):
 
     pattern = r"(\d+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)"
 
-    result = np.fromregex(fn, pattern, dtype=dtype)
+    result = np.fromregex(filename, pattern, dtype=dtype)
     note_array = np.empty(len(result), dtype=note_array_dtype)
 
     note_array["id"] = result["ID"]

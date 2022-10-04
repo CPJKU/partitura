@@ -6,9 +6,9 @@ This module contains methods for parsing matchfiles
 import re
 from fractions import Fraction
 from operator import attrgetter, itemgetter
-import logging
 import warnings
 
+from typing import Tuple, Union, List
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -21,6 +21,12 @@ from partitura.utils import (
     partition,
     estimate_clef_properties,
     note_array_from_note_list,
+)
+
+from partitura.utils.misc import (
+    deprecated_alias,
+    PathLike,
+    get_document_name,
 )
 
 from partitura.performance import PerformedPart, Performance
@@ -1368,20 +1374,21 @@ class MatchFile(object):
         return matchfile
 
 
+@deprecated_alias(fn="filename", create_part="create_score")
 def load_match(
-    fn,
-    create_part=False,
-    pedal_threshold=64,
-    first_note_at_zero=False,
-    offset_duration_whole=True,
-):
+    filename: PathLike,
+    create_score: bool = False,
+    pedal_threshold: int = 64,
+    first_note_at_zero: bool = False,
+    offset_duration_whole: bool = True,
+) -> Tuple[Union[Performance, list, score.Score]]:
     """Load a matchfile.
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The matchfile
-    create_part : bool, optional
+    create_score : bool, optional
         When True create a Part object from the snote information in
         the match file. Defaults to False.
     pedal_threshold : int, optional
@@ -1393,38 +1400,46 @@ def load_match(
 
     Returns
     -------
-    ppart : list
-        The performed part, a list of dictionaries
+    performance : :class:partitura.performance.Performance
     alignment : list
         The score--performance alignment, a list of dictionaries
-    spart : Part
-        The score part. This item is only returned when `create_part` = True.
+    scr : :class:partitura.score.Score
+        The score. This item is only returned when `create_score` = True.
     """
     # Parse Matchfile
-    mf = MatchFile(fn)
+    mf = MatchFile(filename)
 
     # Generate PerformedPart
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
 
-    performance = Performance(id=fn, performedparts=ppart)
+    performance = Performance(
+        id=get_document_name(filename),
+        performedparts=ppart,
+    )
     # Generate Part
-    if create_part:
+    if create_score:
         if offset_duration_whole:
-            spart = part_from_matchfile(mf, match_offset_duration_in_whole=True)
+            spart = part_from_matchfile(
+                mf,
+                match_offset_duration_in_whole=True,
+            )
         else:
-            spart = part_from_matchfile(mf, match_offset_duration_in_whole=False)
+            spart = part_from_matchfile(
+                mf,
+                match_offset_duration_in_whole=False,
+            )
 
-        scr = score.Score(id=fn, partlist=[spart])
+        scr = score.Score(id=get_document_name(filename), partlist=[spart])
     # Alignment
     alignment = alignment_from_matchfile(mf)
 
-    if create_part:
+    if create_score:
         return performance, alignment, scr
     else:
         return performance, alignment
 
 
-def alignment_from_matchfile(mf):
+def alignment_from_matchfile(mf: MatchFile) -> List[dict]:
     result = []
 
     for line in mf.lines:
@@ -1962,7 +1977,7 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
 
     first_note = next(mf.iter_notes(), None)
     if first_note and first_note_at_zero:
-        offset = first_note.Onset * mpq / (10**6 * ppq)
+        offset = first_note.Onset * mpq / (10 ** 6 * ppq)
     else:
         offset = 0
 
@@ -1974,9 +1989,9 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
             dict(
                 id=note.Number,
                 midi_pitch=note.MidiPitch,
-                note_on=note.Onset * mpq / (10**6 * ppq) - offset,
-                note_off=note.Offset * mpq / (10**6 * ppq) - offset,
-                sound_off=sound_off * mpq / (10**6 * ppq) - offset,
+                note_on=note.Onset * mpq / (10 ** 6 * ppq) - offset,
+                note_off=note.Offset * mpq / (10 ** 6 * ppq) - offset,
+                sound_off=sound_off * mpq / (10 ** 6 * ppq) - offset,
                 velocity=note.Velocity,
             )
         )
@@ -1987,7 +2002,7 @@ def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
         sustain_pedal.append(
             dict(
                 number=64,  # type='sustain_pedal',
-                time=ped.Time * mpq / (10**6 * ppq),
+                time=ped.Time * mpq / (10 ** 6 * ppq),
                 value=ped.Value,
             )
         )

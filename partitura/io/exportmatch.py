@@ -5,6 +5,7 @@ This module contains methods for exporting matchfiles
 """
 import numpy as np
 
+from typing import List, Optional, Union, Iterable
 from scipy.interpolate import interp1d
 
 from partitura.io.importmatch import (
@@ -22,13 +23,17 @@ from partitura.io.importmatch import (
     MatchFile,
 )
 import partitura.score as score
+from partitura.score import ScoreLike
+from partitura.performance import PerformanceLike, PerformedPart, Performance
 from partitura.utils.music import midi_pitch_to_pitch_spelling, MAJOR_KEYS, MINOR_KEYS
+
+from partitura.utils.misc import deprecated_alias, PathLike
 
 __all__ = ["save_match"]
 
 
 def seconds_to_midi_ticks(t, mpq=500000, ppq=480):
-    return int(np.round(10**6 * ppq * t / mpq))
+    return int(np.round(10 ** 6 * ppq * t / mpq))
 
 
 def _fifths_mode_to_match_key_name(fifths, mode):
@@ -147,7 +152,7 @@ def matchfile_from_alignment(
             onset, offset = spart.beat_map([n.start.t, n.start.t + n.duration_tied])
             duration = offset - onset
             beat = (onset - bar_start) // 1
-            ts_num, ts_den = spart.time_signature_map(n.start.t)
+            ts_num, ts_den, _ = spart.time_signature_map(n.start.t)
             # In metrical offset in whole notes
             moffset = (onset - bar_start - beat) / ts_den
             # offset = onset + duration
@@ -306,17 +311,18 @@ def matchfile_from_alignment(
     return matchfile
 
 
+@deprecated_alias(spart="score_data", ppart="performance_data")
 def save_match(
-    alignment,
-    ppart,
-    spart,
-    out,
-    mpq=500000,
-    ppq=480,
-    performer=None,
-    composer=None,
-    piece=None,
-):
+    alignment: List[dict],
+    performance_data: PerformanceLike,
+    score_data: ScoreLike,
+    out: PathLike = None,
+    mpq: int = 500000,
+    ppq: int = 480,
+    performer: Optional[str] = None,
+    composer: Optional[str] = None,
+    piece: Optional[str] = None,
+) -> Optional[MatchFile]:
     """
     Save an Alignment of a PerformedPart to a Part in a match file.
 
@@ -325,10 +331,12 @@ def save_match(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
-    ppart : partitura.performance.PerformedPart
-        An instance of `PerformedPart` containing performance information.
-    spart : partitura.score.Part
-        An instance of `Part` containing score information.
+    performance_data : `PerformanceLike
+        The performance information as a `Performance`
+    score_data : `ScoreLike`
+        The musical score. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out : str
         Out to export the matchfile.
     mpq : int
@@ -341,7 +349,38 @@ def save_match(
         Name(s) of the composer(s) of the piece represented by `Part`.
     piece : str or None:
         Name of the piece represented by `Part`.
+
+    Returns
+    -------
+    matchfile: MatchFile
+        If no output is specified using `out`, the function returns
+        a `MatchFile` object. Otherwise, the function returns None.
     """
+
+    # For now, we assume that we align only one Part and a PerformedPart
+
+    if isinstance(score_data, (score.Score, Iterable)):
+        spart = score_data[0]
+    elif isinstance(score_data, score.Part):
+        spart = score_data
+    elif isinstance(score_data, score.PartGroup):
+        spart = score_data.children[0]
+    else:
+        raise ValueError(
+            "`score_data` should be a `Score`, a `Part`, a `PartGroup` or a "
+            f"list of `Part` objects, but is {type(score_data)}"
+        )
+
+    if isinstance(performance_data, (Performance, Iterable)):
+        ppart = performance_data[0]
+    elif isinstance(performance_data, PerformedPart):
+        ppart = performance_data
+    else:
+        raise ValueError(
+            "`performance_data` should be a `Performance`, a `PerformedPart`, or a "
+            f"list of `PerformedPart` objects, but is {type(score_data)}"
+        )
+
     # Get matchfile
     matchfile = matchfile_from_alignment(
         alignment=alignment,
@@ -353,5 +392,9 @@ def save_match(
         composer=composer,
         piece=piece,
     )
-    # write matchfile
-    matchfile.write(out)
+
+    if out is not None:
+        # write matchfile
+        matchfile.write(out)
+    else:
+        return matchfile

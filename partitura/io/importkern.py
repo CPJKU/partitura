@@ -1,10 +1,14 @@
-import os.path
 import re
 import warnings
 
-import partitura.score
-import partitura.score as score
+from typing import Union, Optional
+
 import numpy as np
+
+import partitura.score as score
+from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias, deprecated_parameter
+
 
 __all__ = ["load_kern"]
 
@@ -138,7 +142,7 @@ class KernParserPart(KernGlobalPart):
                         dnote = self.nid_dict[self.tie_dict["close"][index]]
                         m_num = [
                             m
-                            for m in self.part.iter_all(partitura.score.Measure)
+                            for m in self.part.iter_all(score.Measure)
                             if m.start.t == self.part.measure_map(dnote.start.t)[0]
                         ][0].number
                         warnings.warn(
@@ -157,7 +161,7 @@ class KernParserPart(KernGlobalPart):
                         dnote = self.nid_dict[self.tie_dict["open"][index]]
                         m_num = [
                             m
-                            for m in self.part.iter_all(partitura.score.Measure)
+                            for m in self.part.iter_all(score.Measure)
                             if m.start.t == self.part.measure_map(dnote.start.t)[0]
                         ][0].number
                         warnings.warn(
@@ -173,7 +177,7 @@ class KernParserPart(KernGlobalPart):
                 ):
                     self.nid_dict[oid].tie_next = self.nid_dict[cid]
                     self.nid_dict[cid].tie_prev = self.nid_dict[oid]
-        except:
+        except Exception:
             raise ValueError(
                 "Tie Mismatch! Uneven amount of closing to open tie brackets."
             )
@@ -509,7 +513,7 @@ class KernParser:
 
     def find_lcm(self, doc):
         kern_string = "-".join([row for row in doc])
-        match = re.findall("([0-9]+)([a-g]|[A-G]|r|\.)", kern_string)
+        match = re.findall(r"([0-9]+)([a-g]|[A-G]|r|\.)", kern_string)
         durs, _ = zip(*match)
         x = np.array(list(map(lambda x: int(x), durs)))
         divs = np.lcm.reduce(np.unique(x))
@@ -517,13 +521,13 @@ class KernParser:
 
 
 # functions to initialize the kern parser
-def parse_kern(kern_path):
+def parse_kern(kern_path: PathLike) -> np.ndarray:
     """
     Parses an KERN file from path to an regular expression.
 
     Parameters
     ----------
-    kern_path : str
+    kern_path : PathLike
         The path of the KERN document.
     Returns
     -------
@@ -563,28 +567,27 @@ def parse_kern(kern_path):
                 elif i < k:
                     temp.append(i)
             merge_index = temp
-    # Final filter for mistabs and inconsistent tabs that would create extra empty voice and would mess the parsing.
+    # Final filter for mistabs and inconsistent tabs that would create
+    # extra empty voice and would mess the parsing.
     striped_parts = [[el for el in part if el != ""] for part in striped_parts]
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
 
 
-def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=False):
+@deprecated_alias(kern_path="filename")
+@deprecated_parameter("ensure_list")
+def load_kern(
+    filename: PathLike,
+    force_note_ids: Optional[Union[bool, str]] = None,
+    parallel: bool = False,
+) -> score.Score:
     """Parse a Kern file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
     Parameters
     ----------
-    kern_path : str
+    filename : PathLike
         Path to the Kern file to be parsed
-    ensure_list : bool, optional
-        When True return a list independent of how many part or
-        partgroup elements were created from the MIDI file. By
-        default, when the return value of `load_musicxml` produces a
-    single : class:`partitura.score.Part` or
-        :Class:`partitura.score.PartGroup` element, the element itself
-        is returned instead of a list containing the element. Defaults
-        to False.
     force_note_ids : (bool, 'keep') optional.
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
@@ -593,13 +596,13 @@ def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=Fa
 
     Returns
     -------
-    partlist : list
-        A list of either Part or PartGroup objects
-
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
     # parse kern file
-    numpy_parts = parse_kern(kern_path)
-    doc_name = os.path.basename(kern_path[:-4])
+    numpy_parts = parse_kern(filename)
+    # doc_name = os.path.basename(filename[:-4])
+    doc_name = get_document_name(filename)
     parser = KernParser(numpy_parts, doc_name)
     partlist = parser.parts
 
@@ -607,7 +610,7 @@ def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=Fa
         partlist, keep=(force_note_ids is True or force_note_ids == "keep")
     )
 
-    if not ensure_list and len(partlist) == 1:
-        return partlist[0]
-    else:
-        return partlist
+    # TODO: Parse score info (composer, lyricist, etc.)
+    scr = score.Score(id=doc_name, partlist=partlist)
+
+    return scr

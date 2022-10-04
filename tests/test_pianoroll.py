@@ -8,7 +8,7 @@ from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
 from partitura import load_musicxml, load_score, load_kern
 import partitura
 
-from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES, KERN_TESFILES
+from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES, KERN_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -248,14 +248,14 @@ class TestPianorollFromScores(unittest.TestCase):
 
     def test_score_pianoroll(self):
         # normally call the function
-        parts = load_score(PIANOROLL_TESTFILES[0], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[0])
         pr0 = compute_pianoroll(parts[0])
         pr1 = compute_pianoroll(parts[1])
         pr2 = compute_pianoroll(parts[2])
         self.assertTrue(pr0.shape != pr1.shape)
         self.assertTrue(pr1.shape != pr2.shape)
         # remove the silence
-        parts = load_score(PIANOROLL_TESTFILES[0], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[0])
         pr0 = compute_pianoroll(
             parts[0], time_unit="beat", time_div=1, remove_silence=False
         )
@@ -269,7 +269,7 @@ class TestPianorollFromScores(unittest.TestCase):
         self.assertTrue(pr1.shape == (128, 8))
         self.assertTrue(pr0.shape == (128, 12))
         # set a fixed end
-        parts = load_score(PIANOROLL_TESTFILES[0], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[0])
         pr0 = compute_pianoroll(
             parts[0], time_unit="beat", time_div=2, remove_silence=False
         )
@@ -285,7 +285,7 @@ class TestPianorollFromScores(unittest.TestCase):
 
     def test_sum_pianoroll(self):
         time_div = 4
-        parts = load_score(PIANOROLL_TESTFILES[2], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[2])
         prs = []
         for part in parts:
             prs.append(compute_pianoroll(part, time_unit="beat", time_div=time_div))
@@ -300,8 +300,9 @@ class TestPianorollFromScores(unittest.TestCase):
         self.assertTrue(np.array_equal(clipped_pr_sum, original_pianoroll))
 
     def test_pianoroll_length(self):
-        score = load_score(KERN_TESFILES[7], ensure_list=True)
-        parts = list(partitura.score.iter_parts(score))
+        score = load_score(KERN_TESTFILES[7])
+        parts = score.parts
+        # parts = list(partitura.score.iter_parts(score))
         # set musical beat if requested
         for part in parts:
             part.use_musical_beat()

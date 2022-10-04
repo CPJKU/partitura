@@ -997,16 +997,7 @@ class Part(object):
         """
         return self._points[0] if len(self._points) > 0 else None
 
-    def note_array(
-        self,
-        include_pitch_spelling=False,
-        include_key_signature=False,
-        include_time_signature=False,
-        include_metrical_position=False,
-        include_grace_notes=False,
-        include_staff=False,
-        include_divs_per_quarter=False,
-    ):
+    def note_array(self, **kwargs):
         """
         Create a structured array with note information
         from a `Part` object.
@@ -1045,16 +1036,7 @@ class Part(object):
 
         note_array : structured array
         """
-        return note_array_from_part(
-            self,
-            include_pitch_spelling=include_pitch_spelling,
-            include_key_signature=include_key_signature,
-            include_time_signature=include_time_signature,
-            include_metrical_position=include_metrical_position,
-            include_grace_notes=include_grace_notes,
-            include_staff=include_staff,
-            include_divs_per_quarter=include_divs_per_quarter,
-        )
+        return note_array_from_part(self, **kwargs)
 
     def rest_array(
         self,
@@ -2514,7 +2496,7 @@ class Tempo(TimedObject):
 
         """
         return int(
-            np.round(60 * (10**6 / to_quarter_tempo(self.unit or "q", self.bpm)))
+            np.round(60 * (10 ** 6 / to_quarter_tempo(self.unit or "q", self.bpm)))
         )
 
     def __str__(self):
@@ -2869,6 +2851,7 @@ class Score(object):
         See parameters.
     copyright: str.
         See parameters.
+
     """
 
     id: Optional[str]
@@ -2882,8 +2865,8 @@ class Score(object):
 
     def __init__(
         self,
-        id: str,
         partlist: Union[Part, PartGroup, Itertype[Union[Part, PartGroup]]],
+        id: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
         composer: Optional[str] = None,
@@ -2909,7 +2892,8 @@ class Score(object):
             self.part_structure = list(partlist)
         else:
             raise ValueError(
-                "`partlist` should be a list, a `Part` or a `PartGrop` but is {type(partlist)}"
+                "`partlist` should be a list, a `Part` or a `PartGrop` but"
+                f" is {type(partlist)}."
             )
 
     def __getitem__(self, index: int) -> Part:
@@ -2948,6 +2932,7 @@ class Score(object):
         include_grace_notes=False,
         include_staff=False,
         include_divs_per_quarter=False,
+        **kwargs,
     ) -> np.ndarray:
         """
         Get a note array that concatenates the note arrays of all Part/PartGroup
@@ -2962,7 +2947,12 @@ class Score(object):
             include_grace_notes=include_grace_notes,
             include_staff=include_staff,
             include_divs_per_quarter=include_divs_per_quarter,
+            **kwargs,
         )
+
+
+# Alias for typing score-like objects
+ScoreLike = Union[List[Union[Part, PartGroup]], Part, PartGroup, Score]
 
 
 class ScoreVariant(object):
@@ -3252,9 +3242,15 @@ def iter_parts(partlist):
     """
 
     if not isinstance(partlist, (list, tuple, set)):
-        partlist = [partlist]
+        _partlist = [partlist]
 
-    for el in partlist:
+    elif isinstance(partlist, Score):
+        _partlist = partlist.parts
+
+    else:
+        _partlist = partlist
+
+    for el in _partlist:
         if isinstance(el, Part):
             yield el
         else:
@@ -3721,8 +3717,8 @@ class Segment(TimedObject):
     Class that represents any segment between two navigation markers such as repetitions,
     Volta brackets, or capo/fine/coda/segno directions.
 
-
     Parameters
+    ----------
     id: string
         unique, ordererd identifier string
     to: list
@@ -3730,11 +3726,10 @@ class Segment(TimedObject):
     await_to:
         list of ids of possible destinations after a jump
     type : string, optional
-        String for the type of the segment (either "default" or "leap_start" and "leap_end")
-        A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
-        as is commonly expected after capo/fine/coda/segno directions.
+        String for the type of the segment (either "default" or "leap_start" and "leap_end"). A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment, as is commonly expected after capo/fine/coda/segno directions.
     info: string, optional
         String to describe the segment, used only for printing (pretty_segments)
+
     """
 
     def __init__(self, id, to, await_to, force_seq=False, type="default", info=""):
@@ -4030,6 +4025,7 @@ def get_segments(part):
     -------
     segments: dict
         A dictionary of Segment objects indexed by segment IDs.
+
     """
     return {seg.id: seg for seg in part.iter_all(Segment)}
 
@@ -4548,6 +4544,7 @@ def merge_parts(parts, reassign="voice"):
     -------
     Part
         A new part that contains the elements of the old parts
+
     """
     # check if reassign has valid values
     if reassign not in ["staff", "voice"]:
@@ -4632,7 +4629,8 @@ def merge_parts(parts, reassign="voice"):
     for p_ind, p in enumerate(parts):
         for e in p.iter_all():
             # full copy the first part and partially copy the others
-            # we don't copy elements like duplicate barlines, clefs or time signatures for others
+            # we don't copy elements like duplicate barlines, clefs or
+            # time signatures for others
             # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
             if p_ind == 0 or not isinstance(
                 e,
@@ -4641,7 +4639,7 @@ def merge_parts(parts, reassign="voice"):
                 new_start = e.start.t * time_multiplier_per_part[p_ind]
                 new_end = (
                     e.end.t * time_multiplier_per_part[p_ind]
-                    if not e.end is None
+                    if e.end is not None
                     else None
                 )
                 if reassign == "voice":

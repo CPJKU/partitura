@@ -13,7 +13,7 @@ from partitura.musicanalysis import encode_performance, decode_performance
 class TestPerformanceCoded(unittest.TestCase):
     def test_encode_decode(self):
         for fn in MATCH_IMPORT_EXPORT_TESTFILES:
-            ppart, alignment, spart = load_match(fn, create_part=True)
+            ppart, alignment, spart = load_match(filename=fn, create_score=True)
 
             performance_array, _ = encode_performance(spart[0], ppart[0], alignment)
             decoded_ppart, decoded_alignment = decode_performance(

@@ -2,12 +2,14 @@
 
 # -*- coding: utf-8 -*-
 
-import warnings
 import os
+import warnings
 import zipfile
 
+from typing import Union, Optional
 import numpy as np
 from lxml import etree
+
 
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
@@ -17,6 +19,7 @@ from partitura.directions import parse_direction
 import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
+from partitura.utils.misc import deprecated_alias, deprecated_parameter, PathLike
 
 __all__ = ["load_musicxml", "musicxml_to_notearray"]
 
@@ -156,7 +159,13 @@ def _parse_partlist(partlist):
     return structure, part_dict
 
 
-def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
+@deprecated_alias(xml="filename")
+@deprecated_parameter("ensure_list")
+def load_musicxml(
+        filename: PathLike,
+        validate: bool = False,
+        force_note_ids: Optional[Union[bool, str]] = None
+) -> score.Score:
     """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
@@ -164,14 +173,6 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
     ----------
     xml : str or file-like  object
         Path to the MusicXML file to be parsed, or a file-like object
-    ensure_list : bool, optional
-        When True return a list independent of how many part or
-        partgroup elements were created from the MusicXML file. By
-        default, when the return value of `load_musicxml` produces a
-    single : class:`partitura.score.Part` or
-        :Class:`partitura.score.PartGroup` element, the element itself
-        is returned instead of a list containing the element. Defaults
-        to False.
     validate : bool, optional
         When True the validity of the MusicXML is checked against the
         MusicXML 3.1 specification before loading the file. An
@@ -190,12 +191,16 @@ def load_musicxml(xml, ensure_list=False, validate=False, force_note_ids=None):
 
     """
 
-    if type(xml) == str:
-        if zipfile.is_zipfile(xml):
-            with zipfile.ZipFile(xml) as zipped_xml:
+    xml = None
+    if isinstance(filename, str):
+        if zipfile.is_zipfile(filename):
+            with zipfile.ZipFile(filename) as zipped_xml:
                 xml = zipped_xml.open(
-                    os.path.splitext(os.path.basename(xml))[0] + ".xml"
+                    os.path.splitext(os.path.basename(filename))[0] + ".xml"
                 )
+
+    if xml is None:
+        xml = filename
 
     if validate:
         validate_musicxml(xml, debug=True)
@@ -1470,8 +1475,9 @@ def get_ornaments(e):
     return [a for a in ornaments if e.find(a) is not None]
 
 
+@deprecated_alias(fn="filename")
 def musicxml_to_notearray(
-    fn,
+    filename,
     flatten_parts=True,
     include_pitch_spelling=False,
     include_key_signature=False,
@@ -1506,15 +1512,18 @@ def musicxml_to_notearray(
 
     Returns
     -------
-    score : structured array or list of structured arrays
+    note_arrays : structured array or list of structured arrays
         Structured array or list of structured arrays containing
         score information.
     """
 
-    parts = load_musicxml(fn, ensure_list=True, force_note_ids="keep")
+    scr = load_musicxml(
+        filename=filename,
+        force_note_ids="keep",
+    )
 
     note_arrays = []
-    for part in score.iter_parts(parts):
+    for part in scr.parts:
         # Unfold any repetitions in part
         unfolded_part = score.unfold_part_maximal(part)
         # Compute note array

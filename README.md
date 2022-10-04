@@ -12,7 +12,7 @@
 [![Pypi Package](https://badge.fury.io/py/partitura.svg)](https://badge.fury.io/py/partitura)
 [![Unittest Status](https://github.com/CPJKU/partitura/workflows/Partitura%20Unittests/badge.svg)](https://github.com/CPJKU/partitura/actions?query=workflow%3A%22Partitura+Unittests%22)
 [![CodeCov Status](https://codecov.io/gh/CPJKU/partitura/branch/develop/graph/badge.svg?token=mnZ234sGSA)](https://codecov.io/gh/CPJKU/partitura)
-
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 
 
@@ -40,11 +40,14 @@ the package:
 ```python
 import partitura as pt
 my_xml_file = pt.EXAMPLE_MUSICXML
-part = pt.load_score(my_xml_file)
+score = pt.load_score(my_xml_file)
 ```
-The following shows the contents of the part:
+The partitura `load_score` function will import any score format, i.e. (Musicxml, Kern, MIDI or MEI) to a `partitura.Score` object.
+The score object will contain all the information in the score, including the score parts.
+The following shows the contents of the first part of the score:
 
 ```python
+part = score.parts[0]
 print(part.pretty())
 ```
 Output:
@@ -136,7 +139,7 @@ print(beat_map(pianoroll[:, 1]))
 ```
 
 
-The following commands save the part to MIDI and MusicXML, respectively:
+The following commands save the part to MIDI and MusicXML, or export it as a WAV file (using [additive synthesis](https://en.wikipedia.org/wiki/Additive_synthesis)), respectively:
 
 ```python
 # Save Score MIDI to file.
@@ -144,6 +147,9 @@ pt.save_score_midi(part, 'mypart.mid')
 
 # Save Score MusicXML to file.
 pt.save_musicxml(part, 'mypart.musicxml')
+
+# Save as audio file using additive synthesis
+pt.save_wav(part, 'mypart.wav')
 ```
 
 
@@ -157,7 +163,7 @@ For **MusicXML** files do:
 ```python
 import partitura as pt
 my_xml_file = pt.EXAMPLE_MUSICXML
-part = pt.load_musicxml(my_xml_file)
+score = pt.load_musicxml(my_xml_file)
 ```
 
 For **Kern** files do:
@@ -165,7 +171,7 @@ For **Kern** files do:
 ```python
 import partitura as pt
 my_kern_file = pt.EXAMPLE_KERN
-part = pt.load_kern(my_kern_file)
+score = pt.load_kern(my_kern_file)
 ```
 
 For **MEI** files do:
@@ -173,7 +179,7 @@ For **MEI** files do:
 ```python
 import partitura as pt
 my_mei_file = pt.EXAMPLE_MEI
-part = pt.load_mei(my_mei_file)
+score = pt.load_mei(my_mei_file)
 ```
 
 
@@ -182,7 +188,7 @@ One can also import any of the above formats by just using:
 ```python
 import partitura as pt
 any_score_format_path = pt.EXAMPLE_MUSICXML
-part = pt.load_score(any_score_format_path)
+score = pt.load_score(any_score_format_path)
 ```
 
 

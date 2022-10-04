@@ -5,12 +5,17 @@ from collections import defaultdict, Counter, OrderedDict
 import unittest
 from tempfile import TemporaryFile
 import mido
+import numpy as np
 
-from partitura import save_score_midi
+from partitura import save_score_midi, save_performance_midi, load_performance_midi
 from partitura.utils import partition
 import partitura.score as score
 
+from partitura.performance import PerformedPart, Performance
+
 LOGGER = logging.getLogger(__name__)
+
+RNG = np.random.RandomState(1984)
 
 
 def get_track_voice_numbers(mid):
@@ -337,6 +342,42 @@ class TestMIDIExportModes(unittest.TestCase):
                 assert t == 3, f"Incorrect time of first note on: {t} (should be 3)"
                 break
 
+    def test_midi_export_score(self):
+
+        part = score.Part("id")
+        # 1 div is 1 quarter
+        part.set_quarter_duration(0, 1)
+        # 4/4 at t=0
+        part.add(score.TimeSignature(4, 4), 0)
+
+        # ANACRUSIS
+        # quarter note from t=0 to t=1
+        part.add(score.Note("c", 4), 0, 1)
+        # incomplete measure from t=0 to t=1
+        part.add(score.Measure(), 0, 1)
+
+        # whole note from t=1 to t=5
+        part.add(score.Note("c", 4), 1, 5)
+        # add missing measures
+        score.add_measures(part)
+
+        scr = score.Score(part)
+        mid = export_and_read(scr, anacrusis_behavior="shift")
+        t = 0
+        for msg in mid.tracks[0]:
+            t += msg.time
+            if msg.type == "note_on":
+                self.assertEqual(t, 0)
+                break
+
+        mid = export_and_read(scr, anacrusis_behavior="pad_bar")
+        t = 0
+        for msg in mid.tracks[0]:
+            t += msg.time
+            if msg.type == "note_on":
+                self.assertEqual(t, 3)
+                break
+
 
 def n_items_per_part_voice(pg, cls):
     n_items = []
@@ -344,3 +385,94 @@ def n_items_per_part_voice(pg, cls):
         n = sum(1 for _ in part.iter_all(cls))
         n_items.extend([n] * len(set(n.voice for n in part.notes_tied)))
     return n_items
+
+
+def export_and_read_performance(perf_info, **kwargs):
+
+    with TemporaryFile(suffix=".mid") as f:
+        save_performance_midi(
+            performance_data=perf_info,
+            out=f,
+            **kwargs,
+        )
+        f.flush()
+        f.seek(0)
+        return mido.MidiFile(file=f)
+
+
+class TestExportPerformanceMIDI(unittest.TestCase):
+    def _export_and_read(self, perf_info, **kwargs):
+        return export_and_read_performance(perf_info, **kwargs)
+
+    def test_save_single_track(self):
+
+        ppart = generate_random_performance(n_tracks=1)
+
+        note_array = ppart.note_array()
+
+        tracks = note_array["track"]
+
+        self.assertTrue(all(tracks == 0))
+
+        mf_from_ppart = self._export_and_read(ppart)
+
+        self.assertEqual(ppart.num_tracks, len(mf_from_ppart.tracks))
+
+    def test_save_multiple_track(self):
+        n_tracks = RNG.randint(2, 10, 10)
+        for nt in n_tracks:
+
+            ppart = generate_random_performance(n_notes=10 * nt, n_tracks=nt)
+
+            performance = Performance(performedparts=ppart)
+            mf_from_perf = self._export_and_read(performance)
+            self.assertEqual(performance.num_tracks, len(mf_from_perf.tracks))
+
+
+def generate_random_performance(n_notes=100, beat_period=0.5, n_tracks=3):
+
+    note_array = np.empty(
+        (n_notes),
+        dtype=[
+            ("onset_sec", "f4"),
+            ("duration_sec", "f4"),
+            ("pitch", "i4"),
+            ("velocity", "i4"),
+            ("track", "i4"),
+            ("channel", "i4"),
+            ("id", "U256"),
+        ],
+    )
+
+    note_array["pitch"] = RNG.randint(0, 128, n_notes)
+
+    ioi = RNG.rand(n_notes - 1) * beat_period
+
+    note_array["onset_sec"] = np.r_[0, np.cumsum(ioi)]
+
+    note_array["duration_sec"] = np.clip(
+        RNG.rand(n_notes) * 2 * beat_period,
+        a_min=0.3,
+        a_max=2,
+    )
+
+    note_array["velocity"] = RNG.randint(54, 90, n_notes)
+
+    note_array["channel"] *= 0
+
+    note_array["id"] = np.array([f"n{i}" for i in range(n_notes)])
+
+    track_idxs = np.arange(n_notes)
+    RNG.shuffle(track_idxs)
+
+    track_length = int(np.floor(n_notes / n_tracks))
+
+    for i in range(n_tracks):
+        if i < n_tracks - 1:
+            idx = track_idxs[i * track_length : (i + 1) * track_length]
+        else:
+            idx = track_idxs[i * track_length :]
+        note_array["track"][idx] = i
+
+    performed_part = PerformedPart.from_note_array(note_array)
+    return performed_part
