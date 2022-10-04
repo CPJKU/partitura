@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
+from typing import Union
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
@@ -237,6 +238,9 @@ NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
 MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 
+# Standard tuning frequency of A4 in Hz
+A4 = 440.0
+
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
@@ -406,6 +410,55 @@ def pitch_spelling_to_note_name(step, alter, octave):
 
     note_name = f"{step.upper()}{f_alter}{octave}"
     return note_name
+
+
+def midi_pitch_to_frequency(
+        midi_pitch: Union[int, float, np.ndarray], a4: Union[int, float] = A4
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI pitch to frequency in Hz. This method assumes equal temperament.
+
+    Parameters
+    ----------
+    midi_pitch: int, float or ndarray
+        MIDI pitch of the note(s).
+    a4 : int or float (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+
+    Returns
+    -------
+    freq : float or ndarray
+        Frequency of the note(s).
+    """
+    freq = (a4 / 32) * (2 ** ((midi_pitch - 9) / 12))
+    return freq
+
+
+def frequency_to_midi_pitch(
+        freq: Union[int, float, np.ndarray],
+        a4: Union[int, float] = A4,
+) -> Union[int, np.ndarray]:
+    """
+    Convert frequency to MIDI pitch. This method assumes equal temperament.
+
+    Parameters
+    ----------
+    freq : float, int or np.ndarray
+        Frequency of the note(s) in Hz.
+    a4 : int or float (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+
+    Returns
+    -------
+    midi_pitch : int or np.ndarray
+        MIDI pitch of the notes.
+    """
+    midi_pitch = np.round(12 * np.log2(32 * freq / a4) + 9)
+
+    if isinstance(midi_pitch, (int, float)):
+        return int(midi_pitch)
+    elif isinstance(midi_pitch, np.ndarray):
+        return midi_pitch.astype(int)
 
 
 SIGN_TO_ALTER = {
