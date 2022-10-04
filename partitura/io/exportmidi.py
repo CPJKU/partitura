@@ -3,10 +3,16 @@
 import numpy as np
 
 from collections import defaultdict, OrderedDict
+from typing import Union, Optional, Iterable
+
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 
 import partitura.score as score
+from partitura.score import Score, Part, PartGroup, ScoreLike
+from partitura.performance import Performance, PerformedPart, PerformanceLike
 from partitura.utils import partition
+
+from partitura.utils.misc import deprecated_alias, PathLike
 
 __all__ = ["save_score_midi", "save_performance_midi"]
 
@@ -71,16 +77,21 @@ def get_ppq(parts):
     return ppq
 
 
+@deprecated_alias(performed_part="performance_data")
 def save_performance_midi(
-    performed_part, out, mpq=500000, ppq=480, default_velocity=64
-):
-    """Save a :class:`~partitura.performance.PerformedPart` instance as a
-    MIDI file.
+    performance_data: PerformanceLike,
+    out: Optional[PathLike],
+    mpq: int = 500000,
+    ppq: int = 480,
+    default_velocity: int = 64,
+) -> Optional[MidiFile]:
+    """Save a :class:`~partitura.performance.PerformedPart` or
+    a :class:`~partitura.performance.Performance` as a MIDI file
 
     Parameters
     ----------
-    performed_part : :class:`~partitura.performance.PerformedPart`
-        The performed part to save
+    performance_data : PerformanceLike
+        The performance to be saved.
     out : str or file-like object
         Either a filename or a file-like object to write the MIDI data
         to.
@@ -94,68 +105,98 @@ def save_performance_midi(
         A default velocity value (between 0 and 127) to be used for
         notes without a specified velocity. Defaults to 64.
 
+    Returns
+    -------
+    None or MidiFile
+        If no output is specified using `out`, the function returns
+        a `MidiFile` object. Otherwise, the function returns None.
     """
+
+    if isinstance(performance_data, Performance):
+        performed_parts = performance_data.performedparts
+    elif isinstance(performance_data, PerformedPart):
+        performed_parts = [performance_data]
+    elif isinstance(performance_data, Iterable):
+        if not all(isinstance(pp, PerformedPart) for pp in performance_data):
+            raise ValueError(
+                "`performance_data` should be a `Performance`, a `PerformedPart`,"
+                " or a list of  `PerformedPart` instances"
+            )
+        performed_parts = performed_parts
+
+    else:
+        raise ValueError(
+            "`performance_data` should be a `Performance`, a `PerformedPart`,"
+            f" or a list of  `PerformedPart` instances but is {type(performance_data)}"
+        )
+
     track_events = defaultdict(lambda: defaultdict(list))
 
-    for c in performed_part.controls:
-        track = c.get("track", 0)
-        ch = c.get("channel", 1)
-        t = int(np.round(10**6 * ppq * c["time"] / mpq))
-        track_events[track][t].append(
-            Message("control_change", control=c["number"], value=c["value"], channel=ch)
-        )
-
-    for n in performed_part.notes:
-        track = n.get("track", 0)
-        ch = n.get("channel", 1)
-        t_on = int(np.round(10**6 * ppq * n["note_on"] / mpq))
-        t_off = int(np.round(10**6 * ppq * n["note_off"] / mpq))
-        vel = n.get("velocity", default_velocity)
-        track_events[track][t_on].append(
-            Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
-        )
-        track_events[track][t_off].append(
-            Message("note_off", note=n["midi_pitch"], velocity=0, channel=ch)
-        )
-
-    for p in performed_part.programs:
-        track = p.get("track", 0)
-        ch = p.get("channel", 1)
-        t = int(np.round(10**6 * ppq * p["time"] / mpq))
-        track_events[track][t].append(
-            Message("program_change", program=int(p["program"]), channel=ch)
-        )
-
-    if len(performed_part.programs) == 0:
-        # Add default program (to each track/channel)
-        channels_and_tracks = np.array(
-            list(
-                set(
-                    [
-                        (c.get("channel", 1), c.get("track", 0))
-                        for c in performed_part.controls
-                    ]
-                    + [
-                        (n.get("channel", 1), n.get("track", 0))
-                        for n in performed_part.notes
-                    ]
+    for performed_part in performed_parts:
+        for c in performed_part.controls:
+            track = c.get("track", 0)
+            ch = c.get("channel", 1)
+            t = int(np.round(10 ** 6 * ppq * c["time"] / mpq))
+            track_events[track][t].append(
+                Message(
+                    "control_change",
+                    control=c["number"],
+                    value=c["value"],
+                    channel=ch,
                 )
-            ),
-            dtype=int,
-        )
+            )
 
-        timepoints = []
-        for tr in track_events.keys():
-            timepoints += list(track_events[tr].keys())
-        timepoints = list(set(timepoints))
+        for n in performed_part.notes:
+            track = n.get("track", 0)
+            ch = n.get("channel", 1)
+            t_on = int(np.round(10 ** 6 * ppq * n["note_on"] / mpq))
+            t_off = int(np.round(10 ** 6 * ppq * n["note_off"] / mpq))
+            vel = n.get("velocity", default_velocity)
+            track_events[track][t_on].append(
+                Message("note_on", note=n["midi_pitch"], velocity=vel, channel=ch)
+            )
+            track_events[track][t_off].append(
+                Message("note_off", note=n["midi_pitch"], velocity=0, channel=ch)
+            )
 
-        for tr in np.unique(channels_and_tracks[:, 1]):
-            channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
-            track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
-            for ch in track_channels:
-                track_events[tr][min(timepoints)].append(
-                    Message("program_change", program=0, channel=ch)
-                )
+        for p in performed_part.programs:
+            track = p.get("track", 0)
+            ch = p.get("channel", 1)
+            t = int(np.round(10 ** 6 * ppq * p["time"] / mpq))
+            track_events[track][t].append(
+                Message("program_change", program=int(p["program"]), channel=ch)
+            )
+
+        if len(performed_part.programs) == 0:
+            # Add default program (to each track/channel)
+            channels_and_tracks = np.array(
+                list(
+                    set(
+                        [
+                            (c.get("channel", 1), c.get("track", 0))
+                            for c in performed_part.controls
+                        ]
+                        + [
+                            (n.get("channel", 1), n.get("track", 0))
+                            for n in performed_part.notes
+                        ]
+                    )
+                ),
+                dtype=int,
+            )
+
+            timepoints = []
+            for tr in track_events.keys():
+                timepoints += list(track_events[tr].keys())
+            timepoints = list(set(timepoints))
+
+            for tr in np.unique(channels_and_tracks[:, 1]):
+                channel_idxs = np.where(channels_and_tracks[:, 1] == tr)[0]
+                track_channels = np.unique(channels_and_tracks[channel_idxs, 0])
+                for ch in track_channels:
+                    track_events[tr][min(timepoints)].append(
+                        Message("program_change", program=0, channel=ch)
+                    )
 
     midi_type = 0 if len(track_events) == 1 else 1
 
@@ -173,22 +214,31 @@ def save_performance_midi(
                 track.append(msg.copy(time=t_delta))
                 t_delta = 0
             t = t_msg
-    if out:
+    if out is not None:
         if hasattr(out, "write"):
             mf.save(file=out)
         else:
             mf.save(out)
+    else:
+        return mf
 
 
+@deprecated_alias(parts="score_data")
 def save_score_midi(
-    parts, out, part_voice_assign_mode=0, velocity=64, anacrusis_behavior="shift"
-):
+    score_data: ScoreLike,
+    out: Optional[PathLike],
+    part_voice_assign_mode: int = 0,
+    velocity: int = 64,
+    anacrusis_behavior: str = "shift",
+) -> Optional[MidiFile]:
     """Write data from Part objects to a MIDI file
 
     Parameters
     ----------
-    parts : Part, PartGroup or list of these
-        The musical score to be saved.
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out : str or file-like object
         Either a filename or a file-like object to write the MIDI data
         to.
@@ -228,8 +278,26 @@ def save_score_midi(
         time points are shifted by the anacrusis (i.e., the first
         note starts at 0). If "pad_bar", the "incomplete" bar  of
         the anacrusis is padded with silence. Defaults to 'shift'.
+
+    Returns
+    -------
+    None or MidiFile
+        If no output is specified using `out`, the function returns
+        a `MidiFile` object. Otherwise, the function returns None.
     """
 
+    if isinstance(score_data, Score):
+        parts = score_data.parts
+    elif isinstance(score_data, (Part, PartGroup)):
+        parts = [score_data]
+    elif isinstance(score_data, Iterable):
+        parts = score_data
+
+    else:
+        raise ValueError(
+            "`score_data` should be a `Score`, a `Part`, a `PartGroup"
+            f" or a list of  `Part` instances but is {type(score_data)}"
+        )
     ppq = get_ppq(parts)
 
     events = defaultdict(lambda: defaultdict(list))
@@ -353,3 +421,5 @@ def save_score_midi(
             mf.save(file=out)
         else:
             mf.save(out)
+    else:
+        return mf

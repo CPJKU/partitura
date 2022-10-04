@@ -13,6 +13,8 @@ MEI_PATH = os.path.join(DATA_PATH, "mei")
 KERN_PATH = os.path.join(DATA_PATH, "kern")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
+MIDI_PATH = os.path.join(DATA_PATH, "midi")
+PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -148,7 +150,7 @@ MEI_TESTFILES = [
     ]
 ]
 
-KERN_TESFILES = [
+KERN_TESTFILES = [
     os.path.join(KERN_PATH, fn)
     for fn in [
         "single_voice_example.krn",
@@ -163,3 +165,17 @@ KERN_TESFILES = [
 ]
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
+
+
+MOZART_VARIATION_FILES = dict(
+    musicxml=os.path.join(MUSICXML_PATH, "mozart_k265_var1.musicxml"),
+    midi=os.path.join(MIDI_PATH, "mozart_k265_var1.mid"),
+    match=os.path.join(MATCH_PATH, "mozart_k265_var1.match"),
+    parangonada_align=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "align.csv"),
+    parangonada_feature=os.path.join(
+        PARANGONADA_PATH, "mozart_k265_var1", "feature.csv"
+    ),
+    parangonada_spart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "part.csv"),
+    parangonada_ppart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "ppart.csv"),
+    parangonada_zalign=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "zalign.csv"),
+)

@@ -5,9 +5,12 @@ from collections import defaultdict
 from lxml import etree
 import partitura.score as score
 from operator import itemgetter
+from typing import Optional
 
 from .importmusicxml import DYN_DIRECTIONS, PEDAL_DIRECTIONS
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
+
+from partitura.utils.misc import deprecated_alias, PathLike
 
 __all__ = ["save_musicxml"]
 
@@ -960,14 +963,20 @@ def do_attributes(part, start, end):
     return result
 
 
-def save_musicxml(parts, out=None):
-    """Save a one or more Part or PartGroup instances in MusicXML format.
+@deprecated_alias(parts="score_data")
+def save_musicxml(
+        score_data: score.ScoreLike,
+        out: Optional[PathLike] = None,
+) -> Optional[str]:
+    """
+    Save a one or more Part or PartGroup instances in MusicXML format.
 
     Parameters
     ----------
-    parts : Score, list, Part, or PartGroup
-        A :class:`partitura.score.Part` object,
-        :class:`partitura.score.PartGroup` or a list of these
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out: str, file-like object, or None, optional
         Output file
 
@@ -976,13 +985,12 @@ def save_musicxml(parts, out=None):
     None or str
         If no output file is specified using `out` the function returns the
         MusicXML data as a string. Otherwise the function returns None.
-
     """
 
-    if not isinstance(parts, score.Score):
-        parts = score.Score(
+    if not isinstance(score_data, score.Score):
+        score_data = score.Score(
             id=None,
-            partlist=parts,
+            partlist=score_data,
         )
 
     root = etree.Element("score-partwise")
@@ -1048,8 +1056,7 @@ def save_musicxml(parts, out=None):
 
             group_stack.append(pg)
 
-    # for part in score.iter_parts(parts):
-    for part in parts:
+    for part in score_data:
 
         handle_parents(part)
 
