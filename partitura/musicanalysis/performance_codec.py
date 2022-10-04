@@ -3,7 +3,7 @@ import numpy.lib.recfunctions as rfn
 try:
     import torch
 except ImportError:
-
+    # Dummy module to avoid ImportErrors
     class DummyTorch(object):
         Tensor = np.ndarray
 
