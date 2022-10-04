@@ -29,7 +29,7 @@ NOTE_ARRAY_DTYPES = dict(
 )
 
 __all__ = [
-    "load_alignment_from_parangonada",
+    "load_parangonada_alignment",
     "load_parangonada_csv",
 ]
 
@@ -73,7 +73,7 @@ def _load_csv(filename: PathLike) -> np.ndarray:
 
 
 @deprecated_alias(outfile="filename")
-def load_alignment_from_parangonada(filename) -> List[dict]:
+def load_parangonada_alignment(filename) -> List[dict]:
     """
     load an alignment exported from parangonda.
 
@@ -150,8 +150,8 @@ def load_parangonada_csv(dirname: PathLike, create_score: bool = False) -> np.nd
     )
 
     feature = _load_csv(feature_fn)
-    alignment = load_alignment_from_parangonada(alignment_fn)
-    zalignment = load_alignment_from_parangonada(zalign_fn)
+    alignment = load_parangonada_alignment(alignment_fn)
+    zalignment = load_parangonada_alignment(zalign_fn)
 
     if create_score:
         # TODO: Generate a Score
