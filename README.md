@@ -40,11 +40,14 @@ the package:
 ```python
 import partitura as pt
 my_xml_file = pt.EXAMPLE_MUSICXML
-part = pt.load_score(my_xml_file)
+score = pt.load_score(my_xml_file)
 ```
-The following shows the contents of the part:
+The partitura `load_score` function will import any score format, i.e. (Musicxml, Kern, MIDI or MEI) to a `partitura.Score` object.
+The score object will contain all the information in the score, including the score parts.
+The following shows the contents of the first part of the score:
 
 ```python
+part = score.parts[0]
 print(part.pretty())
 ```
 Output:
@@ -157,7 +160,7 @@ For **MusicXML** files do:
 ```python
 import partitura as pt
 my_xml_file = pt.EXAMPLE_MUSICXML
-part = pt.load_musicxml(my_xml_file)
+score = pt.load_musicxml(my_xml_file)
 ```
 
 For **Kern** files do:
@@ -165,7 +168,7 @@ For **Kern** files do:
 ```python
 import partitura as pt
 my_kern_file = pt.EXAMPLE_KERN
-part = pt.load_kern(my_kern_file)
+score = pt.load_kern(my_kern_file)
 ```
 
 For **MEI** files do:
@@ -173,7 +176,7 @@ For **MEI** files do:
 ```python
 import partitura as pt
 my_mei_file = pt.EXAMPLE_MEI
-part = pt.load_mei(my_mei_file)
+score = pt.load_mei(my_mei_file)
 ```
 
 
@@ -182,7 +185,7 @@ One can also import any of the above formats by just using:
 ```python
 import partitura as pt
 any_score_format_path = pt.EXAMPLE_MUSICXML
-part = pt.load_score(any_score_format_path)
+score = pt.load_score(any_score_format_path)
 ```
 
 

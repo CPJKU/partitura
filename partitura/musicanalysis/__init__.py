@@ -9,6 +9,7 @@ from .voice_separation import estimate_voices
 from .key_identification import estimate_key
 from .pitch_spelling import estimate_spelling
 from .tonal_tension import estimate_tonaltension
+from .meter import estimate_time
 from .note_features import (
     list_note_feats_functions,
     make_note_features,
@@ -26,6 +27,7 @@ __all__ = [
     "estimate_key",
     "estimate_spelling",
     "estimate_tonaltension",
+    "estimate_time", 
     "list_note_feats_functions",
     "make_note_features",
     "make_rest_features",

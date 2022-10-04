@@ -398,7 +398,7 @@ def full_note_array(part):
 
 def polynomial_pitch_feature(na, part):
     """Normalize pitch feature."""
-    pitches = na["pitch"].astype(np.float)
+    pitches = na["pitch"].astype(float)
     feature_names = ["pitch"]
     max_pitch = 127
     W = pitches / max_pitch

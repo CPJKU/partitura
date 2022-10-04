@@ -86,7 +86,8 @@ class TestNoteArray(unittest.TestCase):
     def test_ensure_na_different_divs(self):
         # check if divs are correctly rescaled when producing a note array from
         # parts with different divs values
-        parts = list(score.iter_parts(load_kern(KERN_TESFILES[7])))
+        # parts = list(score.iter_parts(load_kern(KERN_TESFILES[7])))
+        parts = load_kern(KERN_TESFILES[7]).parts
         # note_arrays = [p.note_array(include_divs_per_quarter= True) for p in parts]
         merged_note_array = ensure_notearray(parts)
         for note in merged_note_array[-4:]:

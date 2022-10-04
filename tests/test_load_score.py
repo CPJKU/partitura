@@ -42,6 +42,11 @@ class TestLoadScore(unittest.TestCase):
     def load_score(self, fn):
         try:
             score = load_score(fn)
-            self.assertTrue(type(score) in (Part, PartGroup, list, Score))
+            self.assertTrue(isinstance(score, Score))
+
+            for pp in score.part_structure:
+                self.assertTrue(type(pp) in (Part, PartGroup))
+            for pp in score.parts:
+                self.assertTrue(isinstance(pp, Part))
         except NotSupportedFormatError:
             self.assertTrue(False)

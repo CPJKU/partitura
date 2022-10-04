@@ -11,19 +11,21 @@ RNG = np.random.RandomState(1984)
 class TestGetMatchedNotes(unittest.TestCase):
     def test_get_matched_notes(self):
         for fn in MATCH_IMPORT_EXPORT_TESTFILES:
-            ppart, alignment, spart = partitura.load_match(fn=fn, create_part=True)
-            print(fn)
-            ppart_note_array = ppart.note_array()
-            spart_note_array = spart.note_array()
+            perf, alignment, scr = partitura.load_match(
+                filename=fn,
+                create_score=True,
+            )
+            perf_note_array = perf.note_array()
+            scr_note_array = scr.note_array()
             matched_idxs = music.get_matched_notes(
-                spart_note_array=spart_note_array,
-                ppart_note_array=ppart_note_array,
+                spart_note_array=scr_note_array,
+                ppart_note_array=perf_note_array,
                 alignment=alignment,
             )
-            spart_pitch = spart_note_array["pitch"][matched_idxs[:, 0]]
-            ppart_pitch = ppart_note_array["pitch"][matched_idxs[:, 1]]
+            scr_pitch = scr_note_array["pitch"][matched_idxs[:, 0]]
+            perf_pitch = perf_note_array["pitch"][matched_idxs[:, 1]]
 
-            self.assertTrue(np.all(spart_pitch == ppart_pitch))
+            self.assertTrue(np.all(scr_pitch == perf_pitch))
 
 
 class TestGetTimeMapsFromAlignment(unittest.TestCase):

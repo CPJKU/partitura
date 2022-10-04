@@ -2869,6 +2869,7 @@ class Score(object):
         See parameters.
     copyright: str.
         See parameters.
+
     """
 
     id: Optional[str]
@@ -3252,9 +3253,15 @@ def iter_parts(partlist):
     """
 
     if not isinstance(partlist, (list, tuple, set)):
-        partlist = [partlist]
+        _partlist = [partlist]
 
-    for el in partlist:
+    elif isinstance(partlist, Score):
+        _partlist = partlist.parts
+
+    else:
+        _partlist = partlist
+
+    for el in _partlist:
         if isinstance(el, Part):
             yield el
         else:
@@ -3721,8 +3728,8 @@ class Segment(TimedObject):
     Class that represents any segment between two navigation markers such as repetitions,
     Volta brackets, or capo/fine/coda/segno directions.
 
-
     Parameters
+    ----------
     id: string
         unique, ordererd identifier string
     to: list
@@ -3730,11 +3737,10 @@ class Segment(TimedObject):
     await_to:
         list of ids of possible destinations after a jump
     type : string, optional
-        String for the type of the segment (either "default" or "leap_start" and "leap_end")
-        A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment,
-        as is commonly expected after capo/fine/coda/segno directions.
+        String for the type of the segment (either "default" or "leap_start" and "leap_end"). A "leap" tuple has the effect of forcing the fastest (shortest) repetition unfolding after this segment, as is commonly expected after capo/fine/coda/segno directions.
     info: string, optional
         String to describe the segment, used only for printing (pretty_segments)
+
     """
 
     def __init__(self, id, to, await_to, force_seq=False, type="default", info=""):
@@ -4030,6 +4036,7 @@ def get_segments(part):
     -------
     segments: dict
         A dictionary of Segment objects indexed by segment IDs.
+
     """
     return {seg.id: seg for seg in part.iter_all(Segment)}
 
@@ -4548,6 +4555,7 @@ def merge_parts(parts, reassign="voice"):
     -------
     Part
         A new part that contains the elements of the old parts
+
     """
     # check if reassign has valid values
     if reassign not in ["staff", "voice"]:
