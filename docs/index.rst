@@ -20,10 +20,10 @@ Partitura documentation
    :maxdepth: 2
    :caption: API Reference
 
-   modules/partitura
-   modules/partitura.score
-   modules/partitura.performance
-   modules/partitura.musicanalysis
-   modules/partitura.utils
+   ./modules/partitura
+   ./modules/partitura.score
+   ./modules/partitura.performance
+   ./modules/partitura.musicanalysis
+   ./modules/partitura.utils
 
 

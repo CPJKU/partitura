@@ -1,9 +1,8 @@
 partitura.musicanalysis
 =======================
-
+.. currentmodule:: partitura.musicanalysis
 .. automodule:: partitura.musicanalysis
    :members:
-   :undoc-members:
    :show-inheritance:
 
 ..
@@ -14,7 +13,6 @@ partitura.musicanalysis
 
    .. automodule:: partitura.musicanalysis.voice_separation
       :members:
-      :undoc-members:
       :show-inheritance:
 
    partitura.musicanalysis.key\_identification
@@ -22,7 +20,6 @@ partitura.musicanalysis
 
    .. automodule:: partitura.musicanalysis.key_identification
       :members:
-      :undoc-members:
       :show-inheritance:
 
    partitura.musicanalysis.pitch\_spelling
@@ -30,6 +27,5 @@ partitura.musicanalysis
 
    .. automodule:: partitura.musicanalysis.pitch_spelling
       :members:
-      :undoc-members:
       :show-inheritance:
 
