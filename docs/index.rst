@@ -11,12 +11,13 @@ Partitura documentation
 
    introduction
    usage
+   Tutorial/notebook.ipynb
    genindex
 
 .. _api_reference:
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: API Reference
 
    modules/partitura
