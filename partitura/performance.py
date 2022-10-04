@@ -13,7 +13,10 @@ from typing import Union, List, Optional, Iterator, Iterable as Itertype
 import numpy as np
 from partitura.utils import note_array_from_part_list
 
-__all__ = ["PerformedPart"]
+__all__ = [
+    "PerformedPart",
+    "Performance",
+]
 
 
 class PerformedPart(object):
@@ -64,13 +67,13 @@ class PerformedPart(object):
 
     def __init__(
         self,
-        notes,
-        id=None,
-        part_name=None,
-        controls=None,
-        programs=None,
-        sustain_pedal_threshold=64,
-    ):
+        notes: List[dict],
+        id: str = None,
+        part_name: str = None,
+        controls: List[dict] = None,
+        programs: List[dict] = None,
+        sustain_pedal_threshold: int = 64,
+    ) -> None:
         super().__init__()
         self.id = id
         self.part_name = part_name
@@ -81,7 +84,7 @@ class PerformedPart(object):
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
     @property
-    def sustain_pedal_threshold(self):
+    def sustain_pedal_threshold(self) -> int:
         """The threshold value (number) above which sustain pedal values
         are considered to be equivalent to on. For values below the
         threshold the sustain pedal is treated as off. Defaults to 64.
@@ -101,7 +104,7 @@ class PerformedPart(object):
         return self._sustain_pedal_threshold
 
     @sustain_pedal_threshold.setter
-    def sustain_pedal_threshold(self, value):
+    def sustain_pedal_threshold(self, value: int) -> None:
         # """
         # Set the pedal threshold and update the sound_off
         # of the notes
@@ -111,7 +114,18 @@ class PerformedPart(object):
             self.notes, self.controls, self._sustain_pedal_threshold
         )
 
-    def note_array(self):
+    @property
+    def num_tracks(self) -> int:
+        """Number of tracks"""
+        return len(
+            set(
+                [n.get("track", -1) for n in self.notes]
+                + [c.get("track", -1) for c in self.controls]
+                + [p.get("track", -1) for p in self.programs]
+            )
+        )
+
+    def note_array(self, *args, **kwargs) -> np.ndarray:
         """Structured array containing performance information.
         The fields are 'id', 'pitch', 'onset_div', 'duration_div',
         'onset_sec', 'duration_sec' and 'velocity'.
@@ -146,7 +160,12 @@ class PerformedPart(object):
         return np.array(note_array, dtype=fields)
 
     @classmethod
-    def from_note_array(cls, note_array, id=None, part_name=None):
+    def from_note_array(
+        cls,
+        note_array: np.ndarray,
+        id: str = None,
+        part_name: str = None,
+    ):
         """Create an instance of PerformedPart from a note_array.
         Note that this property does not include non-note information (i.e.
         controls such as sustain pedal).
@@ -184,7 +203,11 @@ class PerformedPart(object):
         return cls(id=id, part_name=part_name, notes=notes, controls=None)
 
 
-def adjust_offsets_w_sustain(notes, controls, threshold=64):
+def adjust_offsets_w_sustain(
+    notes: List[dict],
+    controls: List[dict],
+    threshold=64,
+) -> None:
     # get all note offsets
     offs = np.fromiter((n["note_off"] for n in notes), dtype=float)
     first_off = np.min(offs)
@@ -268,19 +291,42 @@ class Performance(object):
         See parameters.
     """
 
+    id: Optional[str]
+    title: Optional[str]
+    subtitle: Optional[str]
+    lyricist: Optional[str]
+    copyright: Optional[str]
+    performedparts: List[PerformedPart]
+
     def __init__(
         self,
-        id: str,
-        performedparts: PerformedPart,
+        performedparts: Union[PerformedPart, Itertype[PerformedPart]],
+        id: str = None,
         performer: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
         composer: Optional[str] = None,
         lyricist: Optional[str] = None,
         copyright: Optional[str] = None,
+        ensure_unique_tracks: bool = True,
     ) -> None:
         self.id = id
-        self.performedparts = [performedparts]
+
+        if isinstance(performedparts, PerformedPart):
+            self.performedparts = [performedparts]
+        elif isinstance(performedparts, Itertype):
+
+            if not all([isinstance(pp, PerformedPart) for pp in performedparts]):
+                raise ValueError(
+                    "`performedparts` should be a list of  `PerformedPart` objects!"
+                )
+            self.performedparts = list(performedparts)
+        else:
+            raise ValueError(
+                "`performedparts` should be a `PerformedPart` or a list of "
+                f"`PerformedPart` objects but is {type(performedparts)}."
+            )
+
         # Metadata
         self.performer = performer
         self.title = title
@@ -288,6 +334,68 @@ class Performance(object):
         self.composer = composer
         self.lyricist = lyricist
         self.copyright = copyright
+
+        if ensure_unique_tracks:
+            self.sanitize_track_numbers()
+
+    @property
+    def num_tracks(self) -> int:
+        """
+        Number of tracks in the performance
+        """
+        n_tracks = len(
+            set(
+                [(i, n.get("track", -1)) for i, pp in enumerate(self) for n in pp.notes]
+                + [
+                    (i, c.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for c in pp.controls
+                ]
+                + [
+                    (i, p.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for p in pp.programs
+                ]
+            )
+        )
+
+        return n_tracks
+
+    def sanitize_track_numbers(self) -> None:
+        """
+        Ensure that the track number info in each `PerformedPart` in
+        self.performedparts is unique (i.e., that a track number does not appear
+        in multiple `PerformedPart` instances)
+        """
+        unique_track_ids = list(
+            set(
+                [(i, n.get("track", -1)) for i, pp in enumerate(self) for n in pp.notes]
+                + [
+                    (i, c.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for c in pp.controls
+                ]
+                + [
+                    (i, p.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for p in pp.programs
+                ]
+            )
+        )
+
+        track_map = dict([(tid, ti) for ti, tid in enumerate(unique_track_ids)])
+
+        for i, ppart in enumerate(self):
+
+            for note in ppart.notes:
+
+                note["track"] = track_map[(i, note.get("track", -1))]
+
+            for control in ppart.controls:
+                control["track"] = track_map[(i, control.get("track", -1))]
+
+            for program in ppart.programs:
+                program["track"] = track_map[(i, program.get("track", -1))]
 
     def __getitem__(self, index: int) -> PerformedPart:
         """Get `Part in the score by index"""
@@ -315,9 +423,13 @@ class Performance(object):
         """
         return len(self.performedparts)
 
-    def note_array(self) -> np.ndarray:
+    def note_array(self, *args, **kwargs) -> np.ndarray:
         """
         Get a note array that concatenates the note arrays of all Part/PartGroup
         objects in the score.
         """
-        return note_array_from_part_list(part_list=self.performedparts)
+        return note_array_from_part_list(self.performedparts, *args, **kwargs)
+
+
+# Alias for typing performance-like objects
+PerformanceLike = Union[List[PerformedPart], PerformedPart, Performance]

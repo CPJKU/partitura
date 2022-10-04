@@ -4,7 +4,7 @@ This file contains test functions for KERN import and export.
 import unittest
 
 import partitura
-from tests import KERN_TESFILES, KERN_TIES
+from tests import KERN_TESTFILES, KERN_TIES
 from partitura.score import merge_parts
 from partitura.utils import ensure_notearray
 from partitura.io.importkern import load_kern
@@ -29,7 +29,7 @@ class TestImportKERN(unittest.TestCase):
         )
 
     def test_examples(self):
-        for fn in KERN_TESFILES:
+        for fn in KERN_TESTFILES:
             part = merge_parts(load_kern(fn))
             ka = ensure_notearray(part)
             self.assertTrue(True == True)
@@ -40,3 +40,7 @@ class TestImportKERN(unittest.TestCase):
         part = merge_parts(load_kern(fn))
 
         self.assertTrue(True == True)
+
+
+# if __name__ == "__main__":
+#     unittest.main()

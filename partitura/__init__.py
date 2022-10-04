@@ -17,7 +17,8 @@ from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
 from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
-from .io.exportparangonada import save_csv_for_parangonada
+from .io.importparangonada import load_parangonada_csv
+from .io.exportparangonada import save_parangonada_csv, save_csv_for_parangonada
 from .display import render
 from . import musicanalysis
 from .musicanalysis import make_note_features, compute_note_array, full_note_array
@@ -51,5 +52,7 @@ __all__ = [
     "save_match",
     "load_nakamuramatch",
     "load_nakamuracorresp",
+    "load_parangonada_csv",
+    "save_parangonada_csv",
     "render"
 ]

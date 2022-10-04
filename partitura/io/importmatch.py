@@ -24,7 +24,6 @@ from partitura.utils import (
 )
 
 from partitura.utils.misc import (
-    deprecated_parameter,
     deprecated_alias,
     PathLike,
     get_document_name,

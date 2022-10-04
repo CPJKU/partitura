@@ -259,7 +259,7 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
         Structured array containing score information.
     """
     from partitura.score import Part, PartGroup, Score
-    from partitura.performance import PerformedPart
+    from partitura.performance import PerformedPart, Performance
 
     if isinstance(notearray_or_part, np.ndarray):
         if notearray_or_part.dtype.fields is not None:
@@ -276,10 +276,10 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
     elif isinstance(notearray_or_part, Score):
         return note_array_from_part_list(notearray_or_part.parts, *args, **kwargs)
 
-    elif isinstance(notearray_or_part, PerformedPart):
-        return notearray_or_part.note_array()
+    elif isinstance(notearray_or_part, (PerformedPart, Performance)):
+        return notearray_or_part.note_array(*args, **kwargs)
     elif isinstance(notearray_or_part, Score):
-        return notearray_or_part.note_array()
+        return notearray_or_part.note_array(*args, **kwargs)
     elif isinstance(notearray_or_part, list):
         if all([isinstance(part, Part) for part in notearray_or_part]):
             return note_array_from_part_list(notearray_or_part, *args, **kwargs)
