@@ -4,4 +4,3 @@ xmlschema
 lxml
 lark-parser
 mido
-nbsphinx
