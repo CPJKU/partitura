@@ -2299,7 +2299,8 @@ def note_array_from_note_list(
     no_voice_idx = np.where(note_array["voice"] == -1)[0]
     try:
         max_voice = note_array["voice"].max()
-    except ValueError:  # raised if `y` is empty.
+    except ValueError:  # raised if `note_array["voice"]` is empty.
+        note_array["voice"] = 0
         max_voice = 0
     note_array["voice"][no_voice_idx] = max_voice + 1
 
