@@ -2297,7 +2297,10 @@ def note_array_from_note_list(
 
     # Sanitize voice information
     no_voice_idx = np.where(note_array["voice"] == -1)[0]
-    max_voice = note_array["voice"].max()
+    try:
+        max_voice = note_array["voice"].max()
+    except ValueError:  # raised if `y` is empty.
+        max_voice = 0
     note_array["voice"][no_voice_idx] = max_voice + 1
 
     # sort by onset and pitch
