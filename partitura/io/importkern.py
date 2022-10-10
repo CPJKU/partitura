@@ -516,7 +516,7 @@ class KernParser:
         match = re.findall(r"([0-9]+)([a-g]|[A-G]|r|\.)", kern_string)
         durs, _ = zip(*match)
         x = np.array(list(map(lambda x: int(x), durs)))
-        divs = np.lcm.reduce(np.unique(x))
+        divs = np.lcm.reduce(np.unique(x[x != 0]))
         return float(divs) / 4.00
 
 
