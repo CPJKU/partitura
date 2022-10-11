@@ -347,6 +347,26 @@ def _parse_parts(document, part_dict):
                     "Single measure bracket is assumed"
                 )
 
+        # Complete repeats without end.
+        volta_repeats = list()
+        for o in part.iter_all(score.Repeat, mode="starting"):
+            if o.end is None:
+                # if len(o.start.starting_objects[score.Repeat]) > 0:
+                #     starting = list(o.start.starting_objects[score.Repeat].keys())[0]
+                #     # if unstarted repeat from volta, continue for now
+                #     if len(starting.end.ending_objects[score.Repeat]) > 0:
+                #         # if repeat from volta, continue for now
+                #         volta_repeats.append(o)
+                #         continue
+
+                end_times = [r.start.t for r in part.iter_all(score.Repeat)] + [part._points[-1].t]
+                end_time_id = np.searchsorted(end_times, o.start.t+1)
+                part.add(o, None, end_times[end_time_id])
+                warnings.warn(
+                    "Found repeat without end\n"
+                    "Ending point {} is assumend".format(end_times[end_time_id])
+                )
+
         # complete unstarted repeats
         volta_repeats = list()
         for o in part.iter_all(score.Repeat, mode="ending"):
