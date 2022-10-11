@@ -2,11 +2,13 @@
 import numpy as np
 import logging
 import unittest
+from functools import partial
 
 from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
-from partitura import load_musicxml, load_score
+from partitura import load_musicxml, load_score, load_kern
+import partitura
 
-from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES
+from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES, KERN_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -160,10 +162,10 @@ class TestNotesFromPianoroll(unittest.TestCase):
     def test_reconstruction_score(self):
 
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
-            spart = load_musicxml(fn)
-            note_array = spart.note_array()
+            score = load_musicxml(fn)
+            note_array = score[0].note_array()
             pr = compute_pianoroll(
-                spart, time_unit="div", time_div=1, remove_silence=False
+                score[0], time_unit="div", time_div=1, remove_silence=False
             )
 
             rec_note_array = pianoroll_to_notearray(pr, time_div=1, time_unit="div")
@@ -241,19 +243,19 @@ class TestNotesFromPianoroll(unittest.TestCase):
 
 class TestPianorollFromScores(unittest.TestCase):
     """
-    Test piano roll from xml scores
+    Test piano roll from scores
     """
 
     def test_score_pianoroll(self):
         # normally call the function
-        parts = load_score(PIANOROLL_TESTFILES[0], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[0])
         pr0 = compute_pianoroll(parts[0])
         pr1 = compute_pianoroll(parts[1])
         pr2 = compute_pianoroll(parts[2])
         self.assertTrue(pr0.shape != pr1.shape)
         self.assertTrue(pr1.shape != pr2.shape)
         # remove the silence
-        parts = load_score(PIANOROLL_TESTFILES[0], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[0])
         pr0 = compute_pianoroll(
             parts[0], time_unit="beat", time_div=1, remove_silence=False
         )
@@ -267,7 +269,7 @@ class TestPianorollFromScores(unittest.TestCase):
         self.assertTrue(pr1.shape == (128, 8))
         self.assertTrue(pr0.shape == (128, 12))
         # set a fixed end
-        parts = load_score(PIANOROLL_TESTFILES[0], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[0])
         pr0 = compute_pianoroll(
             parts[0], time_unit="beat", time_div=2, remove_silence=False
         )
@@ -283,7 +285,7 @@ class TestPianorollFromScores(unittest.TestCase):
 
     def test_sum_pianoroll(self):
         time_div = 4
-        parts = load_score(PIANOROLL_TESTFILES[2], ensure_list=True)
+        parts = load_score(PIANOROLL_TESTFILES[2])
         prs = []
         for part in parts:
             prs.append(compute_pianoroll(part, time_unit="beat", time_div=time_div))
@@ -297,3 +299,24 @@ class TestPianorollFromScores(unittest.TestCase):
         )  # remove count for double notes
         self.assertTrue(np.array_equal(clipped_pr_sum, original_pianoroll))
 
+    def test_pianoroll_length(self):
+        score = load_score(KERN_TESTFILES[7])
+        parts = score.parts
+        # parts = list(partitura.score.iter_parts(score))
+        # set musical beat if requested
+        for part in parts:
+            part.use_musical_beat()
+        # get the maximum length of all parts to avoid shorter pianorolls
+        end_time = max([part.beat_map([part._points[-1].t]) for part in parts])
+        # define the parameters of the compute_pianoroll function
+        get_pianoroll = partial(
+            partitura.utils.compute_pianoroll,
+            time_unit="beat",
+            time_div=12,
+            piano_range=True,
+            remove_silence=False,
+            end_time=end_time,
+        )
+        # compute pianorolls for all separated voices
+        prs = [get_pianoroll(part) for part in parts]
+        self.assertTrue(pr.shape == prs[0].shape for pr in prs)

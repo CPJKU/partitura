@@ -103,12 +103,14 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(len(part.note_array()) == 10)
 
     def test_ties1(self):
-        part_list = load_mei(MEI_TESTFILES[7])
-        note_array = list(score.iter_parts(part_list))[0].note_array
-        self.assertTrue(len(note_array()) == 4)
+        scr = load_mei(MEI_TESTFILES[7])
+        part_list = scr.parts
+        note_array = list(score.iter_parts(part_list))[0].note_array()
+        self.assertTrue(len(note_array) == 4)
 
     def test_time_signatures(self):
-        part_list = load_mei(MEI_TESTFILES[8])
+        scr = load_mei(MEI_TESTFILES[8])
+        part_list = scr.parts
         part0 = list(score.iter_parts(part_list))[0]
         time_signatures = list(part0.iter_all(score.TimeSignature))
         self.assertTrue(len(time_signatures) == 3)
@@ -117,7 +119,7 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(time_signatures[2].start.t == 12.5 * 16)
 
     def test_clef(self):
-        part_list = load_mei(MEI_TESTFILES[9])
+        part_list = load_mei(MEI_TESTFILES[9]).parts
         # test on part 2
         part2 = list(score.iter_parts(part_list))[2]
         clefs2 = list(part2.iter_all(score.Clef))
@@ -125,12 +127,12 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(clefs2[0].start.t == 0)
         self.assertTrue(clefs2[0].sign == "C")
         self.assertTrue(clefs2[0].line == 3)
-        self.assertTrue(clefs2[0].number == 3)
+        self.assertTrue(clefs2[0].staff == 3)
         self.assertTrue(clefs2[0].octave_change == 0)
         self.assertTrue(clefs2[1].start.t == 8)
         self.assertTrue(clefs2[1].sign == "F")
         self.assertTrue(clefs2[1].line == 4)
-        self.assertTrue(clefs2[1].number == 3)
+        self.assertTrue(clefs2[1].staff == 3)
         self.assertTrue(clefs2[1].octave_change == 0)
         # test on part 3
         part3 = list(score.iter_parts(part_list))[3]
@@ -140,11 +142,11 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(clefs3[1].start.t == 4)
         self.assertTrue(clefs3[1].sign == "G")
         self.assertTrue(clefs3[1].line == 2)
-        self.assertTrue(clefs3[1].number == 4)
+        self.assertTrue(clefs3[1].staff == 4)
         self.assertTrue(clefs3[1].octave_change == -1)
 
     def test_key_signature1(self):
-        part_list = load_mei(MEI_TESTFILES[9])
+        part_list = load_mei(MEI_TESTFILES[9]).parts
         for part in score.iter_parts(part_list):
             kss = list(part.iter_all(score.KeySignature))
             self.assertTrue(len(kss) == 2)
@@ -152,14 +154,14 @@ class TestImportMEI(unittest.TestCase):
             self.assertTrue(kss[1].fifths == 4)
 
     def test_key_signature2(self):
-        part_list = load_mei(MEI_TESTFILES[10])
+        part_list = load_mei(MEI_TESTFILES[10]).parts
         for part in score.iter_parts(part_list):
             kss = list(part.iter_all(score.KeySignature))
             self.assertTrue(len(kss) == 1)
             self.assertTrue(kss[0].fifths == -1)
 
     def test_grace_note(self):
-        part_list = load_mei(MEI_TESTFILES[10])
+        part_list = load_mei(MEI_TESTFILES[10]).parts
         part = list(score.iter_parts(part_list))[0]
         grace_notes = list(part.iter_all(score.GraceNote))
         self.assertTrue(len(part.note_array()) == 7)
@@ -168,7 +170,7 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(grace_notes[1].grace_type == "appoggiatura")
 
     def test_meter_in_scoredef(self):
-        part_list = load_mei(MEI_TESTFILES[11])
+        part_list = load_mei(MEI_TESTFILES[11]).parts
         self.assertTrue(True)
 
     def test_infer_ppq(self):
@@ -178,32 +180,32 @@ class TestImportMEI(unittest.TestCase):
 
     def test_no_ppq(self):
         # compare the same piece with and without ppq annotations
-        parts_ppq = load_mei(MEI_TESTFILES[6])
+        parts_ppq = load_mei(MEI_TESTFILES[6]).parts
         part_ppq = list(score.iter_parts(parts_ppq))[0]
         note_array_ppq = part_ppq.note_array()
 
-        parts_no_ppq = load_mei(MEI_TESTFILES[12])
+        parts_no_ppq = load_mei(MEI_TESTFILES[12]).parts
         part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
         note_array_no_ppq = part_no_ppq.note_array()
 
         self.assertTrue(np.array_equal(note_array_ppq, note_array_no_ppq))
 
     def test_part_duration(self):
-        parts_no_ppq = load_mei(MEI_TESTFILES[14])
+        parts_no_ppq = load_mei(MEI_TESTFILES[14]).parts
         part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
         note_array_no_ppq = part_no_ppq.note_array()
         self.assertTrue(part_no_ppq._quarter_durations[0] == 4)
         self.assertTrue(sorted(part_no_ppq._points)[-1].t == 12)
 
     def test_part_duration2(self):
-        parts_no_ppq = load_mei(MEI_TESTFILES[15])
+        parts_no_ppq = load_mei(MEI_TESTFILES[15]).parts
         part_no_ppq = list(score.iter_parts(parts_no_ppq))[0]
         note_array_no_ppq = part_no_ppq.note_array()
         self.assertTrue(part_no_ppq._quarter_durations[0] == 8)
         self.assertTrue(sorted(part_no_ppq._points)[-1].t == 22)
 
     def test_barline(self):
-        parts = load_mei(MEI_TESTFILES[16])
+        parts = load_mei(MEI_TESTFILES[16]).parts
         part = list(score.iter_parts(parts))[0]
         barlines = list(part.iter_all(score.Barline))
         expected_barlines_times = [0, 8, 8, 16, 20, 24, 28]
@@ -220,7 +222,7 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue([bl.style for bl in barlines] == expected_barlines_style)
 
     def test_repetition1(self):
-        parts = load_mei(MEI_TESTFILES[16])
+        parts = load_mei(MEI_TESTFILES[16]).parts
         part = list(score.iter_parts(parts))[0]
         repetitions = list(part.iter_all(score.Repeat))
         expected_repeat_starts = [0, 8]
@@ -229,7 +231,7 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue([rp.end.t for rp in repetitions] == expected_repeat_ends)
 
     def test_repetition2(self):
-        parts = load_mei(MEI_TESTFILES[17])
+        parts = load_mei(MEI_TESTFILES[17]).parts
         part = list(score.iter_parts(parts))[0]
         fine_els = list(part.iter_all(score.Fine))
         self.assertTrue(len(fine_els) == 1)
@@ -244,13 +246,13 @@ class TestImportMEI(unittest.TestCase):
     #     self.assertTrue(False)
 
     def test_parse_mei_example(self):
-        part_list = load_mei(EXAMPLE_MEI)
+        part_list = load_mei(EXAMPLE_MEI).parts
         self.assertTrue(True)
 
     def test_parse_mei(self):
         # check if all test files load correctly
         for mei in MEI_TESTFILES[4:]:
-            part_list = load_mei(mei)
+            part_list = load_mei(mei).parts
         self.assertTrue(True)
 
     # def test_parse_all(self):
@@ -260,4 +262,3 @@ class TestImportMEI(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

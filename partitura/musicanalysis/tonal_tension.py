@@ -339,7 +339,9 @@ def prepare_note_array(note_info):
     key_signature_fields = ("ks_fifths", "ks_mode")
 
     if len(set(pitch_spelling_fields).difference(note_array.dtype.names)) > 0:
-        warnings.warn("No pitch spelling information! Estimating pitch spelling...", stacklevel=2)
+        warnings.warn(
+            "No pitch spelling information! Estimating pitch spelling...", stacklevel=2
+        )
         from partitura.musicanalysis.pitch_spelling import estimate_spelling
 
         spelling = estimate_spelling(note_array)

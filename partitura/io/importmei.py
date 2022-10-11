@@ -7,40 +7,48 @@ from partitura.utils.music import (
     SIGN_TO_ALTER,
     estimate_symbolic_duration,
 )
+from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias
 
 import re
-import logging
 import warnings
 
 import numpy as np
 
 
-
-
-def load_mei(mei_path: str) -> list:
+@deprecated_alias(mei_path="filename")
+def load_mei(filename: PathLike) -> score.Score:
     """
     Loads a Mei score from path and returns a list of Partitura.Part
 
     Parameters
     ----------
-    mei_path : str
+    filename : PathLike
         The path to an MEI score.
 
     Returns
     -------
-    part_list : list
-        A list of Partitura Part or GroupPart Objects.
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
-    parser = MeiParser(mei_path)
+    parser = MeiParser(filename)
+    doc_name = get_document_name(filename)
     # create parts from the specifications in the mei
     parser.create_parts()
     # fill parts with the content from the mei
     parser.fill_parts()
-    return parser.parts
+
+    # TODO: Parse score info (composer, lyricist, etc.)
+    scr = score.Score(
+        id=doc_name,
+        partlist=parser.parts,
+    )
+
+    return scr
 
 
-class MeiParser:
-    def __init__(self, mei_path):
+class MeiParser(object):
+    def __init__(self, mei_path: PathLike) -> None:
         document, ns = self._parse_mei(mei_path)
         self.document = document
         self.ns = ns  # the namespace in the MEI file
@@ -437,7 +445,7 @@ class MeiParser:
     # functions to parse the content of parts
 
     def _note_el_to_accid_int(self, note_el) -> int:
-        """Accidental strings to integer pitch. 
+        """Accidental strings to integer pitch.
         It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)"""
         if note_el.get("accid") is not None:
             return SIGN_TO_ALTER[note_el.get("accid")]
@@ -832,7 +840,7 @@ class MeiParser:
         return max(end_positions)
 
     def _find_dir_positions(self, dir_el, bar_position):
-        """Compute the position for a <dir> element. 
+        """Compute the position for a <dir> element.
         Returns an array, one position for each part."""
         delta_position_beat = float(dir_el.get("tstamp"))
         return [
@@ -1023,4 +1031,3 @@ class MeiParser:
         for bl in self.barlines:
             for part in score.iter_parts(self.parts):
                 part.add(score.Barline(bl["type"]), bl["pos"])
-

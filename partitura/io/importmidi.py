@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-import numpy as np
-from collections import defaultdict
 import warnings
-from numpy.lib.recfunctions import unstructured_to_structured, merge_arrays
+
+from collections import defaultdict
+from typing import Union, Optional
+import numpy as np
+
+
 import mido
 
 import partitura.score as score
@@ -12,21 +15,25 @@ from partitura.utils import (
     key_name_to_fifths_mode,
     fifths_mode_to_key_name,
     estimate_clef_properties,
+    deprecated_alias,
+    deprecated_parameter,
+    PathLike,
+    get_document_name,
+    ensure_notearray
 )
 import partitura.musicanalysis as analysis
-from partitura.musicanalysis import note_array_to_part
 
-__all__ = ["load_score_midi", "load_performance_midi"]
-
+__all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
 
 # as key for the dict use channel * 128 (max number of pitches) + pitch
-def note_hash(channel, pitch):
+def note_hash(channel: int, pitch: int) -> int:
     """Generate a note hash."""
     return channel * 128 + pitch
 
 
-def midi_to_notearray(fn):
+@deprecated_alias(fn="filename")
+def midi_to_notearray(filename: PathLike) -> np.ndarray:
     """Load a MIDI file in a note_array.
 
     This function should be used to load MIDI files into an
@@ -38,7 +45,7 @@ def midi_to_notearray(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         Path to MIDI file
     Returns
     -------
@@ -46,13 +53,22 @@ def midi_to_notearray(fn):
         Structured array with onset, duration, pitch, velocity, and
         ID fields.
     """
-    ppart = load_performance_midi(fn, merge_tracks=True)
+    perf = load_performance_midi(filename, merge_tracks=True)
     # set sustain pedal threshold to 128 to disable sustain adjusted offsets
-    ppart.sustain_pedal_threshold = 128
-    return ppart.note_array
+
+    for ppart in perf:
+        ppart.sustain_pedal_threshold = 128
+
+    note_array = ensure_notearray(perf)
+    return note_array
 
 
-def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
+@deprecated_alias(fn="filename")
+def load_performance_midi(
+    filename: Union[PathLike, mido.MidiFile],
+    default_bpm: Union[int, float] = 120,
+    merge_tracks: bool = False,
+) -> performance.Performance:
     """Load a musical performance from a MIDI file.
 
     This function should be used for MIDI files that encode
@@ -67,7 +83,7 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         Path to MIDI file
     default_bpm : number, optional
         Tempo to use wherever the MIDI does not specify a tempo.
@@ -78,12 +94,17 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
 
     Returns
     -------
-    :class:`partitura.performance.PerformedPart`
-        A PerformedPart instance.
-
-
+    :class:`partitura.performance.Performance`
+        A Performance instance.
     """
-    mid = mido.MidiFile(fn)
+
+    if isinstance(filename, mido.MidiFile):
+        mid = filename
+        doc_name = filename.filename
+    else:
+        mid = mido.MidiFile(filename)
+        doc_name = get_document_name(filename)
+
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
@@ -139,7 +160,12 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
             elif msg.type == "program_change":
 
                 programs.append(
-                    dict(time=t, program=msg.program, track=i, channel=msg.channel)
+                    dict(
+                        time=t,
+                        program=msg.program,
+                        track=i,
+                        channel=msg.channel,
+                    )
                 )
 
             else:
@@ -186,29 +212,38 @@ def load_performance_midi(fn, default_bpm=120, merge_tracks=False):
         # fix note ids so that it is sorted lexicographically
         # by onset, pitch, offset, channel and track
         notes.sort(
-            key=lambda x: (x['note_on'],
-                           x['midi_pitch'],
-                           x['note_off'],
-                           x['channel'],
-                           x['track'])
+            key=lambda x: (
+                x["note_on"],
+                x["midi_pitch"],
+                x["note_off"],
+                x["channel"],
+                x["track"],
             )
+        )
 
         # add note id to every note
         for i, note in enumerate(notes):
             note["id"] = f"n{i}"
 
-    return performance.PerformedPart(notes, controls=controls, programs=programs)
+    pp = performance.PerformedPart(notes, controls=controls, programs=programs)
+
+    perf = performance.Performance(
+        id=doc_name,
+        performedparts=pp,
+    )
+    return perf
 
 
+@deprecated_parameter("ensure_list")
+@deprecated_alias(fn="filename")
 def load_score_midi(
-    fn,
-    part_voice_assign_mode=0,
-    ensure_list=False,
-    quantization_unit=None,
-    estimate_voice_info=True,
-    estimate_key=False,
-    assign_note_ids=True,
-):
+    filename: Union[PathLike, mido.MidiFile],
+    part_voice_assign_mode: Optional[int] = 0,
+    quantization_unit: Optional[int] = None,
+    estimate_voice_info: bool = True,
+    estimate_key: bool = False,
+    assign_note_ids: bool = True,
+) -> score.Score:
     """Load a musical score from a MIDI file and return it as a Part
     instance.
 
@@ -227,8 +262,8 @@ def load_score_midi(
 
     Parameters
     ----------
-    fn : str
-        Path to MIDI file
+    filename : PathLike or mido.MidiFile
+        Path to MIDI file or mido.MidiFile object.
     part_voice_assign_mode : {0, 1, 2, 3, 4, 5}, optional
         This keyword controls how part and voice information is
         associated to track and channel information in the MIDI file.
@@ -251,13 +286,6 @@ def load_score_midi(
         5
             Return one Part per <track, channel> combination, without
             voices  Defaults to 0.
-    ensure_list : bool, optional
-        When True, return a list independent of how many part or partgroup
-        elements were created from the MIDI file. By default, when the
-        return value of `load_score_midi` produces a single
-        :class:`partitura.score.Part` or :class:`partitura.score.PartGroup`
-        element, the element itself is returned instead of a list
-        containing the element. Defaults to False.
     quantization_unit : integer or None, optional
         Quantize MIDI times to multiples of this unit. If None, the
         quantization unit is chosen automatically as the smallest
@@ -292,7 +320,14 @@ or a list of these
            Oxford University Press, New York.
 
     """
-    mid = mido.MidiFile(fn)
+
+    if isinstance(filename, mido.MidiFile):
+        mid = filename
+        doc_name = filename.filename
+    else:
+        mid = mido.MidiFile(filename)
+        doc_name = get_document_name(filename)
+
     divs = mid.ticks_per_beat
 
     # these lists will contain information from dedicated tracks for meta
@@ -408,134 +443,115 @@ or a list of these
     # note_list = sorted(note for notes in
     # (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
     note_list = [
-        ("None",) + note
+        note
         for notes in (notes_by_track_ch[key] for key in tr_ch_keys)
         for note in notes
     ]
     note_array = np.array(
         note_list,
-        dtype=[("id", str), ("onset_div", int), ("pitch", int), ("duration_div", int)],
+        dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
     )
-    if len(global_time_sigs) > 1:
-        ts_ends = np.r_[global_time_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
-        ts_beats = np.zeros((len(note_array), 1))
-        ts_beat_type = np.zeros((len(note_array), 1))
-        for i, ts_start, ts_num, ts_dem, ts_end in enumerate(global_time_sigs):
-            ts_end = ts_ends[i]
-            mask = np.where(np.logical_and(note_array["onset_div"] >= ts_start, note_array["onset_div"] < ts_end))
-            ts_beats[mask, 0] = ts_num
-            ts_beat_type[mask, 0] = ts_dem
-    elif len(global_time_sigs) == 0:
-        ts_beats = np.full((len(note_array), 1), 4)
-        ts_beat_type = np.full((len(note_array), 1), 4)
-    else:
-        ts_beats = np.full((len(note_array), 1), global_time_sigs[0][1])
-        ts_beat_type = np.full((len(note_array), 1), global_time_sigs[0][2])
 
-    t_sigs = np.hstack((ts_beats, ts_beat_type))
-    t_sigs = unstructured_to_structured(t_sigs, dtype=np.dtype([("ts_beats", int), ("ts_beat_type", int)]))
-    # TODO: deal with zero duration notes in note_array.
-    note_array = merge_arrays((note_array, t_sigs), flatten=True)
-    part = note_array_to_part(note_array, divs=divs, assign_note_ids=True)
-    return part
-    #
-    # warnings.warn("pitch spelling")
-    # spelling_global = analysis.estimate_spelling(note_array)
-    #
-    # if estimate_voice_info:
-    #     warnings.warn("voice estimation", stacklevel=2)
-    #     # TODO: deal with zero duration notes in note_array.
-    #     # Zero duration notes are currently deleted
-    #     estimated_voices = analysis.estimate_voices(note_array)
-    #     assert len(part_voice_list) == len(estimated_voices)
-    #     for part_voice, voice_est in zip(part_voice_list, estimated_voices):
-    #         if part_voice[1] is None:
-    #             part_voice[1] = voice_est
-    #
-    # if estimate_key:
-    #     warnings.warn("key estimation", stacklevel=2)
-    #     _, mode, fifths = analysis.estimate_key(note_array)
-    #     key_sigs_by_track = {}
-    #     global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
-    #
-    # if assign_note_ids:
-    #     note_ids = ["n{}".format(i) for i in range(len(note_array))]
-    # else:
-    #     note_ids = [None for i in range(len(note_array))]
-    #
-    # time_sigs_by_part = defaultdict(set)
-    # for tr, ts_list in time_sigs_by_track.items():
-    #     for ts in ts_list:
-    #         for part in track_to_part_mapping[tr]:
-    #             time_sigs_by_part[part].add(ts)
-    # for ts in global_time_sigs:
-    #     for part in set(part for _, part, _ in group_part_voice_keys):
-    #         time_sigs_by_part[part].add(ts)
-    #
-    # key_sigs_by_part = defaultdict(set)
-    # for tr, ks_list in key_sigs_by_track.items():
-    #     for ks in ks_list:
-    #         for part in track_to_part_mapping[tr]:
-    #             key_sigs_by_part[part].add(ks)
-    # for ks in global_key_sigs:
-    #     for part in set(part for _, part, _ in group_part_voice_keys):
-    #         key_sigs_by_part[part].add(ks)
-    #
-    # # names_by_part = defaultdict(set)
-    # # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
-    # #     print(tr_ch, pg_p_v)
-    # # for tr, name in track_names_by_track.items():
-    # #     print(tr, track_to_part_mapping, name)
-    # #     for part in track_to_part_mapping[tr]:
-    # #         names_by_part[part] = name
-    #
-    # notes_by_part = defaultdict(list)
-    # for (part, voice), note, spelling, note_id in zip(
-    #     part_voice_list, note_list, spelling_global, note_ids
-    # ):
-    #     notes_by_part[part].append((note, voice, spelling, note_id))
-    #
-    # partlist = []
-    # part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
-    # part_groups = {}
-    # for part_nr, note_info in notes_by_part.items():
-    #     notes, voices, spellings, note_ids = zip(*note_info)
-    #     part = create_part(
-    #         divs,
-    #         notes,
-    #         spellings,
-    #         voices,
-    #         note_ids,
-    #         sorted(time_sigs_by_part[part_nr]),
-    #         sorted(key_sigs_by_part[part_nr]),
-    #         part_id="P{}".format(part_nr + 1),
-    #         part_name=part_names.get(part_nr, None),
-    #     )
-    #
-    #     # print(part.pretty())
-    #     # if this part has an associated part_group number we create a PartGroup
-    #     # if necessary, and add the part to that. The newly created PartGroup is
-    #     # then added to the partlist.
-    #     pg_nr = part_to_part_group[part_nr]
-    #     if pg_nr is None:
-    #         partlist.append(part)
-    #     else:
-    #         if pg_nr not in part_groups:
-    #             part_groups[pg_nr] = score.PartGroup(
-    #                 group_name=group_names.get(pg_nr, None)
-    #             )
-    #             partlist.append(part_groups[pg_nr])
-    #         part_groups[pg_nr].children.append(part)
-    #
-    # # add tempos to first part
-    # part = next(score.iter_parts(partlist))
-    # for t, qpm in global_tempos:
-    #     part.add(score.Tempo(qpm, unit="q"), t)
-    #
-    # if not ensure_list and len(partlist) == 1:
-    #     return partlist[0]
-    # else:
-    #     return partlist
+    warnings.warn("pitch spelling")
+    spelling_global = analysis.estimate_spelling(note_array)
+
+    if estimate_voice_info:
+        warnings.warn("voice estimation", stacklevel=2)
+        # TODO: deal with zero duration notes in note_array.
+        # Zero duration notes are currently deleted
+        estimated_voices = analysis.estimate_voices(note_array)
+        assert len(part_voice_list) == len(estimated_voices)
+        for part_voice, voice_est in zip(part_voice_list, estimated_voices):
+            if part_voice[1] is None:
+                part_voice[1] = voice_est
+
+    if estimate_key:
+        warnings.warn("key estimation", stacklevel=2)
+        _, mode, fifths = analysis.estimate_key(note_array)
+        key_sigs_by_track = {}
+        global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
+
+    if assign_note_ids:
+        note_ids = ["n{}".format(i) for i in range(len(note_array))]
+    else:
+        note_ids = [None for i in range(len(note_array))]
+
+    time_sigs_by_part = defaultdict(set)
+    for tr, ts_list in time_sigs_by_track.items():
+        for ts in ts_list:
+            for part in track_to_part_mapping[tr]:
+                time_sigs_by_part[part].add(ts)
+    for ts in global_time_sigs:
+        for part in set(part for _, part, _ in group_part_voice_keys):
+            time_sigs_by_part[part].add(ts)
+
+    key_sigs_by_part = defaultdict(set)
+    for tr, ks_list in key_sigs_by_track.items():
+        for ks in ks_list:
+            for part in track_to_part_mapping[tr]:
+                key_sigs_by_part[part].add(ks)
+    for ks in global_key_sigs:
+        for part in set(part for _, part, _ in group_part_voice_keys):
+            key_sigs_by_part[part].add(ks)
+
+    # names_by_part = defaultdict(set)
+    # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
+    #     print(tr_ch, pg_p_v)
+    # for tr, name in track_names_by_track.items():
+    #     print(tr, track_to_part_mapping, name)
+    #     for part in track_to_part_mapping[tr]:
+    #         names_by_part[part] = name
+
+    notes_by_part = defaultdict(list)
+    for (part, voice), note, spelling, note_id in zip(
+        part_voice_list, note_list, spelling_global, note_ids
+    ):
+        notes_by_part[part].append((note, voice, spelling, note_id))
+
+    partlist = []
+    part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
+    part_groups = {}
+    for part_nr, note_info in notes_by_part.items():
+        notes, voices, spellings, note_ids = zip(*note_info)
+        part = create_part(
+            divs,
+            notes,
+            spellings,
+            voices,
+            note_ids,
+            sorted(time_sigs_by_part[part_nr]),
+            sorted(key_sigs_by_part[part_nr]),
+            part_id="P{}".format(part_nr + 1),
+            part_name=part_names.get(part_nr, None),
+        )
+
+        # print(part.pretty())
+        # if this part has an associated part_group number we create a PartGroup
+        # if necessary, and add the part to that. The newly created PartGroup is
+        # then added to the partlist.
+        pg_nr = part_to_part_group[part_nr]
+        if pg_nr is None:
+            partlist.append(part)
+        else:
+            if pg_nr not in part_groups:
+                part_groups[pg_nr] = score.PartGroup(
+                    group_name=group_names.get(pg_nr, None)
+                )
+                partlist.append(part_groups[pg_nr])
+            part_groups[pg_nr].children.append(part)
+
+    # add tempos to first part
+    part = next(score.iter_parts(partlist))
+    for t, qpm in global_tempos:
+        part.add(score.Tempo(qpm, unit="q"), t)
+
+    # TODO: Add info (composer, etc.)
+    scr = score.Score(
+        id=doc_name,
+        partlist=partlist,
+    )
+
+    return scr
 
 
 def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
@@ -622,14 +638,14 @@ def create_part(
     key_sigs,
     part_id=None,
     part_name=None,
-):
+) -> score.Part:
     warnings.warn("create_part", stacklevel=2)
 
     part = score.Part(part_id, part_name=part_name)
     part.set_quarter_duration(0, ticks)
 
     clef = score.Clef(
-        number=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
+        staff=1, **estimate_clef_properties([pitch for _, pitch, _ in notes])
     )
     part.add(clef, 0)
     for t, name in key_sigs:

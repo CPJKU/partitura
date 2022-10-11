@@ -5,9 +5,12 @@ from collections import defaultdict
 from lxml import etree
 import partitura.score as score
 from operator import itemgetter
+from typing import Optional
 
 from .importmusicxml import DYN_DIRECTIONS, PEDAL_DIRECTIONS
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
+
+from partitura.utils.misc import deprecated_alias, PathLike
 
 __all__ = ["save_musicxml"]
 
@@ -103,6 +106,22 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
 
         etree.SubElement(pitch_e, "octave").text = "{}".format(note.octave)
 
+    elif isinstance(note, score.UnpitchedNote):
+
+        unpitch_e = etree.SubElement(note_e, "unpitched")
+
+        etree.SubElement(unpitch_e, "display-step").text = "{}".format(note.step)
+
+        etree.SubElement(unpitch_e, "display-octave").text = "{}".format(note.octave)
+
+        if note.notehead is not None:
+            nh_e = etree.SubElement(note_e, "notehead")
+            nh_e.text = "{}".format(note.notehead)
+            if note.noteheadstyle:
+                nh_e.attrib["filled"] = "yes"
+            else:
+                nh_e.attrib["filled"] = "no"
+
     elif isinstance(note, score.Rest):
         if not note.hidden:
             etree.SubElement(note_e, "rest")
@@ -163,7 +182,7 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
         normal_e.text = str(sym_dur["normal_notes"])
 
     if note.staff is not None:
-        if note.staff!=1 or n_of_staves > 1:
+        if note.staff != 1 or n_of_staves > 1:
             etree.SubElement(note_e, "staff").text = "{}".format(note.staff)
 
     for slur in note.slur_stops:
@@ -449,7 +468,9 @@ def linearize_segment_contents(part, start, end, state):
                         )
                         voices_e[voice].append(note_e)
             else:
-                note_e = do_note(n, end.t, part, voice, state["note_id_counter"], n_of_staves)
+                note_e = do_note(
+                    n, end.t, part, voice, state["note_id_counter"], n_of_staves
+                )
                 voices_e[voice].append(note_e)
 
         add_chord_tags(voices_e[voice])
@@ -774,8 +795,9 @@ def do_directions(part, start, end, counter):
                     # For Flake8 (ignore unused variable), since
                     # etree.SubElement adds e2s to e1s
                     e2s = etree.SubElement(  # noqa: F841
-                        e1s, "pedal", type="start", **pedal_kwargs)
-                if direction.staff is not None and direction.staff!=1:
+                        e1s, "pedal", type="start", **pedal_kwargs
+                    )
+                if direction.staff is not None and direction.staff != 1:
                     e3s = etree.SubElement(e0s, "staff")
                     e3s.text = str(direction.staff)
                 elem = (direction.start.t, None, e0s)
@@ -792,8 +814,9 @@ def do_directions(part, start, end, counter):
                     # For Flake8 (ignore unused variable), since
                     # etree.SubElement adds e2e to e1e
                     e2e = etree.SubElement(  # noqa: F841
-                        e1e, "pedal", type="end", **pedal_kwargs)
-                if direction.staff is not None and direction.staff!=1:
+                        e1e, "pedal", type="end", **pedal_kwargs
+                    )
+                if direction.staff is not None and direction.staff != 1:
                     e3e = etree.SubElement(e0e, "staff")
                     e3e.text = str(direction.staff)
                 elem = (ped_end.t, None, e0e)
@@ -834,7 +857,7 @@ def do_directions(part, start, end, counter):
                         e3, "dashes", number="{}".format(number), type="start"
                     )
 
-            if direction.staff is not None and direction.staff!=1:
+            if direction.staff is not None and direction.staff != 1:
 
                 e5 = etree.SubElement(e0, "staff")
                 e5.text = str(direction.staff)
@@ -922,9 +945,9 @@ def do_attributes(part, start, end):
 
                 clef_e = etree.SubElement(attr_e, "clef")
 
-                if o.number and o.number!=1:
+                if o.staff and o.staff != 1:
 
-                    clef_e.set("number", "{}".format(o.number))
+                    clef_e.set("number", "{}".format(o.staff))
 
                 etree.SubElement(clef_e, "sign").text = "{}".format(o.sign)
                 etree.SubElement(clef_e, "line").text = "{}".format(o.line)
@@ -940,14 +963,20 @@ def do_attributes(part, start, end):
     return result
 
 
-def save_musicxml(parts, out=None):
-    """Save a one or more Part or PartGroup instances in MusicXML format.
+@deprecated_alias(parts="score_data")
+def save_musicxml(
+        score_data: score.ScoreLike,
+        out: Optional[PathLike] = None,
+) -> Optional[str]:
+    """
+    Save a one or more Part or PartGroup instances in MusicXML format.
 
     Parameters
     ----------
-    parts : list, Part, or PartGroup
-        A :class:`partitura.score.Part` object,
-        :class:`partitura.score.PartGroup` or a list of these
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
     out: str, file-like object, or None, optional
         Output file
 
@@ -956,8 +985,13 @@ def save_musicxml(parts, out=None):
     None or str
         If no output file is specified using `out` the function returns the
         MusicXML data as a string. Otherwise the function returns None.
-
     """
+
+    if not isinstance(score_data, score.Score):
+        score_data = score.Score(
+            id=None,
+            partlist=score_data,
+        )
 
     root = etree.Element("score-partwise")
 
@@ -1022,7 +1056,7 @@ def save_musicxml(parts, out=None):
 
             group_stack.append(pg)
 
-    for part in score.iter_parts(parts):
+    for part in score_data:
 
         handle_parents(part)
 

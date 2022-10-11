@@ -28,17 +28,21 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(len(note_array) == 1)
 
     def test_rest_array(self):
-        part = load_musicxml(REST_ARRAY_TESTFILES[0])
-        part.use_musical_beat()
-        rest_array = part.rest_array(include_metrical_position=True, include_staff=True)
+        sc = load_musicxml(REST_ARRAY_TESTFILES[0])
+        sc[0].use_musical_beat()
+        rest_array = sc[0].rest_array(
+            include_metrical_position=True, include_staff=True
+        )
         expected_musical_beats = [14, 18]
-        self.assertTrue(np.array_equal(rest_array["onset_beat"], expected_musical_beats))
+        self.assertTrue(
+            np.array_equal(rest_array["onset_beat"], expected_musical_beats)
+        )
 
     def test_rest_collapse(self):
-        part = load_musicxml(REST_ARRAY_TESTFILES[1])
-        rest_array_non_collapsed = part.rest_array()
+        sc = load_musicxml(REST_ARRAY_TESTFILES[1])
+        rest_array_non_collapsed = sc[0].rest_array()
         expected_length_non_collapsed = 7
-        rest_array = part.rest_array(collapse=True)
+        rest_array = sc[0].rest_array(collapse=True)
         expected_length_collapsed = 5
         self.assertTrue(len(rest_array_non_collapsed) == expected_length_non_collapsed)
         self.assertTrue(len(rest_array) == expected_length_collapsed)

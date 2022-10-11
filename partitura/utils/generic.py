@@ -6,7 +6,6 @@ from textwrap import dedent
 import numpy as np
 
 
-
 __all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
 
 
@@ -314,7 +313,6 @@ class ComparableMixin(object):
 
     def __ne__(self, other):
         return self._compare(other, lambda s, o: s != o)
-
 
 
 def partition(func, iterable):
