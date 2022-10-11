@@ -273,7 +273,7 @@ def synthesize(
     note_info,
     samplerate: int = SAMPLE_RATE,
     envelope_fun: str = "linear",
-    tuning: str = "equal_temperament",
+    tuning: Union[str, Callable] = "equal_temperament",
     tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
     bpm: Union[float, int] = 60,
@@ -344,6 +344,13 @@ def synthesize(
         freq_in_hz = midi_pitch_to_frequency(pitch, **tuning_kwargs)
     elif tuning == "natural":
         freq_in_hz = midi_pitch_to_natural_frequency(pitch, **tuning_kwargs)
+    elif callable(tuning):
+        freq_in_hz = tuning(pitch, **tuning_kwargs)
+
+    else:
+        raise ValueError(
+            "`tuning` must be 'equal_temperament', 'natural' or a callable"
+        )
 
     if harmonic_dist is None:
 
