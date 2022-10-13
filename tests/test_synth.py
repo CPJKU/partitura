@@ -16,9 +16,9 @@ from partitura import EXAMPLE_MUSICXML, load_score
 
 from partitura import save_wav
 
-RNG = np.random.RandomState(1984)
-
 from tests import WAV_TESTFILES
+
+RNG = np.random.RandomState(1984)
 
 
 class TestMidiPitchToNaturalFrequency(unittest.TestCase):
@@ -157,6 +157,30 @@ class TestSynthExport(unittest.TestCase):
 
                 self.assertTrue(sr_rec == sr)
                 self.assertTrue(len(rec_audio) == len(original_audio))
+
+                self.assertTrue(
+                    np.allclose(
+                        rec_audio / rec_audio.max(),
+                        original_audio / original_audio.max(),
+                        atol=1e-4,
+                    )
+                )
+
+    def test_errors(self):
+
+        # wrong envelope
+        try:
+            audio_signal = synthesize(
+                note_info=self.score,
+                samplerate=8000,
+                envelope_fun="wrong keyword",
+                tuning="equal_temperament",
+                bpm=60,
+            )
+            # This test should fail
+            self.assertTrue(False)
+        except ValueError:
+            self.assertTrue(True)
 
 
 if __name__ == "__main__":
