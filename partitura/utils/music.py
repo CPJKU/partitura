@@ -1622,7 +1622,7 @@ def note_array_from_part_list(
 
     if is_score:
         # rescale if parts have different divs
-        divs_per_parts = [part[0]["divs_pq"] for part in note_array]
+        divs_per_parts = [part_na[0]["divs_pq"] for part_na in note_array if len(part_na)]
         lcm = np.lcm.reduce(divs_per_parts)
         time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
         for na, time_mult in zip(note_array, time_multiplier_per_part):
