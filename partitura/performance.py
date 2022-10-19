@@ -73,6 +73,7 @@ class PerformedPart(object):
         controls: List[dict] = None,
         programs: List[dict] = None,
         sustain_pedal_threshold: int = 64,
+        ppq: int = 500
     ) -> None:
         super().__init__()
         self.id = id
@@ -80,6 +81,7 @@ class PerformedPart(object):
         self.notes = notes
         self.controls = controls or []
         self.programs = programs or []
+        self.ppq = ppq
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
