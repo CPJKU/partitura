@@ -358,8 +358,9 @@ def _parse_parts(document, part_dict):
                 #         # if repeat from volta, continue for now
                 #         volta_repeats.append(o)
                 #         continue
-
-                end_times = [r.start.t for r in part.iter_all(score.Repeat)] + [part._points[-1].t]
+                
+                starting_repeats = [r for r in part.iter_all(score.Repeat) if r.start is not None] 
+                end_times = [r.start.t for r in starting_repeats] + [part._points[-1].t]
                 end_time_id = np.searchsorted(end_times, o.start.t+1)
                 part.add(o, None, end_times[end_time_id])
                 warnings.warn(
