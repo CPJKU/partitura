@@ -48,6 +48,8 @@ class PerformedPart(object):
         The threshold above which sustain pedal values are considered
         to be equivalent to on. For values below the threshold the
         sustain pedal is treated as off. Defaults to 64.
+    ppq : int
+        Parts per Quarter (ppq) of the MIDI encoding. Defaults to 480. 
 
     Attributes
     ----------
@@ -73,6 +75,7 @@ class PerformedPart(object):
         controls: List[dict] = None,
         programs: List[dict] = None,
         sustain_pedal_threshold: int = 64,
+        ppq: int = 480
     ) -> None:
         super().__init__()
         self.id = id
@@ -80,6 +83,7 @@ class PerformedPart(object):
         self.notes = notes
         self.controls = controls or []
         self.programs = programs or []
+        self.ppq = ppq
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
