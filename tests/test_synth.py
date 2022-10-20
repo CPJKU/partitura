@@ -6,6 +6,7 @@ import tempfile
 
 from partitura.utils.synth import (
     midi_pitch_to_natural_frequency,
+    midi_pitch_to_tempered_frequency,
     exp_in_exp_out,
     lin_in_lin_out,
     additive_synthesis,
@@ -20,6 +21,21 @@ RNG = np.random.RandomState(1984)
 
 from tests import WAV_TESTFILES
 
+
+class TestMidiPitchToTemperedFrequency(unittest.TestCase):
+    def test_octaves(self):
+        # all As
+        midi_pitch = np.arange(6) + 10
+        freq_ratios = [1.1, 1.2, 1.3, 1.44, 1.5, 1.55]
+        # compute frequencies
+        frequency = midi_pitch_to_tempered_frequency(midi_pitch,
+                                                     reference_midi_pitch = 10,
+                                                     reference_frequency = 100,
+                                                     interval_ratios = freq_ratios)
+        freq_ratios_new = frequency / 100
+        # make test
+        self.assertTrue(np.allclose(freq_ratios, freq_ratios_new))
+        
 
 class TestMidiPitchToNaturalFrequency(unittest.TestCase):
     def test_octaves(self):
