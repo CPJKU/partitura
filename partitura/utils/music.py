@@ -1617,7 +1617,7 @@ def note_array_from_part_list(
 
     if is_score:
         # rescale if parts have different divs
-        divs_per_parts = [part[0]["divs_pq"] for part in note_array]
+        divs_per_parts = [part_na[0]["divs_pq"] for part_na in note_array if len(part_na)]
         lcm = np.lcm.reduce(divs_per_parts)
         time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
         for na, time_mult in zip(note_array, time_multiplier_per_part):
@@ -2292,7 +2292,11 @@ def note_array_from_note_list(
 
     # Sanitize voice information
     no_voice_idx = np.where(note_array["voice"] == -1)[0]
-    max_voice = note_array["voice"].max()
+    try:
+        max_voice = note_array["voice"].max()
+    except ValueError:  # raised if `note_array["voice"]` is empty.
+        note_array["voice"] = 0
+        max_voice = 0
     note_array["voice"][no_voice_idx] = max_voice + 1
 
     # sort by onset and pitch

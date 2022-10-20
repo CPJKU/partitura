@@ -71,12 +71,8 @@ def midi_pitch_to_natural_frequency(
     C4 is a descending major sixth with respect to A4, E5 is descending
     perfect fourth computed with respect to A5, etc.).
 
-
-    TODO
-    ----
-    * compute intervals with given reference pitch.
     """
-
+    
     octave = (midi_pitch // 12) - 1
 
     aref = 69.0 - 12.0 * (4 - octave)
@@ -96,6 +92,55 @@ def midi_pitch_to_natural_frequency(
     )
 
     freqs = aref_freq * ratios
+
+    if isinstance(midi_pitch, (int, float)):
+        freqs = float(freqs)
+    return freqs
+
+
+def midi_pitch_to_tempered_frequency(
+    midi_pitch: Union[int, float, np.ndarray],
+    reference_midi_pitch: Union[int, float] = 69,
+    reference_frequency: float = A4,
+    interval_ratios: Dict[int, float] = NATURAL_INTERVAL_RATIOS,
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI pitch to frequency in Hz using 
+    a temperament given as frequency ratios above
+    a reference pitch.
+
+    Parameters
+    ----------
+    midi_pitch: int, float or ndarray
+        MIDI pitch of the note(s).
+    reference_midi_pitch : int or float (optional)
+        midi pitch of the reference pitch. By default is 69 (A4).
+    reference_frequency : int (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+    interval_ratios: dict
+        Dictionary of interval ratios from the reference
+
+    Returns
+    -------
+    freq : float or ndarray
+        Frequency of the note(s).
+    """
+
+    interval = (midi_pitch - reference_midi_pitch) % 12
+    octave = (midi_pitch - reference_midi_pitch) // 12
+    adjusted_reference_frequency = reference_frequency / (2.0 ** -octave)
+
+    if isinstance(interval, (int, float)):
+        interval = np.array([interval], dtype=int)
+
+    ratios = np.array(
+        [
+            interval_ratios[abs(itv)]
+            for itv in interval
+        ]
+    )
+
+    freqs = adjusted_reference_frequency * ratios
 
     if isinstance(midi_pitch, (int, float)):
         freqs = float(freqs)

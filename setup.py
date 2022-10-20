@@ -59,6 +59,8 @@ setup(
             "assets/musicxml.xsd",
             "assets/score_example.mid",
             "assets/score_example.musicxml",
+            "assets/score_example.krn",
+            "assets/score_example.mei",
         ]
     },
     install_requires=REQUIRED,
