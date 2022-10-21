@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-from typing import Union
+from typing import Union, Callable
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
@@ -1617,7 +1617,9 @@ def note_array_from_part_list(
 
     if is_score:
         # rescale if parts have different divs
-        divs_per_parts = [part_na[0]["divs_pq"] for part_na in note_array if len(part_na)]
+        divs_per_parts = [
+            part_na[0]["divs_pq"] for part_na in note_array if len(part_na)
+        ]
         lcm = np.lcm.reduce(divs_per_parts)
         time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
         for na, time_mult in zip(note_array, time_multiplier_per_part):
@@ -2622,8 +2624,8 @@ def performance_from_part(part, bpm=100, velocity=64):
 
 def performance_notearray_from_score_notearray(
     snote_array: np.ndarray,
-    bpm: float = 100,
-    velocity: Union[np.ndarray, int] = 64,
+    bpm: [float, np.ndarray, Callable] = 100.0,
+    velocity: Union[int, np.ndarray, Callable] = 64,
 ) -> np.ndarray:
     """
     Generate a performance note array from a score note array
@@ -2641,6 +2643,8 @@ def performance_notearray_from_score_notearray(
     Returns
     -------
     pnote_array : np.ndarray
+        A performance note array based on the score with the specified tempo
+        and velocity.
     """
 
     ppart_fields = [
@@ -2656,18 +2660,28 @@ def performance_notearray_from_score_notearray(
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
 
     if isinstance(velocity, np.ndarray):
-        if len(velocity) != len(snote_array):
-            raise ValueError(
-                "The provided MIDI velocity should be an integer or have "
-                "the same length as `snote_array`."
+
+        if velocity.ndim == 2:
+
+            velocity_fun = interp1d(
+                x=velocity[:, 0],
+                y=velocity[:, 1],
+                kind="linear",
+                bounds_error=False,
+                fill_value="interpolate",
             )
-        pnote_array["velocity"] = np.round(velocity).astype(int)
+            pnote_array["velocity"] = np.round(
+                velocity_fun(snote_array["onset_beat"]),
+            ).astype(int)
+
+        else:
+            pnote_array["velocity"] = np.round(velocity).astype(int)
 
     elif callable(velocity):
         # The velocity parameter is a callable that returns a
         # velocity value for each score onset
         pnote_array["velocity"] = np.round(
-            velocity(pnote_array["onset_sec"]),
+            velocity(snote_array["onset_beat"]),
         ).astype(int)
 
     else:
@@ -2683,24 +2697,44 @@ def performance_notearray_from_score_notearray(
 
     iois = np.diff(unique_onsets)
 
-    if callable(bpm):
-        # bpm parameter is a callable that returns a bpm value
-        # for each score onset
-        bp = 60 / bpm(unique_onsets)
-    elif isinstance(bpm, np.ndarray):
-        if len(bpm) != len(unique_onsets) or bpm.ndim != 2:
-            raise ValueError(
-                f"`bpm` should be a 2D array with length {len(unique_onsets)}"
-                f" but has length {len(bpm}}"
-            )
-    # convert bpm to beat period
-    bp = 60 / float(bpm)
+    if callable(bpm) or isinstance(bpm, np.ndarray):
 
-    # TODO: allow for variable bpm and velocity
-    pnote_array["duration_sec"] = bp * snote_array["duration_beat"]
+        if callable(bpm):
+            # bpm parameter is a callable that returns a bpm value
+            # for each score onset
+            bp = 60 / bpm(unique_onsets)
+            bp_duration = (
+                60 / bpm(snote_array["onset_beat"]) * snote_array["duration_beat"]
+            )
+
+        elif isinstance(bpm, np.ndarray):
+
+            if bpm.ndim != 2:
+                raise ValueError("`bpm` should be a 2D array")
+
+            bpm_fun = interp1d(
+                x=bpm[:, 0],
+                y=bpm[:, 1],
+                kind="linear",
+                bounds_error=False,
+                fill_value="interpolate",
+            )
+            bp = 60 / bpm_fun(unique_onsets)
+            bp_duration = (
+                60 / bpm_fun(snote_array["onset_beat"]) * snote_array["duration_beat"]
+            )
+
+        p_onsets = np.r_[0, np.cumsum(iois * bp[:-1])]
+        pnote_array["duration_sec"] = bp_duration * snote_array["duration_beat"]
+
+    else:
+        # convert bpm to beat period
+        bp = 60 / float(bpm)
+        p_onsets = np.r_[0, np.cumsum(iois * bp)]
+        pnote_array["duration_sec"] = bp * snote_array["duration_beat"]
+
     pnote_array["pitch"] = snote_array["pitch"]
     pnote_array["id"] = snote_array["id"]
-    p_onsets = np.r_[0, np.cumsum(iois * bp)]
 
     for ix, on in zip(unique_onset_idxs, p_onsets):
         # ix has to be cast as integer depending on the

@@ -3,7 +3,8 @@ import partitura
 import numpy as np
 
 from partitura.utils import music
-from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES
+from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES
+
 
 RNG = np.random.RandomState(1984)
 
@@ -127,3 +128,229 @@ class TestPerformanceFromPart(unittest.TestCase):
 
                 # check that that the performance corresponds to the expected tempo
                 self.assertTrue(np.allclose(60 / beat_period, bpm))
+
+    def get_tempo_curve(self, score_onsets, performance_onsets):
+        """
+        Get tempo curve
+        """
+        unique_sonsets = np.unique(score_onsets)
+        # Ensure that everything is sorted (I'm just paranoid ;)
+        unique_sonsets.sort()
+        unique_ponsets = np.unique(performance_onsets)
+        # Ensure that everything is sorted
+        unique_ponsets.sort()
+
+        bp = np.diff(unique_ponsets) / np.diff(unique_sonsets)
+
+        # Beats per minute for each of the unique onsets
+        # the last bpm is just assuming that the tempo remains
+        # constant after the last onset.
+        bpm = np.r_[60 / bp, 60 / bp[-1]]
+
+        return bpm
+
+    def test_performance_notearray_from_score_notearray_bpm(self):
+        """
+        Test possibilities for bpm argument in
+        utils.music.performance_notearray_from_score_notearray
+        """
+        score = partitura.load_score(MOZART_VARIATION_FILES["musicxml"])
+
+        score_note_array = score.note_array()
+
+        unique_onsets = np.unique(score_note_array["onset_beat"])
+        unique_onsets.sort()
+        # Test constant tempo
+        bpm = 30
+        velocity = 65
+        perf_note_array = music.performance_notearray_from_score_notearray(
+            snote_array=score_note_array,
+            bpm=bpm,
+            velocity=velocity,
+        )
+
+        self.assertTrue(
+            np.allclose(
+                self.get_tempo_curve(
+                    score_note_array["onset_beat"],
+                    perf_note_array["onset_sec"],
+                ),
+                bpm,
+            )
+        )
+
+        # Test callable tempo
+        def bpm_fun(onset):
+            """
+            Test function the first half of the piece will be played
+            twice as fast
+            """
+            if isinstance(onset, (int, float)):
+                onset = np.array([onset])
+
+            bpm = np.zeros(len(onset), dtype=float)
+
+            midpoint = (unique_onsets.max() - unique_onsets.min()) / 2
+            bpm[np.where(onset <= midpoint)[0]] = 120
+            bpm[np.where(onset > midpoint)[0]] = 60
+
+            return bpm
+
+        perf_note_array = music.performance_notearray_from_score_notearray(
+            snote_array=score_note_array,
+            bpm=bpm_fun,
+            velocity=velocity,
+        )
+
+        bpm = self.get_tempo_curve(
+            score_note_array["onset_beat"],
+            perf_note_array["onset_sec"],
+        )
+
+        midpoint = (unique_onsets.max() - unique_onsets.min()) / 2
+
+        self.assertTrue(
+            np.allclose(
+                bpm[np.where(unique_onsets <= midpoint)[0]],
+                120,
+            )
+        )
+
+        self.assertTrue(np.allclose(bpm[np.where(unique_onsets > midpoint)[0]], 60))
+
+        # Test tempo as an array
+        bpm_expected = 40 * RNG.rand(len(unique_onsets)) + 30
+
+        # Test using 1d array
+        perf_note_array = music.performance_notearray_from_score_notearray(
+            snote_array=score_note_array,
+            bpm=np.column_stack((unique_onsets, bpm_expected)),
+            velocity=velocity,
+        )
+
+        bpm_predicted = self.get_tempo_curve(
+            score_note_array["onset_beat"],
+            perf_note_array["onset_sec"],
+        )
+
+        # do not consider the last element, since get_tempo_curve only computes
+        # the tempo up to the last onset (otherwise offsets need to be considered)
+        self.assertTrue(np.allclose(bpm_expected[:-1], bpm_predicted[:-1], atol=1e-3))
+
+        try:
+            # This should trigger an error because bpm_expected is a 1D array
+            perf_note_array = music.performance_notearray_from_score_notearray(
+                snote_array=score_note_array,
+                bpm=bpm_expected,
+                velocity=velocity,
+            )
+            self.assertTrue(False)
+
+        except ValueError:
+            # We are expecting the previous code to trigger an error
+            self.assertTrue(True)
+
+    def get_velocity_curves(self, velocity, score_onsets):
+        """
+        Get velocity curve by aggregating MIDI velocity values for
+        each onset
+        """
+        unique_onsets = np.unique(score_onsets)
+        # Ensure that everything is sorted (I'm just paranoid ;)
+        unique_onsets.sort()
+
+        unique_onset_idxs = [np.where(score_onsets == uo)[0] for uo in unique_onsets]
+        velocity_curve = np.array([velocity[ui].mean() for ui in unique_onset_idxs])
+
+        return velocity_curve
+
+    def test_performance_notearray_from_score_notearray_velocity(self):
+        """
+        Test velocity arguments in
+        utils.music.performance_notearray_from_score_notearray
+        """
+        score = partitura.load_score(MOZART_VARIATION_FILES["musicxml"])
+
+        score_note_array = score.note_array()
+
+        unique_onsets = np.unique(score_note_array["onset_beat"])
+        unique_onsets.sort()
+
+        # Test constant velocity
+        bpm = 120
+        velocity = 65
+        perf_note_array = music.performance_notearray_from_score_notearray(
+            snote_array=score_note_array,
+            bpm=bpm,
+            velocity=velocity,
+        )
+
+        self.assertTrue(all(perf_note_array["velocity"] == velocity))
+
+        # Test callable velocity
+        def vel_fun(onset):
+            """
+            Test function the first half of the piece will be played
+            twice as loud
+            """
+            if isinstance(onset, (int, float)):
+                onset = np.array([onset])
+
+            vel = np.zeros(len(onset), dtype=float)
+
+            midpoint = (unique_onsets.max() - unique_onsets.min()) / 2
+            vel[np.where(onset <= midpoint)[0]] = 120
+            vel[np.where(onset > midpoint)[0]] = 60
+
+            return vel
+
+        perf_note_array = music.performance_notearray_from_score_notearray(
+            snote_array=score_note_array,
+            bpm=bpm,
+            velocity=vel_fun,
+        )
+
+        vel = self.get_velocity_curves(
+            perf_note_array["velocity"], score_note_array["onset_beat"]
+        )
+
+        midpoint = (unique_onsets.max() - unique_onsets.min()) / 2
+
+        self.assertTrue(
+            np.allclose(
+                vel[np.where(unique_onsets <= midpoint)[0]],
+                120,
+            )
+        )
+
+        self.assertTrue(np.allclose(vel[np.where(unique_onsets > midpoint)[0]], 60))
+
+        # Test tempo as an array
+        vel_expected = np.round(40 * RNG.rand(len(unique_onsets)) + 30)
+
+        # Test using 1d array
+        perf_note_array = music.performance_notearray_from_score_notearray(
+            snote_array=score_note_array,
+            velocity=np.column_stack((unique_onsets, vel_expected)),
+            bpm=bpm,
+        )
+
+        vel_predicted = self.get_velocity_curves(
+            perf_note_array["velocity"],
+            score_note_array["onset_beat"],
+        )
+
+        self.assertTrue(np.allclose(vel_expected, vel_predicted, atol=1e-3))
+
+        try:
+            # This should trigger an error because vel_expected is a 1D array
+            perf_note_array = music.performance_notearray_from_score_notearray(
+                snote_array=score_note_array,
+                bpm=bpm,
+                velocity=vel_expected,
+            )
+            self.assertTrue(False)
+
+        except ValueError:
+            # We are expecting the previous code to trigger an error
+            self.assertTrue(True)
