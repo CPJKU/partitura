@@ -318,7 +318,6 @@ def synthesize(
     tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
     bpm: Union[float, np.ndarray, Callable] = 60,
-    velocity: Union[int, np.ndarray, Callable] = 64,
 ) -> np.ndarray:
     """
     Synthesize a partitura object with note information
@@ -341,10 +340,6 @@ def synthesize(
         Default is None (i.e., only consider the fundamental frequency)
     bpm : float, np.ndarray or callable
         The bpm to render the output (if the input is a score-like object).
-        See `partitura.utils.music.performance_notearray_from_score_notearray`
-        for more information on this parameter.
-    velocity: int, np.ndarray or callable
-        The MIDI velocity to render the output (if the input is a score-like object).
         See `partitura.utils.music.performance_notearray_from_score_notearray`
         for more information on this parameter.
 
