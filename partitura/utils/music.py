@@ -2557,19 +2557,25 @@ def performance_from_part(part, bpm=100, velocity=64):
     ----------
     part: Part
         The part from which we want to generate a performed part
-    bpm : float
-        Beats per minute
-    velocity: float or int
-        The MIDI velocity for all notes.
+    bpm : float, np.ndarray or callable
+        Beats per minute to generate the performance. If a the value is a float,
+        the performance will be generated with a constant tempo. If the value is
+        a np.ndarray, it has to be an array with two columns where the first
+        column is score time in beats and the second column is the tempo. If a
+        callable is given, the function is assumed to map score onsets in beats
+        to tempo values. Default is 100 bpm.
+    velocity: int, np.ndarray or callable
+        MIDI velocity of the performance. If a the value is an int, the
+        performance will be generated with a constant MIDI velocity. If the
+        value is a np.ndarray, it has to be an array with two columns where
+        the first column is score time in beats and the second column is the
+        MIDI velocity. If a callable is given, the function is assumed to map
+        score time in beats to MIDI velocity. Default is 64.
 
     Returns
     -------
     ppart: PerformedPart
-
-    Potential extensions
-    --------------------
-    * allow for bpm to be a callable or an 2D array with columns (onset, bpm)
-    * allow for velocity to be a callable or a 2D array (onset, velocity)
+        A PerformedPart object with the generated performance.
     """
     from partitura.score import Part
     from partitura.performance import PerformedPart
@@ -2580,42 +2586,11 @@ def performance_from_part(part, bpm=100, velocity=64):
             f"`partitura.score.Part` instance, not {type(part)}"
         )
 
-    ppart_fields = [
-        ("onset_sec", "f4"),
-        ("duration_sec", "f4"),
-        ("pitch", "i4"),
-        ("velocity", "i4"),
-        ("track", "i4"),
-        ("channel", "i4"),
-        ("id", "U256"),
-    ]
     snote_array = part.note_array()
 
-    pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
-
-    unique_onsets = np.unique(snote_array["onset_beat"])
-    # Cast as object to avoid warnings, but seems to work well
-    # in numpy version 1.20.1
-    unique_onset_idxs = np.array(
-        [np.where(snote_array["onset_beat"] == u)[0] for u in unique_onsets],
-        dtype=object,
+    pnote_array = performance_notearray_from_score_notearray(
+        snote_array=snote_array, bpm=bpm, velocity=velocity
     )
-
-    iois = np.diff(unique_onsets)
-
-    bp = 60 / float(bpm)
-
-    # TODO: allow for variable bpm and velocity
-    pnote_array["duration_sec"] = bp * snote_array["duration_beat"]
-    pnote_array["velocity"] = int(velocity)
-    pnote_array["pitch"] = snote_array["pitch"]
-    pnote_array["id"] = snote_array["id"]
-    p_onsets = np.r_[0, np.cumsum(iois * bp)]
-
-    for ix, on in zip(unique_onset_idxs, p_onsets):
-        # ix has to be cast as integer depending on the
-        # numpy version...
-        pnote_array["onset_sec"][ix.astype(int)] = on
 
     ppart = PerformedPart.from_note_array(pnote_array)
 
@@ -2634,11 +2609,21 @@ def performance_notearray_from_score_notearray(
     ----------
     snote_array : np.ndarray
         A score note array.
-    bpm : float
-        Beats per minute to generate the performance. Default is 100.
-    velocity: int or np.ndarray
-        The MIDI velocity for all notes. If a numpy array is given, it should
-        be the same length as `snote_array`.
+    bpm : float, np.ndarray or callable
+        Beats per minute to generate the performance. If a the value is a float,
+        the performance will be generated with a constant tempo. If the value is
+        a np.ndarray, it has to be an array with two columns where the first
+        column is score time in beats and the second column is the tempo. If a
+        callable is given, the function is assumed to map score onsets in beats
+        to tempo values. Default is 100 bpm.
+    velocity: int, np.ndarray or callable
+        MIDI velocity of the performance. If a the value is an int, the
+        performance will be generated with a constant MIDI velocity. If the
+        value is a np.ndarray, it has to be an array with two columns where
+        the first column is score time in beats and the second column is the
+        MIDI velocity. If a callable is given, the function is assumed to map
+        score time in beats to MIDI velocity. Default is 64.
+
 
     Returns
     -------
@@ -2666,9 +2651,9 @@ def performance_notearray_from_score_notearray(
             velocity_fun = interp1d(
                 x=velocity[:, 0],
                 y=velocity[:, 1],
-                kind="linear",
+                kind="previous",
                 bounds_error=False,
-                fill_value="interpolate",
+                fill_value=(velocity[0, 1], velocity[-1, 1]),
             )
             pnote_array["velocity"] = np.round(
                 velocity_fun(snote_array["onset_beat"]),
@@ -2715,9 +2700,9 @@ def performance_notearray_from_score_notearray(
             bpm_fun = interp1d(
                 x=bpm[:, 0],
                 y=bpm[:, 1],
-                kind="linear",
+                kind="previous",
                 bounds_error=False,
-                fill_value="interpolate",
+                fill_value=(bpm[0, 1], bpm[-1, 1]),
             )
             bp = 60 / bpm_fun(unique_onsets)
             bp_duration = (
