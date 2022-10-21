@@ -17,6 +17,7 @@ from partitura.utils.music import (
     ensure_notearray,
     get_time_units_from_note_array,
     midi_pitch_to_frequency,
+    performance_notearray_from_score_notearray,
 )
 
 TWO_PI = 2 * np.pi
@@ -72,7 +73,7 @@ def midi_pitch_to_natural_frequency(
     perfect fourth computed with respect to A5, etc.).
 
     """
-    
+
     octave = (midi_pitch // 12) - 1
 
     aref = 69.0 - 12.0 * (4 - octave)
@@ -105,7 +106,7 @@ def midi_pitch_to_tempered_frequency(
     interval_ratios: Dict[int, float] = NATURAL_INTERVAL_RATIOS,
 ) -> Union[float, np.ndarray]:
     """
-    Convert MIDI pitch to frequency in Hz using 
+    Convert MIDI pitch to frequency in Hz using
     a temperament given as frequency ratios above
     a reference pitch.
 
@@ -133,12 +134,7 @@ def midi_pitch_to_tempered_frequency(
     if isinstance(interval, (int, float)):
         interval = np.array([interval], dtype=int)
 
-    ratios = np.array(
-        [
-            interval_ratios[abs(itv)]
-            for itv in interval
-        ]
-    )
+    ratios = np.array([interval_ratios[abs(itv)] for itv in interval])
 
     freqs = adjusted_reference_frequency * ratios
 
@@ -321,7 +317,8 @@ def synthesize(
     tuning: Union[str, Callable] = "equal_temperament",
     tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
-    bpm: Union[float, int] = 60,
+    bpm: Union[float, np.ndarray, Callable] = 60,
+    velocity: Union[int, np.ndarray, Callable] = 64,
 ) -> np.ndarray:
     """
     Synthesize a partitura object with note information
@@ -337,12 +334,19 @@ def synthesize(
     envelope_fun: {"linear", "exp" }
         The type of envelop to apply to the individual sine waves.
     tuning: {"equal_temperament", "natural"}
+        The tuning system to use.
     harmonic_dist : int,  "shepard" or None (optional)
         Distribution of harmonics. If an integer, it is the number
         of harmonics to be considered. If "shepard", it uses Shepard tones.
         Default is None (i.e., only consider the fundamental frequency)
-    bpm : int
-        The bpm to render the output (if the input is a score-like object)
+    bpm : float, np.ndarray or callable
+        The bpm to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
+    velocity: int, np.ndarray or callable
+        The MIDI velocity to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
 
     Returns
     -------
@@ -358,10 +362,14 @@ def synthesize(
 
     # If the input is a score, convert score time to seconds
     if onset_unit != "onset_sec":
-        beat2sec = 60 / bpm
-        onsets = note_array[onset_unit] * beat2sec
-        offsets = (note_array[onset_unit] + note_array[duration_unit]) * beat2sec
-        duration = note_array[duration_unit] * beat2sec
+        pnote_array = performance_notearray_from_score_notearray(
+            snote_array=note_array,
+            bpm=bpm,
+            velocity=velocity,
+        )
+        onsets = pnote_array["onset_sec"]
+        offsets = pnote_array["onset_sec"] + pnote_array["duration_sec"]
+        duration = pnote_array["duration_sec"]
     else:
         onsets = note_array["onset_sec"]
         offsets = note_array["onset_sec"] + note_array["duration_sec"]
