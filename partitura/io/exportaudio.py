@@ -5,6 +5,7 @@ from typing import Union, Optional, Callable, Dict, Any
 import numpy as np
 from scipy.io import wavfile
 
+
 from partitura.score import ScoreLike
 from partitura.performance import PerformanceLike
 
@@ -23,7 +24,7 @@ def save_wav(
     tuning: Union[str, Callable] = "equal_temperament",
     tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
-    bpm: Union[float, int] = 60,
+    bpm: Union[float, np.ndarray, Callable] = 60,
 ) -> Optional[np.ndarray]:
     """
     Export a score (a `Score`, `Part`, `PartGroup` or list of `Part` instances),
@@ -59,8 +60,10 @@ def save_wav(
         Distribution of harmonics. If an integer, it is the number
         of harmonics to be considered. If "shepard", it uses Shepard tones.
         Default is None (i.e., only consider the fundamental frequency)
-    bpm : int
-        The bpm to render the output (if the input is a score-like object)
+    bpm : float, np.ndarray, callable
+        The bpm to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
 
     Returns
     -------
