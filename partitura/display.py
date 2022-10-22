@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-
-"""This module defines a function "show" that creates a rendering of one
+# -*- coding: utf-8 -*-
+"""
+This module defines a function "show" that creates a rendering of one
 or more parts or partgroups and opens it using the desktop default
 application.
-
 """
 
 import platform

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Spiral array representation and tonal tension profiles using Herreman and
-Chew's tension ribbons
+This module contains methods to compute Chew's  spiral array representation
+and the tonal tension profiles using Herreman and Chew's tension ribbons
 
 References
 ----------

@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for methods for computing piano rolls.
+"""
 import numpy as np
 import logging
 import unittest

@@ -1,7 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for Performance Array Calculations
-
+This module contains test functions for Performance Array Calculations
 """
 import unittest
 import numpy as np

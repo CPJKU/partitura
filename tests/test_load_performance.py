@@ -1,7 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for the load_performance method
-
+This module contains test functions for the `load_performance` method
 """
 import unittest
 
@@ -10,7 +10,7 @@ from tests import MATCH_IMPORT_EXPORT_TESTFILES
 
 from partitura import load_performance, EXAMPLE_MIDI
 from partitura.io import NotSupportedFormatError
-from partitura.performance import PerformedPart, Performance
+from partitura.performance import Performance
 
 
 class TestLoadScore(unittest.TestCase):

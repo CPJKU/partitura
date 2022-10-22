@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains music related utilities
+"""
 from collections import defaultdict
 import re
 import warnings

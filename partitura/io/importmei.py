@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing MEI files.
+"""
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 import partitura.score as score

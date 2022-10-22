@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the methods computing tonal tension.
+"""
 import unittest
 
 from partitura import (

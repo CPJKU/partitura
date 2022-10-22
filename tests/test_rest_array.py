@@ -1,7 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 This module contains the test cases for testing the note_array attribute of
 the Part class.
-
 """
 
 import unittest

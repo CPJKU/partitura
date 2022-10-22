@@ -1,7 +1,12 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Krumhansl and Shepard key estimation
+This module implements Krumhansl and Schmuckler key estimation method.
 
+References
+----------
+.. [2] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
+       Oxford University Press, New York.
 """
 import numpy as np
 from scipy.linalg import circulant

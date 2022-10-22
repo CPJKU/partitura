@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Top level of the utilities module.
+"""
 
 from partitura.utils.generic import (
     ComparableMixin,
@@ -51,7 +55,7 @@ from partitura.utils.synth import (
     synthesize
 )
 
-from .misc import (
+from partitura.utils.misc import (
     PathLike,
     get_document_name,
     deprecated_alias,
@@ -72,4 +76,5 @@ __all__ = [
     "pitch_spelling_to_note_name",
     "show_diff",
     "PrettyPrintTree",
+    "synthesize",
 ]

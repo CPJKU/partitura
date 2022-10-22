@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the methods for estimating metrical information.
+"""
 import numpy as np
 
 import unittest

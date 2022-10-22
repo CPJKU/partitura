@@ -1,9 +1,12 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 """
-Synthesize Partitura Part or Note array to wav using additive synthesis
+This module contains methods for synthesizing score- or performance-like
+objects using additive synthesis
 
 TODO
+----
 * Add other tuning systems?
-
 """
 from typing import Union, Tuple, Dict, Optional, Any, Callable
 

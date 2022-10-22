@@ -1,7 +1,9 @@
-"""The top level of the package contains functions to load and save
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+The top level of the package contains functions to load and save
 data, display rendered scores, and functions to estimate pitch
 spelling, voice assignment, and key signature.
-
 """
 
 import pkg_resources

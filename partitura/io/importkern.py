@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing Humdrum Kern files.
+"""
 import re
 import warnings
 

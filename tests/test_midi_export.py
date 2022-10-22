@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
+"""
+This module cotains tests for exporting MIDI file methods.
+"""
 import logging
 from collections import defaultdict, Counter, OrderedDict
 import unittest

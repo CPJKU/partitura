@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-
 # -*- coding: utf-8 -*-
+"""
+This module contains methods for importing MusicXML files.
+"""
 
 import os
 import warnings
