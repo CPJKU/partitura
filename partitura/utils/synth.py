@@ -360,7 +360,6 @@ def synthesize(
         pnote_array = performance_notearray_from_score_notearray(
             snote_array=note_array,
             bpm=bpm,
-            velocity=velocity,
         )
         onsets = pnote_array["onset_sec"]
         offsets = pnote_array["onset_sec"] + pnote_array["duration_sec"]
