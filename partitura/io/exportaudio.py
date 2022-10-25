@@ -46,16 +46,20 @@ def save_wav(
         If "linear" or "exp", the methods `lin_in_lin_out` and `exp_in_exp_out`
         in `partitura.utils.synth` will be used. Otherwise this argument should
         be a callable. See `lin_in_lin_out` for more details.
-    tuning: {"equal_temperament", "natural"} or callable
-        Method for tuning. If "equal temperament" will use equally spaced
-        semitones, while "natural" will use natural ratios within an octave.
-        Otherwise it uses a callable. See `midi_pitch_to_natural_frequency`
-        and `midi_pitch_to_frequency` for more info on the "equal_temperament"
-        and "natural" tuning.
+    tuning: {"equal_temperament", "natural"} or callable.
+        The tuning system to use. If the value is "equal_temperament",
+        12 tone equal temperament implemented in `midi_pitch_to_frequency` will
+        be used. If the value is "natural", the function
+        `midi_pitch_to_tempered_frequency` will be used. Note that
+        `midi_pitch_to_tempered_frequency` computes the intervals (and thus,
+        frequencies) with respect to a reference note (A4 by default). See
+        the documentation of this function for more information. If a callable
+        is provided, function should get MIDI pitch as input and return
+        frequency in Hz as output.
     tuning_kwargs : dict
-        Keyword arguments to be passed to the tuning method selected in `tuning`. See
-        `midi_pitch_to_natural_frequency` and `midi_pitch_to_frequency`
-        for more info on the "equal_temperament" and "natural" tuning.
+        Dictionary of keyword arguments to be passed to the tuning function
+        specified in  `tuning`. See `midi_pitch_to_tempered_frequency` and
+       `midi_pitch_to_frequency` for more information on their keyword arguments.
     harmonic_dist : int,  "shepard" or None (optional)
         Distribution of harmonics. If an integer, it is the number
         of harmonics to be considered. If "shepard", it uses Shepard tones.

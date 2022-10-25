@@ -43,16 +43,16 @@ NATURAL_INTERVAL_RATIOS = {
 # symmetric five limit temperament with supertonic = 10:9
 FIVE_LIMIT_INTERVAL_RATIOS = {
     0: 1,
-    1: 16 / 15,  
+    1: 16 / 15,
     2: 10 / 9,
-    3: 6 / 5, 
+    3: 6 / 5,
     4: 5 / 4,
     5: 4 / 3,
-    6: 7 / 5,  
+    6: 7 / 5,
     7: 3 / 2,
     8: 8 / 5,
     9: 5 / 3,
-    10: 9 / 5, 
+    10: 9 / 5,
     11: 15 / 8,
     12: 2
 }
@@ -349,8 +349,20 @@ def synthesize(
         The sample rate of the audio file in Hz.
     envelope_fun: {"linear", "exp" }
         The type of envelop to apply to the individual sine waves.
-    tuning: {"equal_temperament", "natural"}
-        The tuning system to use.
+    tuning: {"equal_temperament", "natural"} or callable.
+        The tuning system to use. If the value is "equal_temperament",
+        12 tone equal temperament implemented in `midi_pitch_to_frequency` will
+        be used. If the value is "natural", the function
+        `midi_pitch_to_tempered_frequency` will be used. Note that
+        `midi_pitch_to_tempered_frequency` computes the intervals (and thus,
+        frequencies) with respect to a reference note (A4 by default). See
+        the documentation of this function for more information. If a callable
+        is provided, function should get MIDI pitch as input and return
+        frequency in Hz as output.
+    tuning_kwargs : dict
+        Dictionary of keyword arguments to be passed to the tuning function
+        specified in  `tuning`. See `midi_pitch_to_tempered_frequency` and
+       `midi_pitch_to_frequency` for more information on their keyword arguments.
     harmonic_dist : int,  "shepard" or None (optional)
         Distribution of harmonics. If an integer, it is the number
         of harmonics to be considered. If "shepard", it uses Shepard tones.
@@ -407,7 +419,7 @@ def synthesize(
     if tuning == "equal_temperament":
         freq_in_hz = midi_pitch_to_frequency(pitch, **tuning_kwargs)
     elif tuning == "natural":
-        freq_in_hz = midi_pitch_to_natural_frequency(pitch, **tuning_kwargs)
+        freq_in_hz = midi_pitch_to_tempered_frequency(pitch, **tuning_kwargs)
     elif callable(tuning):
         freq_in_hz = tuning(pitch, **tuning_kwargs)
 
