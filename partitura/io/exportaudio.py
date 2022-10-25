@@ -48,14 +48,15 @@ def save_wav(
         be a callable. See `lin_in_lin_out` for more details.
     tuning: {"equal_temperament", "natural"} or callable.
         The tuning system to use. If the value is "equal_temperament",
-        12 tone equal temperament implemented in `midi_pitch_to_frequency` will
-        be used. If the value is "natural", the function
-        `midi_pitch_to_tempered_frequency` will be used. Note that
-        `midi_pitch_to_tempered_frequency` computes the intervals (and thus,
-        frequencies) with respect to a reference note (A4 by default). See
-        the documentation of this function for more information. If a callable
-        is provided, function should get MIDI pitch as input and return
-        frequency in Hz as output.
+        12 tone equal temperament implemented in
+        `partitura.utils.music.midi_pitch_to_frequency` will be used. If the value is
+        "natural", the function `partitura.utils.synth.midi_pitch_to_tempered_frequency`
+        will be used. Note that `midi_pitch_to_tempered_frequency` computes
+        intervals (and thus, frequencies) with respect to a reference note
+        (A4 by default) and uses the interval ratios specified by
+        `partitura.utils.synth.FIVE_LIMIT_INTERVAL_RATIOS`. See the documentation of
+        these functions for more information. If a callable is provided, function should
+        get MIDI pitch as input and return frequency in Hz as output.
     tuning_kwargs : dict
         Dictionary of keyword arguments to be passed to the tuning function
         specified in  `tuning`. See `midi_pitch_to_tempered_frequency` and

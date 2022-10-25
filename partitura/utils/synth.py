@@ -355,8 +355,9 @@ def synthesize(
         be used. If the value is "natural", the function
         `midi_pitch_to_tempered_frequency` will be used. Note that
         `midi_pitch_to_tempered_frequency` computes the intervals (and thus,
-        frequencies) with respect to a reference note (A4 by default). See
-        the documentation of this function for more information. If a callable
+        frequencies) with respect to a reference note (A4 by default) and uses the
+        interval ratios specified by `FIVE_LIMIT_INTERVAL_RATIOS`. See
+        the documentation of these functions for more information. If a callable
         is provided, function should get MIDI pitch as input and return
         frequency in Hz as output.
     tuning_kwargs : dict
