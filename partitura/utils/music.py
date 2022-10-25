@@ -9,7 +9,7 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-from typing import Union
+from typing import Union, Callable
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
@@ -417,7 +417,7 @@ def pitch_spelling_to_note_name(step, alter, octave):
 
 
 def midi_pitch_to_frequency(
-        midi_pitch: Union[int, float, np.ndarray], a4: Union[int, float] = A4
+    midi_pitch: Union[int, float, np.ndarray], a4: Union[int, float] = A4
 ) -> Union[float, np.ndarray]:
     """
     Convert MIDI pitch to frequency in Hz. This method assumes equal temperament.
@@ -439,8 +439,8 @@ def midi_pitch_to_frequency(
 
 
 def frequency_to_midi_pitch(
-        freq: Union[int, float, np.ndarray],
-        a4: Union[int, float] = A4,
+    freq: Union[int, float, np.ndarray],
+    a4: Union[int, float] = A4,
 ) -> Union[int, np.ndarray]:
     """
     Convert frequency to MIDI pitch. This method assumes equal temperament.
@@ -1605,15 +1605,10 @@ def note_array_from_part_list(
             kwargs["include_divs_per_quarter"] = True
             is_score = True
             if isinstance(part, Part):
-                na = note_array_from_part(
-                    part,
-                    **kwargs
-                )
+                na = note_array_from_part(part, **kwargs)
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
-                    part.children,
-                    unique_id_per_part=unique_id_per_part,
-                    **kwargs
+                    part.children, unique_id_per_part=unique_id_per_part, **kwargs
                 )
         elif isinstance(part, PerformedPart):
             na = part.note_array()
@@ -1626,7 +1621,9 @@ def note_array_from_part_list(
 
     if is_score:
         # rescale if parts have different divs
-        divs_per_parts = [part_na[0]["divs_pq"] for part_na in note_array if len(part_na)]
+        divs_per_parts = [
+            part_na[0]["divs_pq"] for part_na in note_array if len(part_na)
+        ]
         lcm = np.lcm.reduce(divs_per_parts)
         time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
         for na, time_mult in zip(note_array, time_multiplier_per_part):
@@ -2564,19 +2561,25 @@ def performance_from_part(part, bpm=100, velocity=64):
     ----------
     part: Part
         The part from which we want to generate a performed part
-    bpm : float
-        Beats per minute
-    velocity: float or int
-        The MIDI velocity for all notes.
+    bpm : float, np.ndarray or callable
+        Beats per minute to generate the performance. If a the value is a float,
+        the performance will be generated with a constant tempo. If the value is
+        a np.ndarray, it has to be an array with two columns where the first
+        column is score time in beats and the second column is the tempo. If a
+        callable is given, the function is assumed to map score onsets in beats
+        to tempo values. Default is 100 bpm.
+    velocity: int, np.ndarray or callable
+        MIDI velocity of the performance. If a the value is an int, the
+        performance will be generated with a constant MIDI velocity. If the
+        value is a np.ndarray, it has to be an array with two columns where
+        the first column is score time in beats and the second column is the
+        MIDI velocity. If a callable is given, the function is assumed to map
+        score time in beats to MIDI velocity. Default is 64.
 
     Returns
     -------
     ppart: PerformedPart
-
-    Potential extensions
-    --------------------
-    * allow for bpm to be a callable or an 2D array with columns (onset, bpm)
-    * allow for velocity to be a callable or a 2D array (onset, velocity)
+        A PerformedPart object with the generated performance.
     """
     from partitura.score import Part
     from partitura.performance import PerformedPart
@@ -2587,6 +2590,52 @@ def performance_from_part(part, bpm=100, velocity=64):
             f"`partitura.score.Part` instance, not {type(part)}"
         )
 
+    snote_array = part.note_array()
+
+    pnote_array = performance_notearray_from_score_notearray(
+        snote_array=snote_array, bpm=bpm, velocity=velocity
+    )
+
+    ppart = PerformedPart.from_note_array(pnote_array)
+
+    return ppart
+
+
+def performance_notearray_from_score_notearray(
+    snote_array: np.ndarray,
+    bpm: [float, np.ndarray, Callable] = 100.0,
+    velocity: Union[int, np.ndarray, Callable] = 64,
+) -> np.ndarray:
+    """
+    Generate a performance note array from a score note array
+
+    Parameters
+    ----------
+    snote_array : np.ndarray
+        A score note array.
+    bpm : float, np.ndarray or callable
+        Beats per minute to generate the performance. If a the value is a float,
+        the performance will be generated with a constant tempo. If the value is
+        a np.ndarray, it has to be an array with two columns where the first
+        column is score time in beats and the second column is the tempo. If a
+        callable is given, the function is assumed to map score onsets in beats
+        to tempo values. Default is 100 bpm.
+    velocity: int, np.ndarray or callable
+        MIDI velocity of the performance. If a the value is an int, the
+        performance will be generated with a constant MIDI velocity. If the
+        value is a np.ndarray, it has to be an array with two columns where
+        the first column is score time in beats and the second column is the
+        MIDI velocity. If a callable is given, the function is assumed to map
+        score time in beats to MIDI velocity. Default is 64.
+
+
+    Returns
+    -------
+    pnote_array : np.ndarray
+        A performance note array based on the score with the specified tempo
+        and velocity.
+    """
+
     ppart_fields = [
         ("onset_sec", "f4"),
         ("duration_sec", "f4"),
@@ -2596,9 +2645,36 @@ def performance_from_part(part, bpm=100, velocity=64):
         ("channel", "i4"),
         ("id", "U256"),
     ]
-    snote_array = part.note_array()
 
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
+
+    if isinstance(velocity, np.ndarray):
+
+        if velocity.ndim == 2:
+
+            velocity_fun = interp1d(
+                x=velocity[:, 0],
+                y=velocity[:, 1],
+                kind="previous",
+                bounds_error=False,
+                fill_value=(velocity[0, 1], velocity[-1, 1]),
+            )
+            pnote_array["velocity"] = np.round(
+                velocity_fun(snote_array["onset_beat"]),
+            ).astype(int)
+
+        else:
+            pnote_array["velocity"] = np.round(velocity).astype(int)
+
+    elif callable(velocity):
+        # The velocity parameter is a callable that returns a
+        # velocity value for each score onset
+        pnote_array["velocity"] = np.round(
+            velocity(snote_array["onset_beat"]),
+        ).astype(int)
+
+    else:
+        pnote_array["velocity"] = int(velocity)
 
     unique_onsets = np.unique(snote_array["onset_beat"])
     # Cast as object to avoid warnings, but seems to work well
@@ -2610,23 +2686,51 @@ def performance_from_part(part, bpm=100, velocity=64):
 
     iois = np.diff(unique_onsets)
 
-    bp = 60 / float(bpm)
+    if callable(bpm) or isinstance(bpm, np.ndarray):
 
-    # TODO: allow for variable bpm and velocity
-    pnote_array["duration_sec"] = bp * snote_array["duration_beat"]
-    pnote_array["velocity"] = int(velocity)
+        if callable(bpm):
+            # bpm parameter is a callable that returns a bpm value
+            # for each score onset
+            bp = 60 / bpm(unique_onsets)
+            bp_duration = (
+                60 / bpm(snote_array["onset_beat"]) * snote_array["duration_beat"]
+            )
+
+        elif isinstance(bpm, np.ndarray):
+
+            if bpm.ndim != 2:
+                raise ValueError("`bpm` should be a 2D array")
+
+            bpm_fun = interp1d(
+                x=bpm[:, 0],
+                y=bpm[:, 1],
+                kind="previous",
+                bounds_error=False,
+                fill_value=(bpm[0, 1], bpm[-1, 1]),
+            )
+            bp = 60 / bpm_fun(unique_onsets)
+            bp_duration = (
+                60 / bpm_fun(snote_array["onset_beat"]) * snote_array["duration_beat"]
+            )
+
+        p_onsets = np.r_[0, np.cumsum(iois * bp[:-1])]
+        pnote_array["duration_sec"] = bp_duration * snote_array["duration_beat"]
+
+    else:
+        # convert bpm to beat period
+        bp = 60 / float(bpm)
+        p_onsets = np.r_[0, np.cumsum(iois * bp)]
+        pnote_array["duration_sec"] = bp * snote_array["duration_beat"]
+
     pnote_array["pitch"] = snote_array["pitch"]
     pnote_array["id"] = snote_array["id"]
-    p_onsets = np.r_[0, np.cumsum(iois * bp)]
 
     for ix, on in zip(unique_onset_idxs, p_onsets):
         # ix has to be cast as integer depending on the
         # numpy version...
         pnote_array["onset_sec"][ix.astype(int)] = on
 
-    ppart = PerformedPart.from_note_array(pnote_array)
-
-    return ppart
+    return pnote_array
 
 
 def get_time_maps_from_alignment(
