@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for methods for generating note-level features.
+"""
 import unittest
 from tests import (
     METRICAL_POSITION_TESTFILES,

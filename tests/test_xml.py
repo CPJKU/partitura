@@ -1,7 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for MusicXML import and export.
-
+This module contains test functions for MusicXML import and export.
 """
 
 import logging

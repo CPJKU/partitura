@@ -1,7 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for the `performance` module
-
+This module contains test functions for the `performance` module
 """
 import unittest
 import numpy as np

@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module implements a codec to encode and decode expressive performances to a set of
+expressive parameters.
+"""
 import numpy as np
 import numpy.lib.recfunctions as rfn
 try:

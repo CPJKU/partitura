@@ -1,7 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for the load_score method
-
+This module contains test functions for the `load_score` method.
 """
 import unittest
 

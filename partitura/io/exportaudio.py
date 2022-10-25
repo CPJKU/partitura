@@ -1,5 +1,8 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 """
-Synthesize Partitura object to wav using additive synthesis
+This module contains methods to synthesize Partitura object to wav using
+additive synthesis
 """
 from typing import Union, Optional
 import numpy as np

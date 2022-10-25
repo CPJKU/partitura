@@ -1,5 +1,8 @@
-#!/usr/bin/env python
-
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+This module contains generic class- and numerical-related utilities
+"""
 import warnings
 from collections import defaultdict
 from textwrap import dedent

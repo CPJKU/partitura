@@ -1,9 +1,12 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for exporting MIDI files
+"""
 import numpy as np
 
 from collections import defaultdict, OrderedDict
-from typing import Union, Optional, Iterable
+from typing import Optional, Iterable
 
 from mido import MidiFile, MidiTrack, Message, MetaMessage
 

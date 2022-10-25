@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Tools for music analysis.
-
+This module contains tools for estimating key signature, time signature,
+pitch spelling, voice information, tonal tension, as well as methods for
+deriving note-level features and performance encodings.
 """
 
 from .voice_separation import estimate_voices

@@ -1,13 +1,12 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
-
-
-"""This module defines an ontology of musical elements to represent
+"""
+This module defines an ontology of musical elements to represent
 musical scores, such as measures, notes, slurs, words, tempo and
 loudness directions. A score is defined at the highest level by a
 `Part` object (or a hierarchy of `Part` objects, in a `PartGroup`
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
-
 """
 
 from copy import copy

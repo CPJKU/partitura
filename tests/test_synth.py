@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the synthesis methods.
+"""
 import unittest
 
 import numpy as np
@@ -17,9 +22,9 @@ from partitura import EXAMPLE_MUSICXML, load_score
 
 from partitura import save_wav
 
-RNG = np.random.RandomState(1984)
-
 from tests import WAV_TESTFILES
+
+RNG = np.random.RandomState(1984)
 
 
 class TestMidiPitchToTemperedFrequency(unittest.TestCase):
@@ -28,14 +33,16 @@ class TestMidiPitchToTemperedFrequency(unittest.TestCase):
         midi_pitch = np.arange(6) + 10
         freq_ratios = [1.1, 1.2, 1.3, 1.44, 1.5, 1.55]
         # compute frequencies
-        frequency = midi_pitch_to_tempered_frequency(midi_pitch,
-                                                     reference_midi_pitch = 10,
-                                                     reference_frequency = 100,
-                                                     interval_ratios = freq_ratios)
+        frequency = midi_pitch_to_tempered_frequency(
+            midi_pitch,
+            reference_midi_pitch=10,
+            reference_frequency=100,
+            interval_ratios=freq_ratios,
+        )
         freq_ratios_new = frequency / 100
         # make test
         self.assertTrue(np.allclose(freq_ratios, freq_ratios_new))
-        
+
 
 class TestMidiPitchToNaturalFrequency(unittest.TestCase):
     def test_octaves(self):

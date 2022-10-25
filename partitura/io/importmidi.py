@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing MIDI files.
+"""
 import warnings
 
 from collections import defaultdict

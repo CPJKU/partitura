@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Voice Separation using Chew and Wu's algorithm.
+"""
+This module contains methods for voice separation using Chew and Wu's algorithm.
 
+References
+----------
+.. [6] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
+       Polyphonic Music: A Contig Mapping Approach". In Uffe Kock,
+       editor, "Computer Music Modeling and Retrieval". Springer
+       Berlin Heidelberg.
 """
 from collections import defaultdict
 from statistics import mode

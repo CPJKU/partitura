@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the key estimation methods.
+"""
 import unittest
 
 from partitura import EXAMPLE_MUSICXML

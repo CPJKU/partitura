@@ -1,8 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for the import of Nakamura et al.'s match and
+This module contains test functions for the import of Nakamura et al.'s match and
 corresp file formats.
-
 """
 
 import unittest

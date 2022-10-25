@@ -5,7 +5,7 @@ This module contains methods for exporting matchfiles
 """
 import numpy as np
 
-from typing import List, Optional, Union, Iterable
+from typing import List, Optional, Iterable
 from scipy.interpolate import interp1d
 
 from partitura.io.importmatch import (

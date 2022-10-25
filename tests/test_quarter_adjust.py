@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for adjusting quarter durations
+"""
 
 import logging
 import unittest

@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-"""This module contains a lightweight ontology to represent a performance in a
+"""
+This module contains a lightweight ontology to represent a performance in a
 MIDI-like format. A performance is defined at the highest level by a
 :class:`~partitura.performance.PerformedPart`. This object contains performed
 notes as well as continuous control parameters, such as sustain pedal.
-
 """
 
 

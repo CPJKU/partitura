@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module includes tests for deprecation utilities.
+"""
 import unittest
 import warnings
 import numpy as np
