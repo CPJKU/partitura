@@ -40,6 +40,23 @@ NATURAL_INTERVAL_RATIOS = {
     12: 2,
 }
 
+# symmetric five limit temperament with supertonic = 10:9
+FIVE_LIMIT_INTERVAL_RATIOS = {
+    0: 1,
+    1: 16 / 15,  
+    2: 10 / 9,
+    3: 6 / 5, 
+    4: 5 / 4,
+    5: 4 / 3,
+    6: 7 / 5,  
+    7: 3 / 2,
+    8: 8 / 5,
+    9: 5 / 3,
+    10: 9 / 5, 
+    11: 15 / 8,
+    12: 2
+}
+
 
 def midi_pitch_to_natural_frequency(
     midi_pitch: Union[int, float, np.ndarray],
@@ -103,7 +120,7 @@ def midi_pitch_to_tempered_frequency(
     midi_pitch: Union[int, float, np.ndarray],
     reference_midi_pitch: Union[int, float] = 69,
     reference_frequency: float = A4,
-    interval_ratios: Dict[int, float] = NATURAL_INTERVAL_RATIOS,
+    interval_ratios: Dict[int, float] = FIVE_LIMIT_INTERVAL_RATIOS,
 ) -> Union[float, np.ndarray]:
     """
     Convert MIDI pitch to frequency in Hz using
