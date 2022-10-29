@@ -1,6 +1,28 @@
 Release Notes
 =============
 
+
+Version 1.1.1 (Released on 2022-10-31)
+--------------------------------------
+
+New features:
+
+* New minor feature : Adding midi pitch to freq for synthesizer add reference-based midi pitch to freq #163
+
+Bug fixes:
+
+* Documentation Fix of ReadTheDocs
+* Bug fix Bug synthesizing scores with pickup measures #166 Synthesizing score with pick up measure
+* Bug Fix of kern import Kern import fix #160
+* Bug Fix of Musicxml import repeat infer Bug with musicxml Import #161
+* Bug fix Note array with empty voice Note array from note list with empty voice bug. #159
+* Fix synthesizing scores with pickup measures #167
+
+Other changes:
+
+* Encoding declaration on all files.
+
+
 Version 1.0.0 (Released on 2022-09-20)
 --------------------------------------
 
