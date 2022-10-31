@@ -148,12 +148,12 @@ def render_musescore(
     dpi: Optional[int] = 90,
 ) -> Optional[PathLike]:
     """
-    Render a part using musescore.
+    Render a score-like object using musescore.
 
     Parameters
     ----------
     score_data : ScoreLike
-        Part to be rendered
+        Score-like object to be rendered
     fmt : {'png', 'pdf'}
         Output image format
     out : str or None, optional
