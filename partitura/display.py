@@ -60,7 +60,7 @@ def render(
 
     Parameters
     ----------
-    part : ScoreLike
+    score_data : ScoreLike
         The score content to be displayed
     fmt : {'png', 'pdf'}, optional
         The image format of the rendered material
