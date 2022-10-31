@@ -6,6 +6,7 @@ This module contains tests.
 """
 
 import os
+import glob
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
@@ -17,6 +18,7 @@ NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 MIDI_PATH = os.path.join(DATA_PATH, "midi")
 PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
 WAV_PATH = os.path.join(DATA_PATH, "wav")
+PNG_PATH = os.path.join(DATA_PATH, "png")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -189,3 +191,5 @@ WAV_TESTFILES = [
         "example_linear_equal_temperament_sr8000.wav",
     ]
 ]
+
+PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, '*.png'))
