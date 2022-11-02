@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
     from partitura.score import ScoreLike
-    from partitura.performance import PerformanceLike
+    from partitura.performance import PerformanceLike, Performance
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 # _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
@@ -1023,8 +1023,13 @@ def compute_pianoroll(
         `time_margin`, `time_div`, `remove silence`, and `end_time`.
     pr_idx : ndarray
         Indices of the onsets and offsets of the notes in the piano
-        roll (in the same order as the input note_array). This is only
-        returned if `return_idxs` is `True`.
+        roll (in the same order as the input note_array). This is only`
+        returned if `return_idxs` is True. The indices have 4 columns
+        (`vertical_position_in_piano_roll`, `onset`, `offset`, `original_midi_pitch`).
+        The `vertical_position_in_piano_roll` might be different from
+        `original_midi_pitch` depending on the `pitch_margin` and  `piano_range`
+        arguments.
+    
 
     Examples
     --------
@@ -1245,7 +1250,7 @@ def _make_pianoroll(
     if return_idxs:
         # indices of each note in the piano roll
         pr_idx = np.column_stack(
-            [pr_pitch - pr_idx_pitch_start, pr_onset, pr_offset]
+            [pr_pitch - pr_idx_pitch_start, pr_onset, pr_offset, note_info[idx, 0]]
         ).astype(int)
         return pianoroll, pr_idx[idx.argsort()]
     else:
@@ -1253,13 +1258,14 @@ def _make_pianoroll(
 
 
 def compute_pitch_class_pianoroll(
-    note_info: Union[ScoreLike, PerformanceLike, np.ndarray, csc_matrix],
+    note_info: Union[ScoreLike, PerformanceLike, np.ndarray],
     normalize: bool = True,
     time_unit: str = "auto",
     time_div: int = "auto",
     onset_only: bool = False,
     note_separation: bool = False,
     time_margin: int = 0,
+    return_idxs: int = False,
     remove_silence: bool = True,
     end_time: Optional[float] = None,
     binary: bool = False,
@@ -1293,12 +1299,6 @@ def compute_pitch_class_pianoroll(
     onset_only : bool, optional
         If True, code only the onsets of the notes, otherwise code
         onset and duration.
-    pitch_margin : int, optional
-        If `pitch_margin` > -1, the resulting array will have
-        `pitch_margin` empty rows above and below the highest and
-        lowest pitches, respectively; if `pitch_margin` == -1, the
-        resulting pianoroll will have span the fixed pitch range
-        between (and including) 1 and 127.
     time_margin : int, optional
         The resulting array will have `time_margin` * `time_div` empty
         columns before and after the piano roll
@@ -1335,29 +1335,30 @@ def compute_pitch_class_pianoroll(
     pr_idx : ndarray
         Indices of the onsets and offsets of the notes in the piano
         roll (in the same order as the input note_array). This is only
-        returned if `return_idxs` is `True`.
+        returned if `return_idxs` is `True`. The indices have 4 columns
+        (pitch_class, onset, offset, original_midi_pitch).
     """
-    pianoroll = None
-    if isinstance(note_info, csc_matrix):
-        # if input is a pianoroll as a sparse matrix
-        pianoroll = note_info
 
-    if pianoroll is None:
+    pianoroll = compute_pianoroll(
+        note_info=note_info,
+        time_unit=time_unit,
+        time_div=time_div,
+        onset_only=onset_only,
+        note_separation=note_separation,
+        pitch_margin=-1,
+        time_margin=time_margin,
+        return_idxs=return_idxs,
+        piano_range=False,
+        remove_drums=True,
+        remove_silence=remove_silence,
+        end_time=end_time,
+        binary=False,
+    )
 
-        pianoroll = compute_pianoroll(
-            note_info=note_info,
-            time_unit=time_unit,
-            time_div=time_div,
-            onset_only=onset_only,
-            note_separation=note_separation,
-            pitch_margin=-1,
-            time_margin=time_margin,
-            return_idxs=False,
-            piano_range=False,
-            remove_drums=True,
-            remove_silence=remove_silence,
-            end_time=end_time,
-        )
+    if return_idxs:
+        pianoroll, pr_idxs = pianoroll
+        # update indices by converting MIDI pitch to pitch class
+        pr_idxs[:, 0] = np.mod(pr_idxs[:, 0], 12)
 
     pc_pianoroll = np.zeros((12, pianoroll.shape[1]), dtype=float)
     for i in range(int(np.ceil(128 / 12))):
@@ -1374,6 +1375,8 @@ def compute_pitch_class_pianoroll(
         norm_term[np.isclose(norm_term, 0)] = 1
         pc_pianoroll /= norm_term
 
+    if return_idxs:
+        return pc_pianoroll, pr_idxs
     return pc_pianoroll
 
 
@@ -3026,6 +3029,129 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
                 matched_idxs.append((s_idx, p_idx))
 
     return np.array(matched_idxs)
+
+
+def generate_random_performance_note_array(
+    num_notes: int = 20,
+    rng: Union[int, np.random.RandomState] = np.random.RandomState(1984),
+    duration: float = 10,
+    max_note_duration: float = 2,
+    min_note_duration: float = 0.1,
+    max_velocity: int = 90,
+    min_velocity: int = 20,
+    return_performance: bool = False,
+) -> Union[np.ndarray, Performance]:
+    """
+    Create a random performance note array.
+
+    Parameters
+    ----------
+    num_notes : int
+        Number of notes
+    rng : int or np.random.RandomState
+        State for the random number generator. If an integer is given
+        a new random number generator with that state will be created.
+    duration : float
+        Total duration of the note array in seconds. Default is 10.
+    max_note_duration : float
+        Maximum duration of a note in seconds. Note that since the durations
+        are randomly sampled from a uniform distribution, it could happen
+        that no notes actually have this duration.
+    min_note_duration: float
+        Minimum duration of a note in seconds. Note that since the durations
+        are randomly sampled from a uniform distribution, it could happen
+        that no notes actually have this duration.
+    max_velocity : int
+        Maximal MIDI velocity. Note that since the MIDI velocities
+        are randomly sampled from a uniform distribution, it could happen
+        that no notes actually have this velocity.
+    min_velocity : int
+        Maximal MIDI velocity. Note that since the MIDI velocities
+        are randomly sampled from a uniform distribution, it could happen
+        that no notes actually have this velocity.
+    return_performance : bool
+        If True, returns a `Performance` object.
+
+    Returns
+    -------
+    note_array or performance : np.ndarray or Performance
+        If `return_performance` is True, the output is a `Performance` instance.
+        Otherwise, it returns a structured note array with note information.
+    """
+    # Generate a random piano roll
+
+    if isinstance(rng, int):
+        rng = np.random.RandomState(rng)
+
+    note_array = np.empty(
+        num_notes,
+        dtype=[
+            ("pitch", "i4"),
+            ("onset_sec", "f4"),
+            ("duration_sec", "f4"),
+            ("velocity", "i4"),
+            ("id", "U256"),
+        ],
+    )
+
+    if max_note_duration >= duration:
+        warnings.warn(
+            message=(
+                "`duration` is smaller than `max_note_duration`! "
+                "The `max_note_duration` has been adjusted to be equal to "
+                "`0.5 * duration`."
+            )
+        )
+        max_note_duration = 0.5 * duration
+
+    note_array["pitch"] = rng.randint(1, 128, num_notes)
+
+    note_duration = rng.uniform(
+        low=min_note_duration,
+        high=max_note_duration,
+        size=num_notes,
+    )
+
+    onset = rng.uniform(
+        low=0,
+        high=1,
+        size=num_notes
+    )
+
+    # Onsets start at 0 and end at duration - the smalles note duration
+    onset = (duration - note_duration.min()) * (onset - onset.min()) / onset.max()
+
+    # Ensure that the offsets end at the specified duration.
+    offset = np.clip(
+        onset + note_duration,
+        a_min=min_note_duration,
+        a_max=duration
+    )
+
+    note_array["duration_sec"] = offset - onset
+
+    sort_idxs = onset.argsort()
+
+    # Note ids are sorted by onset.
+    note_array["id"] = np.array([f"n{i}" for i in sort_idxs])
+
+    note_array["onset_sec"] = onset
+
+    note_array["velocity"] = rng.randint(
+        min_velocity,
+        max_velocity + 1,
+        num_notes,
+    )
+
+    if return_performance:
+        from partitura.performance import Performance, PerformedPart
+
+        performed_part = PerformedPart.from_note_array(note_array)
+        performance = Performance(performed_part, performer=str(rng))
+
+        return performance
+
+    return note_array
 
 
 if __name__ == "__main__":
