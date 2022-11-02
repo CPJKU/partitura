@@ -9,10 +9,15 @@ import unittest
 from functools import partial
 
 from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
-from partitura import load_musicxml, load_score, load_kern
+from partitura import load_musicxml, load_score, load_kern, load_performance
 import partitura
 
-from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES, KERN_TESTFILES
+from tests import (
+    MUSICXML_IMPORT_EXPORT_TESTFILES,
+    PIANOROLL_TESTFILES,
+    KERN_TESTFILES,
+    MOZART_VARIATION_FILES,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -119,6 +124,45 @@ class TestPianorollFromNotes(unittest.TestCase):
             expected_pr = np.column_stack((time_margins, expected_pr, time_margins))
             equal = np.all(pr.toarray() == expected_pr)
             self.assertTrue(equal)
+
+    def test_binary_pianoroll(self):
+        """
+        Test `binary` parameter in `compute_pianoroll`.
+        """
+        # Test with a performance since they include MIDI velocity
+        # in the piano roll.
+        performance_fn = MOZART_VARIATION_FILES["midi"]
+
+        performance = load_performance(performance_fn)
+
+        note_array = performance.note_array()
+
+        piano_roll_non_binary, idx_non_binary = compute_pianoroll(
+            note_info=performance, binary=False, return_idxs=True
+        )
+
+        piano_roll_binary, idx_binary = compute_pianoroll(
+            note_info=performance, binary=True, return_idxs=True
+        )
+
+        # assert that the maximal value of the binary piano roll is 1
+        self.assertTrue(piano_roll_binary.max() == 1)
+        # assert that the opposite is true for the non_binary piano roll
+        # (this is only the case for performances where there is MIDI velocity)
+        self.assertTrue(piano_roll_non_binary.max() == note_array["velocity"].max())
+
+        # assert that indices in both piano rolls are the same
+        self.assertTrue(np.all(idx_non_binary == idx_binary))
+
+        # Test that the binary piano roll has only values in 0 and one
+        unique_values_binary = np.unique(piano_roll_binary.toarray())
+        self.assertTrue(set(unique_values_binary) == set([0, 1]))
+
+        # Assert that the binary piano roll is equivalent to binarizing
+        # the original piano roll
+        binarized_pr = piano_roll_non_binary.toarray().copy()
+        binarized_pr[binarized_pr != 0] = 1
+        self.assertTrue(np.all(binarized_pr == piano_roll_binary.toarray()))
 
 
 class TestNotesFromPianoroll(unittest.TestCase):
