@@ -972,7 +972,10 @@ def compute_pianoroll(
     ----------
     note_info : np.ndarray, ScoreLike, PerformanceLike
         Note information
-    time_unit : ('auto', 'beat', 'quarter', 'div', 'second')
+    time_unit : ('auto', 'beat', 'quarter', 'div', 'sec')
+        The time unit to use for computing the piano roll. If "auto",
+        the time unit defaults to "beat" for score-like objects and
+        "sec" for performance-like objects.
     time_div : int, optional
         How many sub-divisions for each time unit (beats for a score
         or seconds for a performance. See `is_performance` below).
@@ -1113,7 +1116,8 @@ def _make_pianoroll(
     binary: bool = False,
 ):
     # non-public
-    """Computes a piano roll from a numpy array with MIDI pitch,
+    """
+    Computes a piano roll from a numpy array with MIDI pitch,
     onset, duration and (optionally) MIDI velocity information. See
     `compute_pianoroll` for a complete description of the
     arguments of this function.
@@ -1265,19 +1269,24 @@ def compute_pitch_class_pianoroll(
     from a note array as a structured numpy array.
 
     A pitch class piano roll is a 2D matrix of size (12, num_time_steps), where each
-    row represents a pitch class (C=0, C#=1, D, etc.) and each column represents a time
-    step. The (i,j)-th element specifies whether pitch class i is active at time step
-    j.
+    row represents a pitch class (C=0, C#=1, D=2, etc.) and each column represents a
+    time step. The (i,j)-th element specifies whether pitch class i is active at time
+    step j.
+
+    See `compute_pianoroll` for more details.
 
     Parameters
     ----------
     note_info : np.ndarray, ScoreLike, PerformanceLike
-        Note information
+        Note information.
     normalize: bool
         Normalize the piano roll. If True, each slice (i.e., time-step)
         will be normalized to sum to one. The resulting output is
         a piano roll where each time step is the pitch class distribution.
-    time_unit : ('auto', 'beat', 'quarter', 'div', 'second')
+    time_unit : ('auto', 'beat', 'quarter', 'div', 'sec')
+        The time unit to use for computing the piano roll. If "auto",
+        the time unit defaults to "beat" for score-like objects and
+        "sec" for performance-like objects.
     time_div : int, optional
         How many sub-divisions for each time unit (beats for a score
         or seconds for a performance. See `is_performance` below).
@@ -1310,8 +1319,8 @@ def compute_pitch_class_pianoroll(
         If True, the first frame of the pianoroll starts at the onset
         of the first note, not at time 0 of the timeline.
     end_time : int, optional
-        The time corresponding to the ending of the last 
-        pianoroll frame (in time_unit). 
+        The time corresponding to the ending of the last
+        pianoroll frame (in time_unit).
         If None this is set to the last note offset.
     binary: bool, optional
         Ensure a strictly binary piano roll.
@@ -1320,7 +1329,13 @@ def compute_pitch_class_pianoroll(
     Returns
     -------
     pc_pianoroll : np.ndarray
-        The pitch class piano roll
+        The pitch class piano roll. The sizes of the
+        dimensions vary with the parameters `pitch_margin`,
+        `time_margin`, `time_div`, `remove silence`, and `end_time`.
+    pr_idx : ndarray
+        Indices of the onsets and offsets of the notes in the piano
+        roll (in the same order as the input note_array). This is only
+        returned if `return_idxs` is `True`.
     """
     pianoroll = None
     if isinstance(note_info, csc_matrix):
