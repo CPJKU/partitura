@@ -64,7 +64,7 @@ def find_musescore3():
             result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
 
         elif platform.system() == "Windows":
-            result = shutil.which(r"C:\Program Files\MuseScore 3\bin\MuseScore.exe")
+            result = shutil.which(r"C:\Program Files\MuseScore 3\bin\MuseScore3.exe")
 
     return result
 
