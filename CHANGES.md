@@ -21,6 +21,7 @@ Bug fixes:
 Other changes:
 
 * Encoding declaration on all files.
+* Renaming master branch as main
 
 
 Version 1.0.0 (Released on 2022-09-20)
