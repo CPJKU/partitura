@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for part properties.
+"""
 import unittest
 import partitura
 from partitura import score

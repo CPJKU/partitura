@@ -1,5 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-This file contains test functions for KERN import and export.
+This module contains test functions for KERN import and export.
 """
 import unittest
 
@@ -32,14 +34,14 @@ class TestImportKERN(unittest.TestCase):
         for fn in KERN_TESTFILES:
             part = merge_parts(load_kern(fn))
             ka = ensure_notearray(part)
-            self.assertTrue(True == True)
+            self.assertTrue(True)
 
     def test_tie_mismatch(self):
 
         fn = KERN_TIES[0]
         part = merge_parts(load_kern(fn))
 
-        self.assertTrue(True == True)
+        self.assertTrue(True)
 
 
 # if __name__ == "__main__":

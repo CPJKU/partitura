@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the synthesis methods.
+"""
 import unittest
 
 import numpy as np
@@ -6,6 +11,7 @@ import tempfile
 
 from partitura.utils.synth import (
     midi_pitch_to_natural_frequency,
+    midi_pitch_to_tempered_frequency,
     exp_in_exp_out,
     lin_in_lin_out,
     additive_synthesis,
@@ -16,9 +22,26 @@ from partitura import EXAMPLE_MUSICXML, load_score
 
 from partitura import save_wav
 
+from tests import WAV_TESTFILES
+
 RNG = np.random.RandomState(1984)
 
-from tests import WAV_TESTFILES
+
+class TestMidiPitchToTemperedFrequency(unittest.TestCase):
+    def test_octaves(self):
+        # all As
+        midi_pitch = np.arange(6) + 10
+        freq_ratios = [1.1, 1.2, 1.3, 1.44, 1.5, 1.55]
+        # compute frequencies
+        frequency = midi_pitch_to_tempered_frequency(
+            midi_pitch,
+            reference_midi_pitch=10,
+            reference_frequency=100,
+            interval_ratios=freq_ratios,
+        )
+        freq_ratios_new = frequency / 100
+        # make test
+        self.assertTrue(np.allclose(freq_ratios, freq_ratios_new))
 
 
 class TestMidiPitchToNaturalFrequency(unittest.TestCase):
@@ -157,6 +180,30 @@ class TestSynthExport(unittest.TestCase):
 
                 self.assertTrue(sr_rec == sr)
                 self.assertTrue(len(rec_audio) == len(original_audio))
+
+                self.assertTrue(
+                    np.allclose(
+                        rec_audio / rec_audio.max(),
+                        original_audio / original_audio.max(),
+                        atol=1e-4,
+                    )
+                )
+
+    def test_errors(self):
+
+        # wrong envelope
+        try:
+            audio_signal = synthesize(
+                note_info=self.score,
+                samplerate=8000,
+                envelope_fun="wrong keyword",
+                tuning="equal_temperament",
+                bpm=60,
+            )
+            # This test should fail
+            self.assertTrue(False)
+        except ValueError:
+            self.assertTrue(True)
 
 
 if __name__ == "__main__":

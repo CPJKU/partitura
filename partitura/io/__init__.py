@@ -1,3 +1,8 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing and exporting symbolic music formats.
+"""
 from typing import Union
 
 from .importmusicxml import load_musicxml

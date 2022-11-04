@@ -1,14 +1,18 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 """
-Synthesize Partitura object to wav using additive synthesis
+This module contains methods to synthesize Partitura object to wav using
+additive synthesis
 """
-from typing import Union, Optional
+from typing import Union, Optional, Callable, Dict, Any
 import numpy as np
 from scipy.io import wavfile
+
 
 from partitura.score import ScoreLike
 from partitura.performance import PerformanceLike
 
-from partitura.utils.synth import synthesize, SAMPLE_RATE
+from partitura.utils.synth import synthesize, SAMPLE_RATE, A4
 
 from partitura.utils.misc import PathLike
 
@@ -18,11 +22,12 @@ __all__ = ["save_wav"]
 def save_wav(
     input_data: Union[ScoreLike, PerformanceLike, np.ndarray],
     out: Optional[PathLike] = None,
-    samplerate=SAMPLE_RATE,
-    envelope_fun="linear",
-    tuning="equal_temperament",
+    samplerate: int = SAMPLE_RATE,
+    envelope_fun: Union[str, Callable] = "linear",
+    tuning: Union[str, Callable] = "equal_temperament",
+    tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
-    bpm: Union[float, int] = 60,
+    bpm: Union[float, np.ndarray, Callable] = 60,
 ) -> Optional[np.ndarray]:
     """
     Export a score (a `Score`, `Part`, `PartGroup` or list of `Part` instances),
@@ -39,15 +44,34 @@ def save_wav(
         the audio signal as an array (see `audio_signal` below).
     samplerate: int
         The sample rate of the audio file in Hz. The default is 44100Hz.
-    envelope_fun: {"linear", "exp" }
+    envelope_fun: {"linear", "exp" } or callable
         The type of envelop to apply to the individual sine waves.
-    tuning: {"equal_temperament", "natural"}
+        If "linear" or "exp", the methods `lin_in_lin_out` and `exp_in_exp_out`
+        in `partitura.utils.synth` will be used. Otherwise this argument should
+        be a callable. See `lin_in_lin_out` for more details.
+    tuning: {"equal_temperament", "natural"} or callable.
+        The tuning system to use. If the value is "equal_temperament",
+        12 tone equal temperament implemented in
+        `partitura.utils.music.midi_pitch_to_frequency` will be used. If the value is
+        "natural", the function `partitura.utils.synth.midi_pitch_to_tempered_frequency`
+        will be used. Note that `midi_pitch_to_tempered_frequency` computes
+        intervals (and thus, frequencies) with respect to a reference note
+        (A4 by default) and uses the interval ratios specified by
+        `partitura.utils.synth.FIVE_LIMIT_INTERVAL_RATIOS`. See the documentation of
+        these functions for more information. If a callable is provided, function should
+        get MIDI pitch as input and return frequency in Hz as output.
+    tuning_kwargs : dict
+        Dictionary of keyword arguments to be passed to the tuning function
+        specified in  `tuning`. See `midi_pitch_to_tempered_frequency` and
+       `midi_pitch_to_frequency` for more information on their keyword arguments.
     harmonic_dist : int,  "shepard" or None (optional)
         Distribution of harmonics. If an integer, it is the number
         of harmonics to be considered. If "shepard", it uses Shepard tones.
         Default is None (i.e., only consider the fundamental frequency)
-    bpm : int
-        The bpm to render the output (if the input is a score-like object)
+    bpm : float, np.ndarray, callable
+        The bpm to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
 
     Returns
     -------
@@ -60,6 +84,7 @@ def save_wav(
         samplerate=samplerate,
         envelope_fun=envelope_fun,
         tuning=tuning,
+        tuning_kwargs=tuning_kwargs,
         harmonic_dist=harmonic_dist,
         bpm=bpm,
     )

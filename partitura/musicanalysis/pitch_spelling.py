@@ -1,11 +1,12 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Pitch Spelling using the ps13 algorithm.
+This module contains methods for estimation pitch spelling using the ps13 algorithm.
 
 References
 ----------
-
-
+.. [4] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal
+       of New Music Research, 35(2):121.
 """
 import numpy as np
 from collections import namedtuple

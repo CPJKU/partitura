@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-
-"""This module contains functionality to use the MuseScore program as a
+# -*- coding: utf-8 -*-
+"""
+This module contains functionality to use the MuseScore program as a
 backend for loading and rendering scores.
-
 """
 
 import platform
@@ -23,7 +23,6 @@ from partitura.utils.misc import (
     deprecated_parameter,
     PathLike,
 )
-
 
 
 class MuseScoreNotFoundException(Exception):

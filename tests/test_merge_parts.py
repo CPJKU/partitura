@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the utilities for merging parts.
+"""
 import numpy as np
 import logging
 import unittest

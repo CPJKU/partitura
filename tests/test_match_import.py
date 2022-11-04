@@ -1,17 +1,15 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for Matchfile import
-
+This module contains test functions for Matchfile import
 """
-
-import logging
 import unittest
-from tempfile import TemporaryFile
+import numpy as np
 
-from tests import MATCH_IMPORT_EXPORT_TESTFILES
+from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 
 from partitura.io.importmatch import MatchFile, parse_matchline
-from partitura import load_match
+from partitura import load_match, load_score, load_performance
 
 
 class TestLoadMatch(unittest.TestCase):
@@ -62,13 +60,80 @@ class TestLoadMatch(unittest.TestCase):
             mo = parse_matchline(ml)
             self.assertTrue(mo.matchline, ml)
 
-    # def test_load_match(self):
-    #     for fn in MATCH_IMPORT_EXPORT_TESTFILES:
+    def test_load_match(self):
 
-    #         # parse match file
-    #         ppart, alignment, spart = load_match(fn, create_part=True)
-    #         self.assertTrue(1, 1)
+        perf_match, alignment, score_match = load_match(
+            filename=MOZART_VARIATION_FILES["match"],
+            create_score=True,
+            first_note_at_zero=True,
+        )
 
+        pna_match = perf_match.note_array()
+        sna_match = score_match.note_array()
+
+        perf_midi = load_performance(
+            filename=MOZART_VARIATION_FILES["midi"],
+            first_note_at_zero=True,
+        )
+
+        pna_midi = perf_midi.note_array()
+        score_musicxml = load_score(
+            filename=MOZART_VARIATION_FILES["musicxml"],
+        )
+
+        sna_musicxml = score_musicxml.note_array()
+
+        for note in alignment:
+
+            # check score info in match and MusicXML
+            if "score_id" in note:
+
+                idx_smatch = np.where(sna_match["id"] == note["score_id"])[0]
+                idx_sxml = np.where(sna_musicxml["id"] == note["score_id"])[0]
+
+                self.assertTrue(
+                    sna_match[idx_smatch]["pitch"] == sna_musicxml[idx_sxml]["pitch"]
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        sna_match[idx_smatch]["onset_beat"],
+                        sna_match[idx_sxml]["onset_beat"],
+                    )
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        sna_match[idx_smatch]["duration_beat"],
+                        sna_match[idx_sxml]["duration_beat"],
+                    )
+                )
+
+            # check performance info in match and MIDI
+            if "performance_id" in note:
+
+                idx_pmatch = np.where(pna_match["id"] == note["performance_id"])[0]
+                idx_pmidi = np.where(pna_midi["id"] == note["performance_id"])[0]
+
+                self.assertTrue(
+                    pna_match[idx_pmatch]["pitch"] == pna_midi[idx_pmidi]["pitch"]
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        pna_match[idx_pmatch]["onset_sec"],
+                        pna_match[idx_pmidi]["onset_sec"],
+                    )
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        pna_match[idx_pmatch]["duration_sec"],
+                        pna_match[idx_pmidi]["duration_sec"],
+                    )
+                )
+
+                
 
 if __name__ == "__main__":
 

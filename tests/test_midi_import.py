@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for importing MIDI files.
+"""
 import logging
 from collections import defaultdict, Counter
 from operator import itemgetter

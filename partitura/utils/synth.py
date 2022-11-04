@@ -1,9 +1,12 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 """
-Synthesize Partitura Part or Note array to wav using additive synthesis
+This module contains methods for synthesizing score- or performance-like
+objects using additive synthesis
 
 TODO
+----
 * Add other tuning systems?
-
 """
 from typing import Union, Tuple, Dict, Optional, Any, Callable
 
@@ -17,6 +20,7 @@ from partitura.utils.music import (
     ensure_notearray,
     get_time_units_from_note_array,
     midi_pitch_to_frequency,
+    performance_notearray_from_score_notearray,
 )
 
 TWO_PI = 2 * np.pi
@@ -37,6 +41,23 @@ NATURAL_INTERVAL_RATIOS = {
     10: 7 / 4,  # 13/7
     11: 15 / 8,
     12: 2,
+}
+
+# symmetric five limit temperament with supertonic = 10:9
+FIVE_LIMIT_INTERVAL_RATIOS = {
+    0: 1,
+    1: 16 / 15,
+    2: 10 / 9,
+    3: 6 / 5,
+    4: 5 / 4,
+    5: 4 / 3,
+    6: 7 / 5,
+    7: 3 / 2,
+    8: 8 / 5,
+    9: 5 / 3,
+    10: 9 / 5,
+    11: 15 / 8,
+    12: 2
 }
 
 
@@ -71,10 +92,6 @@ def midi_pitch_to_natural_frequency(
     C4 is a descending major sixth with respect to A4, E5 is descending
     perfect fourth computed with respect to A5, etc.).
 
-
-    TODO
-    ----
-    * compute intervals with given reference pitch.
     """
 
     octave = (midi_pitch // 12) - 1
@@ -96,6 +113,50 @@ def midi_pitch_to_natural_frequency(
     )
 
     freqs = aref_freq * ratios
+
+    if isinstance(midi_pitch, (int, float)):
+        freqs = float(freqs)
+    return freqs
+
+
+def midi_pitch_to_tempered_frequency(
+    midi_pitch: Union[int, float, np.ndarray],
+    reference_midi_pitch: Union[int, float] = 69,
+    reference_frequency: float = A4,
+    interval_ratios: Dict[int, float] = FIVE_LIMIT_INTERVAL_RATIOS,
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI pitch to frequency in Hz using
+    a temperament given as frequency ratios above
+    a reference pitch.
+
+    Parameters
+    ----------
+    midi_pitch: int, float or ndarray
+        MIDI pitch of the note(s).
+    reference_midi_pitch : int or float (optional)
+        midi pitch of the reference pitch. By default is 69 (A4).
+    reference_frequency : int (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+    interval_ratios: dict
+        Dictionary of interval ratios from the reference
+
+    Returns
+    -------
+    freq : float or ndarray
+        Frequency of the note(s).
+    """
+
+    interval = (midi_pitch - reference_midi_pitch) % 12
+    octave = (midi_pitch - reference_midi_pitch) // 12
+    adjusted_reference_frequency = reference_frequency / (2.0 ** -octave)
+
+    if isinstance(interval, (int, float)):
+        interval = np.array([interval], dtype=int)
+
+    ratios = np.array([interval_ratios[abs(itv)] for itv in interval])
+
+    freqs = adjusted_reference_frequency * ratios
 
     if isinstance(midi_pitch, (int, float)):
         freqs = float(freqs)
@@ -273,10 +334,10 @@ def synthesize(
     note_info,
     samplerate: int = SAMPLE_RATE,
     envelope_fun: str = "linear",
-    tuning: str = "equal_temperament",
+    tuning: Union[str, Callable] = "equal_temperament",
     tuning_kwargs: Dict[str, Any] = {"a4": A4},
     harmonic_dist: Optional[Union[str, int]] = None,
-    bpm: Union[float, int] = 60,
+    bpm: Union[float, np.ndarray, Callable] = 60,
 ) -> np.ndarray:
     """
     Synthesize a partitura object with note information
@@ -291,13 +352,29 @@ def synthesize(
         The sample rate of the audio file in Hz.
     envelope_fun: {"linear", "exp" }
         The type of envelop to apply to the individual sine waves.
-    tuning: {"equal_temperament", "natural"}
+    tuning: {"equal_temperament", "natural"} or callable.
+        The tuning system to use. If the value is "equal_temperament",
+        12 tone equal temperament implemented in `midi_pitch_to_frequency` will
+        be used. If the value is "natural", the function
+        `midi_pitch_to_tempered_frequency` will be used. Note that
+        `midi_pitch_to_tempered_frequency` computes the intervals (and thus,
+        frequencies) with respect to a reference note (A4 by default) and uses the
+        interval ratios specified by `FIVE_LIMIT_INTERVAL_RATIOS`. See
+        the documentation of these functions for more information. If a callable
+        is provided, function should get MIDI pitch as input and return
+        frequency in Hz as output.
+    tuning_kwargs : dict
+        Dictionary of keyword arguments to be passed to the tuning function
+        specified in  `tuning`. See `midi_pitch_to_tempered_frequency` and
+       `midi_pitch_to_frequency` for more information on their keyword arguments.
     harmonic_dist : int,  "shepard" or None (optional)
         Distribution of harmonics. If an integer, it is the number
         of harmonics to be considered. If "shepard", it uses Shepard tones.
         Default is None (i.e., only consider the fundamental frequency)
-    bpm : int
-        The bpm to render the output (if the input is a score-like object)
+    bpm : float, np.ndarray or callable
+        The bpm to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
 
     Returns
     -------
@@ -313,10 +390,13 @@ def synthesize(
 
     # If the input is a score, convert score time to seconds
     if onset_unit != "onset_sec":
-        beat2sec = 60 / bpm
-        onsets = note_array[onset_unit] * beat2sec
-        offsets = (note_array[onset_unit] + note_array[duration_unit]) * beat2sec
-        duration = note_array[duration_unit] * beat2sec
+        pnote_array = performance_notearray_from_score_notearray(
+            snote_array=note_array,
+            bpm=bpm,
+        )
+        onsets = pnote_array["onset_sec"]
+        offsets = pnote_array["onset_sec"] + pnote_array["duration_sec"]
+        duration = pnote_array["duration_sec"]
     else:
         onsets = note_array["onset_sec"]
         offsets = note_array["onset_sec"] + note_array["duration_sec"]
@@ -343,7 +423,14 @@ def synthesize(
     if tuning == "equal_temperament":
         freq_in_hz = midi_pitch_to_frequency(pitch, **tuning_kwargs)
     elif tuning == "natural":
-        freq_in_hz = midi_pitch_to_natural_frequency(pitch, **tuning_kwargs)
+        freq_in_hz = midi_pitch_to_tempered_frequency(pitch, **tuning_kwargs)
+    elif callable(tuning):
+        freq_in_hz = tuning(pitch, **tuning_kwargs)
+
+    else:
+        raise ValueError(
+            "`tuning` must be 'equal_temperament', 'natural' or a callable"
+        )
 
     if harmonic_dist is None:
 

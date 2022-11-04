@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing MIDI files.
+"""
 import warnings
 
 from collections import defaultdict
@@ -68,6 +72,7 @@ def load_performance_midi(
     filename: Union[PathLike, mido.MidiFile],
     default_bpm: Union[int, float] = 120,
     merge_tracks: bool = False,
+    time_in_divs: bool = False,
 ) -> performance.Performance:
     """Load a musical performance from a MIDI file.
 
@@ -111,7 +116,10 @@ def load_performance_midi(
     mpq = 60 * (10 ** 6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10 ** 6)
+    if time_in_divs:
+        time_conversion_factor = 1
+    else:
+        time_conversion_factor = mpq / (ppq * 10 ** 6)
 
     notes = []
     controls = []
@@ -134,8 +142,11 @@ def load_performance_midi(
             if msg.type == "set_tempo":
 
                 mpq = msg.tempo
-
-                time_conversion_factor = mpq / (ppq * 10 ** 6)
+                
+                if time_in_divs:
+                    time_conversion_factor = 1
+                else:
+                    time_conversion_factor = mpq / (ppq * 10 ** 6)
 
                 warnings.warn(
                     (
@@ -225,7 +236,7 @@ def load_performance_midi(
         for i, note in enumerate(notes):
             note["id"] = f"n{i}"
 
-    pp = performance.PerformedPart(notes, controls=controls, programs=programs)
+    pp = performance.PerformedPart(notes, controls=controls, programs=programs, ppq = ppq)
 
     perf = performance.Performance(
         id=doc_name,
