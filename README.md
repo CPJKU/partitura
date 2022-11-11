@@ -94,7 +94,7 @@ renders the part to an image and displays it:
 ```python
 pt.render(part)
 ```
-![Score example](https://raw.githubusercontent.com/CPJKU/partitura/main/docs/images/score_example.png)
+![Score example](https://raw.githubusercontent.com/CPJKU/partitura/main/docs/source/images/score_example.png)
 
 
 The notes in this part can be accessed through the property
