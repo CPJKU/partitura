@@ -11,7 +11,7 @@ from typing import Union, Tuple
 # from packaging import version
 
 import numpy as np
-from matchfile_fields import FractionalSymbolicDuration
+from partitura.io.matchfile_fields import FractionalSymbolicDuration
 
 # Define current version of the match file format
 CURRENT_MAJOR_VERSION = 1
@@ -19,6 +19,8 @@ CURRENT_MINOR_VERSION = 0
 CURRENT_PATCH_VERSION = 0
 
 Version = namedtuple("Version", ["major", "minor", "patch"])
+VersionOld = namedtuple("Version", ["major", "minor"])
+
 
 CURRENT_VERSION = Version(
     CURRENT_MAJOR_VERSION,
@@ -37,6 +39,22 @@ class MatchError(Exception):
 
 
 def interpret_version(version_string: str) -> Version:
+    """
+    Parse matchfile format version from a string. This method
+    parses a string like "1.0.0" and returns a Version instance.
+
+    Parameters
+    ----------
+    version_string : str
+        The string containg the version. The version string should b
+        in the form "{major}.{minor}.{patch}". Incorrectly formatted strings
+        will result in an error.
+
+    Returns
+    -------
+    version : Version
+        A named tuple specifying the version
+    """
     version_info = version_pattern.search(version_string)
 
     if version_info is not None:
@@ -49,11 +67,39 @@ def interpret_version(version_string: str) -> Version:
 
 
 def format_version(version: Version) -> str:
+    """
+    Format version as a string.
+
+    Parameters
+    ----------
+    version : Version
+        A Version instance.
+
+    Returns
+    -------
+    version_str : str
+        A string representation of the version.
+    """
     ma, mi, pa = version
-    return f"{ma}.{mi}.{pa}"
+
+    version_str = f"{ma}.{mi}.{pa}"
+    return version_str
 
 
 def interpret_as_int(value: str) -> int:
+    """
+    Interpret value as an integer
+
+    Parameters
+    ----------
+    value : str
+       The value to interpret as integer.
+
+    Returns
+    -------
+    int
+        The value cast as an integer.
+    """
     return int(value)
 
 
@@ -104,8 +150,9 @@ class MatchLine(object):
         self.out_pattern = self.line_dict[self.version]["matchline"]
 
         # set field names
-        # TODO: Add custom error if field is not provided?
         for field in self.field_names:
+            if field.lower() not in kwargs:
+                raise ValueError(f"{field.lower()} is not given in keyword arguments")
             setattr(self, field, kwargs[field.lower()])
 
     def __str__(self) -> str:
@@ -181,7 +228,7 @@ INFO_LINE_INTERPRETERS_V_1_0_0 = {
     "composer": (interpret_as_string, format_string, str),
     "midiClockUnits": (interpret_as_int, format_int, int),
     "midiClockRate": (interpret_as_int, format_int, int),
-    "approximateTempo": (interpret_as_float, format_float),
+    "approximateTempo": (interpret_as_float, format_float, float),
     "subtitle": (interpret_as_string, format_string, str),
 }
 
@@ -190,9 +237,8 @@ INFO_LINE_INTERPRETERS_V_1_0_0 = {
 INFO_LINE = {
     Version(1, 0, 0): {
         "pattern": re.compile(
-            # CC: Allow spaces? I think we should be strict and do not do this.
             # r"info\(\s*(?P<Attribute>[^,]+)\s*,\s*(?P<Value>.+)\s*\)\."
-            r"info\((?P<attribute>[^,]+),(?P<aalue>.+)\)\."
+            r"info\((?P<attribute>[^,]+),(?P<value>.+)\)\."
         ),
         "field_names": ("attribute", "value"),
         "matchline": "info({attribute},{value}).",
@@ -202,6 +248,20 @@ INFO_LINE = {
 
 
 class MatchInfo(MatchLine):
+    """
+    Main class specifying global information lines.
+
+    For version 1.0.0, these lines have the general structure:
+
+    `info(attribute,value).`
+
+    Parameters
+    ----------
+    version : Version
+        The version of the info line.
+    kwargs : keyword arguments
+        Keyword arguments specifying the type of line and its value.
+    """
 
     line_dict = INFO_LINE
 
@@ -307,29 +367,24 @@ class MatchScoreProp(MatchLine):
 
 
 class KeySignatureLine(MatchScoreProp):
-
-
     def __init__(
-            self,
-            version: Version,
-            key_signature: str,
-            measure: int,
-            beat: int,
-            offset: Union[int, FractionalSymbolicDuration],
-            onset_in_beats: float
+        self,
+        version: Version,
+        key_signature: str,
+        measure: int,
+        beat: int,
+        offset: Union[int, FractionalSymbolicDuration],
+        onset_in_beats: float,
     ) -> None:
         super().__init__(
             version=version,
-            attribute='keySignature',
+            attribute="keySignature",
             value=key_signature,
             measure=measure,
             beat=beat,
             offset=offset,
-            onset_in_beats=onset_in_beats
+            onset_in_beats=onset_in_beats,
         )
-
-        
-
 
 
 def load_match(fn, create_part=False, pedal_threshold=64, first_note_at_zero=False):
