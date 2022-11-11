@@ -1,11 +1,15 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains music related utilities
+"""
 from collections import defaultdict
 import re
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-
+from typing import Union, Callable
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
@@ -238,6 +242,9 @@ NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
 MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 
+# Standard tuning frequency of A4 in Hz
+A4 = 440.0
+
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
     """
@@ -245,16 +252,18 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
 
     Parameters
     ----------
-    notearray_or_part : structured ndarray, `Part` or `PerformedPart`
+    notearray_or_part : structured ndarray, `Score`, `Part`, `PerformedPart`
         Input score information
+    kwargs : dict
+        Additional arguments to be passed to `partitura.utils.note_array_from_part()`.
 
     Returns
     -------
     structured ndarray
         Structured array containing score information.
     """
-    from partitura.score import Part, PartGroup
-    from partitura.performance import PerformedPart
+    from partitura.score import Part, PartGroup, Score
+    from partitura.performance import PerformedPart, Performance
 
     if isinstance(notearray_or_part, np.ndarray):
         if notearray_or_part.dtype.fields is not None:
@@ -268,9 +277,13 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
     elif isinstance(notearray_or_part, PartGroup):
         return note_array_from_part_list(notearray_or_part.children, *args, **kwargs)
 
-    elif isinstance(notearray_or_part, PerformedPart):
-        return notearray_or_part.note_array()
+    elif isinstance(notearray_or_part, Score):
+        return note_array_from_part_list(notearray_or_part.parts, *args, **kwargs)
 
+    elif isinstance(notearray_or_part, (PerformedPart, Performance)):
+        return notearray_or_part.note_array(*args, **kwargs)
+    elif isinstance(notearray_or_part, Score):
+        return notearray_or_part.note_array(*args, **kwargs)
     elif isinstance(notearray_or_part, list):
         if all([isinstance(part, Part) for part in notearray_or_part]):
             return note_array_from_part_list(notearray_or_part, *args, **kwargs)
@@ -403,6 +416,55 @@ def pitch_spelling_to_note_name(step, alter, octave):
     return note_name
 
 
+def midi_pitch_to_frequency(
+    midi_pitch: Union[int, float, np.ndarray], a4: Union[int, float] = A4
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI pitch to frequency in Hz. This method assumes equal temperament.
+
+    Parameters
+    ----------
+    midi_pitch: int, float or ndarray
+        MIDI pitch of the note(s).
+    a4 : int or float (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+
+    Returns
+    -------
+    freq : float or ndarray
+        Frequency of the note(s).
+    """
+    freq = (a4 / 32) * (2 ** ((midi_pitch - 9) / 12))
+    return freq
+
+
+def frequency_to_midi_pitch(
+    freq: Union[int, float, np.ndarray],
+    a4: Union[int, float] = A4,
+) -> Union[int, np.ndarray]:
+    """
+    Convert frequency to MIDI pitch. This method assumes equal temperament.
+
+    Parameters
+    ----------
+    freq : float, int or np.ndarray
+        Frequency of the note(s) in Hz.
+    a4 : int or float (optional)
+        Frequency of A4 in Hz. By default is 440 Hz.
+
+    Returns
+    -------
+    midi_pitch : int or np.ndarray
+        MIDI pitch of the notes.
+    """
+    midi_pitch = np.round(12 * np.log2(32 * freq / a4) + 9)
+
+    if isinstance(midi_pitch, (int, float)):
+        return int(midi_pitch)
+    elif isinstance(midi_pitch, np.ndarray):
+        return midi_pitch.astype(int)
+
+
 SIGN_TO_ALTER = {
     "n": 0,
     "#": 1,
@@ -508,29 +570,29 @@ def fifths_mode_to_key_name(fifths, mode=None):
 
 def key_name_to_fifths_mode(key_name):
     """Return the number of sharps or flats and the mode of a key
-        signature name. A negative number denotes the number of flats
-        (i.e. -3 means three flats), and a positive number the number of
-        sharps. The mode is specified as 'major' or 'minor'.
+    signature name. A negative number denotes the number of flats
+    (i.e. -3 means three flats), and a positive number the number of
+    sharps. The mode is specified as 'major' or 'minor'.
 
-        Parameters
-        ----------
-        name : str
-            Name of the key signature, i.e. Am, E#, etc
+    Parameters
+    ----------
+    name : str
+        Name of the key signature, i.e. Am, E#, etc
 
-        Returns
-        -------
-        (int, str)
-            Tuple containing the number of fifths and the mode
+    Returns
+    -------
+    (int, str)
+        Tuple containing the number of fifths and the mode
 
 
-        Examples
-        --------
-        >>> key_name_to_fifths_mode('Am')
-        (0, 'minor')
-        >>> key_name_to_fifths_mode('C')
-        (0, 'major')
-        >>> key_name_to_fifths_mode('A')
-        (3, 'major')
+    Examples
+    --------
+    >>> key_name_to_fifths_mode('Am')
+    (0, 'minor')
+    >>> key_name_to_fifths_mode('C')
+    (0, 'major')
+    >>> key_name_to_fifths_mode('A')
+    (3, 'major')
 
     """
     fifths_list = ["F", "C", "G", "D", "A", "E", "B"]
@@ -538,10 +600,10 @@ def key_name_to_fifths_mode(key_name):
     if "m" in key_name:
         mode = "minor"
         s_list = fifths_list[4:] + fifths_list[:4]
-        if "b" in key_name or (len(key_name) == 2 and s_list.index(key_name[0]) > 2 ):
+        if "b" in key_name or (len(key_name) == 2 and s_list.index(key_name[0]) > 2):
             idx = s_list[::-1].index(key_name[0]) + 1
             corr = 1 if idx > 4 else 0
-            fifths = - idx - 7 * (key_name.count("b") - corr)
+            fifths = -idx - 7 * (key_name.count("b") - corr)
         else:
             idx = s_list.index(key_name[0])
             corr = 1 if idx > 2 else 0
@@ -549,10 +611,10 @@ def key_name_to_fifths_mode(key_name):
     else:
         mode = "major"
         s_list = fifths_list[1:] + fifths_list[:1]
-        if "b" in key_name or key_name=="F":
+        if "b" in key_name or key_name == "F":
             idx = s_list[::-1].index(key_name[0]) + 1
             corr = 1 if idx > 1 else 0
-            fifths = - idx - 7*(key_name.count("b") - corr)
+            fifths = -idx - 7 * (key_name.count("b") - corr)
         else:
             idx = s_list.index(key_name[0])
             corr = 1 if idx > 5 else 0
@@ -879,7 +941,7 @@ def compute_pianoroll(
     piano_range=False,
     remove_drums=True,
     remove_silence=True,
-    end_time = None
+    end_time=None,
 ):
     """Computes a piano roll from a structured note array (as
     generated by the `note_array` methods in `partitura.score.Part`
@@ -1008,7 +1070,7 @@ def compute_pianoroll(
         return_idxs=return_idxs,
         piano_range=piano_range,
         remove_silence=remove_silence,
-        end_time = end_time,
+        end_time=end_time,
     )
 
 
@@ -1039,7 +1101,7 @@ def _make_pianoroll(
     duration = note_info[:, 2]
 
     if np.any(duration < 0):
-        raise ValueError('Note durations should be >= 0!')
+        raise ValueError("Note durations should be >= 0!")
 
     # Get velocity if given
     if note_info.shape[1] < 4:
@@ -1093,9 +1155,7 @@ def _make_pianoroll(
     pr_onset = np.round(time_div * onset).astype(int)
     pr_onset += int(time_margin * time_div)
     pr_duration = np.clip(
-        np.round(time_div * duration).astype(int),
-        a_max=None,
-        a_min=1
+        np.round(time_div * duration).astype(int), a_max=None, a_min=1
     )
     pr_offset = pr_onset + pr_duration
 
@@ -1104,7 +1164,9 @@ def _make_pianoroll(
         N = int(np.ceil(time_div * time_margin + pr_offset.max()))
     else:
         if end_time * time_div < pr_offset.max():
-            raise ValueError("`end_time` must be higher or equal than the last note offset time")
+            raise ValueError(
+                "`end_time` must be higher or equal than the last note offset time"
+            )
         else:
             N = int(np.ceil(time_div * time_margin + time_div * end_time))
 
@@ -1127,7 +1189,7 @@ def _make_pianoroll(
                 )
             ]
         )
-        
+
     # Fix multiple notes with the same pitch and onset
     fill_dict = defaultdict(list)
     for row, col, vel in _idx_fill:
@@ -1254,7 +1316,7 @@ def pianoroll_to_notearray(pianoroll, time_div=8, time_unit="sec"):
             (f"onset_{time_unit}", "f4"),
             (f"duration_{time_unit}", "f4"),
             ("velocity", "i4"),
-            ("id", "U256")
+            ("id", "U256"),
         ],
     )
 
@@ -1321,8 +1383,9 @@ def match_note_arrays(
             if duration_key is None and check_duration:
                 check_duration = False
         else:
-            raise ValueError("`fields` should be a tuple or a string, but given "
-                             f"{type(fields)}")
+            raise ValueError(
+                "`fields` should be a tuple or a string, but given " f"{type(fields)}"
+            )
     else:
         onset_key, duration_key = get_time_units_from_note_array(input_note_array)
         onset_key_check, _ = get_time_units_from_note_array(target_note_array)
@@ -1385,17 +1448,18 @@ def match_note_arrays(
             # For the case that there are multiple notes aligned to the input note
 
             # get indices of the target notes if they have not yet been used
-            taix_to_consider = np.array([ti for ti in taix
-                                         if ti not in matched_target_idxs],
-                                        dtype=int)
+            taix_to_consider = np.array(
+                [ti for ti in taix if ti not in matched_target_idxs], dtype=int
+            )
             if len(taix_to_consider) > 0:
                 # If there are some indices to consider
                 candidate_notes = target_note_array[taix_to_consider]
 
                 if check_duration:
-                    best_candidate_idx = \
-                        (candidate_notes[duration_key] -
-                         input_note_array[inix][duration_key]).argmin()
+                    best_candidate_idx = (
+                        candidate_notes[duration_key]
+                        - input_note_array[inix][duration_key]
+                    ).argmin()
                 else:
                     # Take the first one if no other information is given
                     best_candidate_idx = 0
@@ -1407,9 +1471,16 @@ def match_note_arrays(
             matched_target_idxs.append(taix[0])
     matched_idxs = np.array(matched_idxs)
 
-    warnings.warn("Length of matched idxs: " "{0}".format(len(matched_idxs)), stacklevel=2)
-    warnings.warn("Length of input note_array: " "{0}".format(len(input_note_array)), stacklevel=2)
-    warnings.warn("Length of target note_array: " "{0}".format(len(target_note_array)), stacklevel=2)
+    warnings.warn(
+        "Length of matched idxs: " "{0}".format(len(matched_idxs)), stacklevel=2
+    )
+    warnings.warn(
+        "Length of input note_array: " "{0}".format(len(input_note_array)), stacklevel=2
+    )
+    warnings.warn(
+        "Length of target note_array: " "{0}".format(len(target_note_array)),
+        stacklevel=2,
+    )
 
     if return_note_idxs:
         if len(matched_idxs) > 0:
@@ -1499,11 +1570,8 @@ def remove_silence_from_performed_part(ppart):
 def note_array_from_part_list(
     part_list,
     unique_id_per_part=True,
-    include_pitch_spelling=False,
-    include_key_signature=False,
-    include_time_signature=False,
-    include_grace_notes=False,
-    include_staff=False):
+    **kwargs,
+):
     """
     Construct a structured Note array from a list of Part objects
 
@@ -1514,26 +1582,9 @@ def note_array_from_part_list(
        the list must be of the same type (i.e., no mixing `Part`
        and `PerformedPart` objects in the same list.
     unique_id_per_part : bool (optional)
-       Indicate from which part do each note come from in the note ids.
-    include_pitch_spelling: bool (optional)
-       Include pitch spelling information in note array. Only valid
-       if parts in `part_list` are `Part` objects. See `note_array_from_part`
-       for more info. Default is False.
-    include_key_signature: bool (optional)
-       Include key signature information in output note array.
-       Only valid if parts in `part_list` are `Part` objects.
-       See `note_array_from_part` for more info. Default is False.
-    include_time_signature : bool (optional)
-       Include time signature information in output note array.
-       Only valid if parts in `part_list` are `Part` objects.
-       See `note_array_from_part` for more info. Default is False.
-    include_grace_notes : bool (optional)
-        If `True`,  includes grace note information, i.e. if a note is a
-        grace note and the grace type "" for non grace notes).
-        Default is False
-    include_staff : bool (optional)
-        If `True`,  includes note staff number.
-        Default is False
+       Indicate from which part do each note come from in the note ids. Default is True.
+    **kwargs : dict
+         Additional keyword arguments to pass to `utils.music.note_array_from_part()`
 
     Returns
     -------
@@ -1546,36 +1597,39 @@ def note_array_from_part_list(
     from partitura.score import Part, PartGroup
     from partitura.performance import PerformedPart
 
+    is_score = False
     note_array = []
     for i, part in enumerate(part_list):
         if isinstance(part, (Part, PartGroup)):
+            # set include_divs_per_quarter, to correctly merge different divs
+            kwargs["include_divs_per_quarter"] = True
+            is_score = True
             if isinstance(part, Part):
-                na = note_array_from_part(
-                    part=part,
-                    include_pitch_spelling=include_pitch_spelling,
-                    include_key_signature=include_key_signature,
-                    include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes,
-                    include_staff=include_staff
-                )
+                na = note_array_from_part(part, **kwargs)
             elif isinstance(part, PartGroup):
                 na = note_array_from_part_list(
-                    part_list=part.children,
-                    unique_id_per_part=unique_id_per_part,
-                    include_pitch_spelling=include_pitch_spelling,
-                    include_key_signature=include_key_signature,
-                    include_time_signature=include_time_signature,
-                    include_grace_notes=include_grace_notes,
-                    include_staff=include_staff
+                    part.children, unique_id_per_part=unique_id_per_part, **kwargs
                 )
         elif isinstance(part, PerformedPart):
-            na = part.note_array
-        if unique_id_per_part:
+            na = part.note_array()
+        if unique_id_per_part and len(part_list) > 1:
             # Update id with part number
             na["id"] = np.array(
                 ["P{0:02d}_".format(i) + nid for nid in na["id"]], dtype=na["id"].dtype
             )
         note_array.append(na)
+
+    if is_score:
+        # rescale if parts have different divs
+        divs_per_parts = [
+            part_na[0]["divs_pq"] for part_na in note_array if len(part_na)
+        ]
+        lcm = np.lcm.reduce(divs_per_parts)
+        time_multiplier_per_part = [int(lcm / d) for d in divs_per_parts]
+        for na, time_mult in zip(note_array, time_multiplier_per_part):
+            na["onset_div"] = na["onset_div"] * time_mult
+            na["duration_div"] = na["duration_div"] * time_mult
+            na["divs_pq"] = na["divs_pq"] * time_mult
 
     # concatenate note_arrays
     note_array = np.hstack(note_array)
@@ -1591,7 +1645,6 @@ def note_array_from_part_list(
     return note_array
 
 
-
 def rest_array_from_part_list(
     part_list,
     unique_id_per_part=True,
@@ -1600,8 +1653,8 @@ def rest_array_from_part_list(
     include_time_signature=False,
     include_grace_notes=False,
     include_staff=False,
-    collapse=False
-    ):
+    collapse=False,
+):
     """
     Construct a structured Rest array from a list of Part objects
 
@@ -1649,12 +1702,13 @@ def rest_array_from_part_list(
             if isinstance(part, Part):
                 na = rest_array_from_part(
                     part=part,
+                    unique_id_per_part=unique_id_per_part,
                     include_pitch_spelling=include_pitch_spelling,
                     include_key_signature=include_key_signature,
                     include_time_signature=include_time_signature,
                     include_grace_notes=include_grace_notes,
                     inlcude_staff=include_staff,
-                    collapse=collapse
+                    collapse=collapse,
                 )
             elif isinstance(part, PartGroup):
                 na = rest_array_from_part_list(
@@ -1665,7 +1719,7 @@ def rest_array_from_part_list(
                     include_time_signature=include_time_signature,
                     include_grace_notes=include_grace_notes,
                     inlcude_staff=include_staff,
-                    collapse=collapse
+                    collapse=collapse,
                 )
         if unique_id_per_part:
             # Update id with part number
@@ -1777,7 +1831,8 @@ def note_array_from_part(
     include_time_signature=False,
     include_metrical_position=False,
     include_grace_notes=False,
-    include_staff=False
+    include_staff=False,
+    include_divs_per_quarter=False,
 ):
     """
     Create a structured array with note information
@@ -1787,6 +1842,9 @@ def note_array_from_part(
     ----------
     part : partitura.score.Part
         An object representing a score part.
+    include_pitch_spelling : bool (optional)
+        It's a dummy attribute for consistancy between note_array_from_part and note_array_from_part_list.
+        Default is False
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         note. Default is False
@@ -1809,6 +1867,13 @@ def note_array_from_part(
     include_grace_notes : bool (optional)
         If `True`,  includes grace note information, i.e. if a note is a
         grace note and the grace type "" for non grace notes).
+        Default is False
+    include_staff : bool (optional)
+        If `True`,  includes staff information
+        Default is False
+    include_divs_per_quarter : bool (optional)
+        If `True`,  include the number of divs (e.g. MIDI ticks,
+        MusicXML ppq) per quarter note of the current part.
         Default is False
 
     Returns
@@ -1839,14 +1904,22 @@ def note_array_from_part(
         If `include_time_signature` is True:
             * 'ts_beats': number of beats in a measure
             * 'ts_beat_type': type of beats (denominator of the time signature)
+            * 'ts_mus_beat' : number of musical beats is it's set, otherwise ts_beats
 
         If `include_metrical_position` is True:
             * 'is_downbeat': 1 if the note onset is on a downbeat, 0 otherwise
             * 'rel_onset_div': number of divs elapsed from the beginning of the note measure
             * 'tot_measure_divs' : total number of divs in the note measure
+
         If 'include_grace_notes' is True:
             * 'is_grace': 1 if the note is a grace 0 otherwise
-            * 'grace_type' : the type of the grace notes "" for non grace notes.
+            * 'grace_type' : the type of the grace notes "" for non grace notes
+
+        If 'include_staff' is True:
+            * 'staff' : the staff number for each note
+
+        If 'include_divs_per_quarter' is True:
+            * 'divs_pq': the number of divs per quarter note
     Examples
     --------
     >>> from partitura import load_musicxml, EXAMPLE_MUSICXML
@@ -1888,6 +1961,20 @@ def note_array_from_part(
     else:
         metrical_position_map = None
 
+    if include_divs_per_quarter:
+        parts_quarter_times = part._quarter_times
+        parts_quarter_durations = part._quarter_durations
+        if not len(parts_quarter_durations) == 1:
+            raise Exception(
+                "Note array from parts with multiple divisions is not supported. Found divisions",
+                parts_quarter_durations,
+                "at times",
+                parts_quarter_times,
+            )
+        divs_per_quarter = parts_quarter_durations[0]
+    else:
+        divs_per_quarter = None
+
     note_array = note_array_from_note_list(
         note_list=part.notes_tied,
         beat_map=part.beat_map,
@@ -1897,30 +1984,34 @@ def note_array_from_part(
         metrical_position_map=metrical_position_map,
         include_pitch_spelling=include_pitch_spelling,
         include_grace_notes=include_grace_notes,
-        include_staff=include_staff
+        include_staff=include_staff,
+        divs_per_quarter=divs_per_quarter,
     )
-    
+
     return note_array
 
 
 def rest_array_from_part(
-        part,
-        include_pitch_spelling=False,
-        include_key_signature=False,
-        include_time_signature=False,
-        include_metrical_position=False,
-        include_grace_notes=False,
-        include_staff=False,
-        collapse=False
+    part,
+    include_pitch_spelling=False,
+    include_key_signature=False,
+    include_time_signature=False,
+    include_metrical_position=False,
+    include_grace_notes=False,
+    include_staff=False,
+    collapse=False,
 ):
     """
     Create a structured array with rest information
-    from a `Part` object.
+    from a `Part` object Similar to note_array.
 
     Parameters
     ----------
     part : partitura.score.Part
         An object representing a score part.
+    include_pitch_spelling : bool (optional)
+        It's a dummy attribute for consistancy between rest_array_from_part and rest_array_from_part_list.
+        Default is False
     include_pitch_spelling : bool (optional)
         If `True`, includes pitch spelling information for each
         rest.
@@ -1978,22 +2069,23 @@ def rest_array_from_part(
         include_pitch_spelling=include_pitch_spelling,
         include_grace_notes=include_grace_notes,
         include_staff=include_staff,
-        collapse=collapse
+        collapse=collapse,
     )
 
     return rest_array
 
 
 def note_array_from_note_list(
-        note_list,
-        beat_map=None,
-        quarter_map=None,
-        time_signature_map=None,
-        key_signature_map=None,
-        metrical_position_map=None,
-        include_pitch_spelling=False,
-        include_grace_notes=False,
-        include_staff=False
+    note_list,
+    beat_map=None,
+    quarter_map=None,
+    time_signature_map=None,
+    key_signature_map=None,
+    metrical_position_map=None,
+    include_pitch_spelling=False,
+    include_grace_notes=False,
+    include_staff=False,
+    divs_per_quarter=None,
 ):
     """
     Create a structured array with note information
@@ -2037,6 +2129,11 @@ def note_array_from_note_list(
     include_staff : bool (optional)
         If `True`,  includes the staff number for every note.
         Default is False
+    divs_per_quarter : int or None (optional)
+        The number of divs (e.g. MIDI ticks, MusicXML ppq) per quarter
+        note of the current part.
+        Default is None
+
 
     Returns
     -------
@@ -2080,6 +2177,7 @@ def note_array_from_note_list(
             * 'tot_measure_div' : total number of divs in the note measure
                If `measure_map` is not None.
             * 'staff' : number of note staff.
+            * 'divs_pq' : number of parts per quarter note.
     """
 
     fields = []
@@ -2111,7 +2209,7 @@ def note_array_from_note_list(
 
     # fields for time signature
     if time_signature_map is not None:
-        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4")]
+        fields += [("ts_beats", "i4"), ("ts_beat_type", "i4"), ("ts_mus_beats", "i4")]
 
     # fields for metrical position
     if metrical_position_map is not None:
@@ -2123,6 +2221,10 @@ def note_array_from_note_list(
     # field for staff
     if include_staff:
         fields += [("staff", "i4")]
+
+    # field for divs_pq
+    if divs_per_quarter:
+        fields += [("divs_pq", "i4")]
 
     note_array = []
     for note in note_list:
@@ -2160,7 +2262,7 @@ def note_array_from_note_list(
             note_info += (step, alter, octave)
 
         if include_grace_notes:
-            is_grace = hasattr(note, 'grace_type')
+            is_grace = hasattr(note, "grace_type")
             if is_grace:
                 grace_type = note.grace_type
             else:
@@ -2173,9 +2275,9 @@ def note_array_from_note_list(
             note_info += (fifths, mode)
 
         if time_signature_map is not None:
-            beats, beat_type = time_signature_map(note.start.t)
+            beats, beat_type, mus_beats = time_signature_map(note.start.t)
 
-            note_info += (beats, beat_type)
+            note_info += (beats, beat_type, mus_beats)
 
         if metrical_position_map is not None:
             rel_onset_div, tot_measure_div = metrical_position_map(note.start.t)
@@ -2185,7 +2287,10 @@ def note_array_from_note_list(
             note_info += (is_downbeat, rel_onset_div, tot_measure_div)
 
         if include_staff:
-            note_info += (note.staff if note.staff else 0),
+            note_info += ((note.staff if note.staff else 0),)
+
+        if divs_per_quarter:
+            note_info += (divs_per_quarter,)
 
         note_array.append(note_info)
 
@@ -2193,7 +2298,11 @@ def note_array_from_note_list(
 
     # Sanitize voice information
     no_voice_idx = np.where(note_array["voice"] == -1)[0]
-    max_voice = note_array["voice"].max()
+    try:
+        max_voice = note_array["voice"].max()
+    except ValueError:  # raised if `note_array["voice"]` is empty.
+        note_array["voice"] = 0
+        max_voice = 0
     note_array["voice"][no_voice_idx] = max_voice + 1
 
     # sort by onset and pitch
@@ -2206,18 +2315,17 @@ def note_array_from_note_list(
     return note_array
 
 
-
 def rest_array_from_rest_list(
-        rest_list,
-        beat_map=None,
-        quarter_map=None,
-        time_signature_map=None,
-        key_signature_map=None,
-        metrical_position_map=None,
-        include_pitch_spelling=False,
-        include_grace_notes=False,
-        include_staff=False,
-        collapse=False
+    rest_list,
+    beat_map=None,
+    quarter_map=None,
+    time_signature_map=None,
+    key_signature_map=None,
+    metrical_position_map=None,
+    include_pitch_spelling=False,
+    include_grace_notes=False,
+    include_staff=False,
+    collapse=False,
 ):
     """
     Create a structured array with rest information
@@ -2349,7 +2457,7 @@ def rest_array_from_rest_list(
             rest_info += (step, alter, octave)
 
         if include_grace_notes:
-            is_grace = hasattr(rest, 'grace_type')
+            is_grace = hasattr(rest, "grace_type")
             if is_grace:
                 grace_type = rest.grace_type
             else:
@@ -2374,7 +2482,7 @@ def rest_array_from_rest_list(
             rest_info += (is_downbeat, rel_onset_div, tot_measure_div)
 
         if include_staff:
-            rest_info += (rest.staff if rest.staff else 0),
+            rest_info += ((rest.staff if rest.staff else 0),)
 
         rest_array.append(rest_info)
 
@@ -2403,10 +2511,17 @@ def collapse_rests(rest_array):
     output_idx = []
     for i, rest in enumerate(rest_array):
         if i not in filter_idx:
-            idxs = np.where((rest_array["onset_beat"] == rest["onset_beat"] + rest["duration_beat"]) & (rest_array["voice"] == rest["voice"]))[0]
+            idxs = np.where(
+                (rest_array["onset_beat"] == rest["onset_beat"] + rest["duration_beat"])
+                & (rest_array["voice"] == rest["voice"])
+            )[0]
             for idx in idxs:
-                rest_array[i]["duration_beat"] = rest["duration_beat"] + rest_array[idx]["duration_beat"]
-                rest_array[i]["duration_div"] = rest["duration_div"] + rest_array[idx]["duration_div"]
+                rest_array[i]["duration_beat"] = (
+                    rest["duration_beat"] + rest_array[idx]["duration_beat"]
+                )
+                rest_array[i]["duration_div"] = (
+                    rest["duration_div"] + rest_array[idx]["duration_div"]
+                )
                 filter_idx.append(idx)
             output_idx.append(i)
     return rest_array[output_idx], filter_idx
@@ -2446,26 +2561,80 @@ def performance_from_part(part, bpm=100, velocity=64):
     ----------
     part: Part
         The part from which we want to generate a performed part
-    bpm : float
-        Beats per minute
-    velocity: float or int
-        The MIDI velocity for all notes.
+    bpm : float, np.ndarray or callable
+        Beats per minute to generate the performance. If a the value is a float,
+        the performance will be generated with a constant tempo. If the value is
+        a np.ndarray, it has to be an array with two columns where the first
+        column is score time in beats and the second column is the tempo. If a
+        callable is given, the function is assumed to map score onsets in beats
+        to tempo values. Default is 100 bpm.
+    velocity: int, np.ndarray or callable
+        MIDI velocity of the performance. If a the value is an int, the
+        performance will be generated with a constant MIDI velocity. If the
+        value is a np.ndarray, it has to be an array with two columns where
+        the first column is score time in beats and the second column is the
+        MIDI velocity. If a callable is given, the function is assumed to map
+        score time in beats to MIDI velocity. Default is 64.
 
     Returns
     -------
     ppart: PerformedPart
-
-    Potential extensions
-    --------------------
-    * allow for bpm to be a callable or an 2D array with columns (onset, bpm)
-    * allow for velocity to be a callable or a 2D array (onset, velocity)
+        A PerformedPart object with the generated performance.
     """
     from partitura.score import Part
     from partitura.performance import PerformedPart
 
     if not isinstance(part, Part):
-        raise ValueError("The input `part` must be a "
-                         f"`partitura.score.Part` instance, not {type(part)}")
+        raise ValueError(
+            "The input `part` must be a "
+            f"`partitura.score.Part` instance, not {type(part)}"
+        )
+
+    snote_array = part.note_array()
+
+    pnote_array = performance_notearray_from_score_notearray(
+        snote_array=snote_array, bpm=bpm, velocity=velocity
+    )
+
+    ppart = PerformedPart.from_note_array(pnote_array)
+
+    return ppart
+
+
+def performance_notearray_from_score_notearray(
+    snote_array: np.ndarray,
+    bpm: [float, np.ndarray, Callable] = 100.0,
+    velocity: Union[int, np.ndarray, Callable] = 64,
+) -> np.ndarray:
+    """
+    Generate a performance note array from a score note array
+
+    Parameters
+    ----------
+    snote_array : np.ndarray
+        A score note array.
+    bpm : float, np.ndarray or callable
+        Beats per minute to generate the performance. If a the value is a float,
+        the performance will be generated with a constant tempo. If the value is
+        a np.ndarray, it has to be an array with two columns where the first
+        column is score time in beats and the second column is the tempo. If a
+        callable is given, the function is assumed to map score onsets in beats
+        to tempo values. Default is 100 bpm.
+    velocity: int, np.ndarray or callable
+        MIDI velocity of the performance. If a the value is an int, the
+        performance will be generated with a constant MIDI velocity. If the
+        value is a np.ndarray, it has to be an array with two columns where
+        the first column is score time in beats and the second column is the
+        MIDI velocity. If a callable is given, the function is assumed to map
+        score time in beats to MIDI velocity. Default is 64.
+
+
+    Returns
+    -------
+    pnote_array : np.ndarray
+        A performance note array based on the score with the specified tempo
+        and velocity.
+    """
 
     ppart_fields = [
         ("onset_sec", "f4"),
@@ -2476,41 +2645,97 @@ def performance_from_part(part, bpm=100, velocity=64):
         ("channel", "i4"),
         ("id", "U256"),
     ]
-    snote_array = part.note_array()
 
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
 
-    unique_onsets = np.unique(snote_array['onset_beat'])
+    if isinstance(velocity, np.ndarray):
+
+        if velocity.ndim == 2:
+
+            velocity_fun = interp1d(
+                x=velocity[:, 0],
+                y=velocity[:, 1],
+                kind="previous",
+                bounds_error=False,
+                fill_value=(velocity[0, 1], velocity[-1, 1]),
+            )
+            pnote_array["velocity"] = np.round(
+                velocity_fun(snote_array["onset_beat"]),
+            ).astype(int)
+
+        else:
+            pnote_array["velocity"] = np.round(velocity).astype(int)
+
+    elif callable(velocity):
+        # The velocity parameter is a callable that returns a
+        # velocity value for each score onset
+        pnote_array["velocity"] = np.round(
+            velocity(snote_array["onset_beat"]),
+        ).astype(int)
+
+    else:
+        pnote_array["velocity"] = int(velocity)
+
+    unique_onsets = np.unique(snote_array["onset_beat"])
     # Cast as object to avoid warnings, but seems to work well
     # in numpy version 1.20.1
-    unique_onset_idxs = np.array([np.where(snote_array['onset_beat'] == u)[0]
-                                  for u in unique_onsets],
-                                 dtype=object)
+    unique_onset_idxs = np.array(
+        [np.where(snote_array["onset_beat"] == u)[0] for u in unique_onsets],
+        dtype=object,
+    )
 
     iois = np.diff(unique_onsets)
 
-    bp = 60 / float(bpm)
+    if callable(bpm) or isinstance(bpm, np.ndarray):
 
-    # TODO: allow for variable bpm and velocity
-    pnote_array['duration_sec'] = bp * snote_array['duration_beat']
-    pnote_array['velocity'] = int(velocity)
-    pnote_array['pitch'] = snote_array['pitch']
-    pnote_array['id'] = snote_array['id']
-    p_onsets = np.r_[0, np.cumsum(iois * bp)]
+        if callable(bpm):
+            # bpm parameter is a callable that returns a bpm value
+            # for each score onset
+            bp = 60 / bpm(unique_onsets)
+            bp_duration = (
+                60 / bpm(snote_array["onset_beat"]) * snote_array["duration_beat"]
+            )
+
+        elif isinstance(bpm, np.ndarray):
+
+            if bpm.ndim != 2:
+                raise ValueError("`bpm` should be a 2D array")
+
+            bpm_fun = interp1d(
+                x=bpm[:, 0],
+                y=bpm[:, 1],
+                kind="previous",
+                bounds_error=False,
+                fill_value=(bpm[0, 1], bpm[-1, 1]),
+            )
+            bp = 60 / bpm_fun(unique_onsets)
+            bp_duration = (
+                60 / bpm_fun(snote_array["onset_beat"]) * snote_array["duration_beat"]
+            )
+
+        p_onsets = np.r_[0, np.cumsum(iois * bp[:-1])]
+        pnote_array["duration_sec"] = bp_duration * snote_array["duration_beat"]
+
+    else:
+        # convert bpm to beat period
+        bp = 60 / float(bpm)
+        p_onsets = np.r_[0, np.cumsum(iois * bp)]
+        pnote_array["duration_sec"] = bp * snote_array["duration_beat"]
+
+    pnote_array["pitch"] = snote_array["pitch"]
+    pnote_array["id"] = snote_array["id"]
 
     for ix, on in zip(unique_onset_idxs, p_onsets):
         # ix has to be cast as integer depending on the
         # numpy version...
-        pnote_array['onset_sec'][ix.astype(int)] = on
+        pnote_array["onset_sec"][ix.astype(int)] = on
 
-    ppart = PerformedPart.from_note_array(pnote_array)
-
-    return ppart
+    return pnote_array
 
 
-def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
-                                 alignment,
-                                 remove_ornaments=True):
+def get_time_maps_from_alignment(
+    ppart_or_note_array, spart_or_note_array, alignment, remove_ornaments=True
+):
     """
     Get time maps to convert performance time (in seconds) to score time (in beats)
     and visceversa.
@@ -2549,15 +2774,13 @@ def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
 
     # Get indices of the matched notes (notes in the score
     # for which there is a performance note
-    match_idx = get_matched_notes(score_note_array,
-                                  perf_note_array,
-                                  alignment)
+    match_idx = get_matched_notes(score_note_array, perf_note_array, alignment)
 
     # Get onsets and durations
-    score_onsets = score_note_array[match_idx[:, 0]]['onset_beat']
-    score_durations = score_note_array[match_idx[:, 0]]['duration_beat']
+    score_onsets = score_note_array[match_idx[:, 0]]["onset_beat"]
+    score_durations = score_note_array[match_idx[:, 0]]["duration_beat"]
 
-    perf_onsets = perf_note_array[match_idx[:, 1]]['onset_sec']
+    perf_onsets = perf_note_array[match_idx[:, 1]]["onset_sec"]
 
     # Use only unique onsets
     score_unique_onsets = np.unique(score_onsets)
@@ -2568,35 +2791,38 @@ def get_time_maps_from_alignment(ppart_or_note_array, spart_or_note_array,
         # ornaments (grace notes) do not have a duration
         score_unique_onset_idxs = np.array(
             [
-                np.where(np.logical_and(score_onsets == u,
-                                        score_durations > 0))[0]
+                np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
                 for u in score_unique_onsets
             ],
-            dtype=object
+            dtype=object,
         )
 
     else:
         score_unique_onset_idxs = np.array(
             [np.where(score_onsets == u)[0] for u in score_unique_onsets],
-            dtype=object)
+            dtype=object,
+        )
 
     # For chords, we use the average performed onset as a proxy for
     # representing the "performeance time" of the position of the score
     # onsets
-    eq_perf_onsets = np.array([np.mean(perf_onsets[u])
-                               for u in score_unique_onset_idxs])
+    eq_perf_onsets = np.array(
+        [np.mean(perf_onsets[u]) for u in score_unique_onset_idxs]
+    )
 
     # Get maps
     ptime_to_stime_map = interp1d(
         x=eq_perf_onsets,
         y=score_unique_onsets,
         bounds_error=False,
-        fill_value='extrapolate')
+        fill_value="extrapolate",
+    )
     stime_to_ptime_map = interp1d(
         y=eq_perf_onsets,
         x=score_unique_onsets,
         bounds_error=False,
-        fill_value='extrapolate')
+        fill_value="extrapolate",
+    )
 
     return ptime_to_stime_map, stime_to_ptime_map
 
@@ -2626,18 +2852,17 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
     matched_idxs = []
     for al in alignment:
         # Get only matched notes (i.e., ignore inserted or deleted notes)
-        if al['label'] == 'match':
+        if al["label"] == "match":
 
             # if ppart_note_array['id'].dtype != type(al['performance_id']):
-            if not isinstance(ppart_note_array['id'], type(al['performance_id'])):
-                p_id = str(al['performance_id'])
+            if not isinstance(ppart_note_array["id"], type(al["performance_id"])):
+                p_id = str(al["performance_id"])
             else:
-                p_id = al['performance_id']
+                p_id = al["performance_id"]
 
-            p_idx = int(np.where(
-                ppart_note_array['id'] == p_id)[0])
+            p_idx = int(np.where(ppart_note_array["id"] == p_id)[0])
 
-            s_idx = np.where(spart_note_array['id'] == al['score_id'])[0]
+            s_idx = np.where(spart_note_array["id"] == al["score_id"])[0]
 
             if len(s_idx) > 0:
                 s_idx = int(s_idx)

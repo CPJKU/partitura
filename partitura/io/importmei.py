@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing MEI files.
+"""
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 import partitura.score as score
@@ -7,40 +12,48 @@ from partitura.utils.music import (
     SIGN_TO_ALTER,
     estimate_symbolic_duration,
 )
+from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias
 
 import re
-import logging
 import warnings
 
 import numpy as np
 
 
-
-
-def load_mei(mei_path: str) -> list:
+@deprecated_alias(mei_path="filename")
+def load_mei(filename: PathLike) -> score.Score:
     """
     Loads a Mei score from path and returns a list of Partitura.Part
 
     Parameters
     ----------
-    mei_path : str
+    filename : PathLike
         The path to an MEI score.
 
     Returns
     -------
-    part_list : list
-        A list of Partitura Part or GroupPart Objects.
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
-    parser = MeiParser(mei_path)
+    parser = MeiParser(filename)
+    doc_name = get_document_name(filename)
     # create parts from the specifications in the mei
     parser.create_parts()
     # fill parts with the content from the mei
     parser.fill_parts()
-    return parser.parts
+
+    # TODO: Parse score info (composer, lyricist, etc.)
+    scr = score.Score(
+        id=doc_name,
+        partlist=parser.parts,
+    )
+
+    return scr
 
 
-class MeiParser:
-    def __init__(self, mei_path):
+class MeiParser(object):
+    def __init__(self, mei_path: PathLike) -> None:
         document, ns = self._parse_mei(mei_path)
         self.document = document
         self.ns = ns  # the namespace in the MEI file
@@ -437,7 +450,7 @@ class MeiParser:
     # functions to parse the content of parts
 
     def _note_el_to_accid_int(self, note_el) -> int:
-        """Accidental strings to integer pitch. 
+        """Accidental strings to integer pitch.
         It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)"""
         if note_el.get("accid") is not None:
             return SIGN_TO_ALTER[note_el.get("accid")]
@@ -818,7 +831,7 @@ class MeiParser:
         for i_layer, layer_el in enumerate(layers_el):
             end_positions.append(
                 self._handle_layer_in_staff_in_measure(
-                    layer_el, i_layer, staff_ind, position, part
+                    layer_el, i_layer + 1, staff_ind, position, part
                 )
             )
         # check if layers have equal duration (bad encoding, but it often happens)
@@ -832,7 +845,7 @@ class MeiParser:
         return max(end_positions)
 
     def _find_dir_positions(self, dir_el, bar_position):
-        """Compute the position for a <dir> element. 
+        """Compute the position for a <dir> element.
         Returns an array, one position for each part."""
         delta_position_beat = float(dir_el.get("tstamp"))
         return [
@@ -890,7 +903,7 @@ class MeiParser:
                 end_positions = []
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
-                        self._handle_staff_in_measure(staff_el, i_s, position, part)
+                        self._handle_staff_in_measure(staff_el, i_s + 1, position, part)
                     )
                 # sanity check that all layers have equal duration
                 if not all([e == end_positions[0] for e in end_positions]):
@@ -1023,4 +1036,3 @@ class MeiParser:
         for bl in self.barlines:
             for part in score.iter_parts(self.parts):
                 part.add(score.Barline(bl["type"]), bl["pos"])
-

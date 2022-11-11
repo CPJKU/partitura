@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for testing conversions from beats and quarters.
+"""
 import unittest
 
 import partitura.score as score

@@ -1,12 +1,14 @@
-"""The top level of the package contains functions to load and save
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+The top level of the package contains functions to load and save
 data, display rendered scores, and functions to estimate pitch
 spelling, voice assignment, and key signature.
-
 """
 
 import pkg_resources
 
-from .io import load_score, load_performance
+from .io import load_score, load_performance, load_score_as_part, lp
 from .io.musescore import load_via_musescore
 from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
@@ -17,24 +19,28 @@ from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
 from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
-from .io.exportparangonada import save_csv_for_parangonada
-
+from .io.importparangonada import load_parangonada_csv
+from .io.exportparangonada import save_parangonada_csv, save_csv_for_parangonada
+from .io.exportaudio import save_wav
 from .display import render
 from . import musicanalysis
-from .musicanalysis import make_note_feats, compute_note_array, full_note_array
+from .musicanalysis import make_note_features, compute_note_array, full_note_array
 
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version
 
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
-    "partitura", "assets/score_example.musicxml"
-)
+    "partitura", "assets/score_example.musicxml")
+
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
 EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
 EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.krn")
 
 __all__ = [
+    "load_score",
+    "load_score_as_part",
+    "load_performance",
     "load_musicxml",
     "save_musicxml",
     "load_mei",
@@ -49,9 +55,7 @@ __all__ = [
     "save_match",
     "load_nakamuramatch",
     "load_nakamuracorresp",
-    "render",
-    "EXAMPLE_MUSICXML",
-    "EXAMPLE_MIDI",
-    "EXAMPLE_MEI",
-    "EXAMPLE_KERN"
+    "load_parangonada_csv",
+    "save_parangonada_csv",
+    "render"
 ]
