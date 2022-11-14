@@ -3,8 +3,24 @@
 """
 This module contains definitions for Matchfile lines for version >1.0.0
 """
+from __future__ import annotations
 
-from partitura.io.matchfile_base import MatchLine, Version
+from typing import Any, Callable
+
+from partitura.io.matchfile_base import (
+    MatchLine,
+    Version,
+    BaseInfoLine,
+    MatchError,
+    interpret_version,
+    format_version,
+    interpret_as_string,
+    format_string,
+    interpret_as_float,
+    format_float,
+    interpret_as_int,
+    format_int,
+)
 
 # Define current version of the match file format
 CURRENT_MAJOR_VERSION = 1
@@ -18,7 +34,34 @@ CURRENT_VERSION = Version(
 )
 
 
-class MatchInfo(MatchLine):
+# Dictionary of interpreter, formatters and datatypes for info lines
+# each entry in the dictionary is a tuple with
+# an intepreter (to parse the input), a formatter (for the output matchline)
+# and type
+
+INFO_LINE = {
+    Version(1, 0, 0): {
+        "matchFileVersion": (interpret_version, format_version, Version),
+        "piece": (interpret_as_string, format_string, str),
+        "scoreFileName": (interpret_as_string, format_string, str),
+        "scoreFilePath": (interpret_as_string, format_string, str),
+        "midiFileName": (interpret_as_string, format_string, str),
+        "midiFilePath": (interpret_as_string, format_string, str),
+        "audioFileName": (interpret_as_string, format_string, str),
+        "audioFilePath": (interpret_as_string, format_string, str),
+        "audioFirstNote": (interpret_as_float, format_float, float),
+        "audioLastNote": (interpret_as_float, format_float, float),
+        "performer": (interpret_as_string, format_string, str),
+        "composer": (interpret_as_string, format_string, str),
+        "midiClockUnits": (interpret_as_int, format_int, int),
+        "midiClockRate": (interpret_as_int, format_int, int),
+        "approximateTempo": (interpret_as_float, format_float, float),
+        "subtitle": (interpret_as_string, format_string, str),
+    }
+}
+
+
+class MatchInfo(BaseInfoLine):
     """
     Main class specifying global information lines.
 
@@ -34,38 +77,33 @@ class MatchInfo(MatchLine):
         Keyword arguments specifying the type of line and its value.
     """
 
-    line_dict = INFO_LINE
+    def __init__(
+        self,
+        version: Version,
+        attribute: str,
+        value: Any,
+        value_type: type,
+        format_fun: Callable[Any, str],
+    ) -> None:
 
-    def __init__(self, version: Version = CURRENT_VERSION, **kwargs) -> None:
-        super().__init__(version, **kwargs)
+        if version < Version(1, 0, 0):
+            raise MatchError("The version must be >= 1.0.0")
 
-        self.interpret_fun = self.line_dict[self.version]["value"][self.attribute][0]
-        self.value_type = self.line_dict[self.version]["value"][self.attribute][2]
-        self.format_fun = {
-            "attribute": format_string,
-            "value": self.line_dict[self.version]["value"][self.attribute][1],
-        }
-
-    @property
-    def matchline(self) -> str:
-        matchline = self.out_pattern.format(
-            **dict(
-                [
-                    (field, self.format_fun[field](getattr(self, field)))
-                    for field in self.field_names
-                ]
-            )
+        super().__init__(
+            version=version,
+            attribute=attribute,
+            value=value,
+            value_type=value_type,
+            format_fun=format_fun,
         )
-
-        return matchline
 
     @classmethod
     def from_matchline(
         cls,
         matchline: str,
         pos: int = 0,
-        version=CURRENT_VERSION,
-    ) -> MatchLine:
+        version: Version = CURRENT_VERSION,
+    ) -> MatchInfo:
         """
         Create a new MatchLine object from a string
 
@@ -82,22 +120,33 @@ class MatchInfo(MatchLine):
 
         Returns
         -------
-        a MatchLine instance
+        a Mat instance
         """
-        class_dict = INFO_LINE[version]
 
-        match_pattern = class_dict["pattern"].search(matchline, pos=pos)
+        match_pattern = cls.pattern.search(matchline, pos=pos)
+
+        if version not in INFO_LINE:
+            raise MatchError(f"{version} is not specified for this class.")
+        class_dict = INFO_LINE[version]
 
         if match_pattern is not None:
             attribute, value_str = match_pattern.groups()
-            if attribute not in class_dict["value"].keys():
+            if attribute not in class_dict:
                 raise ValueError(
-                    f"Attribute {attribute} is not specified in version {version}"
+                    f"Attribute {attribute} is not specified in {version}"
                 )
 
-            value = class_dict["value"][attribute][0](value_str)
+            interpret_fun, format_fun, value_type = class_dict[attribute]
 
-            return cls(version=version, attribute=attribute, value=value)
+            value = interpret_fun(value_str)
+
+            return cls(
+                version=version,
+                attribute=attribute,
+                value=value,
+                value_type=value_type,
+                format_fun=format_fun,
+            )
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")

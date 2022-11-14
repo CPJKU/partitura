@@ -127,8 +127,8 @@ class MatchLine(object):
         """
         types_are_correct = all(
             [
-                isinstance(getattr(self, field), self.field_types[field])
-                for field in self.field_names
+                isinstance(getattr(self, field), field_type)
+                for field, field_type in zip(self.field_names, self.field_types)
             ]
         )
 
@@ -161,7 +161,7 @@ class BaseInfoLine(MatchLine):
 
     out_pattern: str = "info({attribute},{value})."
 
-    pattern = re.Pattern = r"info\((?P<attribute>[^,]+),(?P<value>.+)\)\."
+    pattern: re.Pattern = re.compile(r"info\((?P<attribute>[^,]+),(?P<value>.+)\)\.")
 
     def __init__(
         self,
@@ -175,8 +175,8 @@ class BaseInfoLine(MatchLine):
 
         self.field_types = (str, value_type)
         self.format_fun = dict(attribute=format_string, value=format_fun)
-
-        setattr(attribute, value)
+        self.attribute = attribute
+        self.value = value
 
     @property
     def matchline(self) -> str:

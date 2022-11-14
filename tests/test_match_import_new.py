@@ -8,14 +8,17 @@ import numpy as np
 
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 
-from partitura.io.importmatch_new import (
+from partitura.io.matchlines_1_0_0 import (
     MatchInfo,
 )
 
 from partitura.io.matchfile_base import interpret_version, Version
 
 
-class TestMatchLines(unittest.TestCase):
+class TestMatchLinesV1_0_0(unittest.TestCase):
+    """
+    Test matchlines for version 1.0.0
+    """
     def test_info_lines(self):
         """
         Test parsing and generating global info lines.
@@ -68,7 +71,13 @@ class TestMatchLines(unittest.TestCase):
 
         for ml in matchlines:
             mo = MatchInfo.from_matchline(ml)
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
             self.assertTrue(mo.matchline == ml)
+
+            # assert that the data types of the match line are correct
+            self.assertTrue(mo.check_types())
 
         # The following lines should result in an error
         try:
