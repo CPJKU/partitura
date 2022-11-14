@@ -12,6 +12,8 @@ from partitura.io.importmatch_new import (
     MatchInfo,
 )
 
+from partitura.io.matchfile_base import interpret_version, Version
+
 
 class TestMatchLines(unittest.TestCase):
     def test_info_lines(self):
@@ -87,4 +89,62 @@ class TestMatchLines(unittest.TestCase):
             self.assertTrue(False)
         except ValueError:
             # assert that the error was raised
+            self.assertTrue(True)
+
+
+class TestMatchUtils(unittest.TestCase):
+    """
+    Test utilities for handling match files
+    """
+
+    def test_interpret_version(self):
+        """
+        Test `interpret_version`
+        """
+        # new version format
+        version_string = "1.2.3"
+
+        version = interpret_version(version_string)
+
+        # Check that output is the correct type
+        self.assertTrue(isinstance(version, Version))
+
+        # Check that output is correct
+        self.assertTrue(
+            all(
+                [
+                    version.major == 1,
+                    version.minor == 2,
+                    version.patch == 3,
+                ]
+            )
+        )
+
+        # old version format
+        version_string = "5.7"
+
+        version = interpret_version(version_string)
+        # Check that output is the correct type
+        self.assertTrue(isinstance(version, Version))
+
+        # Check that output is correct
+        self.assertTrue(
+            all(
+                [
+                    version.major == 0,
+                    version.minor == 5,
+                    version.patch == 7,
+                ]
+            )
+        )
+
+        # Wrongly formatted version (test that it raises a ValueError)
+
+        version_string = "4.n.9.0"
+
+        try:
+            version = interpret_version(version_string)
+            # The test should fail if the exception is not raised
+            self.assertTrue(False)
+        except ValueError:
             self.assertTrue(True)

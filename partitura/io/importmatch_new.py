@@ -8,10 +8,10 @@ import re
 from collections import namedtuple
 from typing import Union, Tuple
 
-# from packaging import version
-
 import numpy as np
 from partitura.io.matchfile_fields import FractionalSymbolicDuration
+
+__all__ = ["load_match"]
 
 # Define current version of the match file format
 CURRENT_MAJOR_VERSION = 1
@@ -340,7 +340,11 @@ SCOREPROP_LINE_INTERPRETERS_V_1_0_0 = {
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
         "pattern": re.compile(
-            r"scoreProp\((?P<attribute>[^,]+),(?P<value>[^,]+),(?P<measure>\d+):(?P<beat>[\d\/]*)\)\."
+            r"scoreProp\("
+            r"(?P<attribute>[^,]+),(?P<value>[^,]+),"
+            r"(?P<measure>[^,]+):(?P<beat>[^,]+),"
+            r"(?P<offset>[^,]+):(?P<onset_in_beats>[^,]+)"
+            r"\)\."
         ),
         "field_names": (
             "attribute",
@@ -364,6 +368,7 @@ class MatchScoreProp(MatchLine):
         super().__init__(version, **kwargs)
 
         self.interpret_fun = self.line_dict[self.version]["value"]
+
 
 
 class KeySignatureLine(MatchScoreProp):
