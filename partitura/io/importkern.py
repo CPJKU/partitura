@@ -321,6 +321,9 @@ class KernParserPart(KernGlobalPart):
             note = note[n:]
         if "]" in note:
             self.tie_dict["close"].append(note_id)
+        elif "_" in note:
+            self.tie_dict["open"].append(note_id)
+            self.tie_dict["close"].append(note_id)
         if note.startswith("["):
             self.tie_dict["open"].append(note_id)
             note = note[1:]
