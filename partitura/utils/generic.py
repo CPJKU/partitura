@@ -507,7 +507,9 @@ def interp1d(
         A N-D array of real values. The length of `y` along the interpolation
         axis must be equal to the length of `x`.
     dtype : type, optional
-        Type of the output array (e.g.,  `float`, `int`). By default it is set to float.
+        Type of the output array (e.g.,  `float`, `int`). By default it is set to
+        None (i.e., the array will have the same type as the outputs from
+        scipy's interp1d method.
     axis : int, optional
         Specifies the axis of `y` along which to interpolate.
         Interpolation defaults to the last axis of `y`.
@@ -574,8 +576,8 @@ def interp1d(
                 result = np.broadcast_to(y, (len(np.atleast_1d(input_var)),))
 
             if not isinstance(input_var, np.ndarray):
-
-                result = result[0]
+                # the output of scipy's interp1d is always an array
+                result = np.array(result[0])
 
             return result
 
