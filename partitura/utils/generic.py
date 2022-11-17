@@ -6,7 +6,7 @@ This module contains generic class- and numerical-related utilities
 import warnings
 from collections import defaultdict
 
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 
 from textwrap import dedent
 import numpy as np
@@ -479,7 +479,7 @@ def search(states, success, expand, combine):
 def interp1d(
     x: np.ndarray,
     y: np.ndarray,
-    dtype=float,
+    dtype: Optional[type] = None,
     axis: int = -1,
     kind: Union[str, int] = "linear",
     copy=True,
@@ -547,7 +547,6 @@ def interp1d(
         If False, values of `x` can be in any order and they are sorted first.
         If True, `x` has to be an array of monotonically increasing values.
     """
-
     if len(x) > 1:
         interp_fun = sc_interp1d(
             x=x,
@@ -560,25 +559,35 @@ def interp1d(
             assume_sorted=assume_sorted,
         )
 
-        def typed_interp(input_var: np.ndarray) -> Callable[[np.ndarray], dtype]:
-            return interp_fun(input_var).astype(dtype)
-
-        return typed_interp
-
     else:
 
         # If there is only one value for x and y, assume that the method
         # will always return the same value for any input.
 
-        if y.ndim == 2:
-            y_val = y[0, axis]
-        else:
-            y_val = y[0]
+        def interp_fun(
+            input_var: Union[float, int, np.ndarray]
+        ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
 
-        def interp_fun(input_var: np.ndarray) -> Callable[[np.ndarray], dtype]:
-            result = (np.ones_like(input_var) * y_val).astype(dtype)
+            if y.ndim > 1:
+                result = np.broadcast_to(y, (len(np.atleast_1d(input_var)), y.shape[1]))
+            else:
+                result = np.broadcast_to(y, (len(np.atleast_1d(input_var)),))
+
+            if not isinstance(input_var, np.ndarray):
+
+                result = result[0]
+
             return result
 
+    if dtype is not None:
+
+        def typed_interp(
+            input_var: Union[float, int, np.ndarray]
+        ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
+            return interp_fun(input_var).astype(dtype)
+
+        return typed_interp
+    else:
         return interp_fun
 
 

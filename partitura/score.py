@@ -203,9 +203,6 @@ class Part(object):
 
             kss = np.array([(t0, fifths, mode), (tN, fifths, mode)])
 
-        elif len(kss) == 1:
-            # if there is only a single key signature
-            return lambda x: np.array([kss[0, 1], kss[0, 2]])
         elif kss[0, 0] > self.first_point.t:
             kss = np.vstack(((self.first_point.t, kss[0, 1], kss[0, 2]), kss))
 
@@ -314,13 +311,14 @@ class Part(object):
             measures = np.array([(t0, tN, 1)])
 
         inter_function = interp1d(
-            measures[:, 0], measures[:, 2], kind="previous", fill_value="extrapolate"
+            measures[:, 0],
+            measures[:, 2],
+            kind="previous",
+            fill_value="extrapolate",
+            dtype=int,
         )
 
-        def int_interp1d(input):
-            return inter_function(input).astype(int)
-
-        return int_interp1d
+        return inter_function
 
     @property
     def metrical_position_map(self):
@@ -346,12 +344,10 @@ class Part(object):
                 axis=0,
                 kind="linear",
                 fill_value="extrapolate",
+                dtype=int,
             )
 
-            def zero_fun(input):
-                return zero_interpolator(input).astype(int)
-
-            return zero_fun
+            return zero_interpolator
         else:
             barlines = np.array(ms + me[-1:])
             bar_durations = np.diff(barlines)
@@ -2495,7 +2491,7 @@ class Tempo(TimedObject):
 
         """
         return int(
-            np.round(60 * (10 ** 6 / to_quarter_tempo(self.unit or "q", self.bpm)))
+            np.round(60 * (10**6 / to_quarter_tempo(self.unit or "q", self.bpm)))
         )
 
     def __str__(self):
@@ -4587,12 +4583,16 @@ def merge_parts(parts, reassign="voice"):
     note_arrays = [part.note_array(include_staff=True) for part in parts]
     # find the maximum number of voices for each part (voice number start from 1)
     maximum_voices = [
-        max(note_array["voice"], default=0) if max(note_array["voice"], default=0) != 0 else 1
+        max(note_array["voice"], default=0)
+        if max(note_array["voice"], default=0) != 0
+        else 1
         for note_array in note_arrays
     ]
     # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
     maximum_staves = [
-        max(note_array["staff"], default=0) if max(note_array["staff"], default=0) != 0 else 1
+        max(note_array["staff"], default=0)
+        if max(note_array["staff"], default=0) != 0
+        else 1
         for note_array in note_arrays
     ]
 

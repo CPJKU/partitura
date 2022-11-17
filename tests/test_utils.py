@@ -456,16 +456,12 @@ class TestGenericUtils(unittest.TestCase):
         # setting the axis when the input has length 1
         x = rng.randn(1)
         y = rng.randn(1, 5)
+        pinterp = pinterp1d(x=x, y=y)
 
-        for axis in range(y.shape[1]):
-            pinterp = pinterp1d(x=x, y=y, axis=axis)
+        y_partitura = pinterp(x_test)
 
-            x_test = rng.randn(1000)
-
-            y_partitura = pinterp(x_test)
-
-            self.assertTrue(y_partitura.shape == x_test.shape)
-            self.assertTrue(np.all(y_partitura == y[0, axis]))
+        self.assertTrue(y_partitura.shape == (len(x_test), y.shape[1]))
+        self.assertTrue(np.all(y_partitura == y))
 
         # Test setting dtype of the output
 
@@ -495,3 +491,28 @@ class TestGenericUtils(unittest.TestCase):
             # assert that the result is the same as casting the expected
             # output as the specified dtype
             self.assertTrue(np.allclose(y_partitura, y.astype(dtype)))
+
+        # Test setting outputs of sizes larger than 1
+
+        x = rng.randn(100)
+        y = rng.randn(100, 2)
+
+        sinterp = scinterp1d(
+            x,
+            y,
+            axis=0,
+            kind="previous",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
+
+        pinterp = pinterp1d(
+            x,
+            y,
+            axis=0,
+            kind="previous",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
+
+        self.assertTrue(np.all(sinterp(x) == pinterp(x)))
