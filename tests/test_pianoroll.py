@@ -8,13 +8,24 @@ import logging
 import unittest
 from functools import partial
 
-from partitura.utils.music import compute_pianoroll, pianoroll_to_notearray
-from partitura import load_musicxml, load_score, load_kern
+from partitura.utils.music import (
+    compute_pianoroll,
+    pianoroll_to_notearray,
+    compute_pitch_class_pianoroll,
+)
+from partitura import load_musicxml, load_score, load_performance
 import partitura
 
-from tests import MUSICXML_IMPORT_EXPORT_TESTFILES, PIANOROLL_TESTFILES, KERN_TESTFILES
+from tests import (
+    MUSICXML_IMPORT_EXPORT_TESTFILES,
+    PIANOROLL_TESTFILES,
+    KERN_TESTFILES,
+    MOZART_VARIATION_FILES,
+)
 
 LOGGER = logging.getLogger(__name__)
+
+RNG = np.random.RandomState(1984)
 
 
 class TestPianorollFromNotes(unittest.TestCase):
@@ -119,6 +130,45 @@ class TestPianorollFromNotes(unittest.TestCase):
             expected_pr = np.column_stack((time_margins, expected_pr, time_margins))
             equal = np.all(pr.toarray() == expected_pr)
             self.assertTrue(equal)
+
+    def test_binary_pianoroll(self):
+        """
+        Test `binary` parameter in `compute_pianoroll`.
+        """
+        # Test with a performance since they include MIDI velocity
+        # in the piano roll.
+        performance_fn = MOZART_VARIATION_FILES["midi"]
+
+        performance = load_performance(performance_fn)
+
+        note_array = performance.note_array()
+
+        piano_roll_non_binary, idx_non_binary = compute_pianoroll(
+            note_info=performance, binary=False, return_idxs=True
+        )
+
+        piano_roll_binary, idx_binary = compute_pianoroll(
+            note_info=performance, binary=True, return_idxs=True
+        )
+
+        # assert that the maximal value of the binary piano roll is 1
+        self.assertTrue(piano_roll_binary.max() == 1)
+        # assert that the opposite is true for the non_binary piano roll
+        # (this is only the case for performances where there is MIDI velocity)
+        self.assertTrue(piano_roll_non_binary.max() == note_array["velocity"].max())
+
+        # assert that indices in both piano rolls are the same
+        self.assertTrue(np.all(idx_non_binary == idx_binary))
+
+        # Test that the binary piano roll has only values in 0 and one
+        unique_values_binary = np.unique(piano_roll_binary.toarray())
+        self.assertTrue(set(unique_values_binary) == set([0, 1]))
+
+        # Assert that the binary piano roll is equivalent to binarizing
+        # the original piano roll
+        binarized_pr = piano_roll_non_binary.toarray().copy()
+        binarized_pr[binarized_pr != 0] = 1
+        self.assertTrue(np.all(binarized_pr == piano_roll_binary.toarray()))
 
 
 class TestNotesFromPianoroll(unittest.TestCase):
@@ -324,3 +374,71 @@ class TestPianorollFromScores(unittest.TestCase):
         # compute pianorolls for all separated voices
         prs = [get_pianoroll(part) for part in parts]
         self.assertTrue(pr.shape == prs[0].shape for pr in prs)
+
+
+class TestPitchClassPianoroll(unittest.TestCase):
+    """
+    Test pitch class piano roll
+    """
+
+    def test_midi_pitch_to_pitch_class(self):
+        """
+        Test that all MIDI pitches would be correctly represented
+        in the pitch class piano roll
+        """
+        for pitch in range(128):
+            note_array = np.array(
+                [(pitch, 0, 1)],
+                dtype=[
+                    ("pitch", "i4"),
+                    ("onset_beat", "f4"),
+                    ("duration_beat", "f4"),
+                ],
+            )
+
+            time_div = 2
+            pr = compute_pitch_class_pianoroll(note_array, time_div=time_div)
+
+            expected_pr = np.zeros((12, time_div))
+
+            expected_pr[pitch % 12] = 1
+
+            equal = np.all(pr == expected_pr)
+
+            self.assertEqual(equal, True)
+
+    def test_indices(self):
+        """
+        Test indices from the piano roll
+        """
+        # Generate a random piano roll
+        note_array = partitura.utils.music.generate_random_performance_note_array(100)
+        pianoroll, pr_idxs = compute_pianoroll(
+            note_info=note_array,
+            return_idxs=True,
+            time_unit="sec",
+            time_div=10,
+        )
+
+        pc_pianoroll, pcr_idxs = compute_pitch_class_pianoroll(
+            note_info=note_array,
+            return_idxs=True,
+            time_unit="sec",
+            time_div=10,
+        )
+
+        # Assert that there is an index for each note
+        self.assertTrue(len(pcr_idxs) == len(note_array))
+        self.assertTrue(len(pcr_idxs) == len(pr_idxs))
+
+        # Assert that the indices correspond to the same notes as in the piano roll
+        self.assertTrue(np.all(pcr_idxs[:, 3] == note_array["pitch"]))
+
+        # Test that MIDI pitch and pitch class are correct
+        self.assertTrue(np.all(np.mod(pr_idxs[:, 3], 12) == pcr_idxs[:, 0]))
+        # Assert that MIDI pitch info is identical for pc_pianoroll and
+        # regular piano rolls
+        self.assertTrue(np.all(pr_idxs[:, 3] == pcr_idxs[:, 3]))
+
+        # Onsets and offsets should be identical
+        self.assertTrue(np.all(pr_idxs[:, 2:4] == pcr_idxs[:, 2:4]))
