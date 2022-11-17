@@ -18,7 +18,7 @@ from numbers import Number
 from partitura.utils.music import MUSICAL_BEATS
 import warnings
 import numpy as np
-from scipy.interpolate import interp1d, PPoly
+from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
 
 from partitura.utils import (
@@ -44,6 +44,8 @@ from partitura.utils import (
     _OrderedSet,
     update_note_ids_after_unfolding,
 )
+
+from partitura.utils.generic import interp1d
 
 
 class Part(object):
@@ -259,12 +261,10 @@ class Part(object):
             kind="previous",
             axis=0,
             fill_value="extrapolate",
+            dtype=int,
         )
 
-        def int_interp1d(input):
-            return inter_function(input).astype(int)
-
-        return int_interp1d
+        return inter_function
 
     @property
     def measure_number_map(self):
@@ -2944,6 +2944,7 @@ class Score(object):
             include_key_signature=include_key_signature,
             include_time_signature=include_time_signature,
             include_grace_notes=include_grace_notes,
+            include_metrical_position=include_metrical_position,
             include_staff=include_staff,
             include_divs_per_quarter=include_divs_per_quarter,
             **kwargs,

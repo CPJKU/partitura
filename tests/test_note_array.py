@@ -8,7 +8,7 @@ the Part class.
 import unittest
 
 import partitura.score as score
-from partitura import load_musicxml, load_kern
+from partitura import load_musicxml, load_kern, load_score
 from partitura.utils.music import note_array_from_part, ensure_notearray
 import numpy as np
 
@@ -95,6 +95,58 @@ class TestNoteArray(unittest.TestCase):
             self.assertTrue(note["onset_div"] == 92)
             self.assertTrue(note["duration_div"] == 4)
             self.assertTrue(note["divs_pq"] == 4)
+
+    def test_score_notearray_method(self):
+        """
+        Test that note array generated from the Score class method
+        include all relevant information.
+        """
+
+        for fn in NOTE_ARRAY_TESTFILES:
+
+            scr = load_score(fn)
+
+            na = scr.note_array(
+                include_pitch_spelling=True,
+                include_key_signature=True,
+                include_time_signature=True,
+                include_grace_notes=True,
+                include_metrical_position=True,
+                include_staff=True,
+                include_divs_per_quarter=True,
+            )
+
+            expected_field_names = [
+                "onset_beat",
+                "duration_beat",
+                "onset_quarter",
+                "duration_quarter",
+                "onset_div",
+                "duration_div",
+                "pitch",
+                "voice",
+                "id",
+                "step",
+                "alter",
+                "octave",
+                "is_grace",
+                "grace_type",
+                "ks_fifths",
+                "ks_mode",
+                "ts_beats",
+                "ts_beat_type",
+                "ts_mus_beats",
+                "is_downbeat",
+                "rel_onset_div",
+                "tot_measure_div",
+                "staff",
+                "divs_pq",
+            ]
+
+            for field_name in expected_field_names:
+                # check that the note array contain the relevant
+                # field.
+                self.assertTrue(field_name in na.dtype.names)
 
 
 if __name__ == "__main__":
