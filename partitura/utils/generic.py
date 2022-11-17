@@ -548,6 +548,13 @@ def interp1d(
     assume_sorted : bool, optional
         If False, values of `x` can be in any order and they are sorted first.
         If True, `x` has to be an array of monotonically increasing values.
+
+    Returns
+    -------
+    interp_fun : callable
+        The interpolator instance. This method takes an input array, float
+        or integer and returns an array with the specified dtype (if `dtype`
+        is not None).
     """
     if len(x) > 1:
         interp_fun = sc_interp1d(
