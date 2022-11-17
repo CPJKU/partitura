@@ -13,7 +13,6 @@ from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATIO
 from scipy.interpolate import interp1d as scinterp1d
 from partitura.utils.generic import interp1d as pinterp1d
 
-
 RNG = np.random.RandomState(1984)
 
 
@@ -362,6 +361,59 @@ class TestPerformanceFromPart(unittest.TestCase):
         except ValueError:
             # We are expecting the previous code to trigger an error
             self.assertTrue(True)
+
+    def test_generate_random_performance_note_array(self):
+        """
+        Test `generate_random_performance_note_array` method
+        """
+        n_notes = 100
+        duration = 15
+        max_note_duration = 9
+        min_note_duration = 1
+        max_velocity = 75
+        min_velocity = 30
+        random_note_array = music.generate_random_performance_note_array(
+            num_notes=n_notes,
+            rng=1234,
+            duration=duration,
+            max_note_duration=max_note_duration,
+            min_note_duration=min_note_duration,
+            max_velocity=max_velocity,
+            min_velocity=min_velocity,
+            return_performance=False,
+        )
+
+        # Assert that the output is a numpy array
+        self.assertTrue(isinstance(random_note_array, np.ndarray))
+        # Test that the generated array has the specified number of notes
+        self.assertTrue(len(random_note_array) == n_notes)
+
+        offsets = random_note_array["onset_sec"] + random_note_array["duration_sec"]
+
+        # Test that the note array has the specified duration
+        self.assertTrue(np.isclose(offsets.max(), duration))
+
+        # Test that the generated durations and velocities are within the
+        # specified bounds
+        self.assertTrue(np.all(random_note_array["duration_sec"] <= max_note_duration))
+        self.assertTrue(np.all(random_note_array["duration_sec"] >= min_note_duration))
+        self.assertTrue(np.all(random_note_array["velocity"] >= min_velocity))
+        self.assertTrue(np.all(random_note_array["velocity"] <= max_velocity))
+
+        # Test that the output is a Performance instance
+        random_performance = music.generate_random_performance_note_array(
+            num_notes=n_notes,
+            duration=duration,
+            max_note_duration=max_note_duration,
+            min_note_duration=min_note_duration,
+            max_velocity=max_velocity,
+            min_velocity=min_velocity,
+            return_performance=True,
+        )
+
+        self.assertTrue(
+            isinstance(random_performance, partitura.performance.Performance)
+        )
 
 
 class TestGenericUtils(unittest.TestCase):
