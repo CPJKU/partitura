@@ -370,7 +370,6 @@ class MatchScoreProp(MatchLine):
         self.interpret_fun = self.line_dict[self.version]["value"]
 
 
-
 class KeySignatureLine(MatchScoreProp):
     def __init__(
         self,

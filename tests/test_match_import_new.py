@@ -10,6 +10,7 @@ from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 
 from partitura.io.matchlines_1_0_0 import (
     MatchInfo,
+    MatchScoreProp,
 )
 
 from partitura.io.matchfile_base import interpret_version, Version
@@ -19,6 +20,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
     """
     Test matchlines for version 1.0.0
     """
+
     def test_info_lines(self):
         """
         Test parsing and generating global info lines.
@@ -99,6 +101,32 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
         except ValueError:
             # assert that the error was raised
             self.assertTrue(True)
+
+    def test_score_prop_lines(self):
+
+        keysig_line = "scoreprop(keySignature,E,0:2,1/8,-0.5000)."
+
+        timesig_line = "scoreprop(timeSignature,2/4,0:2,1/8,-0.5000)."
+
+        directions_line = "scoreprop(directions,[Allegro],0:2,1/8,-0.5000)."
+
+        
+
+        matchlines = [
+            keysig_line,
+            timesig_line,
+            directions_line,
+        ]
+
+        for ml in matchlines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+            mo = MatchScoreProp.from_matchline(ml)
+            self.assertTrue(mo.matchline == ml)
+
+            # assert that the data types of the match line are correct
+            self.assertTrue(mo.check_types())
 
 
 class TestMatchUtils(unittest.TestCase):
