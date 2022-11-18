@@ -486,24 +486,25 @@ def interp1d(
     bounds_error=None,
     fill_value=np.nan,
     assume_sorted=False,
-) -> Callable:
+) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
     """
     Interpolate a 1-D function using scipy's interp1d method. This utility allows for
     handling the case where `x` and `y` are only a single value (i.e. have length one,
     which results in a ValueError if using scipy's version directly). It also allows for
     specifying the dtype of the output.
 
+    The description of the parameters has been taken from `scipy.interpolate.interp1d`.
+
     `x` and `y` are arrays of values used to approximate some function f:
     ``y = f(x)``. This class returns a function whose call method uses
     interpolation to find the value of new points.
 
-    The description of the parameters has been taken from `scipy.interpolate.interp1d`.
 
     Parameters
     ----------
-    x : (N,) array_like
+    x : (N,) np.ndarray
         A 1-D array of real values.
-    y : (...,N,...) array_like
+    y : (...,N,...) np.ndarray
         A N-D array of real values. The length of `y` along the interpolation
         axis must be equal to the length of `x`.
     dtype : type, optional
