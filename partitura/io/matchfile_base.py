@@ -24,6 +24,7 @@ rational_pattern = re.compile(r"^(?P<numerator>[0-9]+)/(?P<denominator>[0-9]+)$"
 double_rational_pattern = re.compile(
     r"^(?P<numerator>[0-9]+)/(?P<denominator>[0-9]+)/(?P<tuple_div>[0-9]+)$"
 )
+integer_pattern = re.compile(r"^(?P<integer>[0-9]+)$")
 version_pattern = re.compile(
     r"^(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)"
 )
@@ -163,9 +164,9 @@ class MatchLine(object):
             correct type.
         """
         types_are_correct_list = [
-                isinstance(getattr(self, field), field_type)
-                for field, field_type in zip(self.field_names, self.field_types)
-            ]
+            isinstance(getattr(self, field), field_type)
+            for field, field_type in zip(self.field_names, self.field_types)
+        ]
         if verbose:
             print(list(zip(self.field_names, types_are_correct_list)))
 
@@ -645,13 +646,16 @@ class FractionalSymbolicDuration(object):
 
         m = rational_pattern.match(string)
         m2 = double_rational_pattern.match(string)
-
+        m3 = integer_pattern.match(string)
         if m:
             groups = m.groups()
             return cls(*[int(g) for g in groups])
         elif m2:
             groups = m2.groups()
             return cls(*[int(g) for g in groups])
+        elif m3:
+            return cls(numerator=int(m3.group("integer")))
+
         else:
             if allow_additions:
                 parts = string.split("+")
@@ -701,13 +705,15 @@ def interpret_as_list(value: str) -> List[str]:
     content = attribute_list_pattern.search(value)
 
     if content is not None:
+        # string includes square brackets
         vals_string = content.group("attributes")
         content_list = [v.strip() for v in vals_string.split(",")]
 
-        return content_list
-
     else:
-        ValueError(f"{value} cannot be parsed as a list")
+        # value is not inside square brackets
+        content_list = [v.strip() for v in value.split(",")]
+
+    return content_list
 
 
 def format_list(value: List[Any]) -> str:

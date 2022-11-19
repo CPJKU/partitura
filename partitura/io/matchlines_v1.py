@@ -362,7 +362,7 @@ class MatchSnote(BaseSnoteLine):
         r"(?P<Duration>[^,]+),"
         r"(?P<OnsetInBeats>[^,]+),"
         r"(?P<OffsetInBeats>[^,]+),"
-        r"(?P<ScoreAttributesList>[^,]+)\)"
+        r"\[(?P<ScoreAttributesList>.*)\]\)"
     )
 
     format_fun = dict(
@@ -416,7 +416,7 @@ class MatchSnote(BaseSnoteLine):
         matchline: str,
         pos: int = 0,
         version: Version = CURRENT_VERSION,
-    ) -> MatchLine:
+    ) -> MatchSnote:
 
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
@@ -460,3 +460,6 @@ class MatchSnote(BaseSnoteLine):
                 offset_in_beats=interpret_as_float(offset_in_beats_str),
                 score_attributes_list=interpret_as_list(score_attributes_list_str),
             )
+
+        else:
+            raise MatchError("Input match line does not fit the expected pattern.")

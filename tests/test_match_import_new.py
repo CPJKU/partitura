@@ -132,13 +132,19 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
 
     def test_snote_lines(self):
 
-        snote_lines = ["snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])"]
+        snote_lines = [
+            "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])",
+            "snote(n3,[G,#],3,1:1,0,1/16,0.0000,0.2500,[v3])",
+            "snote(n1,[E,n],4,1:1,0,1/4,0.0000,1.0000,[arp])",
+            "snote(n143,[B,b],5,7:2,2/16,1/8,25.5000,26.0000,[s,stacc])",
+        ]
 
         for ml in snote_lines:
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
             mo = MatchSnote.from_matchline(ml)
+            # print(mo.matchline, ml)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
