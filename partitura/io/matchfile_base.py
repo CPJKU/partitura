@@ -6,10 +6,14 @@ parsing and formatting match lines.
 """
 from __future__ import annotations
 
-from typing import Callable, Tuple, Any, Optional, Union, List
+from typing import Callable, Tuple, Any, Optional, Union, List, Dict
 import re
 
 import numpy as np
+
+from partitura.utils.music import (
+    pitch_spelling_to_midi_pitch,
+)
 
 from collections import namedtuple
 
@@ -23,7 +27,7 @@ double_rational_pattern = re.compile(
 version_pattern = re.compile(
     r"^(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)"
 )
-attribute_list_pattern = re.compile(r"^\[(?P<attributes>.+)\]")
+attribute_list_pattern = re.compile(r"^\[(?P<attributes>.*)\]")
 
 # For matchfiles before 1.0.0.
 old_version_pattern = re.compile(r"^(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)")
@@ -74,16 +78,23 @@ class MatchLine(object):
     field_names: Tuple[str]
 
     # type of the information in the fields
-    field_types: Tuple[type]
+    field_types: Tuple[Union[type, Tuple[type]]]
 
     # Output pattern
     out_pattern: str
+
+    # A dictionary of callables for each field name
+    # the callables should get the value of the input
+    # and return a string formatted for the matchfile.
+    format_fun: Dict[str, Callable[Any, str]]
 
     # Regular expression to parse
     # information from a string.
     pattern = re.Pattern
 
     def __init__(self, version: Version) -> None:
+        # Subclasses need to initialize the other
+        # default field names
         self.version = version
 
     def __str__(self) -> str:
@@ -135,9 +146,15 @@ class MatchLine(object):
         """
         raise NotImplementedError
 
-    def check_types(self) -> bool:
+    def check_types(self, verbose: bool = False) -> bool:
         """
         Check whether the values of the fields are of the correct type.
+
+        Parameters
+        ----------
+        verbose : bool
+            Prints whether each of the attributes in field_names has the correct dtype.
+            values are
 
         Returns
         -------
@@ -145,13 +162,14 @@ class MatchLine(object):
             True if the values of all fields in the match line have the
             correct type.
         """
-        types_are_correct = all(
-            [
+        types_are_correct_list = [
                 isinstance(getattr(self, field), field_type)
                 for field, field_type in zip(self.field_names, self.field_types)
             ]
-        )
+        if verbose:
+            print(list(zip(self.field_names, types_are_correct_list)))
 
+        types_are_correct = all(types_are_correct_list)
         return types_are_correct
 
 
@@ -177,11 +195,11 @@ class BaseInfoLine(MatchLine):
     # Base field names (can be updated in subclasses).
     # "attribute" will have type str, but the type of value needs to be specified
     # during initialization.
-    field_names: Tuple[str] = ("Attribute", "Value")
+    field_names = ("Attribute", "Value")
 
-    out_pattern: str = "info({Attribute},{Value})."
+    out_pattern = "info({Attribute},{Value})."
 
-    pattern: re.Pattern = re.compile(r"info\((?P<Attribute>[^,]+),(?P<Value>.+)\)\.")
+    pattern = re.compile(r"info\((?P<Attribute>[^,]+),(?P<Value>.+)\)\.")
 
     def __init__(
         self,
@@ -197,6 +215,73 @@ class BaseInfoLine(MatchLine):
         self.format_fun = dict(Attribute=format_string, Value=format_fun)
         self.Attribute = attribute
         self.Value = value
+
+
+# deprecate bar for measure
+class BaseSnoteLine(MatchLine):
+
+    # All derived classes should include
+    # at least these field names
+    field_names = (
+        "Anchor",
+        "NoteName",
+        "Modifier",
+        "Octave",
+        "Measure",
+        "Beat",
+        "Offset",
+        "Duration",
+        "OnsetInBeats",
+        "OffsetInBeats",
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        anchor: str,
+        note_name: str,
+        modifier: str,
+        octave: Optional[int],
+        measure: int,
+        beat: int,
+        offset: FractionalSymbolicDuration,
+        duration: FractionalSymbolicDuration,
+        onset_in_beats: float,
+        offset_in_beats: float,
+    ):
+        super().__init__(version)
+
+        # All of these attributes should have the
+        # correct dtype (otherwise we need to be constantly
+        # checking the types).
+        self.Anchor = anchor
+        self.NoteName = note_name
+        self.Modifier = modifier
+        self.Octave = octave
+        self.Measure = measure
+        self.Beat = beat
+        self.Offset = offset
+        self.Duration = duration
+        self.OnsetInBeats = onset_in_beats
+        self.OffsetInBeats = offset_in_beats
+
+    @property
+    def DurationInBeats(self):
+        return self.OffsetInBeats - self.OnsetInBeats
+
+    @property
+    def DurationSymbolic(self):
+        # Duration should always be a FractionalSymbolicDuration
+        return str(self.Duration)
+
+    @property
+    def MidiPitch(self):
+        if isinstance(self.Octave, int):
+            return pitch_spelling_to_midi_pitch(
+                step=self.NoteName, octave=self.Octave, alter=self.Modifier
+            )
+        else:
+            return None
 
 
 ## The following methods are helpers for interpretting and formatting
@@ -313,11 +398,11 @@ def interpret_as_float(value: str) -> float:
 
 def format_float(value: float) -> str:
     """
-    Format a string from an integer
+    Format a float as a string (with 4 digits of precision).
 
     Parameters
     ----------
-    value : int
+    value : float
         The value to be converted to format as a string.
 
     Returns
@@ -328,9 +413,26 @@ def format_float(value: float) -> str:
     return f"{value:.4f}"
 
 
+def format_float_unconstrained(value: float) -> str:
+    """
+    Format a float as a string.
+
+    Parameters
+    ----------
+    value : float
+        The value to be converted to format as a string.
+
+    Returns
+    -------
+    str
+        The value formatted as a string.
+    """
+    return str(value)
+
+
 def interpret_as_string(value: Any) -> str:
     """
-    Interpret value as a string
+    Interpret value as a string. This method is for completeness.
 
     Parameters
     ----------

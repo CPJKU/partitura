@@ -7,12 +7,18 @@ from __future__ import annotations
 
 import re
 
-from typing import Any, Callable
+from typing import Any, Callable, Tuple, Union, List
+
+from partitura.utils.music import (
+    ALTER_SIGNS,
+    ensure_pitch_spelling_format,
+)
 
 from partitura.io.matchfile_base import (
     MatchLine,
     Version,
     BaseInfoLine,
+    BaseSnoteLine,
     MatchError,
     interpret_version,
     format_version,
@@ -129,11 +135,11 @@ class MatchInfo(BaseInfoLine):
         -------
         a MatchInfo instance
         """
+        if version not in INFO_LINE:
+            raise MatchError(f"{version} is not specified for this class.")
 
         match_pattern = cls.pattern.search(matchline, pos=pos)
 
-        if version not in INFO_LINE:
-            raise MatchError(f"{version} is not specified for this class.")
         class_dict = INFO_LINE[version]
 
         if match_pattern is not None:
@@ -306,3 +312,151 @@ class MatchScoreProp(MatchLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
+
+
+class MatchSnote(BaseSnoteLine):
+
+    field_names = (
+        "Anchor",
+        "NoteName",
+        "Modifier",
+        "Octave",
+        "Measure",
+        "Beat",
+        "Offset",
+        "Duration",
+        "OnsetInBeats",
+        "OffsetInBeats",
+        "ScoreAttributesList",
+    )
+
+    field_types = (
+        str,
+        str,
+        (int, type(None)),
+        int,
+        int,
+        int,
+        FractionalSymbolicDuration,
+        FractionalSymbolicDuration,
+        float,
+        float,
+        list,
+    )
+
+    out_pattern = (
+        "snote({Anchor},[{NoteName},{Modifier}],{Octave},"
+        "{Measure}:{Beat},{Offset},{Duration},{OnsetInBeats},"
+        "{OffsetInBeats},{ScoreAttributesList})"
+    )
+
+    pattern = re.compile(
+        # r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),"
+        # r"([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
+        r"snote\("
+        r"(?P<Anchor>[^,]+),"
+        r"\[(?P<NoteName>[^,]+),(?P<Modifier>[^,]+)\],"
+        r"(?P<Octave>[^,]+),"
+        r"(?P<Measure>[^,]+):(?P<Beat>[^,]+),"
+        r"(?P<Offset>[^,]+),"
+        r"(?P<Duration>[^,]+),"
+        r"(?P<OnsetInBeats>[^,]+),"
+        r"(?P<OffsetInBeats>[^,]+),"
+        r"(?P<ScoreAttributesList>[^,]+)\)"
+    )
+
+    format_fun = dict(
+        Anchor=format_string,
+        NoteName=lambda x: str(x.upper()),
+        Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+        Octave=format_int,
+        Measure=format_int,
+        Beat=format_int,
+        Offset=format_fractional,
+        Duration=format_fractional,
+        OnsetInBeats=format_float,
+        OffsetInBeats=format_float,
+        ScoreAttributesList=format_list,
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        anchor: str,
+        note_name: str,
+        modifier: str,
+        octave: Union[int, str],
+        measure: int,
+        beat: int,
+        offset: FractionalSymbolicDuration,
+        duration: FractionalSymbolicDuration,
+        onset_in_beats: float,
+        offset_in_beats: float,
+        score_attributes_list: List[str],
+    ):
+        super().__init__(
+            version=version,
+            anchor=anchor,
+            note_name=note_name,
+            modifier=modifier,
+            octave=octave,
+            measure=measure,
+            beat=beat,
+            offset=offset,
+            duration=duration,
+            onset_in_beats=onset_in_beats,
+            offset_in_beats=offset_in_beats,
+        )
+
+        self.ScoreAttributesList = score_attributes_list
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = CURRENT_VERSION,
+    ) -> MatchLine:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        match_pattern = cls.pattern.search(matchline, pos)
+
+        if match_pattern is not None:
+
+            (
+                anchor_str,
+                note_name_str,
+                modifier_str,
+                octave_str,
+                measure_str,
+                beat_str,
+                offset_str,
+                duration_str,
+                onset_in_beats_str,
+                offset_in_beats_str,
+                score_attributes_list_str,
+            ) = match_pattern.groups()
+
+            anchor = interpret_as_string(anchor_str)
+            note_name, modifier, octave = ensure_pitch_spelling_format(
+                step=note_name_str,
+                alter=modifier_str,
+                octave=octave_str,
+            )
+
+            return cls(
+                version=version,
+                anchor=interpret_as_string(anchor),
+                note_name=note_name,
+                modifier=modifier,
+                octave=octave,
+                measure=interpret_as_int(measure_str),
+                beat=interpret_as_int(beat_str),
+                offset=interpret_as_fractional(offset_str),
+                duration=interpret_as_fractional(duration_str),
+                onset_in_beats=interpret_as_float(onset_in_beats_str),
+                offset_in_beats=interpret_as_float(offset_in_beats_str),
+                score_attributes_list=interpret_as_list(score_attributes_list_str),
+            )
