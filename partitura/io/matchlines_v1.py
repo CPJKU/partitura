@@ -38,17 +38,18 @@ from partitura.io.matchfile_utils import (
     interpret_as_list,
     format_list,
     to_camel_case,
+    get_kwargs_from_matchline,
 )
 
 # Define current version of the match file format
-CURRENT_MAJOR_VERSION = 1
-CURRENT_MINOR_VERSION = 0
-CURRENT_PATCH_VERSION = 0
+LATEST_MAJOR_VERSION = 1
+LATEST_MINOR_VERSION = 0
+LATEST_PATCH_VERSION = 0
 
-CURRENT_VERSION = Version(
-    CURRENT_MAJOR_VERSION,
-    CURRENT_MINOR_VERSION,
-    CURRENT_PATCH_VERSION,
+LATEST_VERSION = Version(
+    LATEST_MAJOR_VERSION,
+    LATEST_MINOR_VERSION,
+    LATEST_PATCH_VERSION,
 )
 
 
@@ -120,7 +121,7 @@ class MatchInfo(BaseInfoLine):
         cls,
         matchline: str,
         pos: int = 0,
-        version: Version = CURRENT_VERSION,
+        version: Version = LATEST_VERSION,
     ) -> MatchInfo:
         """
         Create a new MatchLine object from a string
@@ -184,14 +185,14 @@ SCOREPROP_LINE = {
 
 class MatchScoreProp(MatchLine):
 
-    field_names = [
+    field_names = (
         "Attribute",
         "Value",
         "Measure",
         "Beat",
         "Offset",
         "TimeInBeats",
-    ]
+    )
 
     out_pattern = (
         "scoreprop({Attribute},{Value},{Measure}:{Beat},{Offset},{TimeInBeats})."
@@ -254,7 +255,7 @@ class MatchScoreProp(MatchLine):
         cls,
         matchline: str,
         pos: int = 0,
-        version: Version = CURRENT_VERSION,
+        version: Version = LATEST_VERSION,
     ) -> MatchInfo:
         """
         Create a new MatchScoreProp object from a string
@@ -390,7 +391,9 @@ class MatchSection(MatchLine):
             )
         super().__init__(version)
 
-        self.field_types = (ft[-1] for _, ft in SECTION_LINE[version].items())
+        self.field_types = tuple(
+            SECTION_LINE[version][fn][2] for fn in self.field_names
+        )
         self.format_fun = dict(
             [(fn, ft[1]) for fn, ft in SECTION_LINE[version].items()]
         )
@@ -406,7 +409,7 @@ class MatchSection(MatchLine):
         cls,
         matchline: str,
         pos: int = 0,
-        version: Version = CURRENT_VERSION,
+        version: Version = LATEST_VERSION,
     ) -> MatchSection:
         if version not in SECTION_LINE:
             raise ValueError(
@@ -483,7 +486,7 @@ class MatchSnote(BaseSnoteLine):
         cls,
         matchline: str,
         pos: int = 0,
-        version: Version = CURRENT_VERSION,
+        version: Version = LATEST_VERSION,
     ) -> MatchSnote:
         """
         Create a new MatchLine object from a string
@@ -515,12 +518,102 @@ class MatchSnote(BaseSnoteLine):
         return cls(version=version, **kwargs)
 
 
+NOTE_LINE = {
+    Version(1, 0, 0): {
+        "Id": (interpret_as_string, format_string, str),
+        "MidiPitch": (interpret_as_int, format_int, int),
+        "Onset": (interpret_as_int, format_int, int),
+        "Offset": (interpret_as_int, format_int, int),
+        "Velocity": (interpret_as_int, format_int, int),
+        "Channel": (interpret_as_int, format_int, int),
+        "Track": (interpret_as_int, format_int, int),
+    }
+}
+
+
 class MatchNote(BaseNoteLine):
 
     field_names = (
-        "ID",
+        "Id",
         "MidiPitch",
         "Onset",
         "Offset",
         "Velocity",
+        "Channel",
+        "Track",
     )
+
+    out_pattern = (
+        "note({Id},{MidiPitch},{Onset},{Offset},{Velocity},{Channel},{Track})."
+    )
+
+    pattern = re.compile(
+        # r"note\(([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
+        r"note\((?P<Id>[^,]+),"
+        r"(?P<MidiPitch>[^,]+),"
+        r"(?P<Onset>[^,]+),"
+        r"(?P<Offset>[^,]+),"
+        r"(?P<Velocity>[^,]+),"
+        r"(?P<Channel>[^,]+),"
+        r"(?P<Track>[^,]+)\)"
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        id: str,
+        midi_pitch: int,
+        onset: int,
+        offset: int,
+        velocity: int,
+        channel: int,
+        track: int,
+    ) -> None:
+
+        if version not in NOTE_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(NOTE_LINE.keys())}"
+            )
+
+        super().__init__(
+            version=version,
+            id=id,
+            midi_pitch=midi_pitch,
+            onset=onset,
+            offset=offset,
+            velocity=velocity,
+        )
+
+        self.Channel = channel
+        self.Track = track
+
+        self.field_types = tuple(NOTE_LINE[version][fn][2] for fn in self.field_names)
+        self.format_fun = dict(
+            [(fn, NOTE_LINE[version][fn][1]) for fn in self.field_names]
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = LATEST_VERSION,
+    ) -> MatchNote:
+
+        if version < Version(1, 0, 0):
+            ValueError(f"{version} < Version(1, 0, 0)")
+
+        kwargs = get_kwargs_from_matchline(
+            matchline=matchline,
+            pattern=cls.pattern,
+            field_names=cls.field_names,
+            class_dict=NOTE_LINE[version],
+            pos=pos,
+        )
+
+        if kwargs is not None:
+            return cls(version=version, **kwargs)
+
+        else:
+            raise MatchError("Input match line does not fit the expected pattern.")

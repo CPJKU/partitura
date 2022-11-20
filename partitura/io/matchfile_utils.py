@@ -5,7 +5,7 @@ This module contains utilities for parsing and formatting match lines.
 """
 from __future__ import annotations
 
-from typing import Tuple, Any, Optional, Union, List
+from typing import Tuple, Any, Optional, Union, List, Dict, Callable
 import re
 
 import numpy as np
@@ -467,11 +467,54 @@ def format_list(value: List[Any]) -> str:
     return formatted_string
 
 
+## Miscellaneous utils
+
+
 def to_camel_case(field_name: str) -> str:
+    """
+    To camel case
+    """
+    camel_case = "".join(
+        [f"_{fn.lower()}" if fn.isupper() else fn for fn in field_name]
+    )
 
-    camel_case = "".join([f"_{fn.lower()}" if fn.isupper() else fn for fn in field_name])
-
-    if camel_case.startswith('_'):
+    if camel_case.startswith("_"):
         camel_case = camel_case[1:]
 
     return camel_case
+
+
+def get_kwargs_from_matchline(
+    matchline: str,
+    pattern: re.Pattern,
+    field_names: Tuple[str],
+    class_dict: Dict[str, Tuple[Callable, Callable, type]],
+    pos: int = 0,
+) -> Optional[Dict[str, Any]]:
+    """
+    Parameters
+    ----------
+    matchline: str
+    pattern: re.Pattern
+    field_names: Tuple[str]
+    class_dict: Dict[str, Tuple[Callable, Callable, type]]
+    pos: int
+
+    Returns
+    -------
+    kwargs : dict
+
+    """
+    kwargs = None
+    match_pattern = pattern.search(matchline, pos=pos)
+
+    if match_pattern is not None:
+
+        kwargs = dict(
+            [
+                (to_camel_case(fn), class_dict[fn][0](match_pattern.group(fn)))
+                for fn in field_names
+            ]
+        )
+
+    return kwargs

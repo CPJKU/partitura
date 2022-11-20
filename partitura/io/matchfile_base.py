@@ -425,7 +425,7 @@ class BaseNoteLine(MatchLine):
     # All derived classes should include at least
     # these field names
     field_names = (
-        "ID",
+        "Id",
         "MidiPitch",
         "Onset",
         "Offset",
@@ -443,18 +443,18 @@ class BaseNoteLine(MatchLine):
     def __init__(
         self,
         version: Version,
-        note_id: str,
+        id: str,
         midi_pitch: int,
         onset: float,
         offset: float,
         velocity: int,
     ) -> None:
         super().__init__(version)
-        self.ID = note_id
-        self.MIDIPitch = midi_pitch
+        self.Id = id
+        self.MidiPitch = midi_pitch
         self.Onset = onset
         self.Offset = offset
-        self.velocity = velocity
+        self.Velocity = velocity
 
     @property
     def Duration(self):

@@ -13,9 +13,10 @@ from partitura.io.matchlines_v1 import (
     MatchScoreProp,
     MatchSection,
     MatchSnote,
+    MatchNote,
 )
 
-from partitura.io.matchfile_base import interpret_version, Version
+from partitura.io.matchfile_base import interpret_version, Version, MatchError
 
 
 class TestMatchLinesV1_0_0(unittest.TestCase):
@@ -104,6 +105,14 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the error was raised
             self.assertTrue(True)
 
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchInfo.from_matchline(wrong_line)
+            self.assertTrue(False)
+        except MatchError:
+            self.assertTrue(True)
+
     def test_score_prop_lines(self):
 
         keysig_line = "scoreprop(keySignature,E,0:2,1/8,-0.5000)."
@@ -131,6 +140,14 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
 
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchScoreProp.from_matchline(wrong_line)
+            self.assertTrue(False)
+        except MatchError:
+            self.assertTrue(True)
+
     def test_section_lines(self):
 
         section_lines = [
@@ -150,6 +167,23 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
 
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
+
+        # Check version (an error should be raised for old versions)
+        try:
+            mo = MatchSection.from_matchline(section_lines[0], version=Version(0, 5, 0))
+            self.assertTrue(False)
+
+        except ValueError:
+            self.assertTrue(True)
+
+        # Check that incorrectly formatted line results in a match error
+        try:
+            # Line does not have [] for the end annotations
+            wrong_line = "section(0.0000,100.0000,0.0000,100.0000,end)."
+            mo = MatchSection.from_matchline(wrong_line)
+            self.assertTrue(False)
+        except MatchError:
+            self.assertTrue(True)
 
     def test_snote_lines(self):
 
@@ -234,6 +268,34 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
                 )
             )
             # print(mo.matchline, ml)
+            self.assertTrue(mo.matchline == ml)
+
+            # assert that the data types of the match line are correct
+            self.assertTrue(mo.check_types())
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchSnote.from_matchline(wrong_line)
+            self.assertTrue(False)
+        except MatchError:
+            self.assertTrue(True)
+
+    def test_note_lines(self):
+
+        note_lines = [
+            "note(0,47,46710,58040,26,0,0).",
+            "note(13,51,72850,88210,45,0,0).",
+            "note(32,28,103220,114320,37,0,0).",
+            "note(65,51,153250,157060,60,0,0).",
+        ]
+
+        for ml in note_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+            mo = MatchNote.from_matchline(ml)
+            # print(mo.matchline, ml, [(g == t, g, t) for g, t in zip(mo.matchline, ml)])
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
