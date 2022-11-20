@@ -16,10 +16,14 @@ from partitura.utils.music import (
 
 from partitura.io.matchfile_base import (
     MatchLine,
+    MatchError,
     Version,
     BaseInfoLine,
     BaseSnoteLine,
-    MatchError,
+    BaseNoteLine,
+)
+
+from partitura.io.matchfile_utils import (
     interpret_version,
     format_version,
     interpret_as_string,
@@ -33,6 +37,7 @@ from partitura.io.matchfile_base import (
     interpret_as_fractional,
     interpret_as_list,
     format_list,
+    to_camel_case,
 )
 
 # Define current version of the match file format
@@ -193,7 +198,12 @@ class MatchScoreProp(MatchLine):
     )
 
     pattern = re.compile(
-        r"scoreprop\(([^,]+),([^,]+),([^,]+):([^,]+),([^,]+),([^,]+)\)\."
+        r"scoreprop\("
+        r"(?P<Attribute>[^,]+),"
+        r"(?P<Value>[^,]+),"
+        r"(?P<Measure>[^,]+):(?P<Beat>[^,]+),"
+        r"(?P<Offset>[^,]+),"
+        r"(?P<TimeInBeats>[^,]+)\)\."
     )
 
     def __init__(
@@ -314,56 +324,115 @@ class MatchScoreProp(MatchLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
 
-class MatchSnote(BaseSnoteLine):
+SECTION_LINE = {
+    Version(1, 0, 0): {
+        "StartInBeatsUnfolded": (interpret_as_float, format_float, float),
+        "EndInBeatsUnfolded": (interpret_as_float, format_float, float),
+        "StartInBeatsOriginal": (interpret_as_float, format_float, float),
+        "EndInBeatsOriginal": (interpret_as_float, format_float, float),
+        "RepeatEndType": (interpret_as_list, format_list, list),
+    }
+}
+
+
+class MatchSection(MatchLine):
+    """
+    Class for specifiying structural information (i.e., sections).
+
+    section(StartInBeatsUnfolded,EndInBeatsUnfolded,StartInBeatsOriginal,EndInBeatsOriginal,RepeatEndType).
+
+    Parameters
+    ----------
+    version: Version,
+    start_in_beats_unfolded: float,
+    end_in_beats_unfolded: float,
+    start_in_beats_original: float,
+    end_in_beats_original: float,
+    repeat_end_type: List[str]
+    """
 
     field_names = (
-        "Anchor",
-        "NoteName",
-        "Modifier",
-        "Octave",
-        "Measure",
-        "Beat",
-        "Offset",
-        "Duration",
-        "OnsetInBeats",
-        "OffsetInBeats",
-        "ScoreAttributesList",
-    )
-
-    field_types = (
-        str,
-        str,
-        (int, type(None)),
-        int,
-        int,
-        int,
-        FractionalSymbolicDuration,
-        FractionalSymbolicDuration,
-        float,
-        float,
-        list,
+        "StartInBeatsUnfolded",
+        "EndInBeatsUnfolded",
+        "StartInBeatsOriginal",
+        "EndInBeatsOriginal",
+        "RepeatEndType",
     )
 
     out_pattern = (
-        "snote({Anchor},[{NoteName},{Modifier}],{Octave},"
-        "{Measure}:{Beat},{Offset},{Duration},{OnsetInBeats},"
-        "{OffsetInBeats},{ScoreAttributesList})"
+        "section({StartInBeatsUnfolded},"
+        "{EndInBeatsUnfolded},{StartInBeatsOriginal},"
+        "{EndInBeatsOriginal},{RepeatEndType})."
+    )
+    pattern = re.compile(
+        r"section\("
+        r"(?P<StartInBeatsUnfolded>[^,]+),"
+        r"(?P<EndInBeatsUnfolded>[^,]+),"
+        r"(?P<StartInBeatsOriginal>[^,]+),"
+        r"(?P<EndInBeatsOriginal>[^,]+),"
+        r"\[(?P<RepeatEndType>.*)\]\)."
     )
 
-    pattern = re.compile(
-        # r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),"
-        # r"([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
-        r"snote\("
-        r"(?P<Anchor>[^,]+),"
-        r"\[(?P<NoteName>[^,]+),(?P<Modifier>[^,]+)\],"
-        r"(?P<Octave>[^,]+),"
-        r"(?P<Measure>[^,]+):(?P<Beat>[^,]+),"
-        r"(?P<Offset>[^,]+),"
-        r"(?P<Duration>[^,]+),"
-        r"(?P<OnsetInBeats>[^,]+),"
-        r"(?P<OffsetInBeats>[^,]+),"
-        r"\[(?P<ScoreAttributesList>.*)\]\)"
-    )
+    def __init__(
+        self,
+        version: Version,
+        start_in_beats_unfolded: float,
+        end_in_beats_unfolded: float,
+        start_in_beats_original: float,
+        end_in_beats_original: float,
+        repeat_end_type: List[str],
+    ) -> None:
+
+        if version not in SECTION_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(SECTION_LINE.keys())}"
+            )
+        super().__init__(version)
+
+        self.field_types = (ft[-1] for _, ft in SECTION_LINE[version].items())
+        self.format_fun = dict(
+            [(fn, ft[1]) for fn, ft in SECTION_LINE[version].items()]
+        )
+
+        self.StartInBeatsUnfolded = start_in_beats_unfolded
+        self.EndInBeatsUnfolded = end_in_beats_unfolded
+        self.StartInBeatsOriginal = start_in_beats_original
+        self.EndInBeatsOriginal = end_in_beats_original
+        self.RepeatEndType = repeat_end_type
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = CURRENT_VERSION,
+    ) -> MatchSection:
+        if version not in SECTION_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(SECTION_LINE.keys())}"
+            )
+
+        match_pattern = cls.pattern.search(matchline, pos=pos)
+        class_dict = SECTION_LINE[version]
+
+        if match_pattern is not None:
+
+            kwargs = dict(
+                [
+                    (to_camel_case(fn), class_dict[fn][0](match_pattern.group(fn)))
+                    for fn in cls.field_names
+                ]
+            )
+
+            return cls(version=version, **kwargs)
+
+        else:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
+
+class MatchSnote(BaseSnoteLine):
 
     format_fun = dict(
         Anchor=format_string,
@@ -393,7 +462,7 @@ class MatchSnote(BaseSnoteLine):
         onset_in_beats: float,
         offset_in_beats: float,
         score_attributes_list: List[str],
-    ):
+    ) -> None:
         super().__init__(
             version=version,
             anchor=anchor,
@@ -406,9 +475,8 @@ class MatchSnote(BaseSnoteLine):
             duration=duration,
             onset_in_beats=onset_in_beats,
             offset_in_beats=offset_in_beats,
+            score_attributes_list=score_attributes_list,
         )
-
-        self.ScoreAttributesList = score_attributes_list
 
     @classmethod
     def from_matchline(
@@ -417,49 +485,42 @@ class MatchSnote(BaseSnoteLine):
         pos: int = 0,
         version: Version = CURRENT_VERSION,
     ) -> MatchSnote:
+        """
+        Create a new MatchLine object from a string
+
+        Parameters
+        ----------
+        matchline : str
+            String with a matchline
+        pos : int (optional)
+            Position of the matchline in the input string. By default it is
+            assumed that the matchline starts at the beginning of the input
+            string.
+        version : Version (optional)
+            Version of the matchline. By default it is the latest version.
+
+        Returns
+        -------
+        a MatchSnote object
+        """
 
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
-        match_pattern = cls.pattern.search(matchline, pos)
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            pos=pos,
+        )
 
-        if match_pattern is not None:
+        return cls(version=version, **kwargs)
 
-            (
-                anchor_str,
-                note_name_str,
-                modifier_str,
-                octave_str,
-                measure_str,
-                beat_str,
-                offset_str,
-                duration_str,
-                onset_in_beats_str,
-                offset_in_beats_str,
-                score_attributes_list_str,
-            ) = match_pattern.groups()
 
-            anchor = interpret_as_string(anchor_str)
-            note_name, modifier, octave = ensure_pitch_spelling_format(
-                step=note_name_str,
-                alter=modifier_str,
-                octave=octave_str,
-            )
+class MatchNote(BaseNoteLine):
 
-            return cls(
-                version=version,
-                anchor=interpret_as_string(anchor),
-                note_name=note_name,
-                modifier=modifier,
-                octave=octave,
-                measure=interpret_as_int(measure_str),
-                beat=interpret_as_int(beat_str),
-                offset=interpret_as_fractional(offset_str),
-                duration=interpret_as_fractional(duration_str),
-                onset_in_beats=interpret_as_float(onset_in_beats_str),
-                offset_in_beats=interpret_as_float(offset_in_beats_str),
-                score_attributes_list=interpret_as_list(score_attributes_list_str),
-            )
-
-        else:
-            raise MatchError("Input match line does not fit the expected pattern.")
+    field_names = (
+        "ID",
+        "MidiPitch",
+        "Onset",
+        "Offset",
+        "Velocity",
+    )

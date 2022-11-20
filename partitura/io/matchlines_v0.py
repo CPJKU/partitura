@@ -9,14 +9,17 @@ from collections import defaultdict
 
 import re
 
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Tuple, Union, List
 
 from partitura.io.matchfile_base import (
     MatchLine,
-    Version,
     BaseInfoLine,
     BaseSnoteLine,
     MatchError,
+)
+
+from partitura.io.matchfile_utils import (
+    Version,
     interpret_version,
     format_version,
     interpret_as_string,
@@ -170,3 +173,71 @@ class MatchInfo(BaseInfoLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
+
+
+class MatchSnote(BaseSnoteLine):
+    def __init__(
+        self,
+        version: Version,
+        anchor: str,
+        note_name: str,
+        modifier: str,
+        octave: Union[int, str],
+        measure: int,
+        beat: int,
+        offset: FractionalSymbolicDuration,
+        duration: FractionalSymbolicDuration,
+        onset_in_beats: float,
+        offset_in_beats: float,
+        score_attributes_list: List[str],
+    ):
+        super().__init__(
+            version=version,
+            anchor=anchor,
+            note_name=note_name,
+            modifier=modifier,
+            octave=octave,
+            measure=measure,
+            beat=beat,
+            offset=offset,
+            duration=duration,
+            onset_in_beats=onset_in_beats,
+            offset_in_beats=offset_in_beats,
+            score_attributes_list=score_attributes_list,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = LAST_VERSION,
+    ) -> MatchSnote:
+        """
+        Create a new MatchLine object from a string
+
+        Parameters
+        ----------
+        matchline : str
+            String with a matchline
+        pos : int (optional)
+            Position of the matchline in the input string. By default it is
+            assumed that the matchline starts at the beginning of the input
+            string.
+        version : Version (optional)
+            Version of the matchline. By default it is the latest version.
+
+        Returns
+        -------
+        a MatchSnote object
+        """
+
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} > Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            pos=pos,
+        )
+
+        return cls(version=version, **kwargs)

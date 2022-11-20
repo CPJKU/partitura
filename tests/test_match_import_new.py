@@ -11,6 +11,7 @@ from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 from partitura.io.matchlines_v1 import (
     MatchInfo,
     MatchScoreProp,
+    MatchSection,
     MatchSnote,
 )
 
@@ -130,6 +131,26 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
 
+    def test_section_lines(self):
+
+        section_lines = [
+            "section(0.0000,100.0000,0.0000,100.0000,[end]).",
+            "section(100.0000,200.0000,0.0000,100.0000,[fine]).",
+            "section(100.0000,200.0000,0.0000,100.0000,[volta end]).",
+            "section(100.0000,200.0000,0.0000,100.0000,[repeat left]).",
+        ]
+
+        for ml in section_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+            mo = MatchSection.from_matchline(ml)
+            # print(mo.matchline, ml, [(g == t, g, t) for g, t in zip(mo.matchline, ml)])
+            self.assertTrue(mo.matchline == ml)
+
+            # assert that the data types of the match line are correct
+            self.assertTrue(mo.check_types())
+
     def test_snote_lines(self):
 
         snote_lines = [
@@ -139,11 +160,79 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             "snote(n143,[B,b],5,7:2,2/16,1/8,25.5000,26.0000,[s,stacc])",
         ]
 
-        for ml in snote_lines:
+        output_strings = [
+            (
+                "MatchSnote\n"
+                " Anchor: n1\n"
+                " NoteName: B\n"
+                " Modifier: 0\n"
+                " Octave: 3\n"
+                " Measure: 0\n"
+                " Beat: 2\n"
+                " Offset: 1/8\n"
+                " Duration: 1/8\n"
+                " OnsetInBeats: -0.5\n"
+                " OffsetInBeats: 0.0\n"
+                " ScoreAttributesList: ['v1']"
+            ),
+            (
+                "MatchSnote\n"
+                " Anchor: n3\n"
+                " NoteName: G\n"
+                " Modifier: 1\n"
+                " Octave: 3\n"
+                " Measure: 1\n"
+                " Beat: 1\n"
+                " Offset: 0\n"
+                " Duration: 1/16\n"
+                " OnsetInBeats: 0.0\n"
+                " OffsetInBeats: 0.25\n"
+                " ScoreAttributesList: ['v3']"
+            ),
+            (
+                "MatchSnote\n"
+                " Anchor: n1\n"
+                " NoteName: E\n"
+                " Modifier: 0\n"
+                " Octave: 4\n"
+                " Measure: 1\n"
+                " Beat: 1\n"
+                " Offset: 0\n"
+                " Duration: 1/4\n"
+                " OnsetInBeats: 0.0\n"
+                " OffsetInBeats: 1.0\n"
+                " ScoreAttributesList: ['arp']"
+            ),
+            (
+                "MatchSnote\n"
+                " Anchor: n143\n"
+                " NoteName: B\n"
+                " Modifier: -1\n"
+                " Octave: 5\n"
+                " Measure: 7\n"
+                " Beat: 2\n"
+                " Offset: 2/16\n"
+                " Duration: 1/8\n"
+                " OnsetInBeats: 25.5\n"
+                " OffsetInBeats: 26.0\n"
+                " ScoreAttributesList: ['s', 'stacc']"
+            ),
+        ]
+
+        for ml, strl in zip(snote_lines, output_strings):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
             mo = MatchSnote.from_matchline(ml)
+            # test __str__ method
+            self.assertTrue(
+                all(
+                    [
+                        ll.strip() == sl.strip()
+                        for ll, sl in zip(str(mo).splitlines(), strl.splitlines())
+                    ]
+                )
+            )
             # print(mo.matchline, ml)
             self.assertTrue(mo.matchline == ml)
 
