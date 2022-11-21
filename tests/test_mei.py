@@ -129,12 +129,12 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(clefs2[0].start.t == 0)
         self.assertTrue(clefs2[0].sign == "C")
         self.assertTrue(clefs2[0].line == 3)
-        self.assertTrue(clefs2[0].staff == 3)
+        self.assertTrue(clefs2[0].staff == 1)
         self.assertTrue(clefs2[0].octave_change == 0)
         self.assertTrue(clefs2[1].start.t == 8)
         self.assertTrue(clefs2[1].sign == "F")
         self.assertTrue(clefs2[1].line == 4)
-        self.assertTrue(clefs2[1].staff == 3)
+        self.assertTrue(clefs2[1].staff == 1)
         self.assertTrue(clefs2[1].octave_change == 0)
         # test on part 3
         part3 = list(score.iter_parts(part_list))[3]
@@ -144,7 +144,7 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(clefs3[1].start.t == 4)
         self.assertTrue(clefs3[1].sign == "G")
         self.assertTrue(clefs3[1].line == 2)
-        self.assertTrue(clefs3[1].staff == 4)
+        self.assertTrue(clefs3[1].staff == 1)
         self.assertTrue(clefs3[1].octave_change == -1)
 
     def test_key_signature1(self):
@@ -270,6 +270,16 @@ class TestImportMEI(unittest.TestCase):
         staves = merged_part.note_array(include_staff =True)["staff"]
         expected_staves = [4,3,2,1,1,1]
         self.assertTrue(np.array_equal(staves, expected_staves) )
+
+    def test_nopart_but(self):
+        parts = load_mei(MEI_TESTFILES[20])
+        last_measure_duration = [list(p.iter_all(score.Measure))[-1].end.t- list(p.iter_all(score.Measure))[-1].start.t for p in parts]
+        self.assertTrue(all([d == 4096 for d in last_measure_duration]))
+
+    # def test_nopart_but2(self):
+    #     parts = load_mei(MEI_TESTFILES[21])
+    #     last_measure_duration = [list(p.iter_all(score.Measure))[-1].end.t- list(p.iter_all(score.Measure))[-1].start.t for p in parts]
+    #     self.assertTrue(False)
 
 if __name__ == "__main__":
     unittest.main()

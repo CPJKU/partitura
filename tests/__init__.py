@@ -150,6 +150,8 @@ MEI_TESTFILES = [
         "test_unfold_complex.mei",
         "test_articulation.mei",
         "test_merge_voices2.mei",
+        "CRIM_Mass_0030_4.mei",
+        "CRIM_Mass_0004_3.mei"
     ]
 ]
 
