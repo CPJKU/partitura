@@ -189,9 +189,12 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_slurs(self):
         if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
-            raise ValueError(
-                "Slur Mismatch! Uneven amount of closing to open slur brackets."
+            warnings.warn(
+                "Slur Mismatch! Uneven amount of closing to open slur brackets. Skipping slur parsing.", ImportWarning
             )
+            # raise ValueError(
+            #     "Slur Mismatch! Uneven amount of closing to open slur brackets."
+            # )
         else:
             for (oid, cid) in list(
                 zip(self.slur_dict["open"], self.slur_dict["close"])
