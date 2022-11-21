@@ -1,15 +1,12 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for the import of Nakamura et al.'s match and
+This module contains test functions for the import of Nakamura et al.'s match and
 corresp file formats.
-
 """
 
 import unittest
-from partitura.io.importnakamura import (
-    load_nakamuracorresp,
-    load_nakamuramatch
-)
+from partitura.io.importnakamura import load_nakamuracorresp, load_nakamuramatch
 
 from tests import NAKAMURA_IMPORT_TESTFILES
 

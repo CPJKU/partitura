@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 This module contains methods for parsing score-to-performance alignments
@@ -13,14 +14,19 @@ import warnings
 import re
 import numpy as np
 
+from typing import Union, Tuple
+
 from partitura.utils import note_name_to_midi_pitch
 from partitura.utils.music import SIGN_TO_ALTER
+
+from partitura.utils.misc import PathLike, deprecated_alias
 
 
 NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
 
-def load_nakamuracorresp(fn):
+@deprecated_alias(fn="filename")
+def load_nakamuracorresp(filename: PathLike) -> Tuple[Union[np.ndarray, list]]:
     """Load a corresp file as returned by Nakamura et al.'s MIDI to MIDI alignment.
 
     Fields of the file format as specified in [8]_:
@@ -28,7 +34,7 @@ def load_nakamuracorresp(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The nakamura match.txt-file
 
     Returns
@@ -53,7 +59,7 @@ def load_nakamuracorresp(fn):
         ("refPitch", "i"),
         ("refOnvel", "i"),
     ]
-    result = np.loadtxt(fn, dtype=dtype, comments="//")
+    result = np.loadtxt(filename, dtype=dtype, comments="//")
 
     align_valid = result["alignID"] != "*"
     n_align = sum(align_valid)
@@ -68,21 +74,18 @@ def load_nakamuracorresp(fn):
     alignment = []
     for alignID, refID in result[["alignID", "refID"]]:
         if alignID == "*":
-            alnote = dict(label="deletion",
-                          score_id=refID)
+            alnote = dict(label="deletion", score_id=refID)
         elif refID == "*":
-            alnote = dict(label="insertion",
-                          performance_id=alignID)
+            alnote = dict(label="insertion", performance_id=alignID)
         else:
-            alnote = dict(label="match",
-                          score_id=refID,
-                          performance_id=alignID)
+            alnote = dict(label="match", score_id=refID, performance_id=alignID)
         alignment.append(alnote)
 
     return align, ref, alignment
 
 
-def load_nakamuramatch(fn):
+@deprecated_alias(fn="filename")
+def load_nakamuramatch(filename: PathLike) -> Tuple[Union[np.ndarray, list]]:
     """Load a match file as returned by Nakamura et al.'s MIDI to musicxml alignment
 
     Fields of the file format as specified in [8]_:
@@ -91,7 +94,7 @@ def load_nakamuramatch(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The nakamura match.txt-file
 
     Returns
@@ -108,20 +111,22 @@ def load_nakamuramatch(fn):
     .. [8] https://midialignment.github.io/MANUAL.pdf
 
     """
-    perf_dtype = [("onset_sec", "f4"),
-                  ("duration_sec", "f4"),
-                  ("pitch", "i4"),
-                  ("velocity", "i4"),
-                  ("channel", "i4"),
-                  ("id", "U256"),
-                  ]
-    score_dtype = [("onset_div", "i4"),
-                   ("pitch", "i4"),
-                   ("step", "U256"),
-                   ("alter", "i4"),
-                   ("octave", "i4"),
-                   ("id", "U256")
-                   ]
+    perf_dtype = [
+        ("onset_sec", "f4"),
+        ("duration_sec", "f4"),
+        ("pitch", "i4"),
+        ("velocity", "i4"),
+        ("channel", "i4"),
+        ("id", "U256"),
+    ]
+    score_dtype = [
+        ("onset_div", "i4"),
+        ("pitch", "i4"),
+        ("step", "U256"),
+        ("alter", "i4"),
+        ("octave", "i4"),
+        ("id", "U256"),
+    ]
     dtype = [
         ("alignID", "U256"),
         ("alignOntime", "f"),
@@ -136,25 +141,25 @@ def load_nakamuramatch(fn):
         ("errorindex", "i"),
         ("skipindex", "U256"),
     ]
-    dtype_missing = [("refOntime", "f"),
-                     ("refID", "U256")]
+    dtype_missing = [("refOntime", "f"), ("refID", "U256")]
     pattern = r"//Missing\s(\d+)\t(.+)"
     # load alignment notes
-    result = np.loadtxt(fn, dtype=dtype, comments="//")
+    result = np.loadtxt(filename, dtype=dtype, comments="//")
     # load missing notes
-    missing = np.fromregex(fn, pattern, dtype=dtype_missing)
+    missing = np.fromregex(filename, pattern, dtype=dtype_missing)
 
     midi_pitch = np.array(
-        [note_name_to_midi_pitch(n.replace('#', r'\#'))
-         for n in result["alignSitch"]])
+        [note_name_to_midi_pitch(n.replace("#", r"\#")) for n in result["alignSitch"]]
+    )
 
     align_valid = result["alignID"] != "*"
     n_align = sum(align_valid)
     align = np.empty((n_align,), dtype=perf_dtype)
     align["id"] = result["alignID"][align_valid]
     align["onset_sec"] = result["alignOntime"]
-    align["duration_sec"] = (result["alignOfftime"][align_valid] -
-                             result["alignOntime"][align_valid])
+    align["duration_sec"] = (
+        result["alignOfftime"][align_valid] - result["alignOntime"][align_valid]
+    )
     align["pitch"] = midi_pitch[align_valid]
     align["velocity"] = result["alignOnvel"][align_valid]
     align["channel"] = result["alignChannel"][align_valid]
@@ -170,41 +175,39 @@ def load_nakamuramatch(fn):
     ref["onset_div"][n_valid:] = missing["refOntime"]
     ref["pitch"][:n_valid] = midi_pitch[ref_valid]
     ref["pitch"][n_valid:] = -1
-    pitch_spelling = [NAME_PATT.search(nn).groups()
-                      for nn in result["alignSitch"]]
+    pitch_spelling = [NAME_PATT.search(nn).groups() for nn in result["alignSitch"]]
 
     pitch_spelling = np.array(
-        [(ps[0], SIGN_TO_ALTER[ps[1] if ps[1] != "" else "n"], int(ps[2]))
-         for ps in pitch_spelling])
+        [
+            (ps[0], SIGN_TO_ALTER[ps[1] if ps[1] != "" else "n"], int(ps[2]))
+            for ps in pitch_spelling
+        ]
+    )
     # add pitch spelling information
     ref["step"][:n_valid] = pitch_spelling[ref_valid][:, 0]
     ref["alter"][:n_valid] = pitch_spelling[ref_valid][:, 1]
     ref["octave"][:n_valid] = pitch_spelling[ref_valid][:, 2]
     # * indicates that is a missing pitch
-    ref["step"][n_valid:] = '*'
+    ref["step"][n_valid:] = "*"
 
     alignment = []
     for alignID, refID in result[["alignID", "refID"]]:
         if alignID == "*":
-            alnote = dict(label="deletion",
-                          score_id=refID)
+            alnote = dict(label="deletion", score_id=refID)
         elif refID == "*":
-            alnote = dict(label="insertion",
-                          performance_id=alignID)
+            alnote = dict(label="insertion", performance_id=alignID)
         else:
-            alnote = dict(label="match",
-                          score_id=refID,
-                          performance_id=alignID)
+            alnote = dict(label="match", score_id=refID, performance_id=alignID)
         alignment.append(alnote)
 
     for refID in missing["refID"]:
-        alignment.append(dict(label="deletion",
-                              score_id=refID))
+        alignment.append(dict(label="deletion", score_id=refID))
 
     return align, ref, alignment
 
 
-def load_nakamuraspr(fn):
+@deprecated_alias(fn="filename")
+def load_nakamuraspr(filename: PathLike) -> np.ndarray:
     """Load a spr file as returned by Nakamura et al.'s alignment methods.
 
     Fields of the file format as specified in [8]_:
@@ -217,7 +220,7 @@ def load_nakamuraspr(fn):
 
     Parameters
     ----------
-    fn : str
+    filename : str
         The nakamura match.txt-file
 
     Returns
@@ -234,12 +237,14 @@ def load_nakamuraspr(fn):
     ----
     * Import pedal information
     """
-    note_array_dtype = [("onset_sec", "f4"),
-                        ("duration_sec", "f4"),
-                        ("pitch", "i4"),
-                        ("velocity", "i4"),
-                        ("channel", "i4"),
-                        ("id", "U256")]
+    note_array_dtype = [
+        ("onset_sec", "f4"),
+        ("duration_sec", "f4"),
+        ("pitch", "i4"),
+        ("velocity", "i4"),
+        ("channel", "i4"),
+        ("id", "U256"),
+    ]
     dtype = [
         ("ID", "U256"),
         ("Ontime", "f"),
@@ -247,20 +252,20 @@ def load_nakamuraspr(fn):
         ("Sitch", "U256"),
         ("Onvel", "i"),
         ("Offvel", "i"),
-        ("Channel", "i")
+        ("Channel", "i"),
     ]
 
     pattern = r"(\d+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)\t(.+)"
 
-    result = np.fromregex(fn, pattern, dtype=dtype)
+    result = np.fromregex(filename, pattern, dtype=dtype)
     note_array = np.empty(len(result), dtype=note_array_dtype)
 
     note_array["id"] = result["ID"]
     note_array["onset_sec"] = result["Ontime"]
     note_array["duration_sec"] = result["Offtime"] - result["Ontime"]
     note_array["pitch"] = np.array(
-        [note_name_to_midi_pitch(n)
-         for n in result["Sitch"]])
+        [note_name_to_midi_pitch(n) for n in result["Sitch"]]
+    )
     note_array["velocity"] = result["Onvel"]
     note_array["channel"] = result["Channel"]
 

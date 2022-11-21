@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for methods for handling divisions and time signatures.
+"""
 import logging
 import unittest
 
