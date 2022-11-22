@@ -26,7 +26,7 @@ class TestLoadPerformance(unittest.TestCase):
         for fn in [EXAMPLE_MIDI]:
             performance = load_performance_midi(fn)
             na = performance.note_array()            
-            self.assertTrue(np.all(na["onset_sec"] * 24 == na["onset_div"]))
+            self.assertTrue(np.all(na["onset_sec"] * 24 == na["onset_tick"]))
         
 
 

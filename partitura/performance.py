@@ -140,8 +140,8 @@ class PerformedPart(object):
         fields = [
             ("onset_sec", "f4"),
             ("duration_sec", "f4"),
-            ("onset_div", "i4"),
-            ("duration_div", "i4"),
+            ("onset_tick", "i4"),
+            ("duration_tick", "i4"),
             ("pitch", "i4"),
             ("velocity", "i4"),
             ("track", "i4"),
@@ -151,16 +151,16 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
-            note_on_div = n["note_on_div"]
+            note_on_tick = n.get("note_on_tick", n["note_on"])
             offset = n.get("sound_off", n["note_off"])
             duration_sec = offset - note_on_sec
-            duration_div = n["note_off_div"] - note_on_div
+            duration_tick = n.get("note_off_tick", n["note_off"]) - note_on_tick
             note_array.append(
                 (
                     note_on_sec,
                     duration_sec,
-                    note_on_div,
-                    duration_div,
+                    note_on_tick,
+                    duration_tick,
                     n["midi_pitch"],
                     n["velocity"],
                     n.get("track", 0),

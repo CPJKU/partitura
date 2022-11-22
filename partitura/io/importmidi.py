@@ -128,7 +128,7 @@ def load_performance_midi(
     for i, track in tracks:
 
         t = 0
-        tdiv = 0
+        ttick = 0
         
         sounding_notes = {}
 
@@ -136,7 +136,7 @@ def load_performance_midi(
 
             # update time deltas when they arrive
             t = t + msg.time * time_conversion_factor
-            tdiv = tdiv + msg.time 
+            ttick = ttick + msg.time 
 
             if msg.type == "set_tempo":
 
@@ -148,7 +148,7 @@ def load_performance_midi(
                 controls.append(
                     dict(
                         time=t,
-                        time_div=tdiv,
+                        time_tick=ttick,
                         number=msg.control,
                         value=msg.value,
                         track=i,
@@ -161,7 +161,7 @@ def load_performance_midi(
                 programs.append(
                     dict(
                         time=t,
-                        time_div=tdiv,
+                        time_tick=ttick,
                         program=msg.program,
                         track=i,
                         channel=msg.channel,
@@ -183,7 +183,7 @@ def load_performance_midi(
                 if note_on and msg.velocity > 0:
 
                     # save the onset time and velocity
-                    sounding_notes[note] = (t, tdiv, msg.velocity)
+                    sounding_notes[note] = (t, ttick, msg.velocity)
 
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
@@ -199,9 +199,9 @@ def load_performance_midi(
                             # id=f"n{len(notes)}",
                             midi_pitch=msg.note,
                             note_on=(sounding_notes[note][0]),
-                            note_on_div=(sounding_notes[note][1]),
+                            note_on_tick=(sounding_notes[note][1]),
                             note_off=(t),
-                            note_off_div=(tdiv),
+                            note_off_tick=(ttick),
                             track=i,
                             channel=msg.channel,
                             velocity=sounding_notes[note][2],

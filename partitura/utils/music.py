@@ -363,8 +363,8 @@ def get_time_units_from_note_array(note_array):
     if fields is None:
         raise ValueError("`note_array` must be a structured numpy array")
 
-    score_units = set(("onset_beat", "onset_quarter",))
-    performance_units = set(("onset_sec",))
+    score_units = set(("onset_beat", "onset_quarter","onset_div"))
+    performance_units = set(("onset_sec","onset_tick"))
 
     if len(score_units.intersection(fields)) > 0:
         if "onset_beat" in fields:
@@ -376,8 +376,8 @@ def get_time_units_from_note_array(note_array):
     elif len(performance_units.intersection(fields)) > 0:
         if "onset_sec" in fields:
             return ("onset_sec", "duration_sec")
-        elif "onset_div" in fields:
-            return ("onset_div", "duration_div")
+        elif "onset_tick" in fields:
+            return ("onset_tick", "duration_tick")
         
     else:
         raise ValueError("Input array does not contain the expected " "time-units")
