@@ -71,8 +71,7 @@ def midi_to_notearray(filename: PathLike) -> np.ndarray:
 def load_performance_midi(
     filename: Union[PathLike, mido.MidiFile],
     default_bpm: Union[int, float] = 120,
-    merge_tracks: bool = False,
-    time_in_divs: bool = False,
+    merge_tracks: bool = False
 ) -> performance.Performance:
     """Load a musical performance from a MIDI file.
 
@@ -116,10 +115,7 @@ def load_performance_midi(
     mpq = 60 * (10 ** 6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    if time_in_divs:
-        time_conversion_factor = 1
-    else:
-        time_conversion_factor = mpq / (ppq * 10 ** 6)
+    time_conversion_factor = mpq / (ppq * 10 ** 6)
 
     notes = []
     controls = []
@@ -132,35 +128,27 @@ def load_performance_midi(
     for i, track in tracks:
 
         t = 0
+        ttick = 0
+        
         sounding_notes = {}
 
         for msg in track:
 
             # update time deltas when they arrive
             t = t + msg.time * time_conversion_factor
+            ttick = ttick + msg.time 
 
             if msg.type == "set_tempo":
 
                 mpq = msg.tempo
-                
-                if time_in_divs:
-                    time_conversion_factor = 1
-                else:
-                    time_conversion_factor = mpq / (ppq * 10 ** 6)
-
-                warnings.warn(
-                    (
-                        "change of Tempo to mpq = {0} "
-                        " and resulting seconds per tick = {1}"
-                        "at time: {2}"
-                    ).format(mpq, time_conversion_factor, t)
-                )
+                time_conversion_factor = mpq / (ppq * 10 ** 6)
 
             elif msg.type == "control_change":
 
                 controls.append(
                     dict(
                         time=t,
+                        time_tick=ttick,
                         number=msg.control,
                         value=msg.value,
                         track=i,
@@ -173,6 +161,7 @@ def load_performance_midi(
                 programs.append(
                     dict(
                         time=t,
+                        time_tick=ttick,
                         program=msg.program,
                         track=i,
                         channel=msg.channel,
@@ -194,7 +183,7 @@ def load_performance_midi(
                 if note_on and msg.velocity > 0:
 
                     # save the onset time and velocity
-                    sounding_notes[note] = (t, msg.velocity)
+                    sounding_notes[note] = (t, ttick, msg.velocity)
 
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
@@ -210,13 +199,14 @@ def load_performance_midi(
                             # id=f"n{len(notes)}",
                             midi_pitch=msg.note,
                             note_on=(sounding_notes[note][0]),
+                            note_on_tick=(sounding_notes[note][1]),
                             note_off=(t),
+                            note_off_tick=(ttick),
                             track=i,
                             channel=msg.channel,
-                            velocity=sounding_notes[note][1],
+                            velocity=sounding_notes[note][2],
                         )
                     )
-
                     # remove hash from dict
                     del sounding_notes[note]
 
