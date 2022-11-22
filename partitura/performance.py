@@ -108,10 +108,13 @@ class PerformedPart(object):
 
     @sustain_pedal_threshold.setter
     def sustain_pedal_threshold(self, value: int) -> None:
-        # """
-        # Set the pedal threshold and update the sound_off
-        # of the notes
-        # """
+        """
+        Set the pedal threshold and update the sound_off
+        of the notes. The threshold is a MIDI CC value 
+        between 0 and 127. The higher the threshold, the 
+        more restrained the pedal use and the drier the 
+        performance. Set to 127 to deactivate pedal.
+        """
         self._sustain_pedal_threshold = value
         adjust_offsets_w_sustain(
             self.notes, self.controls, self._sustain_pedal_threshold
@@ -137,6 +140,8 @@ class PerformedPart(object):
         fields = [
             ("onset_sec", "f4"),
             ("duration_sec", "f4"),
+            ("onset_div", "i4"),
+            ("duration_div", "i4"),
             ("pitch", "i4"),
             ("velocity", "i4"),
             ("track", "i4"),
@@ -146,12 +151,16 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
+            note_on_div = n["note_on_div"]
             offset = n.get("sound_off", n["note_off"])
             duration_sec = offset - note_on_sec
+            duration_div = n["note_off_div"] - note_on_div
             note_array.append(
                 (
                     note_on_sec,
                     duration_sec,
+                    note_on_div,
+                    duration_div,
                     n["midi_pitch"],
                     n["velocity"],
                     n.get("track", 0),

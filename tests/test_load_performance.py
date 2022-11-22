@@ -4,23 +4,33 @@
 This module contains test functions for the `load_performance` method
 """
 import unittest
+import numpy as np
+from tests import MOZART_VARIATION_FILES
 
-from tests import MATCH_IMPORT_EXPORT_TESTFILES
 
-
-from partitura import load_performance, EXAMPLE_MIDI
+from partitura import load_performance_midi, EXAMPLE_MIDI
 from partitura.io import NotSupportedFormatError
 from partitura.performance import Performance
 
-
-class TestLoadScore(unittest.TestCase):
+class TestLoadPerformance(unittest.TestCase):
     def test_load_performance(self):
-        for fn in MATCH_IMPORT_EXPORT_TESTFILES + [EXAMPLE_MIDI]:
-            load_performance(fn)
+        for fn in [MOZART_VARIATION_FILES["midi"]] + [EXAMPLE_MIDI]:
+            try:
+                print(fn)
+                performance = load_performance_midi(fn)
+                self.assertTrue(isinstance(performance, Performance))
+            except NotSupportedFormatError:
+                self.assertTrue(False)
 
-    def load_performance(self, fn):
-        try:
-            performance = load_performance(fn)
-            self.assertTrue(isinstance(performance, Performance))
-        except NotSupportedFormatError:
-            self.assertTrue(False)
+    def test_array_performance(self):
+        for fn in [EXAMPLE_MIDI]:
+            performance = load_performance_midi(fn)
+            na = performance.note_array()            
+            self.assertTrue(np.all(na["onset_sec"] * 24 == na["onset_div"]))
+        
+
+
+
+if __name__ == "__main__":
+
+    unittest.main()
