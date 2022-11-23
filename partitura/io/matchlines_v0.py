@@ -310,7 +310,7 @@ class MatchSnote(BaseSnoteLine):
 
 
 # Note lines for versions larger than 3.0
-NOTE_LINE_Vgeq0_3_0 = {
+NOTE_LINE_Vge0_3_0 = {
     "field_names": (
         "Id",
         "NoteName",
@@ -388,9 +388,47 @@ NOTE_LINE_Vlt0_3_0 = {
 
 
 NOTE_LINE = {
-    Version(0, 5, 0): NOTE_LINE_Vgeq0_3_0,
-    Version(0, 4, 0): NOTE_LINE_Vgeq0_3_0,
-    Version(0, 3, 0): NOTE_LINE_Vgeq0_3_0,
+    Version(0, 5, 0): NOTE_LINE_Vge0_3_0,
+    Version(0, 4, 0): NOTE_LINE_Vge0_3_0,
+    Version(0, 3, 0): {
+        "field_names": (
+            "Id",
+            "NoteName",
+            "Modifier",
+            "Octave",
+            "Onset",
+            "Offset",
+            "AdjOffset",
+            "Velocity",
+        ),
+        "out_pattern": (
+            "note({Id},[{NoteName},{Modifier}],{Octave},{Onset},{Offset},"
+            "{AdjOffset},{Velocity})."
+        ),
+        "pattern": re.compile(
+            r"note\((?P<Id>[^,]+),"
+            r"\[(?P<NoteName>[^,]+),(?P<Modifier>[^,]+)\],"
+            r"(?P<Octave>[^,]+),"
+            r"(?P<Onset>[^,]+),"
+            r"(?P<Offset>[^,]+),"
+            r"(?P<AdjOffset>[^,]+),"
+            r"(?P<Velocity>[^,]+)\)"
+        ),
+        "field_interpreters": {
+            "Id": (interpret_as_string, format_string, str),
+            "NoteName": (interpret_as_string, lambda x: str(x).lower(), str),
+            "Modifier": (
+                interpret_as_string,
+                lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+                (int, type(None)),
+            ),
+            "Octave": (interpret_as_int, format_int, int),
+            "Onset": (interpret_as_int, format_int, int),
+            "Offset": (interpret_as_int, format_int, int),
+            "AdjOffset": (interpret_as_int, format_int, int),
+            "Velocity": (interpret_as_int, format_int, int),
+        },
+    },
     Version(0, 2, 0): NOTE_LINE_Vlt0_3_0,
     Version(0, 1, 0): NOTE_LINE_Vlt0_3_0,
 }

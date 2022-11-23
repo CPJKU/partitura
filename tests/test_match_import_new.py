@@ -21,6 +21,7 @@ from partitura.io.matchlines_v0 import (
     MatchInfo as MatchInfoV0,
     MatchSnote as MatchSnoteV0,
     MatchNote as MatchNoteV0,
+    MatchSnoteNote as MatchSnoteNoteV0,
 )
 
 from partitura.io.matchfile_base import MatchError
@@ -377,6 +378,13 @@ class TestMatchLinesV1(unittest.TestCase):
             else:
                 self.assertTrue(mo.check_types())
 
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteNoteV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
 
 class TestMatchLinesV0(unittest.TestCase):
     def test_snote_lines_v0_1_0(self):
@@ -484,7 +492,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 # assert that the data types of the match line are correct
                 self.assertTrue(mo.check_types())
 
-    def test_note_lines_v_0_3_0(self):
+    def test_note_lines_v_0_4_0(self):
 
         note_lines = [
             "note(0,[A,n],2,500,684,684,41).",
@@ -502,7 +510,34 @@ class TestMatchLinesV0(unittest.TestCase):
             # is parsed correctly and results in an identical line
             # to the input match line
 
-            for minor_version in range(3, 6):
+            for minor_version in (4, 5):
+                mo = MatchNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+                self.assertTrue(mo.matchline == ml)
+                # check duration and adjusted duration
+                self.assertTrue(mo.AdjDuration >= mo.Duration)
+
+                # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
+
+    def test_note_lines_v_0_3_0(self):
+
+        note_lines = [
+            "note(14,[d,n],5,2239,2355,2355,76).",
+            "note(16,[e,n],5,2457,2564,2564,79).",
+            "note(29,[c,n],5,3871,3908,3908,62).",
+            "note(71,[c,n],5,7942,7983,7983,66).",
+            "note(98,[c,#],5,9927,10298,10352,78).",
+            "note(964,[a,#],5,91792,91835,91835,69).",
+        ]
+
+        for ml in note_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+
+            for minor_version in (3,):
                 mo = MatchNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
@@ -539,6 +574,85 @@ class TestMatchLinesV0(unittest.TestCase):
                 self.assertTrue(mo.matchline == ml)
 
                 # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
+
+    def test_snotenote_lines_v_0_1_0(self):
+
+        snotenote_lines = [
+            "snote(n1,[c,n],6,0:3,0/1,1/8,-4.00000,-3.00000,[1])-note(1,[c,n],6,39060.00,39890.00,38).",
+            "snote(n2,[c,n],5,0:3,0/1,1/8,-4.00000,-3.00000,[4])-note(2,[c,n],5,39120.00,40240.00,34).",
+            "snote(n3,[c,n],6,0:4,0/1,2/8,-3.00000,-1.00000,[1])-note(3,[c,n],6,42580.00,44410.00,37).",
+            "snote(n4,[c,n],5,0:4,0/1,2/8,-3.00000,-1.00000,[4])-note(4,[c,n],5,42700.00,44250.00,31).",
+            "snote(n661,[b,b],4,41:4,0/1,2/8,243.00000,245.00000,[3])-note(661,[b,b],4,943540.00,945410.00,19).",
+            "snote(n662,[c,n],4,41:4,0/1,3/8,243.00000,246.00000,[4])-note(662,[c,n],4,943630.00,945900.00,26).",
+            "snote(n663,[c,n],3,41:4,0/1,2/8,243.00000,245.00000,[5])-note(663,[c,n],3,943380.00,951590.00,28).",
+            "snote(n664,[e,n],5,41:6,0/1,1/8,245.00000,246.00000,[2])-note(664,[e,n],5,950010.00,950840.00,33).",
+            "snote(n665,[b,b],4,41:6,0/1,1/8,245.00000,246.00000,[3])-note(665,[b,b],4,950130.00,951570.00,28).",
+        ]
+
+        for i, ml in enumerate(snotenote_lines):
+            # snote = MatchSnoteV1.from_matchline(ml)
+            # note = MatchNoteV1.from_matchline(ml)
+
+            for minor_version in (1, 2):
+                mo = MatchSnoteNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+
+                self.assertTrue(mo.matchline == ml)
+
+                self.assertTrue(mo.check_types())
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteNoteV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_snotenote_lines_v_0_3_0(self):
+
+        snotenote_lines = [
+            "snote(n1,[e,n],4,1:1,0,1/4,0.0,1.0,[arp])-note(1,[e,n],4,761,1351,1351,60).",
+            "snote(n2,[g,n],4,1:1,0,1/4,0.0,1.0,[arp])-note(2,[g,n],4,814,1332,1332,74).",
+            "snote(n3,[c,n],3,1:1,0,1/16,0.0,0.25,[])-note(3,[c,n],3,885,943,943,65).",
+            "snote(n4,[c,n],5,1:1,0,1/4,0.0,1.0,[s,arp])-note(4,[c,n],5,886,1358,1358,85).",
+            "snote(n5,[c,n],4,1:1,1/16,1/16,0.25,0.5,[])-note(5,[c,n],4,1028,1182,1182,67).",
+            "snote(n6,[b,n],3,1:1,2/16,1/16,0.5,0.75,[])-note(6,[b,n],3,1151,1199,1199,63).",
+            "snote(n7,[c,n],4,1:1,3/16,1/16,0.75,1.0,[])-note(7,[c,n],4,1276,1325,1325,56).",
+            "snote(n8,[c,n],3,1:2,0,1/8,1.0,1.5,[])-note(8,[c,n],3,1400,1611,1700,62).",
+        ]
+
+        for i, ml in enumerate(snotenote_lines):
+
+            for minor_version in (3,):
+                mo = MatchSnoteNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+                self.assertTrue(mo.matchline == ml)
+
+                self.assertTrue(mo.check_types())
+
+    def test_snote_lines_v_0_4_0(self):
+
+        snotenote_lines = [
+            "snote(n1-1,[A,b],4,1:1,0,1/4,0.0,1.0,[staff1,accent])-note(0,[G,#],4,388411,388465,388465,65).",
+            "snote(n2-1,[G,n],4,1:2,0,1/8,1.0,1.5,[staff1])-note(1,[G,n],4,389336,389595,389595,35).",
+            "snote(n3-1,[A,b],4,1:2,1/8,1/8,1.5,2.0,[staff1])-note(2,[G,#],4,389628,389822,389822,34).",
+            "snote(n4-1,[C,n],5,1:3,0,1/8,2.0,2.5,[staff1])-note(3,[C,n],5,389804,389911,389911,44).",
+            "snote(n5-1,[B,b],4,1:3,1/8,1/8,2.5,3.0,[staff1])-note(4,[A,#],4,389932,389999,389999,50).",
+            "snote(n7-1,[G,n],4,2:1,0,1/8,3.0,3.5,[staff1])-note(5,[G,n],4,390054,390109,390109,49).",
+            "snote(n8-1,[A,b],4,2:1,1/8,1/8,3.5,4.0,[staff1])-note(6,[G,#],4,390168,390222,390222,46).",
+        ]
+
+        for i, ml in enumerate(snotenote_lines):
+
+            for minor_version in (4, 5):
+                mo = MatchSnoteNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+                self.assertTrue(mo.matchline == ml)
+
                 self.assertTrue(mo.check_types())
 
 
