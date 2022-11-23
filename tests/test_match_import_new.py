@@ -14,6 +14,7 @@ from partitura.io.matchlines_v1 import (
     MatchSection as MatchSectionV1,
     MatchSnote as MatchSnoteV1,
     MatchNote as MatchNoteV1,
+    MatchSnoteNote as MatchSnoteNoteV1,
 )
 
 from partitura.io.matchlines_v0 import (
@@ -356,6 +357,25 @@ class TestMatchLinesV1(unittest.TestCase):
 
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
+
+    def test_snotenote_lines(self):
+
+        snotenote_lines = [
+            "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[1])-note(0,47,39940,42140,44,0,0).",
+        ]
+
+        for i, ml in enumerate(snotenote_lines):
+            # snote = MatchSnoteV1.from_matchline(ml)
+            # note = MatchNoteV1.from_matchline(ml)
+
+            mo = MatchSnoteNoteV1.from_matchline(ml, version=Version(1, 0, 0))
+
+            self.assertTrue(mo.matchline == ml)
+
+            if i == 0:
+                self.assertTrue(mo.check_types(verbose=True))
+            else:
+                self.assertTrue(mo.check_types())
 
 
 class TestMatchLinesV0(unittest.TestCase):

@@ -17,6 +17,7 @@ from partitura.io.matchfile_base import (
     BaseInfoLine,
     BaseSnoteLine,
     BaseNoteLine,
+    BaseSnoteNoteLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -451,7 +452,7 @@ class MatchNote(BaseNoteLine):
             self.AdjOffset = kwargs["adj_offset"]
 
     @property
-    def AdjDuration(self):
+    def AdjDuration(self) -> float:
         return self.AdjOffset - self.Onset
 
     @classmethod
@@ -478,3 +479,37 @@ class MatchNote(BaseNoteLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
+
+
+class MatchSnoteNote(BaseSnoteNoteLine):
+    def __init__(
+        self,
+        version: Version,
+        snote: MatchSnote,
+        note: MatchNote,
+    ) -> None:
+
+        super().__init__(
+            version=version,
+            snote=snote,
+            note=note,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LAST_VERSION,
+    ) -> MatchSnoteNote:
+
+        if version < Version(1, 0, 0):
+            ValueError(f"{version} >= Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            snote_class=MatchSnote,
+            note_class=MatchNote,
+            version=version,
+        )
+
+        return cls(**kwargs)
