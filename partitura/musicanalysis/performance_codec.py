@@ -485,11 +485,23 @@ def get_unique_onset_idxs(
 
 
 def to_matched_score(part, ppart, alignment):
+    """
+    Returns a mixed score-performance note array
+    consisting of matched notes in the alignment.
+
+    Args:
+        part (partitura.Part): a part object
+        ppart (partitura.PerformedPart): a performedpart object
+        alignment (List(Dict)): an alignment
+
+    Returns:
+        np.ndarray: a minimal, aligned 
+        score-performance note array
+    """
+    
     # remove repetitions from aligment note ids
     for a in alignment:
         if a["label"] == "match":
-            # FOR MAGALOFF/ZEILINGER DO SPLIT:
-            # a['score_id'] = str(a['score_id']).split('-')[0]
             a["score_id"] = str(a["score_id"])
 
     part_by_id = dict((n.id, n) for n in part.notes_tied)
