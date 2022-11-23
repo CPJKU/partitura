@@ -286,9 +286,14 @@ class FractionalSymbolicDuration(object):
             96,
             128,
         ]
-        sign = np.sign(self.numerator) * np.sign(self.denominator)
+        sign = (
+            np.sign(self.numerator)
+            * np.sign(self.denominator)
+            * (np.sign(self.tuple_div) if self.tuple_div is not None else 1)
+        )
         self.numerator = np.abs(self.numerator)
         self.denominator = np.abs(self.denominator)
+        self.tuple_div = np.abs(self.tuple_div) if self.tuple_div is not None else None
 
         if self.numerator > bound or self.denominator > bound:
             val = float(self.numerator / self.denominator)
@@ -376,6 +381,32 @@ class FractionalSymbolicDuration(object):
             denominator=new_den,
             add_components=add_components,
         )
+
+    def __eq__(self, sd: FractionalSymbolicDuration) -> bool:
+        """
+        Equal magic method
+        """
+        is_equal = all(
+            [
+                getattr(self, attr, None) == getattr(sd, attr, None)
+                for attr in ("numerator", "denominator", "tuple_div", "add_components")
+            ]
+        )
+
+        return is_equal
+
+    def __ne__(self, sd: FractionalSymbolicDuration) -> bool:
+        """
+        Not equal magic method
+        """
+        not_equal = any(
+            [
+                getattr(self, attr, None) != getattr(sd, attr, None)
+                for attr in ("numerator", "denominator", "tuple_div", "add_components")
+            ]
+        )
+
+        return not_equal
 
     def __radd__(
         self, sd: Union[FractionalSymbolicDuration, int]

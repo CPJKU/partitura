@@ -108,7 +108,7 @@ class TestMatchLinesV1(unittest.TestCase):
             notSpecified_line = "info(notSpecified,value)."
 
             mo = MatchInfoV1.from_matchline(notSpecified_line)
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except ValueError:
             # assert that the error was raised
             self.assertTrue(True)
@@ -118,7 +118,7 @@ class TestMatchLinesV1(unittest.TestCase):
             midiClockUnits_line = "info(midiClockUnits,wrong_value)."
 
             mo = MatchInfoV1.from_matchline(midiClockUnits_line)
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except ValueError:
             # assert that the error was raised
             self.assertTrue(True)
@@ -127,7 +127,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
             mo = MatchInfoV1.from_matchline(wrong_line)
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except MatchError:
             self.assertTrue(True)
 
@@ -162,7 +162,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
             mo = MatchScorePropV1.from_matchline(wrong_line)
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except MatchError:
             self.assertTrue(True)
 
@@ -191,7 +191,7 @@ class TestMatchLinesV1(unittest.TestCase):
             mo = MatchSectionV1.from_matchline(
                 section_lines[0], version=Version(0, 5, 0)
             )
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
 
         except ValueError:
             self.assertTrue(True)
@@ -201,7 +201,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # Line does not have [] for the end annotations
             wrong_line = "section(0.0000,100.0000,0.0000,100.0000,end)."
             mo = MatchSectionV1.from_matchline(wrong_line)
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except MatchError:
             self.assertTrue(True)
 
@@ -298,6 +298,14 @@ class TestMatchLinesV1(unittest.TestCase):
 
             self.assertTrue(np.isclose(dur_from_symbolic, mo.DurationInBeats))
 
+            # Test that the DurationSymbolic string produces the same duration
+            self.assertTrue(
+                FractionalSymbolicDuration.from_string(mo.DurationSymbolic)
+                == mo.Duration
+            )
+
+            self.assertTrue(mo.MidiPitch < 128)
+
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
 
@@ -305,8 +313,28 @@ class TestMatchLinesV1(unittest.TestCase):
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
             mo = MatchSnoteV1.from_matchline(wrong_line)
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except MatchError:
+            self.assertTrue(True)
+
+        # Wrong version
+        try:
+            mo = MatchSnoteV1(
+                version=Version(0, 5, 0),
+                anchor="n0",
+                note_name="C",
+                modifier="n",
+                octave=4,
+                measure=1,
+                beat=0,
+                offset=FractionalSymbolicDuration(0),
+                duration=FractionalSymbolicDuration(1),
+                onset_in_beats=0,
+                offset_in_beats=1,
+                score_attributes_list=[],
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
             self.assertTrue(True)
 
     def test_note_lines(self):
@@ -361,8 +389,28 @@ class TestMatchLinesV0(unittest.TestCase):
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
             mo = MatchSnoteV0.from_matchline(wrong_line, version=Version(0, 1, 0))
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except MatchError:
+            self.assertTrue(True)
+
+        # Wrong version
+        try:
+            mo = MatchSnoteV0(
+                version=Version(1, 0, 0),
+                anchor="n0",
+                note_name="c",
+                modifier="n",
+                octave=4,
+                measure=1,
+                beat=0,
+                offset=FractionalSymbolicDuration(0),
+                duration=FractionalSymbolicDuration(1),
+                onset_in_beats=0,
+                offset_in_beats=1,
+                score_attributes_list=[],
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
             self.assertTrue(True)
 
     def test_snote_lines_v0_3_0(self):
@@ -425,6 +473,8 @@ class TestMatchLinesV0(unittest.TestCase):
             "note(25,[E,n],4,3763,4020,4020,40).",
             "note(102,[F,#],4,13812,14740,14740,61).",
             "note(194,[D,n],5,27214,27272,27272,69).",
+            "note(n207,[F,n],5,20557,20635,20682,72).",
+            "note(n214,[G,n],5,21296,21543,21543,75).",
         ]
 
         for ml in note_lines:
@@ -437,6 +487,8 @@ class TestMatchLinesV0(unittest.TestCase):
                     ml, version=Version(0, minor_version, 0)
                 )
                 self.assertTrue(mo.matchline == ml)
+                # check duration and adjusted duration
+                self.assertTrue(mo.AdjDuration >= mo.Duration)
 
                 # assert that the data types of the match line are correct
                 self.assertTrue(mo.check_types())
@@ -523,13 +575,13 @@ class TestMatchUtils(unittest.TestCase):
         try:
             version = interpret_version(version_string)
             # The test should fail if the exception is not raised
-            self.assertTrue(False)
+            self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
 
     def test_fractional_symbolic_duration(self):
 
-        # Test string and float methods
+        # Test string and float methods and from_string methods
         numerators = RNG.randint(0, 1000, 100)
         denominators = RNG.randint(2, 1000, 100)
         tuple_divs = RNG.randint(0, 5, 100)
@@ -542,8 +594,20 @@ class TestMatchUtils(unittest.TestCase):
                 expected_string = f"{num}/{den}/{td}"
             elif td == 0:
                 expected_string = f"{num}/{den}"
+
+            fsd_from_string = FractionalSymbolicDuration.from_string(expected_string)
+
+            self.assertTrue(fsd_from_string == fsd)
             self.assertTrue(str(fsd) == expected_string)
             self.assertTrue(float(fsd) == num / (den * (td if td > 0 else 1)))
+
+        # The following string should raise an error
+        wrong_string = "wrong_string"
+        try:
+            fsd = FractionalSymbolicDuration.from_string(wrong_string)
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
         # Test bound
         numerators = RNG.randint(0, 10, 100)
@@ -574,11 +638,40 @@ class TestMatchUtils(unittest.TestCase):
 
             fsd1 = FractionalSymbolicDuration(num1, den1, td1 if td1 > 0 else None)
             fsd2 = FractionalSymbolicDuration(num2, den2, td2 if td2 > 0 else None)
+            fsd3_from_radd = FractionalSymbolicDuration(
+                num1, den1, td1 if td1 > 0 else None
+            )
 
             fsd3 = fsd1 + fsd2
+            fsd3_from_radd += fsd2
+
+            self.assertTrue(fsd3 == fsd3_from_radd)
 
             if num1 > 0 and num2 > 0:
                 self.assertTrue(str(fsd3) == f"{str(fsd1)}+{str(fsd2)}")
+                # Test allow_additions option in from_string method
+                fsd_from_string = FractionalSymbolicDuration.from_string(
+                    str(fsd3), allow_additions=True
+                )
+                self.assertTrue(fsd_from_string == fsd3)
+                # check addition when the two of them have add_components
+                fsd3_t_2 = fsd3 + fsd3_from_radd
+                self.assertTrue(2 * float(fsd3) == float(fsd3_t_2))
+
+                # check_addition when only one of them has add_components
+                fsd4 = fsd1 + fsd3
+
+                self.assertTrue(np.isclose(float(fsd4), float(fsd1) + float(fsd3)))
+
+                fsd3_from_radd += fsd1
+                self.assertTrue(
+                    np.isclose(float(fsd3_from_radd), float(fsd1) + float(fsd3))
+                )
+
+                # They must be different because the order of the
+                # additive components would be inverted
+                self.assertTrue(fsd3_from_radd != fsd4)
+
             elif num1 > 0:
                 self.assertTrue(str(fsd3) == str(fsd1))
             elif num2 > 0:

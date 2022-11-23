@@ -466,6 +466,9 @@ class MatchSnote(BaseSnoteLine):
         offset_in_beats: float,
         score_attributes_list: List[str],
     ) -> None:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
         super().__init__(
             version=version,
             anchor=anchor,

@@ -120,7 +120,7 @@ class MatchInfo(BaseInfoLine):
     ) -> None:
 
         if version >= Version(1, 0, 0):
-            raise MatchError("The version must be < 1.0.0")
+            raise ValueError("The version must be < 1.0.0")
 
         super().__init__(
             version=version,
@@ -157,7 +157,7 @@ class MatchInfo(BaseInfoLine):
         """
 
         if version >= Version(1, 0, 0):
-            raise MatchError("The version must be < 1.0.0")
+            raise ValueError("The version must be < 1.0.0")
 
         match_pattern = cls.pattern.search(matchline, pos=pos)
 
