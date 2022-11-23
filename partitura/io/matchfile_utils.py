@@ -12,6 +12,10 @@ import numpy as np
 
 from collections import namedtuple
 
+from partitura.utils.music import (
+    ALTER_SIGNS,
+)
+
 Version = namedtuple("Version", ["major", "minor", "patch"])
 
 # General patterns
@@ -103,7 +107,7 @@ def interpret_as_int(value: str) -> int:
     return int(value)
 
 
-def format_int(value: int) -> str:
+def format_int(value: Optional[int]) -> str:
     """
     Format a string from an integer
 
@@ -117,7 +121,7 @@ def format_int(value: int) -> str:
     str
         The value formatted as a string.
     """
-    return f"{value}"
+    return f"{value}" if value is not None else "-"
 
 
 def interpret_as_float(value: str) -> float:
@@ -188,6 +192,14 @@ def interpret_as_string(value: Any) -> str:
     return str(value)
 
 
+old_string_pat = re.compile(r"'(?P<value>.+)'")
+
+
+def interpret_as_string_old(value: str) -> str:
+    val = old_string_pat.match(value)
+    return val.group("value")
+
+
 def format_string(value: str) -> str:
     """
     Format a string as a string (for completeness ;).
@@ -203,6 +215,10 @@ def format_string(value: str) -> str:
         The value formatted as a string.
     """
     return value.strip()
+
+
+def format_string_old(value: str) -> str:
+    return f"'{value.strip()}'"
 
 
 class FractionalSymbolicDuration(object):
@@ -519,6 +535,21 @@ def interpret_as_list(value: str) -> List[str]:
 def format_list(value: List[Any]) -> str:
     formatted_string = f"[{','.join([str(v) for v in value])}]"
     return formatted_string
+
+
+def format_accidental(value: Optional[int]) -> str:
+
+    alter = "n" if value == 0 else ALTER_SIGNS[value]
+
+    return alter
+
+
+def format_accidental_old(value: Optional[int]) -> str:
+
+    if value is None:
+        return "-"
+    else:
+        return format_accidental(value)
 
 
 ## Miscellaneous utils

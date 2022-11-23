@@ -18,6 +18,7 @@ from partitura.io.matchfile_base import (
     BaseSnoteLine,
     BaseNoteLine,
     BaseSnoteNoteLine,
+    BaseInsertionLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -25,7 +26,9 @@ from partitura.io.matchfile_utils import (
     interpret_version,
     format_version,
     interpret_as_string,
+    interpret_as_string_old,
     format_string,
+    format_string_old,
     interpret_as_float,
     format_float,
     format_float_unconstrained,
@@ -37,6 +40,7 @@ from partitura.io.matchfile_utils import (
     interpret_as_fractional,
     interpret_as_list,
     format_list,
+    format_accidental_old,
     get_kwargs_from_matchline,
 )
 
@@ -67,21 +71,21 @@ LAST_VERSION = Version(
 
 default_infoline_attributes = {
     "matchFileVersion": (interpret_version, format_version, Version),
-    "piece": (interpret_as_string, format_string, str),
-    "scoreFileName": (interpret_as_string, format_string, str),
-    "scoreFilePath": (interpret_as_string, format_string, str),
-    "midiFileName": (interpret_as_string, format_string, str),
-    "midiFilePath": (interpret_as_string, format_string, str),
-    "audioFileName": (interpret_as_string, format_string, str),
-    "audioFilePath": (interpret_as_string, format_string, str),
+    "piece": (interpret_as_string_old, format_string_old, str),
+    "scoreFileName": (interpret_as_string_old, format_string_old, str),
+    "scoreFilePath": (interpret_as_string_old, format_string_old, str),
+    "midiFileName": (interpret_as_string_old, format_string_old, str),
+    "midiFilePath": (interpret_as_string_old, format_string_old, str),
+    "audioFileName": (interpret_as_string_old, format_string_old, str),
+    "audioFilePath": (interpret_as_string_old, format_string_old, str),
     "audioFirstNote": (interpret_as_float, format_float_unconstrained, float),
     "audioLastNote": (interpret_as_float, format_float_unconstrained, float),
-    "performer": (interpret_as_string, format_string, str),
-    "composer": (interpret_as_string, format_string, str),
+    "performer": (interpret_as_string_old, format_string_old, str),
+    "composer": (interpret_as_string_old, format_string_old, str),
     "midiClockUnits": (interpret_as_int, format_int, int),
     "midiClockRate": (interpret_as_int, format_int, int),
     "approximateTempo": (interpret_as_float, format_float_unconstrained, float),
-    "subtitle": (interpret_as_list, format_list, str),
+    "subtitle": (interpret_as_list, format_list, list),
     "keySignature": (interpret_as_list, format_list, list),
     "timeSignature": (
         interpret_as_fractional,
@@ -89,7 +93,8 @@ default_infoline_attributes = {
         FractionalSymbolicDuration,
     ),
     "tempoIndication": (interpret_as_list, format_list, list),
-    "beatSubDivision": (interpret_as_list, format_list, list),
+    # "beatSubDivision": (interpret_as_list, format_list, list),
+    "beatSubdivision": (interpret_as_list, format_list, list),
 }
 
 INFO_LINE = defaultdict(lambda: default_infoline_attributes.copy())
@@ -188,7 +193,7 @@ class MatchInfo(BaseInfoLine):
 SNOTE_LINE_Vgeq0_4_0 = dict(
     Anchor=format_string,
     NoteName=lambda x: str(x).upper(),
-    Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+    Modifier=format_accidental_old,
     Octave=format_int,
     Measure=format_int,
     Beat=format_int,
@@ -202,7 +207,7 @@ SNOTE_LINE_Vgeq0_4_0 = dict(
 SNOTE_LINE_Vlt0_3_0 = dict(
     Anchor=format_string,
     NoteName=lambda x: str(x).lower(),
-    Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+    Modifier=format_accidental_old,
     Octave=format_int,
     Measure=format_int,
     Beat=format_int,
@@ -219,7 +224,7 @@ SNOTE_LINE = {
     Version(0, 3, 0): dict(
         Anchor=format_string,
         NoteName=lambda x: str(x).lower(),
-        Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+        Modifier=format_accidental_old,
         Octave=format_int,
         Measure=format_int,
         Beat=format_int,
@@ -339,10 +344,10 @@ NOTE_LINE_Vge0_3_0 = {
         "NoteName": (interpret_as_string, lambda x: str(x).upper(), str),
         "Modifier": (
             interpret_as_string,
-            lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+            format_accidental_old,
             (int, type(None)),
         ),
-        "Octave": (interpret_as_int, format_int, int),
+        "Octave": (interpret_as_int, format_int, (int, type(None))),
         "Onset": (interpret_as_int, format_int, int),
         "Offset": (interpret_as_int, format_int, int),
         "AdjOffset": (interpret_as_int, format_int, int),
@@ -376,10 +381,10 @@ NOTE_LINE_Vlt0_3_0 = {
         "NoteName": (interpret_as_string, lambda x: str(x).lower(), str),
         "Modifier": (
             interpret_as_string,
-            lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+            format_accidental_old,
             (int, type(None)),
         ),
-        "Octave": (interpret_as_int, format_int, int),
+        "Octave": (interpret_as_int, format_int, (int, type(None))),
         "Onset": (interpret_as_float, lambda x: f"{x:.2f}", float),
         "Offset": (interpret_as_float, lambda x: f"{x:.2f}", float),
         "Velocity": (interpret_as_int, format_int, int),
@@ -419,10 +424,14 @@ NOTE_LINE = {
             "NoteName": (interpret_as_string, lambda x: str(x).lower(), str),
             "Modifier": (
                 interpret_as_string,
-                lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+                format_accidental_old,
                 (int, type(None)),
             ),
-            "Octave": (interpret_as_int, format_int, int),
+            "Octave": (
+                interpret_as_int,
+                format_int,
+                (int, type(None)),
+            ),
             "Onset": (interpret_as_int, format_int, int),
             "Offset": (interpret_as_int, format_int, int),
             "AdjOffset": (interpret_as_int, format_int, int),
@@ -502,7 +511,7 @@ class MatchNote(BaseNoteLine):
     ) -> MatchNote:
 
         if version >= Version(1, 0, 0):
-            ValueError(f"{version} >= Version(1, 0, 0)")
+            raise ValueError(f"{version} >= Version(1, 0, 0)")
 
         kwargs = get_kwargs_from_matchline(
             matchline=matchline,
@@ -540,12 +549,39 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         version: Version = LAST_VERSION,
     ) -> MatchSnoteNote:
 
-        if version < Version(1, 0, 0):
-            ValueError(f"{version} >= Version(1, 0, 0)")
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} >= Version(1, 0, 0)")
 
         kwargs = cls.prepare_kwargs_from_matchline(
             matchline=matchline,
             snote_class=MatchSnote,
+            note_class=MatchNote,
+            version=version,
+        )
+
+        return cls(**kwargs)
+
+
+class MatchInsertion(BaseInsertionLine):
+    def __init__(self, version: Version, note: MatchNote) -> None:
+
+        super().__init__(
+            version=version,
+            note=note,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LAST_VERSION,
+    ) -> MatchInsertion:
+
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} >= Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
             note_class=MatchNote,
             version=version,
         )

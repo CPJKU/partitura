@@ -280,7 +280,7 @@ class BaseSnoteLine(MatchLine):
         str,
         str,
         (int, type(None)),
-        int,
+        (int, type(None)),
         int,
         int,
         FractionalSymbolicDuration,
@@ -484,20 +484,37 @@ class BaseSnoteNoteLine(MatchLine):
 
         self.field_names = self.snote.field_names + self.note.field_names
 
-        self.field_types = self.snote.field_types + self.snote.field_types
+        self.field_types = self.snote.field_types + self.note.field_types
 
         self.pattern = (self.snote.pattern, self.note.pattern)
+        # self.pattern = re.compile(f"{self.snote.pattern.pattern}-{self.note.pattern.pattern}")
 
         self.format_fun = (self.snote.format_fun, self.note.format_fun)
 
     @property
     def matchline(self) -> str:
         return self.out_pattern.format(
-            SnoteLine=self.snote.matchline, NoteLine=self.note.matchline
+            SnoteLine=self.snote.matchline,
+            NoteLine=self.note.matchline,
         )
 
     def __str__(self) -> str:
-        return str(self.snote) + "\n" + str(self.note)
+
+        """
+        Prints the printing the match line
+        """
+        r = [self.__class__.__name__]
+        r += [" Snote"] + [
+            "   {0}: {1}".format(fn, getattr(self.snote, fn, None))
+            for fn in self.snote.field_names
+        ]
+
+        r += [" Note"] + [
+            "   {0}: {1}".format(fn, getattr(self.note, fn, None))
+            for fn in self.note.field_names
+        ]
+
+        return "\n".join(r) + "\n"
 
     def check_types(self, verbose: bool = False) -> bool:
         """
@@ -542,8 +559,53 @@ class BaseSnoteNoteLine(MatchLine):
         return kwargs
 
 
+class BaseInsertionLine(MatchLine):
+
+    out_pattern = "insertion-{NoteLine}"
+
+    def __init__(self, version: Version, note: BaseNoteLine) -> None:
+
+        super().__init__(version)
+
+        self.note = note
+
+        self.field_names = self.note.field_names
+
+        self.field_types = self.note.field_types
+
+        self.pattern = re.compile(f"insertion-{self.note.pattern.pattern}")
+
+        self.format_fun = self.note.format_fun
+
+        for fn in self.field_names:
+            setattr(self, fn, getattr(self.note, fn))
+
+    @property
+    def matchline(self) -> str:
+        return self.out_pattern.format(
+            NoteLine=self.note.matchline,
+        )
+
+    @classmethod
+    def prepare_kwargs_from_matchline(
+        cls,
+        matchline: str,
+        note_class: BaseNoteLine,
+        version: Version,
+    ) -> Dict:
+
+        note = note_class.from_matchline(matchline, version=version)
+
+        kwargs = dict(
+            version=version,
+            note=note,
+        )
+
+        return kwargs
+
+
 snote_classes = (BaseSnoteLine, BaseSnoteNoteLine)
-note_classes = (BaseNoteLine, BaseSnoteNoteLine)
+note_classes = (BaseNoteLine, BaseSnoteNoteLine, BaseInsertionLine)
 
 
 class MatchFile(object):

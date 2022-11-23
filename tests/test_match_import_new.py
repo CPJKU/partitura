@@ -15,6 +15,7 @@ from partitura.io.matchlines_v1 import (
     MatchSnote as MatchSnoteV1,
     MatchNote as MatchNoteV1,
     MatchSnoteNote as MatchSnoteNoteV1,
+    MatchInsertion as MatchInsertionV1,
 )
 
 from partitura.io.matchlines_v0 import (
@@ -24,7 +25,7 @@ from partitura.io.matchlines_v0 import (
     MatchSnoteNote as MatchSnoteNoteV0,
 )
 
-from partitura.io.matchfile_base import MatchError
+from partitura.io.matchfile_base import MatchError, MatchLine
 
 from partitura.io.matchfile_utils import (
     FractionalSymbolicDuration,
@@ -33,6 +34,27 @@ from partitura.io.matchfile_utils import (
 )
 
 RNG = np.random.RandomState(1984)
+
+
+def basic_line_test(ml: MatchLine) -> bool:
+    """
+    Test that the matchline has the correct number and type
+    of the mandatory attributes.
+    """
+    assert len(ml.field_names) == len(ml.field_types)
+
+    assert isinstance(ml.field_names, tuple)
+    assert all([isinstance(fn, str) for fn in ml.field_names])
+    assert all([isinstance(dt, (type, tuple)) for dt in ml.field_types])
+
+    if isinstance(ml.format_fun, dict):
+        assert len(ml.format_fun) == len(ml.field_names)
+        assert all([callable(ff) for _, ff in ml.format_fun.items()])
+    elif isinstance(ml.format_fun, tuple):
+        assert sum([len(ff) for ff in ml.format_fun]) == len(ml.field_names)
+
+        for ff in ml.format_fun:
+            assert all([callable(fff) for _, fff in ff.items()])
 
 
 class TestMatchLinesV1(unittest.TestCase):
@@ -95,6 +117,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
+            basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
@@ -155,6 +178,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # is parsed correctly and results in an identical line
             # to the input match line
             mo = MatchScorePropV1.from_matchline(ml)
+            basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
@@ -182,7 +206,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # is parsed correctly and results in an identical line
             # to the input match line
             mo = MatchSectionV1.from_matchline(ml)
-
+            basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
@@ -289,7 +313,7 @@ class TestMatchLinesV1(unittest.TestCase):
                     ]
                 )
             )
-            # print(mo.matchline, ml)
+            basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             # These notes were taken from a piece in 2/4
@@ -353,7 +377,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # is parsed correctly and results in an identical line
             # to the input match line
             mo = MatchNoteV1.from_matchline(ml)
-            # print(mo.matchline, ml, [(g == t, g, t) for g, t in zip(mo.matchline, ml)])
+            basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
@@ -362,19 +386,29 @@ class TestMatchLinesV1(unittest.TestCase):
     def test_snotenote_lines(self):
 
         snotenote_lines = [
-            "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[1])-note(0,47,39940,42140,44,0,0).",
+            "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])-note(0,47,39940,42140,44,0,0).",
+            "snote(n443,[B,n],2,20:2,0,1/16,39.0000,39.2500,[v7])-note(439,35,669610,679190,28,0,0).",
+            "snote(n444,[B,n],3,20:2,1/16,1/16,39.2500,39.5000,[v3])-note(441,47,673620,678870,27,0,0).",
+            "snote(n445,[E,n],3,20:2,1/16,1/16,39.2500,39.5000,[v4])-note(442,40,673980,678130,19,0,0).",
+            "snote(n446,[G,#],3,20:2,1/8,1/16,39.5000,39.7500,[v3])-note(443,44,678140,683800,23,0,0).",
+            "snote(n447,[E,n],2,20:2,1/8,3/8,39.5000,41.0000,[v7])-note(444,28,678170,704670,22,0,0).",
+            "snote(n448,[B,n],3,20:2,3/16,1/16,39.7500,40.0000,[v3])-note(445,47,683550,685070,30,0,0).",
+            "snote(n449,[B,n],2,20:2,3/16,5/16,39.7500,41.0000,[v6])-note(446,35,683590,705800,18,0,0).",
+            "snote(n450,[G,#],4,21:1,0,0,40.0000,40.0000,[v1,grace])-note(447,56,691330,694180,38,0,0).",
+            "snote(n451,[F,#],4,21:1,0,0,40.0000,40.0000,[v1,grace])-note(450,54,693140,695700,44,0,0).",
+            "snote(n452,[E,n],4,21:1,0,1/4,40.0000,41.0000,[v1])-note(451,52,695050,705530,40,0,0).",
+            "snote(n453,[G,#],3,21:1,0,1/4,40.0000,41.0000,[v3])-note(449,44,691800,703570,28,0,0).",
         ]
 
         for i, ml in enumerate(snotenote_lines):
-            # snote = MatchSnoteV1.from_matchline(ml)
-            # note = MatchNoteV1.from_matchline(ml)
 
             mo = MatchSnoteNoteV1.from_matchline(ml, version=Version(1, 0, 0))
-
+            basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             if i == 0:
                 self.assertTrue(mo.check_types(verbose=True))
+                self.assertTrue(isinstance(str(mo), str))
             else:
                 self.assertTrue(mo.check_types())
 
@@ -385,8 +419,97 @@ class TestMatchLinesV1(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
+    def test_insertion_lines(self):
+
+        insertion_lines = [
+            "insertion-note(50,40,109820,118820,1,0,0).",
+            "insertion-note(51,57,109940,113160,1,0,0).",
+            "insertion-note(82,47,164500,164830,1,0,0).",
+            "insertion-note(125,44,240630,243190,1,0,0).",
+            "insertion-note(172,53,230380,230950,1,0,0).",
+            "insertion-note(263,26,322180,322800,81,0,0).",
+            "insertion-note(292,61,344730,347960,116,0,0).",
+            "insertion-note(241,56,328460,333340,17,0,0).",
+            "insertion-note(101,56,210170,211690,1,0,0).",
+            "insertion-note(231,45,482420,485320,1,0,0).",
+            "insertion-note(307,56,636010,637570,1,0,0).",
+            "insertion-note(340,56,693470,696110,1,0,0).",
+            "insertion-note(445,58,914370,917360,1,0,0).",
+            "insertion-note(193,56,235830,236270,98,0,0).",
+            "insertion-note(50,40,143130,156020,1,0,0).",
+            "insertion-note(156,40,424930,437570,1,0,0).",
+        ]
+
+        for i, ml in enumerate(insertion_lines):
+
+            mo = MatchInsertionV1.from_matchline(ml, version=Version(1, 0, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+            self.assertTrue(mo.check_types())
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchInsertionV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
 
 class TestMatchLinesV0(unittest.TestCase):
+    def test_info_lines(self):
+        matchlines = [
+            r"info(scoreFileName,'op10_3_1.scr').",
+            r"info(midiFileName,'op10_3_1#18.mid').",
+            "info(midiClockUnits,4000).",
+            "info(midiClockRate,500000).",
+            "info(keySignature,[en,major]).",
+            "info(timeSignature,2/4).",
+            "info(beatSubdivision,[2,4]).",
+            "info(tempoIndication,[lento,ma,non,troppo]).",
+            "info(approximateTempo,34.0).",
+            "info(subtitle,[]).",
+        ]
+
+        for i, ml in enumerate(matchlines):
+            mo = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+            self.assertTrue(mo.check_types())
+
+        # The following lines should result in an error
+        try:
+            # This line is not defined as an info line and should raise an error
+            notSpecified_line = "info(notSpecified,value)."
+
+            mo = MatchInfoV0.from_matchline(notSpecified_line)
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            # assert that the error was raised
+            self.assertTrue(True)
+
+        try:
+            # wrong value (string instead of integer)
+            midiClockUnits_line = "info(midiClockUnits,wrong_value)."
+
+            mo = MatchInfoV0.from_matchline(midiClockUnits_line)
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            # assert that the error was raised
+            self.assertTrue(True)
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchInfoV0.from_matchline(wrong_line)
+            self.assertTrue(False)  # pragma: no cover
+        except MatchError:
+            self.assertTrue(True)
+
     def test_snote_lines_v0_1_0(self):
 
         snote_lines = [
@@ -407,6 +530,7 @@ class TestMatchLinesV0(unittest.TestCase):
                     ml,
                     version=Version(0, minor_version, 0),
                 )
+                basic_line_test(mo)
                 # print(mo.matchline, ml)
                 self.assertTrue(mo.matchline == ml)
 
@@ -449,6 +573,8 @@ class TestMatchLinesV0(unittest.TestCase):
             "snote(n29,[c,n],5,2:3,0,1/16,6.0,6.25,[s,trill])",
             "snote(n155,[a,n],5,8:1,0,0,28.0,28.0,[s,grace])",
             "snote(n187,[g,n],5,9:2,3/16,1/16,33.75,34.0,[s,stacc])",
+            # example of rest included in the original Batik dataset
+            "snote(n84,[r,-],-,8:6,0,1/8,47.0,48.0,[fermata])",
         ]
 
         for ml in snote_lines:
@@ -461,10 +587,12 @@ class TestMatchLinesV0(unittest.TestCase):
                     ml,
                     version=Version(0, minor_version, 0),
                 )
-                # print(mo.matchline, ml)
+                basic_line_test(mo)
+
                 self.assertTrue(mo.matchline == ml)
 
                 # assert that the data types of the match line are correct
+
                 self.assertTrue(mo.check_types())
 
     def test_snote_lines_v0_5_0(self):
@@ -486,6 +614,7 @@ class TestMatchLinesV0(unittest.TestCase):
                     ml,
                     version=Version(0, minor_version, 0),
                 )
+                basic_line_test(mo)
                 # print(mo.matchline, ml)
                 self.assertTrue(mo.matchline == ml)
 
@@ -514,6 +643,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 mo = MatchNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
+                basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
                 # check duration and adjusted duration
                 self.assertTrue(mo.AdjDuration >= mo.Duration)
@@ -541,6 +671,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 mo = MatchNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
+                basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
                 # check duration and adjusted duration
                 self.assertTrue(mo.AdjDuration >= mo.Duration)
@@ -571,6 +702,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 mo = MatchNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
+                basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
 
                 # assert that the data types of the match line are correct
@@ -598,7 +730,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 mo = MatchSnoteNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
-
+                basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
 
                 self.assertTrue(mo.check_types())
@@ -629,6 +761,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 mo = MatchSnoteNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
+                basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
 
                 self.assertTrue(mo.check_types())
@@ -651,6 +784,7 @@ class TestMatchLinesV0(unittest.TestCase):
                 mo = MatchSnoteNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
+                basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
 
                 self.assertTrue(mo.check_types())
@@ -808,8 +942,6 @@ class TestMatchUtils(unittest.TestCase):
 
             elif num1 > 0:
                 self.assertTrue(str(fsd3) == str(fsd1))
-            elif num2 > 0:
-                self.assertTrue(str(fsd3) == str(fsd2))
 
             self.assertTrue(isinstance(fsd3, FractionalSymbolicDuration))
             self.assertTrue(np.isclose(float(fsd1) + float(fsd2), float(fsd3)))

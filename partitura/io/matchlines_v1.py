@@ -22,6 +22,7 @@ from partitura.io.matchfile_base import (
     BaseSnoteLine,
     BaseNoteLine,
     BaseSnoteNoteLine,
+    BaseInsertionLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -606,7 +607,7 @@ class MatchNote(BaseNoteLine):
     ) -> MatchNote:
 
         if version < Version(1, 0, 0):
-            ValueError(f"{version} < Version(1, 0, 0)")
+            raise ValueError(f"{version} < Version(1, 0, 0)")
 
         kwargs = get_kwargs_from_matchline(
             matchline=matchline,
@@ -645,11 +646,38 @@ class MatchSnoteNote(BaseSnoteNoteLine):
     ) -> MatchSnoteNote:
 
         if version < Version(1, 0, 0):
-            ValueError(f"{version} < Version(1, 0, 0)")
-            
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
         kwargs = cls.prepare_kwargs_from_matchline(
             matchline=matchline,
             snote_class=MatchSnote,
+            note_class=MatchNote,
+            version=version,
+        )
+
+        return cls(**kwargs)
+
+
+class MatchInsertion(BaseInsertionLine):
+    def __init__(self, version: Version, note: MatchNote) -> None:
+
+        super().__init__(
+            version=version,
+            note=note,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LATEST_VERSION,
+    ) -> MatchInsertion:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
             note_class=MatchNote,
             version=version,
         )
