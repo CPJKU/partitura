@@ -222,9 +222,9 @@ class FractionalSymbolicDuration(object):
     add_components : List[Tuple[int, int, Optional[int]]] (optional)
         additive components (to express durations like 1/4+1/16+1/32). The components
         are a list of tuples, each of which contains its own numerator, denominator
-        and tuple_div (or None). To represent the components 1/16+1/32
-        in the example above, this variable would look like
-        `add_components = [(1, 16, None), (1, 32, None)]`.
+        and tuple_div (or None). To represent the components in the example above
+        this variable would look like
+        `add_components = [(1, 4, None), (1, 16, None), (1, 32, None)]`.
     """
 
     def __init__(
@@ -339,7 +339,14 @@ class FractionalSymbolicDuration(object):
         if isinstance(sd, int):
             sd = FractionalSymbolicDuration(sd, 1)
 
-        dens = np.array([self.denominator, sd.denominator], dtype=int)
+        dens = np.array(
+            [
+                self.denominator
+                * (self.tuple_div if self.tuple_div is not None else 1),
+                sd.denominator * (sd.tuple_div if sd.tuple_div is not None else 1),
+            ],
+            dtype=int,
+        )
         new_den = np.lcm(dens[0], dens[1])
         a_mult = new_den // dens
         new_num = np.dot(a_mult, [self.numerator, sd.numerator])

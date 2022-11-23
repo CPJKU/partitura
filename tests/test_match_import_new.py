@@ -22,7 +22,15 @@ from partitura.io.matchlines_v0 import (
     MatchNote as MatchNoteV0,
 )
 
-from partitura.io.matchfile_base import interpret_version, Version, MatchError
+from partitura.io.matchfile_base import MatchError
+
+from partitura.io.matchfile_utils import (
+    FractionalSymbolicDuration,
+    Version,
+    interpret_version,
+)
+
+RNG = np.random.RandomState(1984)
 
 
 class TestMatchLinesV1(unittest.TestCase):
@@ -80,7 +88,7 @@ class TestMatchLinesV1(unittest.TestCase):
             subtitle_line,
         ]
 
-        for ml in matchlines:
+        for i, ml in enumerate(matchlines):
             mo = MatchInfoV1.from_matchline(ml)
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
@@ -88,7 +96,11 @@ class TestMatchLinesV1(unittest.TestCase):
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
-            self.assertTrue(mo.check_types())
+            if i == 0:
+                # Test verbose output
+                self.assertTrue(mo.check_types(verbose=True))
+            else:
+                self.assertTrue(mo.check_types())
 
         # The following lines should result in an error
         try:
@@ -277,6 +289,14 @@ class TestMatchLinesV1(unittest.TestCase):
             )
             # print(mo.matchline, ml)
             self.assertTrue(mo.matchline == ml)
+
+            # These notes were taken from a piece in 2/4
+            # so the symbolic durations can be converted to beats
+            # by multiplying by 4
+
+            dur_from_symbolic = float(mo.Duration) * 4
+
+            self.assertTrue(np.isclose(dur_from_symbolic, mo.DurationInBeats))
 
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
@@ -506,3 +526,63 @@ class TestMatchUtils(unittest.TestCase):
             self.assertTrue(False)
         except ValueError:
             self.assertTrue(True)
+
+    def test_fractional_symbolic_duration(self):
+
+        # Test string and float methods
+        numerators = RNG.randint(0, 1000, 100)
+        denominators = RNG.randint(2, 1000, 100)
+        tuple_divs = RNG.randint(0, 5, 100)
+
+        for num, den, td in zip(numerators, denominators, tuple_divs):
+
+            fsd = FractionalSymbolicDuration(num, den, td if td > 0 else None)
+
+            if den > 1 and td > 0:
+                expected_string = f"{num}/{den}/{td}"
+            elif td == 0:
+                expected_string = f"{num}/{den}"
+            self.assertTrue(str(fsd) == expected_string)
+            self.assertTrue(float(fsd) == num / (den * (td if td > 0 else 1)))
+
+        # Test bound
+        numerators = RNG.randint(0, 10, 100)
+        denominators = RNG.randint(1024, 2000, 100)
+
+        for num, den in zip(numerators, denominators):
+            fsd = FractionalSymbolicDuration(num, den)
+            self.assertTrue(fsd.denominator <= 128)
+
+        # Test addition
+        numerators1 = RNG.randint(1, 10, 100)
+        denominators1 = RNG.randint(2, 10, 100)
+        tuple_divs1 = RNG.randint(0, 5, 100)
+
+        # Test string and float methods
+        numerators2 = RNG.randint(0, 10, 100)
+        denominators2 = RNG.randint(2, 10, 100)
+        tuple_divs2 = RNG.randint(0, 5, 100)
+
+        for num1, den1, td1, num2, den2, td2 in zip(
+            numerators1,
+            denominators1,
+            tuple_divs1,
+            numerators2,
+            denominators2,
+            tuple_divs2,
+        ):
+
+            fsd1 = FractionalSymbolicDuration(num1, den1, td1 if td1 > 0 else None)
+            fsd2 = FractionalSymbolicDuration(num2, den2, td2 if td2 > 0 else None)
+
+            fsd3 = fsd1 + fsd2
+
+            if num1 > 0 and num2 > 0:
+                self.assertTrue(str(fsd3) == f"{str(fsd1)}+{str(fsd2)}")
+            elif num1 > 0:
+                self.assertTrue(str(fsd3) == str(fsd1))
+            elif num2 > 0:
+                self.assertTrue(str(fsd3) == str(fsd2))
+
+            self.assertTrue(isinstance(fsd3, FractionalSymbolicDuration))
+            self.assertTrue(np.isclose(float(fsd1) + float(fsd2), float(fsd3)))

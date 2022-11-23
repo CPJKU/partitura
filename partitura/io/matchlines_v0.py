@@ -80,7 +80,7 @@ default_infoline_attributes = {
     "midiClockUnits": (interpret_as_int, format_int, int),
     "midiClockRate": (interpret_as_int, format_int, int),
     "approximateTempo": (interpret_as_float, format_float_unconstrained, float),
-    "subtitle": (interpret_as_string, format_string, str),
+    "subtitle": (interpret_as_list, format_list, str),
     "keySignature": (interpret_as_list, format_list, list),
     "timeSignature": (
         interpret_as_fractional,

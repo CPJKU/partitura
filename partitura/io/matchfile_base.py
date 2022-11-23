@@ -150,7 +150,7 @@ class MatchLine(object):
         -------
         a MatchLine instance
         """
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def check_types(self, verbose: bool = False) -> bool:
         """
