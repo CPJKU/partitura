@@ -9,17 +9,23 @@ import numpy as np
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 
 from partitura.io.matchlines_v1 import (
-    MatchInfo,
-    MatchScoreProp,
-    MatchSection,
-    MatchSnote,
-    MatchNote,
+    MatchInfo as MatchInfoV1,
+    MatchScoreProp as MatchScorePropV1,
+    MatchSection as MatchSectionV1,
+    MatchSnote as MatchSnoteV1,
+    MatchNote as MatchNoteV1,
+)
+
+from partitura.io.matchlines_v0 import (
+    MatchInfo as MatchInfoV0,
+    MatchSnote as MatchSnoteV0,
+    MatchNote as MatchNoteV0,
 )
 
 from partitura.io.matchfile_base import interpret_version, Version, MatchError
 
 
-class TestMatchLinesV1_0_0(unittest.TestCase):
+class TestMatchLinesV1(unittest.TestCase):
     """
     Test matchlines for version 1.0.0
     """
@@ -75,7 +81,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
         ]
 
         for ml in matchlines:
-            mo = MatchInfo.from_matchline(ml)
+            mo = MatchInfoV1.from_matchline(ml)
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
@@ -89,7 +95,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # This line is not defined as an info line and should raise an error
             notSpecified_line = "info(notSpecified,value)."
 
-            mo = MatchInfo.from_matchline(notSpecified_line)
+            mo = MatchInfoV1.from_matchline(notSpecified_line)
             self.assertTrue(False)
         except ValueError:
             # assert that the error was raised
@@ -99,7 +105,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # wrong value (string instead of integer)
             midiClockUnits_line = "info(midiClockUnits,wrong_value)."
 
-            mo = MatchInfo.from_matchline(midiClockUnits_line)
+            mo = MatchInfoV1.from_matchline(midiClockUnits_line)
             self.assertTrue(False)
         except ValueError:
             # assert that the error was raised
@@ -108,7 +114,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
-            mo = MatchInfo.from_matchline(wrong_line)
+            mo = MatchInfoV1.from_matchline(wrong_line)
             self.assertTrue(False)
         except MatchError:
             self.assertTrue(True)
@@ -134,7 +140,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchScoreProp.from_matchline(ml)
+            mo = MatchScorePropV1.from_matchline(ml)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
@@ -143,7 +149,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
-            mo = MatchScoreProp.from_matchline(wrong_line)
+            mo = MatchScorePropV1.from_matchline(wrong_line)
             self.assertTrue(False)
         except MatchError:
             self.assertTrue(True)
@@ -161,8 +167,8 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchSection.from_matchline(ml)
-            # print(mo.matchline, ml, [(g == t, g, t) for g, t in zip(mo.matchline, ml)])
+            mo = MatchSectionV1.from_matchline(ml)
+
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
@@ -170,7 +176,9 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
 
         # Check version (an error should be raised for old versions)
         try:
-            mo = MatchSection.from_matchline(section_lines[0], version=Version(0, 5, 0))
+            mo = MatchSectionV1.from_matchline(
+                section_lines[0], version=Version(0, 5, 0)
+            )
             self.assertTrue(False)
 
         except ValueError:
@@ -180,7 +188,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
         try:
             # Line does not have [] for the end annotations
             wrong_line = "section(0.0000,100.0000,0.0000,100.0000,end)."
-            mo = MatchSection.from_matchline(wrong_line)
+            mo = MatchSectionV1.from_matchline(wrong_line)
             self.assertTrue(False)
         except MatchError:
             self.assertTrue(True)
@@ -257,7 +265,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchSnote.from_matchline(ml)
+            mo = MatchSnoteV1.from_matchline(ml)
             # test __str__ method
             self.assertTrue(
                 all(
@@ -276,7 +284,7 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
-            mo = MatchSnote.from_matchline(wrong_line)
+            mo = MatchSnoteV1.from_matchline(wrong_line)
             self.assertTrue(False)
         except MatchError:
             self.assertTrue(True)
@@ -294,12 +302,152 @@ class TestMatchLinesV1_0_0(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchNote.from_matchline(ml)
+            mo = MatchNoteV1.from_matchline(ml)
             # print(mo.matchline, ml, [(g == t, g, t) for g, t in zip(mo.matchline, ml)])
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
+
+
+class TestMatchLinesV0(unittest.TestCase):
+    def test_snote_lines_v0_1_0(self):
+
+        snote_lines = [
+            "snote(n1,[c,n],6,0:3,0/1,1/8,-4.00000,-3.00000,[1])",
+            "snote(n726,[f,n],3,45:1,0/1,0/8,264.00000,264.00000,[5,arp])",
+            "snote(n714,[a,n],5,44:6,0/1,1/8,263.00000,264.00000,[1])",
+            "snote(n1,[b,n],4,0:2,1/8,1/8,-0.50000,0.00000,[1])",
+            "snote(n445,[e,n],4,20:2,1/16,1/16,39.25000,39.50000,[4])",
+        ]
+
+        for ml in snote_lines:
+
+            for minor_version in (1, 2):
+                # assert that the information from the matchline
+                # is parsed correctly and results in an identical line
+                # to the input match line
+                mo = MatchSnoteV0.from_matchline(
+                    ml,
+                    version=Version(0, minor_version, 0),
+                )
+                # print(mo.matchline, ml)
+                self.assertTrue(mo.matchline == ml)
+
+                # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchSnoteV0.from_matchline(wrong_line, version=Version(0, 1, 0))
+            self.assertTrue(False)
+        except MatchError:
+            self.assertTrue(True)
+
+    def test_snote_lines_v0_3_0(self):
+
+        snote_lines = [
+            "snote(n1,[e,n],4,1:1,0,1/4,0.0,1.0,[arp])",
+            "snote(n16,[e,n],5,1:4,1/16,1/16,3.25,3.5,[s])",
+            "snote(n29,[c,n],5,2:3,0,1/16,6.0,6.25,[s,trill])",
+            "snote(n155,[a,n],5,8:1,0,0,28.0,28.0,[s,grace])",
+            "snote(n187,[g,n],5,9:2,3/16,1/16,33.75,34.0,[s,stacc])",
+        ]
+
+        for ml in snote_lines:
+
+            for minor_version in (3,):
+                # assert that the information from the matchline
+                # is parsed correctly and results in an identical line
+                # to the input match line
+                mo = MatchSnoteV0.from_matchline(
+                    ml,
+                    version=Version(0, minor_version, 0),
+                )
+                # print(mo.matchline, ml)
+                self.assertTrue(mo.matchline == ml)
+
+                # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
+
+    def test_snote_lines_v0_5_0(self):
+
+        snote_lines = [
+            "snote(n211-1,[E,b],5,20:2,0,1/8,58.0,58.5,[staff1,trill])",
+            "snote(n218-1,[A,b],2,20:3,0,1/4,59.0,60.0,[staff2])",
+            "snote(n224-2,[A,b],5,36:3,0,1/8,107.0,107.5,[staff1])",
+            "snote(n256-2,[E,b],4,38:3,0,1/4,113.0,114.0,[staff2])",
+        ]
+
+        for ml in snote_lines:
+
+            for minor_version in (4, 5):
+                # assert that the information from the matchline
+                # is parsed correctly and results in an identical line
+                # to the input match line
+                mo = MatchSnoteV0.from_matchline(
+                    ml,
+                    version=Version(0, minor_version, 0),
+                )
+                # print(mo.matchline, ml)
+                self.assertTrue(mo.matchline == ml)
+
+                # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
+
+    def test_note_lines_v_0_3_0(self):
+
+        note_lines = [
+            "note(0,[A,n],2,500,684,684,41).",
+            "note(1,[C,#],3,704,798,798,48).",
+            "note(11,[E,n],6,1543,1562,1562,72).",
+            "note(25,[E,n],4,3763,4020,4020,40).",
+            "note(102,[F,#],4,13812,14740,14740,61).",
+            "note(194,[D,n],5,27214,27272,27272,69).",
+        ]
+
+        for ml in note_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+
+            for minor_version in range(3, 6):
+                mo = MatchNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+                self.assertTrue(mo.matchline == ml)
+
+                # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
+
+    def test_note_lines_v_0_1_0(self):
+
+        # Lines taken from original version of
+        # Chopin Op. 38 in old Vienna4x22
+        note_lines = [
+            "note(1,[c,n],6,39060.00,39890.00,38).",
+            "note(6,[c,n],5,48840.00,49870.00,26).",
+            "note(17,[c,n],5,72600.00,75380.00,26).",
+            "note(32,[b,b],5,93030.00,95050.00,32).",
+            "note(85,[b,b],3,162600.00,164950.00,27).",
+            "note(132,[c,n],5,226690.00,227220.00,34).",
+            "note(179,[b,b],4,280360.00,282310.00,35).",
+        ]
+
+        for ml in note_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+
+            for minor_version in range(1, 3):
+                mo = MatchNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+                self.assertTrue(mo.matchline == ml)
+
+                # assert that the data types of the match line are correct
+                self.assertTrue(mo.check_types())
 
 
 class TestMatchUtils(unittest.TestCase):

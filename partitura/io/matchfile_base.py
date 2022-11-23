@@ -308,7 +308,7 @@ class BaseSnoteLine(MatchLine):
 
     format_fun = dict(
         Anchor=format_string,
-        NoteName=lambda x: str(x.upper()),
+        NoteName=lambda x: str(x).upper(),
         Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
         Octave=format_int,
         Measure=format_int,
@@ -426,7 +426,6 @@ class BaseNoteLine(MatchLine):
     # these field names
     field_names = (
         "Id",
-        "MidiPitch",
         "Onset",
         "Offset",
         "Velocity",
@@ -451,6 +450,9 @@ class BaseNoteLine(MatchLine):
     ) -> None:
         super().__init__(version)
         self.Id = id
+        # The MIDI pitch is not a part of all
+        # note versions. For versions < 1.0.0
+        # it needs to be inferred from pitch spelling.
         self.MidiPitch = midi_pitch
         self.Onset = onset
         self.Offset = offset

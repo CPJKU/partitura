@@ -9,13 +9,14 @@ from collections import defaultdict
 
 import re
 
-from typing import Any, Callable, Tuple, Union, List
+from typing import Any, Callable, Tuple, Union, List, Dict
 
 from partitura.io.matchfile_base import (
     MatchLine,
+    MatchError,
     BaseInfoLine,
     BaseSnoteLine,
-    MatchError,
+    BaseNoteLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -31,9 +32,17 @@ from partitura.io.matchfile_utils import (
     format_int,
     FractionalSymbolicDuration,
     format_fractional,
+    format_fractional_rational,
     interpret_as_fractional,
     interpret_as_list,
     format_list,
+    get_kwargs_from_matchline,
+)
+
+from partitura.utils.music import (
+    ALTER_SIGNS,
+    pitch_spelling_to_midi_pitch,
+    ensure_pitch_spelling_format,
 )
 
 # Define last supported version of the match file format in this module
@@ -175,6 +184,55 @@ class MatchInfo(BaseInfoLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
 
+SNOTE_LINE_Vgeq0_4_0 = dict(
+    Anchor=format_string,
+    NoteName=lambda x: str(x).upper(),
+    Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+    Octave=format_int,
+    Measure=format_int,
+    Beat=format_int,
+    Offset=format_fractional,
+    Duration=format_fractional,
+    OnsetInBeats=format_float_unconstrained,
+    OffsetInBeats=format_float_unconstrained,
+    ScoreAttributesList=format_list,
+)
+
+SNOTE_LINE_Vlt0_3_0 = dict(
+    Anchor=format_string,
+    NoteName=lambda x: str(x).lower(),
+    Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+    Octave=format_int,
+    Measure=format_int,
+    Beat=format_int,
+    Offset=format_fractional_rational,
+    Duration=format_fractional_rational,
+    OnsetInBeats=lambda x: f"{x:.5f}",
+    OffsetInBeats=lambda x: f"{x:.5f}",
+    ScoreAttributesList=format_list,
+)
+
+SNOTE_LINE = {
+    Version(0, 5, 0): SNOTE_LINE_Vgeq0_4_0,
+    Version(0, 4, 0): SNOTE_LINE_Vgeq0_4_0,
+    Version(0, 3, 0): dict(
+        Anchor=format_string,
+        NoteName=lambda x: str(x).lower(),
+        Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+        Octave=format_int,
+        Measure=format_int,
+        Beat=format_int,
+        Offset=format_fractional,
+        Duration=format_fractional,
+        OnsetInBeats=format_float_unconstrained,
+        OffsetInBeats=format_float_unconstrained,
+        ScoreAttributesList=format_list,
+    ),
+    Version(0, 2, 0): SNOTE_LINE_Vlt0_3_0,
+    Version(0, 1, 0): SNOTE_LINE_Vlt0_3_0,
+}
+
+
 class MatchSnote(BaseSnoteLine):
     def __init__(
         self,
@@ -190,7 +248,12 @@ class MatchSnote(BaseSnoteLine):
         onset_in_beats: float,
         offset_in_beats: float,
         score_attributes_list: List[str],
-    ):
+    ) -> None:
+        if version not in SNOTE_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(SNOTE_LINE.keys())}"
+            )
         super().__init__(
             version=version,
             anchor=anchor,
@@ -205,6 +268,8 @@ class MatchSnote(BaseSnoteLine):
             offset_in_beats=offset_in_beats,
             score_attributes_list=score_attributes_list,
         )
+
+        self.format_fun = SNOTE_LINE[version]
 
     @classmethod
     def from_matchline(
@@ -241,3 +306,175 @@ class MatchSnote(BaseSnoteLine):
         )
 
         return cls(version=version, **kwargs)
+
+
+# Note lines for versions larger than 3.0
+NOTE_LINE_Vgeq0_3_0 = {
+    "field_names": (
+        "Id",
+        "NoteName",
+        "Modifier",
+        "Octave",
+        "Onset",
+        "Offset",
+        "AdjOffset",
+        "Velocity",
+    ),
+    "out_pattern": (
+        "note({Id},[{NoteName},{Modifier}],{Octave},{Onset},{Offset},"
+        "{AdjOffset},{Velocity})."
+    ),
+    "pattern": re.compile(
+        r"note\((?P<Id>[^,]+),"
+        r"\[(?P<NoteName>[^,]+),(?P<Modifier>[^,]+)\],"
+        r"(?P<Octave>[^,]+),"
+        r"(?P<Onset>[^,]+),"
+        r"(?P<Offset>[^,]+),"
+        r"(?P<AdjOffset>[^,]+),"
+        r"(?P<Velocity>[^,]+)\)"
+    ),
+    "field_interpreters": {
+        "Id": (interpret_as_string, format_string, str),
+        "NoteName": (interpret_as_string, lambda x: str(x).upper(), str),
+        "Modifier": (
+            interpret_as_string,
+            lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+            (int, type(None)),
+        ),
+        "Octave": (interpret_as_int, format_int, int),
+        "Onset": (interpret_as_int, format_int, int),
+        "Offset": (interpret_as_int, format_int, int),
+        "AdjOffset": (interpret_as_int, format_int, int),
+        "Velocity": (interpret_as_int, format_int, int),
+    },
+}
+
+NOTE_LINE_Vlt0_3_0 = {
+    "field_names": (
+        "Id",
+        "NoteName",
+        "Modifier",
+        "Octave",
+        "Onset",
+        "Offset",
+        "Velocity",
+    ),
+    "out_pattern": (
+        "note({Id},[{NoteName},{Modifier}],{Octave},{Onset},{Offset},{Velocity})."
+    ),
+    "pattern": re.compile(
+        r"note\((?P<Id>[^,]+),"
+        r"\[(?P<NoteName>[^,]+),(?P<Modifier>[^,]+)\],"
+        r"(?P<Octave>[^,]+),"
+        r"(?P<Onset>[^,]+),"
+        r"(?P<Offset>[^,]+),"
+        r"(?P<Velocity>[^,]+)\)"
+    ),
+    "field_interpreters": {
+        "Id": (interpret_as_string, format_string, str),
+        "NoteName": (interpret_as_string, lambda x: str(x).lower(), str),
+        "Modifier": (
+            interpret_as_string,
+            lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+            (int, type(None)),
+        ),
+        "Octave": (interpret_as_int, format_int, int),
+        "Onset": (interpret_as_float, lambda x: f"{x:.2f}", float),
+        "Offset": (interpret_as_float, lambda x: f"{x:.2f}", float),
+        "Velocity": (interpret_as_int, format_int, int),
+    },
+}
+
+
+NOTE_LINE = {
+    Version(0, 5, 0): NOTE_LINE_Vgeq0_3_0,
+    Version(0, 4, 0): NOTE_LINE_Vgeq0_3_0,
+    Version(0, 3, 0): NOTE_LINE_Vgeq0_3_0,
+    Version(0, 2, 0): NOTE_LINE_Vlt0_3_0,
+    Version(0, 1, 0): NOTE_LINE_Vlt0_3_0,
+}
+
+
+class MatchNote(BaseNoteLine):
+    def __init__(
+        self,
+        version: Version,
+        id: str,
+        note_name: str,
+        modifier: int,
+        octave: int,
+        onset: int,
+        offset: int,
+        velocity: int,
+        **kwargs,
+    ) -> None:
+
+        if version not in NOTE_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(NOTE_LINE.keys())}"
+            )
+
+        step, alter, octave = ensure_pitch_spelling_format(note_name, modifier, octave)
+        midi_pitch = pitch_spelling_to_midi_pitch(step, alter, octave)
+
+        super().__init__(
+            version=version,
+            id=id,
+            midi_pitch=midi_pitch,
+            onset=onset,
+            offset=offset,
+            velocity=velocity,
+        )
+
+        self.field_names = NOTE_LINE[version]["field_names"]
+        self.field_types = tuple(
+            NOTE_LINE[version]["field_interpreters"][fn][2] for fn in self.field_names
+        )
+        self.format_fun = dict(
+            [
+                (fn, NOTE_LINE[version]["field_interpreters"][fn][1])
+                for fn in self.field_names
+            ]
+        )
+
+        self.pattern = NOTE_LINE[version]["pattern"]
+        self.out_pattern = NOTE_LINE[version]["out_pattern"]
+
+        self.NoteName = step
+        self.Modifier = alter
+        self.Octave = octave
+        self.AdjOffset = offset
+
+        if "adj_offset" in kwargs:
+
+            self.AdjOffset = kwargs["adj_offset"]
+
+    @property
+    def AdjDuration(self):
+        return self.AdjOffset - self.Onset
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = LAST_VERSION,
+    ) -> MatchNote:
+
+        if version >= Version(1, 0, 0):
+            ValueError(f"{version} >= Version(1, 0, 0)")
+
+        kwargs = get_kwargs_from_matchline(
+            matchline=matchline,
+            pattern=NOTE_LINE[version]["pattern"],
+            field_names=NOTE_LINE[version]["field_names"],
+            class_dict=NOTE_LINE[version]["field_interpreters"],
+            pos=pos,
+        )
+
+        if kwargs is not None:
+            return cls(version=version, **kwargs)
+
+        else:
+            raise MatchError("Input match line does not fit the expected pattern.")

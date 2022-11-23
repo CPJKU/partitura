@@ -436,6 +436,22 @@ def format_fractional(value: FractionalSymbolicDuration) -> str:
     return str(value)
 
 
+def format_fractional_rational(value: FractionalSymbolicDuration) -> str:
+    """
+    Format fractional symbolic duration as string and ensure that the output
+    is always rational ("a/b")
+    """
+
+    if value.denominator == 1 and value.tuple_div is None:
+
+        out = f"{value.numerator}/1"
+
+    else:
+        out = str(value)
+
+    return out
+
+
 def interpret_as_list(value: str) -> List[str]:
     """
     Interpret string as list of values.
