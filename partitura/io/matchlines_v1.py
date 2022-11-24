@@ -680,7 +680,7 @@ class MatchSnoteDeletion(BaseDeletionLine):
 
         kwargs = cls.prepare_kwargs_from_matchline(
             matchline=matchline,
-            note_class=MatchNote,
+            snote_class=MatchSnote,
             version=version,
         )
 

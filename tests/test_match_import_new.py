@@ -463,6 +463,29 @@ class TestMatchLinesV1(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
+    def test_deletion_lines(self):
+
+        deletion_lines = [
+            "snote(n158,[A,n],3,8:2,0,1/16,15.0000,15.2500,[v3])-deletion.",
+            "snote(n270,[F,#],4,14:1,0,1/16,26.0000,26.2500,[v2])-deletion.",
+            "snote(n323,[A,#],3,16:1,0,1/16,30.0000,30.2500,[v4])-deletion.",
+            "snote(n325,[E,n],3,16:1,0,1/16,30.0000,30.2500,[v6])-deletion.",
+            "snote(n328,[A,#],4,16:1,1/16,1/16,30.2500,30.5000,[v2])-deletion.",
+            "snote(n331,[F,#],3,16:1,1/16,1/16,30.2500,30.5000,[v5])-deletion.",
+            "snote(n99-1,[E,n],4,8:3,0,1/8,44.0000,45.0000,[staff1])-deletion.",
+            "snote(n99-2,[E,n],4,16:3,0,1/8,92.0000,93.0000,[staff1])-deletion.",
+            "snote(n238-1,[A,n],4,26:4,0,1/4,153.0000,155.0000,[staff1])-deletion.",
+            "snote(n238-2,[A,n],4,36:4,0,1/4,213.0000,215.0000,[staff1])-deletion.",
+        ]
+
+        for ml in deletion_lines:
+
+            mo = MatchSnoteDeletionV1.from_matchline(ml, version=Version(1, 0, 0))
+
+            basic_line_test(mo)
+
+            self.assertTrue(mo.matchline == ml)
+
     def test_insertion_lines(self):
 
         insertion_lines = [
