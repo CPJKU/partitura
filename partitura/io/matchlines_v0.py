@@ -591,17 +591,17 @@ class MatchInsertionNote(BaseInsertionLine):
 
 class MatchHammerBounceNote(MatchInsertionNote):
 
-    out_pattern = ""
-    pattern = re.compile("")
+    out_pattern = "hammer_bounce-{NoteLine}"
 
     def __init__(self, version: Version, note: MatchNote) -> None:
-        super(version=version, note=note)
+        super().__init__(version=version, note=note)
+        self.pattern = re.compile(f"hammer_bounce-{self.note.pattern.pattern}")
 
 
-class MatchHammerTrailingPlayedNote(MatchInsertionNote):
+class MatchTrailingPlayedNote(MatchInsertionNote):
 
-    out_pattern = ""
-    pattern = re.compile("")
+    out_pattern = "trailing_played_note-{NoteLine}"
 
     def __init__(self, version: Version, note: MatchNote) -> None:
-        super(version=version, note=note)
+        super().__init__(version=version, note=note)
+        self.pattern = re.compile(f"trailing_played_note-{self.note.pattern.pattern}")

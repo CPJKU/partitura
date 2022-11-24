@@ -24,6 +24,8 @@ from partitura.io.matchlines_v0 import (
     MatchNote as MatchNoteV0,
     MatchSnoteNote as MatchSnoteNoteV0,
     MatchInsertionNote as MatchInsertionNoteV0,
+    MatchHammerBounceNote as MatchHammerBounceNoteV0,
+    MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
 )
 
 from partitura.io.matchfile_base import MatchError, MatchLine
@@ -853,6 +855,61 @@ class TestMatchLinesV0(unittest.TestCase):
 
             for minor_version in (1, 2):
                 mo = MatchInsertionNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+
+                basic_line_test(mo)
+                self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchInsertionNoteV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_hammer_bounce_lines(self):
+
+        # These lines do not exist in any dataset that we have access to
+        # for now the tests use lines replacing insertion with hammer_bounce
+        hammer_bounce_lines = [
+            "hammer_bounce-note(1,[c,n],6,39060.00,39890.00,38).",
+            "hammer_bounce-note(6,[c,n],5,48840.00,49870.00,26).",
+            "hammer_bounce-note(17,[c,n],5,72600.00,75380.00,26).",
+            "hammer_bounce-note(32,[b,b],5,93030.00,95050.00,32).",
+            "hammer_bounce-note(85,[b,b],3,162600.00,164950.00,27).",
+            "hammer_bounce-note(132,[c,n],5,226690.00,227220.00,34).",
+            "hammer_bounce-note(179,[b,b],4,280360.00,282310.00,35).",
+        ]
+
+        for ml in hammer_bounce_lines:
+
+            for minor_version in (1, 2):
+                mo = MatchHammerBounceNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+
+                basic_line_test(mo)
+                self.assertTrue(mo.matchline == ml)
+
+    def test_trailing_played_lines(self):
+
+        # These lines do not exist in any dataset that we have access to
+        # for now the tests use lines replacing insertion with trailing_played_note
+        trailing_played_note_lines = [
+            "trailing_played_note-note(1,[c,n],6,39060.00,39890.00,38).",
+            "trailing_played_note-note(6,[c,n],5,48840.00,49870.00,26).",
+            "trailing_played_note-note(17,[c,n],5,72600.00,75380.00,26).",
+            "trailing_played_note-note(32,[b,b],5,93030.00,95050.00,32).",
+            "trailing_played_note-note(85,[b,b],3,162600.00,164950.00,27).",
+            "trailing_played_note-note(132,[c,n],5,226690.00,227220.00,34).",
+            "trailing_played_note-note(179,[b,b],4,280360.00,282310.00,35).",
+        ]
+
+        for ml in trailing_played_note_lines:
+
+            for minor_version in (1, 2):
+                mo = MatchTrailingPlayedNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
                 )
 
