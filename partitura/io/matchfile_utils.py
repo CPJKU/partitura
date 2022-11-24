@@ -532,6 +532,11 @@ def interpret_as_list(value: str) -> List[str]:
     return content_list
 
 
+def interpret_as_list_int(value: str) -> List[int]:
+    string_list = interpret_as_list(value)
+    return [int(v) for v in string_list]
+
+
 def format_list(value: List[Any]) -> str:
     formatted_string = f"[{','.join([str(v) for v in value])}]"
     return formatted_string

@@ -13,6 +13,9 @@ from partitura.io.matchlines_v1 import (
     MatchInfo as MatchInfoV1,
     MatchScoreProp as MatchScorePropV1,
     MatchSection as MatchSectionV1,
+    MatchStime as MatchStimeV1,
+    MatchPtime as MatchPtimeV1,
+    MatchStimePtime as MatchStimePtimeV1,
     MatchSnote as MatchSnoteV1,
     MatchNote as MatchNoteV1,
     MatchSnoteNote as MatchSnoteNoteV1,
@@ -297,6 +300,120 @@ class TestMatchLinesV1(unittest.TestCase):
             mo = MatchSectionV1.from_matchline(wrong_line)
             self.assertTrue(False)  # pragma: no cover
         except MatchError:
+            self.assertTrue(True)
+
+    def test_stime_lines(self):
+
+        stime_lines = [
+            "stime(1:1,0,0.0000,[beat])",
+            "stime(2:1,0,4.0000,[downbeat,beat])",
+            "stime(0:3,0,-1.0000,[beat])",
+        ]
+
+        for ml in stime_lines:
+
+            mo = MatchStimeV1.from_matchline(ml, version=Version(1, 0, 0))
+            basic_line_test(mo)
+
+            self.assertTrue(mo.matchline == ml)
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchStimeV1.from_matchline(wrong_line)
+            self.assertTrue(False)  # pragma: no cover
+        except MatchError:
+            self.assertTrue(True)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchStimeV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        # Wrong version
+        try:
+            mo = MatchStimeV1(
+                version=Version(0, 5, 0),
+                measure=1,
+                beat=1,
+                offset=FractionalSymbolicDuration(0),
+                onset_in_beats=0.0,
+                annotation_type=["beat", "downbeat"],
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_ptime_lines(self):
+
+        stime_lines = [
+            "ptime([1000,1001,999]).",
+            "ptime([765]).",
+            "ptime([3141592]).",
+        ]
+
+        for ml in stime_lines:
+
+            mo = MatchPtimeV1.from_matchline(ml, version=Version(1, 0, 0))
+            basic_line_test(mo)
+
+            self.assertTrue(mo.matchline == ml)
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchPtimeV1.from_matchline(wrong_line)
+            self.assertTrue(False)  # pragma: no cover
+        except MatchError:
+            self.assertTrue(True)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchPtimeV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        # Wrong version
+        try:
+            mo = MatchPtimeV1(
+                version=Version(0, 5, 0),
+                onsets=[8765, 8754],
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_stimeptime_lines(self):
+
+        stime_lines = [
+            "stime(1:1,0,0.0000,[beat])-ptime([1000,1001,999]).",
+            "stime(2:1,0,4.0000,[downbeat,beat])-ptime([765]).",
+            "stime(0:3,0,-1.0000,[beat])-ptime([3141592]).",
+        ]
+
+        for ml in stime_lines:
+
+            mo = MatchStimePtimeV1.from_matchline(ml, version=Version(1, 0, 0))
+            basic_line_test(mo)
+
+            self.assertTrue(mo.matchline == ml)
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchStimePtimeV1.from_matchline(wrong_line)
+            self.assertTrue(False)  # pragma: no cover
+        except MatchError:
+            self.assertTrue(True)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchStimePtimeV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
             self.assertTrue(True)
 
     def test_snote_lines(self):

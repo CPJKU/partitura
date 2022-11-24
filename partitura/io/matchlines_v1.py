@@ -20,6 +20,9 @@ from partitura.io.matchfile_base import (
     Version,
     BaseInfoLine,
     BaseSnoteLine,
+    BaseStimeLine,
+    BasePtimeLine,
+    BaseStimePtimeLine,
     BaseNoteLine,
     BaseSnoteNoteLine,
     BaseDeletionLine,
@@ -39,6 +42,7 @@ from partitura.io.matchfile_utils import (
     format_fractional,
     interpret_as_fractional,
     interpret_as_list,
+    interpret_as_list_int,
     format_list,
     to_camel_case,
     get_kwargs_from_matchline,
@@ -439,6 +443,132 @@ class MatchSection(MatchLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
 
+STIME_LINE = {
+    Version(1, 0, 0): {
+        "Measure": (interpret_as_int, format_int, int),
+        "Beat": (interpret_as_int, format_int, int),
+        "Offset": (
+            interpret_as_fractional,
+            format_fractional,
+            FractionalSymbolicDuration,
+        ),
+        "OnsetInBeats": (interpret_as_float, format_float, float),
+        "AnnotationType": (interpret_as_list, format_list, list),
+    }
+}
+
+
+class MatchStime(BaseStimeLine):
+    def __init__(
+        self,
+        version: Version,
+        measure: int,
+        beat: int,
+        offset: FractionalSymbolicDuration,
+        onset_in_beats: float,
+        annotation_type: List[str],
+    ) -> None:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        super().__init__(
+            version=version,
+            measure=measure,
+            beat=beat,
+            offset=offset,
+            onset_in_beats=onset_in_beats,
+            annotation_type=annotation_type,
+        )
+
+        self.field_types = tuple(STIME_LINE[version][fn][2] for fn in self.field_names)
+        self.format_fun = dict(
+            [(fn, STIME_LINE[version][fn][1]) for fn in self.field_names]
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = LATEST_VERSION,
+    ) -> MatchStime:
+
+        if version not in STIME_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(STIME_LINE.keys())}"
+            )
+
+        kwargs = get_kwargs_from_matchline(
+            matchline=matchline,
+            pattern=cls.pattern,
+            field_names=cls.field_names,
+            class_dict=STIME_LINE[version],
+            pos=pos,
+        )
+
+        if kwargs is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
+        return cls(version=version, **kwargs)
+
+
+PTIME_LINE = {
+    Version(1, 0, 0): {
+        "Onsets": (interpret_as_list_int, format_list, list),
+    }
+}
+
+
+class MatchPtime(BasePtimeLine):
+    def __init__(
+        self,
+        version: Version,
+        onsets: List[int],
+    ) -> None:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        super().__init__(
+            version=version,
+            onsets=onsets,
+        )
+
+        self.field_types = tuple(PTIME_LINE[version][fn][2] for fn in self.field_names)
+        self.format_fun = dict(
+            [(fn, PTIME_LINE[version][fn][1]) for fn in self.field_names]
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = LATEST_VERSION,
+    ) -> MatchStime:
+
+        if version not in PTIME_LINE:
+            raise ValueError(
+                f"Unknown version {version}!. "
+                f"Supported versions are {list(STIME_LINE.keys())}"
+            )
+
+        kwargs = get_kwargs_from_matchline(
+            matchline=matchline,
+            pattern=cls.pattern,
+            field_names=cls.field_names,
+            class_dict=PTIME_LINE[version],
+            pos=pos,
+        )
+
+        if kwargs is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
+        return cls(version=version, **kwargs)
+
+
 class MatchSnote(BaseSnoteLine):
 
     format_fun = dict(
@@ -624,6 +754,39 @@ class MatchNote(BaseNoteLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
+
+
+class MatchStimePtime(BaseStimePtimeLine):
+    def __init__(
+        self,
+        version: Version,
+        stime: MatchStime,
+        ptime: MatchPtime,
+    ) -> None:
+        super().__init__(
+            version=version,
+            stime=stime,
+            ptime=ptime,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LATEST_VERSION,
+    ) -> MatchSnoteNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            stime_class=MatchStime,
+            ptime_class=MatchPtime,
+            version=version,
+        )
+
+        return cls(**kwargs)
 
 
 class MatchSnoteNote(BaseSnoteNoteLine):

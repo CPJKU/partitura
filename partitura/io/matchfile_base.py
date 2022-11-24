@@ -33,6 +33,7 @@ from partitura.io.matchfile_utils import (
     format_fractional,
     interpret_as_fractional,
     interpret_as_list,
+    interpret_as_list_int,
     format_list,
 )
 
@@ -182,7 +183,7 @@ class MatchLine(object):
         return types_are_correct
 
 
-## The following classes define match lines that appear in all matchfile versions
+## The following classes define base information for match lines
 ## These classes need to be subclassed in the corresponding module for each version.
 
 
@@ -224,6 +225,150 @@ class BaseInfoLine(MatchLine):
         self.format_fun = dict(Attribute=format_string, Value=format_fun)
         self.Attribute = attribute
         self.Value = value
+
+
+class BaseStimeLine(MatchLine):
+    """
+    stime(Measure:Beat,Offset,OnsetInBeats,AnnotationType)
+    """
+
+    field_names = ("Measure", "Beat", "Offset", "OnsetInBeats", "AnnotationType")
+
+    field_types = (int, int, FractionalSymbolicDuration, float, list)
+
+    format_fun = dict(
+        Measure=format_int,
+        Beat=format_int,
+        Offset=format_fractional,
+        OnsetInBeats=format_float,
+        AnnotationType=format_list,
+    )
+
+    out_pattern = "stime({Measure}:{Beat},{Offset},{OnsetInBeats},{AnnotationType})"
+
+    pattern = re.compile(
+        r"stime\("
+        r"(?P<Measure>[^,]+):(?P<Beat>[^,]+),"
+        r"(?P<Offset>[^,]+),"
+        r"(?P<OnsetInBeats>[^,]+),"
+        r"\[(?P<AnnotationType>[a-z,]*)\]\)"
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        measure: int,
+        beat: int,
+        offset: FractionalSymbolicDuration,
+        onset_in_beats: float,
+        annotation_type: List[str],
+    ) -> None:
+        super().__init__(version)
+
+        self.Measure = measure
+        self.Beat = beat
+        self.Offset = offset
+        self.OnsetInBeats = onset_in_beats
+        self.AnnotationType = annotation_type
+
+
+class BasePtimeLine(MatchLine):
+    """
+    ptime(Onsets)
+    """
+
+    field_names = ("Onsets",)
+    field_types = (list,)
+
+    out_pattern = "ptime({Onsets})."
+
+    pattern = re.compile(r"ptime\(\[(?P<Onsets>[0-9,]+)\]\)\.")
+
+    format_fun = dict(Onsets=format_list)
+
+    def __init__(self, version: Version, onsets: List[int]) -> None:
+        super().__init__(version)
+        self.Onsets = onsets
+
+    @property
+    def Onset(self):
+        return np.mean(self.Onsets)
+
+
+class BaseStimePtimeLine(MatchLine):
+
+    out_pattern = "{StimeLine}-{PtimeLine}"
+
+    def __init__(
+        self,
+        version: Version,
+        stime: BaseStimeLine,
+        ptime: BasePtimeLine,
+    ) -> None:
+        super().__init__(version)
+
+        self.stime = stime
+        self.ptime = ptime
+
+        self.field_names = self.stime.field_names + self.ptime.field_names
+        self.field_types = self.stime.field_types + self.ptime.field_types
+
+        self.pattern = (self.stime.pattern, self.ptime.pattern)
+
+        self.format_fun = (self.stime.format_fun, self.ptime.format_fun)
+
+
+    @property
+    def matchline(self) -> str:
+        return self.out_pattern.format(
+            StimeLine=self.stime.matchline,
+            PtimeLine=self.ptime.matchline,
+        )
+
+    def __str__(self) -> str:
+        """
+        String magic method
+        """
+        r = [self.__class__.__name__]
+        r += [" Stime"] + [
+            "   {0}: {1}".format(fn, getattr(self.stime, fn, None))
+            for fn in self.stime.field_names
+        ]
+
+        r += [" Ptime"] + [
+            "   {0}: {1}".format(fn, getattr(self.ptime, fn, None))
+            for fn in self.ptime.field_names
+        ]
+
+        return "\n".join(r) + "\n"
+
+    def check_types(self, verbose: bool) -> bool:
+
+        stime_types_are_correct = self.stime.check_types(verbose)
+        ptime_types_are_correct = self.ptime.check_types(verbose)
+
+        types_are_correct = stime_types_are_correct and ptime_types_are_correct
+
+        return types_are_correct
+
+    @classmethod
+    def prepare_kwargs_from_matchline(
+        cls,
+        matchline: str,
+        stime_class: BaseStimeLine,
+        ptime_class: BaseNoteLine,
+        version: Version,
+    ) -> Dict:
+        stime = stime_class.from_matchline(matchline, version=version)
+        ptime = ptime_class.from_matchline(matchline, version=version)
+
+        kwargs = dict(
+            version=version,
+            stime=stime,
+            ptime=ptime,
+        )
+
+        return kwargs
 
 
 # deprecate bar for measure
