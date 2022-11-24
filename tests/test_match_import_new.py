@@ -25,6 +25,8 @@ from partitura.io.matchlines_v0 import (
     MatchSnote as MatchSnoteV0,
     MatchNote as MatchNoteV0,
     MatchSnoteNote as MatchSnoteNoteV0,
+    MatchSnoteDeletion as MatchSnoteDeletionV0,
+    MatchSnoteTrailingScore as MatchSnoteTrailingScoreV0,
     MatchInsertionNote as MatchInsertionNoteV0,
     MatchHammerBounceNote as MatchHammerBounceNoteV0,
     MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
@@ -45,6 +47,14 @@ def basic_line_test(ml: MatchLine, verbose: bool = False) -> None:
     """
     Test that the matchline has the correct number and type
     of the mandatory attributes.
+
+    Parameters
+    ----------
+    ml : MatchLine
+        The MatchLine to be tested
+    verbose: bool
+        Print whether each of the attributes of the match line have the correct
+        data type
     """
 
     # check that field names and field types have the same number of elements
@@ -220,9 +230,16 @@ class TestMatchLinesV1(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchScorePropV1.from_matchline(ml)
+            mo = MatchScorePropV1.from_matchline(ml, version=Version(1, 0, 0))
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchScorePropV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
         try:
             # This is not a valid line and should result in a MatchError
@@ -267,9 +284,7 @@ class TestMatchLinesV1(unittest.TestCase):
 
         # Check version (an error should be raised for old versions)
         try:
-            mo = MatchSectionV1.from_matchline(
-                section_lines[0], version=Version(0, 5, 0)
-            )
+            mo = MatchSectionV1.from_matchline(ml, version=Version(0, 5, 0))
             self.assertTrue(False)  # pragma: no cover
 
         except ValueError:
@@ -356,7 +371,7 @@ class TestMatchLinesV1(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchSnoteV1.from_matchline(ml)
+            mo = MatchSnoteV1.from_matchline(ml, version=Version(1, 0, 0))
             # test __str__ method
             self.assertTrue(
                 all(
@@ -393,6 +408,13 @@ class TestMatchLinesV1(unittest.TestCase):
         except MatchError:
             self.assertTrue(True)
 
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
         # Wrong version
         try:
             mo = MatchSnoteV1(
@@ -426,12 +448,19 @@ class TestMatchLinesV1(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            mo = MatchNoteV1.from_matchline(ml)
+            mo = MatchNoteV1.from_matchline(ml, version=Version(1, 0, 0))
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
             # assert that the data types of the match line are correct
             self.assertTrue(mo.check_types())
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchNoteV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
     def test_snotenote_lines(self):
 
@@ -485,6 +514,13 @@ class TestMatchLinesV1(unittest.TestCase):
             basic_line_test(mo)
 
             self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteDeletionV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
     def test_insertion_lines(self):
 
@@ -863,8 +899,6 @@ class TestMatchLinesV0(unittest.TestCase):
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
 
-                self.assertTrue(mo.check_types())
-
     def test_snote_lines_v_0_4_0(self):
 
         snotenote_lines = [
@@ -885,6 +919,76 @@ class TestMatchLinesV0(unittest.TestCase):
                 )
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
+
+    def test_deletion_lines_v_0_4_0(self):
+
+        deletion_lines = [
+            "snote(61-2,[E,n],4,13:3,0,1/8,74.0,75.0,[staff2])-deletion.",
+            "snote(99-2,[E,n],4,16:3,0,1/8,92.0,93.0,[staff1])-deletion.",
+            "snote(167-1,[E,n],4,21:3,0,1/8,122.0,123.0,[staff2])-deletion.",
+            "snote(244-1,[E,n],3,26:3,0,1/8,152.0,153.0,[staff2])-deletion.",
+            "snote(238-1,[A,n],4,26:4,0,2/8,153.0,155.0,[staff1])-deletion.",
+            "snote(167-2,[E,n],4,31:3,0,1/8,182.0,183.0,[staff2])-deletion.",
+            "snote(244-2,[E,n],3,36:3,0,1/8,212.0,213.0,[staff2])-deletion.",
+            "snote(238-2,[A,n],4,36:4,0,2/8,213.0,215.0,[staff1])-deletion.",
+        ]
+
+        for ml in deletion_lines:
+
+            for minor_version in (4, 5):
+                mo = MatchSnoteDeletionV0.from_matchline(
+                    ml,
+                    version=Version(0, minor_version, 0),
+                )
+                basic_line_test(mo)
+                self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteDeletionV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_trailing_score_lines(self):
+
+        # These are all trailing_score_note lines in the Batik dataset
+        trailing_score_lines = [
+            "snote(n5283,[e,n],4,216:5,1/16/3,1/16/3,1294.1666666666667,1294.3333333333333,[s,stacc])-trailing_score_note.",
+            "snote(n5284,[f,#],4,216:5,2/16/3,1/16/3,1294.3333333333333,1294.5,[s,stacc])-trailing_score_note.",
+            "snote(n5285,[g,n],4,216:5,3/16/3,1/16/3,1294.5,1294.6666666666667,[s,stacc])-trailing_score_note.",
+            "snote(n5286,[g,#],4,216:5,4/16/3,1/16/3,1294.6666666666667,1294.8333333333333,[s,stacc])-trailing_score_note.",
+            "snote(n5287,[a,n],4,216:5,5/16/3,1/16/3,1294.8333333333333,1295.0,[s,stacc])-trailing_score_note.",
+            "snote(n5288,[a,#],4,216:6,0,1/16/3,1295.0,1295.1666666666667,[s,stacc])-trailing_score_note.",
+            "snote(n5289,[b,n],4,216:6,1/16/3,1/16/3,1295.1666666666667,1295.3333333333333,[s,stacc])-trailing_score_note.",
+            "snote(n5290,[b,#],4,216:6,2/16/3,1/16/3,1295.3333333333333,1295.5,[s,stacc])-trailing_score_note.",
+            "snote(n5291,[c,#],5,216:6,3/16/3,1/16/3,1295.5,1295.6666666666667,[s,stacc])-trailing_score_note.",
+            "snote(n5292,[d,n],5,216:6,4/16/3,1/16/3,1295.6666666666667,1295.8333333333333,[s,stacc])-trailing_score_note.",
+            "snote(n5293,[d,#],5,216:6,5/16/3,1/16/3,1295.8333333333333,1296.0,[s,stacc])-trailing_score_note.",
+            "snote(n2233,[c,#],4,200:1,2/16,1/8,597.5,598.0,[s])-trailing_score_note.",
+            "snote(n2234,[d,n],4,200:2,0,1/8,598.0,598.5,[s])-trailing_score_note.",
+            "snote(n2235,[e,n],4,200:2,2/16,1/8,598.5,599.0,[s])-trailing_score_note.",
+            "snote(n2236,[f,#],4,200:3,0,1/8,599.0,599.5,[s])-trailing_score_note.",
+            "snote(n2237,[g,n],4,200:3,2/16,1/8,599.5,600.0,[s])-trailing_score_note.",
+            "snote(n781,[r,-],-,36:3,0,1/4,107.0,108.0,[fermata])-trailing_score_note.",
+            "snote(n1304,[r,-],-,45:4,0,1/4,179.0,180.0,[fermata])-trailing_score_note.",
+        ]
+
+        for ml in trailing_score_lines:
+
+            mo = MatchSnoteTrailingScoreV0.from_matchline(
+                ml,
+                version=Version(0, 3, 0),
+            )
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteDeletionV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
     def test_insertion_lines_v_0_3_0(self):
 

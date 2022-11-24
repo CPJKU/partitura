@@ -18,6 +18,7 @@ from partitura.io.matchfile_base import (
     BaseSnoteLine,
     BaseNoteLine,
     BaseSnoteNoteLine,
+    BaseDeletionLine,
     BaseInsertionLine,
 )
 
@@ -560,6 +561,43 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         )
 
         return cls(**kwargs)
+
+
+class MatchSnoteDeletion(BaseDeletionLine):
+    def __init__(self, version: Version, snote: MatchSnote) -> None:
+
+        super().__init__(
+            version=version,
+            snote=snote,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LAST_VERSION,
+    ) -> MatchSnoteDeletion:
+
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} >= Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            snote_class=MatchSnote,
+            version=version,
+        )
+
+        return cls(**kwargs)
+
+
+class MatchSnoteTrailingScore(MatchSnoteDeletion):
+    out_pattern = "{SnoteLine}-trailing_score_note."
+
+    def __init__(self, version: Version, snote: MatchSnote) -> None:
+        super().__init__(version=version, snote=snote)
+        self.pattern = re.compile(
+            rf"{self.snote.pattern.pattern}-trailing_score_note\."
+        )
 
 
 class MatchInsertionNote(BaseInsertionLine):
