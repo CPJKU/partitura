@@ -559,6 +559,51 @@ class BaseSnoteNoteLine(MatchLine):
         return kwargs
 
 
+class BaseDeletionLine(MatchLine):
+
+    out_pattern = "{SnoteLine}-deletion."
+
+    def __init__(self, version: Version, snote: BaseSnoteLine) -> None:
+
+        super().__init__(version)
+
+        self.snote = snote
+
+        self.field_names = self.snote.field_names
+
+        self.field_types = self.snote.field_types
+
+        self.pattern = re.compile(rf"{self.snote.pattern.pattern}-deletion\.")
+
+        self.format_fun = self.snote.format_fun
+
+        for fn in self.field_names:
+            setattr(self, fn, getattr(self.snote, fn))
+
+    @property
+    def matchline(self) -> str:
+        return self.out_pattern.format(
+            SnoteLine=self.snote.matchline,
+        )
+
+    @classmethod
+    def prepare_kwargs_from_matchline(
+        cls,
+        matchline: str,
+        snote_class: BaseSnoteLine,
+        version: Version,
+    ) -> Dict:
+
+        snote = snote_class.from_matchline(matchline, version=version)
+
+        kwargs = dict(
+            version=version,
+            snote=snote,
+        )
+
+        return kwargs
+
+
 class BaseInsertionLine(MatchLine):
 
     out_pattern = "insertion-{NoteLine}"

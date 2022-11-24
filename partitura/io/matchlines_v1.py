@@ -22,6 +22,7 @@ from partitura.io.matchfile_base import (
     BaseSnoteLine,
     BaseNoteLine,
     BaseSnoteNoteLine,
+    BaseDeletionLine,
     BaseInsertionLine,
 )
 
@@ -108,7 +109,7 @@ class MatchInfo(BaseInfoLine):
     ) -> None:
 
         if version < Version(1, 0, 0):
-            raise MatchError("The version must be >= 1.0.0")
+            raise ValueError("The version must be >= 1.0.0")
 
         super().__init__(
             version=version,
@@ -144,7 +145,7 @@ class MatchInfo(BaseInfoLine):
         a MatchInfo instance
         """
         if version not in INFO_LINE:
-            raise MatchError(f"{version} is not specified for this class.")
+            raise ValueError(f"{version} is not specified for this class.")
 
         match_pattern = cls.pattern.search(matchline, pos=pos)
 
@@ -223,7 +224,8 @@ class MatchScoreProp(MatchLine):
     ) -> None:
 
         if version < Version(1, 0, 0):
-            raise MatchError("The version must be >= 1.0.0")
+            raise ValueError("The version must be >= 1.0.0")
+
         super().__init__(version)
 
         self.field_types = (
@@ -279,7 +281,7 @@ class MatchScoreProp(MatchLine):
         """
 
         if version not in SCOREPROP_LINE:
-            raise MatchError(f"{version} is not specified for this class.")
+            raise ValueError(f"{version} is not specified for this class.")
 
         match_pattern = cls.pattern.search(matchline, pos=pos)
 
@@ -658,7 +660,34 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         return cls(**kwargs)
 
 
-class MatchInsertion(BaseInsertionLine):
+class MatchSnoteDeletion(BaseDeletionLine):
+    def __init__(self, version: Version, snote: MatchSnote) -> None:
+
+        super().__init__(
+            version=version,
+            snote=snote,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LATEST_VERSION,
+    ) -> MatchSnoteDeletion:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            note_class=MatchNote,
+            version=version,
+        )
+
+        return cls(**kwargs)
+
+
+class MatchInsertionNote(BaseInsertionLine):
     def __init__(self, version: Version, note: MatchNote) -> None:
 
         super().__init__(
@@ -671,7 +700,7 @@ class MatchInsertion(BaseInsertionLine):
         cls,
         matchline: str,
         version: Version = LATEST_VERSION,
-    ) -> MatchInsertion:
+    ) -> MatchInsertionNote:
 
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")

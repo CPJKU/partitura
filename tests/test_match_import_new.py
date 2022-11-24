@@ -5,6 +5,7 @@ This module contains test functions for Matchfile import
 """
 import unittest
 import numpy as np
+import re
 
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 
@@ -15,7 +16,8 @@ from partitura.io.matchlines_v1 import (
     MatchSnote as MatchSnoteV1,
     MatchNote as MatchNoteV1,
     MatchSnoteNote as MatchSnoteNoteV1,
-    MatchInsertion as MatchInsertionV1,
+    MatchSnoteDeletion as MatchSnoteDeletionV1,
+    MatchInsertionNote as MatchInsertionNoteV1,
 )
 
 from partitura.io.matchlines_v0 import (
@@ -39,23 +41,49 @@ from partitura.io.matchfile_utils import (
 RNG = np.random.RandomState(1984)
 
 
-def basic_line_test(ml: MatchLine) -> bool:
+def basic_line_test(ml: MatchLine, verbose: bool = False) -> None:
     """
     Test that the matchline has the correct number and type
     of the mandatory attributes.
     """
+
+    # check that field names and field types have the same number of elements
     assert len(ml.field_names) == len(ml.field_types)
 
+    # assert that field names have the correct type
     assert isinstance(ml.field_names, tuple)
     assert all([isinstance(fn, str) for fn in ml.field_names])
+
+    # assert that field types have the correct type
+    assert isinstance(ml.field_types, tuple)
     assert all([isinstance(dt, (type, tuple)) for dt in ml.field_types])
+
+    # assert that the string and matchline methods have the correct type
+    assert isinstance(str(ml), str)
+    assert isinstance(ml.matchline, str)
+
+    # assert that a new created MatchLine from the same `matchline`
+    # will result in the same `matchline`
+    new_ml = ml.from_matchline(ml.matchline, version=ml.version)
+    assert new_ml.matchline == ml.matchline
+
+    # assert that the data types of the match line are correct
+    assert ml.check_types(verbose)
+
+    # assert that the pattern has the correct type
+    assert isinstance(ml.pattern, (re.Pattern, tuple))
+
+    if isinstance(ml.pattern, tuple):
+        assert all([isinstance(pt, re.Pattern) for pt in ml.pattern])
+
+    # assert that format fun has the correct type and number of elements
+    assert isinstance(ml.format_fun, (dict, tuple))
 
     if isinstance(ml.format_fun, dict):
         assert len(ml.format_fun) == len(ml.field_names)
         assert all([callable(ff) for _, ff in ml.format_fun.items()])
     elif isinstance(ml.format_fun, tuple):
         assert sum([len(ff) for ff in ml.format_fun]) == len(ml.field_names)
-
         for ff in ml.format_fun:
             assert all([callable(fff) for _, fff in ff.items()])
 
@@ -120,15 +148,15 @@ class TestMatchLinesV1(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            basic_line_test(mo)
+            basic_line_test(mo, verbose=i == 0)
             self.assertTrue(mo.matchline == ml)
 
-            # assert that the data types of the match line are correct
-            if i == 0:
-                # Test verbose output
-                self.assertTrue(mo.check_types(verbose=True))
-            else:
-                self.assertTrue(mo.check_types())
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchInfoV1.from_matchline(ml, version=Version(0, 1, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
         # The following lines should result in an error
         try:
@@ -159,6 +187,18 @@ class TestMatchLinesV1(unittest.TestCase):
         except MatchError:
             self.assertTrue(True)
 
+        try:
+            mo = MatchInfoV1(
+                version=Version(0, 5, 0),
+                attribute="scoreFileName",
+                value="score_file.musicxml",
+                value_type=str,
+                format_fun=lambda x: str(x),
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
     def test_score_prop_lines(self):
 
         keysig_line = "scoreprop(keySignature,E,0:2,1/8,-0.5000)."
@@ -184,15 +224,28 @@ class TestMatchLinesV1(unittest.TestCase):
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
-            # assert that the data types of the match line are correct
-            self.assertTrue(mo.check_types())
-
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
             mo = MatchScorePropV1.from_matchline(wrong_line)
             self.assertTrue(False)  # pragma: no cover
         except MatchError:
+            self.assertTrue(True)
+
+        try:
+            mo = MatchScorePropV1(
+                version=Version(0, 5, 0),
+                attribute="keySignature",
+                value="E",
+                value_type=str,
+                format_fun=lambda x: str(x),
+                measure=1,
+                beat=0,
+                offset=FractionalSymbolicDuration(0),
+                time_in_beats=0.0,
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
             self.assertTrue(True)
 
     def test_section_lines(self):
@@ -211,9 +264,6 @@ class TestMatchLinesV1(unittest.TestCase):
             mo = MatchSectionV1.from_matchline(ml)
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
-
-            # assert that the data types of the match line are correct
-            self.assertTrue(mo.check_types())
 
         # Check version (an error should be raised for old versions)
         try:
@@ -335,9 +385,6 @@ class TestMatchLinesV1(unittest.TestCase):
 
             self.assertTrue(mo.MidiPitch < 128)
 
-            # assert that the data types of the match line are correct
-            self.assertTrue(mo.check_types())
-
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
@@ -406,14 +453,8 @@ class TestMatchLinesV1(unittest.TestCase):
         for i, ml in enumerate(snotenote_lines):
 
             mo = MatchSnoteNoteV1.from_matchline(ml, version=Version(1, 0, 0))
-            basic_line_test(mo)
+            basic_line_test(mo, verbose=i == 0)
             self.assertTrue(mo.matchline == ml)
-
-            if i == 0:
-                self.assertTrue(mo.check_types(verbose=True))
-                self.assertTrue(isinstance(str(mo), str))
-            else:
-                self.assertTrue(mo.check_types())
 
         # An error is raised if parsing the wrong version
         try:
@@ -445,15 +486,13 @@ class TestMatchLinesV1(unittest.TestCase):
 
         for i, ml in enumerate(insertion_lines):
 
-            mo = MatchInsertionV1.from_matchline(ml, version=Version(1, 0, 0))
+            mo = MatchInsertionNoteV1.from_matchline(ml, version=Version(1, 0, 0))
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
-            self.assertTrue(mo.check_types())
-
         # An error is raised if parsing the wrong version
         try:
-            mo = MatchInsertionV1.from_matchline(ml, version=Version(0, 5, 0))
+            mo = MatchInsertionNoteV1.from_matchline(ml, version=Version(0, 5, 0))
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
@@ -479,10 +518,8 @@ class TestMatchLinesV0(unittest.TestCase):
             # assert that the information from the matchline
             # is parsed correctly and results in an identical line
             # to the input match line
-            basic_line_test(mo)
+            basic_line_test(mo, verbose=i == 0)
             self.assertTrue(mo.matchline == ml)
-
-            self.assertTrue(mo.check_types())
 
         # The following lines should result in an error
         try:
@@ -512,13 +549,24 @@ class TestMatchLinesV0(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
-
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
             mo = MatchInfoV0.from_matchline(wrong_line)
             self.assertTrue(False)  # pragma: no cover
         except MatchError:
+            self.assertTrue(True)
+
+        try:
+            mo = MatchInfoV0(
+                version=Version(1, 0, 0),
+                attribute="scoreFileName",
+                value="'score_file.musicxml'",
+                value_type=str,
+                format_fun=lambda x: str(x),
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
             self.assertTrue(True)
 
     def test_snote_lines_v0_1_0(self):
@@ -545,16 +593,12 @@ class TestMatchLinesV0(unittest.TestCase):
                 # print(mo.matchline, ml)
                 self.assertTrue(mo.matchline == ml)
 
-                # assert that the data types of the match line are correct
-                self.assertTrue(mo.check_types())
-
         # An error is raised if parsing the wrong version
         try:
             mo = MatchSnoteV0.from_matchline(ml, version=Version(1, 0, 0))
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
-
 
         try:
             # This is not a valid line and should result in a MatchError
@@ -610,10 +654,6 @@ class TestMatchLinesV0(unittest.TestCase):
 
                 self.assertTrue(mo.matchline == ml)
 
-                # assert that the data types of the match line are correct
-
-                self.assertTrue(mo.check_types())
-
     def test_snote_lines_v0_5_0(self):
 
         snote_lines = [
@@ -636,9 +676,6 @@ class TestMatchLinesV0(unittest.TestCase):
                 basic_line_test(mo)
                 # print(mo.matchline, ml)
                 self.assertTrue(mo.matchline == ml)
-
-                # assert that the data types of the match line are correct
-                self.assertTrue(mo.check_types())
 
     def test_note_lines_v_0_4_0(self):
 
@@ -667,8 +704,36 @@ class TestMatchLinesV0(unittest.TestCase):
                 # check duration and adjusted duration
                 self.assertTrue(mo.AdjDuration >= mo.Duration)
 
-                # assert that the data types of the match line are correct
-                self.assertTrue(mo.check_types())
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchNoteV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        # Wrong version
+        try:
+            mo = MatchNoteV0(
+                version=Version(1, 0, 0),
+                id="n0",
+                note_name="C",
+                modifier=0,
+                octave=4,
+                onset=0,
+                offset=400,
+                velocity=90,
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        try:
+            # This is not a valid line and should result in a MatchError
+            wrong_line = "wrong_line"
+            mo = MatchNoteV0.from_matchline(wrong_line, version=Version(0, 1, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except MatchError:
+            self.assertTrue(True)
 
     def test_note_lines_v_0_3_0(self):
 
@@ -694,9 +759,6 @@ class TestMatchLinesV0(unittest.TestCase):
                 self.assertTrue(mo.matchline == ml)
                 # check duration and adjusted duration
                 self.assertTrue(mo.AdjDuration >= mo.Duration)
-
-                # assert that the data types of the match line are correct
-                self.assertTrue(mo.check_types())
 
     def test_note_lines_v_0_1_0(self):
 
@@ -724,9 +786,6 @@ class TestMatchLinesV0(unittest.TestCase):
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
 
-                # assert that the data types of the match line are correct
-                self.assertTrue(mo.check_types())
-
     def test_snotenote_lines_v_0_1_0(self):
 
         snotenote_lines = [
@@ -751,8 +810,6 @@ class TestMatchLinesV0(unittest.TestCase):
                 )
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
-
-                self.assertTrue(mo.check_types())
 
         # An error is raised if parsing the wrong version
         try:
@@ -805,8 +862,6 @@ class TestMatchLinesV0(unittest.TestCase):
                 )
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
-
-                self.assertTrue(mo.check_types())
 
     def test_insertion_lines_v_0_3_0(self):
 
