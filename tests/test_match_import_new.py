@@ -505,6 +505,14 @@ class TestMatchLinesV0(unittest.TestCase):
             # assert that the error was raised
             self.assertTrue(True)
 
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchInfoV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+
         try:
             # This is not a valid line and should result in a MatchError
             wrong_line = "wrong_line"
@@ -539,6 +547,14 @@ class TestMatchLinesV0(unittest.TestCase):
 
                 # assert that the data types of the match line are correct
                 self.assertTrue(mo.check_types())
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSnoteV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
 
         try:
             # This is not a valid line and should result in a MatchError

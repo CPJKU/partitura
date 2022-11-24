@@ -367,7 +367,7 @@ def _parse_parts(document, part_dict):
                 part.add(o, None, end_times[end_time_id])
                 warnings.warn(
                     "Found repeat without end\n"
-                    "Ending point {} is assumend".format(end_times[end_time_id])
+                    "Ending point {} is assumed".format(end_times[end_time_id])
                 )
 
         # complete unstarted repeats
@@ -387,7 +387,7 @@ def _parse_parts(document, part_dict):
                 part.add(o, start_times[start_time_id], None)
                 warnings.warn(
                     "Found repeat without start\n"
-                    "Starting point {} is assumend".format(start_times[start_time_id])
+                    "Starting point {} is assumed".format(start_times[start_time_id])
                 )
 
         # complete unstarted repeats in volta with start time of first repeat
@@ -397,7 +397,7 @@ def _parse_parts(document, part_dict):
             part.add(o, start_times[start_time_id], None)
             warnings.warn(
                 "Found repeat without start\n"
-                "Starting point {} is assumend".format(start_times[start_time_id])
+                "Starting point {} is assumed".format(start_times[start_time_id])
             )
 
         # remove unfinished elements from the timeline
