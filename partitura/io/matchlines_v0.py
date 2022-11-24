@@ -562,7 +562,7 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         return cls(**kwargs)
 
 
-class MatchInsertion(BaseInsertionLine):
+class MatchInsertionNote(BaseInsertionLine):
     def __init__(self, version: Version, note: MatchNote) -> None:
 
         super().__init__(
@@ -575,7 +575,7 @@ class MatchInsertion(BaseInsertionLine):
         cls,
         matchline: str,
         version: Version = LAST_VERSION,
-    ) -> MatchInsertion:
+    ) -> MatchInsertionNote:
 
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} >= Version(1, 0, 0)")
@@ -587,3 +587,21 @@ class MatchInsertion(BaseInsertionLine):
         )
 
         return cls(**kwargs)
+
+
+class MatchHammerBounceNote(MatchInsertionNote):
+
+    out_pattern = ""
+    pattern = re.compile("")
+
+    def __init__(self, version: Version, note: MatchNote) -> None:
+        super(version=version, note=note)
+
+
+class MatchHammerTrailingPlayedNote(MatchInsertionNote):
+
+    out_pattern = ""
+    pattern = re.compile("")
+
+    def __init__(self, version: Version, note: MatchNote) -> None:
+        super(version=version, note=note)

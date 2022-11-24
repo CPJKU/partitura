@@ -23,6 +23,7 @@ from partitura.io.matchlines_v0 import (
     MatchSnote as MatchSnoteV0,
     MatchNote as MatchNoteV0,
     MatchSnoteNote as MatchSnoteNoteV0,
+    MatchInsertionNote as MatchInsertionNoteV0,
 )
 
 from partitura.io.matchfile_base import MatchError, MatchLine
@@ -788,6 +789,75 @@ class TestMatchLinesV0(unittest.TestCase):
                 self.assertTrue(mo.matchline == ml)
 
                 self.assertTrue(mo.check_types())
+
+    def test_insertion_lines_v_0_3_0(self):
+
+        insertion_lines = [
+            "insertion-note(178,[e,n],4,42982,43198,43535,5).",
+            "insertion-note(411,[b,n],4,98186,98537,98898,1).",
+            "insertion-note(583,[e,n],4,128488,129055,129436,12).",
+            "insertion-note(599,[c,#],5,130298,130348,130348,62).",
+            "insertion-note(603,[c,#],5,130452,130536,130536,68).",
+            "insertion-note(604,[b,n],4,130541,130575,130575,63).",
+            "insertion-note(740,[e,n],4,148300,149097,149097,6).",
+            "insertion-note(756,[c,#],5,150152,150220,150220,72).",
+            "insertion-note(759,[c,#],5,150308,150380,150380,70).",
+            "insertion-note(761,[b,n],4,150388,150443,150443,71).",
+        ]
+
+        for ml in insertion_lines:
+
+            mo = MatchInsertionNoteV0.from_matchline(ml, version=Version(0, 3, 0))
+
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+    def test_insertion_lines_v_0_4_0(self):
+
+        insertion_lines = [
+            "insertion-note(171,[A,n],5,13216,13248,13248,63).",
+            "insertion-note(187,[C,#],5,14089,14132,14132,46).",
+            "insertion-note(276,[G,n],4,20555,21144,21144,51).",
+            "insertion-note(1038,[E,n],5,70496,70526,70526,55).",
+            "insertion-note(1091,[F,#],5,73018,73062,73062,40).",
+            "insertion-note(1247,[E,n],2,81885,81920,81920,57).",
+            "insertion-note(1252,[F,#],2,82061,82130,82130,17).",
+            "insertion-note(1316,[F,#],6,86084,86122,86122,38).",
+            "insertion-note(1546,[G,#],1,99495,99536,99536,16).",
+            "insertion-note(1557,[B,n],5,100300,100496,100496,80).",
+            "insertion-note(1572,[B,n],1,104377,104460,104460,61).",
+        ]
+
+        for ml in insertion_lines:
+
+            for minor_version in (4, 5):
+                mo = MatchInsertionNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+
+                basic_line_test(mo)
+                self.assertTrue(mo.matchline == ml)
+
+    def test_insertion_lines_v_0_1_0(self):
+        insertion_lines = [
+            "insertion-note(1,[c,n],6,39060.00,39890.00,38).",
+            "insertion-note(6,[c,n],5,48840.00,49870.00,26).",
+            "insertion-note(17,[c,n],5,72600.00,75380.00,26).",
+            "insertion-note(32,[b,b],5,93030.00,95050.00,32).",
+            "insertion-note(85,[b,b],3,162600.00,164950.00,27).",
+            "insertion-note(132,[c,n],5,226690.00,227220.00,34).",
+            "insertion-note(179,[b,b],4,280360.00,282310.00,35).",
+        ]
+
+        for ml in insertion_lines:
+
+            for minor_version in (1, 2):
+                mo = MatchInsertionNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+
+                basic_line_test(mo)
+                self.assertTrue(mo.matchline == ml)
 
 
 class TestMatchUtils(unittest.TestCase):
