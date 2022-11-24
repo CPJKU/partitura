@@ -649,7 +649,12 @@ class BaseInsertionLine(MatchLine):
         return kwargs
 
 
-snote_classes = (BaseSnoteLine, BaseSnoteNoteLine)
+## MatchFile
+
+# classes that contain score notes
+snote_classes = (BaseSnoteLine, BaseSnoteNoteLine, BaseDeletionLine)
+
+# classes that contain performed notes.
 note_classes = (BaseNoteLine, BaseSnoteNoteLine, BaseInsertionLine)
 
 
