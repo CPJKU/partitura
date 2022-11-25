@@ -28,6 +28,7 @@ from partitura.io.matchlines_v1 import (
 
 from partitura.io.matchlines_v0 import (
     MatchInfo as MatchInfoV0,
+    MatchMeta as MatchMetaV0,
     MatchSnote as MatchSnoteV0,
     MatchNote as MatchNoteV0,
     MatchSnoteNote as MatchSnoteNoteV0,
@@ -666,15 +667,6 @@ class TestMatchLinesV1(unittest.TestCase):
     def test_ornament_lines(self):
 
         ornament_lines = [
-            # "trill(1156-1)-note(566,[F,#],5,41161,41246,41246,71).",
-            # "trill(1158-1)-note(573,[F,#],5,41447,41558,41558,73).",
-            # "trill(1158-1)-note(574,[F,n],5,41536,41622,41622,63).",
-            # "trill(1168-1)-note(580,[F,n],5,41876,41976,41976,58).",
-            # "trill(1168-1)-note(581,[D,#],5,41933,42012,42012,63).",
-            # "trill(1250-1)-note(657,[F,#],5,47328,47444,47444,71).",
-            # "trill(1250-1)-note(658,[F,n],5,47384,47482,47482,63).",
-            # "trill(1252-1)-note(664,[F,n],5,47659,47798,47798,56).",
-            # "trill(1252-1)-note(666,[D,#],5,47743,47812,47812,59).",
             "ornament(1156-1,[trill])-note(566,78,41161,41246,71,0,0).",
             "ornament(1158-1,[trill])-note(573,78,41447,41558,73,0,0).",
             "ornament(1158-1,[trill])-note(574,77,41536,41622,63,0,0).",
@@ -826,6 +818,46 @@ class TestMatchLinesV0(unittest.TestCase):
                 value="'score_file.musicxml'",
                 value_type=str,
                 format_fun=lambda x: str(x),
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_meta_lines(self):
+
+        meta_lines = [
+            "meta(timeSignature,3/8,1,-1.5).",
+            "meta(keySignature,F Maj/D min,1,-1.5).",
+            "meta(timeSignature,2/2,1,-1.0).",
+            "meta(keySignature,E Maj/C# min,1,-1.0).",
+            "meta(keySignature,G Maj/E min,49,92.0).",
+            "meta(keySignature,E Maj/C# min,85,164.0).",
+        ]
+
+        for ml in meta_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+            mo = MatchMetaV0.from_matchline(ml, version=Version(0, 3, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchMetaV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        try:
+            mo = MatchMetaV0(
+                version=Version(1, 0, 0),
+                attribute="keySignature",
+                value="E",
+                value_type=str,
+                format_fun=lambda x: str(x),
+                measure=1,
+                time_in_beats=0.0,
             )
             self.assertTrue(False)  # pragma: no cover
         except ValueError:

@@ -268,7 +268,7 @@ class MatchScoreProp(MatchLine):
         matchline: str,
         pos: int = 0,
         version: Version = LATEST_VERSION,
-    ) -> MatchInfo:
+    ) -> MatchScoreProp:
         """
         Create a new MatchScoreProp object from a string
 

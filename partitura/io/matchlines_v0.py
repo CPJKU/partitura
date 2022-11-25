@@ -194,6 +194,164 @@ class MatchInfo(BaseInfoLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
 
+default_meta_attributes = {
+    "timeSignature": (
+        interpret_as_fractional,
+        format_fractional,
+        FractionalSymbolicDuration,
+    ),
+    "keySignature": (interpret_as_string, format_string, str),
+}
+META_LINE = {
+    Version(0, 3, 0): default_meta_attributes,
+    Version(0, 4, 0): default_meta_attributes,
+    Version(0, 5, 0): default_meta_attributes,
+}
+
+
+class MatchMeta(MatchLine):
+
+    field_names = (
+        "Attribute",
+        "Value",
+        "Measure",
+        "TimeInBeats",
+    )
+
+    out_pattern = "meta({Attribute},{Value},{Measure},{TimeInBeats})."
+
+    pattern = re.compile(
+        r"meta\("
+        r"(?P<Attribute>[^,]+),"
+        r"(?P<Value>[^,]+),"
+        r"(?P<Measure>[^,]+),"
+        r"(?P<TimeInBeats>[^,]+)\)\."
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        attribute: str,
+        value: Any,
+        value_type: type,
+        format_fun: Callable[Any, str],
+        measure: int,
+        time_in_beats: float,
+    ) -> None:
+
+        if version >= Version(1, 0, 0):
+            raise ValueError("The version must be < 1.0.0")
+
+        super().__init__(version)
+
+        self.field_types = (
+            str,
+            value_type,
+            int,
+            float,
+        )
+
+        self.format_fun = dict(
+            Attribute=format_string,
+            Value=format_fun,
+            Measure=format_int,
+            TimeInBeats=format_float_unconstrained,
+        )
+
+        # set class attributes
+        self.Attribute = attribute
+        self.Value = value
+        self.Measure = measure
+        self.TimeInBeats = time_in_beats
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        pos: int = 0,
+        version: Version = LAST_VERSION,
+    ) -> MatchMeta:
+        """
+        Create a new MatchMeta object from a string
+
+        Parameters
+        ----------
+        matchline : str
+            String with a matchline
+        pos : int (optional)
+            Position of the matchline in the input string. By default it is
+            assumed that the matchline starts at the beginning of the input
+            string.
+        version : Version (optional)
+            Version of the matchline. By default it is the latest version.
+
+        Returns
+        -------
+        a MatchScoreProp object
+        """
+
+        if version not in META_LINE:
+            raise ValueError(f"{version} is not specified for this class.")
+
+        match_pattern = cls.pattern.search(matchline, pos=pos)
+
+        class_dict = META_LINE[version]
+
+        if match_pattern is not None:
+
+            (
+                attribute,
+                value_str,
+                measure_str,
+                time_in_beats_str,
+            ) = match_pattern.groups()
+
+            if attribute not in class_dict:
+                raise ValueError(f"Attribute {attribute} is not specified in {version}")
+
+            interpret_fun, format_fun, value_type = class_dict[attribute]
+
+            value = interpret_fun(value_str)
+
+            measure = interpret_as_int(measure_str)
+
+            time_in_beats = interpret_as_float(time_in_beats_str)
+
+            return cls(
+                version=version,
+                attribute=attribute,
+                value=value,
+                value_type=value_type,
+                format_fun=format_fun,
+                measure=measure,
+                time_in_beats=time_in_beats,
+            )
+
+        else:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
+    # out_pattern = "meta({Attribute},{Value},{Bar},{TimeInBeats})."
+    # field_names = ["Attribute", "Value", "Bar", "TimeInBeats"]
+    # pattern = r"meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
+    # re_obj = re.compile(pattern)
+    # field_interpreter = interpret_field
+
+    # def __init__(self, Attribute, Value, Bar, TimeInBeats):
+    #     self.Attribute = Attribute
+    #     self.Value = Value
+    #     self.Bar = Bar
+    #     self.TimeInBeats = TimeInBeats
+
+    # @property
+    # def matchline(self):
+    #     return self.out_pattern.format(
+    #         Attribute=self.Attribute,
+    #         Value=self.Value,
+    #         Bar=self.Bar,
+    #         TimeInBeats=self.TimeInBeats,
+    #     )
+
+
 SNOTE_LINE_Vgeq0_4_0 = dict(
     Anchor=format_string,
     NoteName=lambda x: str(x).upper(),
