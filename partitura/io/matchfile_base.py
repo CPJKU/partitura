@@ -793,6 +793,62 @@ class BaseInsertionLine(MatchLine):
         return kwargs
 
 
+class BaseOrnamentLine(MatchLine):
+
+    out_pattern = "ornament({Anchor})-{NoteLine}"
+    ornament_pattern: re.Pattern = re.compile(r"ornament\((?P<Anchor>[^\)]*)\)-")
+
+    def __init__(self, version: Version, anchor: str, note: BaseNoteLine) -> None:
+
+        super().__init__(version)
+
+        self.note = note
+
+        self.field_names = self.note.field_names
+
+        self.field_types = self.note.field_types
+
+        self.pattern = (self.ornament_pattern, self.note.pattern)
+
+        self.format_fun = (dict(Anchor=format_string), self.note.format_fun)
+
+        for fn in self.field_names[1:]:
+            setattr(self, fn, getattr(self.note, fn))
+
+        self.Anchor = anchor
+
+    @property
+    def matchline(self) -> str:
+        return self.out_pattern.format(
+            Anchor=self.Anchor,
+            NoteLine=self.note.matchline,
+        )
+
+    @classmethod
+    def prepare_kwargs_from_matchline(
+        cls,
+        matchline: str,
+        note_class: BaseNoteLine,
+        version: Version,
+    ) -> Dict:
+
+        anchor_pattern = cls.ornament_pattern.search(matchline)
+
+        if anchor_pattern is None:
+            raise MatchError("")
+
+        anchor = interpret_as_string(anchor_pattern.group("Anchor"))
+        note = note_class.from_matchline(matchline, version=version)
+
+        kwargs = dict(
+            version=version,
+            anchor=anchor,
+            note=note,
+        )
+
+        return kwargs
+
+
 class BasePedalLine(MatchLine):
     """
     Class for representing a sustain pedal line

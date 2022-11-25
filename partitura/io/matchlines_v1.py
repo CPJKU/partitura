@@ -27,6 +27,7 @@ from partitura.io.matchfile_base import (
     BaseSnoteNoteLine,
     BaseDeletionLine,
     BaseInsertionLine,
+    BaseOrnamentLine,
     BaseSustainPedalLine,
     BaseSoftPedalLine,
 )
@@ -36,6 +37,7 @@ from partitura.io.matchfile_utils import (
     format_version,
     interpret_as_string,
     format_string,
+    format_accidental_old,
     interpret_as_float,
     format_float,
     interpret_as_int,
@@ -576,7 +578,7 @@ class MatchSnote(BaseSnoteLine):
     format_fun = dict(
         Anchor=format_string,
         NoteName=lambda x: str(x.upper()),
-        Modifier=lambda x: "n" if x == 0 else ALTER_SIGNS[x],
+        Modifier=format_accidental_old,
         Octave=format_int,
         Measure=format_int,
         Beat=format_int,
@@ -866,6 +868,64 @@ class MatchInsertionNote(BaseInsertionLine):
         matchline: str,
         version: Version = LATEST_VERSION,
     ) -> MatchInsertionNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            note_class=MatchNote,
+            version=version,
+        )
+
+        return cls(**kwargs)
+
+
+class MatchOrnamentNote(BaseOrnamentLine):
+    def __init__(self, version: Version, anchor: str, note: BaseNoteLine) -> None:
+        super().__init__(
+            version=version,
+            anchor=anchor,
+            note=note,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LATEST_VERSION,
+    ) -> MatchOrnamentNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            note_class=MatchNote,
+            version=version,
+        )
+
+        return cls(**kwargs)
+
+
+class MatchTrillNote(BaseOrnamentLine):
+
+    out_pattern = "trill({Anchor})-{NoteLine}"
+    ornament_pattern: re.Pattern = re.compile(r"trill\((?P<Anchor>[^\)]*)\)-")
+
+    def __init__(self, version: Version, anchor: str, note: BaseNoteLine) -> None:
+        super().__init__(
+            version=version,
+            anchor=anchor,
+            note=note,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LATEST_VERSION,
+    ) -> MatchTrillNote:
 
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")

@@ -348,6 +348,8 @@ class TestMatchLinesV1(unittest.TestCase):
 
             self.assertTrue(mo.matchline == ml)
 
+            self.assertTrue(isinstance(mo.Onset, float))
+
         # An error is raised if parsing the wrong version
         try:
             mo = MatchPtimeV1.from_matchline(ml, version=Version(0, 5, 0))
@@ -394,7 +396,13 @@ class TestMatchLinesV1(unittest.TestCase):
             "snote(n3,[G,#],3,1:1,0,1/16,0.0000,0.2500,[v3])",
             "snote(n1,[E,n],4,1:1,0,1/4,0.0000,1.0000,[arp])",
             "snote(n143,[B,b],5,7:2,2/16,1/8,25.5000,26.0000,[s,stacc])",
+            "snote(n781,[R,-],-,36:3,0,1/4,107.0000,108.0000,[fermata])",
         ]
+
+        # mo = MatchSnoteV1.from_matchline(snote_lines[-1])
+        # import pdb
+
+        # pdb.set_trace()
 
         output_strings = [
             (
@@ -453,6 +461,20 @@ class TestMatchLinesV1(unittest.TestCase):
                 " OffsetInBeats: 26.0\n"
                 " ScoreAttributesList: ['s', 'stacc']"
             ),
+            (
+                "MatchSnote\n"
+                " Anchor: n781\n"
+                " NoteName: R\n"
+                " Modifier: None\n"
+                " Octave: None\n"
+                " Measure: 36\n"
+                " Beat: 3\n"
+                " Offset: 0\n"
+                " Duration: 1/4\n"
+                " OnsetInBeats: 107.0\n"
+                " OffsetInBeats: 108.0\n"
+                " ScoreAttributesList: ['fermata']"
+            ),
         ]
 
         for ml, strl in zip(snote_lines, output_strings):
@@ -486,15 +508,10 @@ class TestMatchLinesV1(unittest.TestCase):
                 == mo.Duration
             )
 
-            self.assertTrue(mo.MidiPitch < 128)
-
-        try:
-            # This is not a valid line and should result in a MatchError
-            wrong_line = "wrong_line"
-            mo = MatchSnoteV1.from_matchline(wrong_line)
-            self.assertTrue(False)  # pragma: no cover
-        except MatchError:
-            self.assertTrue(True)
+            self.assertTrue(isinstance(mo.MidiPitch, (int, type(None))))
+            self.assertTrue(
+                mo.MidiPitch < 128 if isinstance(mo.MidiPitch, int) else True
+            )
 
         # An error is raised if parsing the wrong version
         try:
