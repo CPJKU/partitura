@@ -22,6 +22,7 @@ from partitura.io.matchfile_base import (
     BaseInsertionLine,
     BaseSustainPedalLine,
     BaseSoftPedalLine,
+    BaseOrnamentLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -645,6 +646,46 @@ class MatchTrailingPlayedNote(MatchInsertionNote):
     def __init__(self, version: Version, note: MatchNote) -> None:
         super().__init__(version=version, note=note)
         self.pattern = re.compile(f"trailing_played_note-{self.note.pattern.pattern}")
+
+
+class MatchTrillNote(BaseOrnamentLine):
+
+    out_pattern = "trill({Anchor})-{NoteLine}"
+    ornament_pattern: re.Pattern = re.compile(r"trill\((?P<Anchor>[^\)]*)\)-")
+
+    def __init__(
+        self,
+        version: Version,
+        anchor: str,
+        note: BaseNoteLine,
+    ) -> None:
+        super().__init__(
+            version=version,
+            anchor=anchor,
+            note=note,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LAST_VERSION,
+    ) -> MatchTrillNote:
+
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} >= Version(1, 0, 0)")
+
+        anchor_pattern = cls.ornament_pattern.search(matchline)
+
+        if anchor_pattern is None:
+            raise MatchError("")
+        note = MatchNote.from_matchline(matchline, version=version)
+
+        return cls(
+            version=version,
+            note=note,
+            anchor=interpret_as_string(anchor_pattern.group("Anchor")),
+        )
 
 
 class MatchSustainPedal(BaseSustainPedalLine):

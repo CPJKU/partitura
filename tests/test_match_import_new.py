@@ -38,6 +38,7 @@ from partitura.io.matchlines_v0 import (
     MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
     MatchSustainPedal as MatchSustainPedalV0,
     MatchSoftPedal as MatchSoftPedalV0,
+    MatchTrillNote as MatchTrillNoteV0,
 )
 
 from partitura.io.matchfile_base import MatchError, MatchLine
@@ -682,7 +683,7 @@ class TestMatchLinesV1(unittest.TestCase):
 
         for ml in ornament_lines:
 
-            mo = MatchOrnamentNoteV1.from_matchline(ml,version=Version(1, 0, 0))
+            mo = MatchOrnamentNoteV1.from_matchline(ml, version=Version(1, 0, 0))
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
@@ -692,7 +693,6 @@ class TestMatchLinesV1(unittest.TestCase):
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
-
 
     def test_sustain_lines(self):
 
@@ -1313,6 +1313,33 @@ class TestMatchLinesV0(unittest.TestCase):
 
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
+
+    def test_trill_lines(self):
+
+        trill_lines = [
+            "trill(1156-1)-note(566,[F,#],5,41161,41246,41246,71).",
+            "trill(1158-1)-note(573,[F,#],5,41447,41558,41558,73).",
+            "trill(1158-1)-note(574,[F,n],5,41536,41622,41622,63).",
+            "trill(1168-1)-note(580,[F,n],5,41876,41976,41976,58).",
+            "trill(1168-1)-note(581,[D,#],5,41933,42012,42012,63).",
+            "trill(1250-1)-note(657,[F,#],5,47328,47444,47444,71).",
+            "trill(1250-1)-note(658,[F,n],5,47384,47482,47482,63).",
+            "trill(1252-1)-note(664,[F,n],5,47659,47798,47798,56).",
+            "trill(1252-1)-note(666,[D,#],5,47743,47812,47812,59).",
+        ]
+
+        for ml in trill_lines:
+
+            mo = MatchTrillNoteV0.from_matchline(ml, version=Version(0, 5, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchTrillNoteV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
     def test_sustain_lines(self):
 
