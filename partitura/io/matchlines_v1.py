@@ -9,7 +9,7 @@ import re
 
 import numpy as np
 
-from typing import Any, Callable, Tuple, Union, List
+from typing import Any, Callable, Tuple, Union, List, Optional
 
 from partitura.utils.music import (
     ALTER_SIGNS,
@@ -50,7 +50,7 @@ from partitura.io.matchfile_utils import (
     interpret_as_list,
     interpret_as_list_int,
     format_list,
-    to_camel_case,
+    to_snake_case,
     get_kwargs_from_matchline,
 )
 
@@ -190,7 +190,7 @@ SCOREPROP_LINE = {
             FractionalSymbolicDuration,
         ),
         "keySignature": (interpret_as_string, format_string, str),
-        "beatSubDivision": (interpret_as_int, format_int, int),
+        "beatSubDivision": (interpret_as_list_int, format_list, list),
         "directions": (interpret_as_list, format_list, list),
     }
 }
@@ -338,6 +338,58 @@ class MatchScoreProp(MatchLine):
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
 
+    @classmethod
+    def from_instance(
+        cls,
+        instance: MatchLine,
+        version: Version = LATEST_VERSION,
+        measure: Optional[int] = None,
+        beat: Optional[int] = None,
+        offset: Optional[FractionalSymbolicDuration] = None,
+        time_in_beats: Optional[float] = None,
+    ) -> MatchScoreProp:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, MatchLine):
+            raise ValueError("`instance` needs to be a subclass of `MatchLine`")
+
+        # ensure that at least the basic attributes are in the field names of the match line
+        if not (
+            "Attribute" in instance.field_names
+            and "Value" in instance.field_names
+        ):
+            raise ValueError(
+                "`instance` must contain at least 'Attribute', 'Value' and 'TimeInBeats'"
+            )
+        
+        class_dict = SCOREPROP_LINE[version]
+
+        if not instance.Attribute in class_dict:
+            raise ValueError(f"Attribute {instance.Attribute} is not specified in {version}")
+        # kwargs = dict(
+        #     [(to_snake_case(fn), getattr(instance, fn, None)) for fn in cls.field_names]
+        # )
+
+        interpret_fun, format_fun, value_type = class_dict[instance.Attribute]
+
+        return cls(
+            version=version,
+            attribute=instance.Attribute,
+            value=instance.Value,
+            value_type=value_type,
+            format_fun=format_fun,
+            measure=getattr(instance, "Measure", measure if measure is not None else 1),
+            beat=getattr(instance, "Beat", beat if beat is not None else 1),
+            offset=getattr(
+                instance,
+                "Offset",
+                offset if offset is not None else FractionalSymbolicDuration(0),
+            ),
+            time_in_beats=getattr(instance, "TimeInBeats", time_in_beats if time_in_beats is not None else 0.0),
+        )
+
 
 SECTION_LINE = {
     Version(1, 0, 0): {
@@ -438,7 +490,7 @@ class MatchSection(MatchLine):
 
             kwargs = dict(
                 [
-                    (to_camel_case(fn), class_dict[fn][0](match_pattern.group(fn)))
+                    (to_snake_case(fn), class_dict[fn][0](match_pattern.group(fn)))
                     for fn in cls.field_names
                 ]
             )
@@ -662,7 +714,9 @@ class MatchSnote(BaseSnoteLine):
 
     @classmethod
     def from_instance(
-        cls, instance: BaseSnoteLine, version: Version = LATEST_VERSION
+        cls,
+        instance: BaseSnoteLine,
+        version: Version = LATEST_VERSION,
     ) -> MatchSnote:
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
@@ -716,7 +770,6 @@ class MatchNote(BaseNoteLine):
     )
 
     pattern = re.compile(
-        # r"note\(([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
         r"note\((?P<Id>[^,]+),"
         r"(?P<MidiPitch>[^,]+),"
         r"(?P<Onset>[^,]+),"
@@ -879,6 +932,23 @@ class MatchSnoteNote(BaseSnoteNoteLine):
 
         return cls(**kwargs)
 
+    @classmethod
+    def from_instance(
+        cls, instance: BaseSnoteNoteLine, version: Version
+    ) -> MatchSnoteNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseSnoteNoteLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseSnoteNoteLine`")
+
+        return cls(
+            version=version,
+            snote=MatchSnote.from_instance(instance.snote, version=version),
+            note=MatchNote.from_instance(instance.note, version=version),
+        )
+
 
 class MatchSnoteDeletion(BaseDeletionLine):
     def __init__(self, version: Version, snote: MatchSnote) -> None:
@@ -906,6 +976,22 @@ class MatchSnoteDeletion(BaseDeletionLine):
 
         return cls(**kwargs)
 
+    @classmethod
+    def from_instance(
+        cls, instance: BaseDeletionLine, version: Version
+    ) -> MatchSnoteNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseDeletionLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseDeletionLine`")
+
+        return cls(
+            version=version,
+            snote=MatchSnote.from_instance(instance.snote, version=version),
+        )
+
 
 class MatchInsertionNote(BaseInsertionLine):
     def __init__(self, version: Version, note: MatchNote) -> None:
@@ -932,6 +1018,22 @@ class MatchInsertionNote(BaseInsertionLine):
         )
 
         return cls(**kwargs)
+
+    @classmethod
+    def from_instance(
+        cls, instance: BaseInsertionLine, version: Version
+    ) -> MatchInsertionNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseInsertionLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseInsertionLine`")
+
+        return cls(
+            version=version,
+            note=MatchNote.from_instance(instance.note, version=version),
+        )
 
 
 class MatchOrnamentNote(BaseOrnamentLine):
@@ -985,7 +1087,7 @@ class MatchOrnamentNote(BaseOrnamentLine):
         anchor_pattern = cls.ornament_pattern.search(matchline)
 
         if anchor_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
         note = MatchNote.from_matchline(matchline, version=version)
 
         return cls(
@@ -993,6 +1095,26 @@ class MatchOrnamentNote(BaseOrnamentLine):
             note=note,
             anchor=interpret_as_string(anchor_pattern.group("Anchor")),
             ornament_type=interpret_as_list(anchor_pattern.group("OrnamentType")),
+        )
+
+    @classmethod
+    def from_instance(
+        cls, instance: BaseOrnamentLine, version: Version
+    ) -> MatchOrnamentNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseOrnamentLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseOrnamentLine`")
+
+        return cls(
+            version=version,
+            anchor=instance.Anchor,
+            note=MatchNote.from_instance(instance.note, version=version),
+            ornament_type=["trill"]
+            if instance.version < Version(1, 0, 0)
+            else instance.OrnamentType,
         )
 
 
@@ -1032,6 +1154,25 @@ class MatchSustainPedal(BaseSustainPedalLine):
 
         return cls(**kwargs)
 
+    @classmethod
+    def from_instance(
+        cls, instance: BaseSustainPedalLine, version: Version
+    ) -> MatchOrnamentNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseSustainPedalLine):
+            raise ValueError(
+                "`instance` needs to be a subclass of `BaseSustainPedalLine`"
+            )
+
+        return cls(
+            version=version,
+            time=int(instance.Time),
+            value=int(instance.Value),
+        )
+
 
 class MatchSoftPedal(BaseSoftPedalLine):
     def __init__(
@@ -1068,6 +1209,25 @@ class MatchSoftPedal(BaseSoftPedalLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
         return cls(**kwargs)
+
+    @classmethod
+    def from_instance(
+        cls,
+        instance: BaseSoftPedalLine,
+        version: Version,
+    ) -> MatchOrnamentNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseSoftPedalLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseSoftPedalLine`")
+
+        return cls(
+            version=version,
+            time=int(instance.Time),
+            value=int(instance.Value),
+        )
 
 
 FROM_MATCHLINE_METHODS = [

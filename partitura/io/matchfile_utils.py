@@ -29,6 +29,16 @@ version_pattern = re.compile(
 )
 attribute_list_pattern = re.compile(r"^\[(?P<attributes>.*)\]")
 
+key_signature_pattern = re.compile(
+            (
+                "(?P<step1>[A-G])(?P<alter1>[#b]*) "
+                "(?P<mode1>[a-zA-z]+)(?P<slash>/*)"
+                "(?P<step2>[A-G]*)(?P<alter2>[#b]*)"
+                "(?P<space2> *)(?P<mode2>[a-zA-z]*)"
+            )
+        )
+
+
 # For matchfiles before 1.0.0.
 old_version_pattern = re.compile(r"^(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)")
 
@@ -584,19 +594,53 @@ def format_accidental_old(value: Optional[int]) -> str:
         return format_accidental(value)
 
 
+## Methods for parsing special attributes
+
+def parse_key_signature(value: Union[str, List[str]]) -> List[str]:
+
+    if isinstance(value, list):
+
+        root, mode = value
+
+    elif isinstance(value, str):
+
+        ks_info = key_signature_pattern.search(value)
+
+        if ks_info is not None:
+
+            pass
+
+
+
+
 ## Miscellaneous utils
+
+
+def to_snake_case(field_name: str) -> str:
+    """
+    Convert name in camelCase to snake_case
+    """
+    snake_case = "".join(
+        [f"_{fn.lower()}" if fn.isupper() else fn for fn in field_name]
+    )
+
+    if snake_case.startswith("_"):
+        snake_case = snake_case[1:]
+
+    return snake_case
 
 
 def to_camel_case(field_name: str) -> str:
     """
-    To camel case
+    Convert name in snake_case to camelCase
     """
-    camel_case = "".join(
-        [f"_{fn.lower()}" if fn.isupper() else fn for fn in field_name]
-    )
+    parts = field_name.split("_")
 
-    if camel_case.startswith("_"):
-        camel_case = camel_case[1:]
+    camel_case = f"{parts[0].lower()}"
+
+    if len(parts) > 1:
+
+        camel_case += "".join([p.title() for p in parts[1:]])
 
     return camel_case
 
@@ -629,7 +673,7 @@ def get_kwargs_from_matchline(
 
         kwargs = dict(
             [
-                (to_camel_case(fn), class_dict[fn][0](match_pattern.group(fn)))
+                (to_snake_case(fn), class_dict[fn][0](match_pattern.group(fn)))
                 for fn in field_names
             ]
         )

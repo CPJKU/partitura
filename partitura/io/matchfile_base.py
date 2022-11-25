@@ -37,6 +37,11 @@ from partitura.io.matchfile_utils import (
     format_list,
 )
 
+from partitura.utils.misc import (
+    PathLike,
+    deprecated_alias,
+)
+
 
 class MatchError(Exception):
     """
@@ -797,8 +802,8 @@ class BaseOrnamentLine(MatchLine):
 
     # These field names and types need to be expanded
     # with the attributes of the note
-    field_names = ("Anchor", )
-    field_types = (str, )
+    field_names = ("Anchor",)
+    field_types = (str,)
     format_fun = dict(Anchor=format_string)
     out_pattern = "ornament({Anchor})-{NoteLine}"
     ornament_pattern: re.Pattern = re.compile(r"ornament\((?P<Anchor>[^\)]*)\)-")
@@ -936,26 +941,6 @@ class BaseSoftPedalLine(BasePedalLine):
         super().__init__(version=version, time=time, value=value)
 
 
-# class MatchSoftPedal(MatchLine):
-#     """
-#     Class for representing a soft pedal line
-#     """
-
-#     out_pattern = "soft({Time},{Value})."
-#     field_names = ["Time", "Value"]
-#     pattern = r"soft\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
-#     re_obj = re.compile(pattern)
-
-#     def __init__(self, Time, Value):
-#         self.Time = Time
-#         self.Value = Value
-
-#     @property
-#     def matchline(self):
-
-#         return self.out_pattern.format(Time=self.Time, Value=self.Value)
-
-
 ## MatchFile
 
 # classes that contain score notes
@@ -984,7 +969,7 @@ class MatchFile(object):
         self.lines = np.array(lines)
 
     @property
-    def note_pairs(self):
+    def note_pairs(self) -> List[Tuple[BaseSnoteLine, BaseNoteLine]]:
         """
         Return all(snote, note) tuples
 
@@ -994,19 +979,18 @@ class MatchFile(object):
         ]
 
     @property
-    def notes(self):
+    def notes(self) -> List[BaseNoteLine]:
         """
         Return all performed notes (as MatchNote objects)
         """
         return [x.note for x in self.lines if isinstance(x, note_classes)]
 
-    def iter_notes(self):
+    def iter_notes(self) -> BaseNoteLine:
         """
         Iterate over all performed notes (as MatchNote objects)
         """
         for x in self.lines:
             if isinstance(x, note_classes):
-                # if hasattr(x, "note"):
                 yield x.note
 
     @property
@@ -1026,26 +1010,12 @@ class MatchFile(object):
                 yield x.snote
 
     @property
-    def sustain_pedal(self) -> List[BasePedalLine]:
-        return [
-            line
-            for line in self.lines
-            if (
-                isinstance(line, BasePedalLine)
-                and (getattr(line, "pedal_type", None) == "sustain")
-            )
-        ]
+    def sustain_pedal(self) -> List[BaseSustainPedalLine]:
+        return [line for line in self.lines if isinstance(line, BaseSustainPedalLine)]
 
     @property
     def soft_pedal(self) -> List[BasePedalLine]:
-        return [
-            line
-            for line in self.lines
-            if (
-                isinstance(line, BasePedalLine)
-                and (getattr(line, "pedal_type", None) == "soft")
-            )
-        ]
+        return [line for line in self.lines if isinstance(line, BaseSoftPedalLine)]
 
     @property
     def insertions(self) -> List[BaseNoteLine]:
@@ -1056,14 +1026,16 @@ class MatchFile(object):
         return [x.snote for x in self.lines if isinstance(x, BaseDeletionLine)]
 
     @property
-    def _info(self):
+    def _info(self) -> List[BaseInfoLine]:
         """
         Return all InfoLine objects
 
         """
         return [i for i in self.lines if isinstance(i, BaseInfoLine)]
 
-    def info(self, attribute=None):
+    def info(
+        self, attribute: Optional[str] = None
+    ) -> Union[BaseInfoLine, List[BaseInfoLine]]:
         """
         Return the value of the MatchInfo object corresponding to
         attribute, or None if there is no such object
@@ -1081,12 +1053,12 @@ class MatchFile(object):
             return self._info
 
     @property
-    def first_onset(self):
+    def first_onset(self) -> float:
         return min([n.OnsetInBeats for n in self.snotes])
 
     @property
-    def first_bar(self):
-        return min([n.Bar for n in self.snotes])
+    def first_measure(self) -> float:
+        return min([n.Measure for n in self.snotes])
 
     @property
     def time_signatures(self):
@@ -1100,7 +1072,7 @@ class MatchFile(object):
         _timeSigs = []
         if len(m) > 0:
 
-            _timeSigs.append((self.first_onset, self.first_bar, m[0]))
+            _timeSigs.append((self.first_onset, self.first_measure, m[0]))
         for line in self.time_sig_lines:
 
             _timeSigs.append(
@@ -1124,27 +1096,13 @@ class MatchFile(object):
 
         return timeSigs
 
-    def _time_sig_lines(self):
-        return [
-            i
-            for i in self.lines
-            if isinstance(i, MatchMeta)
-            and hasattr(i, "Attribute")
-            and i.Attribute == "timeSignature"
-        ]
-
     @property
     def time_sig_lines(self):
-        ml = self._time_sig_lines()
-        if len(ml) == 0:
-            ts = self.info("timeSignature")
-            ml = [
-                parse_matchline(
-                    "meta(timeSignature,{0},{1},{2}).".format(
-                        ts, self.first_bar, self.first_onset
-                    )
-                )
-            ]
+        ml = [
+            line
+            for line in self.lines
+            if getattr(line, "Attribute", None) == "timeSignature"
+        ]
         return ml
 
     @property
@@ -1163,16 +1121,20 @@ class MatchFile(object):
 
         _keysigs = []
         for ksl in self.key_sig_lines:
-            if isinstance(ksl, MatchInfo):
-                # remove brackets and only take
-                # the first key signature
-                ks = ksl.Value.replace("[", "").replace("]", "").split(",")[0]
-                t = self.first_onset
-                b = self.first_bar
-            elif isinstance(ksl, MatchMeta):
-                ks = ksl.Value
-                t = ksl.TimeInBeats
-                b = ksl.Bar
+            # if isinstance(ksl, BaseInfoLine):
+            # remove brackets and only take
+            # the first key signature
+
+            ks = ksl.Value
+            t = getattr(ksl, "TimeInBeats", self.first_onset)
+            b = getattr(ksl, "Measure", self.first_measure)
+            #     ks = ksl.Value.replace("[", "").replace("]", "").split(",")[0]
+            #     t = self.first_onset
+            #     b = self.first_measure
+            # elif :
+            #     ks = ksl.Value
+            #     t = ksl.TimeInBeats
+            #     b = ksl.Bar
 
             ks_info = kspat.search(ks)
 
@@ -1221,26 +1183,15 @@ class MatchFile(object):
     @property
     def key_sig_lines(self):
 
-        ks_info = [line for line in self.info() if line.Attribute == "keySignature"]
-        ml = ks_info + [
-            i
-            for i in self.lines
-            # if isinstance(i, MatchMeta)
-            # and hasattr(i, "Attribute")
-            if hasattr(i, "Attribute")
-            and i.Attribute == "keySignature"
+        ml = [
+            line
+            for line in self.lines
+            if getattr(line, "Attribute", None) == "keySignature"
         ]
 
         return ml
 
-    def write(self, filename):
+    def write(self, filename: PathLike) -> None:
         with open(filename, "w") as f:
             for line in self.lines:
                 f.write(line.matchline + "\n")
-
-    @classmethod
-    def from_lines(cls, lines, name=""):
-        matchfile = cls(None)
-        matchfile.lines = np.array(lines)
-        matchfile.name = name
-        return matchfile

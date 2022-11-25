@@ -226,7 +226,7 @@ class TestMatchLinesV1(unittest.TestCase):
 
         directions_line = "scoreprop(directions,[Allegro],0:2,1/8,-0.5000)."
 
-        beatsubdivision_line = "scoreprop(beatSubDivision,2,0:2,1/8,-0.5000)."
+        beatsubdivision_line = "scoreprop(beatSubDivision,[2],0:2,1/8,-0.5000)."
 
         matchlines = [
             keysig_line,
@@ -275,6 +275,24 @@ class TestMatchLinesV1(unittest.TestCase):
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
+
+    def test_score_prop_lines_from_info_v0(self):
+
+        info_lines = [
+            "info(keySignature,[en,major]).",
+            "info(timeSignature,2/4).",
+            "info(beatSubdivision,[2,4]).",
+            # "info(tempoIndication,[lento,ma,non,troppo]).",
+            # "info(approximateTempo,34.0).",
+        ]
+
+        for i, ml in enumerate(info_lines):
+            mo_v0 = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
+
+            mo_v1 = MatchScorePropV1.from_instance(mo_v0, version=Version(1, 0, 0))
+
+            import pdb
+            pdb.set_trace()
 
     def test_section_lines(self):
 
@@ -549,6 +567,54 @@ class TestMatchLinesV1(unittest.TestCase):
                 offset_in_beats=1,
                 score_attributes_list=[],
             )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_snote_from_v0(self):
+
+        snote_lines = [
+            "snote(n1,[c,n],6,0:3,0/1,1/8,-4.00000,-3.00000,[1])",
+            "snote(n726,[f,n],3,45:1,0/1,0/8,264.00000,264.00000,[5,arp])",
+            "snote(n714,[a,n],5,44:6,0/1,1/8,263.00000,264.00000,[1])",
+            "snote(n1,[b,n],4,0:2,1/8,1/8,-0.50000,0.00000,[1])",
+            "snote(n445,[e,n],4,20:2,1/16,1/16,39.25000,39.50000,[4])",
+        ]
+
+        for ml in snote_lines:
+
+            for minor_version in (1, 2):
+                # assert that the information from the matchline
+                # is parsed correctly and results in an identical line
+                # to the input match line
+                mo_v0 = MatchSnoteV0.from_matchline(
+                    ml,
+                    version=Version(0, minor_version, 0),
+                )
+
+                mo_v1 = MatchSnoteV1.from_instance(mo_v0, version=Version(1, 0, 0))
+                basic_line_test(mo_v1)
+                self.assertTrue(isinstance(mo_v1, MatchSnoteV1))
+                self.assertTrue(mo_v0.version != mo_v1.version)
+
+                for fn in mo_v1.field_names:
+
+                    if fn in mo_v0.field_names:
+                        self.assertTrue(getattr(mo_v0, fn) == getattr(mo_v1, fn))
+
+        try:
+            mo_v1 = MatchSnoteV1.from_instance(mo_v0, version=Version(0, 5, 0))
+
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        try:
+            wrong_mo = MatchSnoteNoteV1.from_matchline(
+                "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])-note(0,47,39940,42140,44,0,0)."
+            )
+            mo_v1 = MatchSnoteV1.from_instance(wrong_mo)
+
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)

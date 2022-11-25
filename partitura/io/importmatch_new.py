@@ -10,20 +10,62 @@ from typing import Union, Tuple, Optional, Callable, List
 
 import numpy as np
 
+from partitura.score import Part, Score, ScoreLike
+from partitura.performance import PerformedPart, Performance, PerformanceLike
+
 from partitura.io.matchlines_v0 import (
     FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV0,
     MatchInfo as MatchInfoV0,
+    MatchMeta as MatchMetaV0,
+    MatchSnote as MatchSnoteV0,
+    MatchNote as MatchNoteV0,
+    MatchSnoteNote as MatchSnoteNoteV0,
+    MatchSnoteDeletion as MatchSnoteDeletionV0,
+    MatchSnoteTrailingScore as MatchSnoteTrailingScoreV0,
+    MatchInsertionNote as MatchInsertionNoteV0,
+    MatchHammerBounceNote as MatchHammerBounceNoteV0,
+    MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
+    MatchSustainPedal as MatchSustainPedalV0,
+    MatchSoftPedal as MatchSoftPedalV0,
+    MatchTrillNote as MatchTrillNoteV0,
 )
+
 from partitura.io.matchlines_v1 import (
     FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV1,
     MatchInfo as MatchInfoV1,
+    MatchScoreProp as MatchScorePropV1,
+    MatchSection as MatchSectionV1,
+    MatchStime as MatchStimeV1,
+    MatchPtime as MatchPtimeV1,
+    MatchStimePtime as MatchStimePtimeV1,
+    MatchSnote as MatchSnoteV1,
+    MatchNote as MatchNoteV1,
+    MatchSnoteNote as MatchSnoteNoteV1,
+    MatchSnoteDeletion as MatchSnoteDeletionV1,
+    MatchInsertionNote as MatchInsertionNoteV1,
+    MatchSustainPedal as MatchSustainPedalV1,
+    MatchSoftPedal as MatchSoftPedalV1,
+    MatchOrnamentNote as MatchOrnamentNoteV1,
 )
-from partitura.io.matchfile_base import MatchError, MatchFile, MatchLine
+
+from partitura.io.matchfile_base import (
+    MatchError,
+    MatchFile,
+    MatchLine,
+    BaseSnoteNoteLine,
+    BaseStimePtimeLine,
+    BaseDeletionLine,
+    BaseInsertionLine,
+    BaseOrnamentLine,
+    BaseSustainPedalLine,
+    BaseSoftPedalLine,
+)
+
 from partitura.io.matchfile_utils import Version
 
 from partitura.utils.misc import deprecated_alias, deprecated_parameter, PathLike
 
-__all__ = ["load_match"]
+__all__ = ["load_matchfile"]
 
 
 def get_version(line: str) -> Version:
@@ -114,7 +156,7 @@ def load_matchfile(
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
     debug: bool = True,
-):
+) -> MatchFile:
 
     if not os.path.exists(filename):
         raise ValueError("Filename does not exist")
@@ -134,9 +176,144 @@ def load_matchfile(
     ]
     parsed_lines = [pl for pl in parsed_lines if pl is not None]
 
+    if debug:
+        print(filename, len(parsed_lines) == len(raw_lines))
+
     mf = MatchFile(lines=parsed_lines)
-    print(filename, len(parsed_lines) == len(raw_lines))
-    pass
+
+    return mf
+
+
+def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
+    result = []
+
+    for line in mf.lines:
+        if isinstance(line, BaseSnoteNoteLine):
+            result.append(
+                dict(
+                    label="match",
+                    score_id=line.snote.Anchor,
+                    performance_id=line.note.Id,
+                )
+            )
+
+        elif isinstance(
+            line,
+            BaseDeletionLine,
+        ):
+            if "leftOutTied" in line.snote.ScoreAttributesList:
+                continue
+            else:
+                result.append(dict(label="deletion", score_id=line.snote.Anchor))
+        elif isinstance(
+            line,
+            BaseInsertionLine,
+        ):
+            result.append(dict(label="insertion", performance_id=line.note.Id))
+        elif isinstance(line, BaseOrnamentLine):
+            if isinstance(line, MatchTrillNoteV0):
+                ornament_type = "trill"
+            elif isinstance(line, MatchOrnamentNoteV1):
+                ornament_type = line.OrnamentType
+            else:
+                ornament_type = "generic_ornament"
+            result.append(
+                dict(
+                    label="ornament",
+                    score_id=line.Anchor,
+                    performance_id=line.note.Number,
+                    type=ornament_type,
+                )
+            )
+
+    return result
+
+
+# alias
+alignment_from_matchfile = note_alignment_from_matchfile
+
+
+def time_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
+
+    for line in mf.lines:
+
+        if isinstance(line, BaseStimePtimeLine):
+
+            pass
+
+
+def performed_part_from_match(
+    mf: MatchFile,
+    pedal_threshold: int = 64,
+    first_note_at_zero: bool = False,
+) -> PerformedPart:
+    """Make PerformedPart from performance info in a MatchFile
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A MatchFile instance
+    pedal_threshold : int, optional
+        Threshold for adjusting sound off of the performed notes using
+        pedal information. Defaults to 64.
+    first_note_at_zero : bool, optional
+        When True the note_on and note_off times in the performance
+        are shifted to make the first note_on time equal zero.
+
+    Returns
+    -------
+    ppart : PerformedPart
+        A performed part
+
+    """
+    # Get midi time units
+    mpq = mf.info("midiClockRate")  # 500000 -> microseconds per quarter
+    ppq = mf.info("midiClockUnits")  # 500 -> parts per quarter
+
+    # PerformedNote instances for all MatchNotes
+    notes = []
+
+    first_note = next(mf.iter_notes(), None)
+    if first_note and first_note_at_zero:
+        offset = first_note.Onset * mpq / (10**6 * ppq)
+    else:
+        offset = 0
+
+    for note in mf.iter_notes():
+
+        sound_off = note.Offset  # if note.AdjOffset is None else note.AdjOffset
+
+        notes.append(
+            dict(
+                id=note.Id,
+                midi_pitch=note.MidiPitch,
+                note_on=note.Onset * mpq / (10**6 * ppq) - offset,
+                note_off=note.Offset * mpq / (10**6 * ppq) - offset,
+                sound_off=sound_off * mpq / (10**6 * ppq) - offset,
+                velocity=note.Velocity,
+            )
+        )
+
+    # SustainPedal instances for sustain pedal lines
+    sustain_pedal = []
+    for ped in mf.sustain_pedal:
+        sustain_pedal.append(
+            dict(
+                number=64,  # type='sustain_pedal',
+                time=ped.Time * mpq / (10**6 * ppq),
+                value=ped.Value,
+            )
+        )
+
+    # Make performed part
+    ppart = PerformedPart(
+        id="P1",
+        part_name=mf.info("piece"),
+        notes=notes,
+        controls=sustain_pedal,
+        sustain_pedal_threshold=pedal_threshold,
+    )
+    return ppart
 
 
 if __name__ == "__main__":
