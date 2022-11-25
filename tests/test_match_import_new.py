@@ -21,6 +21,8 @@ from partitura.io.matchlines_v1 import (
     MatchSnoteNote as MatchSnoteNoteV1,
     MatchSnoteDeletion as MatchSnoteDeletionV1,
     MatchInsertionNote as MatchInsertionNoteV1,
+    MatchSustainPedal as MatchSustainPedalV1,
+    MatchSoftPedal as MatchSoftPedalV1,
 )
 
 from partitura.io.matchlines_v0 import (
@@ -33,6 +35,8 @@ from partitura.io.matchlines_v0 import (
     MatchInsertionNote as MatchInsertionNoteV0,
     MatchHammerBounceNote as MatchHammerBounceNoteV0,
     MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
+    MatchSustainPedal as MatchSustainPedalV0,
+    MatchSoftPedal as MatchSoftPedalV0,
 )
 
 from partitura.io.matchfile_base import MatchError, MatchLine
@@ -99,6 +103,13 @@ def basic_line_test(ml: MatchLine, verbose: bool = False) -> None:
         assert sum([len(ff) for ff in ml.format_fun]) == len(ml.field_names)
         for ff in ml.format_fun:
             assert all([callable(fff) for _, fff in ff.items()])
+
+    # Test that MatchError is raised for an incorrectly formatted line
+    try:
+        ml.from_matchline("wrong_line", version=ml.version)
+        assert False  # pragma: no cover
+    except MatchError:
+        assert True
 
 
 class TestMatchLinesV1(unittest.TestCase):
@@ -193,14 +204,6 @@ class TestMatchLinesV1(unittest.TestCase):
             self.assertTrue(True)
 
         try:
-            # This is not a valid line and should result in a MatchError
-            wrong_line = "wrong_line"
-            mo = MatchInfoV1.from_matchline(wrong_line)
-            self.assertTrue(False)  # pragma: no cover
-        except MatchError:
-            self.assertTrue(True)
-
-        try:
             mo = MatchInfoV1(
                 version=Version(0, 5, 0),
                 attribute="scoreFileName",
@@ -242,14 +245,6 @@ class TestMatchLinesV1(unittest.TestCase):
             mo = MatchScorePropV1.from_matchline(ml, version=Version(0, 5, 0))
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
-            self.assertTrue(True)
-
-        try:
-            # This is not a valid line and should result in a MatchError
-            wrong_line = "wrong_line"
-            mo = MatchScorePropV1.from_matchline(wrong_line)
-            self.assertTrue(False)  # pragma: no cover
-        except MatchError:
             self.assertTrue(True)
 
         try:
@@ -317,14 +312,6 @@ class TestMatchLinesV1(unittest.TestCase):
 
             self.assertTrue(mo.matchline == ml)
 
-        try:
-            # This is not a valid line and should result in a MatchError
-            wrong_line = "wrong_line"
-            mo = MatchStimeV1.from_matchline(wrong_line)
-            self.assertTrue(False)  # pragma: no cover
-        except MatchError:
-            self.assertTrue(True)
-
         # An error is raised if parsing the wrong version
         try:
             mo = MatchStimeV1.from_matchline(ml, version=Version(0, 5, 0))
@@ -361,14 +348,6 @@ class TestMatchLinesV1(unittest.TestCase):
 
             self.assertTrue(mo.matchline == ml)
 
-        try:
-            # This is not a valid line and should result in a MatchError
-            wrong_line = "wrong_line"
-            mo = MatchPtimeV1.from_matchline(wrong_line)
-            self.assertTrue(False)  # pragma: no cover
-        except MatchError:
-            self.assertTrue(True)
-
         # An error is raised if parsing the wrong version
         try:
             mo = MatchPtimeV1.from_matchline(ml, version=Version(0, 5, 0))
@@ -400,14 +379,6 @@ class TestMatchLinesV1(unittest.TestCase):
             basic_line_test(mo)
 
             self.assertTrue(mo.matchline == ml)
-
-        try:
-            # This is not a valid line and should result in a MatchError
-            wrong_line = "wrong_line"
-            mo = MatchStimePtimeV1.from_matchline(wrong_line)
-            self.assertTrue(False)  # pragma: no cover
-        except MatchError:
-            self.assertTrue(True)
 
         # An error is raised if parsing the wrong version
         try:
@@ -669,6 +640,71 @@ class TestMatchLinesV1(unittest.TestCase):
         # An error is raised if parsing the wrong version
         try:
             mo = MatchInsertionNoteV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_sustain_lines(self):
+
+        sustain_lines = [
+            "sustain(711360,22).",
+            "sustain(711440,21).",
+            "sustain(711520,19).",
+            "sustain(711600,18).",
+            "sustain(711680,17).",
+            "sustain(711760,16).",
+            "sustain(711840,16).",
+            "sustain(712080,15).",
+            "sustain(712560,15).",
+            "sustain(715280,14).",
+            "sustain(717920,14).",
+            "sustain(720080,13).",
+            "sustain(721760,13).",
+            "sustain(731920,13).",
+        ]
+
+        for i, ml in enumerate(sustain_lines):
+
+            mo = MatchSustainPedalV1.from_matchline(ml, version=Version(1, 0, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSustainPedalV1.from_matchline(ml, version=Version(0, 5, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_soft_lines(self):
+
+        soft_lines = [
+            "soft(2,4).",
+            "soft(180,4).",
+            "soft(182,3).",
+            "soft(184,4).",
+            "soft(282,4).",
+            "soft(284,3).",
+            "soft(286,4).",
+            "soft(812,4).",
+            "soft(814,3).",
+            "soft(816,4).",
+            "soft(984,4).",
+            "soft(986,3).",
+            "soft(988,4).",
+            "soft(1006,4).",
+            "soft(1008,3).",
+        ]
+
+        for i, ml in enumerate(soft_lines):
+
+            mo = MatchSoftPedalV1.from_matchline(ml, version=Version(1, 0, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSoftPedalV1.from_matchline(ml, version=Version(0, 5, 0))
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
@@ -977,9 +1013,6 @@ class TestMatchLinesV0(unittest.TestCase):
         ]
 
         for i, ml in enumerate(snotenote_lines):
-            # snote = MatchSnoteV1.from_matchline(ml)
-            # note = MatchNoteV1.from_matchline(ml)
-
             for minor_version in (1, 2):
                 mo = MatchSnoteNoteV0.from_matchline(
                     ml, version=Version(0, minor_version, 0)
@@ -1230,6 +1263,71 @@ class TestMatchLinesV0(unittest.TestCase):
 
                 basic_line_test(mo)
                 self.assertTrue(mo.matchline == ml)
+
+    def test_sustain_lines(self):
+
+        sustain_lines = [
+            "sustain(711360,22).",
+            "sustain(711440,21).",
+            "sustain(711520,19).",
+            "sustain(711600,18).",
+            "sustain(711680,17).",
+            "sustain(711760,16).",
+            "sustain(711840,16).",
+            "sustain(712080,15).",
+            "sustain(712560,15).",
+            "sustain(715280,14).",
+            "sustain(717920,14).",
+            "sustain(720080,13).",
+            "sustain(721760,13).",
+            "sustain(731920,13).",
+        ]
+
+        for i, ml in enumerate(sustain_lines):
+
+            mo = MatchSustainPedalV0.from_matchline(ml, version=Version(0, 5, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSustainPedalV0.from_matchline(ml, version=Version(1, 0, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+    def test_soft_lines(self):
+
+        soft_lines = [
+            "soft(2,4).",
+            "soft(180,4).",
+            "soft(182,3).",
+            "soft(184,4).",
+            "soft(282,4).",
+            "soft(284,3).",
+            "soft(286,4).",
+            "soft(812,4).",
+            "soft(814,3).",
+            "soft(816,4).",
+            "soft(984,4).",
+            "soft(986,3).",
+            "soft(988,4).",
+            "soft(1006,4).",
+            "soft(1008,3).",
+        ]
+
+        for i, ml in enumerate(soft_lines):
+
+            mo = MatchSoftPedalV0.from_matchline(ml, version=Version(0, 5, 0))
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+        # An error is raised if parsing the wrong version
+        try:
+            mo = MatchSoftPedalV0.from_matchline(ml, version=Version(0, 1, 0))
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
 
 class TestMatchUtils(unittest.TestCase):

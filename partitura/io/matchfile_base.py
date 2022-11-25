@@ -317,7 +317,6 @@ class BaseStimePtimeLine(MatchLine):
 
         self.format_fun = (self.stime.format_fun, self.ptime.format_fun)
 
-
     @property
     def matchline(self) -> str:
         return self.out_pattern.format(
@@ -794,6 +793,108 @@ class BaseInsertionLine(MatchLine):
         return kwargs
 
 
+class BasePedalLine(MatchLine):
+    """
+    Class for representing a sustain pedal line
+    """
+
+    field_names = ("Time", "Value")
+    field_types = (int, int)
+    base_pattern: str = r"pedal\((?P<Time>[^,]+),(?P<Value>[^,]+)\)\."
+    out_pattern: str = "pedal({Time},{Value})."
+
+    format_fun = dict(
+        Time=format_int,
+        Value=format_int,
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        time: int,
+        value: int,
+    ):
+        super().__init__(version)
+        self.Time = time
+        self.Value = value
+
+        # self.out_pattern = f"{pedal_type}{self.out_pattern}"
+        # self.pattern = re.compile(self.base_pattern.format(pedal_type=pedal_type))
+
+    @classmethod
+    def prepare_kwargs_from_matchline(
+        cls,
+        matchline: str,
+        version: Version,
+        pos: int = 0,
+    ) -> Dict:
+
+        kwargs = None
+        # pattern = re.compile(cls.base_pattern.format(pedal_type=pedal_type))
+
+        match_pattern = cls.pattern.search(matchline, pos=pos)
+
+        if match_pattern is not None:
+
+            time_str, value_str = match_pattern.groups()
+
+            kwargs = dict(
+                version=version,
+                time=interpret_as_int(time_str),
+                value=interpret_as_int(value_str),
+            )
+
+        return kwargs
+
+
+class BaseSustainPedalLine(BasePedalLine):
+
+    pattern = re.compile(r"sustain\((?P<Time>[^,]+),(?P<Value>[^,]+)\)\.")
+    out_pattern: str = "sustain({Time},{Value})."
+
+    def __init__(
+        self,
+        version: Version,
+        time: int,
+        value: int,
+    ):
+        super().__init__(version=version, time=time, value=value)
+
+
+class BaseSoftPedalLine(BasePedalLine):
+
+    pattern = re.compile(r"soft\((?P<Time>[^,]+),(?P<Value>[^,]+)\)\.")
+    out_pattern: str = "soft({Time},{Value})."
+
+    def __init__(
+        self,
+        version: Version,
+        time: int,
+        value: int,
+    ):
+        super().__init__(version=version, time=time, value=value)
+
+
+# class MatchSoftPedal(MatchLine):
+#     """
+#     Class for representing a soft pedal line
+#     """
+
+#     out_pattern = "soft({Time},{Value})."
+#     field_names = ["Time", "Value"]
+#     pattern = r"soft\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
+#     re_obj = re.compile(pattern)
+
+#     def __init__(self, Time, Value):
+#         self.Time = Time
+#         self.Value = Value
+
+#     @property
+#     def matchline(self):
+
+#         return self.out_pattern.format(Time=self.Time, Value=self.Value)
+
+
 ## MatchFile
 
 # classes that contain score notes
@@ -848,14 +949,14 @@ class MatchFile(object):
                 yield x.note
 
     @property
-    def snotes(self):
+    def snotes(self) -> List[BaseSnoteLine]:
         """
         Return all score notes (as MatchSnote objects)
         """
         return [x.snote for x in self.lines if isinstance(x, snote_classes)]
         # return [x.snote for x in self.lines if hasattr(x, "snote")]
 
-    def iter_snotes(self):
+    def iter_snotes(self) -> BaseSnoteLine:
         """
         Iterate over all performed notes (as MatchNote objects)
         """
@@ -864,16 +965,34 @@ class MatchFile(object):
                 yield x.snote
 
     @property
-    def sustain_pedal(self):
-        return [line for line in self.lines if isinstance(line, MatchSustainPedal)]
+    def sustain_pedal(self) -> List[BasePedalLine]:
+        return [
+            line
+            for line in self.lines
+            if (
+                isinstance(line, BasePedalLine)
+                and (getattr(line, "pedal_type", None) == "sustain")
+            )
+        ]
 
     @property
-    def insertions(self):
-        return [x.note for x in self.lines if isinstance(x, MatchInsertionNote)]
+    def soft_pedal(self) -> List[BasePedalLine]:
+        return [
+            line
+            for line in self.lines
+            if (
+                isinstance(line, BasePedalLine)
+                and (getattr(line, "pedal_type", None) == "soft")
+            )
+        ]
 
     @property
-    def deletions(self):
-        return [x.snote for x in self.lines if isinstance(x, MatchSnoteDeletion)]
+    def insertions(self) -> List[BaseNoteLine]:
+        return [x.note for x in self.lines if isinstance(x, BaseInsertionLine)]
+
+    @property
+    def deletions(self) -> List[BaseSnoteLine]:
+        return [x.snote for x in self.lines if isinstance(x, BaseDeletionLine)]
 
     @property
     def _info(self):

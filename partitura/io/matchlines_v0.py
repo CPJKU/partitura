@@ -20,6 +20,8 @@ from partitura.io.matchfile_base import (
     BaseSnoteNoteLine,
     BaseDeletionLine,
     BaseInsertionLine,
+    BaseSustainPedalLine,
+    BaseSoftPedalLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -643,3 +645,77 @@ class MatchTrailingPlayedNote(MatchInsertionNote):
     def __init__(self, version: Version, note: MatchNote) -> None:
         super().__init__(version=version, note=note)
         self.pattern = re.compile(f"trailing_played_note-{self.note.pattern.pattern}")
+
+
+class MatchSustainPedal(BaseSustainPedalLine):
+    def __init__(
+        self,
+        version: Version,
+        time: int,
+        value: int,
+    ) -> None:
+
+        super().__init__(
+            version=version,
+            time=time,
+            value=value,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LAST_VERSION,
+        pos: int = 0,
+    ) -> MatchSustainPedal:
+
+        if version >= Version(1, 0, 0) or version < Version(0, 3, 0):
+            raise ValueError(f"{version} should be at least 0.3.0 and less than 1.0.0")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            version=version,
+            pos=pos,
+        )
+
+        if kwargs is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
+        return cls(**kwargs)
+
+
+class MatchSoftPedal(BaseSoftPedalLine):
+    def __init__(
+        self,
+        version: Version,
+        time: int,
+        value: int,
+    ) -> None:
+
+        super().__init__(
+            version=version,
+            time=time,
+            value=value,
+        )
+
+    @classmethod
+    def from_matchline(
+        cls,
+        matchline: str,
+        version: Version = LAST_VERSION,
+        pos: int = 0,
+    ) -> MatchSoftPedal:
+
+        if version >= Version(1, 0, 0) or version < Version(0, 3, 0):
+            raise ValueError(f"{version} should be at least 0.3.0 and less than 1.0.0")
+
+        kwargs = cls.prepare_kwargs_from_matchline(
+            matchline=matchline,
+            version=version,
+            pos=pos,
+        )
+
+        if kwargs is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
+        return cls(**kwargs)
