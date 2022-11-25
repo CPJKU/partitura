@@ -795,6 +795,11 @@ class BaseInsertionLine(MatchLine):
 
 class BaseOrnamentLine(MatchLine):
 
+    # These field names and types need to be expanded
+    # with the attributes of the note
+    field_names = ("Anchor", )
+    field_types = (str, )
+    format_fun = dict(Anchor=format_string)
     out_pattern = "ornament({Anchor})-{NoteLine}"
     ornament_pattern: re.Pattern = re.compile(r"ornament\((?P<Anchor>[^\)]*)\)-")
 
@@ -804,15 +809,15 @@ class BaseOrnamentLine(MatchLine):
 
         self.note = note
 
-        self.field_names = self.note.field_names
+        self.field_names = self.field_names + self.note.field_names
 
-        self.field_types = self.note.field_types
+        self.field_types = self.field_types + self.note.field_types
 
         self.pattern = (self.ornament_pattern, self.note.pattern)
 
-        self.format_fun = (dict(Anchor=format_string), self.note.format_fun)
+        self.format_fun = (self.format_fun, self.note.format_fun)
 
-        for fn in self.field_names[1:]:
+        for fn in self.note.field_names:
             setattr(self, fn, getattr(self.note, fn))
 
         self.Anchor = anchor

@@ -882,11 +882,41 @@ class MatchInsertionNote(BaseInsertionLine):
 
 
 class MatchOrnamentNote(BaseOrnamentLine):
-    def __init__(self, version: Version, anchor: str, note: BaseNoteLine) -> None:
+
+    field_names = (
+        "Anchor",
+        "OrnamentType",
+    )
+    field_types = (
+        str,
+        list,
+    )
+    format_fun = dict(Anchor=format_string, OrnamentType=format_list)
+    out_pattern = "ornament({Anchor},{OrnamentType})-{NoteLine}"
+    ornament_pattern: re.Pattern = re.compile(
+        r"ornament\((?P<Anchor>[^\)]*),\[(?P<OrnamentType>.*)\]\)-"
+    )
+
+    def __init__(
+        self,
+        version: Version,
+        anchor: str,
+        ornament_type: List[str],
+        note: BaseNoteLine,
+    ) -> None:
         super().__init__(
             version=version,
             anchor=anchor,
             note=note,
+        )
+        self.OrnamentType = ornament_type
+
+    @property
+    def matchline(self) -> str:
+        return self.out_pattern.format(
+            Anchor=self.format_fun[0]["Anchor"](self.Anchor),
+            OrnamentType=self.format_fun[0]["OrnamentType"](self.OrnamentType),
+            NoteLine=self.note.matchline,
         )
 
     @classmethod
@@ -899,44 +929,18 @@ class MatchOrnamentNote(BaseOrnamentLine):
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
-        kwargs = cls.prepare_kwargs_from_matchline(
-            matchline=matchline,
-            note_class=MatchNote,
+        anchor_pattern = cls.ornament_pattern.search(matchline)
+
+        if anchor_pattern is None:
+            raise MatchError("")
+        note = MatchNote.from_matchline(matchline, version=version)
+
+        return cls(
             version=version,
-        )
-
-        return cls(**kwargs)
-
-
-class MatchTrillNote(BaseOrnamentLine):
-
-    out_pattern = "trill({Anchor})-{NoteLine}"
-    ornament_pattern: re.Pattern = re.compile(r"trill\((?P<Anchor>[^\)]*)\)-")
-
-    def __init__(self, version: Version, anchor: str, note: BaseNoteLine) -> None:
-        super().__init__(
-            version=version,
-            anchor=anchor,
             note=note,
+            anchor=interpret_as_string(anchor_pattern.group("Anchor")),
+            ornament_type=interpret_as_list(anchor_pattern.group("OrnamentType")),
         )
-
-    @classmethod
-    def from_matchline(
-        cls,
-        matchline: str,
-        version: Version = LATEST_VERSION,
-    ) -> MatchTrillNote:
-
-        if version < Version(1, 0, 0):
-            raise ValueError(f"{version} < Version(1, 0, 0)")
-
-        kwargs = cls.prepare_kwargs_from_matchline(
-            matchline=matchline,
-            note_class=MatchNote,
-            version=version,
-        )
-
-        return cls(**kwargs)
 
 
 class MatchSustainPedal(BaseSustainPedalLine):
