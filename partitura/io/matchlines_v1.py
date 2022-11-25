@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import re
 
+import numpy as np
+
 from typing import Any, Callable, Tuple, Union, List
 
 from partitura.utils.music import (
@@ -658,6 +660,31 @@ class MatchSnote(BaseSnoteLine):
 
         return cls(version=version, **kwargs)
 
+    @classmethod
+    def from_instance(
+        cls, instance: BaseSnoteLine, version: Version = LATEST_VERSION
+    ) -> MatchSnote:
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseSnoteLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseSnoteLine`")
+
+        return cls(
+            version=version,
+            anchor=instance.Anchor,
+            note_name=instance.NoteName,
+            modifier=instance.Modifier,
+            octave=instance.Octave,
+            measure=instance.Measure,
+            beat=instance.Beat,
+            offset=instance.Offset,
+            duration=instance.Duration,
+            onset_in_beats=instance.OnsetInBeats,
+            offset_in_beats=instance.OffsetInBeats,
+            score_attributes_list=instance.ScoreAttributesList,
+        )
+
 
 NOTE_LINE = {
     Version(1, 0, 0): {
@@ -758,6 +785,32 @@ class MatchNote(BaseNoteLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
+
+    @classmethod
+    def from_instance(
+        cls,
+        instance: BaseNoteLine,
+        version: Version = LATEST_VERSION,
+    ) -> MatchNote:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseNoteLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseNoteLine`")
+
+        if instance.version < Version(1, 0, 0):
+
+            return cls(
+                version=version,
+                id=instance.Id,
+                midi_pitch=instance.MidiPitch,
+                onset=int(np.round(instance.Onset)),
+                offset=int(np.round(instance.Offset)),
+                velocity=instance.Velocity,
+                channel=0,
+                track=0,
+            )
 
 
 class MatchStimePtime(BaseStimePtimeLine):
@@ -1015,3 +1068,17 @@ class MatchSoftPedal(BaseSoftPedalLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
         return cls(**kwargs)
+
+
+FROM_MATCHLINE_METHODS = [
+    MatchSnoteNote.from_matchline,
+    MatchSnoteDeletion.from_matchline,
+    MatchInsertionNote.from_matchline,
+    MatchOrnamentNote.from_matchline,
+    MatchSustainPedal.from_matchline,
+    MatchSoftPedal.from_matchline,
+    MatchInfo.from_matchline,
+    MatchScoreProp.from_matchline,
+    MatchSection.from_matchline,
+    MatchStimePtime.from_matchline,
+]

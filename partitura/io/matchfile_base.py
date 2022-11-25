@@ -1225,8 +1225,9 @@ class MatchFile(object):
         ml = ks_info + [
             i
             for i in self.lines
-            if isinstance(i, MatchMeta)
-            and hasattr(i, "Attribute")
+            # if isinstance(i, MatchMeta)
+            # and hasattr(i, "Attribute")
+            if hasattr(i, "Attribute")
             and i.Attribute == "keySignature"
         ]
 

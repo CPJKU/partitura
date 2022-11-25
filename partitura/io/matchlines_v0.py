@@ -79,6 +79,7 @@ default_infoline_attributes = {
     "scoreFileName": (interpret_as_string_old, format_string_old, str),
     "scoreFilePath": (interpret_as_string_old, format_string_old, str),
     "midiFileName": (interpret_as_string_old, format_string_old, str),
+    "midiFilename": (interpret_as_string_old, format_string_old, str),
     "midiFilePath": (interpret_as_string_old, format_string_old, str),
     "audioFileName": (interpret_as_string_old, format_string_old, str),
     "audioFilePath": (interpret_as_string_old, format_string_old, str),
@@ -94,11 +95,13 @@ default_infoline_attributes = {
     "timeSignature": (
         interpret_as_fractional,
         format_fractional,
-        FractionalSymbolicDuration,
+        (FractionalSymbolicDuration, list),
     ),
     "tempoIndication": (interpret_as_list, format_list, list),
-    # "beatSubDivision": (interpret_as_list, format_list, list),
+    "beatSubDivision": (interpret_as_list, format_list, list),
     "beatSubdivision": (interpret_as_list, format_list, list),
+    "partSequence": (interpret_as_string, format_string, str),
+    "mergedFrom": (interpret_as_list, format_list, list),
 }
 
 INFO_LINE = defaultdict(lambda: default_infoline_attributes.copy())
@@ -329,27 +332,6 @@ class MatchMeta(MatchLine):
 
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
-
-    # out_pattern = "meta({Attribute},{Value},{Bar},{TimeInBeats})."
-    # field_names = ["Attribute", "Value", "Bar", "TimeInBeats"]
-    # pattern = r"meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
-    # re_obj = re.compile(pattern)
-    # field_interpreter = interpret_field
-
-    # def __init__(self, Attribute, Value, Bar, TimeInBeats):
-    #     self.Attribute = Attribute
-    #     self.Value = Value
-    #     self.Bar = Bar
-    #     self.TimeInBeats = TimeInBeats
-
-    # @property
-    # def matchline(self):
-    #     return self.out_pattern.format(
-    #         Attribute=self.Attribute,
-    #         Value=self.Value,
-    #         Bar=self.Bar,
-    #         TimeInBeats=self.TimeInBeats,
-    #     )
 
 
 SNOTE_LINE_Vgeq0_4_0 = dict(
@@ -761,6 +743,14 @@ class MatchSnoteTrailingScore(MatchSnoteDeletion):
         )
 
 
+class MatchSnoteNoPlayedNote(MatchSnoteDeletion):
+    out_pattern = "{SnoteLine}-no_played_note."
+
+    def __init__(self, version: Version, snote: MatchSnote) -> None:
+        super().__init__(version=version, snote=snote)
+        self.pattern = re.compile(rf"{self.snote.pattern.pattern}-no_played_note\.")
+
+
 class MatchInsertionNote(BaseInsertionLine):
     def __init__(self, version: Version, note: MatchNote) -> None:
 
@@ -868,8 +858,8 @@ class MatchSustainPedal(BaseSustainPedalLine):
         pos: int = 0,
     ) -> MatchSustainPedal:
 
-        if version >= Version(1, 0, 0) or version < Version(0, 3, 0):
-            raise ValueError(f"{version} should be at least 0.3.0 and less than 1.0.0")
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} less than 1.0.0")
 
         kwargs = cls.prepare_kwargs_from_matchline(
             matchline=matchline,
@@ -905,8 +895,8 @@ class MatchSoftPedal(BaseSoftPedalLine):
         pos: int = 0,
     ) -> MatchSoftPedal:
 
-        if version >= Version(1, 0, 0) or version < Version(0, 3, 0):
-            raise ValueError(f"{version} should be at least 0.3.0 and less than 1.0.0")
+        if version >= Version(1, 0, 0):
+            raise ValueError(f"{version} should be less than 1.0.0")
 
         kwargs = cls.prepare_kwargs_from_matchline(
             matchline=matchline,
@@ -918,3 +908,19 @@ class MatchSoftPedal(BaseSoftPedalLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
         return cls(**kwargs)
+
+
+FROM_MATCHLINE_METHODS = [
+    MatchSnoteNote.from_matchline,
+    MatchSnoteDeletion.from_matchline,
+    MatchSnoteTrailingScore.from_matchline,
+    MatchSnoteNoPlayedNote.from_matchline,
+    MatchInsertionNote.from_matchline,
+    MatchHammerBounceNote.from_matchline,
+    MatchTrailingPlayedNote.from_matchline,
+    MatchTrillNote.from_matchline,
+    MatchSustainPedal.from_matchline,
+    MatchSoftPedal.from_matchline,
+    MatchInfo.from_matchline,
+    MatchMeta.from_matchline,
+]

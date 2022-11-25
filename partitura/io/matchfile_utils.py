@@ -121,7 +121,7 @@ def format_int(value: Optional[int]) -> str:
     str
         The value formatted as a string.
     """
-    return f"{value}" if value is not None else "-"
+    return f"{int(value)}" if value is not None else "-"
 
 
 def interpret_as_float(value: str) -> float:
@@ -196,8 +196,12 @@ old_string_pat = re.compile(r"'(?P<value>.+)'")
 
 
 def interpret_as_string_old(value: str) -> str:
+
     val = old_string_pat.match(value)
-    return val.group("value")
+    if val is not None:
+        return val.group("value").strip()
+    else:
+        return value.strip()
 
 
 def format_string(value: str) -> str:
@@ -480,13 +484,31 @@ def interpret_as_fractional(value: str) -> FractionalSymbolicDuration:
     """
     Interpret string as FractionalSymbolicDuration
     """
+
+    content = attribute_list_pattern.search(value)
+
+    if content is not None:
+        # string includes square brackets
+        vals_string = content.group("attributes")
+        content_list = [
+            FractionalSymbolicDuration.from_string(v, allow_additions=True)
+            for v in vals_string.split(",")
+        ]
+        return content_list
+
     return FractionalSymbolicDuration.from_string(value, allow_additions=True)
 
 
-def format_fractional(value: FractionalSymbolicDuration) -> str:
+def format_fractional(
+    value: Union[List[FractionalSymbolicDuration], FractionalSymbolicDuration]
+) -> str:
     """
     Format fractional symbolic duration as string
     """
+
+    if isinstance(value, list):
+        return format_list(value)
+
     return str(value)
 
 
@@ -535,6 +557,11 @@ def interpret_as_list(value: str) -> List[str]:
 def interpret_as_list_int(value: str) -> List[int]:
     string_list = interpret_as_list(value)
     return [int(v) for v in string_list]
+
+
+def interpret_as_list_fractional(value: str) -> List[FractionalSymbolicDuration]:
+    string_list = interpret_as_list(value)
+    return [FractionalSymbolicDuration.from_string(v) for v in string_list]
 
 
 def format_list(value: List[Any]) -> str:

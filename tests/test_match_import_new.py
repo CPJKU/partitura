@@ -243,6 +243,16 @@ class TestMatchLinesV1(unittest.TestCase):
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
 
+        # not defined attribute
+        try:
+            wrong_attribute_line = "scoreprop(wrongAttribute,2,0:2,1/8,-0.5000)."
+            mo = MatchScorePropV1.from_matchline(
+                wrong_attribute_line, version=Version(1, 0, 0)
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
         # An error is raised if parsing the wrong version
         try:
             mo = MatchScorePropV1.from_matchline(ml, version=Version(0, 5, 0))
@@ -570,6 +580,57 @@ class TestMatchLinesV1(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
+    def test_note_from_v0(self):
+
+        # Lines taken from original version of
+        # Chopin Op. 38 in old Vienna4x22
+        note_lines = [
+            "note(1,[c,n],6,39060.00,39890.00,38).",
+            "note(6,[c,n],5,48840.00,49870.00,26).",
+            "note(17,[c,n],5,72600.00,75380.00,26).",
+            "note(32,[b,b],5,93030.00,95050.00,32).",
+            "note(85,[b,b],3,162600.00,164950.00,27).",
+            "note(132,[c,n],5,226690.00,227220.00,34).",
+            "note(179,[b,b],4,280360.00,282310.00,35).",
+        ]
+
+        for ml in note_lines:
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+
+            for minor_version in range(1, 3):
+                mo_v0 = MatchNoteV0.from_matchline(
+                    ml, version=Version(0, minor_version, 0)
+                )
+
+                mo_v1 = MatchNoteV1.from_instance(mo_v0, version=Version(1, 0, 0))
+                basic_line_test(mo_v1)
+                self.assertTrue(isinstance(mo_v1, MatchNoteV1))
+                self.assertTrue(mo_v0.version != mo_v1.version)
+
+                for fn in mo_v1.field_names:
+
+                    if fn in mo_v0.field_names:
+                        self.assertTrue(getattr(mo_v0, fn) == getattr(mo_v1, fn))
+
+        try:
+            mo_v1 = MatchNoteV1.from_instance(mo_v0, version=Version(0, 5, 0))
+
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
+        try:
+            wrong_mo = MatchSnoteNoteV1.from_matchline(
+                "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])-note(0,47,39940,42140,44,0,0)."
+            )
+            mo_v1 = MatchNoteV1.from_instance(wrong_mo)
+
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
+
     def test_snotenote_lines(self):
 
         snotenote_lines = [
@@ -841,6 +902,16 @@ class TestMatchLinesV0(unittest.TestCase):
             mo = MatchMetaV0.from_matchline(ml, version=Version(0, 3, 0))
             basic_line_test(mo)
             self.assertTrue(mo.matchline == ml)
+
+        # not defined attribute
+        try:
+            wrong_attribute_line = "meta(wrongAttribute,value,1,-1.5)."
+            mo = MatchMetaV0.from_matchline(
+                wrong_attribute_line, version=Version(0, 3, 0)
+            )
+            self.assertTrue(False)  # pragma: no cover
+        except ValueError:
+            self.assertTrue(True)
 
         # An error is raised if parsing the wrong version
         try:
@@ -1433,7 +1504,7 @@ class TestMatchLinesV0(unittest.TestCase):
 
         # An error is raised if parsing the wrong version
         try:
-            mo = MatchSoftPedalV0.from_matchline(ml, version=Version(0, 1, 0))
+            mo = MatchSoftPedalV0.from_matchline(ml, version=Version(1, 0, 0))
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
