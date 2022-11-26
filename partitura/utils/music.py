@@ -506,14 +506,45 @@ def seconds_to_midi_ticks(
         will be an integer. If the output was a numpy array, the output
         will be a numpy array with dtype int.
     """
-    midi_ticks = int(np.round(10**6 * ppq * time / mpq))
+    midi_ticks = np.round(1e6 * ppq * time / mpq)
 
-    if isinstance(time, (int, float)):
-
+    if isinstance(time, np.ndarray):
+        return midi_ticks.astype(np.int)
+    else:
         return int(midi_ticks)
 
+
+def midi_ticks_to_seconds(
+    midi_ticks: Union[int, float, np.ndarray],
+    mpq=500000,
+    ppq=480,
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI ticks to time in seconds
+
+    Parameters
+    ----------
+    midi_ticks: int, float or np.ndarray
+        Time in MIDI ticks
+    mpq : int
+        Microseconds per quarter (default is 500000)
+    ppq : int
+        Pulses per quarter note (default is 480)
+
+    Returns
+    -------
+    time_in_seconds : int or np.ndarray
+        Time in seconds. If the input was a float or an integer, the output
+        will be a float. If the output was a numpy array, the output
+        will be a numpy array with dtype float.
+    """
+
+    time_in_seconds = (mpq * midi_ticks) / (1e6 * ppq)
+
+    if isinstance(midi_ticks, np.ndarray):
+        return time_in_seconds.astype(float)
     else:
-        return midi_ticks.astype(np.int)
+        return float(time_in_seconds)
 
 
 SIGN_TO_ALTER = {
