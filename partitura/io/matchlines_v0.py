@@ -9,7 +9,7 @@ from collections import defaultdict
 
 import re
 
-from typing import Any, Callable, Tuple, Union, List, Dict
+from typing import Any, Callable, Tuple, Union, List, Dict, Optional
 
 from partitura.io.matchfile_base import (
     MatchLine,
@@ -924,3 +924,53 @@ FROM_MATCHLINE_METHODS = [
     MatchInfo.from_matchline,
     MatchMeta.from_matchline,
 ]
+
+
+def parse_matchline(line: str, version: Version) -> Optional[MatchLine]:
+    def parse(mlt: MatchLine) -> Optional[MatchLine]:
+        matchline = None
+        try:
+            matchline = mlt.from_matchline(line, version)
+        except MatchError:
+            pass
+
+        return matchline
+
+    matchline = None
+    if matchline.startswith("info"):
+        return parse(MatchInfo)
+
+    if line.startswith("meta"):
+        return parse(MatchMeta)
+
+    if line.startswith("snote"):
+
+        for mlt in [
+            MatchSnoteNote,
+            MatchSnoteDeletion,
+            MatchSnoteTrailingScore,
+            MatchSnoteNoPlayedNote,
+        ]:
+            matchline = parse(mlt)
+            if matchline is not None:
+                return matchline
+
+    if line.startswith("insertion"):
+        return parse(MatchInsertionNote)
+
+    if line.startswith("trailing_played"):
+        return parse(MatchTrailingPlayedNote)
+
+    if line.startswith("hammer_bounce"):
+        return parse(MatchHammerBounceNote)
+
+    if line.startswith("sustain"):
+        return parse(MatchSustainPedal)
+
+    if line.startswith("soft"):
+        return parse(MatchSoftPedal)
+
+    if line.startswith("trill"):
+        return parse(MatchTrillNote)
+
+    return matchline

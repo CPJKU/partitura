@@ -14,6 +14,8 @@ from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
+from partitura.utils.misc import deprecated_alias
+
 if TYPE_CHECKING:
     # Import typing info for typing annotations.
     # For this to work we need to import annotations from __future__
@@ -479,6 +481,7 @@ def frequency_to_midi_pitch(
         return midi_pitch.astype(int)
 
 
+@deprecated_alias(t="time")
 def seconds_to_midi_ticks(
     time: Union[int, float, np.ndarray],
     mpq=500000,

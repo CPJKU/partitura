@@ -15,6 +15,7 @@ from partitura.performance import PerformedPart, Performance, PerformanceLike
 
 from partitura.io.matchlines_v0 import (
     FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV0,
+    parse_matchline as parse_matchlinev0,
     MatchInfo as MatchInfoV0,
     MatchMeta as MatchMetaV0,
     MatchSnote as MatchSnoteV0,
@@ -156,6 +157,7 @@ def load_matchfile(
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
     debug: bool = True,
+    n_processes: Optional[int] = 4,
 ) -> MatchFile:
 
     if not os.path.exists(filename):
@@ -174,6 +176,7 @@ def load_matchfile(
         parse_matchline(line, from_matchline_methods, version, debug)
         for line in raw_lines
     ]
+
     parsed_lines = [pl for pl in parsed_lines if pl is not None]
 
     if debug:
@@ -192,8 +195,8 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
             result.append(
                 dict(
                     label="match",
-                    score_id=line.snote.Anchor,
-                    performance_id=line.note.Id,
+                    score_id=str(line.snote.Anchor),
+                    performance_id=str(line.note.Id),
                 )
             )
 
@@ -204,12 +207,12 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
             if "leftOutTied" in line.snote.ScoreAttributesList:
                 continue
             else:
-                result.append(dict(label="deletion", score_id=line.snote.Anchor))
+                result.append(dict(label="deletion", score_id=str(line.snote.Anchor)))
         elif isinstance(
             line,
             BaseInsertionLine,
         ):
-            result.append(dict(label="insertion", performance_id=line.note.Id))
+            result.append(dict(label="insertion", performance_id=str(line.note.Id)))
         elif isinstance(line, BaseOrnamentLine):
             if isinstance(line, MatchTrillNoteV0):
                 ornament_type = "trill"
@@ -220,8 +223,8 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
             result.append(
                 dict(
                     label="ornament",
-                    score_id=line.Anchor,
-                    performance_id=line.note.Number,
+                    score_id=str(line.Anchor),
+                    performance_id=str(line.note.Id),
                     type=ornament_type,
                 )
             )
@@ -247,7 +250,8 @@ def performed_part_from_match(
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
 ) -> PerformedPart:
-    """Make PerformedPart from performance info in a MatchFile
+    """
+    Make PerformedPart from performance info in a MatchFile
 
     Parameters
     ----------
@@ -279,38 +283,44 @@ def performed_part_from_match(
     else:
         offset = 0
 
-    for note in mf.iter_notes():
-
-        sound_off = note.Offset  # if note.AdjOffset is None else note.AdjOffset
-
-        notes.append(
-            dict(
-                id=note.Id,
-                midi_pitch=note.MidiPitch,
-                note_on=note.Onset * mpq / (10**6 * ppq) - offset,
-                note_off=note.Offset * mpq / (10**6 * ppq) - offset,
-                sound_off=sound_off * mpq / (10**6 * ppq) - offset,
-                velocity=note.Velocity,
-            )
+    notes = [
+        dict(
+            id=note.Id,
+            midi_pitch=note.MidiPitch,
+            note_on=note.Onset * mpq / (10**6 * ppq) - offset,
+            note_off=note.Offset * mpq / (10**6 * ppq) - offset,
+            sound_off=note.Offset * mpq / (10**6 * ppq) - offset,
+            velocity=note.Velocity,
         )
+        for note in mf.notes
+    ]
 
     # SustainPedal instances for sustain pedal lines
-    sustain_pedal = []
-    for ped in mf.sustain_pedal:
-        sustain_pedal.append(
-            dict(
-                number=64,  # type='sustain_pedal',
-                time=ped.Time * mpq / (10**6 * ppq),
-                value=ped.Value,
-            )
+    sustain_pedal = [
+        dict(
+            number=64,
+            time=ped.Time * mpq / (10**6 * ppq),
+            value=ped.Value,
         )
+        for ped in mf.soft_pedal
+    ]
+
+    # SoftPedal instances for soft pedal lines
+    soft_pedal = [
+        dict(
+            number=67,
+            time=ped.Time * mpq / (10**6 * ppq),
+            value=ped.Value,
+        )
+        for ped in mf.soft_pedal
+    ]
 
     # Make performed part
     ppart = PerformedPart(
         id="P1",
         part_name=mf.info("piece"),
         notes=notes,
-        controls=sustain_pedal,
+        controls=sustain_pedal + soft_pedal,
         sustain_pedal_threshold=pedal_threshold,
     )
     return ppart

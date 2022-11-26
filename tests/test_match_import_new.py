@@ -291,8 +291,8 @@ class TestMatchLinesV1(unittest.TestCase):
 
             mo_v1 = MatchScorePropV1.from_instance(mo_v0, version=Version(1, 0, 0))
 
-            import pdb
-            pdb.set_trace()
+            # import pdb
+            # pdb.set_trace()
 
     def test_section_lines(self):
 
