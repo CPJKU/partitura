@@ -357,17 +357,18 @@ class MatchScoreProp(MatchLine):
 
         # ensure that at least the basic attributes are in the field names of the match line
         if not (
-            "Attribute" in instance.field_names
-            and "Value" in instance.field_names
+            "Attribute" in instance.field_names and "Value" in instance.field_names
         ):
             raise ValueError(
                 "`instance` must contain at least 'Attribute', 'Value' and 'TimeInBeats'"
             )
-        
+
         class_dict = SCOREPROP_LINE[version]
 
         if not instance.Attribute in class_dict:
-            raise ValueError(f"Attribute {instance.Attribute} is not specified in {version}")
+            raise ValueError(
+                f"Attribute {instance.Attribute} is not specified in {version}"
+            )
         # kwargs = dict(
         #     [(to_snake_case(fn), getattr(instance, fn, None)) for fn in cls.field_names]
         # )
@@ -387,7 +388,11 @@ class MatchScoreProp(MatchLine):
                 "Offset",
                 offset if offset is not None else FractionalSymbolicDuration(0),
             ),
-            time_in_beats=getattr(instance, "TimeInBeats", time_in_beats if time_in_beats is not None else 0.0),
+            time_in_beats=getattr(
+                instance,
+                "TimeInBeats",
+                time_in_beats if time_in_beats is not None else 0.0,
+            ),
         )
 
 
@@ -1242,3 +1247,52 @@ FROM_MATCHLINE_METHODS = [
     MatchSection.from_matchline,
     MatchStimePtime.from_matchline,
 ]
+
+
+## Helper methods to build the corresponding line for each parameter
+
+
+def make_info(version: Version, attribute: str, value: Any) -> MatchInfo:
+    """
+    Get version line from attributes
+    """
+
+    if attribute == "matchFileVersion":
+        if version != value:
+            raise ValueError(
+                f"The specified version ({version}) should be the same as "
+                f"`value` ({value})"
+            )
+    class_dict = INFO_LINE[version]
+
+    _, format_fun, dtype = class_dict[attribute]
+
+    ml = MatchInfo(
+        version=version,
+        attribute=attribute,
+        value=version,
+        value_type=Version,
+        format_fun=format_version,
+    )
+
+    return ml
+
+
+def make_scoreprop(
+    version: Version,
+    attribute: str,
+    value: Any,
+    measure: int,
+    beat: int,
+    offset: FractionalSymbolicDuration,
+    time_in_beats: float,
+) -> MatchScoreProp:
+
+    class_dict = SCOREPROP_LINE[version]
+
+    _, format_fun, dtype = class_dict[attribute]
+
+    ml = MatchScoreProp(
+        version=version,
+        attribute=attribute,
+    )

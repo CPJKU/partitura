@@ -481,9 +481,9 @@ def frequency_to_midi_pitch(
         return midi_pitch.astype(int)
 
 
-@deprecated_alias(t="time")
+@deprecated_alias(t="time_in_seconds")
 def seconds_to_midi_ticks(
-    time: Union[int, float, np.ndarray],
+    time_in_seconds: Union[int, float, np.ndarray],
     mpq=500000,
     ppq=480,
 ) -> Union[int, np.ndarray]:
@@ -492,7 +492,7 @@ def seconds_to_midi_ticks(
 
     Parameters
     ----------
-    time : int, float or np.ndarray
+    time_in_seconds : int, float or np.ndarray
         Time in seconds
     mpq : int
         Microseconds per quarter (default is 500000)
@@ -506,9 +506,9 @@ def seconds_to_midi_ticks(
         will be an integer. If the output was a numpy array, the output
         will be a numpy array with dtype int.
     """
-    midi_ticks = np.round(1e6 * ppq * time / mpq)
+    midi_ticks = np.round(1e6 * ppq * time_in_seconds / mpq)
 
-    if isinstance(time, np.ndarray):
+    if isinstance(time_in_seconds, np.ndarray):
         return midi_ticks.astype(np.int)
     else:
         return int(midi_ticks)
@@ -539,12 +539,9 @@ def midi_ticks_to_seconds(
         will be a numpy array with dtype float.
     """
 
-    time_in_seconds = (mpq * midi_ticks) / (1e6 * ppq)
+    time_in_seconds = (mpq * midi_ticks) / float(1e6 * ppq)
 
-    if isinstance(midi_ticks, np.ndarray):
-        return time_in_seconds.astype(float)
-    else:
-        return float(time_in_seconds)
+    return time_in_seconds
 
 
 SIGN_TO_ALTER = {

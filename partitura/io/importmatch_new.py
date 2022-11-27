@@ -64,6 +64,10 @@ from partitura.io.matchfile_base import (
 
 from partitura.io.matchfile_utils import Version
 
+from partitura.utils.music import (
+    midi_ticks_to_seconds,
+)
+
 from partitura.utils.misc import deprecated_alias, deprecated_parameter, PathLike
 
 __all__ = ["load_matchfile"]
@@ -279,7 +283,7 @@ def performed_part_from_match(
 
     first_note = next(mf.iter_notes(), None)
     if first_note and first_note_at_zero:
-        offset = first_note.Onset * mpq / (10**6 * ppq)
+        offset = midi_ticks_to_seconds(first_note.Onset, mpq=mpq, ppq=ppq)
     else:
         offset = 0
 
@@ -287,9 +291,9 @@ def performed_part_from_match(
         dict(
             id=note.Id,
             midi_pitch=note.MidiPitch,
-            note_on=note.Onset * mpq / (10**6 * ppq) - offset,
-            note_off=note.Offset * mpq / (10**6 * ppq) - offset,
-            sound_off=note.Offset * mpq / (10**6 * ppq) - offset,
+            note_on=midi_ticks_to_seconds(note.Onset, mpq, ppq) - offset,
+            note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
+            sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
             velocity=note.Velocity,
         )
         for note in mf.notes
@@ -299,7 +303,7 @@ def performed_part_from_match(
     sustain_pedal = [
         dict(
             number=64,
-            time=ped.Time * mpq / (10**6 * ppq),
+            time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
         )
         for ped in mf.soft_pedal
@@ -309,7 +313,7 @@ def performed_part_from_match(
     soft_pedal = [
         dict(
             number=67,
-            time=ped.Time * mpq / (10**6 * ppq),
+            time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
         )
         for ped in mf.soft_pedal
