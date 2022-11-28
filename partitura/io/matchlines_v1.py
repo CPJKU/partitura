@@ -95,6 +95,10 @@ INFO_LINE = {
     }
 }
 
+INFO_ATTRIBUTE_EQUIVALENCES = dict(
+    midiFilename="midiFileName",
+)
+
 
 class MatchInfo(BaseInfoLine):
     """
@@ -184,6 +188,41 @@ class MatchInfo(BaseInfoLine):
         else:
             raise MatchError("Input match line does not fit the expected pattern.")
 
+    @classmethod
+    def from_instance(
+        cls, instance: BaseInfoLine, version: Version = LATEST_VERSION
+    ) -> MatchInfo:
+
+        if version < Version(1, 0, 0):
+            raise ValueError(f"{version} < Version(1, 0, 0)")
+
+        if not isinstance(instance, BaseInfoLine):
+            raise ValueError("`instance` needs to be a subclass of `BaseInfoLine`")
+
+        class_dict = INFO_LINE[version]
+
+        if instance.Attribute in SCOREPROP_ATTRIBUTE_EQUIVALENCES:
+            attr = SCOREPROP_ATTRIBUTE_EQUIVALENCES[instance.Attribute]
+        else:
+            attr = instance.Attribute
+
+        if attr not in class_dict:
+            raise ValueError(f"Attribute {attr} is not specified in {version}")
+
+        interpret_fun, format_fun, value_type = class_dict[attr]
+
+        value = instance.Value
+
+        if attr == "subtitle" and isinstance(value, list):
+            value = "" if len(value) == 0 else str(value)
+        return cls(
+            version=version,
+            attribute=attr,
+            value=value,
+            value_type=value_type,
+            format_fun=format_fun,
+        )
+
 
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
@@ -197,6 +236,10 @@ SCOREPROP_LINE = {
         "directions": (interpret_as_list, format_list, list),
     }
 }
+
+SCOREPROP_ATTRIBUTE_EQUIVALENCES = dict(
+    beatSubdivision="beatSubDivision",
+)
 
 
 class MatchScoreProp(MatchLine):
@@ -217,7 +260,7 @@ class MatchScoreProp(MatchLine):
     pattern = re.compile(
         r"scoreprop\("
         r"(?P<Attribute>[^,]+),"
-        r"(?P<Value>[^,]+),"
+        r"(?P<Value>.+),"
         r"(?P<Measure>[^,]+):(?P<Beat>[^,]+),"
         r"(?P<Offset>[^,]+),"
         r"(?P<TimeInBeats>[^,]+)\)\."
@@ -368,19 +411,23 @@ class MatchScoreProp(MatchLine):
 
         class_dict = SCOREPROP_LINE[version]
 
-        if not instance.Attribute in class_dict:
+        if not (
+            instance.Attribute in class_dict
+            or instance.Attribute in SCOREPROP_ATTRIBUTE_EQUIVALENCES
+        ):
             raise ValueError(
                 f"Attribute {instance.Attribute} is not specified in {version}"
             )
-        # kwargs = dict(
-        #     [(to_snake_case(fn), getattr(instance, fn, None)) for fn in cls.field_names]
-        # )
 
-        interpret_fun, format_fun, value_type = class_dict[instance.Attribute]
+        if instance.Attribute in SCOREPROP_ATTRIBUTE_EQUIVALENCES:
+            attr = SCOREPROP_ATTRIBUTE_EQUIVALENCES[instance.Attribute]
+        else:
+            attr = instance.Attribute
+        interpret_fun, format_fun, value_type = class_dict[attr]
 
         return cls(
             version=version,
-            attribute=instance.Attribute,
+            attribute=attr,
             value=instance.Value,
             value_type=value_type,
             format_fun=format_fun,
@@ -1330,6 +1377,3 @@ def make_section(
         else repeat_end_type,
     )
     return ml
-
-
-

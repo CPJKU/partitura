@@ -49,6 +49,8 @@ from partitura.io.matchfile_utils import (
     Version,
     interpret_version,
     MatchTimeSignature,
+    to_camel_case,
+    to_snake_case,
 )
 
 RNG = np.random.RandomState(1984)
@@ -85,7 +87,12 @@ def basic_line_test(ml: MatchLine, verbose: bool = False) -> None:
 
     # assert that a new created MatchLine from the same `matchline`
     # will result in the same `matchline`
-    new_ml = ml.from_matchline(ml.matchline, version=ml.version)
+    try:
+        new_ml = ml.from_matchline(ml.matchline, version=ml.version)
+    except:
+        import pdb
+
+        pdb.set_trace()
     assert new_ml.matchline == ml.matchline
 
     # assert that the data types of the match line are correct
@@ -219,6 +226,23 @@ class TestMatchLinesV1(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
+    def test_info_lines_from_info_v0(self):
+
+        info_lines = [
+            r"info(scoreFileName,'op10_3_1.scr').",
+            r"info(midiFileName,'op10_3_1#18.mid').",
+            "info(midiClockUnits,4000).",
+            "info(midiClockRate,500000).",
+            "info(approximateTempo,34.0).",
+            "info(subtitle,[]).",
+        ]
+
+        for i, ml in enumerate(info_lines):
+            mo_v0 = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
+
+            mo_v1 = MatchInfoV1.from_instance(mo_v0, version=Version(1, 0, 0))
+            basic_line_test(mo_v1)
+
     def test_score_prop_lines(self):
 
         keysig_line = "scoreprop(keySignature,E,0:2,1/8,-0.5000)."
@@ -277,29 +301,32 @@ class TestMatchLinesV1(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
-    # def test_score_prop_lines_from_info_v0(self):
+    def test_score_prop_lines_from_info_v0(self):
 
-    #     info_lines = [
-    #         "info(keySignature,[en,major]).",
-    #         "info(timeSignature,2/4).",
-    #         "info(beatSubdivision,[2,4]).",
-    #         # "info(tempoIndication,[lento,ma,non,troppo]).",
-    #         # "info(approximateTempo,34.0).",
-    #     ]
+        info_lines = [
+            # "info(keySignature,[en,major]).",
+            "info(timeSignature,2/4).",
+            "info(beatSubdivision,[2,4]).",
+            # "info(tempoIndication,[lento,ma,non,troppo]).",
+            # "info(approximateTempo,34.0).",
+        ]
 
-    #     for i, ml in enumerate(info_lines):
-    #         mo_v0 = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
+        for i, ml in enumerate(info_lines):
+            mo_v0 = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
 
-    #         mo_v1 = MatchScorePropV1.from_instance(mo_v0, version=Version(1, 0, 0))
+            mo_v1 = MatchScorePropV1.from_instance(mo_v0, version=Version(1, 0, 0))
+            basic_line_test(mo_v1)
 
-    #         # import pdb
-    #         # pdb.set_trace()
+            for fn in mo_v0.field_names:
+                # Some attributes have different name/spelling in different versions.
+                if fn in mo_v1.field_names and fn != "Attribute":
+                    self.assertTrue(getattr(mo_v0, fn) == getattr(mo_v1, fn))
 
     def test_section_lines(self):
 
         section_lines = [
             "section(0.0000,100.0000,0.0000,100.0000,[end]).",
-            "section(100.0000,200.0000,0.0000,100.0000,[fine]).",
+            "section(100.0000,200.0000,0.0000,100.0000,[fine,volta end]).",
             "section(100.0000,200.0000,0.0000,100.0000,[volta end]).",
             "section(100.0000,200.0000,0.0000,100.0000,[repeat left]).",
         ]
@@ -1818,3 +1845,16 @@ class TestMatchUtils(unittest.TestCase):
             self.assertTrue(str(ts) == ll)
             ts.is_list = False
             self.assertTrue(str(ts) == f"{num}/{den}")
+
+    def test_to_camel_case(self):
+
+        snake_case = "this_is_a_string"
+        expected_string = "thisIsAString"
+
+        self.assertTrue(to_camel_case(snake_case) == expected_string)
+
+    def test_to_snake_case(self):
+
+        camel_case = "thisIsAString"
+        expected_string = "this_is_a_string"
+        self.assertTrue(to_snake_case(camel_case) == expected_string)

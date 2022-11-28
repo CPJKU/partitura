@@ -228,7 +228,7 @@ def format_string(value: str) -> str:
     str
         The value formatted as a string.
     """
-    return value.strip()
+    return str(value).strip()
 
 
 def format_string_old(value: str) -> str:
@@ -643,6 +643,15 @@ class MatchTimeSignature(MatchParameter):
             return format_list([ts] + self.other_components)
         else:
             return ts
+
+    def __eq__(self, ts: MatchKeySignature) -> bool:
+
+        crit = (
+            (self.numerator == ts.numerator)
+            and (self.denominator == ts.denominator)
+            and (self.other_components == ts.other_components)
+        )
+        return crit
 
     @classmethod
     def from_string(cls, string: str, is_list: bool = False) -> MatchTimeSignature:
