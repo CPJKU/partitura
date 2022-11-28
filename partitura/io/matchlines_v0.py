@@ -49,6 +49,11 @@ from partitura.io.matchfile_utils import (
     interpret_as_time_signature,
     format_time_signature,
     format_time_signature_list,
+    MatchKeySignature,
+    interpret_as_key_signature,
+    format_key_signature_v0_1_0,
+    format_key_signature_v0_3_0,
+    format_key_signature_v0_3_0_list,
     get_kwargs_from_matchline,
 )
 
@@ -112,7 +117,11 @@ default_infoline_attributes = {
 
 INFO_LINE = {
     Version(0, 1, 0): {
-        "keySignature": (interpret_as_list, format_list, list),
+        "keySignature": (
+            interpret_as_key_signature,
+            format_key_signature_v0_1_0,
+            MatchKeySignature,
+        ),
         "timeSignature": (
             interpret_as_time_signature,
             format_time_signature,
@@ -121,7 +130,11 @@ INFO_LINE = {
         **default_infoline_attributes,
     },
     Version(0, 2, 0): {
-        "keySignature": (interpret_as_list, format_list, list),
+        "keySignature": (
+            interpret_as_key_signature,
+            format_key_signature_v0_1_0,
+            MatchKeySignature,
+        ),
         "timeSignature": (
             interpret_as_time_signature,
             format_time_signature,
@@ -130,7 +143,11 @@ INFO_LINE = {
         **default_infoline_attributes,
     },
     Version(0, 3, 0): {
-        "keySignature": (interpret_as_list, format_list, list),
+        "keySignature": (
+            interpret_as_key_signature,
+            format_key_signature_v0_3_0_list,
+            MatchKeySignature,
+        ),
         "timeSignature": (
             interpret_as_time_signature,
             format_time_signature,
@@ -139,7 +156,11 @@ INFO_LINE = {
         **default_infoline_attributes,
     },
     Version(0, 4, 0): {
-        "keySignature": (interpret_as_list, format_list, list),
+        "keySignature": (
+            interpret_as_key_signature,
+            format_key_signature_v0_3_0_list,
+            MatchKeySignature,
+        ),
         "timeSignature": (
             interpret_as_time_signature,
             format_time_signature_list,
@@ -148,7 +169,11 @@ INFO_LINE = {
         **default_infoline_attributes,
     },
     Version(0, 5, 0): {
-        "keySignature": (interpret_as_list, format_list, list),
+        "keySignature": (
+            interpret_as_key_signature,
+            format_key_signature_v0_3_0_list,
+            MatchKeySignature,
+        ),
         "timeSignature": (
             interpret_as_time_signature,
             format_time_signature_list,
@@ -255,7 +280,11 @@ default_meta_attributes = {
         format_time_signature,
         MatchTimeSignature,
     ),
-    "keySignature": (interpret_as_string, format_string, str),
+    "keySignature": (
+        interpret_as_key_signature,
+        format_key_signature_v0_3_0,
+        MatchKeySignature,
+    ),
 }
 META_LINE = {
     Version(0, 3, 0): default_meta_attributes,

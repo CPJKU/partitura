@@ -921,9 +921,6 @@ class TestMatchLinesV0(unittest.TestCase):
             "info(tempoIndication,[lento,ma,non,troppo]).",
             "info(approximateTempo,34.0).",
             "info(subtitle,[]).",
-            # "info(timeSignature,[4/4,2/2,3/4,2/2,3/4,4/4]).",
-            # "info(timeSignature,3/8).",
-            # "info(timeSignature,[3/4]).",
         ]
 
         for i, ml in enumerate(matchlines):
@@ -990,7 +987,7 @@ class TestMatchLinesV0(unittest.TestCase):
             r"info(midiFileName,'op10_3_1#18.mid').",
             "info(midiClockUnits,4000).",
             "info(midiClockRate,500000).",
-            "info(keySignature,[en,major]).",
+            "info(keySignature,[C Maj]).",
             "info(timeSignature,2/4).",
             "info(beatSubdivision,[2,4]).",
             "info(tempoIndication,[lento,ma,non,troppo]).",
@@ -1015,7 +1012,7 @@ class TestMatchLinesV0(unittest.TestCase):
             r"info(midiFileName,'op10_3_1#18.mid').",
             "info(midiClockUnits,4000).",
             "info(midiClockRate,500000).",
-            "info(keySignature,[en,major]).",
+            "info(keySignature,[D Maj/B min]).",
             "info(beatSubdivision,[2,4]).",
             "info(tempoIndication,[lento,ma,non,troppo]).",
             "info(approximateTempo,34.0).",
@@ -1885,5 +1882,3 @@ class TestMatchUtils(unittest.TestCase):
             for component in ks.other_components:
                 key_name = fifths_mode_to_key_name(component.fifths, component.mode)
                 self.assertTrue(str(component).startswith(key_name))
-                
-                

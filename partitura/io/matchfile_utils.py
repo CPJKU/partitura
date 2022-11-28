@@ -605,14 +605,10 @@ def format_accidental_old(value: Optional[int]) -> str:
 
 
 class MatchParameter(object):
-
-    raw_string: Any
-    version: Version
-
     def __init__(self, *args, **kwargs) -> None:
         pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         raise NotImplementedError
 
     @classmethod
@@ -722,7 +718,7 @@ class MatchKeySignature(MatchParameter):
         if ksinfo is None:
             fmt = "v1.0.0"
             ksinfo = kstr.split("/")
-            fifth1, mode1 = key_name_to_fifths_mode(ksinfo[0].upper())
+            fifths1, mode1 = key_name_to_fifths_mode(ksinfo[0].upper())
             fifths2, mode2 = None, None
             if len(ksinfo) == 2:
                 fifths2, mode2 = key_name_to_fifths_mode(ksinfo[1].upper())
@@ -782,6 +778,41 @@ class MatchKeySignature(MatchParameter):
             ks.other_components = ksigs[1:] if len(ksigs) > 1 else []
 
             return ks
+
+
+def interpret_as_key_signature(value: str) -> MatchKeySignature:
+    ks = MatchKeySignature.from_string(value)
+    return ks
+
+
+def format_key_signature_v1_0_0(value: MatchKeySignature) -> str:
+    value.is_list = False
+    value.fmt = "v1.0.0"
+    return str(value)
+
+
+def format_key_signature_v0_3_0(value: MatchKeySignature) -> str:
+    value.is_list = False
+    value.fmt = "v0.3.0"
+    return str(value)
+
+
+def format_key_signature_v0_3_0_list(value: MatchKeySignature) -> str:
+    value.is_list = True
+    value.fmt = "v0.3.0"
+    return str(value)
+
+
+def format_key_signature_v0_1_0(value: MatchKeySignature) -> str:
+    value.is_list = False
+    value.fmt = "v0.1.0"
+    return str(value)
+
+
+def format_time_signature_v0_1_0_list(value: MatchKeySignature) -> str:
+    value.is_list = True
+    value.fmt = "v0.1.0"
+    return str(value)
 
 
 class MatchTimeSignature(MatchParameter):
@@ -845,21 +876,6 @@ def format_time_signature(value: MatchTimeSignature) -> str:
 def format_time_signature_list(value: MatchTimeSignature) -> str:
     value.is_list = True
     return str(value)
-
-
-# def parse_key_signature(value: Union[str, List[str]]) -> List[str]:
-
-#     if isinstance(value, list):
-
-#         root, mode = value
-
-#     elif isinstance(value, str):
-
-#         ks_info = key_signature_pattern.search(value)
-
-#         if ks_info is not None:
-
-#             pass
 
 
 ## Miscellaneous utils
