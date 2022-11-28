@@ -886,9 +886,6 @@ class BasePedalLine(MatchLine):
         self.Time = time
         self.Value = value
 
-        # self.out_pattern = f"{pedal_type}{self.out_pattern}"
-        # self.pattern = re.compile(self.base_pattern.format(pedal_type=pedal_type))
-
     @classmethod
     def prepare_kwargs_from_matchline(
         cls,
@@ -1001,7 +998,6 @@ class MatchFile(object):
         Return all score notes (as MatchSnote objects)
         """
         return [x.snote for x in self.lines if isinstance(x, snote_classes)]
-        # return [x.snote for x in self.lines if hasattr(x, "snote")]
 
     def iter_snotes(self) -> BaseSnoteLine:
         """
@@ -1078,6 +1074,8 @@ class MatchFile(object):
             for tsl in self.time_sig_lines
         ]
 
+        _tsigs.sort(key=lambda x: x[0])
+
         tsigs = []
         if len(_tsigs) > 0:
             tsigs.append(_tsigs[0])
@@ -1110,6 +1108,8 @@ class MatchFile(object):
             )
             for ksl in self.key_sig_lines
         ]
+
+        _keysigs.sort(key=lambda x: x[0])
 
         keysigs = []
         if len(_keysigs) > 0:
