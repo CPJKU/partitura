@@ -48,6 +48,7 @@ from partitura.io.matchfile_utils import (
     FractionalSymbolicDuration,
     Version,
     interpret_version,
+    MatchTimeSignature,
 )
 
 RNG = np.random.RandomState(1984)
@@ -276,23 +277,23 @@ class TestMatchLinesV1(unittest.TestCase):
         except ValueError:
             self.assertTrue(True)
 
-    def test_score_prop_lines_from_info_v0(self):
+    # def test_score_prop_lines_from_info_v0(self):
 
-        info_lines = [
-            "info(keySignature,[en,major]).",
-            "info(timeSignature,2/4).",
-            "info(beatSubdivision,[2,4]).",
-            # "info(tempoIndication,[lento,ma,non,troppo]).",
-            # "info(approximateTempo,34.0).",
-        ]
+    #     info_lines = [
+    #         "info(keySignature,[en,major]).",
+    #         "info(timeSignature,2/4).",
+    #         "info(beatSubdivision,[2,4]).",
+    #         # "info(tempoIndication,[lento,ma,non,troppo]).",
+    #         # "info(approximateTempo,34.0).",
+    #     ]
 
-        for i, ml in enumerate(info_lines):
-            mo_v0 = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
+    #     for i, ml in enumerate(info_lines):
+    #         mo_v0 = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
 
-            mo_v1 = MatchScorePropV1.from_instance(mo_v0, version=Version(1, 0, 0))
+    #         mo_v1 = MatchScorePropV1.from_instance(mo_v0, version=Version(1, 0, 0))
 
-            # import pdb
-            # pdb.set_trace()
+    #         # import pdb
+    #         # pdb.set_trace()
 
     def test_section_lines(self):
 
@@ -1731,3 +1732,29 @@ class TestMatchUtils(unittest.TestCase):
 
             self.assertTrue(isinstance(fsd3, FractionalSymbolicDuration))
             self.assertTrue(np.isclose(float(fsd1) + float(fsd2), float(fsd3)))
+
+    def test_match_time_signature(self):
+        """
+        """
+        lines = [
+            (
+                "[3/4,2/4,9/8,2/2,3/4,9/8,4/4,3/4]",
+                3,
+                4,
+                "[3/4,2/4,9/8,2/2,3/4,9/8,4/4,3/4]",
+            ),
+            ("[3/4]", 3, 4, "[3/4]"),
+            ("3/4", 3, 4, "[3/4]"),
+            ("[6/8,12/16,6/8]", 6, 8, "[6/8,12/16,6/8]"),
+        ]
+
+        for line, num, den, ll in lines:
+
+            ts = MatchTimeSignature.from_string(line)
+
+            self.assertTrue(ts.numerator == num)
+            self.assertTrue(ts.denominator == den)
+            ts.is_list = True
+            self.assertTrue(str(ts) == ll)
+            ts.is_list = False
+            self.assertTrue(str(ts) == f"{num}/{den}")

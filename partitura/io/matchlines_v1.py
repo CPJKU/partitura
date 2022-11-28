@@ -1295,4 +1295,38 @@ def make_scoreprop(
     ml = MatchScoreProp(
         version=version,
         attribute=attribute,
+        value=value,
+        value_type=dtype,
+        format_fun=format_fun,
+        measure=measure,
+        beat=beat,
+        offset=offset,
+        time_in_beats=time_in_beats,
     )
+
+    return ml
+
+
+def make_section(
+    version: Version,
+    start_in_beats_unfolded: float,
+    end_in_beats_unfolded: float,
+    start_in_beats_original: float,
+    end_in_beats_original: float,
+    repeat_end_type: Union[str, List[str]],
+) -> MatchSection:
+
+    ml = MatchSection(
+        version=version,
+        start_in_beats_unfolded=start_in_beats_unfolded,
+        start_in_beats_original=start_in_beats_original,
+        end_in_beats_unfolded=end_in_beats_unfolded,
+        end_in_beats_original=end_in_beats_original,
+        repeat_end_type=[repeat_end_type]
+        if isinstance(repeat_end_type, str)
+        else repeat_end_type,
+    )
+    return ml
+
+
+

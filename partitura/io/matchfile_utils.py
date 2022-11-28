@@ -30,13 +30,13 @@ version_pattern = re.compile(
 attribute_list_pattern = re.compile(r"^\[(?P<attributes>.*)\]")
 
 key_signature_pattern = re.compile(
-            (
-                "(?P<step1>[A-G])(?P<alter1>[#b]*) "
-                "(?P<mode1>[a-zA-z]+)(?P<slash>/*)"
-                "(?P<step2>[A-G]*)(?P<alter2>[#b]*)"
-                "(?P<space2> *)(?P<mode2>[a-zA-z]*)"
-            )
-        )
+    (
+        "(?P<step1>[A-G])(?P<alter1>[#b]*) "
+        "(?P<mode1>[a-zA-z]+)(?P<slash>/*)"
+        "(?P<step2>[A-G]*)(?P<alter2>[#b]*)"
+        "(?P<space2> *)(?P<mode2>[a-zA-z]*)"
+    )
+)
 
 
 # For matchfiles before 1.0.0.
@@ -596,21 +596,83 @@ def format_accidental_old(value: Optional[int]) -> str:
 
 ## Methods for parsing special attributes
 
-def parse_key_signature(value: Union[str, List[str]]) -> List[str]:
 
-    if isinstance(value, list):
+class MatchParameter(object):
 
-        root, mode = value
+    raw_string: Any
+    version: Version
 
-    elif isinstance(value, str):
+    def __init__(self, *args, **kwargs) -> None:
+        pass
 
-        ks_info = key_signature_pattern.search(value)
+    def __str__(self):
+        raise NotImplementedError
 
-        if ks_info is not None:
+    @classmethod
+    def from_string(self, *args, **kwargs) -> MatchParameter:
+        raise NotImplementedError
 
-            pass
+
+class MatchKeySignature(MatchParameter):
+    def __init__(self, root: str, alter: int, mode: str, is_list: bool = False):
+        super().__init__()
+        self.root = root
+        self.alter = alter
+        self.mode = mode
+        self.is_list = is_list
 
 
+class MatchTimeSignature(MatchParameter):
+    def __init__(
+        self,
+        numerator: int,
+        denominator: int,
+        other_components: Optional[List[Any]],
+        is_list: bool = False,
+    ) -> None:
+        super().__init__()
+        self.numerator = numerator
+        self.denominator = denominator
+        self.other_components = other_components
+        self.is_list = is_list
+
+    def __str__(self):
+
+        ts = f"{self.numerator}/{self.denominator}"
+        if self.is_list:
+            return format_list([ts] + self.other_components)
+        else:
+            return ts
+
+    @classmethod
+    def from_string(cls, string: str, is_list: bool = False) -> MatchTimeSignature:
+        content = interpret_as_list_fractional(string.strip())
+        numerator = content[0].numerator
+        denominator = content[0].denominator
+
+        other_components = [] if len(content) == 1 else content[1:]
+
+        return cls(
+            numerator=numerator,
+            denominator=denominator,
+            other_components=other_components,
+            is_list=is_list,
+        )
+
+
+# def parse_key_signature(value: Union[str, List[str]]) -> List[str]:
+
+#     if isinstance(value, list):
+
+#         root, mode = value
+
+#     elif isinstance(value, str):
+
+#         ks_info = key_signature_pattern.search(value)
+
+#         if ks_info is not None:
+
+#             pass
 
 
 ## Miscellaneous utils
