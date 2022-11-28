@@ -50,6 +50,9 @@ from partitura.io.matchfile_utils import (
     interpret_as_list,
     interpret_as_list_int,
     format_list,
+    MatchTimeSignature,
+    interpret_as_time_signature,
+    format_time_signature,
     to_snake_case,
     get_kwargs_from_matchline,
 )
@@ -185,9 +188,9 @@ class MatchInfo(BaseInfoLine):
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
         "timeSignature": (
-            interpret_as_fractional,
-            format_fractional,
-            FractionalSymbolicDuration,
+            interpret_as_time_signature,
+            format_time_signature,
+            MatchTimeSignature,
         ),
         "keySignature": (interpret_as_string, format_string, str),
         "beatSubDivision": (interpret_as_list_int, format_list, list),

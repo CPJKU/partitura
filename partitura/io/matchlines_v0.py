@@ -45,6 +45,10 @@ from partitura.io.matchfile_utils import (
     interpret_as_list,
     format_list,
     format_accidental_old,
+    MatchTimeSignature,
+    interpret_as_time_signature,
+    format_time_signature,
+    format_time_signature_list,
     get_kwargs_from_matchline,
 )
 
@@ -91,12 +95,12 @@ default_infoline_attributes = {
     "midiClockRate": (interpret_as_int, format_int, int),
     "approximateTempo": (interpret_as_float, format_float_unconstrained, float),
     "subtitle": (interpret_as_list, format_list, list),
-    "keySignature": (interpret_as_list, format_list, list),
-    "timeSignature": (
-        interpret_as_fractional,
-        format_fractional,
-        (FractionalSymbolicDuration, list),
-    ),
+    # "keySignature": (interpret_as_list, format_list, list),
+    # "timeSignature": (
+    #     interpret_as_fractional,
+    #     format_fractional,
+    #     (FractionalSymbolicDuration, list),
+    # ),
     "tempoIndication": (interpret_as_list, format_list, list),
     "beatSubDivision": (interpret_as_list, format_list, list),
     "beatSubdivision": (interpret_as_list, format_list, list),
@@ -104,7 +108,55 @@ default_infoline_attributes = {
     "mergedFrom": (interpret_as_list, format_list, list),
 }
 
-INFO_LINE = defaultdict(lambda: default_infoline_attributes.copy())
+# INFO_LINE = defaultdict(lambda: default_infoline_attributes.copy())
+
+INFO_LINE = {
+    Version(0, 1, 0): {
+        "keySignature": (interpret_as_list, format_list, list),
+        "timeSignature": (
+            interpret_as_time_signature,
+            format_time_signature,
+            MatchTimeSignature,
+        ),
+        **default_infoline_attributes,
+    },
+    Version(0, 2, 0): {
+        "keySignature": (interpret_as_list, format_list, list),
+        "timeSignature": (
+            interpret_as_time_signature,
+            format_time_signature,
+            MatchTimeSignature,
+        ),
+        **default_infoline_attributes,
+    },
+    Version(0, 3, 0): {
+        "keySignature": (interpret_as_list, format_list, list),
+        "timeSignature": (
+            interpret_as_time_signature,
+            format_time_signature,
+            MatchTimeSignature,
+        ),
+        **default_infoline_attributes,
+    },
+    Version(0, 4, 0): {
+        "keySignature": (interpret_as_list, format_list, list),
+        "timeSignature": (
+            interpret_as_time_signature,
+            format_time_signature_list,
+            MatchTimeSignature,
+        ),
+        **default_infoline_attributes,
+    },
+    Version(0, 5, 0): {
+        "keySignature": (interpret_as_list, format_list, list),
+        "timeSignature": (
+            interpret_as_time_signature,
+            format_time_signature_list,
+            MatchTimeSignature,
+        ),
+        **default_infoline_attributes,
+    },
+}
 
 
 class MatchInfo(BaseInfoLine):
@@ -199,9 +251,9 @@ class MatchInfo(BaseInfoLine):
 
 default_meta_attributes = {
     "timeSignature": (
-        interpret_as_fractional,
-        format_fractional,
-        FractionalSymbolicDuration,
+        interpret_as_time_signature,
+        format_time_signature,
+        MatchTimeSignature,
     ),
     "keySignature": (interpret_as_string, format_string, str),
 }

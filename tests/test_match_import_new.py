@@ -881,7 +881,7 @@ class TestMatchLinesV1(unittest.TestCase):
 
 
 class TestMatchLinesV0(unittest.TestCase):
-    def test_info_lines(self):
+    def test_info_lines_v_0_1_0(self):
         matchlines = [
             r"info(scoreFileName,'op10_3_1.scr').",
             r"info(midiFileName,'op10_3_1#18.mid').",
@@ -893,14 +893,19 @@ class TestMatchLinesV0(unittest.TestCase):
             "info(tempoIndication,[lento,ma,non,troppo]).",
             "info(approximateTempo,34.0).",
             "info(subtitle,[]).",
+            # "info(timeSignature,[4/4,2/2,3/4,2/2,3/4,4/4]).",
+            # "info(timeSignature,3/8).",
+            # "info(timeSignature,[3/4]).",
         ]
 
         for i, ml in enumerate(matchlines):
-            mo = MatchInfoV0.from_matchline(ml, version=Version(0, 1, 0))
-            # assert that the information from the matchline
-            # is parsed correctly and results in an identical line
-            # to the input match line
-            basic_line_test(mo, verbose=i == 0)
+
+            for minor in (1, 2):
+                mo = MatchInfoV0.from_matchline(ml, version=Version(0, minor, 0))
+                # assert that the information from the matchline
+                # is parsed correctly and results in an identical line
+                # to the input match line
+                basic_line_test(mo, verbose=(i == 0) and (minor == 1))
             self.assertTrue(mo.matchline == ml)
 
         # The following lines should result in an error
@@ -950,6 +955,57 @@ class TestMatchLinesV0(unittest.TestCase):
             self.assertTrue(False)  # pragma: no cover
         except ValueError:
             self.assertTrue(True)
+
+    def test_info_lines_v_0_3_0(self):
+        matchlines = [
+            r"info(scoreFileName,'op10_3_1.scr').",
+            r"info(midiFileName,'op10_3_1#18.mid').",
+            "info(midiClockUnits,4000).",
+            "info(midiClockRate,500000).",
+            "info(keySignature,[en,major]).",
+            "info(timeSignature,2/4).",
+            "info(beatSubdivision,[2,4]).",
+            "info(tempoIndication,[lento,ma,non,troppo]).",
+            "info(approximateTempo,34.0).",
+            "info(subtitle,[]).",
+            # "info(timeSignature,[4/4,2/2,3/4,2/2,3/4,4/4]).",
+            # "info(timeSignature,3/8).",
+            # "info(timeSignature,[3/4]).",
+        ]
+
+        for i, ml in enumerate(matchlines):
+            mo = MatchInfoV0.from_matchline(ml, version=Version(0, 3, 0))
+            # assert that the information from the matchline
+            # is parsed correctly and results in an identical line
+            # to the input match line
+            basic_line_test(mo)
+            self.assertTrue(mo.matchline == ml)
+
+    def test_info_lines_v_0_4_0(self):
+        matchlines = [
+            r"info(scoreFileName,'op10_3_1.scr').",
+            r"info(midiFileName,'op10_3_1#18.mid').",
+            "info(midiClockUnits,4000).",
+            "info(midiClockRate,500000).",
+            "info(keySignature,[en,major]).",
+            "info(beatSubdivision,[2,4]).",
+            "info(tempoIndication,[lento,ma,non,troppo]).",
+            "info(approximateTempo,34.0).",
+            "info(subtitle,[]).",
+            "info(timeSignature,[4/4,2/2,3/4,2/2,3/4,4/4]).",
+            "info(timeSignature,[3/8]).",
+            "info(timeSignature,[3/4]).",
+        ]
+
+        for i, ml in enumerate(matchlines):
+
+            for minor in (4, 5):
+                mo = MatchInfoV0.from_matchline(ml, version=Version(0, minor, 0))
+                # assert that the information from the matchline
+                # is parsed correctly and results in an identical line
+                # to the input match line
+                basic_line_test(mo)
+                self.assertTrue(mo.matchline == ml)
 
     def test_meta_lines(self):
 
@@ -1735,7 +1791,11 @@ class TestMatchUtils(unittest.TestCase):
 
     def test_match_time_signature(self):
         """
+        Test MatchTimeSignature
         """
+        # These lines were taken from match files and
+        # represent all different versions of encoding
+        # time signature accross all datasets.
         lines = [
             (
                 "[3/4,2/4,9/8,2/2,3/4,9/8,4/4,3/4]",

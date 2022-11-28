@@ -660,6 +660,22 @@ class MatchTimeSignature(MatchParameter):
         )
 
 
+def interpret_as_time_signature(value: str) -> MatchTimeSignature:
+
+    ts = MatchTimeSignature.from_string(value)
+    return ts
+
+
+def format_time_signature(value: MatchTimeSignature) -> str:
+    value.is_list = False
+    return str(value)
+
+
+def format_time_signature_list(value: MatchTimeSignature) -> str:
+    value.is_list = True
+    return str(value)
+
+
 # def parse_key_signature(value: Union[str, List[str]]) -> List[str]:
 
 #     if isinstance(value, list):
