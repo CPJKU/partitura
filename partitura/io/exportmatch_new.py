@@ -75,7 +75,7 @@ def matchfile_from_alignment(
     piece: Optional[str] = None,
     assume_part_unfolded: bool = False,
     debug: bool = False,
-):
+) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
     a Part
