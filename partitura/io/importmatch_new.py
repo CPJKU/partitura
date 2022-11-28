@@ -3,9 +3,7 @@
 """
 This module contains methods for parsing matchfiles
 """
-import re
 import os
-from collections import namedtuple
 from typing import Union, Tuple, Optional, Callable, List
 import warnings
 
@@ -92,7 +90,7 @@ from partitura.utils.misc import (
 
 from partitura.utils.generic import interp1d, partition, iter_current_next
 
-__all__ = ["load_matchfile"]
+__all__ = ["load_match"]
 
 
 def get_version(line: str) -> Version:
@@ -149,7 +147,7 @@ def parse_matchline(
     * sustain(Time, Value)
     * soft(Time, Value)
 
-    or False if none can be matched
+    or None if none can be matched
 
     Parameters
     ----------
@@ -181,6 +179,9 @@ def load_matchfile(
     filename: PathLike,
     debug: bool = True,
 ) -> MatchFile:
+    """
+    Load a Matchfile as a `MatchFile` instance
+    """
 
     if not os.path.exists(filename):
         raise ValueError("Filename does not exist")
@@ -217,7 +218,8 @@ def load_match(
     first_note_at_zero: bool = False,
     offset_duration_whole: bool = True,
 ) -> Tuple[Union[Performance, list, score.Score]]:
-    """Load a matchfile.
+    """
+    Load a matchfile.
 
     Parameters
     ----------
@@ -275,6 +277,19 @@ def load_match(
 
 
 def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
+    """
+    Get a note-level alignment from a MatchFile instance
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A score-to-performance alignment
+
+    Returns
+    -------
+    results : List[dict]
+        An alignmnet as a list of dictionaries for each note.
+    """
     result = []
 
     for line in mf.lines:
@@ -378,6 +393,8 @@ def performed_part_from_match(
             note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
             sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
             velocity=note.Velocity,
+            track=getattr(note, "Track", 0),
+            channel=getattr(note, "Channel", 1),
         )
         for note in mf.notes
     ]
@@ -389,7 +406,7 @@ def performed_part_from_match(
             time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
         )
-        for ped in mf.soft_pedal
+        for ped in mf.sustain_pedal
     ]
 
     # SoftPedal instances for soft pedal lines

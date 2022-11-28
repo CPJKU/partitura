@@ -516,6 +516,11 @@ class BaseSnoteLine(MatchLine):
         return str(self.Duration)
 
     @property
+    def Bar(self) -> int:
+        # deprecatd property measure
+        return self.Measure
+
+    @property
     def MidiPitch(self) -> Optional[int]:
         if isinstance(self.Octave, int):
             return pitch_spelling_to_midi_pitch(
@@ -638,7 +643,6 @@ class BaseSnoteNoteLine(MatchLine):
         self.field_types = self.snote.field_types + self.note.field_types
 
         self.pattern = (self.snote.pattern, self.note.pattern)
-        # self.pattern = re.compile(f"{self.snote.pattern.pattern}-{self.note.pattern.pattern}")
 
         self.format_fun = (self.snote.format_fun, self.note.format_fun)
 

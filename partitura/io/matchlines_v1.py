@@ -923,7 +923,7 @@ class MatchNote(BaseNoteLine):
                 onset=int(np.round(instance.Onset)),
                 offset=int(np.round(instance.Offset)),
                 velocity=instance.Velocity,
-                channel=0,
+                channel=1,
                 track=0,
             )
 
@@ -1327,9 +1327,9 @@ def make_info(version: Version, attribute: str, value: Any) -> MatchInfo:
     ml = MatchInfo(
         version=version,
         attribute=attribute,
-        value=version,
-        value_type=Version,
-        format_fun=format_version,
+        value=value,
+        value_type=dtype,
+        format_fun=format_fun,
     )
 
     return ml

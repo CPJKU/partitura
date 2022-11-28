@@ -459,11 +459,6 @@ class TestMatchLinesV1(unittest.TestCase):
             "snote(n781,[R,-],-,36:3,0,1/4,107.0000,108.0000,[fermata])",
         ]
 
-        # mo = MatchSnoteV1.from_matchline(snote_lines[-1])
-        # import pdb
-
-        # pdb.set_trace()
-
         output_strings = [
             (
                 "MatchSnote\n"
