@@ -35,6 +35,8 @@ from partitura.io.matchfile_utils import (
     interpret_as_list,
     interpret_as_list_int,
     format_list,
+    MatchKeySignature,
+    MatchTimeSignature,
 )
 
 from partitura.utils.misc import (
@@ -1067,34 +1069,24 @@ class MatchFile(object):
         n over v, starting at t in bar b
 
         """
-        tspat = re.compile("([0-9]+)/([0-9]*)")
-        m = [(int(x[0]), int(x[1])) for x in tspat.findall(self.info("timeSignature"))]
-        _timeSigs = []
-        if len(m) > 0:
-
-            _timeSigs.append((self.first_onset, self.first_measure, m[0]))
-        for line in self.time_sig_lines:
-
-            _timeSigs.append(
-                (
-                    float(line.TimeInBeats),
-                    int(line.Bar),
-                    [(int(x[0]), int(x[1])) for x in tspat.findall(line.Value)][0],
-                )
+        _tsigs = [
+            (
+                getattr(tsl, "TimeInBeats", self.first_onset),
+                getattr(tsl, "Measure", self.first_measure),
+                tsl.Value,
             )
-        _timeSigs = list(set(_timeSigs))
-        _timeSigs.sort(key=lambda x: [x[0], x[1]])
+            for tsl in self.time_sig_lines
+        ]
 
-        # ensure that all consecutive time signatures are different
-        timeSigs = [_timeSigs[0]]
+        tsigs = []
+        if len(_tsigs) > 0:
+            tsigs.append(_tsigs[0])
 
-        for ts in _timeSigs:
-            ts_on, bar, (ts_num, ts_den) = ts
-            ts_on_prev, ts_bar_prev, (ts_num_prev, ts_den_prev) = timeSigs[-1]
-            if ts_num != ts_num_prev or ts_den != ts_den_prev:
-                timeSigs.append(ts)
+            for k in _tsigs:
+                if k[2] != tsigs[-1][2]:
+                    tsigs.append(k)
 
-        return timeSigs
+        return tsigs
 
     @property
     def time_sig_lines(self):
@@ -1108,54 +1100,16 @@ class MatchFile(object):
     @property
     def key_signatures(self):
         """
-        A list of tuples (t, b, (f,m)) or (t, b, (f1, m1, f2, m2))
+        A list of tuples (t, b, (ks,)) or (t, b, (ks1, ks2))
         """
-        kspat = re.compile(
+        _keysigs = [
             (
-                "(?P<step1>[A-G])(?P<alter1>[#b]*) "
-                "(?P<mode1>[a-zA-z]+)(?P<slash>/*)"
-                "(?P<step2>[A-G]*)(?P<alter2>[#b]*)"
-                "(?P<space2> *)(?P<mode2>[a-zA-z]*)"
+                getattr(ksl, "TimeInBeats", self.first_onset),
+                getattr(ksl, "Measure", self.first_measure),
+                ksl.Value,
             )
-        )
-
-        _keysigs = []
-        for ksl in self.key_sig_lines:
-            # if isinstance(ksl, BaseInfoLine):
-            # remove brackets and only take
-            # the first key signature
-
-            ks = ksl.Value
-            t = getattr(ksl, "TimeInBeats", self.first_onset)
-            b = getattr(ksl, "Measure", self.first_measure)
-            #     ks = ksl.Value.replace("[", "").replace("]", "").split(",")[0]
-            #     t = self.first_onset
-            #     b = self.first_measure
-            # elif :
-            #     ks = ksl.Value
-            #     t = ksl.TimeInBeats
-            #     b = ksl.Bar
-
-            ks_info = kspat.search(ks)
-
-            keysig = (
-                self._format_key_signature(
-                    step=ks_info.group("step1"),
-                    alter_sign=ks_info.group("alter1"),
-                    mode=ks_info.group("mode1"),
-                ),
-            )
-
-            if ks_info.group("step2") != "":
-                keysig += (
-                    self._format_key_signature(
-                        step=ks_info.group("step2"),
-                        alter_sign=ks_info.group("alter2"),
-                        mode=ks_info.group("mode2"),
-                    ),
-                )
-
-            _keysigs.append((t, b, keysig))
+            for ksl in self.key_sig_lines
+        ]
 
         keysigs = []
         if len(_keysigs) > 0:
@@ -1166,19 +1120,6 @@ class MatchFile(object):
                     keysigs.append(k)
 
         return keysigs
-
-    def _format_key_signature(self, step, alter_sign, mode):
-
-        if mode.lower() in ("maj", "", "major"):
-            mode = ""
-        elif mode.lower() in ("min", "m", "minor"):
-            mode = "m"
-        else:
-            raise ValueError(
-                'Invalid mode. Expected "major" or "minor" but got {0}'.format(mode)
-            )
-
-        return step + alter_sign + mode
 
     @property
     def key_sig_lines(self):
