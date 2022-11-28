@@ -49,8 +49,14 @@ from partitura.io.matchfile_utils import (
     Version,
     interpret_version,
     MatchTimeSignature,
+    MatchKeySignature,
     to_camel_case,
     to_snake_case,
+)
+
+from partitura.utils.music import (
+    key_name_to_fifths_mode,
+    fifths_mode_to_key_name,
 )
 
 RNG = np.random.RandomState(1984)
@@ -87,12 +93,7 @@ def basic_line_test(ml: MatchLine, verbose: bool = False) -> None:
 
     # assert that a new created MatchLine from the same `matchline`
     # will result in the same `matchline`
-    try:
-        new_ml = ml.from_matchline(ml.matchline, version=ml.version)
-    except:
-        import pdb
-
-        pdb.set_trace()
+    new_ml = ml.from_matchline(ml.matchline, version=ml.version)
     assert new_ml.matchline == ml.matchline
 
     # assert that the data types of the match line are correct
@@ -1858,3 +1859,31 @@ class TestMatchUtils(unittest.TestCase):
         camel_case = "thisIsAString"
         expected_string = "this_is_a_string"
         self.assertTrue(to_snake_case(camel_case) == expected_string)
+
+    def test_match_key_signature(self):
+
+        lines = [
+            "[fn,major]",
+            "[A Maj/F# min]",
+            "[Ab Maj/F min,Db Maj/Bb min]",
+            "[B Maj/G# min,A Maj/F# min,B Maj/G# min]",
+            "B Maj",
+            "[Db Maj/Bb min,A Maj/F# min,Db Maj/Bb min,A Maj/F# min,Db Maj/Bb min]",
+        ]
+
+        for line in lines:
+            ks = MatchKeySignature.from_string(line)
+
+            if line.startswith("[") and ks.fmt == "v0.3.0":
+                ks.is_list = True
+            else:
+                ks.is_list = False
+            ks_str = str(ks)
+            self.assertTrue(ks_str == line)
+
+            ks.fmt = "v1.0.0"
+            for component in ks.other_components:
+                key_name = fifths_mode_to_key_name(component.fifths, component.mode)
+                self.assertTrue(str(component).startswith(key_name))
+                
+                

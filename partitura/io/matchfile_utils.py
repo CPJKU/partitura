@@ -14,6 +14,11 @@ from collections import namedtuple
 
 from partitura.utils.music import (
     ALTER_SIGNS,
+    fifths_mode_to_key_name,
+    note_name_to_pitch_spelling,
+    key_name_to_fifths_mode,
+    MAJOR_KEYS,
+    MINOR_KEYS,
 )
 
 Version = namedtuple("Version", ["major", "minor", "patch"])
@@ -31,12 +36,14 @@ attribute_list_pattern = re.compile(r"^\[(?P<attributes>.*)\]")
 
 key_signature_pattern = re.compile(
     (
-        "(?P<step1>[A-G])(?P<alter1>[#b]*) "
-        "(?P<mode1>[a-zA-z]+)(?P<slash>/*)"
+        r"(?P<step1>[A-G])(?P<alter1>[#b]*)\s*"
+        r"(?P<mode1>[a-zA-z]+)/*"
         "(?P<step2>[A-G]*)(?P<alter2>[#b]*)"
-        "(?P<space2> *)(?P<mode2>[a-zA-z]*)"
+        r"\s*(?P<mode2>[a-zA-z]*)"
     )
 )
+
+pitch_class_pattern = re.compile("(?P<step>[A-Ga-g])(?P<alter>[#bn]*)")
 
 
 # For matchfiles before 1.0.0.
@@ -614,12 +621,167 @@ class MatchParameter(object):
 
 
 class MatchKeySignature(MatchParameter):
-    def __init__(self, root: str, alter: int, mode: str, is_list: bool = False):
+    def __init__(
+        self,
+        fifths: int,
+        mode: str,
+        fifths_alt: Optional[int] = None,
+        mode_alt: Optional[str] = None,
+        is_list: bool = False,
+        other_components: Optional[List[MatchKeySignature]] = None,
+        fmt: str = "v1.0.0",
+    ):
         super().__init__()
-        self.root = root
-        self.alter = alter
+        self.fifths = fifths
         self.mode = mode
+        self.fifths_alt = fifths_alt
+        self.mode_alt = mode_alt
         self.is_list = is_list
+        self.other_components = [] if other_components is None else other_components
+        self.fmt = fmt
+
+    @property
+    def fmt(self) -> str:
+        return self._fmt
+
+    @fmt.setter
+    def fmt(self, fmt: str) -> None:
+        self._fmt = fmt
+        for component in self.other_components:
+            component.fmt = fmt
+
+    def fifths_mode_to_key_name_v0_1_0(self, fifths: int, mode: str) -> str:
+        if mode == "major":
+            keylist = MAJOR_KEYS
+            suffix = "major"
+        elif mode == "minor":
+            keylist = MINOR_KEYS
+            suffix = "minor"
+
+        step, alter, _ = note_name_to_pitch_spelling(f"{keylist[fifths + 7]}4")
+        alter_str = "n" if (alter is None or alter == 0) else ALTER_SIGNS[alter]
+        name = f"{step.lower()}{alter_str}"
+        ks = f"[{name},{suffix}]"
+
+        return ks
+
+    def fifths_mode_to_key_name_v0_3_0(self, fifths: int, mode: str) -> str:
+        if mode == "major":
+            keylist = MAJOR_KEYS
+            suffix = "Maj"
+        elif mode == "minor":
+            keylist = MINOR_KEYS
+            suffix = "min"
+
+        name = keylist[fifths + 7]
+
+        ks = f"{name} {suffix}"
+
+        return ks
+
+    def __str__(self):
+
+        if self.fmt == "v1.0.0":
+            ks = fifths_mode_to_key_name(self.fifths, self.mode)
+
+            if self.fifths_alt is not None:
+                ks = f"{ks}/{fifths_mode_to_key_name(self.fifths_alt, self.mode_alt)}"
+
+        if self.fmt == "v0.3.0":
+            ks = self.fifths_mode_to_key_name_v0_3_0(self.fifths, self.mode)
+
+            if self.fifths_alt is not None:
+                ks = f"{ks}/{self.fifths_mode_to_key_name_v0_3_0(self.fifths_alt, self.mode_alt)}"
+
+        if self.fmt == "v0.1.0":
+            ks = self.fifths_mode_to_key_name_v0_1_0(self.fifths, self.mode)
+
+        if self.is_list:
+            return format_list([ks] + self.other_components)
+        return ks
+
+    def __eq__(self, ks: MatchKeySignature) -> bool:
+
+        crit = (
+            self.fifths == ks.fifths
+            and self.mode == ks.mode
+            and self.fifths_alt == ks.fifths_alt
+            and self.mode_alt == ks.mode_alt
+            and self.other_components == ks.other_components
+        )
+
+        return crit
+
+    @classmethod
+    def _parse_key_signature(cls, kstr: str) -> MatchKeySignature:
+
+        # import pdb
+        # pdb.set_trace()
+        ksinfo = key_signature_pattern.search(kstr)
+
+        if ksinfo is None:
+            fmt = "v1.0.0"
+            ksinfo = kstr.split("/")
+            fifth1, mode1 = key_name_to_fifths_mode(ksinfo[0].upper())
+            fifths2, mode2 = None, None
+            if len(ksinfo) == 2:
+                fifths2, mode2 = key_name_to_fifths_mode(ksinfo[1].upper())
+        else:
+
+            fmt = "v0.3.0"
+            step1, alter1, mode1, step2, alter2, mode2 = ksinfo.groups()
+            mode1_str = "m" if mode1.lower() in ("minor", "min") else ""
+            fifths1, mode1 = key_name_to_fifths_mode(
+                f"{step1.upper()}{alter1}{mode1_str}"
+            )
+
+            if step2 != "":
+                mode2_str = "m" if mode2.lower() in ("minor", "min") else ""
+                fifths2, mode2 = key_name_to_fifths_mode(
+                    f"{step2.upper()}{alter2}{mode2_str}"
+                )
+            else:
+                fifths2, mode2 = None, None
+
+        return cls(
+            fifths=fifths1,
+            mode=mode1,
+            fifths_alt=fifths2,
+            mode_alt=mode2,
+            is_list=False,
+            fmt=fmt,
+        )
+
+    @classmethod
+    def from_string(cls, string: str) -> MatchKeySignature:
+        content = interpret_as_list(string)
+
+        if len(content) == 2:
+            # try parsing it as v0.1.0
+            if content[1].lower() in ("minor", "major", "min", "maj"):
+                note_info = pitch_class_pattern.search(content[0].lower())
+
+                mode_str = "m" if content[1].lower() in ("min", "minor") else ""
+
+                if note_info is not None:
+                    step, alter = note_info.groups()
+
+                alter_str = alter.replace("n", "")
+
+                fifths, mode = key_name_to_fifths_mode(
+                    f"{step.upper()}{alter_str}{mode_str}"
+                )
+
+                return cls(fifths=fifths, mode=mode, fmt="v0.1.0")
+
+        if len(content) > 0:
+
+            ksigs = [cls._parse_key_signature(ksig) for ksig in content]
+
+            ks = ksigs[0]
+            ks.other_components = ksigs[1:] if len(ksigs) > 1 else []
+
+            return ks
 
 
 class MatchTimeSignature(MatchParameter):

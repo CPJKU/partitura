@@ -201,8 +201,8 @@ class MatchInfo(BaseInfoLine):
 
         class_dict = INFO_LINE[version]
 
-        if instance.Attribute in SCOREPROP_ATTRIBUTE_EQUIVALENCES:
-            attr = SCOREPROP_ATTRIBUTE_EQUIVALENCES[instance.Attribute]
+        if instance.Attribute in INFO_ATTRIBUTE_EQUIVALENCES:
+            attr = INFO_ATTRIBUTE_EQUIVALENCES[instance.Attribute]
         else:
             attr = instance.Attribute
 
@@ -1377,3 +1377,63 @@ def make_section(
         else repeat_end_type,
     )
     return ml
+
+
+def to_v1(matchline: MatchLine, version: Version = LATEST_VERSION) -> MatchLine:
+    """
+    Convert matchline to version 1_x_x
+
+    Parameters
+    ----------
+    matchline : MatchLine
+        Matchline to be converted
+    version: Version
+        Target version. Default is `LATEST_VERSION`
+
+    Returns
+    -------
+    MatchLine
+         A new matchline with the equivalent of the input matchline in
+         the specified version.
+    """
+    from partitura.io.matchlines_v0 import MatchMeta
+
+    if isinstance(matchline, BaseInfoLine):
+
+        if (
+            matchline.Attribute in INFO_LINE[version]
+            or matchline.Attribute in INFO_ATTRIBUTE_EQUIVALENCES
+        ):
+            return MatchInfo.from_instance(instance=matchline, version=version)
+
+        if (
+            matchline.Attribute in SCOREPROP_LINE[version]
+            or matchline.Attribute in SCOREPROP_ATTRIBUTE_EQUIVALENCES
+        ):
+
+            return MatchScoreProp.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, MatchMeta):
+        return MatchScoreProp.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, BaseSnoteNoteLine):
+        return MatchSnoteNote.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, BaseInsertionLine):
+        return MatchInsertionNote.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, BaseDeletionLine):
+        return MatchSnoteDeletion.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, BaseOrnamentLine):
+        return MatchOrnamentNote.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, BaseSustainPedalLine):
+        return MatchSustainPedal.from_instance(instance=matchline, version=version)
+
+    if isinstance(matchline, BaseSoftPedalLine):
+        return MatchSustainPedal.from_instance(instance=matchline, version=version)
+
+    else:
+        print(matchline.matchline)
+        raise MatchError(f"No equivalent line in version {version}")
