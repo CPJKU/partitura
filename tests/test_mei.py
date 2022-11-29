@@ -276,10 +276,6 @@ class TestImportMEI(unittest.TestCase):
         last_measure_duration = [list(p.iter_all(score.Measure))[-1].end.t- list(p.iter_all(score.Measure))[-1].start.t for p in parts]
         self.assertTrue(all([d == 4096 for d in last_measure_duration]))
 
-    # def test_nopart_but2(self):
-    #     parts = load_mei(MEI_TESTFILES[21])
-    #     last_measure_duration = [list(p.iter_all(score.Measure))[-1].end.t- list(p.iter_all(score.Measure))[-1].start.t for p in parts]
-    #     self.assertTrue(False)
 
 if __name__ == "__main__":
     unittest.main()
