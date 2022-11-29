@@ -168,7 +168,7 @@ def parse_matchline(
             break
         except Exception as e:
             if not isinstance(e, MatchError):
-                print(line, e, version)
+                print(line, e, version)  # pragma: no cover
             continue
 
     return matchline
@@ -184,7 +184,7 @@ def load_matchfile(
     """
 
     if not os.path.exists(filename):
-        raise ValueError("Filename does not exist")
+        raise ValueError("Filename does not exist")  # pragma: no cover
 
     with open(filename) as f:
         raw_lines = f.read().splitlines()
@@ -255,16 +255,16 @@ def load_match(
     )
     # Generate Part
     if create_score:
-        if offset_duration_whole:
-            spart = part_from_matchfile(
-                mf,
-                match_offset_duration_in_whole=True,
-            )
-        else:
-            spart = part_from_matchfile(
-                mf,
-                match_offset_duration_in_whole=False,
-            )
+        # if offset_duration_whole:
+        spart = part_from_matchfile(
+            mf,
+            match_offset_duration_in_whole=offset_duration_whole,
+        )
+        # else:
+        #     spart = part_from_matchfile(
+        #         mf,
+        #         match_offset_duration_in_whole=False,
+        #     )
 
         scr = score.Score(id=get_document_name(filename), partlist=[spart])
     # Alignment

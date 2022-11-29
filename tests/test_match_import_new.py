@@ -59,7 +59,118 @@ from partitura.utils.music import (
     fifths_mode_to_key_name,
 )
 
+from partitura import load_score, load_performance
+from partitura.io.importmatch_new import load_match, get_version, load_matchfile
+
 RNG = np.random.RandomState(1984)
+
+
+class TestLoadMatch(unittest.TestCase):
+    def test_load_matchfile(self):
+        for fn in MATCH_IMPORT_EXPORT_TESTFILES:
+
+            # read file
+            with open(fn) as f:
+
+                file_contents = f.read().splitlines()
+
+            # parse match file
+            match = load_matchfile(fn)
+
+            # Assert that all lines in the matchfile where matched
+            self.assertTrue(len(match.lines), len(file_contents))
+
+    def test_load_match_create_score(self):
+        """
+        Test loading match files
+        """
+        perf_match, alignment, score_match = load_match(
+            filename=MOZART_VARIATION_FILES["match"],
+            create_score=True,
+            first_note_at_zero=True,
+        )
+
+        pna_match = perf_match.note_array()
+        sna_match = score_match.note_array()
+
+        perf_midi = load_performance(
+            filename=MOZART_VARIATION_FILES["midi"],
+            first_note_at_zero=True,
+        )
+
+        pna_midi = perf_midi.note_array()
+        score_musicxml = load_score(
+            filename=MOZART_VARIATION_FILES["musicxml"],
+        )
+
+        sna_musicxml = score_musicxml.note_array()
+
+        for note in alignment:
+
+            # check score info in match and MusicXML
+            if "score_id" in note:
+
+                idx_smatch = np.where(sna_match["id"] == note["score_id"])[0]
+                idx_sxml = np.where(sna_musicxml["id"] == note["score_id"])[0]
+
+                self.assertTrue(
+                    sna_match[idx_smatch]["pitch"] == sna_musicxml[idx_sxml]["pitch"]
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        sna_match[idx_smatch]["onset_beat"],
+                        sna_match[idx_sxml]["onset_beat"],
+                    )
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        sna_match[idx_smatch]["duration_beat"],
+                        sna_match[idx_sxml]["duration_beat"],
+                    )
+                )
+
+            # check performance info in match and MIDI
+            if "performance_id" in note:
+
+                idx_pmatch = np.where(pna_match["id"] == note["performance_id"])[0]
+                idx_pmidi = np.where(pna_midi["id"] == note["performance_id"])[0]
+
+                self.assertTrue(
+                    pna_match[idx_pmatch]["pitch"] == pna_midi[idx_pmidi]["pitch"]
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        pna_match[idx_pmatch]["onset_sec"],
+                        pna_match[idx_pmidi]["onset_sec"],
+                    )
+                )
+
+                self.assertTrue(
+                    np.isclose(
+                        pna_match[idx_pmatch]["duration_sec"],
+                        pna_match[idx_pmidi]["duration_sec"],
+                    )
+                )
+
+    def test_get_version(self):
+        """
+        Test get_version
+        """
+        correct_line = "info(matchFileVersion,1.0.0)."
+        version = get_version(correct_line)
+
+        self.assertTrue(version == Version(1, 0, 0))
+
+        # Since version 0.1.0 files do not include
+        # a version line, parsing a wrong line returns
+        # version 0.1.0
+        wrong_line = "other_line"
+        version = get_version(wrong_line)
+
+        self.assertTrue(version == Version(0, 1, 0))
 
 
 def basic_line_test(ml: MatchLine, verbose: bool = False) -> None:
