@@ -45,6 +45,7 @@ DUMMY_PS_BASE_CLASS = {
 MEI_DURS_TO_SYMBOLIC = {
     "long": "long",
     "0": "breve",
+    "breve" : "breve",
     "1": "whole",
     "2": "half",
     "4": "quarter",
