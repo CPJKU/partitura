@@ -4482,6 +4482,12 @@ def unfold_part_alignment(part, alignment):
     if len(best_idx) > 1:
         best_idx = best_idx[unfolded_part_length[best_idx].argmin()]
 
+    # append "-1" to alignment if the score_id's in alignment
+    if not any(["-1" in al.get("score_id", "") for al in alignment]):
+        for n in alignment:
+            if "score_id" in n:
+                n["score_id"] = f"{n['score_id']}-1"
+
     return unfolded_parts[int(best_idx)]
 
 

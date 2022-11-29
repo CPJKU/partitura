@@ -18,21 +18,11 @@ from fractions import Fraction
 from partitura.score import Score, Part, ScoreLike
 from partitura.performance import Performance, PerformedPart, PerformanceLike
 
-from partitura.io.importmatch_new import (
-    load_matchfile,
-    note_alignment_from_matchfile,
-    performed_part_from_match,
-    part_from_matchfile,
-)
-
 from partitura.io.matchlines_v1 import (
-    to_v1,
-    Version,
     make_info,
     make_scoreprop,
     make_section,
     MatchInfo,
-    # MatchMeta,
     MatchSnote,
     MatchNote,
     MatchSnoteNote,
@@ -48,14 +38,16 @@ from partitura.io.matchfile_utils import (
     FractionalSymbolicDuration,
     MatchKeySignature,
     MatchTimeSignature,
+    Version,
 )
 
 from partitura import score
 from partitura.io.matchfile_base import MatchFile
 
-from partitura.utils.generic import interp1d
-
-from partitura.utils.music import seconds_to_midi_ticks
+from partitura.utils.music import (
+    seconds_to_midi_ticks,
+    get_time_maps_from_alignment,
+)
 
 from partitura.utils.misc import PathLike, deprecated_alias, deprecated_parameter
 
@@ -75,6 +67,7 @@ def matchfile_from_alignment(
     piece: Optional[str] = None,
     assume_part_unfolded: bool = False,
     debug: bool = False,
+    version: Version = LATEST_VERSION,
 ) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
@@ -105,7 +98,8 @@ def matchfile_from_alignment(
     matchfile : MatchFile
         An instance of `partitura.io.importmatch.MatchFile`.
     """
-    version = Version(1, 0, 0)
+    if version < Version(1, 0, 0):
+        raise ValueError("Version should >= 1.0.0")
 
     if not assume_part_unfolded:
         # unfold score according to alignment
@@ -153,6 +147,13 @@ def matchfile_from_alignment(
     # Measure map (which measure corresponds to which time point in divs)
     beat_map = spart.beat_map
 
+    ptime_to_stime_map, _ = get_time_maps_from_alignment(
+        ppart_or_note_array=ppart.note_array(),
+        spart_or_note_array=spart.note_array(),
+        alignment=alignment,
+        remove_ornaments=True,
+    )
+
     measures = np.array(list(spart.iter_all(score.Measure)))
     measure_starts_divs = np.array([m.start.t for m in measures])
     measure_starts_beats = beat_map(measure_starts_divs)
@@ -174,7 +175,8 @@ def matchfile_from_alignment(
 
     # For score notes
     score_info = dict()
-
+    # Info for sorting lines
+    snote_sort_info = dict()
     for (mnum, msd, msb), m in zip(measure_starts, measures):
 
         time_signatures = spart.iter_all(score.TimeSignature, m.start, m.end)
@@ -320,9 +322,10 @@ def matchfile_from_alignment(
                 offset_in_beats=offset_beats,
                 score_attributes_list=score_attributes_list,
             )
+            snote_sort_info[snote.id] = (onset_beats, snote.doc_order)
 
     perf_info = dict()
-
+    pnote_sort_info = dict()
     for pnote in ppart.notes:
         onset = seconds_to_midi_ticks(pnote["note_on"], mpq=mpq, ppq=ppq)
         offset = seconds_to_midi_ticks(pnote["note_off"], mpq=mpq, ppq=ppq)
@@ -341,7 +344,12 @@ def matchfile_from_alignment(
             channel=pnote.get("channel", 1),
             track=pnote.get("track", 0),
         )
+        pnote_sort_info[pnote["id"]] = (
+            float(ptime_to_stime_map(pnote["note_on"])),
+            pnote["midi_pitch"],
+        )
 
+    sort_stime = []
     note_lines = []
     for al_note in alignment:
 
@@ -352,16 +360,19 @@ def matchfile_from_alignment(
             pnote = perf_info[al_note["performance_id"]]
             snote_note_line = MatchSnoteNote(version=version, snote=snote, note=pnote)
             note_lines.append(snote_note_line)
+            sort_stime.append(snote_sort_info[al_note["score_id"]])
 
         elif label == "deletion":
             snote = score_info[al_note["score_id"]]
             deletion_line = MatchSnoteDeletion(version=version, snote=snote)
             note_lines.append(deletion_line)
+            sort_stime.append(snote_sort_info[al_note["score_id"]])
 
         elif label == "insertion":
             note = perf_info[al_note["performance_id"]]
             insertion_line = MatchInsertionNote(version=version, note=note)
             note_lines.append(insertion_line)
+            sort_stime.append(pnote_sort_info[al_note["performance_id"]])
 
         elif label == "ornament":
             ornament_type = al_note["type"]
@@ -375,6 +386,13 @@ def matchfile_from_alignment(
             )
 
             note_lines.append(ornament_line)
+            sort_stime.append(pnote_sort_info[al_note["performance_id"]])
+
+    # sort notes by score onset (performed insertions are sorted
+    # according to the interpolation map
+    sort_stime = np.array(sort_stime)
+    sort_stime_idx = np.lexsort((sort_stime[:, 1], sort_stime[:, 0]))
+    note_lines = np.array(note_lines)[sort_stime_idx]
 
     # Create match lines for pedal information
     pedal_lines = []
@@ -388,6 +406,8 @@ def matchfile_from_alignment(
         if c["number"] == 67:  # c['type'] == 'soft_pedal':
             soft_pedal = MatchSoftPedal(version=version, time=t, value=value)
             pedal_lines.append(soft_pedal)
+
+    pedal_lines.sort(key=lambda x: x.Time)
 
     # Construct header of match file
     header_order = [
@@ -409,7 +429,7 @@ def matchfile_from_alignment(
             all_match_lines += scoreprop_lines[h]
 
     # Concatenate all lines
-    all_match_lines += note_lines + pedal_lines
+    all_match_lines += list(note_lines) + pedal_lines
 
     matchfile = MatchFile(lines=all_match_lines)
 
