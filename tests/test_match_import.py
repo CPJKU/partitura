@@ -67,6 +67,9 @@ RNG = np.random.RandomState(1984)
 
 class TestLoadMatch(unittest.TestCase):
     def test_load_matchfile(self):
+        """
+        Test `load_matchfile`
+        """
         for fn in MATCH_IMPORT_EXPORT_TESTFILES:
 
             # read file
@@ -80,9 +83,9 @@ class TestLoadMatch(unittest.TestCase):
             # Assert that all lines in the matchfile where matched
             self.assertTrue(len(match.lines), len(file_contents))
 
-    def test_load_match_create_score(self):
+    def test_load_match(self):
         """
-        Test loading match files
+        Test `load_match`
         """
         perf_match, alignment, score_match = load_match(
             filename=MOZART_VARIATION_FILES["match"],
