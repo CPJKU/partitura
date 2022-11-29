@@ -361,7 +361,7 @@ class TestMatchLinesV1(unittest.TestCase):
     def test_score_prop_lines(self):
 
         keysig_line = "scoreprop(keySignature,E,0:2,1/8,-0.5000)."
-
+        keysig_line2 = "scoreprop(keySignature,E/C#,0:2,1/8,-0.5000)."
         timesig_line = "scoreprop(timeSignature,2/4,0:2,1/8,-0.5000)."
 
         directions_line = "scoreprop(directions,[Allegro],0:2,1/8,-0.5000)."
@@ -370,6 +370,7 @@ class TestMatchLinesV1(unittest.TestCase):
 
         matchlines = [
             keysig_line,
+            keysig_line2,
             timesig_line,
             directions_line,
             beatsubdivision_line,
@@ -419,11 +420,9 @@ class TestMatchLinesV1(unittest.TestCase):
     def test_score_prop_lines_from_info_v0(self):
 
         info_lines = [
-            # "info(keySignature,[en,major]).",
+            "info(keySignature,[en,major]).",
             "info(timeSignature,2/4).",
             "info(beatSubdivision,[2,4]).",
-            # "info(tempoIndication,[lento,ma,non,troppo]).",
-            # "info(approximateTempo,34.0).",
         ]
 
         for i, ml in enumerate(info_lines):
@@ -1970,6 +1969,7 @@ class TestMatchUtils(unittest.TestCase):
 
         lines = [
             "[fn,major]",
+            "[en,minor]",
             "[A Maj/F# min]",
             "[Ab Maj/F min,Db Maj/Bb min]",
             "[B Maj/G# min,A Maj/F# min,B Maj/G# min]",
