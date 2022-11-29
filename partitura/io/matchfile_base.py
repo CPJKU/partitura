@@ -19,9 +19,6 @@ from partitura.utils.music import (
 
 from partitura.io.matchfile_utils import (
     Version,
-    interpret_version,
-    interpret_version,
-    format_version,
     interpret_as_string,
     format_string,
     interpret_as_float,
@@ -205,8 +202,15 @@ class BaseInfoLine(MatchLine):
     ----------
     version : Version
         The version of the info line.
-    kwargs : keyword arguments
-        Keyword arguments specifying the type of line and its value.
+    attribute: str
+        Name of the attribute
+    value: Any
+        Value of the attribute
+    value_type: type
+        Type of the value
+    format_fun: callable
+        A function for maping values to the attribute to strings (for formatting
+        the output matchline)
     """
 
     # Base field names (can be updated in subclasses).
@@ -236,7 +240,24 @@ class BaseInfoLine(MatchLine):
 
 class BaseStimeLine(MatchLine):
     """
-    stime(Measure:Beat,Offset,OnsetInBeats,AnnotationType)
+    Base class for specifying stime lines. These lines should looke like
+
+    stime(<Measure>:<Beat>,<Offset>,<OnsetInBeats>,<AnnotationType>)
+
+    Parameters
+    ----------
+    version: Version
+        The version of the matchline
+    measure: int
+        The measure number
+    beat: int
+        The beat within the measure (first beat starts at 1)
+    offset: FractionalSymbolicDuration
+        The offset of the event with respect to the current beat.
+    onset_in_beats: float
+        Onset in beats
+    annotation_type: List[str]
+        List of annotation types for the score time.
     """
 
     field_names = ("Measure", "Beat", "Offset", "OnsetInBeats", "AnnotationType")
@@ -281,7 +302,16 @@ class BaseStimeLine(MatchLine):
 
 class BasePtimeLine(MatchLine):
     """
-    ptime(Onsets)
+    Base class for specifying performance time. Tese lines have the form
+
+    ptime([<Onsets>])
+
+    Parameters
+    ----------
+    version: Version
+        The version of the matchline
+    onsets: List[int]
+        The list of onsets.
     """
 
     field_names = ("Onsets",)
@@ -298,12 +328,26 @@ class BasePtimeLine(MatchLine):
         self.Onsets = onsets
 
     @property
-    def Onset(self):
+    def Onset(self) -> float:
+        """
+        Average onset time
+        """
         return np.mean(self.Onsets)
 
 
 class BaseStimePtimeLine(MatchLine):
+    """
+    Base class for represeting score-to-performance time alignments
 
+    Parameters
+    ----------
+    version: Version
+        The version of the matchline
+    stime: BaseStimeLine
+        Score time as a BaseStimeLine instance.
+    ptime: BasePtimeLine
+        Performance time as a BasePtimeLine instance.
+    """
     out_pattern = "{StimeLine}-{PtimeLine}"
 
     def __init__(
@@ -349,6 +393,21 @@ class BaseStimePtimeLine(MatchLine):
         return "\n".join(r) + "\n"
 
     def check_types(self, verbose: bool) -> bool:
+        """
+        Check whether the values of the fields are of the correct type.
+
+        Parameters
+        ----------
+        verbose : bool
+            Prints whether each of the attributes in field_names has the correct dtype.
+            values are
+
+        Returns
+        -------
+        types_are_correct : bool
+            True if the values of all fields in the match line have the
+            correct type.
+        """
 
         stime_types_are_correct = self.stime.check_types(verbose)
         ptime_types_are_correct = self.ptime.check_types(verbose)
