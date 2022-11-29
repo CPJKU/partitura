@@ -5,7 +5,7 @@ This module contains methods for exporting matchfiles.
 
 Notes
 -----
-* The methods only export matchfiles version 1.0.0
+* The methods only export matchfiles version 1.0.0.
 """
 import numpy as np
 
@@ -22,7 +22,6 @@ from partitura.io.matchlines_v1 import (
     make_info,
     make_scoreprop,
     make_section,
-    MatchInfo,
     MatchSnote,
     MatchNote,
     MatchSnoteNote,
@@ -49,7 +48,11 @@ from partitura.utils.music import (
     get_time_maps_from_alignment,
 )
 
-from partitura.utils.misc import PathLike, deprecated_alias, deprecated_parameter
+from partitura.utils.misc import (
+    PathLike,
+    deprecated_alias,
+    deprecated_parameter,
+)
 
 __all__ = ["save_match"]
 
@@ -57,7 +60,6 @@ __all__ = ["save_match"]
 @deprecated_parameter("magaloff_zeilinger_quirk")
 def matchfile_from_alignment(
     alignment: List[dict],
-    performance_data: PerformanceLike,
     ppart: PerformedPart,
     spart: Part,
     mpq: int = 500000,
@@ -65,9 +67,11 @@ def matchfile_from_alignment(
     performer: Optional[str] = None,
     composer: Optional[str] = None,
     piece: Optional[str] = None,
+    score_filename: Optional[PathLike] = None,
+    performance_filename: Optional[PathLike] = None,
     assume_part_unfolded: bool = False,
-    debug: bool = False,
     version: Version = LATEST_VERSION,
+    debug: bool = False,
 ) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
@@ -92,7 +96,17 @@ def matchfile_from_alignment(
         Name(s) of the composer(s) of the piece represented by `Part`.
     piece : str or None:
         Name of the piece represented by `Part`.
-
+    score_filename: PathLike
+        Name of the file containing the score.
+    performance_filename: PathLike
+        Name of the (MIDI) file containing the performance.
+    assume_part_unfolded: bool
+        Whether to assume that the part has been unfolded according to the
+        repetitions in the alignment. If False, the part will be automatically
+        unfolded to have maximal coverage of the notes in the alignment.
+        See `partitura.score.unfold_part_alignment`.
+    version: Version
+        Version of the match file. For now only 1.0.0 is supported.
     Returns
     -------
     matchfile : MatchFile
@@ -130,6 +144,18 @@ def matchfile_from_alignment(
         version=version,
         attribute="composer",
         value="-" if composer is None else composer,
+    )
+
+    header_lines["score_filename"] = make_info(
+        version=version,
+        attribute="scoreFileName",
+        value="-" if score_filename is None else score_filename,
+    )
+
+    header_lines["performance_filename"] = make_info(
+        version=version,
+        attribute="midiFileName",
+        value="-" if performance_filename is None else performance_filename,
     )
 
     header_lines["clock_units"] = make_info(
@@ -329,7 +355,6 @@ def matchfile_from_alignment(
     for pnote in ppart.notes:
         onset = seconds_to_midi_ticks(pnote["note_on"], mpq=mpq, ppq=ppq)
         offset = seconds_to_midi_ticks(pnote["note_off"], mpq=mpq, ppq=ppq)
-        # adjoffset = seconds_to_midi_ticks(pnote["sound_off"], mpq=mpq, ppq=ppq)
         perf_info[pnote["id"]] = MatchNote(
             version=version,
             id=(
@@ -413,6 +438,8 @@ def matchfile_from_alignment(
     header_order = [
         "version",
         "piece",
+        "score_filename",
+        "performance_filename",
         "composer",
         "performer",
         "clock_units",
@@ -447,6 +474,8 @@ def save_match(
     performer: Optional[str] = None,
     composer: Optional[str] = None,
     piece: Optional[str] = None,
+    score_filename: Optional[PathLike] = None,
+    performance_filename: Optional[PathLike] = None,
     assume_unfolded: bool = False,
 ) -> Optional[MatchFile]:
     """
@@ -475,6 +504,15 @@ def save_match(
         Name(s) of the composer(s) of the piece represented by `Part`.
     piece : str or None:
         Name of the piece represented by `Part`.
+    score_filename: PathLike
+        Name of the file containing the score.
+    performance_filename: PathLike
+        Name of the (MIDI) file containing the performance.
+    assume_part_unfolded: bool
+        Whether to assume that the part has been unfolded according to the
+        repetitions in the alignment. If False, the part will be automatically
+        unfolded to have maximal coverage of the notes in the alignment.
+        See `partitura.score.unfold_part_alignment`.
 
     Returns
     -------
@@ -517,6 +555,8 @@ def save_match(
         performer=performer,
         composer=composer,
         piece=piece,
+        score_filename=score_filename,
+        performance_filename=performance_filename,
         assume_part_unfolded=assume_unfolded,
     )
 
