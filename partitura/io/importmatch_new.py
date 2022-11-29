@@ -10,8 +10,8 @@ import warnings
 import numpy as np
 
 from partitura import score
-from partitura.score import Part, Score, ScoreLike
-from partitura.performance import PerformedPart, Performance, PerformanceLike
+from partitura.score import Part, Score
+from partitura.performance import PerformedPart, Performance
 from partitura.musicanalysis import estimate_voices, estimate_key
 
 from partitura.io.matchlines_v0 import (
@@ -177,7 +177,6 @@ def parse_matchline(
 @deprecated_alias(fn="filename", create_part="create_score")
 def load_matchfile(
     filename: PathLike,
-    debug: bool = True,
 ) -> MatchFile:
     """
     Load a Matchfile as a `MatchFile` instance
@@ -196,14 +195,10 @@ def load_matchfile(
         from_matchline_methods = FROM_MATCHLINE_METHODSV0
 
     parsed_lines = [
-        parse_matchline(line, from_matchline_methods, version, debug)
-        for line in raw_lines
+        parse_matchline(line, from_matchline_methods, version) for line in raw_lines
     ]
 
     parsed_lines = [pl for pl in parsed_lines if pl is not None]
-
-    if debug:
-        print(filename, len(parsed_lines) == len(raw_lines))
 
     mf = MatchFile(lines=parsed_lines)
 
@@ -217,7 +212,7 @@ def load_match(
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
     offset_duration_whole: bool = True,
-) -> Tuple[Union[Performance, list, score.Score]]:
+) -> Tuple[Union[Performance, list, Score]]:
     """
     Load a matchfile.
 
@@ -255,16 +250,10 @@ def load_match(
     )
     # Generate Part
     if create_score:
-        # if offset_duration_whole:
         spart = part_from_matchfile(
             mf,
             match_offset_duration_in_whole=offset_duration_whole,
         )
-        # else:
-        #     spart = part_from_matchfile(
-        #         mf,
-        #         match_offset_duration_in_whole=False,
-        #     )
 
         scr = score.Score(id=get_document_name(filename), partlist=[spart])
     # Alignment
@@ -336,15 +325,6 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
 
 # alias
 alignment_from_matchfile = note_alignment_from_matchfile
-
-
-# def time_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
-
-#     for line in mf.lines:
-
-#         if isinstance(line, BaseStimePtimeLine):
-
-#             pass
 
 
 def performed_part_from_match(
@@ -739,6 +719,26 @@ def make_timesig_maps(
     ts_orig: List[Tuple[float, int, MatchTimeSignature]],
     max_time: float,
 ) -> (Callable, Callable, Callable, Callable, float, float):
+    """
+    Create time signature (interpolation) maps
+
+    Parameters
+    ----------
+    ts_orig : List[Tuple[float, int, MatchTimeSignature]]
+        A list of tuples containing position in beats, measure and
+        MatchTimeSignature instances
+    max_time : float
+        Maximal time of the time signatures
+
+    Returns
+    -------
+    beats_map: callable
+    qbeats_map: callable
+    beat_type_map: callable
+    qbeat_type_map: callable
+    start_q: float
+    end_q: float
+    """
     # TODO: make sure that ts_orig covers range from min_time
     # return two functions that map score times (in quarter units) to time sig
     # beats, and time sig beat_type respectively
@@ -787,6 +787,18 @@ def make_timesig_maps(
 
 
 def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
+    """
+        Method to add staff information to a part
+
+        Parameters
+        ----------
+        part: Part
+            Part to add staff information to.
+        split: int
+            MIDI pitch to split staff into upper and lower. Default is 55
+        only_missing: bool
+            If True, only add staff to those notes that do not have staff info already.
+    x"""
     # assign staffs using a hard limit
     notes = part.notes_tied
     for n in notes:
