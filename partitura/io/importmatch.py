@@ -97,7 +97,8 @@ def get_version(line: str) -> Version:
     """
     Get version from the first line. Since the
     first version of the format did not include this line,
-    we assume that the version is 0.1.0 if version is found.
+    we assume that the version is 0.1.0 if no version is 
+    found.
 
     Parameters
     ----------
@@ -362,8 +363,10 @@ def performed_part_from_match(
     first_note = next(mf.iter_notes(), None)
     if first_note and first_note_at_zero:
         offset = midi_ticks_to_seconds(first_note.Onset, mpq=mpq, ppq=ppq)
+        offset_tick = first_note.Onset
     else:
         offset = 0
+        offset_tick = 0
 
     notes = [
         dict(
@@ -371,6 +374,8 @@ def performed_part_from_match(
             midi_pitch=note.MidiPitch,
             note_on=midi_ticks_to_seconds(note.Onset, mpq, ppq) - offset,
             note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
+            note_on_tick=note.Onset - offset_tick,
+            note_off_tick=note.Offset - offset_tick,
             sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
             velocity=note.Velocity,
             track=getattr(note, "Track", 0),
