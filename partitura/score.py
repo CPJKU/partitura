@@ -93,6 +93,9 @@ class Part(object):
 
         # set beat reference
         self._use_musical_beat = False
+        
+        # store number of staves
+        self._number_of_staves = None
 
     def __str__(self):
         return 'Part id="{}" name="{}"'.format(self.id, self.part_name)
@@ -766,13 +769,29 @@ class Part(object):
 
     @property
     def number_of_staves(self):
-        max_staves = 1
-        for e in self.iter_all():
-            if hasattr(e, "staff"):
-                if e.staff is not None and e.staff > max_staves:
-                    max_staves = e.staff
-        return max_staves
+        if self._number_of_staves is not None:
+            return self._number_of_staves
+        else:
+            return self.compute_number_of_staves()
 
+    def compute_number_of_staves(self):
+        max_staves = 1
+        for e in self.iter_all(GenericNote, include_subclasses=True):
+            if e.staff is not None and e.staff > max_staves:
+                max_staves = e.staff
+        for e in self.iter_all(Clef):
+            if e.staff is not None and e.staff > max_staves:
+                max_staves = e.staff
+        for e in self.iter_all(Direction, include_subclasses=True):
+            if e.staff is not None and e.staff > max_staves:
+                max_staves = e.staff
+        for e in self.iter_all(Words):
+            if e.staff is not None and e.staff > max_staves:
+                max_staves = e.staff
+        
+        self._number_of_staves = max_staves
+        return max_staves
+    
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
