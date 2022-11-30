@@ -11,6 +11,7 @@ notes as well as continuous control parameters, such as sustain pedal.
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
 import numpy as np
 from partitura.utils import note_array_from_part_list
+from partitura.utils.music import seconds_to_midi_ticks
 
 __all__ = [
     "PerformedPart",
@@ -151,10 +152,10 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
-            note_on_tick = n.get("note_on_tick", n["note_on"])
+            note_on_tick = n.get("note_on_tick", seconds_to_midi_ticks(n["note_on"]))
             offset = n.get("sound_off", n["note_off"])
             duration_sec = offset - note_on_sec
-            duration_tick = n.get("note_off_tick", n["note_off"]) - note_on_tick
+            duration_tick = n.get("note_off_tick", seconds_to_midi_ticks(n["note_off"])) - note_on_tick
             note_array.append(
                 (
                     note_on_sec,
