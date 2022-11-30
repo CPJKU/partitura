@@ -1,16 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This module contains methods for exporting matchfiles
+This module contains methods for exporting matchfiles.
+
+Notes
+-----
+* The methods only export matchfiles version 1.0.0.
 """
 import numpy as np
 
 from typing import List, Optional, Iterable
-from scipy.interpolate import interp1d
 
-from partitura.io.importmatch import (
-    MatchInfo,
-    MatchMeta,
+from collections import defaultdict
+
+from fractions import Fraction
+
+from partitura.score import Score, Part, ScoreLike
+from partitura.performance import Performance, PerformedPart, PerformanceLike
+
+from partitura.io.matchlines_v1 import (
+    make_info,
+    make_scoreprop,
+    make_section,
     MatchSnote,
     MatchNote,
     MatchSnoteNote,
@@ -19,64 +30,49 @@ from partitura.io.importmatch import (
     MatchSustainPedal,
     MatchSoftPedal,
     MatchOrnamentNote,
-    MatchTrillNote,
-    MatchFile,
+    LATEST_VERSION,
 )
-import partitura.score as score
-from partitura.score import ScoreLike
-from partitura.performance import PerformanceLike, PerformedPart, Performance
-from partitura.utils.music import midi_pitch_to_pitch_spelling, MAJOR_KEYS, MINOR_KEYS
 
-from partitura.utils.misc import deprecated_alias, PathLike
+from partitura.io.matchfile_utils import (
+    FractionalSymbolicDuration,
+    MatchKeySignature,
+    MatchTimeSignature,
+    Version,
+)
+
+from partitura import score
+from partitura.io.matchfile_base import MatchFile
+
+from partitura.utils.music import (
+    seconds_to_midi_ticks,
+    get_time_maps_from_alignment,
+)
+
+from partitura.utils.misc import (
+    PathLike,
+    deprecated_alias,
+    deprecated_parameter,
+)
 
 __all__ = ["save_match"]
 
 
-def seconds_to_midi_ticks(t, mpq=500000, ppq=480):
-    return int(np.round(10 ** 6 * ppq * t / mpq))
-
-
-def _fifths_mode_to_match_key_name(fifths, mode):
-    if mode == "minor":
-        keylist = MINOR_KEYS
-        suffix = "min"
-    elif mode == "major":
-        keylist = MAJOR_KEYS
-        suffix = "Maj"
-    else:
-        raise Exception("Unknown mode {0}".format(mode))
-
-    try:
-        name = keylist[fifths + 7]
-    except IndexError:
-        raise Exception("Unknown number of fifths {}".format(fifths))
-
-    return "{0} {1}".format(name, suffix)
-
-
-def fifths_mode_to_match_key_name(fifths, mode=None):
-    if mode is None:
-        key_sig = "{0}/{1}".format(
-            _fifths_mode_to_match_key_name(fifths, "major"),
-            _fifths_mode_to_match_key_name(fifths, "minor"),
-        )
-    else:
-        key_sig = _fifths_mode_to_match_key_name(fifths, mode)
-
-    return key_sig
-
-
+@deprecated_parameter("magaloff_zeilinger_quirk")
 def matchfile_from_alignment(
-    alignment,
-    ppart,
-    spart,
-    mpq=500000,
-    ppq=480,
-    performer=None,
-    composer=None,
-    piece=None,
-    magaloff_zeilinger_quirk=False,
-):
+    alignment: List[dict],
+    ppart: PerformedPart,
+    spart: Part,
+    mpq: int = 500000,
+    ppq: int = 480,
+    performer: Optional[str] = None,
+    composer: Optional[str] = None,
+    piece: Optional[str] = None,
+    score_filename: Optional[PathLike] = None,
+    performance_filename: Optional[PathLike] = None,
+    assume_part_unfolded: bool = False,
+    version: Version = LATEST_VERSION,
+    debug: bool = False,
+) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
     a Part
@@ -91,7 +87,7 @@ def matchfile_from_alignment(
     spart : partitura.score.Part
         An instance of `Part` containing score information.
     mpq : int
-        Milliseconds per quarter note.
+        Microseconds per quarter note.
     ppq: int
         Parts per quarter note.
     performer : str or None
@@ -100,147 +96,328 @@ def matchfile_from_alignment(
         Name(s) of the composer(s) of the piece represented by `Part`.
     piece : str or None:
         Name of the piece represented by `Part`.
-
+    score_filename: PathLike
+        Name of the file containing the score.
+    performance_filename: PathLike
+        Name of the (MIDI) file containing the performance.
+    assume_part_unfolded: bool
+        Whether to assume that the part has been unfolded according to the
+        repetitions in the alignment. If False, the part will be automatically
+        unfolded to have maximal coverage of the notes in the alignment.
+        See `partitura.score.unfold_part_alignment`.
+    version: Version
+        Version of the match file. For now only 1.0.0 is supported.
     Returns
     -------
     matchfile : MatchFile
         An instance of `partitura.io.importmatch.MatchFile`.
     """
-    # Information for the header
+    if version < Version(1, 0, 0):
+        raise ValueError("Version should >= 1.0.0")
+
+    if not assume_part_unfolded:
+        # unfold score according to alignment
+        spart = score.unfold_part_alignment(spart, alignment)
+
+    # Info Header Lines
     header_lines = dict()
-    header_lines["version"] = MatchInfo(Attribute="matchFileVersion", Value="5.0")
-    if performer is not None:
-        header_lines["performer"] = MatchInfo(Attribute="performer", Value=performer)
-    if piece is not None:
-        header_lines["piece"] = MatchInfo(Attribute="piece", Value=piece)
-    if composer is not None:
-        header_lines["composer"] = MatchInfo(Attribute="composer", Value=composer)
 
-    header_lines["clock_units"] = MatchInfo(Attribute="midiClockUnits", Value=ppq)
-    header_lines["clock_rate"] = MatchInfo(Attribute="midiClockRate", Value=mpq)
-
-    # Measure map (which measure corresponds to each timepoint
-    measure_starts = np.array(
-        [(m.number, m.start.t) for m in spart.iter_all(score.Measure)]
-    )
-    measure_map = interp1d(
-        measure_starts[:, 1],
-        measure_starts[:, 0],
-        kind="previous",
-        bounds_error=False,
-        fill_value=(measure_starts[:, 0].min(), measure_starts[:, 0].max()),
+    header_lines["version"] = make_info(
+        version=version,
+        attribute="matchFileVersion",
+        value=version,
     )
 
-    # Create MatchSnotes from score information
+    header_lines["performer"] = make_info(
+        version=version,
+        attribute="performer",
+        value="-" if performer is None else performer,
+    )
+
+    header_lines["piece"] = make_info(
+        version=version,
+        attribute="piece",
+        value="-" if piece is None else piece,
+    )
+
+    header_lines["composer"] = make_info(
+        version=version,
+        attribute="composer",
+        value="-" if composer is None else composer,
+    )
+
+    header_lines["score_filename"] = make_info(
+        version=version,
+        attribute="scoreFileName",
+        value="-" if score_filename is None else score_filename,
+    )
+
+    header_lines["performance_filename"] = make_info(
+        version=version,
+        attribute="midiFileName",
+        value="-" if performance_filename is None else performance_filename,
+    )
+
+    header_lines["clock_units"] = make_info(
+        version=version,
+        attribute="midiClockUnits",
+        value=int(ppq),
+    )
+
+    header_lines["clock_rate"] = make_info(
+        version=version,
+        attribute="midiClockRate",
+        value=int(mpq),
+    )
+
+    # Measure map (which measure corresponds to which time point in divs)
+    beat_map = spart.beat_map
+
+    ptime_to_stime_map, _ = get_time_maps_from_alignment(
+        ppart_or_note_array=ppart.note_array(),
+        spart_or_note_array=spart.note_array(),
+        alignment=alignment,
+        remove_ornaments=True,
+    )
+
+    measures = np.array(list(spart.iter_all(score.Measure)))
+    measure_starts_divs = np.array([m.start.t for m in measures])
+    measure_starts_beats = beat_map(measure_starts_divs)
+    measure_sorting_idx = measure_starts_divs.argsort()
+    measure_starts_divs = measure_starts_divs[measure_sorting_idx]
+    measures = measures[measure_sorting_idx]
+
+    start_measure_num = 0 if measure_starts_beats.min() < 0 else 1
+    measure_starts = np.column_stack(
+        (
+            np.arange(start_measure_num, start_measure_num + len(measure_starts_divs)),
+            measure_starts_divs,
+            measure_starts_beats,
+        )
+    )
+
+    # Score prop header lines
+    scoreprop_lines = defaultdict(list)
+
+    # For score notes
     score_info = dict()
-    for i, m in enumerate(spart.iter_all(score.Measure)):
+    # Info for sorting lines
+    snote_sort_info = dict()
+    for (mnum, msd, msb), m in zip(measure_starts, measures):
 
-        # Get all notes in the measure (bar is the terminology
-        # used in the definition of MatchFiles)
+        time_signatures = spart.iter_all(score.TimeSignature, m.start, m.end)
+
+        for tsig in time_signatures:
+
+            time_divs = int(tsig.start.t)
+            time_beats = float(beat_map(time_divs))
+            dpq = int(spart.quarter_duration_map(time_divs))
+            beat = int((time_beats - msb) // 1)
+
+            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
+
+            moffset_divs = Fraction(
+                int(time_divs - msd - beat * dpq), (int(ts_den) * dpq)
+            )
+
+            scoreprop_lines["time_signatures"].append(
+                make_scoreprop(
+                    version=version,
+                    attribute="timeSignature",
+                    value=MatchTimeSignature(
+                        numerator=int(ts_num),
+                        denominator=int(ts_den),
+                        other_components=None,
+                        is_list=False,
+                    ),
+                    measure=int(mnum),
+                    beat=beat + 1,
+                    offset=FractionalSymbolicDuration(
+                        numerator=moffset_divs.numerator,
+                        denominator=moffset_divs.denominator,
+                    ),
+                    time_in_beats=time_beats,
+                )
+            )
+
+        key_signatures = spart.iter_all(score.KeySignature, m.start, m.end)
+
+        for ksig in key_signatures:
+            time_divs = int(tsig.start.t)
+            time_beats = float(beat_map(time_divs))
+            dpq = int(spart.quarter_duration_map(time_divs))
+            beat = int((time_beats - msb) // 1)
+
+            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
+
+            moffset_divs = Fraction(
+                int(time_divs - msd - beat * dpq), (int(ts_den) * dpq)
+            )
+
+            scoreprop_lines["key_signatures"].append(
+                make_scoreprop(
+                    version=version,
+                    attribute="keySignature",
+                    value=MatchKeySignature(
+                        fifths=int(ksig.fifths),
+                        mode=ksig.mode,
+                        is_list=False,
+                        fmt="v1.0.0",
+                    ),
+                    measure=int(mnum),
+                    beat=beat + 1,
+                    offset=FractionalSymbolicDuration(
+                        numerator=moffset_divs.numerator,
+                        denominator=moffset_divs.denominator,
+                    ),
+                    time_in_beats=time_beats,
+                )
+            )
+
+        # Get all notes in the measure
         snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
 
-        # ____ does this really give the full measure? or just the first note?
-        # it seems like it returns the first note.
-        bar_start = float(spart.beat_map(m.start.t))
+        for snote in snotes:
 
-        for n in snotes:
-            # Get note information
-            # TODO: preserve symbolic durations?
-            # TODO: correct beat and moffset calculation
-            bar = int(m.number)
-            onset, offset = spart.beat_map([n.start.t, n.start.t + n.duration_tied])
-            duration = offset - onset
-            beat = (onset - bar_start) // 1
-            ts_num, ts_den, _ = spart.time_signature_map(n.start.t)
-            # In metrical offset in whole notes
-            moffset = (onset - bar_start - beat) / ts_den
-            # offset = onset + duration
-            # print("DURATION", duration, n.duration_tied)
-            score_info[n.id] = MatchSnote(
-                Anchor=n.id,
-                NoteName=n.step,
-                Modifier=n.alter if n.alter is not None else 0,
-                Octave=n.octave,
-                Bar=int(bar),
-                Beat=int(beat) + 1,
-                Offset=float(moffset),
-                Duration=float(duration) / ts_den,
-                OnsetInBeats=float(onset),
-                OffsetInBeats=float(offset),
+            onset_divs, offset_divs = snote.start.t, snote.start.t + snote.duration_tied
+            duration_divs = offset_divs - onset_divs
+
+            onset_beats, offset_beats = beat_map([onset_divs, offset_divs])
+
+            dpq = int(spart.quarter_duration_map(onset_divs))
+
+            beat = int((onset_beats - msb) // 1)
+
+            ts_num, ts_den, _ = spart.time_signature_map(snote.start.t)
+
+            duration_symb = Fraction(duration_divs, int(ts_den) * dpq)
+
+            beat = int((onset_divs - msd) // dpq)
+
+            moffset_divs = Fraction(
+                int(onset_divs - msd - beat * dpq), (int(ts_den) * dpq)
             )
 
-    # Create MatchNotes from performance informaton
-    perf_info = dict()
+            if debug:
+                duration_beats = offset_beats - onset_beats
+                moffset_beat = (onset_beats - msb - beat) / ts_den
+                assert np.isclose(float(duration_symb), duration_beats)
+                assert np.isclose(moffset_beat, float(moffset_divs))
 
-    for pn in ppart.notes:
-        note_name, modifier, octave = midi_pitch_to_pitch_spelling(pn["midi_pitch"])
-        onset = seconds_to_midi_ticks(pn["note_on"], mpq=mpq, ppq=ppq)
-        offset = seconds_to_midi_ticks(pn["note_off"], mpq=mpq, ppq=ppq)
-        adjoffset = seconds_to_midi_ticks(pn["sound_off"], mpq=mpq, ppq=ppq)
-        perf_info[pn["id"]] = MatchNote(
-            Number=pn["id"],
-            NoteName=note_name,
-            Modifier=modifier,
-            Octave=octave,
-            Onset=onset,
-            Offset=offset,
-            AdjOffset=adjoffset,
-            Velocity=pn["velocity"],
-            MidiPitch=pn["midi_pitch"],
+            score_attributes_list = []
+
+            articulations = getattr(snote, "articulations", None)
+            voice = getattr(snote, "voice", None)
+            staff = getattr(snote, "staff", None)
+            ornaments = getattr(snote, "ornaments", None)
+            fermata = getattr(snote, "fermata", None)
+
+            if voice is not None:
+                score_attributes_list.append(f"v{voice}")
+
+            if staff is not None:
+                score_attributes_list.append(f"staff{staff}")
+
+            if articulations is not None:
+                score_attributes_list += list(articulations)
+
+            if ornaments is not None:
+                score_attributes_list += list(ornaments)
+
+            if fermata is not None:
+                score_attributes_list.append("fermata")
+
+            score_info[snote.id] = MatchSnote(
+                version=version,
+                anchor=str(snote.id),
+                note_name=str(snote.step).upper(),
+                modifier=snote.alter if snote.alter is not None else 0,
+                octave=int(snote.octave),
+                measure=int(mnum),
+                beat=beat + 1,
+                offset=FractionalSymbolicDuration(
+                    numerator=moffset_divs.numerator,
+                    denominator=moffset_divs.denominator,
+                ),
+                duration=FractionalSymbolicDuration(
+                    numerator=duration_symb.numerator,
+                    denominator=duration_symb.denominator,
+                ),
+                onset_in_beats=onset_beats,
+                offset_in_beats=offset_beats,
+                score_attributes_list=score_attributes_list,
+            )
+            snote_sort_info[snote.id] = (onset_beats, snote.doc_order)
+
+    perf_info = dict()
+    pnote_sort_info = dict()
+    for pnote in ppart.notes:
+        onset = seconds_to_midi_ticks(pnote["note_on"], mpq=mpq, ppq=ppq)
+        offset = seconds_to_midi_ticks(pnote["note_off"], mpq=mpq, ppq=ppq)
+        perf_info[pnote["id"]] = MatchNote(
+            version=version,
+            id=(
+                f"n{pnote['id']}"
+                if not str(pnote["id"]).startswith("n")
+                else str(pnote["id"])
+            ),
+            midi_pitch=int(pnote["midi_pitch"]),
+            onset=onset,
+            offset=offset,
+            velocity=pnote["velocity"],
+            channel=pnote.get("channel", 1),
+            track=pnote.get("track", 0),
+        )
+        pnote_sort_info[pnote["id"]] = (
+            float(ptime_to_stime_map(pnote["note_on"])),
+            pnote["midi_pitch"],
         )
 
-    # Create match lines for note information
+    sort_stime = []
     note_lines = []
     for al_note in alignment:
 
         label = al_note["label"]
 
-        # Create match line for matched score and performed notes
         if label == "match":
-            # quirk from Magaloff/Zeilinger
-            if magaloff_zeilinger_quirk:
-                al_note["score_id"] = al_note["score_id"].split("-")[0]
             snote = score_info[al_note["score_id"]]
-
             pnote = perf_info[al_note["performance_id"]]
-            snote_note_line = MatchSnoteNote(snote=snote, note=pnote)
+            snote_note_line = MatchSnoteNote(version=version, snote=snote, note=pnote)
             note_lines.append(snote_note_line)
+            sort_stime.append(snote_sort_info[al_note["score_id"]])
 
-        # Matchline for deleted notes
         elif label == "deletion":
-            # Quirk for Magaloff/Zeilinger
-            if magaloff_zeilinger_quirk:
-                al_note["score_id"] = al_note["score_id"].split("-")[0]
             snote = score_info[al_note["score_id"]]
-            deletion_line = MatchSnoteDeletion(snote)
+            deletion_line = MatchSnoteDeletion(version=version, snote=snote)
             note_lines.append(deletion_line)
+            sort_stime.append(snote_sort_info[al_note["score_id"]])
 
-        # Matchline for inserted notes
         elif label == "insertion":
             note = perf_info[al_note["performance_id"]]
-            insertion_line = MatchInsertionNote(note)
+            insertion_line = MatchInsertionNote(version=version, note=note)
             note_lines.append(insertion_line)
+            sort_stime.append(pnote_sort_info[al_note["performance_id"]])
 
         elif label == "ornament":
             ornament_type = al_note["type"]
-            # Quirk for Magaloff/Zeilinger
-            if magaloff_zeilinger_quirk:
-                al_note["score_id"] = al_note["score_id"].split("-")[0]
-                # al_note['score_id'] = 'n' + al_note['score_id'].split('-')[0]
             snote = score_info[al_note["score_id"]]
             note = perf_info[al_note["performance_id"]]
-            if ornament_type == "trill":
-                ornament_line = MatchTrillNote(Anchor=snote.Anchor, note=note)
-            else:
-                print(ornament_type)
-                ornament_line = MatchOrnamentNote(Anchor=snote.Anchor, note=note)
+            ornament_line = MatchOrnamentNote(
+                version=version,
+                anchor=snote.Anchor,
+                note=note,
+                ornament_type=[ornament_type],
+            )
 
             note_lines.append(ornament_line)
+            sort_stime.append(pnote_sort_info[al_note["performance_id"]])
 
-        else:
-            print("unprocessed line {0}".format(label))
-            print(str(al_note))
+    # sort notes by score onset (performed insertions are sorted
+    # according to the interpolation map
+    sort_stime = np.array(sort_stime)
+    sort_stime_idx = np.lexsort((sort_stime[:, 1], sort_stime[:, 0]))
+    note_lines = np.array(note_lines)[sort_stime_idx]
 
     # Create match lines for pedal information
     pedal_lines = []
@@ -248,65 +425,40 @@ def matchfile_from_alignment(
         t = seconds_to_midi_ticks(c["time"], mpq=mpq, ppq=ppq)
         value = int(c["value"])
         if c["number"] == 64:  # c['type'] == 'sustain_pedal':
-            sustain_pedal = MatchSustainPedal(Time=t, Value=value)
+            sustain_pedal = MatchSustainPedal(version=version, time=t, value=value)
             pedal_lines.append(sustain_pedal)
 
         if c["number"] == 67:  # c['type'] == 'soft_pedal':
-            soft_pedal = MatchSoftPedal(Time=t, Value=value)
+            soft_pedal = MatchSoftPedal(version=version, time=t, value=value)
             pedal_lines.append(soft_pedal)
 
-    # Create match lines for meta information
-    meta_lines = []
-    for i, ts in enumerate(spart.iter_all(score.TimeSignature)):
-        value = "{0}/{1}".format(int(ts.beats), int(ts.beat_type))
-        if i == 0:
-            first_ts = MatchInfo(Attribute="timeSignature", Value="[{0}]".format(value))
-            header_lines["time_signature"] = first_ts
-
-        ts_line = MatchMeta(
-            Attribute="timeSignature",
-            Value=value,
-            Bar=int(measure_map(ts.start.t)),
-            TimeInBeats=float(spart.beat_map(ts.start.t)),
-        )
-
-        meta_lines.append(ts_line)
-
-    for i, ks in enumerate(spart.iter_all(score.KeySignature)):
-        value = fifths_mode_to_match_key_name(ks.fifths, ks.mode)
-        if i == 0:
-            first_ks = MatchInfo(Attribute="keySignature", Value="[{0}]".format(value))
-            header_lines["key_signature"] = first_ks
-
-        ks_line = MatchMeta(
-            Attribute="keySignature",
-            Value=value,
-            Bar=int(measure_map(ks.start.t)),
-            TimeInBeats=float(spart.beat_map(ks.start.t)),
-        )
-        meta_lines.append(ks_line)
+    pedal_lines.sort(key=lambda x: x.Time)
 
     # Construct header of match file
     header_order = [
         "version",
         "piece",
+        "score_filename",
+        "performance_filename",
         "composer",
         "performer",
         "clock_units",
         "clock_rate",
-        "key_signature",
-        "time_signature",
+        "key_signatures",
+        "time_signatures",
     ]
     all_match_lines = []
     for h in header_order:
         if h in header_lines:
             all_match_lines.append(header_lines[h])
 
-    # Concatenate all lines
-    all_match_lines += note_lines + meta_lines + pedal_lines
+        if h in scoreprop_lines:
+            all_match_lines += scoreprop_lines[h]
 
-    # Create match file
-    matchfile = MatchFile.from_lines(lines=all_match_lines, name=ppart.part_name)
+    # Concatenate all lines
+    all_match_lines += list(note_lines) + pedal_lines
+
+    matchfile = MatchFile(lines=all_match_lines)
 
     return matchfile
 
@@ -322,6 +474,9 @@ def save_match(
     performer: Optional[str] = None,
     composer: Optional[str] = None,
     piece: Optional[str] = None,
+    score_filename: Optional[PathLike] = None,
+    performance_filename: Optional[PathLike] = None,
+    assume_unfolded: bool = False,
 ) -> Optional[MatchFile]:
     """
     Save an Alignment of a PerformedPart to a Part in a match file.
@@ -349,6 +504,15 @@ def save_match(
         Name(s) of the composer(s) of the piece represented by `Part`.
     piece : str or None:
         Name of the piece represented by `Part`.
+    score_filename: PathLike
+        Name of the file containing the score.
+    performance_filename: PathLike
+        Name of the (MIDI) file containing the performance.
+    assume_part_unfolded: bool
+        Whether to assume that the part has been unfolded according to the
+        repetitions in the alignment. If False, the part will be automatically
+        unfolded to have maximal coverage of the notes in the alignment.
+        See `partitura.score.unfold_part_alignment`.
 
     Returns
     -------
@@ -359,9 +523,9 @@ def save_match(
 
     # For now, we assume that we align only one Part and a PerformedPart
 
-    if isinstance(score_data, (score.Score, Iterable)):
+    if isinstance(score_data, (Score, Iterable)):
         spart = score_data[0]
-    elif isinstance(score_data, score.Part):
+    elif isinstance(score_data, Part):
         spart = score_data
     elif isinstance(score_data, score.PartGroup):
         spart = score_data.children[0]
@@ -391,6 +555,9 @@ def save_match(
         performer=performer,
         composer=composer,
         piece=piece,
+        score_filename=score_filename,
+        performance_filename=performance_filename,
+        assume_part_unfolded=assume_unfolded,
     )
 
     if out is not None:

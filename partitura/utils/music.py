@@ -14,6 +14,8 @@ from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
 
+from partitura.utils.misc import deprecated_alias
+
 if TYPE_CHECKING:
     # Import typing info for typing annotations.
     # For this to work we need to import annotations from __future__
@@ -364,8 +366,8 @@ def get_time_units_from_note_array(note_array):
     if fields is None:
         raise ValueError("`note_array` must be a structured numpy array")
 
-    score_units = set(("onset_beat", "onset_quarter","onset_div"))
-    performance_units = set(("onset_sec","onset_tick"))
+    score_units = set(("onset_beat", "onset_quarter", "onset_div"))
+    performance_units = set(("onset_sec", "onset_tick"))
 
     if len(score_units.intersection(fields)) > 0:
         if "onset_beat" in fields:
@@ -379,7 +381,7 @@ def get_time_units_from_note_array(note_array):
             return ("onset_sec", "duration_sec")
         elif "onset_tick" in fields:
             return ("onset_tick", "duration_tick")
-        
+
     else:
         raise ValueError("Input array does not contain the expected " "time-units")
 
@@ -478,6 +480,69 @@ def frequency_to_midi_pitch(
         return int(midi_pitch)
     elif isinstance(midi_pitch, np.ndarray):
         return midi_pitch.astype(int)
+
+
+@deprecated_alias(t="time_in_seconds")
+def seconds_to_midi_ticks(
+    time_in_seconds: Union[int, float, np.ndarray],
+    mpq=500000,
+    ppq=480,
+) -> Union[int, np.ndarray]:
+    """
+    Convert time in seconds to MIDI ticks
+
+    Parameters
+    ----------
+    time_in_seconds : int, float or np.ndarray
+        Time in seconds
+    mpq : int
+        Microseconds per quarter (default is 500000)
+    ppq : int
+        Pulses per quarter note (default is 480)
+
+    Returns
+    -------
+    midi_ticks : int or np.ndarray
+        MIDI ticks. If the input was a float or an integer, the output
+        will be an integer. If the output was a numpy array, the output
+        will be a numpy array with dtype int.
+    """
+    midi_ticks = np.round(1e6 * ppq * time_in_seconds / mpq)
+
+    if isinstance(time_in_seconds, np.ndarray):
+        return midi_ticks.astype(np.int)
+    else:
+        return int(midi_ticks)
+
+
+def midi_ticks_to_seconds(
+    midi_ticks: Union[int, float, np.ndarray],
+    mpq=500000,
+    ppq=480,
+) -> Union[float, np.ndarray]:
+    """
+    Convert MIDI ticks to time in seconds
+
+    Parameters
+    ----------
+    midi_ticks: int, float or np.ndarray
+        Time in MIDI ticks
+    mpq : int
+        Microseconds per quarter (default is 500000)
+    ppq : int
+        Pulses per quarter note (default is 480)
+
+    Returns
+    -------
+    time_in_seconds : int or np.ndarray
+        Time in seconds. If the input was a float or an integer, the output
+        will be a float. If the output was a numpy array, the output
+        will be a numpy array with dtype float.
+    """
+
+    time_in_seconds = (mpq * midi_ticks) / float(1e6 * ppq)
+
+    return time_in_seconds
 
 
 SIGN_TO_ALTER = {
@@ -3120,7 +3185,7 @@ def generate_random_performance_note_array(
     onset = rng.uniform(
         low=0,
         high=1,
-        size=num_notes
+        size=num_notes,
     )
 
     # Onsets start at 0 and end at duration - the smalles note duration
@@ -3130,7 +3195,7 @@ def generate_random_performance_note_array(
     offset = np.clip(
         onset + note_duration,
         a_min=min_note_duration,
-        a_max=duration
+        a_max=duration,
     )
 
     note_array["duration_sec"] = offset - onset
