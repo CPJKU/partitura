@@ -225,21 +225,22 @@ def load_performance_midi(
         )
 
         # add note id to every note
-        for i, note in enumerate(notes):
-            note["id"] = f"n{i}"
-
-        pp = performance.PerformedPart(notes, 
-                                   controls=controls, 
-                                   programs=programs, 
-                                   ppq = ppq,
-                                   mpq = mpq,
-                                   track = i)
-        
-        pps.append(pp)
+        for k, note in enumerate(notes):
+            note["id"] = f"n{k}"
+            
+        if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
+            pp = performance.PerformedPart(notes, 
+                                    controls=controls, 
+                                    programs=programs, 
+                                    ppq = ppq,
+                                    mpq = mpq,
+                                    track = i)
+            
+            pps.append(pp)
 
     perf = performance.Performance(
         id=doc_name,
-        performedparts=pp,
+        performedparts=pps,
     )
     return perf
 
