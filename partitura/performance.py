@@ -124,9 +124,10 @@ class PerformedPart(object):
         performance. Set to 127 to deactivate pedal.
         """
         self._sustain_pedal_threshold = value
-        adjust_offsets_w_sustain(
-            self.notes, self.controls, self._sustain_pedal_threshold
-        )
+        if len(self.notes) > 0:
+            adjust_offsets_w_sustain(
+                self.notes, self.controls, self._sustain_pedal_threshold
+            )
 
     @property
     def num_tracks(self) -> int:
