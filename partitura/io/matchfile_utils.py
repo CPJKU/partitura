@@ -602,6 +602,13 @@ def format_accidental_old(value: Optional[int]) -> str:
         return format_accidental(value)
 
 
+def format_pnote_id(value: Any) -> str:
+
+    pnote_id = f"n{str(value)}" if not str(value).startswith("n") else str(value)
+
+    return pnote_id
+
+
 ## Methods for parsing special attributes
 
 

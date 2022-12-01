@@ -69,6 +69,7 @@ from partitura.io.matchfile_utils import (
     number_pattern,
     MatchTimeSignature,
     MatchKeySignature,
+    format_pnote_id,
 )
 
 from partitura.utils.music import (
@@ -97,7 +98,7 @@ def get_version(line: str) -> Version:
     """
     Get version from the first line. Since the
     first version of the format did not include this line,
-    we assume that the version is 0.1.0 if no version is 
+    we assume that the version is 0.1.0 if no version is
     found.
 
     Parameters
@@ -288,7 +289,7 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
                 dict(
                     label="match",
                     score_id=str(line.snote.Anchor),
-                    performance_id=str(line.note.Id),
+                    performance_id=format_pnote_id(line.note.Id),
                 )
             )
 
@@ -304,7 +305,9 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
             line,
             BaseInsertionLine,
         ):
-            result.append(dict(label="insertion", performance_id=str(line.note.Id)))
+            result.append(
+                dict(label="insertion", performance_id=format_pnote_id(line.note.Id))
+            )
         elif isinstance(line, BaseOrnamentLine):
             if isinstance(line, MatchTrillNoteV0):
                 ornament_type = "trill"
@@ -316,7 +319,7 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
                 dict(
                     label="ornament",
                     score_id=str(line.Anchor),
-                    performance_id=str(line.note.Id),
+                    performance_id=format_pnote_id(line.note.Id),
                     type=ornament_type,
                 )
             )
@@ -370,7 +373,7 @@ def performed_part_from_match(
 
     notes = [
         dict(
-            id=note.Id,
+            id=format_pnote_id(note.Id),
             midi_pitch=note.MidiPitch,
             note_on=midi_ticks_to_seconds(note.Onset, mpq, ppq) - offset,
             note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,

@@ -291,12 +291,12 @@ def matchfile_from_alignment(
 
             ts_num, ts_den, _ = spart.time_signature_map(snote.start.t)
 
-            duration_symb = Fraction(duration_divs, int(ts_den) * dpq)
+            duration_symb = Fraction(duration_divs, dpq * 4)
 
             beat = int((onset_divs - msd) // dpq)
 
             moffset_divs = Fraction(
-                int(onset_divs - msd - beat * dpq), (int(ts_den) * dpq)
+                int(onset_divs - msd - beat * dpq), (dpq * 4)
             )
 
             if debug:
