@@ -475,7 +475,7 @@ class TestGenericUtils(unittest.TestCase):
             np.float16,
             np.float32,
             np.float64,
-            np.float128,
+            # np.float128,
         )
 
         for dtype in dtypes:
