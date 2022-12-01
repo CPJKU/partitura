@@ -11,6 +11,7 @@ notes as well as continuous control parameters, such as sustain pedal.
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
 import numpy as np
 from partitura.utils import note_array_from_part_list
+from partitura.utils.music import seconds_to_midi_ticks
 
 __all__ = [
     "PerformedPart",
@@ -49,6 +50,9 @@ class PerformedPart(object):
         sustain pedal is treated as off. Defaults to 64.
     ppq : int
         Parts per Quarter (ppq) of the MIDI encoding. Defaults to 480. 
+    mpq : int
+        Microseconds per Quarter (mpq) tempo of the MIDI encoding. 
+        Defaults to 500000. 
 
     Attributes
     ----------
@@ -74,7 +78,9 @@ class PerformedPart(object):
         controls: List[dict] = None,
         programs: List[dict] = None,
         sustain_pedal_threshold: int = 64,
-        ppq: int = 480
+        ppq: int = 480,
+        mpq: int = 500000,
+        track: int = 0,
     ) -> None:
         super().__init__()
         self.id = id
@@ -83,6 +89,8 @@ class PerformedPart(object):
         self.controls = controls or []
         self.programs = programs or []
         self.ppq = ppq
+        self.mpq = mpq
+        self.track = track
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
@@ -108,14 +116,18 @@ class PerformedPart(object):
 
     @sustain_pedal_threshold.setter
     def sustain_pedal_threshold(self, value: int) -> None:
-        # """
-        # Set the pedal threshold and update the sound_off
-        # of the notes
-        # """
+        """
+        Set the pedal threshold and update the sound_off
+        of the notes. The threshold is a MIDI CC value 
+        between 0 and 127. The higher the threshold, the 
+        more restrained the pedal use and the drier the 
+        performance. Set to 127 to deactivate pedal.
+        """
         self._sustain_pedal_threshold = value
-        adjust_offsets_w_sustain(
-            self.notes, self.controls, self._sustain_pedal_threshold
-        )
+        if len(self.notes) > 0:
+            adjust_offsets_w_sustain(
+                self.notes, self.controls, self._sustain_pedal_threshold
+            )
 
     @property
     def num_tracks(self) -> int:
@@ -137,6 +149,8 @@ class PerformedPart(object):
         fields = [
             ("onset_sec", "f4"),
             ("duration_sec", "f4"),
+            ("onset_tick", "i4"),
+            ("duration_tick", "i4"),
             ("pitch", "i4"),
             ("velocity", "i4"),
             ("track", "i4"),
@@ -146,12 +160,16 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
+            note_on_tick = n.get("note_on_tick", seconds_to_midi_ticks(n["note_on"],mpq=self.mpq, ppq=self.ppq))
             offset = n.get("sound_off", n["note_off"])
             duration_sec = offset - note_on_sec
+            duration_tick = n.get("note_off_tick", seconds_to_midi_ticks(n["note_off"],mpq=self.mpq, ppq=self.ppq)) - note_on_tick
             note_array.append(
                 (
                     note_on_sec,
                     duration_sec,
+                    note_on_tick,
+                    duration_tick,
                     n["midi_pitch"],
                     n["velocity"],
                     n.get("track", 0),

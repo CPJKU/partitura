@@ -334,7 +334,6 @@ def estimate_time(note_info):
         else:
             aggregated_notes.append((note_on, 1))
 
-    print(aggregated_notes)
     onsets, saliences = list(zip(*aggregated_notes))
 
     ma = MultipleAgents()

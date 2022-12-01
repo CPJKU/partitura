@@ -2,6 +2,38 @@ Release Notes
 =============
 
 
+Version 1.2.0 (Released on 2022-12-01)
+--------------------------------------
+
+
+New features
+
+* Load and save alignments, performances, and scores stored in match files (.match) of all available versions
+* Support for mei loading via verovio (if installed)
+* PerformedPart notes store timing information in both ticks and seconds
+* Support for pitch class piano rolls
+* New MIDI time conversion functions
+
+
+Bug fixes
+
+* Fix render via musescore (if installed)
+* Fix bug slowing down musicxml export
+* Fix consecutive tie bug in kern import
+* Gracefully handle slur mismatch in kern import
+* Fix metrical position flag in note arrays
+* Fix in MEI import and handling multiple staff groups inside the main staffGroup
+* Fix measure map for single measure parts
+
+
+Other changes
+
+* Improved documentation
+* Extended test coverage
+* Extended and updated notebook tutorials: https://cpjku.github.io/partitura_tutorial/
+
+
+
 Version 1.1.1 (Released on 2022-10-31)
 --------------------------------------
 
