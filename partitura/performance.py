@@ -50,6 +50,9 @@ class PerformedPart(object):
         sustain pedal is treated as off. Defaults to 64.
     ppq : int
         Parts per Quarter (ppq) of the MIDI encoding. Defaults to 480. 
+    mpq : int
+        Microseconds per Quarter (mpq) tempo of the MIDI encoding. 
+        Defaults to 500000. 
 
     Attributes
     ----------
@@ -75,7 +78,9 @@ class PerformedPart(object):
         controls: List[dict] = None,
         programs: List[dict] = None,
         sustain_pedal_threshold: int = 64,
-        ppq: int = 480
+        ppq: int = 480,
+        mpq: int = 500000,
+        track: int = 0,
     ) -> None:
         super().__init__()
         self.id = id
@@ -84,6 +89,8 @@ class PerformedPart(object):
         self.controls = controls or []
         self.programs = programs or []
         self.ppq = ppq
+        self.mpq = mpq
+        self.track = track
 
         self.sustain_pedal_threshold = sustain_pedal_threshold
 
@@ -152,10 +159,10 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
-            note_on_tick = n.get("note_on_tick", seconds_to_midi_ticks(n["note_on"]))
+            note_on_tick = n.get("note_on_tick", seconds_to_midi_ticks(n["note_on"],mpq=self.mpq, ppq=self.ppq))
             offset = n.get("sound_off", n["note_off"])
             duration_sec = offset - note_on_sec
-            duration_tick = n.get("note_off_tick", seconds_to_midi_ticks(n["note_off"])) - note_on_tick
+            duration_tick = n.get("note_off_tick", seconds_to_midi_ticks(n["note_off"],mpq=self.mpq, ppq=self.ppq)) - note_on_tick
             note_array.append(
                 (
                     note_on_sec,

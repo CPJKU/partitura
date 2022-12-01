@@ -95,7 +95,6 @@ def load_performance_midi(
     merge_tracks: bool, optional
         For MIDI files, merges all tracks into a single track.
 
-
     Returns
     -------
     :class:`partitura.performance.Performance`
@@ -117,15 +116,18 @@ def load_performance_midi(
     # convert MIDI ticks in seconds
     time_conversion_factor = mpq / (ppq * 10 ** 6)
 
-    notes = []
-    controls = []
-    programs = []
+    pps = list()
+    
     if merge_tracks:
         mid_merge = mido.merge_tracks(mid.tracks)
         tracks = [(0, mid_merge)]
     else:
         tracks = [(i, u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
+        
+        notes = []
+        controls = []
+        programs = []
 
         t = 0
         ttick = 0
@@ -226,7 +228,14 @@ def load_performance_midi(
         for i, note in enumerate(notes):
             note["id"] = f"n{i}"
 
-    pp = performance.PerformedPart(notes, controls=controls, programs=programs, ppq = ppq)
+        pp = performance.PerformedPart(notes, 
+                                   controls=controls, 
+                                   programs=programs, 
+                                   ppq = ppq,
+                                   mpq = mpq,
+                                   track = i)
+        
+        pps.append(pp)
 
     perf = performance.Performance(
         id=doc_name,
