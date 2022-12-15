@@ -2603,7 +2603,7 @@ def performance_from_part(part, bpm=100, velocity=64):
 
 def performance_notearray_from_score_notearray(
     snote_array: np.ndarray,
-    bpm: [float, np.ndarray, Callable] = 100.0,
+    bpm: Union[float, np.ndarray, Callable] = 100.0,
     velocity: Union[int, np.ndarray, Callable] = 64,
 ) -> np.ndarray:
     """
@@ -2869,6 +2869,77 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
                 matched_idxs.append((s_idx, p_idx))
 
     return np.array(matched_idxs)
+
+
+def slice_ppart_by_time(ppart, start_time: Union[int, float], end_time: Union[int, float]):
+    """
+    Get a slice of a PeformedPart by time
+
+    Parameters
+    ----------
+    ppart : `PerformedPart` object
+    start_time : int or float
+        Starting time in seconds
+    end_time : int or float
+        End time in seconds
+
+    Returns
+    -------
+    ppart_slice :  `PerformedPart` object 
+        A copy of input ppart containing notes, programs and control information 
+        only between `start_time` and `end_time` of ppart
+    """
+    from partitura.performance import PerformedPart
+
+    if not isinstance(ppart, PerformedPart):
+        raise ValueError("Input is not an instance of PerformedPart!")
+
+    ppart_slice = ppart.copy()
+    ppq = ppart.ppq
+
+    controls_slice = []
+    for cc in ppart.controls:
+        if cc['time'] >= start_time and cc['time'] <= end_time:
+            new_cc = cc.copy()
+            new_cc['time'] -= start_time
+            new_cc['time_tick'] = int(2 * ppq * cc['time'])
+            controls_slice.append(new_cc)
+
+    programs_slice = []
+    for pr in ppart.programs:
+        if pr['time'] >= start_time and pr['time'] <= end_time:
+            new_pr = pr.copy()
+            new_pr['time'] -= start_time
+            new_pr['time_tick'] = int(2 * ppq * pr['time'])
+            programs_slice.append(new_pr)
+
+    notes_slice = []
+    note_id = 0
+    for note in ppart.notes:
+        if note['note_on'] >= start_time: 
+            if note['note_on'] <= end_time:
+                new_note = note.copy()
+                new_note['note_on'] -= start_time
+                new_note['note_on_tick'] = int(2 * ppq * new_note['note_on'])
+                # ensures all notes are off by the endtime
+                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+                # create new ids for notes in slice
+                new_note['id'] = 'n' + str(note_id)
+                note_id += 1
+                notes_slice.append(new_note)
+            # assumes notes in list are sorted by onset time - ?    
+            else: 
+                break
+
+    if ppart.id:
+        ppart_slice.id = ppart.id + '_slice'     
+    
+    ppart_slice.controls = controls_slice
+    ppart_slice.programs = programs_slice
+    ppart_slice.notes = notes_slice
+
+    return ppart_slice
 
 
 if __name__ == "__main__":
