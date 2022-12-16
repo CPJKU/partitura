@@ -15,8 +15,9 @@ def create_divs_from_beats(note_array):
     divs = np.lcm.reduce(
         [Fraction(float(ix)).limit_denominator(256).denominator for ix in np.unique(note_array["duration_beat"])])
     onset_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), onset_fractions))
-    if min(onset_divs) < 0:
-        onset_divs -= min(onset_divs)
+    min_onset_div = min(onset_divs)
+    if min_onset_div < 0:
+        onset_divs = list(map(lambda x: x - min_onset_div, onset_divs))
     duration_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), duration_fractions))
     na_divs = np.array(list(zip(onset_divs, duration_divs)), dtype=[("onset_div", int), ("duration_div", int)])
     return rfn.merge_arrays((note_array, na_divs), flatten=True, usemask=False)
