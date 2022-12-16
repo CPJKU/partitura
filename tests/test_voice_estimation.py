@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains tests for the voice estimation methods.
+"""
 import numpy as np
 
 import unittest

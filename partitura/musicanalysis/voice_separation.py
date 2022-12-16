@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Voice Separation using Chew and Wu's algorithm.
+"""
+This module contains methods for voice separation using Chew and Wu's algorithm.
 
+References
+----------
+.. [6] Chew, E. and Wu, Xiaodan (2004) "Separating Voices in
+       Polyphonic Music: A Contig Mapping Approach". In Uffe Kock,
+       editor, "Computer Music Modeling and Retrieval". Springer
+       Berlin Heidelberg.
 """
 from collections import defaultdict
 from statistics import mode
@@ -141,7 +148,7 @@ def estimate_voices(note_info, monophonic_voices=True):
         input_array = notearray[sorted(idx_equivs.keys())]
 
     # Perform voice separation
-    v_notearray = VoSA(input_array).note_array
+    v_notearray = VoSA(input_array).note_array()
 
     # map the voices to the original notes
     voices = np.empty(len(notearray), dtype=int)
@@ -154,7 +161,7 @@ def estimate_voices(note_info, monophonic_voices=True):
     rvoices = rename_voices(voices)
 
     # reverse voice numbers so that the high voices have the low numbers, like in musicxml
-    rrvoices = max(rvoices) - rvoices +1  
+    rrvoices = max(rvoices) - rvoices + 1
 
     return rrvoices
 
@@ -872,7 +879,8 @@ class VoSA(VSBaseScore):
             notes_per_voice = [note for note in self.notes if note.voice == vn]
             self.voices.append(NoteStream(notes_per_voice, voice=vn))
 
-    @property
+    # Removed property flag for consistancy.
+    # @property
     def note_array(self):
         """
         TODO:

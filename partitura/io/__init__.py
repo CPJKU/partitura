@@ -1,16 +1,35 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing and exporting symbolic music formats.
+"""
+from typing import Union
+
 from .importmusicxml import load_musicxml
 from .importmidi import load_score_midi, load_performance_midi
 from .musescore import load_via_musescore
 from .importmatch import load_match
 from .importmei import load_mei
 from .importkern import load_kern
+from .importparangonada import load_parangonada_csv
+
+from partitura.utils.misc import (
+    deprecated_alias,
+    deprecated_parameter,
+    PathLike,
+)
+
+from partitura.score import Score, Part, merge_parts
+from partitura.performance import Performance
 
 
 class NotSupportedFormatError(Exception):
     pass
 
 
-def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
+@deprecated_alias(score_fn="filename")
+@deprecated_parameter("ensure_list")
+def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     """
     Load a score format supported by partitura. Currently the accepted formats
     are MusicXML, MIDI, Kern and MEI, plus all formats for which
@@ -18,11 +37,8 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
 
     Parameters
     ----------
-    score_fn : str or file-like  object
+    filename : str or file-like  object
         Filename of the score to parse, or a file-like object
-    ensure_list : bool
-        When True, return a list independent of how many part or
-        group elements where created.
     force_note_ids : (None, bool or "keep")
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
@@ -33,8 +49,8 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
 
     Returns
     -------
-    part: list or Part
-        A score part. If `ensure_list` the output will be a list.
+    scr: :class:`partitura.score.Score`
+        A score instance.
     """
     part = None
 
@@ -43,8 +59,7 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MusicXML
     try:
         return load_musicxml(
-            xml=score_fn,
-            ensure_list=ensure_list,
+            filename=filename,
             force_note_ids=force_note_ids,
         )
     except Exception as e:
@@ -56,22 +71,20 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         else:
             assign_note_ids = True
         return load_score_midi(
-            fn=score_fn,
+            filename=filename,
             assign_note_ids=assign_note_ids,
-            ensure_list=ensure_list,
         )
     except Exception as e:
         exception_dictionary["MIDI"] = e
     # Load MEI
     try:
-        return load_mei(mei_path=score_fn)
+        return load_mei(filename=filename)
     except Exception as e:
         exception_dictionary["MEI"] = e
     # Load Kern
     try:
         return load_kern(
-            kern_path=score_fn,
-            ensure_list=ensure_list,
+            filename=filename,
             force_note_ids=force_note_ids,
         )
     except Exception as e:
@@ -79,20 +92,18 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
     # Load MuseScore
     try:
         return load_via_musescore(
-            fn=score_fn,
+            filename=filename,
             force_note_ids=force_note_ids,
-            ensure_list=ensure_list,
         )
     except Exception as e:
         exception_dictionary["MuseScore"] = e
     try:
         # Load the score information from a Matchfile
-        _, _, part = load_match(score_fn, create_part=True)
+        _, _, part = load_match(
+            filename=filename,
+            create_score=True,
+        )
 
-        if ensure_list:
-            return [part]
-        else:
-            return part
     except Exception as e:
         exception_dictionary["matchfile"] = e
     if part is None:
@@ -103,20 +114,46 @@ def load_score(score_fn, ensure_list=False, force_note_ids="keep"):
         raise NotSupportedFormatError
 
 
+def load_score_as_part(filename: PathLike) -> Part:
+    """
+    load part helper function:
+    Load a score format supported by partitura and
+    merge the result in a single part
+
+    Parameters
+    ----------
+    filename : str or file-like  object
+        Filename of the score to parse, or a file-like object
+
+    Returns
+    -------
+    part: :class:`partitura.score.Part`
+        A part instance.
+    """
+    scr = load_score(filename)
+    part = merge_parts(scr.parts)
+    return part
+
+
+# alias
+lp = load_score_as_part
+
+
+@deprecated_alias(performance_fn="filename")
 def load_performance(
-    performance_fn,
-    default_bpm=120,
-    merge_tracks=False,
-    first_note_at_zero=False,
-    pedal_threshold=64,
-):
+    filename: PathLike,
+    default_bpm: Union[float, int] = 120,
+    merge_tracks: bool = False,
+    first_note_at_zero: bool = False,
+    pedal_threshold: int = 64,
+) -> Performance:
     """
     Load a performance format supported by partitura. Currently the accepted formats
     are MIDI and matchfiles.
 
     Parameters
     ----------
-    performance_fn: str or file-like  object
+    filename: str or file-like  object
         Filename of the score to parse, or a file-like object
     default_bpm : number, optional
         Tempo to use wherever the MIDI does not specify a tempo.
@@ -131,8 +168,8 @@ def load_performance(
 
     Returns
     -------
-    performed_part: :class:`partitura.performance.PerformedPart`
-        A PerformedPart instance.
+    performance: :class:`partitura.performance.Performance`
+        A `Performance` instance.
 
     TODO
     ----
@@ -140,39 +177,39 @@ def load_performance(
     """
     from partitura.utils.music import remove_silence_from_performed_part
 
-    performed_part = None
+    performance = None
 
     # Catch exceptions
     exception_dictionary = dict()
     try:
-        performed_part = load_performance_midi(
-            performance_fn,
+        performance = load_performance_midi(
+            filename=filename,
             default_bpm=default_bpm,
             merge_tracks=merge_tracks,
         )
 
         # set threshold for sustain pedal
-        performed_part.sustain_pedal_threshold = pedal_threshold
+        performance[0].sustain_pedal_threshold = pedal_threshold
 
         if first_note_at_zero:
-            remove_silence_from_performed_part(performed_part)
+            remove_silence_from_performed_part(performance[0])
 
     except Exception as e:
         exception_dictionary["midi"] = e
 
     try:
-        performed_part, _ = load_match(
-            fn=performance_fn,
+        performance, _ = load_match(
+            filename=filename,
             first_note_at_zero=first_note_at_zero,
             pedal_threshold=pedal_threshold,
         )
     except Exception as e:
         exception_dictionary["match"] = e
 
-    if performed_part is None:
+    if performance is None:
         for file_format, exception in exception_dictionary.items():
             print(f"Error loading score as {file_format}:")
             print(exception)
         raise NotSupportedFormatError
 
-    return performed_part
+    return performance

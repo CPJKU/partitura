@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing MEI files.
+"""
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 import partitura.score as score
@@ -7,41 +12,56 @@ from partitura.utils.music import (
     SIGN_TO_ALTER,
     estimate_symbolic_duration,
 )
+from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias
+import partitura as pt
+
+try:
+    import verovio
+    VEROVIO_AVAILABLE = True
+except :
+    VEROVIO_AVAILABLE = False
 
 import re
-import logging
 import warnings
 
 import numpy as np
 
 
-
-
-def load_mei(mei_path: str) -> list:
+@deprecated_alias(mei_path="filename")
+def load_mei(filename: PathLike) -> score.Score:
     """
     Loads a Mei score from path and returns a list of Partitura.Part
 
     Parameters
     ----------
-    mei_path : str
+    filename : PathLike
         The path to an MEI score.
 
     Returns
     -------
-    part_list : list
-        A list of Partitura Part or GroupPart Objects.
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
-    parser = MeiParser(mei_path)
+    parser = MeiParser(filename)
+    doc_name = get_document_name(filename)
     # create parts from the specifications in the mei
     parser.create_parts()
     # fill parts with the content from the mei
     parser.fill_parts()
-    return parser.parts
+
+    # TODO: Parse score info (composer, lyricist, etc.)
+    scr = score.Score(
+        id=doc_name,
+        partlist=parser.parts,
+    )
+
+    return scr
 
 
-class MeiParser:
-    def __init__(self, mei_path):
-        document, ns = self._parse_mei(mei_path)
+class MeiParser(object):
+    def __init__(self, mei_path: PathLike) -> None:
+        document, ns = self._parse_mei(mei_path, use_verovio = VEROVIO_AVAILABLE)
         self.document = document
         self.ns = ns  # the namespace in the MEI file
         self.parts = (
@@ -105,7 +125,7 @@ class MeiParser:
         else:
             return ".//{" + ns + "}" + name
 
-    def _parse_mei(self, mei_path):
+    def _parse_mei(self, mei_path, use_verovio = True):
         """
         Parses an MEI file from path to an lxml tree.
 
@@ -123,12 +143,23 @@ class MeiParser:
             huge_tree=False,
             remove_comments=True,
             remove_blank_text=True,
+            recover = True
         )
-        document = etree.parse(mei_path, parser)
+
+        if use_verovio:
+            tk = verovio.toolkit(True)
+            tk.loadFile(mei_path)
+            mei_score = tk.getMEI("basic")
+            # document = etree.parse(mei_score, parser)
+            root = etree.fromstring(mei_score.encode('utf-8'), parser)
+            tree = etree.ElementTree(root)
+        else:
+            tree = etree.parse(mei_path,parser)
+            root = tree.getroot()
         # find the namespace
-        ns = document.getroot().nsmap[None]
+        ns = root.nsmap[None]
         # --> nsmap fetches a dict of the namespace Map, generally for root the key `None` fetches the namespace of the document.
-        return document, ns
+        return tree, ns
 
     # functions to parse staves info
 
@@ -282,9 +313,11 @@ class MeiParser:
                 # find the staff number
                 parent = element.getparent()
                 if parent.tag == self._ns_name("staffDef"):
-                    number = parent.attrib["n"]
+                    # number = parent.attrib["n"]
+                    number = 1
                 else:  # go back another level to staff element
-                    number = parent.getparent().attrib["n"]
+                    # number = parent.getparent().attrib["n"]
+                    number = 1
                 sign = element.attrib["shape"]
                 line = element.attrib["line"]
                 octave = self._compute_clef_octave(
@@ -334,19 +367,30 @@ class MeiParser:
         """Finds the ppq for MEI filed that do not explicitely encode this information"""
         els_with_dur = self.document.xpath(".//*[@dur]")
         durs = []
+        durs_ppq = []
         for el in els_with_dur:
             symbolic_duration = self._get_symbolic_duration(el)
             intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
             # double the value if we have dots, to be sure be able to encode that with integers in partitura
             durs.append(intsymdur * (2 ** dots))
+            durs_ppq.append(None if el.get("dur.ppq") is None else int(el.get("dur.ppq")))
 
-        # add 4 to be sure to not go under 1 ppq
-        durs.append(4)
+        if any([dppq is not None for dppq in durs_ppq]):
+            # there is at least one element with both dur and dur.ppq
+            for dur, dppq in zip(durs,durs_ppq):
+                if dppq is not None:
+                    return dppq*dur/4
+        else: 
+            # compute the ppq from the durations
+            # add 4 to be sure to not go under 1 ppq
+            durs.append(4)
+            durs= np.array(durs)
+            # remove elements smaller than 1
+            durs = durs[durs >= 1]
 
-        # TODO : check if this can create problems with rounding of float durations
-        least_common_multiple = np.lcm.reduce(np.array(durs, dtype=int))
+            least_common_multiple = np.lcm.reduce(durs.astype(int))
 
-        return least_common_multiple / 4
+            return least_common_multiple / 4
 
     def _handle_initial_staffdef(self, staffdef_el):
         """
@@ -404,6 +448,10 @@ class MeiParser:
         for s_el in staves_el:
             new_part = self._handle_initial_staffdef(s_el)
             staff_group.children.append(new_part)
+        staff_groups_el = staffgroup_el.findall(self._ns_name("staffGrp"))
+        for sg_el in staff_groups_el:
+            new_staffgroup = self._handle_staffgroup(sg_el)
+            staff_group.children.append(new_staffgroup)
         return staff_group
 
     def _handle_main_staff_group(self, main_staffgrp_el):
@@ -437,14 +485,17 @@ class MeiParser:
     # functions to parse the content of parts
 
     def _note_el_to_accid_int(self, note_el) -> int:
-        """Accidental strings to integer pitch. 
+        """Accidental strings to integer pitch.
         It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)"""
         if note_el.get("accid") is not None:
             return SIGN_TO_ALTER[note_el.get("accid")]
         elif note_el.get("accid.ges") is not None:
             return SIGN_TO_ALTER[note_el.get("accid.ges")]
         elif note_el.find(self._ns_name("accid")) is not None:
-            return SIGN_TO_ALTER[note_el.find(self._ns_name("accid")).get("accid")]
+            if note_el.find(self._ns_name("accid")).get("accid") is not None:
+                return SIGN_TO_ALTER[note_el.find(self._ns_name("accid")).get("accid")]
+            else:
+                return SIGN_TO_ALTER[note_el.find(self._ns_name("accid")).get("accid.ges")]
         else:
             return None
 
@@ -565,7 +616,7 @@ class MeiParser:
                 alter=alter,
                 id=note_id,
                 voice=voice,
-                staff=staff,
+                staff=1,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
@@ -584,7 +635,7 @@ class MeiParser:
                 alter=alter,
                 id=note_id,
                 voice=voice,
-                staff=staff,
+                staff=1,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
@@ -622,7 +673,7 @@ class MeiParser:
         rest = score.Rest(
             id=rest_id,
             voice=voice,
-            staff=staff,
+            staff=1,
             symbolic_duration=symbolic_duration,
             articulations=None,
         )
@@ -665,7 +716,7 @@ class MeiParser:
         rest = score.Rest(
             id=mrest_id,
             voice=voice,
-            staff=staff,
+            staff=1,
             symbolic_duration=estimate_symbolic_duration(parts_per_measure, ppq),
             articulations=None,
         )
@@ -712,7 +763,7 @@ class MeiParser:
                 alter=alter,
                 id=note_id,
                 voice=voice,
-                staff=staff,
+                staff=1,
                 symbolic_duration=symbolic_duration,
                 articulations=None,  # TODO : add articulation
             )
@@ -827,12 +878,15 @@ class MeiParser:
                 f"Warning: voices have different durations in staff {staff_el.attrib[self._ns_name('id',XML_NAMESPACE)]}"
             )
 
+        
+        if len(end_positions) == 0: #if a measure contains no elements (e.g., a forgotten rest)
+            end_positions.append(position)
         # add end time of measure
         part.add(measure, None, max(end_positions))
         return max(end_positions)
 
     def _find_dir_positions(self, dir_el, bar_position):
-        """Compute the position for a <dir> element. 
+        """Compute the position for a <dir> element.
         Returns an array, one position for each part."""
         delta_position_beat = float(dir_el.get("tstamp"))
         return [
@@ -886,21 +940,27 @@ class MeiParser:
                 # handle staves
                 staves_el = element.findall(self._ns_name("staff"))
                 if len(list(staves_el)) != len(list(parts)):
-                    raise Exception("Not all parts are specified in measure" + i_el)
+                    raise Exception(f"Not all parts are specified in measure {i_el}")
                 end_positions = []
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
                         self._handle_staff_in_measure(staff_el, i_s + 1, position, part)
                     )
+                # handle directives (dir elements)
+                self._handle_directives(element, position)
                 # sanity check that all layers have equal duration
-                if not all([e == end_positions[0] for e in end_positions]):
+                max_position = max(end_positions)
+                if not all([e == max_position for e in end_positions]):
                     warnings.warn(
                         f"Warning : parts have measures of different duration in measure {element.attrib[self._ns_name('id',XML_NAMESPACE)]}"
                     )
-                # handle directives (dir elements)
-                self._handle_directives(element, position)
-                # move the position at the end of the bar
-                position = max(end_positions)
+                    # enlarge measures to the max
+                    for part in parts:
+                        last_measure = list(part.iter_all(pt.score.Measure))[-1]
+                        if last_measure.end.t != max_position:
+                            part.add(pt.score.Measure(number = last_measure.number), position, max_position)
+                            part.remove(last_measure)
+                position = max_position
                 # handle right barline symbol
                 self._handle_barline_symbols(element, position, "right")
             # handle staffDef elements
@@ -1023,4 +1083,3 @@ class MeiParser:
         for bl in self.barlines:
             for part in score.iter_parts(self.parts):
                 part.add(score.Barline(bl["type"]), bl["pos"])
-

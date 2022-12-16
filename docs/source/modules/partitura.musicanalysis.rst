@@ -1,6 +1,6 @@
 partitura.musicanalysis
 =======================
-
+.. currentmodule:: partitura.musicanalysis
 .. automodule:: partitura.musicanalysis
    :members:
    :undoc-members:
