@@ -2871,7 +2871,12 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
     return np.array(matched_idxs)
 
 
-def slice_ppart_by_time(ppart, start_time: Union[int, float], end_time: Union[int, float]):
+def slice_ppart_by_time(
+    ppart, 
+    start_time: Union[int, float], 
+    end_time: Union[int, float],
+    clip_note_off: bool=True,
+    reindex_notes: bool=True):
     """
     Get a slice of a PeformedPart by time
 
@@ -2879,9 +2884,13 @@ def slice_ppart_by_time(ppart, start_time: Union[int, float], end_time: Union[in
     ----------
     ppart : `PerformedPart` object
     start_time : int or float
-        Starting time in seconds
+        Starting time in seconds 
     end_time : int or float
         End time in seconds
+    clip_note_off : bool
+        Clip note_off time to end_time
+    reindex_notes : bool
+        Reindex notes in slice starting from n0
 
     Returns
     -------
@@ -2893,6 +2902,8 @@ def slice_ppart_by_time(ppart, start_time: Union[int, float], end_time: Union[in
 
     if not isinstance(ppart, PerformedPart):
         raise ValueError("Input is not an instance of PerformedPart!")
+
+    assert(start_time < end_time), "Start time not smaller than end time!"
 
     ppart_slice = ppart.copy()
     ppq = ppart.ppq
@@ -2915,22 +2926,39 @@ def slice_ppart_by_time(ppart, start_time: Union[int, float], end_time: Union[in
 
     notes_slice = []
     note_id = 0
-    for note in ppart.notes:
+    for note in ppart.notes: 
+        # collect previous sounding notes at start_time
+        if note["note_on"] < start_time and note["note_off"] > start_time:
+            new_note = note.copy()
+            new_note['note_on'] = 0.
+            new_note['note_on_tick'] = 0
+            if clip_note_off:
+                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+            else: 
+                new_note['note_off'] = note['note_off'] - start_time
+            new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+            if reindex_notes:
+                new_note['id'] = 'n' + str(note_id)
+                note_id += 1
+            notes_slice.append(new_note)
+        # todo - combine both cases
         if note['note_on'] >= start_time: 
-            if note['note_on'] <= end_time:
+            if note['note_on'] < end_time:
                 new_note = note.copy()
                 new_note['note_on'] -= start_time
                 new_note['note_on_tick'] = int(2 * ppq * new_note['note_on'])
-                # ensures all notes are off by the endtime
-                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                if clip_note_off:
+                    new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                else: 
+                    new_note['note_off'] = note['note_off'] - start_time
                 new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
-                # create new ids for notes in slice
-                new_note['id'] = 'n' + str(note_id)
-                note_id += 1
+                if reindex_notes:
+                    new_note['id'] = 'n' + str(note_id)
+                    note_id += 1
                 notes_slice.append(new_note)
             # assumes notes in list are sorted by onset time - ?    
             else: 
-                break
+                break               
 
     if ppart.id:
         ppart_slice.id = ppart.id + '_slice'     
