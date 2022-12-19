@@ -2873,8 +2873,8 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
 
 def slice_ppart_by_time(
     ppart, 
-    start_time: Union[int, float], 
-    end_time: Union[int, float],
+    start_time: float, 
+    end_time: float,
     clip_note_off: bool=True,
     reindex_notes: bool=True):
     """
@@ -2883,9 +2883,9 @@ def slice_ppart_by_time(
     Parameters
     ----------
     ppart : `PerformedPart` object
-    start_time : int or float
+    start_time : float
         Starting time in seconds 
-    end_time : int or float
+    end_time : float
         End time in seconds
     clip_note_off : bool
         Clip note_off time to end_time
@@ -2899,21 +2899,29 @@ def slice_ppart_by_time(
         only between `start_time` and `end_time` of ppart
     """
     from partitura.performance import PerformedPart
+    from copy import deepcopy
 
     if not isinstance(ppart, PerformedPart):
         raise ValueError("Input is not an instance of PerformedPart!")
 
-    assert(start_time < end_time), "Start time not smaller than end time!"
+    assert(start_time < end_time), "Start time not less than end time!"
 
-    ppart_slice = ppart.copy()
-    ppq = ppart.ppq
+    ppart_slice = deepcopy(ppart)
+    
+    # get ppq if PerformedPart contains it, 
+    # else skip time_tick info when e.g. created with 'load_performance_midi'
+    try:
+        ppq = ppart.ppq
+    except AttributeError:
+        ppq = None
 
     controls_slice = []
     for cc in ppart.controls:
         if cc['time'] >= start_time and cc['time'] <= end_time:
             new_cc = cc.copy()
             new_cc['time'] -= start_time
-            new_cc['time_tick'] = int(2 * ppq * cc['time'])
+            if ppq: 
+                new_cc['time_tick'] = int(2 * ppq * cc['time'])
             controls_slice.append(new_cc)
 
     programs_slice = []
@@ -2921,7 +2929,8 @@ def slice_ppart_by_time(
         if pr['time'] >= start_time and pr['time'] <= end_time:
             new_pr = pr.copy()
             new_pr['time'] -= start_time
-            new_pr['time_tick'] = int(2 * ppq * pr['time'])
+            if ppq:
+                new_pr['time_tick'] = int(2 * ppq * pr['time'])
             programs_slice.append(new_pr)
 
     notes_slice = []
@@ -2931,12 +2940,13 @@ def slice_ppart_by_time(
         if note["note_on"] < start_time and note["note_off"] > start_time:
             new_note = note.copy()
             new_note['note_on'] = 0.
-            new_note['note_on_tick'] = 0
             if clip_note_off:
                 new_note['note_off'] = min(note['note_off'] - start_time, end_time)
             else: 
                 new_note['note_off'] = note['note_off'] - start_time
-            new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+            if ppq:
+                new_note['note_on_tick'] = 0
+                new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
             if reindex_notes:
                 new_note['id'] = 'n' + str(note_id)
                 note_id += 1
@@ -2946,12 +2956,13 @@ def slice_ppart_by_time(
             if note['note_on'] < end_time:
                 new_note = note.copy()
                 new_note['note_on'] -= start_time
-                new_note['note_on_tick'] = int(2 * ppq * new_note['note_on'])
                 if clip_note_off:
                     new_note['note_off'] = min(note['note_off'] - start_time, end_time)
                 else: 
                     new_note['note_off'] = note['note_off'] - start_time
-                new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+                if ppq:
+                    new_note['note_on_tick'] = int(2 * ppq * new_note['note_on'])
+                    new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
                 if reindex_notes:
                     new_note['id'] = 'n' + str(note_id)
                     note_id += 1
