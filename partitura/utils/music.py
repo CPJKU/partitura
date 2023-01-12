@@ -2833,7 +2833,7 @@ def performance_from_part(part, bpm=100, velocity=64):
 
 def performance_notearray_from_score_notearray(
     snote_array: np.ndarray,
-    bpm: [float, np.ndarray, Callable] = 100.0,
+    bpm: Union[float, np.ndarray, Callable] = 100.0,
     velocity: Union[int, np.ndarray, Callable] = 64,
 ) -> np.ndarray:
     """
