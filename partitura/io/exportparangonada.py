@@ -147,10 +147,30 @@ def save_parangonada_csv(
         np.savetxt(
             os.path.join(outdir, "ppart.csv"),
             # outdir + os.path.sep + "perf_note_array.csv",
-            perf_note_array,
+            perf_note_array[
+                [
+                    "onset_sec",
+                    "duration_sec",
+                    "pitch",
+                    "velocity",
+                    "track",
+                    "channel",
+                    "id",
+                ]
+            ],
             fmt="%.20s",
             delimiter=",",
-            header=",".join(perf_note_array.dtype.names),
+            header=",".join(
+                [
+                    "onset_sec",
+                    "duration_sec",
+                    "pitch",
+                    "velocity",
+                    "track",
+                    "channel",
+                    "id",
+                ]
+            ),
             comments="",
         )
         np.savetxt(
