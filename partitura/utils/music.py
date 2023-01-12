@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
     from partitura.score import ScoreLike
-    from partitura.performance import PerformanceLike, Performance
+    from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 # _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
@@ -3225,11 +3225,12 @@ def generate_random_performance_note_array(
 
 
 def slice_ppart_by_time(
-    ppart, 
+    ppart: PerformedPart, 
     start_time: float, 
     end_time: float,
     clip_note_off: bool=True,
-    reindex_notes: bool=True):
+    reindex_notes: bool=True
+    ) -> PerformedPart:
     """
     Get a slice of a PeformedPart by time
 
