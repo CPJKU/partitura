@@ -3,1061 +3,136 @@
 """
 This module contains methods for parsing matchfiles
 """
-import re
-from fractions import Fraction
-from operator import attrgetter, itemgetter
+import os
+from typing import Union, Tuple, Optional, Callable, List
 import warnings
 
-from typing import Tuple, Union, List
 import numpy as np
-from scipy.interpolate import interp1d
 
-from partitura.utils import (
+from partitura import score
+from partitura.score import Part, Score
+from partitura.performance import PerformedPart, Performance
+from partitura.musicanalysis import estimate_voices, estimate_key
+
+from partitura.io.matchlines_v0 import (
+    FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV0,
+    parse_matchline as parse_matchlinev0,
+    MatchInfo as MatchInfoV0,
+    MatchMeta as MatchMetaV0,
+    MatchSnote as MatchSnoteV0,
+    MatchNote as MatchNoteV0,
+    MatchSnoteNote as MatchSnoteNoteV0,
+    MatchSnoteDeletion as MatchSnoteDeletionV0,
+    MatchSnoteTrailingScore as MatchSnoteTrailingScoreV0,
+    MatchInsertionNote as MatchInsertionNoteV0,
+    MatchHammerBounceNote as MatchHammerBounceNoteV0,
+    MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
+    MatchSustainPedal as MatchSustainPedalV0,
+    MatchSoftPedal as MatchSoftPedalV0,
+    MatchTrillNote as MatchTrillNoteV0,
+)
+
+from partitura.io.matchlines_v1 import (
+    FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV1,
+    MatchInfo as MatchInfoV1,
+    MatchScoreProp as MatchScorePropV1,
+    MatchSection as MatchSectionV1,
+    MatchStime as MatchStimeV1,
+    MatchPtime as MatchPtimeV1,
+    MatchStimePtime as MatchStimePtimeV1,
+    MatchSnote as MatchSnoteV1,
+    MatchNote as MatchNoteV1,
+    MatchSnoteNote as MatchSnoteNoteV1,
+    MatchSnoteDeletion as MatchSnoteDeletionV1,
+    MatchInsertionNote as MatchInsertionNoteV1,
+    MatchSustainPedal as MatchSustainPedalV1,
+    MatchSoftPedal as MatchSoftPedalV1,
+    MatchOrnamentNote as MatchOrnamentNoteV1,
+)
+
+from partitura.io.matchfile_base import (
+    MatchError,
+    MatchFile,
+    MatchLine,
+    BaseSnoteLine,
+    BaseSnoteNoteLine,
+    BaseStimePtimeLine,
+    BaseDeletionLine,
+    BaseInsertionLine,
+    BaseOrnamentLine,
+    BaseSustainPedalLine,
+    BaseSoftPedalLine,
+)
+
+from partitura.io.matchfile_utils import (
+    Version,
+    number_pattern,
+    MatchTimeSignature,
+    MatchKeySignature,
+    format_pnote_id,
+)
+
+from partitura.utils.music import (
+    midi_ticks_to_seconds,
     pitch_spelling_to_midi_pitch,
     ensure_pitch_spelling_format,
-    ALTER_SIGNS,
     key_name_to_fifths_mode,
-    iter_current_next,
-    partition,
     estimate_clef_properties,
     note_array_from_note_list,
 )
 
+
 from partitura.utils.misc import (
     deprecated_alias,
+    deprecated_parameter,
     PathLike,
     get_document_name,
 )
 
-from partitura.performance import PerformedPart, Performance
-
-import partitura.score as score
-from partitura.musicanalysis import estimate_voices, estimate_key
+from partitura.utils.generic import interp1d, partition, iter_current_next
 
 __all__ = ["load_match"]
 
 
-rational_pattern = re.compile(r"^([0-9]+)/([0-9]+)$")
-double_rational_pattern = re.compile(r"^([0-9]+)/([0-9]+)/([0-9]+)$")
-LATEST_VERSION = 5.0
-
-PITCH_CLASSES = [
-    ("C", 0),
-    ("C", 1),
-    ("D", 0),
-    ("D", 1),
-    ("E", 0),
-    ("F", 0),
-    ("F", 1),
-    ("G", 0),
-    ("G", 1),
-    ("A", 0),
-    ("A", 1),
-    ("B", 0),
-]
-
-PC_DICT = dict(zip(range(12), PITCH_CLASSES))
-CLEF_ORDER = ["G", "F", "C", "percussion", "TAB", "jianpu", None]
-NUMBER_PAT = re.compile(r"\d+")
-
-
-class MatchError(Exception):
-    pass
-
-
-class FractionalSymbolicDuration(object):
+def get_version(line: str) -> Version:
     """
-    A class to represent symbolic duration information
-    """
-
-    def __init__(self, numerator, denominator=1, tuple_div=None, add_components=None):
-
-        self.numerator = numerator
-        self.denominator = denominator
-        self.tuple_div = tuple_div
-        self.add_components = add_components
-        self.bound_integers(1024)
-
-    def _str(self, numerator, denominator, tuple_div):
-        if denominator == 1 and tuple_div is None:
-            return str(numerator)
-        else:
-            if tuple_div is None:
-                return "{0}/{1}".format(numerator, denominator)
-            else:
-                return "{0}/{1}/{2}".format(numerator, denominator, tuple_div)
-
-    def bound_integers(self, bound):
-        denominators = [
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            12,
-            14,
-            16,
-            18,
-            20,
-            22,
-            24,
-            28,
-            32,
-            48,
-            64,
-            96,
-            128,
-        ]
-        sign = np.sign(self.numerator) * np.sign(self.denominator)
-        self.numerator = np.abs(self.numerator)
-        self.denominator = np.abs(self.denominator)
-
-        if self.numerator > bound or self.denominator > bound:
-            val = float(self.numerator / self.denominator)
-            dif = []
-            for den in denominators:
-                if np.round(val * den) > 0.9:
-                    dif.append(np.abs(np.round(val * den) - val * den))
-                else:
-                    dif.append(np.abs(1 - val * den))
-
-            difn = np.array(dif)
-            min_idx = int(np.argmin(difn))
-
-            self.denominator = denominators[min_idx]
-            if int(np.round(val * self.denominator)) < 1:
-                self.numerator = sign * 1
-            else:
-                self.numerator = sign * int(np.round(val * self.denominator))
-
-    def __str__(self):
-
-        if self.add_components is None:
-            return self._str(self.numerator, self.denominator, self.tuple_div)
-        else:
-            r = [self._str(*i) for i in self.add_components]
-            return "+".join(r)
-
-    def __add__(self, sd):
-        if isinstance(sd, int):
-            sd = FractionalSymbolicDuration(sd, 1)
-
-        dens = np.array([self.denominator, sd.denominator], dtype=int)
-        new_den = np.lcm(dens[0], dens[1])
-        a_mult = new_den // dens
-        new_num = np.dot(a_mult, [self.numerator, sd.numerator])
-
-        if self.add_components is None and sd.add_components is None:
-            add_components = [
-                (self.numerator, self.denominator, self.tuple_div),
-                (sd.numerator, sd.denominator, sd.tuple_div),
-            ]
-
-        elif self.add_components is not None and sd.add_components is None:
-            add_components = self.add_components + [
-                (sd.numerator, sd.denominator, sd.tuple_div)
-            ]
-        elif self.add_components is None and sd.add_components is not None:
-            add_components = [
-                (self.numerator, self.denominator, self.tuple_div)
-            ] + sd.add_components
-        else:
-            add_components = self.add_components + sd.add_components
-
-        # Remove spurious components with 0 in the numerator
-        add_components = [c for c in add_components if c[0] != 0]
-
-        return FractionalSymbolicDuration(
-            numerator=new_num, denominator=new_den, add_components=add_components
-        )
-
-    def __radd__(self, sd):
-        return self.__add__(sd)
-
-    def __float__(self):
-        # Cast as float since the ability to return an instance of a strict
-        # subclass of float is deprecated, and may be removed in a future
-        # version of Python. (following a deprecation warning)
-        return float(self.numerator / (self.denominator * (self.tuple_div or 1)))
-
-
-def interpret_field(data):
-    """
-    Convert data to int, if not possible, to float, otherwise return
-    data itself.
+    Get version from the first line. Since the
+    first version of the format did not include this line,
+    we assume that the version is 0.1.0 if no version is
+    found.
 
     Parameters
     ----------
-    data : object
-       Some data object
+    line: str
+        The first line of the match file.
 
     Returns
     -------
-    data : int, float or same data type as the input
-       Return the data object casted as an int, float or return
-       data itself.
+    version : Version
+        The version of the match file
     """
+    version = Version(0, 1, 0)
 
-    try:
-        return int(data)
-    except ValueError:
+    for parser in (MatchInfoV1, MatchInfoV0):
         try:
-            return float(data)
-        except ValueError:
-            return data
+            ml = parser.from_matchline(line)
+            if isinstance(getattr(ml, "Value", None), Version):
+                version = ml.Value
+                return version
 
+        except MatchError:
 
-def interpret_field_rational(data, allow_additions=True, rationals_as_list=True):
-    """Convert data to int, if not possible, to float, if not possible
-    try to interpret as rational number and return it as float, if not
-    possible, return data itself."""
-    # global rational_pattern
-    v = interpret_field(data)
-    if type(v) == str:
-        m = rational_pattern.match(v)
-        m2 = double_rational_pattern.match(v)
-        if m:
-            groups = m.groups()
-            if rationals_as_list:
-                return [int(g) for g in groups]
-            else:
-                return FractionalSymbolicDuration(*[int(g) for g in groups])
-        elif m2:
-            groups = m2.groups()
-            if rationals_as_list:
-                return [int(g) for g in groups]
-            else:
-                return FractionalSymbolicDuration(*[int(g) for g in groups])
-        else:
-            if allow_additions:
-                parts = v.split("+")
+            pass
 
-                if len(parts) > 1:
-                    iparts = [
-                        interpret_field_rational(
-                            i, allow_additions=False, rationals_as_list=False
-                        )
-                        for i in parts
-                    ]
+    return version
 
-                    # to be replaced with isinstance(i,numbers.Number)
-                    if all(
-                        type(i) in (int, float, FractionalSymbolicDuration)
-                        for i in iparts
-                    ):
-                        if any(
-                            [isinstance(i, FractionalSymbolicDuration) for i in iparts]
-                        ):
-                            iparts = [
-                                FractionalSymbolicDuration(i)
-                                if not isinstance(i, FractionalSymbolicDuration)
-                                else i
-                                for i in iparts
-                            ]
-                        return sum(iparts)
-                    else:
-                        return v
-                else:
-                    return v
-            else:
-                return v
-    else:
-        return v
 
-
-###################################################
-
-
-class MatchLine(object):
-
-    out_pattern = ""
-    field_names = []
-    re_obj = re.compile("")
-    field_interpreter = interpret_field_rational
-
-    def __str__(self):
-        r = [self.__class__.__name__]
-        for fn in self.field_names:
-            r.append(" {0}: {1}".format(fn, self.__dict__[fn]))
-        return "\n".join(r) + "\n"
-
-    @property
-    def matchline(self):
-        raise NotImplementedError
-
-    @classmethod
-    def match_pattern(cls, s, pos=0):
-        return cls.re_obj.search(s, pos=pos)
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        match_pattern = cls.re_obj.search(matchline, pos)
-
-        if match_pattern is not None:
-
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            kwargs = dict(zip(cls.field_names, groups))
-
-            match_line = cls(**kwargs)
-
-            return match_line
-
-        else:
-            raise MatchError("Input match line does not fit the expected pattern.")
-
-
-class MatchInfo(MatchLine):
-    out_pattern = "info({Attribute},{Value})."
-    field_names = ["Attribute", "Value"]
-    pattern = r"info\(\s*([^,]+)\s*,\s*(.+)\s*\)\."
-    re_obj = re.compile(pattern)
-    field_interpreter = interpret_field
-
-    def __init__(self, Attribute, Value):
-        self.Attribute = Attribute
-        self.Value = Value
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(Attribute=self.Attribute, Value=self.Value)
-
-
-class MatchScoreprop(MatchLine):
-    # scoreprop(timeSignature,TimeSigValue,Measure:Beat,Offset,OnsetInBeats).
-
-    out_pattern = (
-        "scoreprop({Attribute},{Value},{Measure},{Beat},{Offset},{TimeInBeats})."
-    )
-    field_names = ["Attribute", "Value", "Measure", "Beat", "Offset", "TimeInBeats"]
-    pattern = r"scoreprop\(([^,]+),([^,]+),([^,]+):([^,]+),([^,]+),([^,]+)\)\."
-    re_obj = re.compile(pattern)
-    field_interpreter = interpret_field
-
-    def __init__(self, Attribute, Value, Measure, Beat, Offset, TimeInBeats):
-        self.Attribute = Attribute
-        self.Value = Value
-        self.Measure = Measure
-        self.Beat = Beat
-        self.Offset = Offset
-        self.TimeInBeats = TimeInBeats
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            Attribute=self.Attribute,
-            Value=self.Value,
-            Measure=self.Measure,
-            Beat=self.Beat,
-            Offset=self.Offset,
-            TimeInBeats=self.TimeInBeats,
-        )
-
-
-class MatchMeta(MatchLine):
-
-    out_pattern = "meta({Attribute},{Value},{Bar},{TimeInBeats})."
-    field_names = ["Attribute", "Value", "Bar", "TimeInBeats"]
-    pattern = r"meta\(\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
-    re_obj = re.compile(pattern)
-    field_interpreter = interpret_field
-
-    def __init__(self, Attribute, Value, Bar, TimeInBeats):
-        self.Attribute = Attribute
-        self.Value = Value
-        self.Bar = Bar
-        self.TimeInBeats = TimeInBeats
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            Attribute=self.Attribute,
-            Value=self.Value,
-            Bar=self.Bar,
-            TimeInBeats=self.TimeInBeats,
-        )
-
-
-class MatchSnote(MatchLine):
-    """
-    Class representing a score note
-    """
-
-    out_pattern = (
-        "snote({Anchor},[{NoteName},{Modifier}],{Octave},"
-        + "{Bar}:{Beat},{Offset},{Duration},"
-        + "{OnsetInBeats},{OffsetInBeats},"
-        + "[{ScoreAttributesList}])"
-    )
-
-    pattern = (
-        r"snote\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),"
-        r"([^,]+):([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),\[(.*)\]\)"
-    )
-    re_obj = re.compile(pattern)
-
-    field_names = [
-        "Anchor",
-        "NoteName",
-        "Modifier",
-        "Octave",
-        "Bar",
-        "Beat",
-        "Offset",
-        "Duration",
-        "OnsetInBeats",
-        "OffsetInBeats",
-        "ScoreAttributesList",
-    ]
-
-    def __init__(
-        self,
-        Anchor,
-        NoteName,
-        Modifier,
-        Octave,
-        Bar,
-        Beat,
-        Offset,
-        Duration,
-        OnsetInBeats,
-        OffsetInBeats,
-        ScoreAttributesList=[],
-    ):
-
-        self.Anchor = str(Anchor)
-        (self.NoteName, self.Modifier, self.Octave) = ensure_pitch_spelling_format(
-            step=NoteName, alter=Modifier, octave=Octave
-        )
-
-        self.Bar = Bar
-        self.Beat = Beat
-
-        if isinstance(Offset, int):
-            self.Offset = FractionalSymbolicDuration(Offset, 1)
-        elif isinstance(Offset, float):
-            _offset = Fraction.from_float(Offset)
-            self.Offset = FractionalSymbolicDuration(
-                _offset.numerator, _offset.denominator
-            )
-        elif isinstance(Offset, (list, tuple)):
-            self.Offset = FractionalSymbolicDuration(*Offset)
-        elif isinstance(Offset, FractionalSymbolicDuration):
-            self.Offset = Offset
-
-        if isinstance(Duration, int):
-            self.Duration = FractionalSymbolicDuration(Duration, 1)
-        elif isinstance(Duration, float):
-            _duration = Fraction.from_float(Duration)
-            self.Duration = FractionalSymbolicDuration(
-                _duration.numerator, _duration.denominator
-            )
-        elif isinstance(Duration, (list, tuple)):
-            self.Duration = FractionalSymbolicDuration(*Duration)
-        elif isinstance(Duration, FractionalSymbolicDuration):
-            self.Duration = Duration
-
-        self.OnsetInBeats = OnsetInBeats
-        self.OffsetInBeats = OffsetInBeats
-
-        if isinstance(ScoreAttributesList, (list, tuple, np.ndarray)):
-            # Always cast ScoreAttributesList as list?
-            self.ScoreAttributesList = list(ScoreAttributesList)
-        elif isinstance(ScoreAttributesList, str):
-            self.ScoreAttributesList = ScoreAttributesList.split(",")
-        elif isinstance(ScoreAttributesList, (int, float)):
-            self.ScoreAttributesList = [ScoreAttributesList]
-        else:
-            raise ValueError("`ScoreAttributesList` must be a list or a string")
-
-        # Cast all attributes in ScoreAttributesList as strings
-        self.ScoreAttributesList = [str(sa) for sa in self.ScoreAttributesList]
-
-    @property
-    def DurationInBeats(self):
-        return self.OffsetInBeats - self.OnsetInBeats
-
-    @property
-    def DurationSymbolic(self):
-        if isinstance(self.Duration, FractionalSymbolicDuration):
-            return str(self.Duration)
-        elif isinstance(self.Duration, (float, int)):
-            return str(Fraction.from_float(self.Duration))
-        elif isinstance(self.Duration, str):
-            return self.Duration
-
-    @property
-    def MidiPitch(self):
-        if isinstance(self.Octave, int):
-            return pitch_spelling_to_midi_pitch(
-                step=self.NoteName, octave=self.Octave, alter=self.Modifier
-            )
-        else:
-            return None
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            Anchor=self.Anchor,
-            NoteName=self.NoteName,
-            Modifier="n" if self.Modifier == 0 else ALTER_SIGNS[self.Modifier],
-            Octave=self.Octave,
-            Bar=self.Bar,
-            Beat=self.Beat,
-            Offset=str(self.Offset),
-            Duration=self.DurationSymbolic,
-            OnsetInBeats=self.OnsetInBeats,
-            OffsetInBeats=self.OffsetInBeats,
-            ScoreAttributesList=",".join(self.ScoreAttributesList),
-        )
-
-
-class MatchNoteNew(MatchLine):
-    """
-    Class representing the performed note part of a match line
-    """
-
-    # For forwards compatibility with Matchfile Version 1.0.0
-    field_names_v100 = [
-        "Number",
-        "Pitch",
-        "Onset",
-        "Offset",
-        "Velocity",
-        "Channel",
-        "Track",
-    ]
-    pattern_v100 = r"note\(([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
-    re_obj_v100 = re.compile(pattern_v100)
-
-    def __init__(self, Number, Pitch, Onset, Offset, Velocity, Channel, Track):
-
-        self.Number = Number
-        self.MidiPitch = Pitch
-        self.Onset = Onset
-        self.Offset = Offset
-        self.Velocity = int(Velocity)
-        self.Channel = Channel
-        self.Track = Track
-        self.AdjOffset = None
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            Number=self.Number,
-            Pitch=self.MidiPitch,
-            Onset=self.Onset,
-            Offset=self.Offset,
-            Velocity=self.Velocity,
-            Channel=self.Channel,
-            Track=self.Track,
-        )
-
-    @property
-    def Duration(self):
-        return self.Offset - self.Onset
-
-    def AdjDuration(self):
-        return self.Offset - self.Onset
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        """Create a MatchNote from a line"""
-        match_pattern = cls.re_obj_v100.search(matchline, pos)
-
-        if match_pattern is not None:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            kwargs = dict(zip(cls.field_names_v1, groups))
-            match_line = cls(**kwargs)
-            return match_line
-        else:
-            raise MatchError("Input matchline does not fit expected pattern")
-
-
-class MatchNote(MatchLine):
-    """
-    Class representing the performed note part of a match line
-    """
-
-    out_pattern = (
-        "note({Number},[{NoteName},{Modifier}],"
-        + "{Octave},{Onset},{Offset},{AdjOffset},{Velocity})"
-    )
-
-    field_names = [
-        "Number",
-        "NoteName",
-        "Modifier",
-        "Octave",
-        "Onset",
-        "Offset",
-        "AdjOffset",
-        "Velocity",
-    ]
-    pattern = (
-        r"note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)\)"
-    )
-
-    re_obj = re.compile(pattern)
-
-    # For backwards compatibility with Matchfile Version 1
-    field_names_v1 = [
-        "Number",
-        "NoteName",
-        "Modifier",
-        "Octave",
-        "Onset",
-        "Offset",
-        "Velocity",
-    ]
-    pattern_v1 = r"note\(([^,]+),\[([^,]+),([^,]+)\],([^,]+),([^,]+),([^,]+),([^,]+)\)"
-    re_obj_v1 = re.compile(pattern_v1)
-
-    def __init__(
-        self,
-        Number,
-        NoteName,
-        Modifier,
-        Octave,
-        Onset,
-        Offset,
-        AdjOffset,
-        Velocity,
-        MidiPitch=None,
-        version=LATEST_VERSION,
-    ):
-        self.Number = Number
-
-        # check if all pitch spelling information was provided
-        has_pitch_spelling = not (
-            NoteName is None or Modifier is None or Octave is None
-        )
-
-        # check if the MIDI pitch of the note was provided
-        has_midi_pitch = MidiPitch is not None
-
-        # Raise an error if neither pitch spelling nor MIDI pitch were provided
-        if not has_pitch_spelling and not has_midi_pitch:
-            raise ValueError("No note height information provided!")
-
-        # Set attributes regarding pitch spelling
-        if has_pitch_spelling:
-            # Ensure that note name is uppercase
-            (self.NoteName, self.Modifier, self.Octave) = ensure_pitch_spelling_format(
-                step=NoteName, alter=Modifier, octave=Octave
-            )
-
-        else:
-            # infer the pitch information from the MIDI pitch
-            # Note that this is just a dummy method, and does not correspond to
-            # musically correct pitch spelling.
-            self.NoteName, self.Modifier = PC_DICT[int(np.mod(MidiPitch, 12))]
-            self.Octave = int(MidiPitch // 12 - 1)
-
-        # Check if the provided MIDI pitch corresponds to the correct pitch spelling
-        if has_midi_pitch:
-            if MidiPitch != pitch_spelling_to_midi_pitch(
-                step=self.NoteName, octave=self.Octave, alter=self.Modifier
-            ):
-                raise ValueError(
-                    "The provided pitch spelling information does not match "
-                    "the given MIDI pitch!"
-                )
-
-            else:
-                # Set the Midi pitch
-                self.MidiPitch = int(MidiPitch)
-
-        else:
-            self.MidiPitch = pitch_spelling_to_midi_pitch(
-                step=self.NoteName, octave=self.Octave, alter=self.Modifier
-            )
-
-        self.Onset = Onset
-        self.Offset = Offset
-        self.AdjOffset = AdjOffset
-
-        if AdjOffset is None:
-            # Raise warning!
-            self.AdjOffset = self.Offset
-
-        self.Velocity = int(Velocity)
-
-        # TODO
-        # * check version and update necessary patterns
-        self.version = version
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            Number=self.Number,
-            NoteName=self.NoteName,
-            Modifier="n" if self.Modifier == 0 else ALTER_SIGNS[self.Modifier],
-            Octave=self.Octave,
-            Onset=self.Onset,
-            Offset=self.Offset,
-            AdjOffset=self.AdjOffset,
-            Velocity=self.Velocity,
-        )
-
-    @property
-    def Duration(self):
-        return self.Offset - self.Onset
-
-    def AdjDuration(self):
-        return self.AdjOffset - self.Onset
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        """Create a MatchNote from a line"""
-        match_pattern = cls.re_obj.search(matchline, pos)
-
-        if match_pattern is None:
-            match_pattern = cls.re_obj_v1.search(matchline, pos)
-
-            if match_pattern is not None:
-                groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-                kwargs = dict(zip(cls.field_names_v1, groups))
-                kwargs["version"] = 1.0
-                kwargs["AdjOffset"] = None
-                match_line = cls(**kwargs)
-
-                return match_line
-            else:
-                raise MatchError("Input matchline does not fit expected pattern")
-
-        else:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            kwargs = dict(zip(cls.field_names, groups))
-            match_line = cls(**kwargs)
-            return match_line
-
-
-class MatchSnoteNoteNew(MatchLine):
-    """
-    Class representing a "match" (containing snote and note)
-
-    TODO:
-    * More readable __str__ method
-    """
-
-    # for version 100
-    out_pattern = "{SnoteLine}-{NoteLineNew}."
-    pattern_v100 = MatchSnote.pattern + "-" + MatchNoteNew.pattern_v100
-    re_obj_v100 = re.compile(pattern_v100)
-    field_names_v1 = MatchSnote.field_names + MatchNoteNew.field_names_v100
-
-    def __init__(self, snote, note):
-        self.snote = snote
-        self.note = note
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            SnoteLine=self.snote.matchline, NoteLine=self.note.matchline
-        )
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        match_pattern = cls.re_obj_v100.search(matchline, pos=0)
-
-        if match_pattern is not None:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-
-            snote_kwargs = dict(
-                zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
-            )
-            note_kwargs = dict(
-                zip(
-                    MatchNoteNew.field_names_v100, groups[len(MatchSnote.field_names) :]
-                )
-            )
-
-            snote = MatchSnote(**snote_kwargs)
-            note = MatchNoteNew(**note_kwargs)
-            match_line = cls(snote=snote, note=note)
-
-            return match_line
-        else:
-            raise MatchError("Input matchline does not fit expected pattern")
-
-    def __str__(self):
-        # TODO:
-        # Nicer print?
-        return str(self.snote) + "\n" + str(self.note)
-
-
-class MatchSnoteNote(MatchLine):
-    """
-    Class representing a "match" (containing snote and note)
-
-    TODO:
-    * More readable __str__ method
-    """
-
-    out_pattern = "{SnoteLine}-{NoteLine}."
-    pattern = MatchSnote.pattern + "-" + MatchNote.pattern
-    re_obj = re.compile(pattern)
-    field_names = MatchSnote.field_names + MatchNote.field_names
-
-    # for version 1
-    pattern_v1 = MatchSnote.pattern + "-" + MatchNote.pattern_v1
-    re_obj_v1 = re.compile(pattern_v1)
-    field_names_v1 = MatchSnote.field_names + MatchNote.field_names_v1
-
-    def __init__(self, snote, note, same_pitch_spelling=True):
-        self.snote = snote
-        self.note = note
-
-        # Set the same pitch spelling in both note and snote
-        # (this can break if the snote is not exactly matched
-        # to a note with the same pitch). Handle with care.
-        if same_pitch_spelling:
-            self.note.NoteName = self.snote.NoteName
-            self.note.Modifier = self.snote.Modifier
-            self.note.Octave = self.snote.Octave
-            self.note.MidiPitch = self.snote.MidiPitch
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(
-            SnoteLine=self.snote.matchline, NoteLine=self.note.matchline
-        )
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        match_pattern = cls.re_obj.search(matchline, pos=0)
-
-        if match_pattern is None:
-            match_pattern = cls.re_obj_v1.search(matchline, pos)
-
-            if match_pattern is not None:
-                groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-
-                snote_kwargs = dict(
-                    zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
-                )
-                note_kwargs = dict(
-                    zip(MatchNote.field_names_v1, groups[len(MatchSnote.field_names) :])
-                )
-                note_kwargs["version"] = 1.0
-                note_kwargs["AdjOffset"] = None
-                snote = MatchSnote(**snote_kwargs)
-                note = MatchNote(**note_kwargs)
-                match_line = cls(snote=snote, note=note)
-
-                return match_line
-            else:
-                raise MatchError("Input matchline does not fit expected pattern")
-
-        else:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            snote_kwargs = dict(
-                zip(MatchSnote.field_names, groups[: len(MatchSnote.field_names)])
-            )
-            note_kwargs = dict(
-                zip(MatchNote.field_names, groups[len(MatchSnote.field_names) :])
-            )
-            snote = MatchSnote(**snote_kwargs)
-            note = MatchNote(**note_kwargs)
-            match_line = cls(snote=snote, note=note)
-            return match_line
-
-    def __str__(self):
-        # TODO:
-        # Nicer print?
-        return str(self.snote) + "\n" + str(self.note)
-
-
-class MatchSnoteDeletion(MatchLine):
-    """
-    Class for representing a deleted note, i.e., a score note
-    which was not performed.
-    """
-
-    out_pattern = "{SnoteLine}-deletion."
-    pattern = MatchSnote.pattern + r"-deletion\."
-    re_obj = re.compile(pattern)
-    field_names = MatchSnote.field_names
-
-    def __init__(self, snote):
-        self.snote = snote
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(SnoteLine=self.snote.matchline)
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        match_pattern = cls.re_obj.search(matchline, pos=0)
-
-        if match_pattern is not None:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            snote_kwargs = dict(zip(MatchSnote.field_names, groups))
-            snote = MatchSnote(**snote_kwargs)
-            match_line = cls(snote=snote)
-            return match_line
-
-        else:
-            raise MatchError("Input matchline does not fit expected pattern")
-
-    def __str__(self):
-        return str(self.snote) + "\nDeletion"
-
-
-class MatchSnoteTrailingScore(MatchSnoteDeletion):
-    """
-    A variant of MatchSnoteDeletion for older match files.
-    """
-
-    pattern = MatchSnote.pattern + r"-trailing_score_note\."
-    re_obj = re.compile(pattern)
-
-    def __init__(self, snote):
-        super().__init__(snote)
-
-
-class MatchInsertionNote(MatchLine):
-    """
-    A class for representing inserted notes, i.e., performed notes
-    without a corresponding score note.
-    """
-
-    out_pattern = "insertion-{NoteLine}."
-    pattern = "insertion-" + MatchNote.pattern + "."
-    re_obj = re.compile(pattern)
-    field_names = MatchNote.field_names
-
-    def __init__(self, note):
-        self.note = note
-        for fn in self.field_names:
-            setattr(self, fn, getattr(self.note, fn, None))
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(NoteLine=self.note.matchline)
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        match_pattern = cls.match_pattern(matchline, pos=0)
-
-        if match_pattern is not None:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            note_kwargs = dict(zip(MatchNote.field_names, groups))
-            note = MatchNote(**note_kwargs)
-            return cls(note=note)
-        else:
-            raise MatchError("Input matchline does not fit expected pattern")
-
-
-class MatchHammerBounceNote(MatchInsertionNote):
-    """
-    A variant of MatchInsertionNote for older match files.
-    """
-
-    pattern = "hammer_bounce-" + MatchNote.pattern + "."
-    re_obj = re.compile(pattern)
-
-    def __init__(self, note):
-        super().__init__(note)
-
-
-class MatchTrailingPlayedNote(MatchInsertionNote):
-    """
-    Another variant of MatchInsertionNote for older match files.
-    """
-
-    pattern = "trailing_played_note-" + MatchNote.pattern + "."
-    re_obj = re.compile(pattern)
-
-    def __init__(self, note):
-        super().__init__(note)
-
-
-class MatchSustainPedal(MatchLine):
-    """
-    Class for representing a sustain pedal line
-    """
-
-    out_pattern = "sustain({Time},{Value})."
-    field_names = ["Time", "Value"]
-    pattern = r"sustain\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
-    re_obj = re.compile(pattern)
-
-    def __init__(self, Time, Value):
-        self.Time = Time
-        self.Value = Value
-
-    @property
-    def matchline(self):
-
-        return self.out_pattern.format(Time=self.Time, Value=self.Value)
-
-
-class MatchSoftPedal(MatchLine):
-    """
-    Class for representing a soft pedal line
-    """
-
-    out_pattern = "soft({Time},{Value})."
-    field_names = ["Time", "Value"]
-    pattern = r"soft\(\s*([^,]*)\s*,\s*([^,]*)\s*\)\."
-    re_obj = re.compile(pattern)
-
-    def __init__(self, Time, Value):
-        self.Time = Time
-        self.Value = Value
-
-    @property
-    def matchline(self):
-
-        return self.out_pattern.format(Time=self.Time, Value=self.Value)
-
-
-class MatchOrnamentNote(MatchLine):
-    out_pattern = "ornament({Anchor})-{NoteLine}"
-    field_names = ["Anchor"] + MatchNote.field_names
-    pattern = r"ornament\(([^\)]*)\)-" + MatchNote.pattern
-    re_obj = re.compile(pattern)
-
-    def __init__(self, Anchor, note):
-        self.Anchor = Anchor
-        self.note = note
-
-    @property
-    def matchline(self):
-        return self.out_pattern.format(Anchor=self.Anchor, NoteLine=self.note.matchline)
-
-    @classmethod
-    def from_matchline(cls, matchline, pos=0):
-        match_pattern = cls.match_pattern(matchline, pos=0)
-
-        if match_pattern is not None:
-            groups = [cls.field_interpreter(i) for i in match_pattern.groups()]
-            note_kwargs = dict(zip(MatchNote.field_names, groups[1:]))
-
-            anchor = groups[0]
-            note = MatchNote(**note_kwargs)
-            return cls(Anchor=anchor, note=note)
-
-        else:
-            raise MatchError("Input matchline does not fit expected pattern")
-
-
-class MatchTrillNote(MatchOrnamentNote):
-    out_pattern = "trill({Anchor})-{NoteLine}"
-    field_names = ["Anchor"] + MatchNote.field_names
-    pattern = r"trill\(([^\)]*)\)-" + MatchNote.pattern
-    re_obj = re.compile(pattern)
-
-    def __init__(self, Anchor, note):
-        super().__init__(Anchor, note)
-
-
-def parse_matchline(line):
+def parse_matchline(
+    line: str,
+    from_matchline_methods: List[Callable[[str], MatchLine]],
+    version: Version,
+    debug: bool = False,
+) -> Optional[MatchLine]:
     """
     Return objects representing the line as one of:
 
@@ -1074,12 +149,13 @@ def parse_matchline(line):
     * sustain(Time, Value)
     * soft(Time, Value)
 
-    or False if none can be matched
+    or None if none can be matched
 
     Parameters
     ----------
     line : str
         Line of the match file
+    from_matchline_methods : List[Callable[[str], MatchLine]]
 
     Returns
     -------
@@ -1087,291 +163,48 @@ def parse_matchline(line):
        Object representing the line.
     """
 
-    from_matchline_methods = [
-        MatchSnoteNote.from_matchline,
-        MatchSnoteNoteNew.from_matchline,
-        MatchSnoteDeletion.from_matchline,
-        MatchSnoteTrailingScore.from_matchline,
-        MatchInsertionNote.from_matchline,
-        MatchHammerBounceNote.from_matchline,
-        MatchTrailingPlayedNote.from_matchline,
-        MatchTrillNote.from_matchline,
-        MatchOrnamentNote.from_matchline,
-        MatchSustainPedal.from_matchline,
-        MatchSoftPedal.from_matchline,
-        MatchInfo.from_matchline,
-        MatchMeta.from_matchline,
-        MatchScoreprop.from_matchline,
-    ]
-    matchline = False
+    matchline = None
     for from_matchline in from_matchline_methods:
         try:
-            matchline = from_matchline(line)
+            matchline = from_matchline(line, version=version)
             break
-        except MatchError:
+        except Exception as e:
+            if not isinstance(e, MatchError):
+                print(line, e, version)  # pragma: no cover
             continue
 
     return matchline
 
 
-class MatchFile(object):
+@deprecated_alias(fn="filename", create_part="create_score")
+def load_matchfile(
+    filename: PathLike,
+) -> MatchFile:
     """
-    Class for representing MatchFiles
+    Load a Matchfile as a `MatchFile` instance
     """
 
-    def __init__(self, filename=None):
+    if not os.path.exists(filename):
+        raise ValueError("Filename does not exist")  # pragma: no cover
 
-        if filename is not None:
+    with open(filename) as f:
+        raw_lines = f.read().splitlines()
 
-            self.name = filename
+    version = get_version(raw_lines[0])
 
-            with open(filename) as f:
+    from_matchline_methods = FROM_MATCHLINE_METHODSV1
+    if version < Version(1, 0, 0):
+        from_matchline_methods = FROM_MATCHLINE_METHODSV0
 
-                self.lines = np.array(
-                    [parse_matchline(line) for line in f.read().splitlines()]
-                )
-        else:
-            self.name = None
-            self.lines = np.array([])
+    parsed_lines = [
+        parse_matchline(line, from_matchline_methods, version) for line in raw_lines
+    ]
 
-    @property
-    def note_pairs(self):
-        """
-        Return all(snote, note) tuples
+    parsed_lines = [pl for pl in parsed_lines if pl is not None]
 
-        """
-        return [(x.snote, x.note) for x in self.lines if isinstance(x, MatchSnoteNote)]
+    mf = MatchFile(lines=parsed_lines)
 
-    @property
-    def notes(self):
-        """
-        Return all performed notes (as MatchNote objects)
-        """
-        return [x.note for x in self.lines if hasattr(x, "note")]
-
-    def iter_notes(self):
-        """
-        Iterate over all performed notes (as MatchNote objects)
-        """
-        for x in self.lines:
-            if hasattr(x, "note"):
-                yield x.note
-
-    @property
-    def snotes(self):
-        """
-        Return all score notes (as MatchSnote objects)
-        """
-        return [x.snote for x in self.lines if hasattr(x, "snote")]
-
-    def iter_snotes(self):
-        """
-        Iterate over all performed notes (as MatchNote objects)
-        """
-        for x in self.lines:
-            if hasattr(x, "snote"):
-                yield x.snote
-
-    @property
-    def sustain_pedal(self):
-        return [line for line in self.lines if isinstance(line, MatchSustainPedal)]
-
-    @property
-    def insertions(self):
-        return [x.note for x in self.lines if isinstance(x, MatchInsertionNote)]
-
-    @property
-    def deletions(self):
-        return [x.snote for x in self.lines if isinstance(x, MatchSnoteDeletion)]
-
-    @property
-    def _info(self):
-        """
-        Return all InfoLine objects
-
-        """
-        return [i for i in self.lines if isinstance(i, MatchInfo)]
-
-    def info(self, attribute=None):
-        """
-        Return the value of the MatchInfo object corresponding to
-        attribute, or None if there is no such object
-
-        : param attribute: the name of the attribute to return the value for
-
-        """
-        if attribute:
-            try:
-                idx = [i.Attribute for i in self._info].index(attribute)
-                return self._info[idx].Value
-            except ValueError:
-                return None
-        else:
-            return self._info
-
-    @property
-    def first_onset(self):
-        return min([n.OnsetInBeats for n in self.snotes])
-
-    @property
-    def first_bar(self):
-        return min([n.Bar for n in self.snotes])
-
-    @property
-    def time_signatures(self):
-        """
-        A list of tuples(t, b, (n, d)), indicating a time signature of
-        n over v, starting at t in bar b
-
-        """
-        tspat = re.compile("([0-9]+)/([0-9]*)")
-        m = [(int(x[0]), int(x[1])) for x in tspat.findall(self.info("timeSignature"))]
-        _timeSigs = []
-        if len(m) > 0:
-
-            _timeSigs.append((self.first_onset, self.first_bar, m[0]))
-        for line in self.time_sig_lines:
-
-            _timeSigs.append(
-                (
-                    float(line.TimeInBeats),
-                    int(line.Bar),
-                    [(int(x[0]), int(x[1])) for x in tspat.findall(line.Value)][0],
-                )
-            )
-        _timeSigs = list(set(_timeSigs))
-        _timeSigs.sort(key=lambda x: [x[0], x[1]])
-
-        # ensure that all consecutive time signatures are different
-        timeSigs = [_timeSigs[0]]
-
-        for ts in _timeSigs:
-            ts_on, bar, (ts_num, ts_den) = ts
-            ts_on_prev, ts_bar_prev, (ts_num_prev, ts_den_prev) = timeSigs[-1]
-            if ts_num != ts_num_prev or ts_den != ts_den_prev:
-                timeSigs.append(ts)
-
-        return timeSigs
-
-    def _time_sig_lines(self):
-        return [
-            i
-            for i in self.lines
-            if isinstance(i, MatchMeta)
-            and hasattr(i, "Attribute")
-            and i.Attribute == "timeSignature"
-        ]
-
-    @property
-    def time_sig_lines(self):
-        ml = self._time_sig_lines()
-        if len(ml) == 0:
-            ts = self.info("timeSignature")
-            ml = [
-                parse_matchline(
-                    "meta(timeSignature,{0},{1},{2}).".format(
-                        ts, self.first_bar, self.first_onset
-                    )
-                )
-            ]
-        return ml
-
-    @property
-    def key_signatures(self):
-        """
-        A list of tuples (t, b, (f,m)) or (t, b, (f1, m1, f2, m2))
-        """
-        kspat = re.compile(
-            (
-                "(?P<step1>[A-G])(?P<alter1>[#b]*) "
-                "(?P<mode1>[a-zA-z]+)(?P<slash>/*)"
-                "(?P<step2>[A-G]*)(?P<alter2>[#b]*)"
-                "(?P<space2> *)(?P<mode2>[a-zA-z]*)"
-            )
-        )
-
-        _keysigs = []
-        for ksl in self.key_sig_lines:
-            if isinstance(ksl, MatchInfo):
-                # remove brackets and only take
-                # the first key signature
-                ks = ksl.Value.replace("[", "").replace("]", "").split(",")[0]
-                t = self.first_onset
-                b = self.first_bar
-            elif isinstance(ksl, MatchMeta):
-                ks = ksl.Value
-                t = ksl.TimeInBeats
-                b = ksl.Bar
-
-            ks_info = kspat.search(ks)
-
-            keysig = (
-                self._format_key_signature(
-                    step=ks_info.group("step1"),
-                    alter_sign=ks_info.group("alter1"),
-                    mode=ks_info.group("mode1"),
-                ),
-            )
-
-            if ks_info.group("step2") != "":
-                keysig += (
-                    self._format_key_signature(
-                        step=ks_info.group("step2"),
-                        alter_sign=ks_info.group("alter2"),
-                        mode=ks_info.group("mode2"),
-                    ),
-                )
-
-            _keysigs.append((t, b, keysig))
-
-        keysigs = []
-        if len(_keysigs) > 0:
-            keysigs.append(_keysigs[0])
-
-            for k in _keysigs:
-                if k[2] != keysigs[-1][2]:
-                    keysigs.append(k)
-
-        return keysigs
-
-    def _format_key_signature(self, step, alter_sign, mode):
-
-        if mode.lower() in ("maj", "", "major"):
-            mode = ""
-        elif mode.lower() in ("min", "m", "minor"):
-            mode = "m"
-        else:
-            raise ValueError(
-                'Invalid mode. Expected "major" or "minor" but got {0}'.format(mode)
-            )
-
-        return step + alter_sign + mode
-
-    @property
-    def key_sig_lines(self):
-
-        ks_info = [line for line in self.info() if line.Attribute == "keySignature"]
-        ml = ks_info + [
-            i
-            for i in self.lines
-            if isinstance(i, MatchMeta)
-            and hasattr(i, "Attribute")
-            and i.Attribute == "keySignature"
-        ]
-
-        return ml
-
-    def write(self, filename):
-        with open(filename, "w") as f:
-            for line in self.lines:
-                f.write(line.matchline + "\n")
-
-    @classmethod
-    def from_lines(cls, lines, name=""):
-        matchfile = cls(None)
-        matchfile.lines = np.array(lines)
-        matchfile.name = name
-        return matchfile
+    return mf
 
 
 @deprecated_alias(fn="filename", create_part="create_score")
@@ -1381,8 +214,9 @@ def load_match(
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
     offset_duration_whole: bool = True,
-) -> Tuple[Union[Performance, list, score.Score]]:
-    """Load a matchfile.
+) -> Tuple[Union[Performance, list, Score]]:
+    """
+    Load a matchfile.
 
     Parameters
     ----------
@@ -1407,7 +241,7 @@ def load_match(
         The score. This item is only returned when `create_score` = True.
     """
     # Parse Matchfile
-    mf = MatchFile(filename)
+    mf = load_matchfile(filename)
 
     # Generate PerformedPart
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
@@ -1418,16 +252,10 @@ def load_match(
     )
     # Generate Part
     if create_score:
-        if offset_duration_whole:
-            spart = part_from_matchfile(
-                mf,
-                match_offset_duration_in_whole=True,
-            )
-        else:
-            spart = part_from_matchfile(
-                mf,
-                match_offset_duration_in_whole=False,
-            )
+        spart = part_from_matchfile(
+            mf,
+            match_offset_duration_in_whole=offset_duration_whole,
+        )
 
         scr = score.Score(id=get_document_name(filename), partlist=[spart])
     # Alignment
@@ -1439,44 +267,59 @@ def load_match(
         return performance, alignment
 
 
-def alignment_from_matchfile(mf: MatchFile) -> List[dict]:
+def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
+    """
+    Get a note-level alignment from a MatchFile instance
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A score-to-performance alignment
+
+    Returns
+    -------
+    results : List[dict]
+        An alignmnet as a list of dictionaries for each note.
+    """
     result = []
 
     for line in mf.lines:
-        if isinstance(line, MatchSnoteNote):
+        if isinstance(line, BaseSnoteNoteLine):
             result.append(
                 dict(
                     label="match",
-                    score_id=line.snote.Anchor,
-                    performance_id=line.note.Number,
-                )
-            )
-        elif isinstance(line, MatchSnoteNoteNew):
-            result.append(
-                dict(
-                    label="match",
-                    score_id=line.snote.Anchor,
-                    performance_id=line.note.Number,
+                    score_id=str(line.snote.Anchor),
+                    performance_id=format_pnote_id(line.note.Id),
                 )
             )
 
-        elif isinstance(line, MatchSnoteDeletion):
+        elif isinstance(
+            line,
+            BaseDeletionLine,
+        ):
             if "leftOutTied" in line.snote.ScoreAttributesList:
                 continue
             else:
-                result.append(dict(label="deletion", score_id=line.snote.Anchor))
-        elif isinstance(line, MatchInsertionNote):
-            result.append(dict(label="insertion", performance_id=line.note.Number))
-        elif isinstance(line, MatchOrnamentNote):
-            if isinstance(line, MatchTrillNote):
+                result.append(dict(label="deletion", score_id=str(line.snote.Anchor)))
+        elif isinstance(
+            line,
+            BaseInsertionLine,
+        ):
+            result.append(
+                dict(label="insertion", performance_id=format_pnote_id(line.note.Id))
+            )
+        elif isinstance(line, BaseOrnamentLine):
+            if isinstance(line, MatchTrillNoteV0):
                 ornament_type = "trill"
+            elif isinstance(line, MatchOrnamentNoteV1):
+                ornament_type = line.OrnamentType
             else:
                 ornament_type = "generic_ornament"
             result.append(
                 dict(
                     label="ornament",
-                    score_id=line.Anchor,
-                    performance_id=line.note.Number,
+                    score_id=str(line.Anchor),
+                    performance_id=format_pnote_id(line.note.Id),
                     type=ornament_type,
                 )
             )
@@ -1484,10 +327,98 @@ def alignment_from_matchfile(mf: MatchFile) -> List[dict]:
     return result
 
 
-# PART FROM MATCHFILE stuff
+# alias
+alignment_from_matchfile = note_alignment_from_matchfile
 
 
-def sort_snotes(snotes):
+def performed_part_from_match(
+    mf: MatchFile,
+    pedal_threshold: int = 64,
+    first_note_at_zero: bool = False,
+) -> PerformedPart:
+    """
+    Make PerformedPart from performance info in a MatchFile
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A MatchFile instance
+    pedal_threshold : int, optional
+        Threshold for adjusting sound off of the performed notes using
+        pedal information. Defaults to 64.
+    first_note_at_zero : bool, optional
+        When True the note_on and note_off times in the performance
+        are shifted to make the first note_on time equal zero.
+
+    Returns
+    -------
+    ppart : PerformedPart
+        A performed part
+
+    """
+    # Get midi time units
+    mpq = mf.info("midiClockRate")  # 500000 -> microseconds per quarter
+    ppq = mf.info("midiClockUnits")  # 500 -> parts per quarter
+
+    # PerformedNote instances for all MatchNotes
+    notes = []
+
+    first_note = next(mf.iter_notes(), None)
+    if first_note and first_note_at_zero:
+        offset = midi_ticks_to_seconds(first_note.Onset, mpq=mpq, ppq=ppq)
+        offset_tick = first_note.Onset
+    else:
+        offset = 0
+        offset_tick = 0
+
+    notes = [
+        dict(
+            id=format_pnote_id(note.Id),
+            midi_pitch=note.MidiPitch,
+            note_on=midi_ticks_to_seconds(note.Onset, mpq, ppq) - offset,
+            note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
+            note_on_tick=note.Onset - offset_tick,
+            note_off_tick=note.Offset - offset_tick,
+            sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
+            velocity=note.Velocity,
+            track=getattr(note, "Track", 0),
+            channel=getattr(note, "Channel", 1),
+        )
+        for note in mf.notes
+    ]
+
+    # SustainPedal instances for sustain pedal lines
+    sustain_pedal = [
+        dict(
+            number=64,
+            time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
+            value=ped.Value,
+        )
+        for ped in mf.sustain_pedal
+    ]
+
+    # SoftPedal instances for soft pedal lines
+    soft_pedal = [
+        dict(
+            number=67,
+            time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
+            value=ped.Value,
+        )
+        for ped in mf.soft_pedal
+    ]
+
+    # Make performed part
+    ppart = PerformedPart(
+        id="P1",
+        part_name=mf.info("piece"),
+        notes=notes,
+        controls=sustain_pedal + soft_pedal,
+        sustain_pedal_threshold=pedal_threshold,
+    )
+    return ppart
+
+
+def sort_snotes(snotes: List[BaseSnoteLine]) -> List[BaseSnoteLine]:
     """
     Sort s(core)notes.
 
@@ -1502,12 +433,15 @@ def sort_snotes(snotes):
         The sorted score notes
     """
     sidx = np.lexsort(
-        list(zip(*[(float(n.Offset), float(n.Beat), float(n.Bar)) for n in snotes]))
+        list(zip(*[(float(n.Offset), float(n.Beat), float(n.Measure)) for n in snotes]))
     )
     return [snotes[i] for i in sidx if snotes[i].NoteName.lower() != "r"]
 
 
-def part_from_matchfile(mf, match_offset_duration_in_whole=True):
+def part_from_matchfile(
+    mf: MatchFile,
+    match_offset_duration_in_whole: bool = True,
+) -> Part:
     """
     Create a score part from a matchfile.
 
@@ -1577,7 +511,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     # duration_in_divs = duration_in_quarters * divs
 
     part.set_quarter_duration(0, divs)
-    bars = np.unique([n.Bar for n in snotes])
+    bars = np.unique([n.Measure for n in snotes])
     t = min_time
     t = t * 4 / beat_type_map(min_time)
     offset = t
@@ -1609,7 +543,7 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
-        bar_start = bar_times[note.Bar]
+        bar_start = bar_times[note.Measure]
 
         on_off_scale = 1
         # on_off_scale = 1 means duration and beat offset are given in
@@ -1682,7 +616,8 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             note_attributes["voice"] = 1
         else:
             note_attributes["voice"] = next(
-                (int(a) for a in note.ScoreAttributesList if NUMBER_PAT.match(a)), None
+                (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
+                None,
             )
 
         # get rid of this if as soon as we have a way to iterate over the
@@ -1743,7 +678,9 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
             part.add(part_note, onset_divs, offset_divs)
 
     # add time signatures
-    for (ts_beat_time, ts_bar, (ts_beats, ts_beat_type)) in ts:
+    for (ts_beat_time, ts_bar, tsg) in ts:
+        ts_beats = tsg.numerator
+        ts_beat_type = tsg.denominator
         # check if time signature is in a known measure (from notes)
         if ts_bar in bar_times.keys():
             bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
@@ -1754,18 +691,17 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
 
     # add key signatures
     for (ks_beat_time, ks_bar, keys) in mf.key_signatures:
-        if len(keys) > 1:
-            # there are multple equivalent keys, so we check which one is most
-            # likely according to the key estimator
-            est_keys = estimate_key(part.note_array(), return_sorted_keys=True)
-            idx = [est_keys.index(key) if key in est_keys else np.inf for key in keys]
-            key_name = keys[np.argmin(idx)]
 
+        if ks_bar in bar_times.keys():
+            bar_start_divs = int(divs * (bar_times[ks_bar] - offset))  # in quarters
+            bar_start_divs = max(0, bar_start_divs)
         else:
-            key_name = keys[0]
+            bar_start_divs = 0
 
-        fifths, mode = key_name_to_fifths_mode(key_name)
-        part.add(score.KeySignature(fifths, mode), 0)
+        # TODO
+        # * use key estimation if there are multiple defined keys
+        # fifths, mode = key_name_to_fifths_mode(key_name)
+        part.add(score.KeySignature(keys.fifths, keys.mode), ks_bar)
 
     add_staffs(part)
     # add_clefs(part)
@@ -1780,11 +716,6 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     score.find_tuplets(part)
 
     if not all([n.voice for n in part.notes_tied]):
-        # print('notes without voice detected')
-        # TODO: fix this!
-        # ____ deactivate add_voices(part) for now as I get a error VoSA,
-        # line 798; the +1 gives an index outside the list length
-        # add_voices(part)
         for note in part.notes_tied:
             if note.voice is None:
                 note.voice = 1
@@ -1792,7 +723,30 @@ def part_from_matchfile(mf, match_offset_duration_in_whole=True):
     return part
 
 
-def make_timesig_maps(ts_orig, max_time):
+def make_timesig_maps(
+    ts_orig: List[Tuple[float, int, MatchTimeSignature]],
+    max_time: float,
+) -> (Callable, Callable, Callable, Callable, float, float):
+    """
+    Create time signature (interpolation) maps
+
+    Parameters
+    ----------
+    ts_orig : List[Tuple[float, int, MatchTimeSignature]]
+        A list of tuples containing position in beats, measure and
+        MatchTimeSignature instances
+    max_time : float
+        Maximal time of the time signatures
+
+    Returns
+    -------
+    beats_map: callable
+    qbeats_map: callable
+    beat_type_map: callable
+    qbeat_type_map: callable
+    start_q: float
+    end_q: float
+    """
     # TODO: make sure that ts_orig covers range from min_time
     # return two functions that map score times (in quarter units) to time sig
     # beats, and time sig beat_type respectively
@@ -1801,7 +755,7 @@ def make_timesig_maps(ts_orig, max_time):
     ts.append((max_time, None, ts[-1][2]))
 
     x = np.array([t for t, _, _ in ts])
-    y = np.array([x for _, _, x in ts])
+    y = np.array([(x.numerator, x.denominator) for _, _, x in ts])
 
     start_q = x[0] * 4 / y[0, 1]
     x_q = np.cumsum(np.r_[start_q, 4 * np.diff(x) / y[:-1, 1]])
@@ -1823,16 +777,36 @@ def make_timesig_maps(ts_orig, max_time):
         fill_value=(y[0, 1], y[-1, 1]),
     )
     beats_map = interp1d(
-        x, y[:, 0], kind="previous", bounds_error=False, fill_value=(y[0, 0], y[-1, 0])
+        x,
+        y[:, 0],
+        kind="previous",
+        bounds_error=False,
+        fill_value=(y[0, 0], y[-1, 0]),
     )
     beat_type_map = interp1d(
-        x, y[:, 1], kind="previous", bounds_error=False, fill_value=(y[0, 1], y[-1, 1])
+        x,
+        y[:, 1],
+        kind="previous",
+        bounds_error=False,
+        fill_value=(y[0, 1], y[-1, 1]),
     )
 
     return beats_map, qbeats_map, beat_type_map, qbeat_type_map, start_q, end_q
 
 
-def add_staffs(part, split=55, only_missing=True):
+def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
+    """
+        Method to add staff information to a part
+
+        Parameters
+        ----------
+        part: Part
+            Part to add staff information to.
+        split: int
+            MIDI pitch to split staff into upper and lower. Default is 55
+        only_missing: bool
+            If True, only add staff to those notes that do not have staff info already.
+    x"""
     # assign staffs using a hard limit
     notes = part.notes_tied
     for n in notes:
@@ -1856,163 +830,6 @@ def add_staffs(part, split=55, only_missing=True):
     part.add(score.Clef(staff=2, sign="F", line=4, octave_change=0), 0)
 
 
-def add_staffs_v1(part):
-    # assign staffs by first estimating voices jointly, then assigning voices to staffs
+if __name__ == "__main__":
 
-    notes = part.notes_tied
-    # estimate voices in strictly monophonic way
-    voices = estimate_voices(note_array_from_note_list(notes), monophonic_voices=True)
-
-    # group notes by voice
-    by_voice = partition(itemgetter(0), zip(voices, notes))
-    clefs = {}
-
-    for v, vnotes in by_voice.items():
-        # voice numbers may be recycled throughout the piece, so we split by
-        # time gap
-        t_diffs = np.diff([n.start.t for _, n in vnotes])
-        t_threshold = np.inf  # np.median(t_diffs)+1
-        note_groups = np.split(
-            [note for _, note in vnotes], np.where(t_diffs > t_threshold)[0] + 1
-        )
-
-        # for each note group estimate the clef
-        for note_group in note_groups:
-            if len(note_group) > 0:
-                pitches = [n.midi_pitch for n in note_group]
-                clef = tuple(estimate_clef_properties(pitches).items())
-                staff = clefs.setdefault(clef, len(clefs))
-
-                for n in note_group:
-                    n.staff = staff
-                    n_tied = n.tie_next
-                    while n_tied:
-                        n_tied.staff = staff
-                        n_tied = n_tied.tie_next
-
-    # re-order the staffs to a fixed order (see CLEF_ORDER), rather than by
-    # first appearance
-    clef_list = list((dict(clef), i) for clef, i in clefs.items())
-    clef_list.sort(key=lambda x: x[0].get("octave_change", 0))
-    clef_list.sort(key=lambda x: CLEF_ORDER.index(x[0].get("sign", "G")))
-    staff_map = dict((j, i + 1) for i, (_, j) in enumerate(clef_list))
-    for n in notes:
-        n.staff = staff_map[n.staff]
-    for i, (clef_properties, _) in enumerate(clef_list):
-        part.add(score.Clef(number=i + 1, **clef_properties), 0)
-    # partition(attrgetter('staff'), part.notes_tied)
-    # **estimate_clef_properties([n.midi_pitch for n in notes])
-
-
-def add_clefs(part):
-    by_staff = partition(attrgetter("staff"), part.notes_tied)
-    for staff, notes in by_staff.items():
-        part.add(
-            score.Clef(
-                staff=staff, **estimate_clef_properties([n.midi_pitch for n in notes])
-            ),
-            0,
-        )
-
-
-def add_voices(part):
-    by_staff = partition(attrgetter("staff"), part.notes_tied)
-    max_voice = 0
-    for staff, notes in by_staff.items():
-
-        notes_wo_voice = [n for n in notes if n.voice is None]
-        notes_w_voice = [n for n in notes if n.voice is not None]
-        if len(notes_w_voice) > 0:
-            max_voice += max([n.voice for n in notes_w_voice])
-        voices = estimate_voices(note_array_from_note_list(notes_wo_voice))
-
-        assert len(voices) == len(notes_wo_voice)
-        for n, voice in zip(notes_wo_voice, voices):
-            assert voice > 0
-            n.voice = voice + max_voice
-
-            n_next = n
-            while n_next.tie_next:
-                n_next = n_next.tie_next
-                n_next.voice = voice + max_voice
-
-        max_voice = np.max(voices)
-
-    if any([n.voice is None for n in part.notes]):
-        # Hack to add voices to notes not included in a staff!
-        # not musically meaningful
-        ev = 1
-        for n in part.notes:
-            if n.voice is None:
-                n.voice = max_voice + ev
-                ev += 1
-
-
-def performed_part_from_match(mf, pedal_threshold=64, first_note_at_zero=False):
-    """Make PerformedPart from performance info in a MatchFile
-
-    Parameters
-    ----------
-    mf : MatchFile
-        A MatchFile instance
-    pedal_threshold : int, optional
-        Threshold for adjusting sound off of the performed notes using
-        pedal information. Defaults to 64.
-    first_note_at_zero : bool, optional
-        When True the note_on and note_off times in the performance
-        are shifted to make the first note_on time equal zero.
-
-    Returns
-    -------
-    ppart : PerformedPart
-        A performed part
-
-    """
-    # Get midi time units
-    mpq = mf.info("midiClockRate")  # 500000 -> microseconds per quarter
-    ppq = mf.info("midiClockUnits")  # 500 -> parts per quarter
-
-    # PerformedNote instances for all MatchNotes
-    notes = []
-
-    first_note = next(mf.iter_notes(), None)
-    if first_note and first_note_at_zero:
-        offset = first_note.Onset * mpq / (10 ** 6 * ppq)
-    else:
-        offset = 0
-
-    for note in mf.iter_notes():
-
-        sound_off = note.Offset if note.AdjOffset is None else note.AdjOffset
-
-        notes.append(
-            dict(
-                id=note.Number,
-                midi_pitch=note.MidiPitch,
-                note_on=note.Onset * mpq / (10 ** 6 * ppq) - offset,
-                note_off=note.Offset * mpq / (10 ** 6 * ppq) - offset,
-                sound_off=sound_off * mpq / (10 ** 6 * ppq) - offset,
-                velocity=note.Velocity,
-            )
-        )
-
-    # SustainPedal instances for sustain pedal lines
-    sustain_pedal = []
-    for ped in mf.sustain_pedal:
-        sustain_pedal.append(
-            dict(
-                number=64,  # type='sustain_pedal',
-                time=ped.Time * mpq / (10 ** 6 * ppq),
-                value=ped.Value,
-            )
-        )
-
-    # Make performed part
-    ppart = PerformedPart(
-        id="P1",
-        part_name=mf.info("piece"),
-        notes=notes,
-        controls=sustain_pedal,
-        sustain_pedal_threshold=pedal_threshold,
-    )
-    return ppart
+    pass

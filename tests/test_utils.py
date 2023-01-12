@@ -10,6 +10,8 @@ import numpy as np
 from partitura.utils import music
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES
 
+from scipy.interpolate import interp1d as scinterp1d
+from partitura.utils.generic import interp1d as pinterp1d
 
 RNG = np.random.RandomState(1984)
 
@@ -359,3 +361,158 @@ class TestPerformanceFromPart(unittest.TestCase):
         except ValueError:
             # We are expecting the previous code to trigger an error
             self.assertTrue(True)
+
+    def test_generate_random_performance_note_array(self):
+        """
+        Test `generate_random_performance_note_array` method
+        """
+        n_notes = 100
+        duration = 15
+        max_note_duration = 9
+        min_note_duration = 1
+        max_velocity = 75
+        min_velocity = 30
+        random_note_array = music.generate_random_performance_note_array(
+            num_notes=n_notes,
+            rng=1234,
+            duration=duration,
+            max_note_duration=max_note_duration,
+            min_note_duration=min_note_duration,
+            max_velocity=max_velocity,
+            min_velocity=min_velocity,
+            return_performance=False,
+        )
+
+        # Assert that the output is a numpy array
+        self.assertTrue(isinstance(random_note_array, np.ndarray))
+        # Test that the generated array has the specified number of notes
+        self.assertTrue(len(random_note_array) == n_notes)
+
+        offsets = random_note_array["onset_sec"] + random_note_array["duration_sec"]
+
+        # Test that the note array has the specified duration
+        self.assertTrue(np.isclose(offsets.max(), duration))
+
+        # Test that the generated durations and velocities are within the
+        # specified bounds
+        self.assertTrue(np.all(random_note_array["duration_sec"] <= max_note_duration))
+        self.assertTrue(np.all(random_note_array["duration_sec"] >= min_note_duration))
+        self.assertTrue(np.all(random_note_array["velocity"] >= min_velocity))
+        self.assertTrue(np.all(random_note_array["velocity"] <= max_velocity))
+
+        # Test that the output is a Performance instance
+        random_performance = music.generate_random_performance_note_array(
+            num_notes=n_notes,
+            duration=duration,
+            max_note_duration=max_note_duration,
+            min_note_duration=min_note_duration,
+            max_velocity=max_velocity,
+            min_velocity=min_velocity,
+            return_performance=True,
+        )
+
+        self.assertTrue(
+            isinstance(random_performance, partitura.performance.Performance)
+        )
+
+
+class TestGenericUtils(unittest.TestCase):
+    def test_interp1d(self):
+        """
+        Test `interp1d`
+        """
+
+        # Test that the we get the same results as with
+        # scipy
+        rng = np.random.RandomState(1984)
+
+        x = rng.randn(100)
+        y = 3 * x + 1
+
+        sinterp = scinterp1d(x=x, y=y)
+
+        pinterp = pinterp1d(x=x, y=y)
+
+        y_scipy = sinterp(x)
+        y_partitura = pinterp(x)
+
+        self.assertTrue(np.all(y_scipy == y_partitura))
+
+        # Test that we don't get an error with inputs
+        # with length 1
+
+        x = rng.randn(1)
+        y = rng.randn(1)
+
+        pinterp = pinterp1d(x=x, y=y)
+
+        x_test = rng.randn(1000)
+
+        y_partitura = pinterp(x_test)
+
+        self.assertTrue(y_partitura.shape == x_test.shape)
+        self.assertTrue(np.all(y_partitura == y))
+
+        # setting the axis when the input has length 1
+        x = rng.randn(1)
+        y = rng.randn(1, 5)
+        pinterp = pinterp1d(x=x, y=y)
+
+        y_partitura = pinterp(x_test)
+
+        self.assertTrue(y_partitura.shape == (len(x_test), y.shape[1]))
+        self.assertTrue(np.all(y_partitura == y))
+
+        # Test setting dtype of the output
+
+        dtypes = (
+            float,
+            int,
+            np.int8,
+            np.int16,
+            np.float32,
+            np.int64,
+            np.float16,
+            np.float32,
+            np.float64,
+            # np.float128,
+        )
+
+        for dtype in dtypes:
+
+            x = rng.randn(100)
+            y = rng.randn(100)
+
+            pinterp = pinterp1d(x=x, y=y, dtype=dtype)
+
+            y_partitura = pinterp(x)
+            # assert that the dtype of the array is correct
+            self.assertTrue(y_partitura.dtype == dtype)
+            # assert that the result is the same as casting the expected
+            # output as the specified dtype
+            self.assertTrue(np.allclose(y_partitura, y.astype(dtype)))
+
+        # Test setting outputs of sizes larger than 1
+
+        x = rng.randn(100)
+        y = rng.randn(100, 2)
+
+        sinterp = scinterp1d(
+            x,
+            y,
+            axis=0,
+            kind="previous",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
+
+        pinterp = pinterp1d(
+            x,
+            y,
+            axis=0,
+            kind="previous",
+            bounds_error=False,
+            fill_value="extrapolate",
+        )
+
+        self.assertTrue(np.all(sinterp(x) == pinterp(x)))
