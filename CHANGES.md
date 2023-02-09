@@ -2,6 +2,16 @@ Release Notes
 =============
 
 
+Version 1.2.1 (Released on 2023-02-09)
+--------------------------------------
+
+Bug fixes
+---------
+* fixed bug in exporting data for parangonada https://sildater.github.io/parangonada/
+* fixed bug in rendering via musescore
+* fixed bug in loading via musescore
+
+
 Version 1.2.0 (Released on 2022-12-01)
 --------------------------------------
 
