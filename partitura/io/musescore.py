@@ -7,6 +7,7 @@ backend for loading and rendering scores.
 
 import platform
 import warnings
+import glob
 import os
 import shutil
 import subprocess
@@ -16,12 +17,14 @@ from typing import Optional, Union
 
 from partitura.io.importmusicxml import load_musicxml
 from partitura.io.exportmusicxml import save_musicxml
-from partitura.score import Score
+from partitura.score import Score, ScoreLike
 
 from partitura.utils.misc import (
     deprecated_alias,
     deprecated_parameter,
     PathLike,
+    concatenate_images,
+    PIL_EXISTS,
 )
 
 
@@ -61,7 +64,7 @@ def find_musescore3():
             result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
 
         elif platform.system() == "Windows":
-            result = shutil.which(r"C:\Program Files\MuseScore 3\bin\MuseScore.exe")
+            result = shutil.which(r"C:\Program Files\MuseScore 3\bin\MuseScore3.exe")
 
     return result
 
@@ -108,45 +111,56 @@ or a list of these
 
         raise MuseScoreNotFoundException()
 
-    with NamedTemporaryFile(suffix=".musicxml") as xml_fh:
+    xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
 
-        cmd = [mscore_exec, "-o", xml_fh.name, filename]
+    cmd = [mscore_exec, "-o", xml_fh, filename]
 
-        try:
+    try:
 
-            ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
-            if ps.returncode != 0:
-
-                raise FileImportException(
-                    (
-                        "Command {} failed with code {}. MuseScore "
-                        "error messages:\n {}"
-                    ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
-                )
-        except FileNotFoundError as f:
+        if ps.returncode != 0:
 
             raise FileImportException(
-                'Executing "{}" returned  {}.'.format(" ".join(cmd), f)
+                (
+                    "Command {} failed with code {}. MuseScore "
+                    "error messages:\n {}"
+                ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
             )
+    except FileNotFoundError as f:
 
-        return load_musicxml(
-            filename=xml_fh.name,
-            validate=validate,
-            force_note_ids=force_note_ids,
+        raise FileImportException(
+            'Executing "{}" returned  {}.'.format(" ".join(cmd), f)
         )
 
+    score = load_musicxml(
+        filename=xml_fh,
+        validate=validate,
+        force_note_ids=force_note_ids,
+    )
+    
+    os.remove(xml_fh)
+    
+    return score
 
-def render_musescore(part, fmt, out_fn=None, dpi=90):
-    """Render a part using musescore.
+
+@deprecated_alias(out_fn="out", part="score_data")
+def render_musescore(
+    score_data: ScoreLike,
+    fmt: str,
+    out: Optional[PathLike] = None,
+    dpi: Optional[int] = 90,
+) -> Optional[PathLike]:
+    """
+    Render a score-like object using musescore.
 
     Parameters
     ----------
-    part : Part
-        Part to be rendered
+    score_data : ScoreLike
+        Score-like object to be rendered
     fmt : {'png', 'pdf'}
         Output image format
-    out_fn : str or None, optional
+    out : str or None, optional
         The path of the image output file, if not specified, the
         rendering will be saved to a temporary filename. Defaults to
         None.
@@ -154,6 +168,10 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
         Image resolution. This option is ignored when `fmt` is
         'pdf'. Defaults to 90.
 
+    Returns
+    -------
+    out : Optional[PathLike]
+       Path to the output generated image (or None if no image was generated)
     """
     mscore_exec = find_musescore3()
 
@@ -172,14 +190,14 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
         xml_fh = Path(tmpdir) / "score.musicxml"
         img_fh = Path(tmpdir) / f"score.{fmt}"
 
-        save_musicxml(part, xml_fh)
+        save_musicxml(score_data, xml_fh)
 
         cmd = [
             mscore_exec,
             "-T",
             "10",
             "-r",
-            "{}".format(dpi),
+            "{}".format(int(dpi)),
             "-o",
             os.fspath(img_fh),
             os.fspath(xml_fh),
@@ -215,12 +233,27 @@ def render_musescore(part, fmt, out_fn=None, dpi=90):
         #                      ps.stderr.decode('UTF-8')))
 
         if fmt == "png":
-            img_fh = (img_fh.parent / (img_fh.stem + "-1")).with_suffix(img_fh.suffix)
+
+            if PIL_EXISTS:
+                # get all generated image files
+                img_files = glob.glob(
+                    os.path.join(img_fh.parent, img_fh.stem + "-*.png")
+                )
+                concatenate_images(
+                    filenames=img_files,
+                    out=img_fh,
+                    concat_mode="vertical",
+                )
+            else:
+                # The first image seems to be blank (MuseScore adds an empy page)
+                img_fh = (img_fh.parent / (img_fh.stem + "-2")).with_suffix(
+                    img_fh.suffix
+                )
 
         if img_fh.is_file():
-            if out_fn is None:
-                out_fn = os.path.join(gettempdir(), "partitura_render_tmp.png")
-            shutil.copy(img_fh, out_fn)
-            return out_fn
+            if out is None:
+                out = os.path.join(gettempdir(), "partitura_render_tmp.png")
+            shutil.copy(img_fh, out)
+            return out
 
         return None
