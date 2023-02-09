@@ -31,7 +31,8 @@ __version__ = pkg_resources.get_distribution("partitura").version
 
 #: An example MusicXML file for didactic purposes
 EXAMPLE_MUSICXML = pkg_resources.resource_filename(
-    "partitura", "assets/score_example.musicxml")
+    "partitura", "assets/score_example.musicxml"
+)
 
 EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
 EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
@@ -57,5 +58,5 @@ __all__ = [
     "load_nakamuracorresp",
     "load_parangonada_csv",
     "save_parangonada_csv",
-    "render"
+    "render",
 ]

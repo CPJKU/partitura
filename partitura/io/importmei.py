@@ -18,8 +18,9 @@ import partitura as pt
 
 try:
     import verovio
+
     VEROVIO_AVAILABLE = True
-except :
+except:
     VEROVIO_AVAILABLE = False
 
 import re
@@ -61,7 +62,7 @@ def load_mei(filename: PathLike) -> score.Score:
 
 class MeiParser(object):
     def __init__(self, mei_path: PathLike) -> None:
-        document, ns = self._parse_mei(mei_path, use_verovio = VEROVIO_AVAILABLE)
+        document, ns = self._parse_mei(mei_path, use_verovio=VEROVIO_AVAILABLE)
         self.document = document
         self.ns = ns  # the namespace in the MEI file
         self.parts = (
@@ -125,7 +126,7 @@ class MeiParser(object):
         else:
             return ".//{" + ns + "}" + name
 
-    def _parse_mei(self, mei_path, use_verovio = True):
+    def _parse_mei(self, mei_path, use_verovio=True):
         """
         Parses an MEI file from path to an lxml tree.
 
@@ -143,7 +144,7 @@ class MeiParser(object):
             huge_tree=False,
             remove_comments=True,
             remove_blank_text=True,
-            recover = True
+            recover=True,
         )
 
         if use_verovio:
@@ -151,10 +152,10 @@ class MeiParser(object):
             tk.loadFile(mei_path)
             mei_score = tk.getMEI("basic")
             # document = etree.parse(mei_score, parser)
-            root = etree.fromstring(mei_score.encode('utf-8'), parser)
+            root = etree.fromstring(mei_score.encode("utf-8"), parser)
             tree = etree.ElementTree(root)
         else:
-            tree = etree.parse(mei_path,parser)
+            tree = etree.parse(mei_path, parser)
             root = tree.getroot()
         # find the namespace
         ns = root.nsmap[None]
@@ -372,19 +373,21 @@ class MeiParser(object):
             symbolic_duration = self._get_symbolic_duration(el)
             intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
             # double the value if we have dots, to be sure be able to encode that with integers in partitura
-            durs.append(intsymdur * (2 ** dots))
-            durs_ppq.append(None if el.get("dur.ppq") is None else int(el.get("dur.ppq")))
+            durs.append(intsymdur * (2**dots))
+            durs_ppq.append(
+                None if el.get("dur.ppq") is None else int(el.get("dur.ppq"))
+            )
 
         if any([dppq is not None for dppq in durs_ppq]):
             # there is at least one element with both dur and dur.ppq
-            for dur, dppq in zip(durs,durs_ppq):
+            for dur, dppq in zip(durs, durs_ppq):
                 if dppq is not None:
-                    return dppq*dur/4
-        else: 
+                    return dppq * dur / 4
+        else:
             # compute the ppq from the durations
             # add 4 to be sure to not go under 1 ppq
             durs.append(4)
-            durs= np.array(durs)
+            durs = np.array(durs)
             # remove elements smaller than 1
             durs = durs[durs >= 1]
 
@@ -495,7 +498,9 @@ class MeiParser(object):
             if note_el.find(self._ns_name("accid")).get("accid") is not None:
                 return SIGN_TO_ALTER[note_el.find(self._ns_name("accid")).get("accid")]
             else:
-                return SIGN_TO_ALTER[note_el.find(self._ns_name("accid")).get("accid.ges")]
+                return SIGN_TO_ALTER[
+                    note_el.find(self._ns_name("accid")).get("accid.ges")
+                ]
         else:
             return None
 
@@ -878,8 +883,9 @@ class MeiParser(object):
                 f"Warning: voices have different durations in staff {staff_el.attrib[self._ns_name('id',XML_NAMESPACE)]}"
             )
 
-        
-        if len(end_positions) == 0: #if a measure contains no elements (e.g., a forgotten rest)
+        if (
+            len(end_positions) == 0
+        ):  # if a measure contains no elements (e.g., a forgotten rest)
             end_positions.append(position)
         # add end time of measure
         part.add(measure, None, max(end_positions))
@@ -958,7 +964,11 @@ class MeiParser(object):
                     for part in parts:
                         last_measure = list(part.iter_all(pt.score.Measure))[-1]
                         if last_measure.end.t != max_position:
-                            part.add(pt.score.Measure(number = last_measure.number), position, max_position)
+                            part.add(
+                                pt.score.Measure(number=last_measure.number),
+                                position,
+                                max_position,
+                            )
                             part.remove(last_measure)
                 position = max_position
                 # handle right barline symbol

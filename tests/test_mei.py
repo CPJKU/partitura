@@ -261,19 +261,23 @@ class TestImportMEI(unittest.TestCase):
         parts = load_mei(MEI_TESTFILES[19])
         merged_part = score.merge_parts(parts, reassign="voice")
         voices = merged_part.note_array()["voice"]
-        expected_voices = [5,4,3,2,1,1]
-        self.assertTrue(np.array_equal(voices, expected_voices) )
+        expected_voices = [5, 4, 3, 2, 1, 1]
+        self.assertTrue(np.array_equal(voices, expected_voices))
 
     def test_staff(self):
         parts = load_mei(MEI_TESTFILES[19])
         merged_part = score.merge_parts(parts, reassign="staff")
-        staves = merged_part.note_array(include_staff =True)["staff"]
-        expected_staves = [4,3,2,1,1,1]
-        self.assertTrue(np.array_equal(staves, expected_staves) )
+        staves = merged_part.note_array(include_staff=True)["staff"]
+        expected_staves = [4, 3, 2, 1, 1, 1]
+        self.assertTrue(np.array_equal(staves, expected_staves))
 
     def test_nopart(self):
         parts = load_mei(MEI_TESTFILES[20])
-        last_measure_duration = [list(p.iter_all(score.Measure))[-1].end.t- list(p.iter_all(score.Measure))[-1].start.t for p in parts]
+        last_measure_duration = [
+            list(p.iter_all(score.Measure))[-1].end.t
+            - list(p.iter_all(score.Measure))[-1].start.t
+            for p in parts
+        ]
         self.assertTrue(all([d == 4096 for d in last_measure_duration]))
 
 

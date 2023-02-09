@@ -12,6 +12,7 @@ from partitura import load_performance_midi, EXAMPLE_MIDI
 from partitura.io import NotSupportedFormatError
 from partitura.performance import Performance
 
+
 class TestLoadPerformance(unittest.TestCase):
     def test_load_performance(self):
         for fn in [MOZART_VARIATION_FILES["midi"]] + [EXAMPLE_MIDI]:
@@ -25,10 +26,8 @@ class TestLoadPerformance(unittest.TestCase):
     def test_array_performance(self):
         for fn in [EXAMPLE_MIDI]:
             performance = load_performance_midi(fn)
-            na = performance.note_array()            
+            na = performance.note_array()
             self.assertTrue(np.all(na["onset_sec"] * 24 == na["onset_tick"]))
-        
-
 
 
 if __name__ == "__main__":

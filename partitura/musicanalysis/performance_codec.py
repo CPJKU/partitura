@@ -6,6 +6,7 @@ expressive parameters.
 """
 import numpy as np
 import numpy.lib.recfunctions as rfn
+
 try:
     import torch
 except ImportError:
@@ -239,7 +240,7 @@ def decode_articulation(score_durations, articulation_parameter, beat_period):
     """
     Decode articulation
     """
-    art_ratio = 2 ** articulation_parameter
+    art_ratio = 2**articulation_parameter
     dur = art_ratio * score_durations * beat_period
 
     return dur
@@ -495,10 +496,10 @@ def to_matched_score(part, ppart, alignment):
         alignment (List(Dict)): an alignment
 
     Returns:
-        np.ndarray: a minimal, aligned 
+        np.ndarray: a minimal, aligned
         score-performance note array
     """
-    
+
     # remove repetitions from aligment note ids
     for a in alignment:
         if a["label"] == "match":

@@ -57,7 +57,7 @@ FIVE_LIMIT_INTERVAL_RATIOS = {
     9: 5 / 3,
     10: 9 / 5,
     11: 15 / 8,
-    12: 2
+    12: 2,
 }
 
 
@@ -149,7 +149,7 @@ def midi_pitch_to_tempered_frequency(
 
     interval = (midi_pitch - reference_midi_pitch) % 12
     octave = (midi_pitch - reference_midi_pitch) // 12
-    adjusted_reference_frequency = reference_frequency / (2.0 ** -octave)
+    adjusted_reference_frequency = reference_frequency / (2.0**-octave)
 
     if isinstance(interval, (int, float)):
         interval = np.array([interval], dtype=int)
@@ -323,11 +323,11 @@ class ShepardTones(object):
 
     def min_f(self, freq: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         n = np.floor(np.log2(freq) - np.log2(self.min_freq))
-        return freq / (2 ** n)
+        return freq / (2**n)
 
     def max_f(self, freq: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         n = np.floor(np.log2(self.max_freq) - np.log2(freq))
-        return freq * (2 ** n)
+        return freq * (2**n)
 
 
 def synthesize(
