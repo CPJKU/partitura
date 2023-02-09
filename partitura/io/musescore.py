@@ -111,33 +111,37 @@ or a list of these
 
         raise MuseScoreNotFoundException()
 
-    with NamedTemporaryFile(suffix=".musicxml") as xml_fh:
+    xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
 
-        cmd = [mscore_exec, "-o", xml_fh.name, filename]
+    cmd = [mscore_exec, "-o", xml_fh, filename]
 
-        try:
+    try:
 
-            ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
-            if ps.returncode != 0:
-
-                raise FileImportException(
-                    (
-                        "Command {} failed with code {}. MuseScore "
-                        "error messages:\n {}"
-                    ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
-                )
-        except FileNotFoundError as f:
+        if ps.returncode != 0:
 
             raise FileImportException(
-                'Executing "{}" returned  {}.'.format(" ".join(cmd), f)
+                (
+                    "Command {} failed with code {}. MuseScore "
+                    "error messages:\n {}"
+                ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
             )
+    except FileNotFoundError as f:
 
-        return load_musicxml(
-            filename=xml_fh.name,
-            validate=validate,
-            force_note_ids=force_note_ids,
+        raise FileImportException(
+            'Executing "{}" returned  {}.'.format(" ".join(cmd), f)
         )
+
+    score = load_musicxml(
+        filename=xml_fh,
+        validate=validate,
+        force_note_ids=force_note_ids,
+    )
+    
+    os.remove(xml_fh)
+    
+    return score
 
 
 @deprecated_alias(out_fn="out", part="score_data")
