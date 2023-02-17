@@ -12,6 +12,7 @@ import partitura.score as score
 import types
 from typing import List, Union, Tuple
 from partitura.utils import ensure_notearray, ensure_rest_array
+from partitura.score import ScoreLike
 
 __all__ = [
     "list_note_feats_functions",
@@ -72,9 +73,10 @@ def list_note_feats_functions():
 
 
 def make_note_features(
-    part: Union[score.Part, score.PartGroup, List],
+    part: ScoreLike,
     feature_functions: Union[List, str],
     add_idx: bool = False,
+    include_empty_features: bool = True
 ) -> Tuple[np.ndarray, List]:
 
     """Compute the specified feature functions for a part.
@@ -94,13 +96,18 @@ def make_note_features(
 
     Parameters
     ----------
-    part : Part
+    score : Part
         The score as a Part instance
     feature_functions : list or str
         A list of feature functions. Elements of the list can be either
         the functions themselves or the names of a feature function as
         strings (or a mix), or the keywork "all". The feature functions specified by name are
         looked up in the `featuremixer.featurefunctions` module.
+    add_idx : bool (default: False)
+        If True, the index of the note in the part is added as a
+        feature. This is useful for debugging.
+    include_empty_features : bool (default: True)
+        If True, features that are empty are included in the output.
 
     Returns
     -------
@@ -137,7 +144,7 @@ def make_note_features(
             func = bf
         else:
             warnings.warn("Ignoring unknown feature function {}".format(bf))
-        bf, bn = func(na, part)
+        bf, bn = func(na, part, include_empty_features=include_empty_features)
         # check if the size and number of the feature function are correct
         if bf.size != 0:
             if bf.shape[1] != len(bn):
@@ -303,7 +310,7 @@ make_rest_feats = make_rest_features
 
 
 def compute_note_array(
-    part,
+    part : ScoreLike,
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
@@ -401,7 +408,7 @@ def full_note_array(part):
     )
 
 
-def polynomial_pitch_feature(na, part):
+def polynomial_pitch_feature(na, part, **kwargs):
     """Normalize pitch feature."""
     pitches = na["pitch"].astype(float)
     feature_names = ["pitch"]
@@ -410,7 +417,7 @@ def polynomial_pitch_feature(na, part):
     return np.expand_dims(W, axis=1), feature_names
 
 
-def duration_feature(na, part):
+def duration_feature(na, part, **kwargs):
     """Duration feature.
 
     Parameters
@@ -426,7 +433,7 @@ def duration_feature(na, part):
     return W, feature_names
 
 
-def onset_feature(na, part):
+def onset_feature(na, part, **kwargs):
     """Onset feature
 
     Returns:
@@ -446,12 +453,12 @@ def onset_feature(na, part):
     return W, feature_names
 
 
-def relative_score_position_feature(na, part):
-    W, names = onset_feature(na, part)
+def relative_score_position_feature(na, part, **kwargs):
+    W, names = onset_feature(na, part, **kwargs)
     return W[:, 1:], names[1:]
 
 
-def grace_feature(na, part):
+def grace_feature(na, part, **kwargs):
     """Grace feature.
 
     Returns:
@@ -482,7 +489,7 @@ def grace_feature(na, part):
     return W, feature_names
 
 
-def loudness_direction_feature(na, part):
+def loudness_direction_feature(na, part, **kwargs):
     """The loudness directions in part.
 
     This function returns a varying number of descriptors, depending
@@ -502,18 +509,42 @@ def loudness_direction_feature(na, part):
 
     onsets = na["onset_div"]
     N = len(onsets)
+    constant = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff", "unknown_constant"]
+    impulsive = ["fp", "sf", "sfp", "sfz", "unknown_impulsive"]
+    names = constant + impulsive + ["loudness_incr", "loudness_decr"]
 
     directions = list(part.iter_all(score.LoudnessDirection, include_subclasses=True))
+    if "include_empty_features" in kwargs.keys():
+        force_size = kwargs["include_empty_features"]
+    else:
+        force_size = False
+    if force_size:
+        def to_name(d):
+            if isinstance(d, score.ConstantLoudnessDirection):
+                if d.text in constant:
+                    return d.text
+                else:
+                    return "unknown_constant"
+            elif isinstance(d, score.ImpulsiveLoudnessDirection):
+                if d.text in impulsive:
+                    return d.text
+                else:
+                    return "unknown_impulsive"
+            elif isinstance(d, score.IncreasingLoudnessDirection):
+                return "loudness_incr"
+            elif isinstance(d, score.DecreasingLoudnessDirection):
+                return "loudness_decr"
+    else:
+        def to_name(d):
+            if isinstance(d, score.ConstantLoudnessDirection):
+                return d.text
+            elif isinstance(d, score.ImpulsiveLoudnessDirection):
+                return d.text
+            elif isinstance(d, score.IncreasingLoudnessDirection):
+                return "loudness_incr"
+            elif isinstance(d, score.DecreasingLoudnessDirection):
+                return "loudness_decr"
 
-    def to_name(d):
-        if isinstance(d, score.ConstantLoudnessDirection):
-            return d.text
-        elif isinstance(d, score.ImpulsiveLoudnessDirection):
-            return d.text
-        elif isinstance(d, score.IncreasingLoudnessDirection):
-            return "loudness_incr"
-        elif isinstance(d, score.DecreasingLoudnessDirection):
-            return "loudness_decr"
 
     feature_by_name = {}
     for d in directions:
@@ -522,16 +553,20 @@ def loudness_direction_feature(na, part):
         )
         bf += feature_function_activation(d)(onsets)
 
-    W = np.empty((len(onsets), len(feature_by_name)))
-    names = [None] * len(feature_by_name)
+    if not force_size:
+        names = [None] * len(feature_by_name)
+    W = np.zeros((len(onsets), len(names)))
     for name, (j, bf) in feature_by_name.items():
+        if force_size:
+            j = names.index(name)
+        else:
+            names[j] = name
         W[:, j] = bf
-        names[j] = name
 
     return W, names
 
 
-def tempo_direction_feature(na, part):
+def tempo_direction_feature(na, part, **kwargs):
     """The tempo directions in part.
 
     This function returns a varying number of descriptors, depending
@@ -545,22 +580,52 @@ def tempo_direction_feature(na, part):
     """
     onsets = na["onset_div"]
     N = len(onsets)
-
+    constant = ["adagio", "largo", "lento", "grave", "largo", "lento", "grave", "lento",
+                "larghetto", "adagietto", "andante", "andantino", "moderato", "allegretto",
+                "allegro", "vivace", "presto", "prestissimo", "tempo_incr", "tempo_decr",
+                "unknown_constant"]
+    names = constant + ["tempo_incr", "tempo_decr"]
     directions = list(part.iter_all(score.TempoDirection, include_subclasses=True))
 
-    def to_name(d):
-        if isinstance(d, score.ResetTempoDirection):
-            ref = d.reference_tempo
-            if ref:
-                return ref.text
-            else:
+
+    if "include_empty_features" in kwargs.keys():
+        force_size = kwargs["include_empty_features"]
+    else:
+        force_size = False
+    if force_size:
+        def to_name(d):
+            if isinstance(d, score.ResetTempoDirection):
+                ref = d.reference_tempo
+                if ref:
+                    if ref.text in constant:
+                        return ref.text
+                    else:
+                        return "unknown_constant"
+                else:
+                    return d.text
+            elif isinstance(d, score.ConstantTempoDirection):
+                if d.text in constant:
+                    return d.text
+                else:
+                    return "unknown_constant"
+            elif isinstance(d, score.IncreasingTempoDirection):
+                return "tempo_incr"
+            elif isinstance(d, score.DecreasingTempoDirection):
+                return "tempo_decr"
+    else:
+        def to_name(d):
+            if isinstance(d, score.ResetTempoDirection):
+                ref = d.reference_tempo
+                if ref:
+                    return ref.text
+                else:
+                    return d.text
+            elif isinstance(d, score.ConstantTempoDirection):
                 return d.text
-        elif isinstance(d, score.ConstantTempoDirection):
-            return d.text
-        elif isinstance(d, score.IncreasingTempoDirection):
-            return "tempo_incr"
-        elif isinstance(d, score.DecreasingTempoDirection):
-            return "tempo_decr"
+            elif isinstance(d, score.IncreasingTempoDirection):
+                return "tempo_incr"
+            elif isinstance(d, score.DecreasingTempoDirection):
+                return "tempo_decr"
 
     feature_by_name = {}
     for d in directions:
@@ -569,16 +634,21 @@ def tempo_direction_feature(na, part):
         )
         bf += feature_function_activation(d)(onsets)
 
-    W = np.empty((len(onsets), len(feature_by_name)))
-    names = [None] * len(feature_by_name)
+
+    if not force_size:
+        names = [None] * len(feature_by_name)
+    W = np.zeros((len(onsets), len(names)))
     for name, (j, bf) in feature_by_name.items():
+        if force_size:
+            j = names.index(name)
+        else:
+            names[j] = name
         W[:, j] = bf
-        names[j] = name
 
     return W, names
 
 
-def articulation_direction_feature(na, part):
+def articulation_direction_feature(na, part, **kwargs):
     """ """
     onsets = na["onset_div"]
     N = len(onsets)
@@ -586,9 +656,21 @@ def articulation_direction_feature(na, part):
     directions = list(
         part.iter_all(score.ArticulationDirection, include_subclasses=True)
     )
+    constant_names = ["staccato", "tenuto", "accent", "marcato", "unknown_articulation"]
 
-    def to_name(d):
-        return d.text
+    if "include_empty_features" in kwargs.keys():
+        force_size = kwargs["include_empty_features"]
+    else:
+        force_size = False
+    if force_size:
+        def to_name(d):
+            if d.text in constant_names:
+                return d.text
+            else:
+                return "unknown_direction"
+    else:
+        def to_name(d):
+            return d.text
 
     feature_by_name = {}
 
@@ -598,12 +680,19 @@ def articulation_direction_feature(na, part):
         )
         bf += feature_function_activation(d)(onsets)
 
-    W = np.empty((len(onsets), len(feature_by_name)))
-    names = [None] * len(feature_by_name)
+    if force_size:
+        W = np.zeros((len(onsets), len(constant_names)))
+        names = constant_names
+    else:
+        W = np.zeros((len(onsets), len(feature_by_name)))
+        names = [None] * len(feature_by_name)
 
     for name, (j, bf) in feature_by_name.items():
+        if force_size:
+            j = names.index(name)
+        else:
+            names[j] = name
         W[:, j] = bf
-        names[j] = name
 
     return W, names
 
@@ -683,7 +772,7 @@ def feature_function_activation(direction):
     return interp1d(x, y, bounds_error=False, fill_value=0)
 
 
-def slur_feature(na, part):
+def slur_feature(na, part, **kwargs):
     """Slur feature.
 
     Returns:
@@ -711,7 +800,7 @@ def slur_feature(na, part):
     return W, names
 
 
-def articulation_feature(na, part):
+def articulation_feature(na, part, **kwargs):
     """Articulation feature.
 
     This feature returns articulation-related note annotations, such as accents, legato, and tenuto.
@@ -741,6 +830,11 @@ def articulation_feature(na, part):
         "unstress",
         "soft-accent",
     ]
+    if "include_empty_features" in kwargs:
+        force_size = kwargs["include_empty_features"]
+    else:
+        force_size = False
+
     feature_by_name = {}
     notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
     N = len(notes)
@@ -753,18 +847,24 @@ def articulation_feature(na, part):
                     )
                     bf[i] = 1
 
-    M = len(feature_by_name)
-    W = np.empty((N, M))
-    names = [None] * M
+    if force_size:
+        M = len(names)
+    else:
+        M = len(feature_by_name)
+        names = [None] * M
+    W = np.zeros((N, M))
 
     for name, (j, bf) in feature_by_name.items():
+        if force_size:
+            j = names.index(name)
+        else:
+            names[j] = name
         W[:, j] = bf
-        names[j] = name
 
     return W, names
 
 
-def ornament_feature(na, part):
+def ornament_feature(na, part, **kwargs):
     """Ornament feature.
 
     This feature returns ornamentation note annotations,such as trills.
@@ -803,24 +903,34 @@ def ornament_feature(na, part):
                         art, (len(feature_by_name), np.zeros(N))
                     )
                     bf[i] = 1
+    if "include_empty_features" in kwargs.keys():
+        fix_size = kwargs["include_empty_features"]
+    else:
+        fix_size = False
+    if fix_size:
+        M = len(names)
+    else:
+        M = len(feature_by_name)
+        names = [None] * M
+    W = np.zeros((N, M))
 
-    M = len(feature_by_name)
-    W = np.empty((N, M))
-    names = [None] * M
 
     for name, (j, bf) in feature_by_name.items():
+        if fix_size:
+            j = names.index(name)
+        else:
+            names[j] = name
         W[:, j] = bf
-        names[j] = name
 
     return W, names
 
 
-def staff_feature(na, part):
+def staff_feature(na, part, **kwargs):
     """Staff feature"""
     names = ["staff"]
     notes = {n.id: n.staff for n in part.notes_tied}
     N = len(notes)
-    W = np.empty((N, 1))
+    W = np.zeros((N, 1))
     for i, n in enumerate(na):
         W[i, 0] = notes[n["id"]]
 
@@ -837,7 +947,7 @@ def staff_feature(na, part):
 #         return np.empty(len(W)), []
 
 
-def fermata_feature(na, part):
+def fermata_feature(na, part, **kwargs):
     """Fermata feature.
 
     Returns:
@@ -852,7 +962,7 @@ def fermata_feature(na, part):
     return W, names
 
 
-def metrical_feature(na, part):
+def metrical_feature(na, part, **kwargs):
     """Metrical feature
 
     This feature encodes the metrical position in the bar. For example
@@ -892,7 +1002,7 @@ def metrical_feature(na, part):
         )
         bf[i] = 1
 
-    W = np.empty((len(notes), len(feature_by_name)))
+    W = np.zeros((len(notes), len(feature_by_name)))
     names = [None] * len(feature_by_name)
     for name, (j, bf) in feature_by_name.items():
         W[:, j] = bf
@@ -901,7 +1011,7 @@ def metrical_feature(na, part):
     return W, names
 
 
-def metrical_strength_feature(na, part):
+def metrical_strength_feature(na, part, **kwargs):
     """Metrical strength feature
 
     This feature encodes the beat phase (relative position of a note within
@@ -920,11 +1030,12 @@ def metrical_strength_feature(na, part):
     W[:, 0] = np.divide(relod, totmd)  # Onset Phase
     W[:, 1] = na["is_downbeat"].astype(float)
     W[:, 2][W[:, 0] == 0.5] = 1.00
-    W[:, 3][np.nonzero(np.add(W[:, 1], W[:, 0]) == 1.00)]
+    W[:, 3][np.nonzero(np.add(W[:, 1], W[:, 0]) == 1.00)] = 1.00
+
     return W, names
 
 
-def time_signature_feature(na, part):
+def time_signature_feature(na, part, **kwargs):
     """TIme Signature feature
     This feature encodes the time signature of the note in two sets of one-hot vectors,
     a one hot encoding of number of beats and a one hot encoding of beat type
@@ -958,7 +1069,7 @@ def time_signature_feature(na, part):
     return W, names
 
 
-def vertical_neighbor_feature(na, part):
+def vertical_neighbor_feature(na, part, **kwargs):
     """Vertical neighbor feature.
 
     Describes various aspects of simultaneously starting notes.
@@ -981,7 +1092,7 @@ def vertical_neighbor_feature(na, part):
         "lowest_pitch",
         "pitch_range",
     ]
-    W = np.empty((len(na), len(names)))
+    W = np.zeros((len(na), len(names)))
     for i, n in enumerate(na):
         neighbors = na[np.where(na["onset_beat"] == n["onset_beat"])]["pitch"]
         max_pitch = np.max(neighbors)
