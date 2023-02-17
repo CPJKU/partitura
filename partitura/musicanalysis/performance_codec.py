@@ -6,6 +6,8 @@ expressive parameters.
 """
 import numpy as np
 import numpy.lib.recfunctions as rfn
+from partitura.score import ScoreLike
+from partitura.performance import PerformanceLike
 
 try:
     import torch
@@ -28,8 +30,8 @@ __all__ = ["encode_performance", "decode_performance"]
 
 
 def encode_performance(
-    part: Part,
-    ppart: PerformedPart,
+    part: ScoreLike,
+    ppart: PerformanceLike,
     alignment: list,
     return_u_onset_idx=False,
 ):
@@ -85,7 +87,7 @@ def encode_performance(
 
 
 def decode_performance(
-    part: Part,
+    part: ScoreLike,
     performance_array: np.ndarray,
     snote_ids=None,
     part_id=None,
