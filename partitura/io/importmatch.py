@@ -591,7 +591,9 @@ def part_from_matchfile(
         if "accent" in note.ScoreAttributesList:
             articulations.add("accent")
         if "leftOutTied" in note.ScoreAttributesList:
-            continue
+            # continue introduces inconsistency when save_match
+            # continue
+            pass
 
         # dictionary with keyword args with which the Note
         # (or GraceNote) will be instantiated
