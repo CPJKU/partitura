@@ -602,7 +602,10 @@ def tempo_direction_feature(na, part, **kwargs):
                     else:
                         return "unknown_constant"
                 else:
-                    return d.text
+                    if d.text in constant:
+                        return d.text
+                    else:
+                        return "unknown_constant"
             elif isinstance(d, score.ConstantTempoDirection):
                 if d.text in constant:
                     return d.text
