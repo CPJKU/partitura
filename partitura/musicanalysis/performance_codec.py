@@ -6,7 +6,7 @@ expressive parameters.
 """
 import numpy as np
 import numpy.lib.recfunctions as rfn
-from partitura.score import ScoreLike
+from partitura.score import ScoreLike, Score, merge_parts
 from partitura.performance import PerformanceLike
 
 try:
@@ -61,6 +61,9 @@ def encode_performance(
         List of unique onset ids. Returned only when return_u_onset_idx
         is set to True.
     """
+    if isinstance(part, Score):
+        # TODO change note ids in alignment
+        part = merge_parts(part)
 
     m_score, snote_ids = to_matched_score(part, ppart, alignment)
 
@@ -118,7 +121,8 @@ def decode_performance(
     alignment: list (optional)
         A list of dicts for the alignment.
     """
-
+    if isinstance(part, Score):
+        part = merge_parts(part)
     snotes = part.notes_tied
 
     if snote_ids is None:
