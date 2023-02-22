@@ -52,9 +52,7 @@ from partitura.utils.music import (
     ensure_rest_array,
     rest_array_from_part_list,
 )
-from partitura.utils.synth import (
-    synthesize
-)
+from partitura.utils.synth import synthesize
 
 from partitura.utils.misc import (
     PathLike,

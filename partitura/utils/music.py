@@ -47,7 +47,7 @@ DUMMY_PS_BASE_CLASS = {
 MEI_DURS_TO_SYMBOLIC = {
     "long": "long",
     "0": "breve",
-    "breve" : "breve",
+    "breve": "breve",
     "1": "whole",
     "2": "half",
     "4": "quarter",
@@ -747,7 +747,7 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10 ** -3):
+def estimate_symbolic_duration(dur, div, eps=10**-3):
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic

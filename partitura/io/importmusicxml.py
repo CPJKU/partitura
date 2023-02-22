@@ -164,9 +164,9 @@ def _parse_partlist(partlist):
 @deprecated_alias(xml="filename")
 @deprecated_parameter("ensure_list")
 def load_musicxml(
-        filename: PathLike,
-        validate: bool = False,
-        force_note_ids: Optional[Union[bool, str]] = None
+    filename: PathLike,
+    validate: bool = False,
+    force_note_ids: Optional[Union[bool, str]] = None,
 ) -> score.Score:
     """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
@@ -361,10 +361,12 @@ def _parse_parts(document, part_dict):
                 #         # if repeat from volta, continue for now
                 #         volta_repeats.append(o)
                 #         continue
-                
-                starting_repeats = [r for r in part.iter_all(score.Repeat) if r.start is not None] 
+
+                starting_repeats = [
+                    r for r in part.iter_all(score.Repeat) if r.start is not None
+                ]
                 end_times = [r.start.t for r in starting_repeats] + [part._points[-1].t]
-                end_time_id = np.searchsorted(end_times, o.start.t+1)
+                end_time_id = np.searchsorted(end_times, o.start.t + 1)
                 part.add(o, None, end_times[end_time_id])
                 warnings.warn(
                     "Found repeat without end\n"

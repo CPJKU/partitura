@@ -23,7 +23,7 @@ from partitura.utils import (
     deprecated_parameter,
     PathLike,
     get_document_name,
-    ensure_notearray
+    ensure_notearray,
 )
 import partitura.musicanalysis as analysis
 
@@ -71,7 +71,7 @@ def midi_to_notearray(filename: PathLike) -> np.ndarray:
 def load_performance_midi(
     filename: Union[PathLike, mido.MidiFile],
     default_bpm: Union[int, float] = 120,
-    merge_tracks: bool = False
+    merge_tracks: bool = False,
 ) -> performance.Performance:
     """Load a musical performance from a MIDI file.
 
@@ -111,39 +111,39 @@ def load_performance_midi(
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10 ** 6 / default_bpm)
+    mpq = 60 * (10**6 / default_bpm)
 
     # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10 ** 6)
+    time_conversion_factor = mpq / (ppq * 10**6)
 
     pps = list()
-    
+
     if merge_tracks:
         mid_merge = mido.merge_tracks(mid.tracks)
         tracks = [(0, mid_merge)]
     else:
         tracks = [(i, u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
-        
+
         notes = []
         controls = []
         programs = []
 
         t = 0
         ttick = 0
-        
+
         sounding_notes = {}
 
         for msg in track:
 
             # update time deltas when they arrive
             t = t + msg.time * time_conversion_factor
-            ttick = ttick + msg.time 
+            ttick = ttick + msg.time
 
             if msg.type == "set_tempo":
 
                 mpq = msg.tempo
-                time_conversion_factor = mpq / (ppq * 10 ** 6)
+                time_conversion_factor = mpq / (ppq * 10**6)
 
             elif msg.type == "control_change":
 
@@ -227,15 +227,12 @@ def load_performance_midi(
         # add note id to every note
         for k, note in enumerate(notes):
             note["id"] = f"n{k}"
-            
+
         if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
-            pp = performance.PerformedPart(notes, 
-                                    controls=controls, 
-                                    programs=programs, 
-                                    ppq = ppq,
-                                    mpq = mpq,
-                                    track = i)
-            
+            pp = performance.PerformedPart(
+                notes, controls=controls, programs=programs, ppq=ppq, mpq=mpq, track=i
+            )
+
             pps.append(pp)
 
     perf = performance.Performance(
@@ -383,7 +380,7 @@ or a list of these
             if msg.type == "key_signature":
                 key_sigs.append((t, msg.key))
             if msg.type == "set_tempo":
-                global_tempos.append((t, 60 * 10 ** 6 / msg.tempo))
+                global_tempos.append((t, 60 * 10**6 / msg.tempo))
             else:
                 note_on = msg.type == "note_on"
                 note_off = msg.type == "note_off"
