@@ -197,8 +197,9 @@ def load_musicxml(
     if isinstance(filename, str):
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
+                contained_xml_name = zipped_xml.namelist()[-1]
                 xml = zipped_xml.open(
-                    os.path.splitext(os.path.basename(filename))[0] + ".xml"
+                    contained_xml_name
                 )
 
     if xml is None:
