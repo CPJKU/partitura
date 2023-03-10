@@ -629,6 +629,21 @@ class Part(object):
             e for e in self.iter_all(ArticulationDirection, include_subclasses=True)
         ]
 
+    @property
+    def segments(self):
+        """Return a list of all segments in the part
+
+        Returns
+        -------
+        list
+            List of Segment objects
+
+        """
+        add_segments(self)
+        return [
+            e for e in self.iter_all(Segment, include_subclasses=False)
+        ]
+
     def quarter_durations(self, start=None, end=None):
         """Return an Nx2 array with quarter duration (second column)
         and their respective times (first column).
@@ -3904,6 +3919,9 @@ def add_segments(part):
                         )
 
                 # NAVIGATION SYMBOLS
+                
+                # Navigation1_ = destinations that should only be used after all others
+                # Navigation2_ = destinations that are used *after* a jump
                 if boundary_type == "coda":
                     # if a coda symbol is passed just continue
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
@@ -3931,7 +3949,10 @@ def add_segments(part):
                     # find the segno and jump there
                     segno_time = destinations["segno"][0]
                     segment_info[ss]["to"].append(
-                        "Navigation1_" + segment_info[segno_time]["ID"]
+                        "Navigation1_" + segment_info[segno_time]["ID"] 
+                    )
+                    segment_info[ss]["to"].append(
+                        "Navigation2_" + segment_info[se]["ID"] 
                     )
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("dal segno")
@@ -3941,6 +3962,9 @@ def add_segments(part):
                     # jump to the start
                     segment_info[ss]["to"].append(
                         "Navigation1_" + segment_info[part.first_point.t]["ID"]
+                    )
+                    segment_info[ss]["to"].append(
+                        "Navigation2_" + segment_info[se]["ID"] 
                     )
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("da capo")
@@ -4062,7 +4086,8 @@ def pretty_segments(part):
             + str(part.beat_map(segments[p].end.t))
         )
         + "\t duration: "
-        + "{:<6}".format(str(part.beat_map(segments[p].duration)))
+        + "{:<6}".format(str(part.beat_map(segments[p].end.t) - \
+                             part.beat_map(segments[p].start.t)))
         + "\t info: "
         + str(segments[p].info)
         for p in segments.keys()
@@ -4164,14 +4189,18 @@ class Path:
         """
         create a copy of this path instance.
         """
-        return Path(
+        new_path = Path(
             copy(self.path),
             copy(self.segments),
-            copy(self.used_segment_jumps),
             no_repeats=self.no_repeats,
             all_repeats=self.all_repeats,
             jumped=self.jumped,
         )
+        for key in self.used_segment_jumps:
+            for used_dest in self.used_segment_jumps[key]:
+                new_path.used_segment_jumps[key].append(used_dest)
+        
+        return new_path
 
     def make_copy_with_jump_to(self, destination, ignore_leap_info=True):
         """
@@ -4183,12 +4212,13 @@ class Path:
         new_path = self.copy()
         new_path.used_segment_jumps[new_path.path[-1]].append(destination)
         new_path.path.append(destination)
+        
         if (
-            self.segments[destination].type == "leap_end"
-            and self.segments[self.path[-1]].type == "leap_start"
+            new_path.segments[destination].type == "leap_end"
+            and new_path.segments[new_path.path[-2]].type == "leap_start"
         ):
-            if not self.jumped:
-                self.jumped = True
+            if not new_path.jumped:
+                new_path.jumped = True
                 for segid in new_path.segments.keys():
                     seg = new_path.segments[segid]
                     # if destinations await the second round, add them
@@ -4199,26 +4229,28 @@ class Path:
                         to += seg.await_to
                         # replace destinations
                         seg.to = to
-                        # delete used destinations
-                        new_path.used_segment_jumps[segid] = list()
-
+                    # delete used destinations
+                    new_path.used_segment_jumps[segid] = list()
+                # add the jump destination to the used ones
+                new_path.used_segment_jumps[new_path.path[-2]].append(destination)      
+                        
             if not ignore_leap_info:
                 new_path.no_repeats = True
         return new_path
 
     @property
-    def list_of_destinations_from_last_segment(self):
+    def list_of_destinations_from_last_segment(self):    
         destinations = list(self.segments[self.path[-1]].to)
         previously_used_destinations = self.used_segment_jumps[self.path[-1]]
         # only continue in order of the sequence, after full consumption, start at zero
         # if the full or minimal sequence is forced,
         # return only the single possible jump destination, else return possibly many.
-
-        if len(previously_used_destinations) != 0:
+        
+        if len(previously_used_destinations) != 0:       
             last_destination = previously_used_destinations[-1]
             last_destination_count = previously_used_destinations.count(
                 last_destination
-            )
+            )               
             last_destination_index = [
                 i for i, n in enumerate(destinations * 100) if n == last_destination
             ][last_destination_count - 1]

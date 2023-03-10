@@ -733,6 +733,8 @@ def _handle_direction(e, position, part, ongoing):
 
         if get_value_from_attribute(sd, "fine", str) == "yes":
             part.add(score.Fine(), position)
+        if get_value_from_attribute(sd, "fine", str) == "1":
+            part.add(score.Fine(), position)
         if get_value_from_attribute(sd, "dacapo", str) == "yes":
             part.add(score.DaCapo(), position)
         if get_value_from_attribute(sd, "tocoda", str) == "coda":
