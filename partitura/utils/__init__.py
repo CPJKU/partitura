@@ -64,6 +64,7 @@ from partitura.utils.misc import (
 
 __all__ = [
     "ensure_notearray",
+    "note_array_from_part",
     "ensure_rest_array",
     "compute_pianoroll",
     "compute_pitch_class_pianoroll",
