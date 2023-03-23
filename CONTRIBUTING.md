@@ -31,16 +31,16 @@ To open an issue navigate to the partitura github repository:
 A step by step guide :
 
 1. To contribute is to open a relevant issue.
-2. ***Fork*** or the repo.
+2. ***Fork*** the Partitura repo.
 3. *Checkout* or *Pull* the latest stable develop branch.
 4. *Checkout a new branch* from the develop with the name of your develop idea.
-5. When finished coding, open a pull request.
+5. When finished coding, open a pull request to the develop branch of partitura.
 
 ### Open a relevant issue
 
 Follow section how to open an issue.
 
-## **Fork** the Repo
+### **Fork** the Repo
 
 Fork partitura from 
 https://github.com/CPJKU/partitura
@@ -54,7 +54,7 @@ cd partitura
 ### Get latest Develop Branch
 
 ```shell
-git fetch *
+git fetch upstream
 git checkout develop
 git pull
 ```
@@ -77,7 +77,11 @@ Write Unit tests to check the compatibility and assure the evolution of your fea
 
 ### Opening your Pull Request
 
-##### Go to Partitura Pull Requests and Click New Pull Request
+##### Go to your forked Partitura repo and Click New Pull Request
+
+Open a Pull request from your new branch into the original `https://github.com/CPJKU/partitura` **develop** branch.
+
+Your pull request should then be visible on:
 
 [Partitura Pull Requests]: https://github.com/CPJKU/partitura/pulls	"Partitura Pull Requests"
 
@@ -97,4 +101,4 @@ If there is no conflict with the develop branch then you will see this on your s
 
 If indeed the tests pass then a person from the development team of Partitura will review your work and accept your Pull Request.
 
-Your features will then be included to the next release of Partitura.
+Your features will then be included to the next release of Partitura or a discussion will kick-start on your pull request thread.
