@@ -478,12 +478,13 @@ def linearize_segment_contents(part, start, end, state):
 
         add_chord_tags(voices_e[voice])
 
+    harmony_e = do_harmony(part, start, end)
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end, state["range_counter"])
     prints_e = do_prints(part, start, end)
     barline_e = do_barlines(part, start, end)
 
-    other_e = attributes_e + directions_e + barline_e + prints_e
+    other_e = harmony_e + attributes_e + directions_e + barline_e + prints_e
 
     contents = merge_measure_contents(voices_e, other_e, start.t)
 
@@ -579,6 +580,8 @@ def do_barlines(part, start, end):
         result.append((onset, None, barline_e))
 
     return result
+
+
 
 
 def add_chord_tags(notes):
@@ -963,6 +966,22 @@ def do_attributes(part, start, end):
 
         result.append((t, None, attr_e))
 
+    return result
+
+
+def do_harmony(part, start, end):
+    """
+    Produce xml objects for harmony (Roman Numeral Text)
+    """
+    harmony = part.iter_all(score.Harmony, start, end)
+    result = []
+    for h in harmony:
+        harmony_e = etree.Element("harmony", print_frame="no")
+        function = etree.SubElement(harmony_e, "function")
+        function.text = h.text
+        kind_e = etree.SubElement(harmony_e, "kind", text="")
+        kind_e.text = "none"
+        result.append((h.start.t, None, harmony_e))
     return result
 
 

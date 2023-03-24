@@ -2624,6 +2624,35 @@ class Words(TimedObject):
         return f'{super().__str__()} "{self.text}"'
 
 
+class Harmony(TimedObject):
+    """A harmony element in the score usually for Roman Numerals.
+
+        Parameters
+        ----------
+        text : str
+            The harmony text
+        note : Note
+            The Note to which the harmony is associated
+
+        Attributes
+        ----------
+        text : str
+            See parameters
+        note: Note
+            See parameters
+
+        """
+
+    def __init__(self, text, note):
+        super().__init__()
+        self.text = text
+        self.note = note
+        # assert issubclass(note, GenericNote)
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
 class Direction(TimedObject):
     """Base class for performance directions in the score."""
 
