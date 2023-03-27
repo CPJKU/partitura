@@ -730,8 +730,8 @@ def _handle_direction(e, position, part, ongoing):
 
     sound_directions = e.findall("sound")
     for sd in sound_directions:
-
-        if get_value_from_attribute(sd, "fine", str) == "yes":
+        # TODO: figure out which values occur in the wild for each attribute
+        if get_value_from_attribute(sd, "fine", str) in ("yes", "1"):
             part.add(score.Fine(), position)
         if get_value_from_attribute(sd, "dacapo", str) == "yes":
             part.add(score.DaCapo(), position)
