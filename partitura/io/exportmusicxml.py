@@ -647,7 +647,8 @@ def merge_with_voice(notes, other, measure_start):
         "direction": 2,
         "print": 3,
         "sound": 4,
-        "note": 5,
+        "harmony": 5,
+        "note": 6,
     }
     last_note_onset = measure_start
 
