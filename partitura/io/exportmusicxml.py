@@ -900,6 +900,8 @@ def do_attributes(part, start, end):
         by_start[o.start.t].append(o)
     for o in part.iter_all(score.TimeSignature, start, end):
         by_start[o.start.t].append(o)
+    for o in part.iter_all(score.Staff, start, end):
+        by_start[o.start.t].append(o)
 
     # sort clefs by number before adding them to by_start
     clefs_by_start = defaultdict(list)
@@ -964,6 +966,13 @@ def do_attributes(part, start, end):
                     etree.SubElement(clef_e, "clef-octave-change").text = "{}".format(
                         o.octave_change
                     )
+            elif isinstance(o, score.Staff):
+                staff_e = etree.SubElement(attr_e, "staff-details")
+                if o.lines:
+                    etree.SubElement(staff_e, "staff-lines").text = "{}".format(
+                        o.lines
+                    )
+
 
         result.append((t, None, attr_e))
 

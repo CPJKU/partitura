@@ -2520,6 +2520,30 @@ class Tempo(TimedObject):
             return f"{super().__str__()} bpm={self.bpm}"
 
 
+class Staff(TimedObject):
+    """A staff.
+
+    Parameters
+    ----------
+    number : int
+        The staff number
+    lines : int, optional (default: 5)
+
+    Attributes
+    ----------
+    number : int
+        See parameters
+
+    """
+
+    def __init__(self, number, lines=5):
+        super().__init__()
+        self.number = number
+        self.lines = lines
+
+    def __str__(self):
+        return f"{super().__str__()} number={self.number} lines={self.lines}"
+
 class KeySignature(TimedObject):
     """Key signature.
 
