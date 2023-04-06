@@ -2671,6 +2671,40 @@ class Harmony(TimedObject):
         return f'{super().__str__()} "{self.text}"'
 
 
+class RomanNumeral(TimedObject):
+    """A harmony element in the score usually for Roman Numerals.
+
+    Parameters
+    ----------
+    text : str
+        The harmony text
+
+    Attributes
+    ----------
+    text : str
+        See parameters
+    """
+
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        # assert issubclass(note, GenericNote)
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class ChordSymbol(TimedObject):
+    """A harmony element in the score usually for Chord Symbols."""
+    def __init__(self, root, kind):
+        super().__init__()
+        self.kind = kind
+        self.root = root
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.root + self.kind}"'
+
+
 class Direction(TimedObject):
     """Base class for performance directions in the score."""
 

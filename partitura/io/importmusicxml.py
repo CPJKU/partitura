@@ -574,9 +574,13 @@ def _handle_harmony(e, position, part):
     """Handle a <harmony> element."""
     if e.find("function") is not None:
         text = e.find("function").text
-    elif e.find("kind") is not None:
+        if text is not None:
+            part.add(score.RomanNumeral(text), position)
+    elif e.find("kind") is not None and e.find("root") is not None:
         # TODO: handle kind text which is other kind of annotation also root
-        # text = e.find("kind").get("text")
+        kind = e.find("kind").get("text")
+        root = e.find("root").find("root-step").text
+        part.add(score.ChordSymbol(root=root, kind=kind), position)
         text = None
     else:
         text = None
@@ -886,12 +890,6 @@ def _handle_direction(e, position, part, ongoing):
                         'pedal types "change" and "continue" are '
                         "not supported. Ignoring direction."
                     )
-        elif dt.tag == "harmony":
-            if dt.text is not None:
-                starting_directions.append(score.Harmony(dt.text))
-            else:
-                warnings.warn("Ignoring empty harmony element")
-
         else:
             warnings.warn("ignoring direction type: {} {}".format(dt.tag, dt.attrib))
 
