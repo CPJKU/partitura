@@ -2655,22 +2655,16 @@ class Harmony(TimedObject):
         ----------
         text : str
             The harmony text
-        note : Note
-            The Note to which the harmony is associated
 
         Attributes
         ----------
         text : str
             See parameters
-        note: Note
-            See parameters
-
         """
 
-    def __init__(self, text, note):
+    def __init__(self, text):
         super().__init__()
         self.text = text
-        self.note = note
         # assert issubclass(note, GenericNote)
 
     def __str__(self):
@@ -4720,7 +4714,7 @@ def merge_parts(parts, reassign="voice"):
             # full copy the first part and partially copy the others
             # we don't copy elements like duplicate barlines, clefs or
             # time signatures for others
-            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
+            # TODO : check DaCapo, Fine, Fermata, Ending, Tempo
             if p_ind == 0 or not isinstance(
                 e,
                 el_to_discard,
