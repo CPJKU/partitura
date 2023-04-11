@@ -4821,7 +4821,7 @@ def is_a_within_b(a, b, wholly=False):
         else:
             contained = contained_start or contained_end
     else:
-        warnings.warn("a needs to be TimePoint, TImedObject, or int.")
+        warnings.warn("a needs to be TimePoint, TimedObject, or int.")
     return contained
 
 
