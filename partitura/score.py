@@ -2656,14 +2656,15 @@ class OctaveShiftDirection(TimedObject):
     ----------
 
     """
-    def __init__(self, octave_shift_type, octave_shift_size=8, staff=None):
+    def __init__(self, shift_type, shift_size=8, staff=None):
         super().__init__()
-        self.octave_shift_type = octave_shift_type
-        self.octave_shift_size = octave_shift_size
+        self.shift_type = shift_type
+        self.shift_size = shift_size
         self.staff = staff
 
     def __str__(self):
-        return f'{super().__str__()} "{self.octave_shift_type}"'
+        return f'{super().__str__()} "{self.shift_type}"'
+
 
 
 class Harmony(TimedObject):

@@ -105,6 +105,8 @@ REST_ARRAY_TESTFILES = [
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
 
+OCTAVE_SHIFT_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["example_octave_shift.musicxml"]]
+
 MERGE_PARTS_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
     for fn in [

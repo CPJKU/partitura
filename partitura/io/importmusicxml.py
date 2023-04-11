@@ -439,18 +439,18 @@ def _parse_parts(document, part_dict):
         for shift in part.iter_all(score.OctaveShiftDirection):
             # Shifts normal notes
             for note in part.iter_all(score.Note, start=shift.start.t, end=shift.end.t):
-                if shift.shift_type == "up":
-                    note.octave += 1 if shift.number == 8 else 2
-                elif shift.shift_type == "down":
-                    note.octave -= shift.number if shift.number == 8 else 2
+                if note.staff == shift.staff:
+                    if shift.shift_type == "up":
+                        note.octave -= 1 if shift.shift_size == 8 else 2
+                    elif shift.shift_type == "down":
+                        note.octave += 1 if shift.shift_size == 8 else 2
             # Shifts grace notes
             for note in part.iter_all(score.GraceNote, start=shift.start.t, end=shift.end.t):
-                if shift.shift_type == "up":
-                    note.octave += 1 if shift.number == 8 else 2
-                elif shift.shift_type == "down":
-                    note.octave -= shift.number if shift.number == 8 else 2
-
-
+                if note.staff == shift.staff:
+                    if shift.shift_type == "up":
+                        note.octave -= 1 if shift.shift_size == 8 else 2
+                    elif shift.shift_type == "down":
+                        note.octave += 1 if shift.shift_size == 8 else 2
 
 
 def _handle_measure(measure_el, position, part, ongoing, doc_order):
@@ -871,13 +871,13 @@ def _handle_direction(e, position, part, ongoing):
             # system before they are continued at the start of the next, this
             # will not be treated correctly. I'm not sure how dashes spanning
             # systems are encoded in practice (need examples).
-        elif dt.tag == "octave_shift":
+        elif dt.tag == "octave-shift":
             # start/stop
             octave_shift_type = get_value_from_attribute(dt, "type", str)
             octave_shift_size = get_value_from_attribute(dt, "size", int) or 8
             octave_shift_number = get_value_from_attribute(dt, "number", int) or 1
-            key = ("octave_shift", octave_shift_number)
-            if octave_shift_type == "start":
+            key = ("octave-shift", octave_shift_number)
+            if octave_shift_type in ["up", "down"]:
                 if key in ongoing:
                     eo = ongoing.pop(key)
                     ending_directions.append(eo)
