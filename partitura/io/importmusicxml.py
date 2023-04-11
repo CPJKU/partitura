@@ -555,8 +555,6 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
                     part.add(fermata, position)
 
             # TODO: handle segno/fine/dacapo
-        elif e.tag == "harmony":
-            _handle_harmony(e, position, part)
 
         else:
             warnings.warn("ignoring tag {0}".format(e.tag), stacklevel=2)
@@ -569,22 +567,6 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
     return measure_maxtime, doc_order
 
-
-def _handle_harmony(e, position, part):
-    """Handle a <harmony> element."""
-    if e.find("function") is not None:
-        text = e.find("function").text
-    elif e.find("kind") is not None:
-        # TODO: handle kind text which is other kind of annotation also root
-        # text = e.find("kind").get("text")
-        text = None
-    else:
-        text = None
-
-    if text is not None:
-        part.add(score.Harmony(text), position)
-    else:
-        warnings.warn("ignoring empty <harmony> tag", stacklevel=2)
 
 def _handle_repeat(e, position, part, ongoing):
     key = "repeat"
@@ -806,6 +788,7 @@ def _handle_direction(e, position, part, ongoing):
                         dyn_el.tag, staff=staff
                     )
                     starting_directions.append(direction)
+
         elif dt.tag == "words":
             # first child of direction-type is words, there may be subsequent
             # words items, so we loop:
@@ -886,11 +869,6 @@ def _handle_direction(e, position, part, ongoing):
                         'pedal types "change" and "continue" are '
                         "not supported. Ignoring direction."
                     )
-        elif dt.tag == "harmony":
-            if dt.text is not None:
-                starting_directions.append(score.Harmony(dt.text))
-            else:
-                warnings.warn("Ignoring empty harmony element")
 
         else:
             warnings.warn("ignoring direction type: {} {}".format(dt.tag, dt.attrib))

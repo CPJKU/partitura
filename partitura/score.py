@@ -2535,30 +2535,6 @@ class Tempo(TimedObject):
             return f"{super().__str__()} bpm={self.bpm}"
 
 
-class Staff(TimedObject):
-    """A staff.
-
-    Parameters
-    ----------
-    number : int
-        The staff number
-    lines : int, optional (default: 5)
-
-    Attributes
-    ----------
-    number : int
-        See parameters
-
-    """
-
-    def __init__(self, number, lines=5):
-        super().__init__()
-        self.number = number
-        self.lines = lines
-
-    def __str__(self):
-        return f"{super().__str__()} number={self.number} lines={self.lines}"
-
 class KeySignature(TimedObject):
     """Key signature.
 
@@ -2658,29 +2634,6 @@ class Words(TimedObject):
         super().__init__()
         self.text = text
         self.staff = staff
-
-    def __str__(self):
-        return f'{super().__str__()} "{self.text}"'
-
-
-class Harmony(TimedObject):
-    """A harmony element in the score usually for Roman Numerals.
-
-        Parameters
-        ----------
-        text : str
-            The harmony text
-
-        Attributes
-        ----------
-        text : str
-            See parameters
-        """
-
-    def __init__(self, text):
-        super().__init__()
-        self.text = text
-        # assert issubclass(note, GenericNote)
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
@@ -3427,8 +3380,7 @@ def tie_notes(part):
 
     """
     # split and tie notes at measure boundaries
-    notes = list(part.iter_all(Note)) + list(part.iter_all(UnpitchedNote))
-    for note in notes:
+    for note in list(part.iter_all(Note)):
         next_measure = next(note.start.iter_next(Measure), None)
         cur_note = note
         note_end = cur_note.end
@@ -3451,25 +3403,15 @@ def tie_notes(part):
                 note_id = _make_tied_note_id(cur_note.id)
             else:
                 note_id = None
-            if isinstance(cur_note, UnpitchedNote):
-                next_note = UnpitchedNote(
-                    cur_note.step,
-                    cur_note.octave,
-                    id=note_id,
-                    voice=cur_note.voice,
-                    staff=cur_note.staff,
-                    symbolic_duration=sym_dur,
-                )
-            else:
-                next_note = Note(
-                    note.step,
-                    note.octave,
-                    note.alter,
-                    id=note_id,
-                    voice=note.voice,
-                    staff=note.staff,
-                    symbolic_duration=sym_dur,
-                )
+            next_note = Note(
+                note.step,
+                note.octave,
+                note.alter,
+                id=note_id,
+                voice=note.voice,
+                staff=note.staff,
+                symbolic_duration=sym_dur,
+            )
             part.add(next_note, next_measure.start.t, note_end.t)
 
             cur_note.tie_next = next_note
@@ -4746,7 +4688,7 @@ def merge_parts(parts, reassign="voice"):
             # full copy the first part and partially copy the others
             # we don't copy elements like duplicate barlines, clefs or
             # time signatures for others
-            # TODO : check DaCapo, Fine, Fermata, Ending, Tempo
+            # TODO : check  DaCapo, Fine, Fermata, Ending, Tempo
             if p_ind == 0 or not isinstance(
                 e,
                 el_to_discard,

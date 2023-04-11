@@ -5,7 +5,6 @@ This module contains music related utilities
 """
 from __future__ import annotations
 
-import copy
 from collections import defaultdict
 import re
 import warnings
@@ -252,24 +251,6 @@ MINOR_KEYS = [
 
 TIME_UNITS = ["beat", "quarter", "sec", "div"]
 
-INTERVALCLASSES = [
-    f"{specific}{generic}"
-    for generic in [2, 3, 6, 7]
-    for specific in ["dd", "d", "m", "M", "A", "AA"]
-] + [
-    f"{specific}{generic}"
-    for generic in [1, 4, 5]
-    for specific in ["dd", "d", "P", "A", "AA"]
-]
-
-INTERVAL_TO_SEMITONES = dict(zip(INTERVALCLASSES, [
-    generic+specific for generic in [1, 3, 8, 10] for specific in [-2, -1, 0, 1, 2, 3]
-] + [generic+specific for generic in [0, 5, 7] for specific in [-2, -1, 0, 1, 2]]))
-
-
-STEPS = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, 0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
-
-
 NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
 
 MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
@@ -377,84 +358,6 @@ def ensure_rest_array(restarray_or_part, *args, **kwargs):
             "numpy array, a `Part`, `PartGroup`, or a list but "
             "is {0}".format(type(restarray_or_part))
         )
-
-
-def transpose_step(step, interval, direction):
-    """
-    Transpose a note by a given interval.
-    Parameters
-    ----------
-    step
-    inverval
-
-    """
-    op = lambda x, y: abs(x + y) % 7 if direction == "up" else abs(x - y) % 7
-    if interval == "P1":
-        pass
-    else:
-        step = STEPS[op(STEPS[step.capitalize()], eval(interval)-1)]
-    return step
-
-
-def _transpose_note(note, inverval="P1", direction="up"):
-    """
-    Transpose a note by a given interval.
-    Parameters
-    ----------
-    note
-    inverval
-
-    """
-    if inverval == "P1":
-        pass
-    else:
-        prev_step = note.step.capitalize()
-        note.step = transpose_step(prev_step, inverval[-1], direction)
-        if STEPS[note.step] - STEPS[prev_step] < 0 and direction == "up":
-            note.octave += 1
-        elif STEPS[note.step] - STEPS[prev_step] > 0 and direction == "down":
-            note.octave -= 1
-        else:
-            note.octave = note.octave
-        prev_alter = note.alter if note.alter is not None else 0
-        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
-        tmp_pc = MIDI_BASE_CLASS[note.step.lower()]
-        if direction == "up":
-            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
-        else:
-            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        note.alter = INTERVAL_TO_SEMITONES[inverval] - diff_sm
-
-
-def transpose(score: ScoreLike, interval: int, direction="up") -> Score:
-    """
-    Transpose a score by a given interval.
-
-    Parameters
-    ----------
-    score : ScoreLike
-        Score to be transposed.
-    interval : int
-        Interval to transpose by.
-    direction : str, optional
-        Direction of the transposition, by default "up"
-
-    Returns
-    -------
-    Score
-        Transposed score.
-    """
-    assert interval in INTERVALCLASSES, "Invalid interval class"
-
-    import partitura.score as s
-    new_score = copy.deepcopy(score)
-    if isinstance(score, s.Score):
-        for part in new_score.parts:
-            transpose(part, interval)
-    elif isinstance(score, s.Part):
-        for note in score.notes_tied:
-            _transpose_note(note, interval)
-    return new_score
 
 
 def get_time_units_from_note_array(note_array):
