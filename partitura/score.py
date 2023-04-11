@@ -2544,6 +2544,7 @@ class Staff(TimedObject):
     def __str__(self):
         return f"{super().__str__()} number={self.number} lines={self.lines}"
 
+
 class KeySignature(TimedObject):
     """Key signature.
 
@@ -2646,6 +2647,23 @@ class Words(TimedObject):
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
+
+
+class OctaveShiftDirection(TimedObject):
+    """An octave shift direction.
+
+    Parameters
+    ----------
+
+    """
+    def __init__(self, octave_shift_type, octave_shift_size=8, staff=None):
+        super().__init__()
+        self.octave_shift_type = octave_shift_type
+        self.octave_shift_size = octave_shift_size
+        self.staff = staff
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.octave_shift_type}"'
 
 
 class Harmony(TimedObject):
