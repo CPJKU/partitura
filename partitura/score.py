@@ -4807,11 +4807,13 @@ def merge_parts(parts, reassign="voice"):
                         e.voice = e.voice + sum(maximum_voices[:p_ind])
                 elif reassign == "staff":
                     if isinstance(e, (GenericNote, Words, Direction)):
-                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+
+                        e.staff = (e.staff if e.staff is not None else 1) + sum(maximum_staves[:p_ind])
                     elif isinstance(
                         e, Clef
                     ):  # TODO: to update if "number" get changed in "staff"
-                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+
+                        e.staff = (e.staff if e.staff is not None else 1) + sum(maximum_staves[:p_ind])
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
