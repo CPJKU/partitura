@@ -3506,15 +3506,25 @@ def tie_notes(part):
                 note_id = _make_tied_note_id(cur_note.id)
             else:
                 note_id = None
-            next_note = Note(
-                note.step,
-                note.octave,
-                note.alter,
-                id=note_id,
-                voice=note.voice,
-                staff=note.staff,
-                symbolic_duration=sym_dur,
-            )
+            if isinstance(cur_note, UnpitchedNote):
+                next_note = UnpitchedNote(
+                    cur_note.step,
+                    cur_note.octave,
+                    id=note_id,
+                    voice=cur_note.voice,
+                    staff=cur_note.staff,
+                    symbolic_duration=sym_dur,
+                )
+            else:
+                next_note = Note(
+                    note.step,
+                    note.octave,
+                    note.alter,
+                    id=note_id,
+                    voice=note.voice,
+                    staff=note.staff,
+                    symbolic_duration=sym_dur,
+                )
             part.add(next_note, next_measure.start.t, note_end.t)
 
             cur_note.tie_next = next_note

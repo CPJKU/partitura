@@ -478,12 +478,13 @@ def linearize_segment_contents(part, start, end, state):
 
         add_chord_tags(voices_e[voice])
 
+    harmony_e = do_harmony(part, start, end)
     attributes_e = do_attributes(part, start, end)
     directions_e = do_directions(part, start, end, state["range_counter"])
     prints_e = do_prints(part, start, end)
     barline_e = do_barlines(part, start, end)
 
-    other_e = attributes_e + directions_e + barline_e + prints_e
+    other_e = harmony_e + attributes_e + directions_e + barline_e + prints_e
 
     contents = merge_measure_contents(voices_e, other_e, start.t)
 
@@ -644,7 +645,8 @@ def merge_with_voice(notes, other, measure_start):
         "direction": 2,
         "print": 3,
         "sound": 4,
-        "note": 5,
+        "harmony": 5,
+        "note": 6,
     }
     last_note_onset = measure_start
 
@@ -871,6 +873,22 @@ def do_directions(part, start, end, counter):
     return result
 
 
+def do_harmony(part, start, end):
+    """
+    Produce xml objects for harmony (Roman Numeral Text)
+    """
+    harmony = part.iter_all(score.Harmony, start, end)
+    result = []
+    for h in harmony:
+        harmony_e = etree.Element("harmony", print_frame="no")
+        function = etree.SubElement(harmony_e, "function")
+        function.text = h.text
+        kind_e = etree.SubElement(harmony_e, "kind", text="")
+        kind_e.text = "none"
+        result.append((h.start.t, None, harmony_e))
+    return result
+
+
 def do_attributes(part, start, end):
     """
     Produce xml objects for non-note measure content
@@ -895,6 +913,8 @@ def do_attributes(part, start, end):
     for o in part.iter_all(score.KeySignature, start, end):
         by_start[o.start.t].append(o)
     for o in part.iter_all(score.TimeSignature, start, end):
+        by_start[o.start.t].append(o)
+    for o in part.iter_all(score.Staff, start, end):
         by_start[o.start.t].append(o)
 
     # sort clefs by number before adding them to by_start
@@ -959,6 +979,12 @@ def do_attributes(part, start, end):
 
                     etree.SubElement(clef_e, "clef-octave-change").text = "{}".format(
                         o.octave_change
+                    )
+            elif isinstance(o, score.Staff):
+                staff_e = etree.SubElement(attr_e, "staff-details")
+                if o.lines:
+                    etree.SubElement(staff_e, "staff-lines").text = "{}".format(
+                        o.lines
                     )
 
         result.append((t, None, attr_e))
