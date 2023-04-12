@@ -146,7 +146,7 @@ class Part(object):
 
         if len(tss) == 0:
             # default time sig
-            beats, beat_type = 4, 4
+            beats, beat_type, musical_beats = 4, 4, 4
             warnings.warn(
                 "No time signatures found, assuming {}/{}".format(beats, beat_type)
             )
@@ -157,15 +157,17 @@ class Part(object):
                 tN = self.last_point.t
             tss = np.array(
                 [
-                    (t0, beats, beat_type),
-                    (tN, beats, beat_type),
+                    (t0, beats, beat_type, musical_beats),
+                    (tN, beats, beat_type, musical_beats),
                 ]
             )
         elif len(tss) == 1:
             # If there is only a single time signature
             tss = np.array([tss[0, :], tss[0, :]])
         elif tss[0, 0] > self.first_point.t:
-            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]), tss))
+            tss = np.vstack(
+                ((self.first_point.t, tss[0, 1], tss[0, 2], tss[0, 3]), tss)
+            )
 
         return interp1d(
             tss[:, 0],
