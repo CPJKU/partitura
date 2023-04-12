@@ -820,7 +820,7 @@ def staff_feature(na, part):
     names = ["staff"]
     notes = {n.id: n.staff for n in part.notes_tied}
     N = len(notes)
-    W = np.empty((N, 1))
+    W = np.zeros((N, 1))
     for i, n in enumerate(na):
         W[i, 0] = notes[n["id"]]
 

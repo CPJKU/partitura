@@ -722,7 +722,8 @@ def key_mode_to_int(mode):
     elif mode in ("major", None, 1):
         return 1
     else:
-        raise ValueError("Unknown mode {}".format(mode))
+        warnings.warn("Unknown mode {} Assuming mode is 'major'".format(mode))
+        return 1
 
 
 def key_int_to_mode(mode):
@@ -744,7 +745,8 @@ def key_int_to_mode(mode):
     elif mode in ("major", None, 1):
         return "major"
     else:
-        raise ValueError("Unknown mode {}".format(mode))
+        warnings.warn("Unknown mode {}. Assuming mode is 'major'.".format(mode))
+        return "major"
 
 
 def estimate_symbolic_duration(dur, div, eps=10**-3):

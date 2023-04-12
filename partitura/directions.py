@@ -133,6 +133,7 @@ CONSTANT_QUANTIFIER = [
     "non troppo",
     "non tanto",
     "etwas",
+    "un peu moins",
 ]
 
 CONSTANT_LOUDNESS_ADJ = [
@@ -196,6 +197,8 @@ CONSTANT_TEMPO_ADJ = [
     r"/(vivo|vivacissimamente|vivace)/",
     r"/(allegro|allegretto)/",
     r"/(espressivo|espress\.?)/",
+    r"/(schnell\.?)/",
+    "vif",
 ]
 
 
@@ -228,6 +231,7 @@ NOUN = [
     "tempo",
     "sentimento",
     "movimento",
+    "spielend",
 ]
 
 GENRE = [
