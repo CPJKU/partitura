@@ -348,6 +348,7 @@ class BaseStimePtimeLine(MatchLine):
     ptime: BasePtimeLine
         Performance time as a BasePtimeLine instance.
     """
+
     out_pattern = "{StimeLine}-{PtimeLine}"
 
     def __init__(

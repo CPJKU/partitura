@@ -194,4 +194,4 @@ WAV_TESTFILES = [
     ]
 ]
 
-PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, '*.png'))
+PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, "*.png"))

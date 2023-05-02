@@ -49,10 +49,10 @@ class PerformedPart(object):
         to be equivalent to on. For values below the threshold the
         sustain pedal is treated as off. Defaults to 64.
     ppq : int
-        Parts per Quarter (ppq) of the MIDI encoding. Defaults to 480. 
+        Parts per Quarter (ppq) of the MIDI encoding. Defaults to 480.
     mpq : int
-        Microseconds per Quarter (mpq) tempo of the MIDI encoding. 
-        Defaults to 500000. 
+        Microseconds per Quarter (mpq) tempo of the MIDI encoding.
+        Defaults to 500000.
 
     Attributes
     ----------
@@ -118,9 +118,9 @@ class PerformedPart(object):
     def sustain_pedal_threshold(self, value: int) -> None:
         """
         Set the pedal threshold and update the sound_off
-        of the notes. The threshold is a MIDI CC value 
-        between 0 and 127. The higher the threshold, the 
-        more restrained the pedal use and the drier the 
+        of the notes. The threshold is a MIDI CC value
+        between 0 and 127. The higher the threshold, the
+        more restrained the pedal use and the drier the
         performance. Set to 127 to deactivate pedal.
         """
         self._sustain_pedal_threshold = value
@@ -160,10 +160,19 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
-            note_on_tick = n.get("note_on_tick", seconds_to_midi_ticks(n["note_on"],mpq=self.mpq, ppq=self.ppq))
+            note_on_tick = n.get(
+                "note_on_tick",
+                seconds_to_midi_ticks(n["note_on"], mpq=self.mpq, ppq=self.ppq),
+            )
             offset = n.get("sound_off", n["note_off"])
             duration_sec = offset - note_on_sec
-            duration_tick = n.get("note_off_tick", seconds_to_midi_ticks(n["note_off"],mpq=self.mpq, ppq=self.ppq)) - note_on_tick
+            duration_tick = (
+                n.get(
+                    "note_off_tick",
+                    seconds_to_midi_ticks(n["note_off"], mpq=self.mpq, ppq=self.ppq),
+                )
+                - note_on_tick
+            )
             note_array.append(
                 (
                     note_on_sec,

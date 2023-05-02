@@ -34,6 +34,7 @@ This will install the latest release of the package and will install all depende
 
 Quickstart
 ==========
+A detailed tutorial with some hands-on MIR applications is available [here](https://cpjku.github.io/partitura_tutorial/index.html).
 
 The following code loads the contents of an example MusicXML file included in
 the package:
