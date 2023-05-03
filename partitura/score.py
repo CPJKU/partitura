@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from numbers import Number
 
 # import copy
-from partitura.utils.music import MUSICAL_BEATS
+from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings
 import numpy as np
 from scipy.interpolate import PPoly
@@ -2740,6 +2740,34 @@ class ChordSymbol(TimedObject):
     def __str__(self):
         return f'{super().__str__()} "{self.root + self.kind}"'
 
+
+class Interval(object):
+    """
+    An interval element usually used for transpositions
+
+    Parameters
+    ----------
+    number : int
+        The interval number (e.g. 1, 2, 3, 4, 5, 6, 7, ...)
+    quality : str
+        The interval quality (e.g. M, m, P, A, d, dd, AA)
+    direction : str
+        The interval direction (e.g. up, down)
+    """
+    def __init__(self, number, quality, direction="up"):
+        self.number = number
+        self.quality = quality
+        self.direction = direction
+        self.validate()
+
+    def validate(self):
+        number = self.number % 7
+        number = 7 if number == 0 else number
+        assert self.quality+str(number) in INTERVALCLASSES, f"Interval {number}{self.quality} not found"
+        assert self.direction in ["up", "down"], f"Interval direction {self.direction} not found"
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.number}{self.quality}"'
 
 
 class Direction(TimedObject):

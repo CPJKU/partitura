@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     # For this to work we need to import annotations from __future__
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
-    from partitura.score import ScoreLike
+    from partitura.score import ScoreLike, Interval
     from partitura.performance import PerformanceLike, Performance
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
@@ -392,11 +392,11 @@ def transpose_step(step, interval, direction):
     if interval == "P1":
         pass
     else:
-        step = STEPS[op(STEPS[step.capitalize()], eval(interval)-1)]
+        step = STEPS[op(STEPS[step.capitalize()], interval-1)]
     return step
 
 
-def _transpose_note(note, inverval="P1", direction="up"):
+def _transpose_note(note, interval):
     """
     Transpose a note by a given interval.
     Parameters
@@ -405,28 +405,29 @@ def _transpose_note(note, inverval="P1", direction="up"):
     inverval
 
     """
-    if inverval == "P1":
+    if interval.quality+str(interval.number) == "P1":
         pass
     else:
+        # TODO work for arbitrary octave.
         prev_step = note.step.capitalize()
-        note.step = transpose_step(prev_step, inverval[-1], direction)
-        if STEPS[note.step] - STEPS[prev_step] < 0 and direction == "up":
+        note.step = transpose_step(prev_step, interval.number, interval.direction)
+        if STEPS[note.step] - STEPS[prev_step] < 0 and interval.direction == "up":
             note.octave += 1
-        elif STEPS[note.step] - STEPS[prev_step] > 0 and direction == "down":
+        elif STEPS[note.step] - STEPS[prev_step] > 0 and interval.direction == "down":
             note.octave -= 1
         else:
             note.octave = note.octave
         prev_alter = note.alter if note.alter is not None else 0
         prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
         tmp_pc = MIDI_BASE_CLASS[note.step.lower()]
-        if direction == "up":
+        if interval.direction == "up":
             diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
         else:
             diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        note.alter = INTERVAL_TO_SEMITONES[inverval] - diff_sm
+        note.alter = INTERVAL_TO_SEMITONES[interval.quality+str(interval.number)] - diff_sm
 
 
-def transpose(score: ScoreLike, interval: int, direction="up") -> Score:
+def transpose(score: ScoreLike, interval: Interval) -> Score:
     """
     Transpose a score by a given interval.
 
@@ -436,16 +437,12 @@ def transpose(score: ScoreLike, interval: int, direction="up") -> Score:
         Score to be transposed.
     interval : int
         Interval to transpose by.
-    direction : str, optional
-        Direction of the transposition, by default "up"
 
     Returns
     -------
     Score
         Transposed score.
     """
-    assert interval in INTERVALCLASSES, "Invalid interval class"
-
     import partitura.score as s
     new_score = copy.deepcopy(score)
     if isinstance(score, s.Score):
