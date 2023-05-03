@@ -152,9 +152,12 @@ def decode_performance(
     pitches = np.clip(pitches, 1, 127)
 
     dynamics_params = performance_array["velocity"][sort_idx]
+    # time_params = performance_array[
+    #     list(TEMPO_NORMALIZATION[beat_normalization]['param_names']) 
+    #     + ["timing", "articulation_log"]
+    # ][sort_idx]
     time_params = performance_array[
-        list(TEMPO_NORMALIZATION[beat_normalization]['param_names']) 
-        + ["timing", "articulation_log"]
+        list(("beat_period", "timing", "articulation_log"))
     ][sort_idx]
 
     onsets_durations = decode_time(
@@ -222,12 +225,19 @@ def decode_time(score_onsets,
     diff_u_onset_score = score_info["diff_u_onset"]
 
     # decode normalizations
-    tempo_param_names = list(TEMPO_NORMALIZATION[normalization]['param_names'])
+    # tempo_param_names = list(TEMPO_NORMALIZATION[normalization]['param_names'])
+    # time_param = np.array(
+    #     [tuple(np.mean(rfn.structured_to_unstructured(parameters[tempo_param_names][uix]), axis=0),) for uix in unique_onset_idxs],
+    #     dtype=[(tp, "f4") for tp in tempo_param_names]
+    # )
+    # beat_period = TEMPO_NORMALIZATION[normalization]['rescale'](time_param)
+
     time_param = np.array(
-        [tuple(np.mean(rfn.structured_to_unstructured(parameters[tempo_param_names][uix]), axis=0),) for uix in unique_onset_idxs],
-        dtype=[(tp, "f4") for tp in tempo_param_names]
+        [tuple([np.mean(parameters["beat_period"][uix])]) for uix in unique_onset_idxs],
+        dtype=[("beat_period", "f4")],
     )
-    beat_period = TEMPO_NORMALIZATION[normalization]['rescale'](time_param)
+
+    beat_period = time_param["beat_period"]
 
     ioi_perf = diff_u_onset_score * beat_period
 
@@ -336,7 +346,7 @@ def encode_tempo(
     parameters = np.zeros(len(score), dtype=[(pn, "f4") for pn in parameter_names])
     parameters["articulation_log"] = articulation_param
     for i, jj in enumerate(unique_onset_idxs):
-        parameters["beat_period"] = beat_period[i]
+        parameters["beat_period"][jj] = beat_period[i]
         # Defined as in Eq. (3.9) in Thesis (pp. 34)
         parameters["timing"][jj] = eq_onsets[i] - performance[jj, 0]
         if beat_normalization != "beat_period":
