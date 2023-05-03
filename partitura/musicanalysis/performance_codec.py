@@ -521,7 +521,7 @@ def tempo_by_derivative(score_onsets, performed_onsets,
     # Get unique onsets if no provided
     if unique_onset_idxs is None:
         # Get indices of the unique onsets (quantize score onsets)
-        unique_onset_idxs = get_unique_onset_idxs((1e4 * score_onsets).astype(np.int))
+        unique_onset_idxs = get_unique_onset_idxs((1e4 * score_onsets).astype(int))
 
     # Get score information
     score_info = get_unique_seq(onsets=score_onsets,
