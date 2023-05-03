@@ -2683,9 +2683,8 @@ class OctaveShiftDirection(TimedObject):
         return f'{super().__str__()} "{self.shift_type}"'
 
 
-
 class Harmony(TimedObject):
-    """A harmony element in the score usually for Roman Numerals.
+    """A harmony element in the score not currently used.
 
         Parameters
         ----------
@@ -2732,10 +2731,11 @@ class RomanNumeral(TimedObject):
 
 class ChordSymbol(TimedObject):
     """A harmony element in the score usually for Chord Symbols."""
-    def __init__(self, root, kind):
+    def __init__(self, root, kind, bass=None):
         super().__init__()
         self.kind = kind
         self.root = root
+        self.bass = bass
 
     def __str__(self):
         return f'{super().__str__()} "{self.root + self.kind}"'

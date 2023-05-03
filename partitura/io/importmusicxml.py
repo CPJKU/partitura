@@ -600,9 +600,7 @@ def _handle_harmony(e, position, part):
     else:
         text = None
 
-    if text is not None:
-        part.add(score.Harmony(text), position)
-    else:
+    if text is None:
         warnings.warn("ignoring empty <harmony> tag", stacklevel=2)
 
 

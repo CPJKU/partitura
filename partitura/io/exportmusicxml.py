@@ -877,7 +877,7 @@ def do_harmony(part, start, end):
     """
     Produce xml objects for harmony (Roman Numeral Text)
     """
-    harmony = part.iter_all(score.Harmony, start, end)
+    harmony = part.iter_all(score.RomanNumeral, start, end)
     result = []
     for h in harmony:
         harmony_e = etree.Element("harmony", print_frame="no")
@@ -886,6 +886,17 @@ def do_harmony(part, start, end):
         kind_e = etree.SubElement(harmony_e, "kind", text="")
         kind_e.text = "none"
         result.append((h.start.t, None, harmony_e))
+    harmony = part.iter_all(score.ChordSymbol, start, end)
+    for h in harmony:
+        harmony_e = etree.Element("harmony", print_frame="no")
+        kind_e = etree.SubElement(harmony_e, "kind", text=h.kind)
+        root_e = etree.SubElement(harmony_e, "root")
+        root_step_e = etree.SubElement(root_e, "root-step")
+        root_step_e.text = h.root
+        if h.bass is not None:
+            bass_e = etree.SubElement(harmony_e, "bass")
+            bass_step_e = etree.SubElement(bass_e, "bass-step")
+            bass_step_e.text = h.bass
     return result
 
 
