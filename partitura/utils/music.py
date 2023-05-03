@@ -427,7 +427,7 @@ def _transpose_note(note, interval):
         note.alter = INTERVAL_TO_SEMITONES[interval.quality+str(interval.number)] - diff_sm
 
 
-def transpose(score: ScoreLike, interval: Interval) -> Score:
+def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
     """
     Transpose a score by a given interval.
 
