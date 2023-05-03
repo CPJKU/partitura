@@ -1002,6 +1002,10 @@ class Part(object):
             for tp in self._points[start_idx:end_idx]:
                 yield from tp.iter_starting(cls, include_subclasses)
 
+    def apply(self):
+        """Apply all changes to the timeline for objects like octave Shift."""
+        pass
+
     @property
     def last_point(self):
         """The last TimePoint on the timeline, or None if the timeline
@@ -2678,6 +2682,7 @@ class OctaveShiftDirection(TimedObject):
         self.shift_type = shift_type
         self.shift_size = shift_size
         self.staff = staff
+        self.applied = False
 
     def __str__(self):
         return f'{super().__str__()} "{self.shift_type}"'

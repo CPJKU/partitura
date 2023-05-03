@@ -451,6 +451,7 @@ def _parse_parts(document, part_dict):
                         note.octave -= 1 if shift.shift_size == 8 else 2
                     elif shift.shift_type == "down":
                         note.octave += 1 if shift.shift_size == 8 else 2
+            shift.applied = True
 
 
 def _handle_measure(measure_el, position, part, ongoing, doc_order):
