@@ -136,13 +136,14 @@ def decode_performance(
     """
 
     snotes = score.note_array()
-    # snotes = part.notes_tied
 
     if snote_ids is None:
         snote_ids = [n['id'] for n in snotes]
+        snote_info = snotes
+    else:
+        snote_info = snotes[np.isin(snotes['id'], snote_ids)]
 
     # sort
-    snote_info = snotes[np.isin(snotes['id'], snote_ids)]
     sort_idx = np.lexsort((snote_info["pitch"], snote_info["onset_div"]))
 
     onsets = snote_info["onset_beat"][sort_idx]
@@ -152,12 +153,12 @@ def decode_performance(
     pitches = np.clip(pitches, 1, 127)
 
     dynamics_params = performance_array["velocity"][sort_idx]
-    # time_params = performance_array[
-    #     list(TEMPO_NORMALIZATION[beat_normalization]['param_names']) 
-    #     + ["timing", "articulation_log"]
-    # ][sort_idx]
+    if beat_normalization != "beat_period":
+        norm_params = list(TEMPO_NORMALIZATION[beat_normalization]['param_names'])
+    else:
+        norm_params = []
     time_params = performance_array[
-        list(("beat_period", "timing", "articulation_log"))
+        list(("beat_period", "timing", "articulation_log")) + norm_params
     ][sort_idx]
 
     onsets_durations = decode_time(
@@ -224,20 +225,22 @@ def decode_time(score_onsets,
     unique_onset_idxs = score_info["unique_onset_idxs"]
     diff_u_onset_score = score_info["diff_u_onset"]
 
-    # decode normalizations
-    # tempo_param_names = list(TEMPO_NORMALIZATION[normalization]['param_names'])
-    # time_param = np.array(
-    #     [tuple(np.mean(rfn.structured_to_unstructured(parameters[tempo_param_names][uix]), axis=0),) for uix in unique_onset_idxs],
-    #     dtype=[(tp, "f4") for tp in tempo_param_names]
-    # )
-    # beat_period = TEMPO_NORMALIZATION[normalization]['rescale'](time_param)
+    # reconstruct the time by the extra parameters, for testing the inversion. 
+    # In practice, always reconstruct the time by beat_period. 
+    if normalization != "beat_period":
+        tempo_param_names = list(TEMPO_NORMALIZATION[normalization]['param_names'])
+        time_param = np.array(
+            [tuple(np.mean(rfn.structured_to_unstructured(parameters[tempo_param_names][uix]), axis=0),) for uix in unique_onset_idxs],
+            dtype=[(tp, "f4") for tp in tempo_param_names]
+        )
+        beat_period = TEMPO_NORMALIZATION[normalization]['rescale'](time_param)
 
-    time_param = np.array(
-        [tuple([np.mean(parameters["beat_period"][uix])]) for uix in unique_onset_idxs],
-        dtype=[("beat_period", "f4")],
-    )
-
-    beat_period = time_param["beat_period"]
+    else:
+        time_param = np.array(
+            [tuple([np.mean(parameters["beat_period"][uix])]) for uix in unique_onset_idxs],
+            dtype=[("beat_period", "f4")],
+        )
+        beat_period = time_param["beat_period"]
 
     ioi_perf = diff_u_onset_score * beat_period
 
@@ -549,12 +552,10 @@ def tempo_by_derivative(score_onsets, performed_onsets,
 
     tempo_curve = derivative(onset_fun, input_onsets, dx=0.5)
 
-    output = [tempo_curve, input_onsets]
-
     if return_onset_idxs:
-        output.append(unique_onset_idxs)
-
-    return output
+        return tempo_curve, input_onsets, unique_onset_idxs
+    else:
+        return tempo_curve, input_onsets
 
 
 def get_unique_seq(onsets, offsets, unique_onset_idxs=None, return_diff=False):
