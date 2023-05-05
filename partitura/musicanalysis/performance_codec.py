@@ -684,6 +684,7 @@ def to_matched_score(score: ScoreLike,
         n_dur = max(n["duration_sec"], 60 / 200 * 0.25)
         pair_info = (sn_on, sn_dur, sn['pitch'], n["onset_sec"], n_dur, n["velocity"])
         if include_score_markings:
+            pair_info += (sn['voice'].item(), )
             pair_info += tuple([sn[field].item() for field in sn.dtype.names if "feature" in field])
         ms.append(pair_info)
         snote_ids.append(sn['id'].item())
@@ -697,6 +698,7 @@ def to_matched_score(score: ScoreLike,
         ("velocity", "i4"),
     ]
     if include_score_markings:
+        fields += [("voice", "i4")]
         fields += [(field, sn.dtype.fields[field][0]) for field in sn.dtype.fields if "feature" in field]
 
     return np.array(ms, dtype=fields), snote_ids
