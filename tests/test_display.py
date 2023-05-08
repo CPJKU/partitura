@@ -6,9 +6,8 @@ rely on externally installed software (e.g., MuseScore, Lilypond),
 they cannot be automatically tested by GitHub.
 """
 import os
+import tempfile
 import unittest
-
-from tempfile import TemporaryDirectory
 
 import numpy as np
 
@@ -37,14 +36,15 @@ class TestMuseScoreExport(unittest.TestCase):
                     concat_mode="vertical",
                 )
 
-                with TemporaryDirectory() as tmpdir:
-                    ofn = os.path.join(tmpdir, "test_output.png")
-                    concatenate_images(
-                        filenames=filenames,
-                        out=ofn,
-                        concat_mode="vertical",
-                    )
-                    reloaded_image = Image.open(ofn)
+                tmpdir = tempfile.gettempdir()
+
+                ofn = os.path.join(tmpdir, "test_output.png")
+                concatenate_images(
+                    filenames=filenames,
+                    out=ofn,
+                    concat_mode="vertical",
+                )
+                reloaded_image = Image.open(ofn)
 
                 self.assertTrue(
                     np.allclose(
