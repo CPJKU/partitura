@@ -255,22 +255,54 @@ def additive_synthesis(
     if isinstance(freqs, (int, float, np.integer, np.floating)):
         freqs = np.array([freqs], dtype=DTYPE)
 
+    if not isinstance(freqs, np.ndarray):
+        raise ValueError(
+            "`freqs` should be a numpy array, an int or a float "
+            f"but is {type(freqs)}"
+        )
+
+    if duration < 0 or samplerate < 0:
+        raise ValueError(
+            "`duration` and `samplerate` must be larger than 0 "
+            f"but are {duration}, {samplerate}, respectively"
+        )
+
     if isinstance(weights, (int, float, np.integer, np.floating)):
         weights = np.array([weights], dtype=DTYPE)
 
-    elif weights == "equal":
-        weights = np.ones(len(freqs), dtype=DTYPE) / len(freqs)
+    elif isinstance(weights, str):
+        if weights == "equal":
+            weights = np.ones(len(freqs), dtype=DTYPE) / len(freqs)
+        else:
+            raise ValueError(
+                f"If `weights` is a string, it must be 'equal' but is {weights}"
+            )
+
+    if not isinstance(weights, np.ndarray):
+        raise ValueError(
+            "`weights` should be a numpy array, a number (int or float) or "
+            f"a string with value 'equal' but is {type(weights)}"
+        )
+
+    if len(freqs) != len(weights):
+        raise ValueError("`len(freqs)` should be equal to `len(weights)`")
 
     freqs = freqs.reshape(-1, 1)
     weights = weights.reshape(-1, 1)
 
-    if envelope_fun == "linear":
-        envelope_fun = lin_in_lin_out
-    elif envelope_fun == "exp":
-        envelope_fun = exp_in_exp_out
-    else:
-        if not callable(envelope_fun):
-            raise ValueError('`envelope_fun` must be "linear", "exp" or a callable')
+    if isinstance(envelope_fun, str):
+        if envelope_fun == "linear":
+            envelope_fun = lin_in_lin_out
+        elif envelope_fun == "exp":
+            envelope_fun = exp_in_exp_out
+        else:
+            raise ValueError(
+                "If `envelope_fun` is a string, it must be 'linear' or 'exp', "
+                f"but is {envelope_fun}"
+            )
+
+    if not callable(envelope_fun):
+        raise ValueError('`envelope_fun` must be "linear", "exp" or a callable')
 
     num_frames = int(np.round(duration * samplerate))
     envelope = envelope_fun(num_frames)
