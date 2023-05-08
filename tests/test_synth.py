@@ -139,6 +139,27 @@ class TestAdditiveSynthesis(unittest.TestCase):
 
                 self.assertTrue(len(y) == expected_length)
 
+    def test_dtypes(self):
+
+        # freqs, durations as integers
+
+        freqs = RNG.randint(30, 400, size=10)
+        duration = 1.0
+        weights = 1
+        samplerate = 10000
+
+        for freq in freqs:
+
+            y = additive_synthesis(
+                freqs=float(freq),
+                samplerate=samplerate,
+                duration=duration,
+                weights=weights,
+                envelope_fun="linear",
+            )
+
+            self.assertTrue(len(y) == samplerate)
+
 
 class TestSynthExport(unittest.TestCase):
 
@@ -191,19 +212,15 @@ class TestSynthExport(unittest.TestCase):
 
     def test_errors(self):
 
-        # wrong envelope
-        try:
-            audio_signal = synthesize(
-                note_info=self.score,
-                samplerate=8000,
-                envelope_fun="wrong keyword",
-                tuning="equal_temperament",
-                bpm=60,
-            )
-            # This test should fail
-            self.assertTrue(False)
-        except ValueError:
-            self.assertTrue(True)
+        self.assertRaises(
+            ValueError,
+            synthesize,
+            note_info=self.score,
+            samplerate=8000,
+            envelope_fun="wrong keyword",
+            tuning="equal_temperament",
+            bpm=60,
+        )
 
 
 if __name__ == "__main__":
