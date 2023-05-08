@@ -968,8 +968,8 @@ def do_attributes(part, start, end):
 
 @deprecated_alias(parts="score_data")
 def save_musicxml(
-        score_data: score.ScoreLike,
-        out: Optional[PathLike] = None,
+    score_data: score.ScoreLike,
+    out: Optional[PathLike] = None,
 ) -> Optional[str]:
     """
     Save a one or more Part or PartGroup instances in MusicXML format.

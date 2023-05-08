@@ -93,7 +93,7 @@ class Part(object):
 
         # set beat reference
         self._use_musical_beat = False
-        
+
         # store number of staves
         self._number_of_staves = None
 
@@ -788,10 +788,10 @@ class Part(object):
         for e in self.iter_all(Words):
             if e.staff is not None and e.staff > max_staves:
                 max_staves = e.staff
-        
+
         self._number_of_staves = max_staves
         return max_staves
-    
+
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
