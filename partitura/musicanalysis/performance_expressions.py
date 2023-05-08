@@ -204,6 +204,19 @@ def dynamics_attributes(m_score : list,
 
 
 ### Articulation
+
+def get_next_note(i, note_info, match_voiced):
+    """get the next note in the same voice that's a resonalble transition 
+    """
+
+    next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
+    next_position_notes = match_voiced[match_voiced['onset'] == next_position]
+
+    # from the notes in the next position, find the one that's closest pitch-wise.
+    closest_idx = np.abs((next_position_notes['pitch'] - note_info['pitch'])).argmin()
+
+    return next_position_notes[closest_idx]
+
 def articulation_attributes(m_score):
     """
     Compute the articulation attributes (key overlap ratio) from the alignment.
@@ -237,9 +250,11 @@ def articulation_attributes(m_score):
     for voice in np.unique(m_score['voice']):
         match_voiced = m_score[m_score['voice'] == voice]
         for i, note_info in enumerate(match_voiced):
-            if i >= len(match_voiced) - 1:  
+
+            if note_info['onset'] == match_voiced['onset'].max():  # last beat
                 break
-            next_note_info = match_voiced[i + 1]
+
+            next_note_info = get_next_note(i, note_info, match_voiced)
             j = np.where(m_score == note_info)[0].item()  # original position
 
             # KOR for general melodic transitions
