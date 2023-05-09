@@ -139,6 +139,109 @@ class TestAdditiveSynthesis(unittest.TestCase):
 
                 self.assertTrue(len(y) == expected_length)
 
+    def test_dtypes(self):
+
+        # freqs and weights as numbers
+
+        freqs = RNG.randint(30, 400, size=10)
+        duration = 1
+        weights = 1
+        samplerate = 10000
+
+        for freq in freqs:
+            y = additive_synthesis(
+                freqs=freq,
+                samplerate=samplerate,
+                duration=duration,
+                weights=weights,
+                envelope_fun="linear",
+            )
+
+            self.assertTrue(len(y) == samplerate)
+
+        # freqs and weights as arrays
+        for i in range(10):
+            freqs = RNG.randint(30, 400, size=RNG.randint(2, 10))
+            weights = RNG.rand(len(freqs))
+            weights /= weights.sum()
+
+            y = additive_synthesis(
+                freqs=freqs,
+                samplerate=samplerate,
+                duration=duration,
+                weights=weights,
+                envelope_fun="exp",
+            )
+
+            self.assertTrue(len(y) == samplerate)
+
+    def test_errors(self):
+        class WrongType:
+            pass
+
+        # wrong type for freq
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=WrongType(),
+            duration=1,
+        )
+
+        # Wrong type for weights
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=1,
+            duration=1,
+            weights=WrongType(),
+        )
+
+        # Wrong value for weights
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=1,
+            duration=1,
+            weights="wrong value",
+        )
+
+        # weights and freqs have different lengts
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=1,
+            duration=1,
+            weights=np.array([0.5, 0.5]),
+        )
+
+        # Wrong type for envelope function
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=1,
+            duration=1,
+            weights=1,
+            envelope_fun=WrongType(),
+        )
+
+        # Wrong value for envelope function
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=1,
+            duration=1,
+            weights=1,
+            envelope_fun="wrong value",
+        )
+
+        # Negative duration
+        self.assertRaises(
+            ValueError,
+            additive_synthesis,
+            freqs=1,
+            duration=-1,
+        )
+
 
 class TestSynthExport(unittest.TestCase):
 
@@ -191,19 +294,15 @@ class TestSynthExport(unittest.TestCase):
 
     def test_errors(self):
 
-        # wrong envelope
-        try:
-            audio_signal = synthesize(
-                note_info=self.score,
-                samplerate=8000,
-                envelope_fun="wrong keyword",
-                tuning="equal_temperament",
-                bpm=60,
-            )
-            # This test should fail
-            self.assertTrue(False)
-        except ValueError:
-            self.assertTrue(True)
+        self.assertRaises(
+            ValueError,
+            synthesize,
+            note_info=self.score,
+            samplerate=8000,
+            envelope_fun="wrong keyword",
+            tuning="equal_temperament",
+            bpm=60,
+        )
 
 
 if __name__ == "__main__":
