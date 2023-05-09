@@ -111,6 +111,28 @@ def save_parangonada_csv(
 
     perf_note_array = ensure_notearray(performance_data)
 
+    valid_score_note_array_fields = [
+                    "onset_beat",
+                    "duration_beat",
+                    "onset_quarter",
+                    "duration_quarter",
+                    "onset_div",
+                    "duration_div",
+                    "pitch",
+                    "voice",
+                    "id"
+                ]
+
+    valid_perf_note_array_fields = [
+                    "onset_sec",
+                    "duration_sec",
+                    "pitch",
+                    "velocity",
+                    "track",
+                    "channel",
+                    "id",
+                ]
+
     ffields = [
         ("velocity", "<f4"),
         ("timing", "<f4"),
@@ -147,39 +169,19 @@ def save_parangonada_csv(
         np.savetxt(
             os.path.join(outdir, "ppart.csv"),
             # outdir + os.path.sep + "perf_note_array.csv",
-            perf_note_array[
-                [
-                    "onset_sec",
-                    "duration_sec",
-                    "pitch",
-                    "velocity",
-                    "track",
-                    "channel",
-                    "id",
-                ]
-            ],
+            perf_note_array[valid_perf_note_array_fields],
             fmt="%.20s",
             delimiter=",",
-            header=",".join(
-                [
-                    "onset_sec",
-                    "duration_sec",
-                    "pitch",
-                    "velocity",
-                    "track",
-                    "channel",
-                    "id",
-                ]
-            ),
+            header=",".join(valid_perf_note_array_fields),
             comments="",
         )
         np.savetxt(
             os.path.join(outdir, "part.csv"),
             # outdir + os.path.sep + "score_note_array.csv",
-            score_note_array,
+            score_note_array[valid_score_note_array_fields],
             fmt="%.20s",
             delimiter=",",
-            header=",".join(score_note_array.dtype.names),
+            header=",".join(valid_score_note_array_fields),
             comments="",
         )
         np.savetxt(
