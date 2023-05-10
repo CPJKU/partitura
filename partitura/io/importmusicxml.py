@@ -436,23 +436,24 @@ def _parse_parts(document, part_dict):
         # when constructed from MusicXML
         score.set_end_times(part)
 
+        # Octave Shifts are only visual doesn't to change the octave of notes.
         # Apply octave shifts directly to notes
-        for shift in part.iter_all(score.OctaveShiftDirection):
-            # Shifts normal notes
-            for note in part.iter_all(score.Note, start=shift.start.t, end=shift.end.t):
-                if note.staff == shift.staff:
-                    if shift.shift_type == "up":
-                        note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
-                    elif shift.shift_type == "down":
-                        note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
-            # Shifts grace notes
-            for note in part.iter_all(score.GraceNote, start=shift.start.t, end=shift.end.t):
-                if note.staff == shift.staff:
-                    if shift.shift_type == "up":
-                        note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
-                    elif shift.shift_type == "down":
-                        note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
-            shift.applied = True
+        # for shift in part.iter_all(score.OctaveShiftDirection):
+        #     # Shifts normal notes
+        #     for note in part.iter_all(score.Note, start=shift.start.t, end=shift.end.t):
+        #         if note.staff == shift.staff:
+        #             if shift.shift_type == "up":
+        #                 note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #             elif shift.shift_type == "down":
+        #                 note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #     # Shifts grace notes
+        #     for note in part.iter_all(score.GraceNote, start=shift.start.t, end=shift.end.t):
+        #         if note.staff == shift.staff:
+        #             if shift.shift_type == "up":
+        #                 note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #             elif shift.shift_type == "down":
+        #                 note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #     shift.applied = True
 
 
 def _handle_measure(measure_el, position, part, ongoing, doc_order):
