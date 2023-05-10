@@ -5,8 +5,8 @@ on:
     branches:
       - master
   pull_request:
-    - master
-
+    branches:
+      - master
 jobs:
   lint:
     runs-on: ubuntu-latest
