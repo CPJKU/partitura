@@ -60,6 +60,7 @@ PEDAL_DIRECTIONS = {
     "sustain_pedal": score.SustainPedalDirection,
 }
 
+OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
 def validate_musicxml(xml, debug=False):
     """
@@ -441,16 +442,16 @@ def _parse_parts(document, part_dict):
             for note in part.iter_all(score.Note, start=shift.start.t, end=shift.end.t):
                 if note.staff == shift.staff:
                     if shift.shift_type == "up":
-                        note.octave -= 1 if shift.shift_size == 8 else 2
+                        note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
                     elif shift.shift_type == "down":
-                        note.octave += 1 if shift.shift_size == 8 else 2
+                        note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
             # Shifts grace notes
             for note in part.iter_all(score.GraceNote, start=shift.start.t, end=shift.end.t):
                 if note.staff == shift.staff:
                     if shift.shift_type == "up":
-                        note.octave -= 1 if shift.shift_size == 8 else 2
+                        note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
                     elif shift.shift_type == "down":
-                        note.octave += 1 if shift.shift_size == 8 else 2
+                        note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
             shift.applied = True
 
 
