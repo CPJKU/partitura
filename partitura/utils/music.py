@@ -21,8 +21,10 @@ if TYPE_CHECKING:
     # For this to work we need to import annotations from __future__
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
-    from partitura.score import ScoreLike, Interval
-    from partitura.performance import PerformanceLike, Performance
+
+from partitura.score import ScoreLike, Interval
+from partitura.performance import PerformanceLike, Performance, PerformedPart
+
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 # _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
@@ -2927,7 +2929,7 @@ def performance_from_part(part, bpm=100, velocity=64):
 
 def performance_notearray_from_score_notearray(
     snote_array: np.ndarray,
-    bpm: [float, np.ndarray, Callable] = 100.0,
+    bpm: Union[float, np.ndarray, Callable] = 100.0,
     velocity: Union[int, np.ndarray, Callable] = 64,
 ) -> np.ndarray:
     """
@@ -3316,6 +3318,127 @@ def generate_random_performance_note_array(
         return performance
 
     return note_array
+
+
+def slice_ppart_by_time(
+    ppart: PerformedPart, 
+    start_time: float, 
+    end_time: float,
+    clip_note_off: bool=True,
+    reindex_notes: bool=True
+    ) -> PerformedPart:
+    """
+    Get a slice of a PeformedPart by time
+
+    Parameters
+    ----------
+    ppart : `PerformedPart` object
+    start_time : float
+        Starting time in seconds 
+    end_time : float
+        End time in seconds
+    clip_note_off : bool
+        Clip note_off time to end_time
+    reindex_notes : bool
+        Reindex notes in slice starting from n0
+
+    Returns
+    -------
+    ppart_slice :  `PerformedPart` object 
+        A copy of input ppart containing notes, programs and control information 
+        only between `start_time` and `end_time` of ppart
+    """
+    from partitura.performance import PerformedPart
+
+    if not isinstance(ppart, PerformedPart):
+        raise ValueError("Input is not an instance of PerformedPart!")
+
+    assert(start_time < end_time), "Start time not less than end time!"
+
+    # create a new (empty) instance of a PerformedPart
+    # single dummy note added to be able to set sustain_pedal_threshold in __init__
+    # -> check `adjust_offsets_w_sustain` in partitura.performance
+    ppart_slice = PerformedPart([{'note_on': 0, 'note_off': 0}])
+
+    # get ppq if PerformedPart contains it, 
+    # else skip time_tick info when e.g. created with 'load_performance_midi'
+    try:
+        ppq = ppart.ppq
+        ppart_slice.ppq = ppq
+    except AttributeError:
+        ppq = None
+
+    if ppart.controls:
+        controls_slice = []
+        for cc in ppart.controls:
+            if cc['time'] >= start_time and cc['time'] <= end_time:
+                new_cc = cc.copy()
+                new_cc['time'] -= start_time
+                if ppq: 
+                    new_cc['time_tick'] = int(2 * ppq * cc['time'])
+                controls_slice.append(new_cc)
+        ppart_slice.controls = controls_slice
+    
+    if ppart.programs:
+        programs_slice = []
+        for pr in ppart.programs:
+            if pr['time'] >= start_time and pr['time'] <= end_time:
+                new_pr = pr.copy()
+                new_pr['time'] -= start_time
+                if ppq:
+                    new_pr['time_tick'] = int(2 * ppq * pr['time'])
+                programs_slice.append(new_pr)
+        ppart_slice.programs = programs_slice
+
+    notes_slice = []
+    note_id = 0
+    for note in ppart.notes: 
+        # collect previous sounding notes at start_time
+        if note["note_on"] < start_time and note["note_off"] > start_time:
+            new_note = note.copy()
+            new_note['note_on'] = 0.
+            if clip_note_off:
+                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+            else: 
+                new_note['note_off'] = note['note_off'] - start_time
+            if ppq:
+                new_note['note_on_tick'] = 0
+                new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+            if reindex_notes:
+                new_note['id'] = 'n' + str(note_id)
+                note_id += 1
+            notes_slice.append(new_note)
+        # todo - combine both cases
+        if note['note_on'] >= start_time: 
+            if note['note_on'] < end_time:
+                new_note = note.copy()
+                new_note['note_on'] -= start_time
+                if clip_note_off:
+                    new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                else: 
+                    new_note['note_off'] = note['note_off'] - start_time
+                if ppq:
+                    new_note['note_on_tick'] = int(2 * ppq * new_note['note_on'])
+                    new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+                if reindex_notes:
+                    new_note['id'] = 'n' + str(note_id)
+                    note_id += 1
+                notes_slice.append(new_note)
+            # assumes notes in list are sorted by onset time   
+            else: 
+                break               
+    
+    ppart_slice.notes = notes_slice
+    
+    # set threshold property after creating notes list to update 'sound_offset' values 
+    ppart_slice.sustain_pedal_threshold = ppart.sustain_pedal_threshold
+
+    if ppart.id:
+        ppart_slice.id = ppart.id + '_slice_{}s_to_{}s'.format(start_time, end_time)     
+    if ppart.part_name:
+        ppart_slice.part_name = ppart.part_name 
+
+    return ppart_slice
 
 
 if __name__ == "__main__":
