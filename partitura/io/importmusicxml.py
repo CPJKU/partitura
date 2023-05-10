@@ -530,6 +530,9 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             doc_order += 1
             measure_maxtime = max(measure_maxtime, position)
 
+        elif e.tag == "harmony":
+            _handle_harmony(e, position, part)
+
         elif e.tag == "barline":
             location = get_value_from_attribute(e, "location", str)
             if (location is None) or (location == "right"):

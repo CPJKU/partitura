@@ -889,7 +889,8 @@ def do_harmony(part, start, end):
     harmony = part.iter_all(score.ChordSymbol, start, end)
     for h in harmony:
         harmony_e = etree.Element("harmony", print_frame="no")
-        kind_e = etree.SubElement(harmony_e, "kind", text=h.kind)
+        kind_e = etree.SubElement(harmony_e, "kind", text=h.kind) if h.kind is not None else etree.SubElement(harmony_e, "kind", text="")
+        kind_e.text = "none"
         root_e = etree.SubElement(harmony_e, "root")
         root_step_e = etree.SubElement(root_e, "root-step")
         root_step_e.text = h.root
@@ -897,6 +898,7 @@ def do_harmony(part, start, end):
             bass_e = etree.SubElement(harmony_e, "bass")
             bass_step_e = etree.SubElement(bass_e, "bass-step")
             bass_step_e.text = h.bass
+        result.append((h.start.t, None, harmony_e))
     return result
 
 
