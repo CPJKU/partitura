@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from numbers import Number
 
 # import copy
-from partitura.utils.music import MUSICAL_BEATS
+from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings
 import numpy as np
 from scipy.interpolate import PPoly
@@ -1003,6 +1003,10 @@ class Part(object):
         else:
             for tp in self._points[start_idx:end_idx]:
                 yield from tp.iter_starting(cls, include_subclasses)
+
+    def apply(self):
+        """Apply all changes to the timeline for objects like octave Shift."""
+        pass
 
     @property
     def last_point(self):
@@ -2537,6 +2541,32 @@ class Tempo(TimedObject):
             return f"{super().__str__()} bpm={self.bpm}"
 
 
+class Staff(TimedObject):
+    """A staff.
+
+    Parameters
+    ----------
+    number : int
+        The staff number
+    lines : int, optional (default: 5)
+
+    Attributes
+    ----------
+    number : int
+        See parameters
+
+    """
+
+    def __init__(self, number, lines=5):
+        super().__init__()
+        self.number = number
+        self.lines = lines
+
+    def __str__(self):
+        return f"{super().__str__()} number={self.number} lines={self.lines}"
+
+
+
 class KeySignature(TimedObject):
     """Key signature.
 
@@ -2639,6 +2669,112 @@ class Words(TimedObject):
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
+
+
+
+class OctaveShiftDirection(TimedObject):
+    """An octave shift direction.
+
+    Parameters
+    ----------
+
+    """
+    def __init__(self, shift_type, shift_size=8, staff=None):
+        super().__init__()
+        self.shift_type = shift_type
+        self.shift_size = shift_size
+        self.staff = staff
+        self.applied = False
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.shift_type}"'
+
+
+class Harmony(TimedObject):
+    """A harmony element in the score not currently used.
+
+        Parameters
+        ----------
+        text : str
+            The harmony text
+
+        Attributes
+        ----------
+        text : str
+            See parameters
+        """
+
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        # assert issubclass(note, GenericNote)
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class RomanNumeral(TimedObject):
+    """A harmony element in the score usually for Roman Numerals.
+
+    Parameters
+    ----------
+    text : str
+        The harmony text
+
+    Attributes
+    ----------
+    text : str
+        See parameters
+    """
+
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        # assert issubclass(note, GenericNote)
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class ChordSymbol(TimedObject):
+    """A harmony element in the score usually for Chord Symbols."""
+    def __init__(self, root, kind, bass=None):
+        super().__init__()
+        self.kind = kind
+        self.root = root
+        self.bass = bass
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.root + self.kind}"'
+
+
+class Interval(object):
+    """
+    An interval element usually used for transpositions
+
+    Parameters
+    ----------
+    number : int
+        The interval number (e.g. 1, 2, 3, 4, 5, 6, 7, ...)
+    quality : str
+        The interval quality (e.g. M, m, P, A, d, dd, AA)
+    direction : str
+        The interval direction (e.g. up, down)
+    """
+    def __init__(self, number, quality, direction="up"):
+        self.number = number
+        self.quality = quality
+        self.direction = direction
+        self.validate()
+
+    def validate(self):
+        number = self.number % 7
+        number = 7 if number == 0 else number
+        assert self.quality+str(number) in INTERVALCLASSES, f"Interval {number}{self.quality} not found"
+        assert self.direction in ["up", "down"], f"Interval direction {self.direction} not found"
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.number}{self.quality}"'
 
 
 class Direction(TimedObject):
@@ -3405,15 +3541,25 @@ def tie_notes(part):
                 note_id = _make_tied_note_id(cur_note.id)
             else:
                 note_id = None
-            next_note = Note(
-                note.step,
-                note.octave,
-                note.alter,
-                id=note_id,
-                voice=note.voice,
-                staff=note.staff,
-                symbolic_duration=sym_dur,
-            )
+            if isinstance(cur_note, UnpitchedNote):
+                next_note = UnpitchedNote(
+                    cur_note.step,
+                    cur_note.octave,
+                    id=note_id,
+                    voice=cur_note.voice,
+                    staff=cur_note.staff,
+                    symbolic_duration=sym_dur,
+                )
+            else:
+                next_note = Note(
+                    note.step,
+                    note.octave,
+                    note.alter,
+                    id=note_id,
+                    voice=note.voice,
+                    staff=note.staff,
+                    symbolic_duration=sym_dur,
+                )
             part.add(next_note, next_measure.start.t, note_end.t)
 
             cur_note.tie_next = next_note
@@ -4747,7 +4893,7 @@ def is_a_within_b(a, b, wholly=False):
         else:
             contained = contained_start or contained_end
     else:
-        warnings.warn("a needs to be TimePoint, TImedObject, or int.")
+        warnings.warn("a needs to be TimePoint, TimedObject, or int.")
     return contained
 
 

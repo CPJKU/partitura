@@ -110,6 +110,8 @@ REST_ARRAY_TESTFILES = [
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
 
+OCTAVE_SHIFT_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["example_octave_shift.musicxml"]]
+
 MERGE_PARTS_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
     for fn in [
@@ -177,6 +179,7 @@ KERN_TESTFILES = [
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
 
+HARMONY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_harmony.musicxml"]]
 
 MOZART_VARIATION_FILES = dict(
     musicxml=os.path.join(MUSICXML_PATH, "mozart_k265_var1.musicxml"),
