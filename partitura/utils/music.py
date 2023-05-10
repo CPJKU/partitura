@@ -21,9 +21,8 @@ if TYPE_CHECKING:
     # For this to work we need to import annotations from __future__
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
-
-from partitura.score import ScoreLike, Interval
-from partitura.performance import PerformanceLike, Performance, PerformedPart
+    from partitura.score import ScoreLike, Interval
+    from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 
 MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
