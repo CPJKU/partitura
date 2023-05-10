@@ -19,6 +19,35 @@ from partitura.utils import music
 from partitura.musicanalysis.performance_codec import to_matched_score, encode_performance, encode_tempo
 
 
+def map_fields(note_info, fields):
+    """
+    map the one-hot fields of dynamics and articulation marking into one column with field.
+
+    Args:
+        note_info (np.array): a row slice from the note_array, without dtype names
+        fields (list): list of tuples (index, field name)
+
+    Returns:
+        string: the name of the marking. 
+    """
+
+    for i, name in fields:
+        if note_info[i] == 1:
+            # hack for the return type
+            return np.array([name.split(".")[-1]], dtype="U256")
+    return np.array(["N/A"], dtype="U256")
+
+
+def process_discrete_dynamics(constant_dyn):
+    """reverse the continuous dynamics ramp into discrete marks on the first beat. Rest of the events are filled with N/A"""
+    constant_dyn_shift = np.append(["N/A"], constant_dyn[:-1])
+    positions = np.where(constant_dyn != constant_dyn_shift)[0]
+
+    constant_dyn_ = np.full(len(constant_dyn), "N/A")
+    constant_dyn_[positions] = constant_dyn[positions]
+
+    return constant_dyn_
+
 # ordinal 
 OLS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
 
@@ -54,6 +83,18 @@ def get_performance_expressions(score: ScoreLike,
     )
     m_score = rfn.append_fields(m_score, "beat_period", time_params['beat_period'], "f4", usemask=False)
 
+    dyn_fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "loudness" in name]
+    constant_dyn = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), dyn_fields).flatten()
+
+    # process the dynamcis value into discrete markings on the first beat instead of a ramp.
+    constant_dyn = process_discrete_dynamics(constant_dyn)
+
+    art_fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "articulation" in name]
+    articulation = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), art_fields).flatten()
+
+    m_score = rfn.rec_append_fields(m_score, "constant_dyn", constant_dyn, "U256")
+    m_score = rfn.rec_append_fields(m_score, "articulation", articulation, "U256")
+
     async_ = async_attributes(unique_onset_idxs, m_score)
     dynamics_ = dynamics_attributes(m_score)
     articulations_ = articulation_attributes(m_score)
@@ -62,6 +103,7 @@ def get_performance_expressions(score: ScoreLike,
                                     # plot=True
                                     )
     return {
+        "m_score": m_score,
         "asynchrony": async_,
         "dynamics": dynamics_,
         "articulations": articulations_,
@@ -124,23 +166,6 @@ def async_attributes(unique_onset_idxs: list,
         
     return async_
 
-def map_fields(note_info, fields):
-    """
-    map the one-hot fields of dynamics and articulation marking into one column with field.
-
-    Args:
-        note_info (np.array): a row slice from the note_array, without dtype names
-        fields (list): list of tuples (index, field name)
-
-    Returns:
-        string: the name of the marking. 
-    """
-
-    for i, name in fields:
-        if note_info[i] == 1:
-            # hack for the return type
-            return np.array([name.split(".")[-1]], dtype="U256")
-    return np.array(["N/A"], dtype="U256")
 
 ### Dynamics 
 def dynamics_attributes(m_score : list,
@@ -160,14 +185,11 @@ def dynamics_attributes(m_score : list,
 
     Returns
     -------
-    dynamics_ : structured array
-        structured array on the piece level with fields agreement and consistency
+    dynamics_ : dict
+        dictionary with fields agreement and consistency 
     """  
-    dynamics_ = np.zeros(1, dtype=[("dyn_agreement", "f4"), ("dyn_consistency_std", "f4")])    
-
-    fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "loudness" in name]
-    constant_dyn = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), fields).flatten()
-    m_score = rfn.rec_append_fields(m_score, "constant_dyn", constant_dyn, "U256")
+    # dynamics_ = np.zeros(1, dtype=[("agreement", "f4"), ("consistency_std", "f4")])    
+    dynamics_ = dict()
 
     # append the marking into m_score based on the time position and windowing
     beats_with_constant_dyn = np.unique(m_score[m_score['constant_dyn'] != 'N/A']['onset'])
@@ -183,7 +205,7 @@ def dynamics_attributes(m_score : list,
         return dynamics_
 
     # agreement: compare each adjacent pair of markings with their expected order, average
-    tau_total = 0
+    marking_aggrements = []
     for marking1, marking2 in zip(constant_dynamics, constant_dynamics[1:]):
         m1, v1 = marking1
         m2, v2 = marking2
@@ -193,12 +215,13 @@ def dynamics_attributes(m_score : list,
         m2_ = m2_ + 1e-5        
         tau, _ = stats.kendalltau([v1, v2], [m1_, m2_])
         assert(tau == tau) # not nan
-        tau_total += tau
-    dynamics_['dyn_agreement'] = tau_total / (len(constant_dynamics)-1)
+        marking_aggrements.append((f"{m1}-{m2}", tau))
+    
+    dynamics_['agreement'] = marking_aggrements
 
     # consistency: how much fluctuations does each marking have 
     velocity_std = [np.std(v_group) for v_group in velocity]
-    dynamics_["dyn_consistency_std"] = np.mean(np.array(velocity_std))
+    dynamics_["consistency_std"] = np.mean(np.array(velocity_std))
 
     return dynamics_
 
@@ -241,10 +264,6 @@ def articulation_attributes(m_score):
 
     kor_ =  (-1) * np.ones((len(m_score)))
     kor_ = np.array(kor_, dtype=[("kor", "f4"), ("kor_legato", "f4"), ("kor_staccato", "f4"),  ("kor_repeated", "f4")])
-
-    fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "articulation" in name]
-    articulation = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), fields).flatten()
-    m_score = rfn.rec_append_fields(m_score, "articulation", articulation, "U256")
 
     # consider the note transition by each voice
     for voice in np.unique(m_score['voice']):
