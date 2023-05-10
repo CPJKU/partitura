@@ -3225,12 +3225,12 @@ def generate_random_performance_note_array(
 
 
 def slice_ppart_by_time(
-    ppart: PerformedPart, 
-    start_time: float, 
+    ppart: PerformedPart,
+    start_time: float,
     end_time: float,
-    clip_note_off: bool=True,
-    reindex_notes: bool=True
-    ) -> PerformedPart:
+    clip_note_off: bool = True,
+    reindex_notes: bool = False,
+) -> PerformedPart:
     """
     Get a slice of a PeformedPart by time
 
@@ -3257,7 +3257,8 @@ def slice_ppart_by_time(
     if not isinstance(ppart, PerformedPart):
         raise ValueError("Input is not an instance of PerformedPart!")
 
-    assert(start_time < end_time), "Start time not less than end time!"
+    if start_time > end_time:
+        raise ValueError("Start time not less than end time!")
 
     # create a new (empty) instance of a PerformedPart
     # single dummy note added to be able to set sustain_pedal_threshold in __init__
