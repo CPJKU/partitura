@@ -1,27 +1,19 @@
-name: Linting
+name: Blacken code
 
 on:
   push:
     branches:
       - master
   pull_request:
+    - master
 
 jobs:
-
-  flake8:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: psf/black@stable
         with:
-          python-version: 3.9
-
-      - name: Install dependencies
-        run: |
-          pip install flake8
-      - name: Run linting
-        run: |
-          flake8 .
+          options: "--check --verbose --include="\.py" --exclude="tests/*"
+          src: "./partitura"
+          version: "~= 22.0"
