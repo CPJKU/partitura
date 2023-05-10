@@ -29,9 +29,9 @@ author = "Maarten Grachten, Carlos Cancino-Chacón, Silvan Peter, Emmanouil Kary
 # built documents.
 #
 # The short X.Y version.
-version = "1.1.1" # pkg_resources.get_distribution("partitura").version
+version = "1.2.2"  # pkg_resources.get_distribution("partitura").version
 # The full version, including alpha/beta/rc tags.
-release = "1.1.1"
+release = "1.2.2"
 
 # # The full version, including alpha/beta/rc tags
 # release = pkg_resources.get_distribution("partitura").version
@@ -67,7 +67,7 @@ extensions = [
     "sphinx.ext.viewcode",
     # 'sphinxcontrib.napoleon',
     "sphinx.ext.napoleon",
-    'nbsphinx',
+    "nbsphinx",
     # 'sphinxcontrib.bibtex',  # for bibliographic references
     # 'sphinxcontrib.rsvgconverter',  # for SVG->PDF conversion in LaTeX output
     # 'sphinx_gallery.load_style',  # load CSS for gallery (needs SG >= 0.6)
@@ -78,11 +78,11 @@ extensions = [
 
 # These projects are also used for the sphinx_codeautolink extension:
 intersphinx_mapping = {
-    'IPython': ('https://ipython.readthedocs.io/en/stable/', None),
-    'matplotlib': ('https://matplotlib.org/', None),
-    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
-    'pandas': ('https://pandas.pydata.org/docs/', None),
-    'python': ('https://docs.python.org/3/', None),
+    "IPython": ("https://ipython.readthedocs.io/en/stable/", None),
+    "matplotlib": ("https://matplotlib.org/", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "python": ("https://docs.python.org/3/", None),
 }
 
 # see http://stackoverflow.com/q/12206334/562769

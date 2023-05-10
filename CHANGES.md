@@ -1,6 +1,31 @@
 Release Notes
 =============
 
+Version 1.2.2 (Released on 2023-10-05)
+--------------------------------------
+
+New features
+------------
+* slicing performed parts
+* roman numeral analysis
+* harmony class for part and export
+* staff with custom number of lines
+* transposition by intervals
+
+
+Bug fixes
+---------
+* file naming bug in load_musicxml()
+* fixed bug in score part unfolding
+* bugfix for fine, ritenuto parsing and unfolding
+* bugfix for performance codec
+
+
+Other changes
+-------------
+* Improved documentation
+* Added contributing file
+
 
 Version 1.2.1 (Released on 2023-02-09)
 --------------------------------------

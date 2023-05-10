@@ -295,9 +295,7 @@ def matchfile_from_alignment(
 
             beat = int((onset_divs - msd) // dpq)
 
-            moffset_divs = Fraction(
-                int(onset_divs - msd - beat * dpq), (dpq * 4)
-            )
+            moffset_divs = Fraction(int(onset_divs - msd - beat * dpq), (dpq * 4))
 
             if debug:
                 duration_beats = offset_beats - onset_beats

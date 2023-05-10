@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from numbers import Number
 
 # import copy
-from partitura.utils.music import MUSICAL_BEATS
+from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings
 import numpy as np
 from scipy.interpolate import PPoly
@@ -93,7 +93,7 @@ class Part(object):
 
         # set beat reference
         self._use_musical_beat = False
-        
+
         # store number of staves
         self._number_of_staves = None
 
@@ -146,7 +146,7 @@ class Part(object):
 
         if len(tss) == 0:
             # default time sig
-            beats, beat_type = 4, 4
+            beats, beat_type, musical_beats = 4, 4, 4
             warnings.warn(
                 "No time signatures found, assuming {}/{}".format(beats, beat_type)
             )
@@ -157,15 +157,17 @@ class Part(object):
                 tN = self.last_point.t
             tss = np.array(
                 [
-                    (t0, beats, beat_type),
-                    (tN, beats, beat_type),
+                    (t0, beats, beat_type, musical_beats),
+                    (tN, beats, beat_type, musical_beats),
                 ]
             )
         elif len(tss) == 1:
             # If there is only a single time signature
             tss = np.array([tss[0, :], tss[0, :]])
         elif tss[0, 0] > self.first_point.t:
-            tss = np.vstack(((self.first_point.t, tss[0, 1], tss[0, 2]), tss))
+            tss = np.vstack(
+                ((self.first_point.t, tss[0, 1], tss[0, 2], tss[0, 3]), tss)
+            )
 
         return interp1d(
             tss[:, 0],
@@ -629,6 +631,21 @@ class Part(object):
             e for e in self.iter_all(ArticulationDirection, include_subclasses=True)
         ]
 
+    @property
+    def segments(self):
+        """Return a list of all segments in the part
+
+        Returns
+        -------
+        list
+            List of Segment objects
+
+        """
+        add_segments(self)
+        return [
+            e for e in self.iter_all(Segment, include_subclasses=False)
+        ]
+
     def quarter_durations(self, start=None, end=None):
         """Return an Nx2 array with quarter duration (second column)
         and their respective times (first column).
@@ -788,10 +805,10 @@ class Part(object):
         for e in self.iter_all(Words):
             if e.staff is not None and e.staff > max_staves:
                 max_staves = e.staff
-        
+
         self._number_of_staves = max_staves
         return max_staves
-    
+
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
@@ -986,6 +1003,10 @@ class Part(object):
         else:
             for tp in self._points[start_idx:end_idx]:
                 yield from tp.iter_starting(cls, include_subclasses)
+
+    def apply(self):
+        """Apply all changes to the timeline for objects like octave Shift."""
+        pass
 
     @property
     def last_point(self):
@@ -2520,6 +2541,32 @@ class Tempo(TimedObject):
             return f"{super().__str__()} bpm={self.bpm}"
 
 
+class Staff(TimedObject):
+    """A staff.
+
+    Parameters
+    ----------
+    number : int
+        The staff number
+    lines : int, optional (default: 5)
+
+    Attributes
+    ----------
+    number : int
+        See parameters
+
+    """
+
+    def __init__(self, number, lines=5):
+        super().__init__()
+        self.number = number
+        self.lines = lines
+
+    def __str__(self):
+        return f"{super().__str__()} number={self.number} lines={self.lines}"
+
+
+
 class KeySignature(TimedObject):
     """Key signature.
 
@@ -2622,6 +2669,112 @@ class Words(TimedObject):
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
+
+
+
+class OctaveShiftDirection(TimedObject):
+    """An octave shift direction.
+
+    Parameters
+    ----------
+
+    """
+    def __init__(self, shift_type, shift_size=8, staff=None):
+        super().__init__()
+        self.shift_type = shift_type
+        self.shift_size = shift_size
+        self.staff = staff
+        self.applied = False
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.shift_type}"'
+
+
+class Harmony(TimedObject):
+    """A harmony element in the score not currently used.
+
+        Parameters
+        ----------
+        text : str
+            The harmony text
+
+        Attributes
+        ----------
+        text : str
+            See parameters
+        """
+
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        # assert issubclass(note, GenericNote)
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class RomanNumeral(TimedObject):
+    """A harmony element in the score usually for Roman Numerals.
+
+    Parameters
+    ----------
+    text : str
+        The harmony text
+
+    Attributes
+    ----------
+    text : str
+        See parameters
+    """
+
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        # assert issubclass(note, GenericNote)
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class ChordSymbol(TimedObject):
+    """A harmony element in the score usually for Chord Symbols."""
+    def __init__(self, root, kind, bass=None):
+        super().__init__()
+        self.kind = kind
+        self.root = root
+        self.bass = bass
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.root + self.kind}"'
+
+
+class Interval(object):
+    """
+    An interval element usually used for transpositions
+
+    Parameters
+    ----------
+    number : int
+        The interval number (e.g. 1, 2, 3, 4, 5, 6, 7, ...)
+    quality : str
+        The interval quality (e.g. M, m, P, A, d, dd, AA)
+    direction : str
+        The interval direction (e.g. up, down)
+    """
+    def __init__(self, number, quality, direction="up"):
+        self.number = number
+        self.quality = quality
+        self.direction = direction
+        self.validate()
+
+    def validate(self):
+        number = self.number % 7
+        number = 7 if number == 0 else number
+        assert self.quality+str(number) in INTERVALCLASSES, f"Interval {number}{self.quality} not found"
+        assert self.direction in ["up", "down"], f"Interval direction {self.direction} not found"
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.number}{self.quality}"'
 
 
 class Direction(TimedObject):
@@ -3388,15 +3541,25 @@ def tie_notes(part):
                 note_id = _make_tied_note_id(cur_note.id)
             else:
                 note_id = None
-            next_note = Note(
-                note.step,
-                note.octave,
-                note.alter,
-                id=note_id,
-                voice=note.voice,
-                staff=note.staff,
-                symbolic_duration=sym_dur,
-            )
+            if isinstance(cur_note, UnpitchedNote):
+                next_note = UnpitchedNote(
+                    cur_note.step,
+                    cur_note.octave,
+                    id=note_id,
+                    voice=cur_note.voice,
+                    staff=cur_note.staff,
+                    symbolic_duration=sym_dur,
+                )
+            else:
+                next_note = Note(
+                    note.step,
+                    note.octave,
+                    note.alter,
+                    id=note_id,
+                    voice=note.voice,
+                    staff=note.staff,
+                    symbolic_duration=sym_dur,
+                )
             part.add(next_note, next_measure.start.t, note_end.t)
 
             cur_note.tie_next = next_note
@@ -3904,6 +4067,9 @@ def add_segments(part):
                         )
 
                 # NAVIGATION SYMBOLS
+                
+                # Navigation1_ = destinations that should only be used after all others
+                # Navigation2_ = destinations that are used *after* a jump
                 if boundary_type == "coda":
                     # if a coda symbol is passed just continue
                     segment_info[ss]["to"].append(segment_info[se]["ID"])
@@ -3931,7 +4097,10 @@ def add_segments(part):
                     # find the segno and jump there
                     segno_time = destinations["segno"][0]
                     segment_info[ss]["to"].append(
-                        "Navigation1_" + segment_info[segno_time]["ID"]
+                        "Navigation1_" + segment_info[segno_time]["ID"] 
+                    )
+                    segment_info[ss]["to"].append(
+                        "Navigation2_" + segment_info[se]["ID"] 
                     )
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("dal segno")
@@ -3941,6 +4110,9 @@ def add_segments(part):
                     # jump to the start
                     segment_info[ss]["to"].append(
                         "Navigation1_" + segment_info[part.first_point.t]["ID"]
+                    )
+                    segment_info[ss]["to"].append(
+                        "Navigation2_" + segment_info[se]["ID"] 
                     )
                     segment_info[ss]["type"] = "leap_start"
                     segment_info[ss]["info"].append("da capo")
@@ -4062,7 +4234,8 @@ def pretty_segments(part):
             + str(part.beat_map(segments[p].end.t))
         )
         + "\t duration: "
-        + "{:<6}".format(str(part.beat_map(segments[p].duration)))
+        + "{:<6}".format(str(part.beat_map(segments[p].end.t) - \
+                             part.beat_map(segments[p].start.t)))
         + "\t info: "
         + str(segments[p].info)
         for p in segments.keys()
@@ -4164,14 +4337,18 @@ class Path:
         """
         create a copy of this path instance.
         """
-        return Path(
+        new_path = Path(
             copy(self.path),
             copy(self.segments),
-            copy(self.used_segment_jumps),
             no_repeats=self.no_repeats,
             all_repeats=self.all_repeats,
             jumped=self.jumped,
         )
+        for key in self.used_segment_jumps:
+            for used_dest in self.used_segment_jumps[key]:
+                new_path.used_segment_jumps[key].append(used_dest)
+        
+        return new_path
 
     def make_copy_with_jump_to(self, destination, ignore_leap_info=True):
         """
@@ -4183,12 +4360,13 @@ class Path:
         new_path = self.copy()
         new_path.used_segment_jumps[new_path.path[-1]].append(destination)
         new_path.path.append(destination)
+        
         if (
-            self.segments[destination].type == "leap_end"
-            and self.segments[self.path[-1]].type == "leap_start"
+            new_path.segments[destination].type == "leap_end"
+            and new_path.segments[new_path.path[-2]].type == "leap_start"
         ):
-            if not self.jumped:
-                self.jumped = True
+            if not new_path.jumped:
+                new_path.jumped = True
                 for segid in new_path.segments.keys():
                     seg = new_path.segments[segid]
                     # if destinations await the second round, add them
@@ -4199,26 +4377,28 @@ class Path:
                         to += seg.await_to
                         # replace destinations
                         seg.to = to
-                        # delete used destinations
-                        new_path.used_segment_jumps[segid] = list()
-
+                    # delete used destinations
+                    new_path.used_segment_jumps[segid] = list()
+                # add the jump destination to the used ones
+                new_path.used_segment_jumps[new_path.path[-2]].append(destination)      
+                        
             if not ignore_leap_info:
                 new_path.no_repeats = True
         return new_path
 
     @property
-    def list_of_destinations_from_last_segment(self):
+    def list_of_destinations_from_last_segment(self):    
         destinations = list(self.segments[self.path[-1]].to)
         previously_used_destinations = self.used_segment_jumps[self.path[-1]]
         # only continue in order of the sequence, after full consumption, start at zero
         # if the full or minimal sequence is forced,
         # return only the single possible jump destination, else return possibly many.
-
-        if len(previously_used_destinations) != 0:
+        
+        if len(previously_used_destinations) != 0:       
             last_destination = previously_used_destinations[-1]
             last_destination_count = previously_used_destinations.count(
                 last_destination
-            )
+            )               
             last_destination_index = [
                 i for i, n in enumerate(destinations * 100) if n == last_destination
             ][last_destination_count - 1]
@@ -4672,11 +4852,13 @@ def merge_parts(parts, reassign="voice"):
                         e.voice = e.voice + sum(maximum_voices[:p_ind])
                 elif reassign == "staff":
                     if isinstance(e, (GenericNote, Words, Direction)):
-                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+
+                        e.staff = (e.staff if e.staff is not None else 1) + sum(maximum_staves[:p_ind])
                     elif isinstance(
                         e, Clef
                     ):  # TODO: to update if "number" get changed in "staff"
-                        e.staff = e.staff + sum(maximum_staves[:p_ind])
+
+                        e.staff = (e.staff if e.staff is not None else 1) + sum(maximum_staves[:p_ind])
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
@@ -4711,7 +4893,7 @@ def is_a_within_b(a, b, wholly=False):
         else:
             contained = contained_start or contained_end
     else:
-        warnings.warn("a needs to be TimePoint, TImedObject, or int.")
+        warnings.warn("a needs to be TimePoint, TimedObject, or int.")
     return contained
 
 

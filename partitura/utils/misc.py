@@ -14,6 +14,7 @@ import numpy as np
 try:
     from PIL import Image
     from PIL.ImageFile import ImageFile
+
     PIL_EXISTS = True
 except ImportError:
     Image = None

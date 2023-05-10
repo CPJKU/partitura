@@ -123,8 +123,7 @@ or a list of these
 
             raise FileImportException(
                 (
-                    "Command {} failed with code {}. MuseScore "
-                    "error messages:\n {}"
+                    "Command {} failed with code {}. MuseScore " "error messages:\n {}"
                 ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
             )
     except FileNotFoundError as f:
@@ -138,9 +137,9 @@ or a list of these
         validate=validate,
         force_note_ids=force_note_ids,
     )
-    
+
     os.remove(xml_fh)
-    
+
     return score
 
 
