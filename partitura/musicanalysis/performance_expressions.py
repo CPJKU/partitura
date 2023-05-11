@@ -48,6 +48,27 @@ def process_discrete_dynamics(constant_dyn):
 
     return constant_dyn_
 
+
+def parse_changing_ramp(unique_onset_idxs, m_score):
+    """parse the cresceando / decresceando ramp for the actively changing subsequences. 
+        Return a list of (start, end) of the changing subsequences."""
+
+    unique_m_score = m_score[[idx[0] for idx in unique_onset_idxs]]
+
+    increase = unique_m_score['loudness_direction_feature.loudness_incr']
+    decrease = unique_m_score['loudness_direction_feature.loudness_decr']
+
+    onset_boundaries = []
+    # finding the increase & decrease boundaries 
+    for ramp in [increase, decrease]:
+        ramp_diff = np.append(ramp[1:], ramp[-1]) - ramp
+        has_ramp_diff = ramp_diff != 0
+        ramp_boundary = np.append(has_ramp_diff[0], has_ramp_diff[:-1]) ^ has_ramp_diff
+        onset_boundary = unique_m_score[ramp_boundary]['onset']
+        onset_boundaries.append([(onset_boundary[i], onset_boundary[i+1]) for i in range(0, len(onset_boundary), 2)])
+
+    return tuple(onset_boundaries)
+
 # ordinal 
 OLS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
 
@@ -96,7 +117,7 @@ def get_performance_expressions(score: ScoreLike,
     m_score = rfn.rec_append_fields(m_score, "articulation", articulation, "U256")
 
     async_ = async_attributes(unique_onset_idxs, m_score)
-    dynamics_ = dynamics_attributes(m_score)
+    dynamics_ = dynamics_attributes(unique_onset_idxs, m_score)
     articulations_ = articulation_attributes(m_score)
     phrasing_ = phrasing_attributes(m_score, 
                                     unique_onset_idxs,
@@ -168,7 +189,8 @@ def async_attributes(unique_onset_idxs: list,
 
 
 ### Dynamics 
-def dynamics_attributes(m_score : list,
+def dynamics_attributes(unique_onset_idxs: list,
+                        m_score : list,
                         window : int = 3,
                         agg : str = "avg"):
     """
@@ -187,6 +209,10 @@ def dynamics_attributes(m_score : list,
     -------
     dynamics_ : dict
         dictionary with fields agreement and consistency 
+            agreement: 
+            consistency: 
+            ramp_cor:
+            tempo_cor:
     """  
     # dynamics_ = np.zeros(1, dtype=[("agreement", "f4"), ("consistency_std", "f4")])    
     dynamics_ = dict()
@@ -194,10 +220,11 @@ def dynamics_attributes(m_score : list,
     # append the marking into m_score based on the time position and windowing
     beats_with_constant_dyn = np.unique(m_score[m_score['constant_dyn'] != 'N/A']['onset'])
     markings = [m_score[m_score['onset'] == b]['constant_dyn'][0] for b in beats_with_constant_dyn]
+
+    # TODO: windowing
+
     velocity = [m_score[m_score['onset'] == b]['velocity'] for b in beats_with_constant_dyn]
     velocity_agg = [np.mean(v_group) for v_group in velocity]
-
-    # TODO: changing dynamics
 
     constant_dynamics = list(zip(markings, velocity_agg))
 
@@ -216,12 +243,38 @@ def dynamics_attributes(m_score : list,
         tau, _ = stats.kendalltau([v1, v2], [m1_, m2_])
         assert(tau == tau) # not nan
         marking_aggrements.append((f"{m1}-{m2}", tau))
-    
-    dynamics_['agreement'] = marking_aggrements
 
     # consistency: how much fluctuations does each marking have 
-    velocity_std = [np.std(v_group) for v_group in velocity]
-    dynamics_["consistency_std"] = np.mean(np.array(velocity_std))
+    markings = np.array(markings)
+    velocity_agg = np.array(velocity_agg, dtype=object)
+    marking_consistency = []
+    for marking in np.unique(markings):
+        marking_std = np.std(np.hstack(velocity_agg[markings == marking]))
+        marking_consistency.append((f"{marking}", marking_std))
+
+    dynamics_['agreement'] = marking_aggrements
+    dynamics_["consistency_std"] = marking_consistency
+
+    # changing dynamics
+    increase_ob, decrease_ob = parse_changing_ramp(unique_onset_idxs, m_score)
+    ramp_cor_incr, ramp_cor_decr = [], []
+    for start, end in increase_ob:
+        score_dynamics, performed_dyanmics = [], []
+        for onset in m_score[(m_score['onset'] >= start) & (m_score['onset'] <= end)]['onset']:
+            score_dynamics.append(m_score[m_score['onset'] == onset][0]['loudness_direction_feature.loudness_incr'])
+            performed_dyanmics.append(m_score[m_score['onset'] == onset]['velocity'].mean())
+        ramp_cor_incr.append(stats.pearsonr(score_dynamics, performed_dyanmics)[0])
+
+    for start, end in decrease_ob:
+        score_dynamics, performed_dyanmics = [], []
+        for onset in m_score[(m_score['onset'] >= start) & (m_score['onset'] <= end)]['onset']:
+            score_dynamics.append((-1) * m_score[m_score['onset'] == onset][0]['loudness_direction_feature.loudness_decr'])
+            performed_dyanmics.append(m_score[m_score['onset'] == onset]['velocity'].mean())
+        ramp_cor_decr.append(stats.pearsonr(score_dynamics, performed_dyanmics)[0])
+
+
+    dynamics_['ramp_cor_incr'] = np.array(ramp_cor_incr)
+    dynamics_['ramp_cor_decr'] = np.array(ramp_cor_decr)
 
     return dynamics_
 
