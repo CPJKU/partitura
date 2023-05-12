@@ -67,7 +67,7 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
         onset_boundary = unique_m_score[ramp_boundary]['onset']
         onset_boundaries.append([(onset_boundary[i], onset_boundary[i+1]) for i in range(0, len(onset_boundary), 2)])
 
-    return tuple(onset_boundaries)
+    return tuple(onset_boundaries), unique_m_score
 
 # ordinal 
 OLS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
@@ -153,7 +153,7 @@ def async_attributes(unique_onset_idxs: list,
     Returns
     -------
     async_ : structured array
-        structured array (on the onset level) with fields delta, pitch_cor, vel_cor, voice_cor
+        structured array (on the beat level) with fields delta, pitch_cor, vel_cor, voice_cor
     """
     
     async_ = np.zeros(len(unique_onset_idxs), dtype=[(
@@ -207,22 +207,20 @@ def dynamics_attributes(unique_onset_idxs: list,
 
     Returns
     -------
-    dynamics_ : dict
-        dictionary with fields agreement and consistency 
+    dynamics_ : structured array (broadcasted to the note level) with the following fields
             agreement: 
             consistency: 
             ramp_cor:
             tempo_cor:
     """  
-    # dynamics_ = np.zeros(1, dtype=[("agreement", "f4"), ("consistency_std", "f4")])    
-    dynamics_ = dict()
+    # dynamics_ = dict()
+    dynamics_ = np.zeros(len(m_score), dtype=[(
+        "agreement", "f4"), ("consistency_std", "f4"), ("ramp_cor", "f4"), ("tempo_cor", "f4")])
 
     # append the marking into m_score based on the time position and windowing
     beats_with_constant_dyn = np.unique(m_score[m_score['constant_dyn'] != 'N/A']['onset'])
     markings = [m_score[m_score['onset'] == b]['constant_dyn'][0] for b in beats_with_constant_dyn]
-
     # TODO: windowing
-
     velocity = [m_score[m_score['onset'] == b]['velocity'] for b in beats_with_constant_dyn]
     velocity_agg = [np.mean(v_group) for v_group in velocity]
 
@@ -232,49 +230,44 @@ def dynamics_attributes(unique_onset_idxs: list,
         return dynamics_
 
     # agreement: compare each adjacent pair of markings with their expected order, average
-    marking_aggrements = []
-    for marking1, marking2 in zip(constant_dynamics, constant_dynamics[1:]):
-        m1, v1 = marking1
-        m2, v2 = marking2
+    marking_agreements = []
+    for marking1, marking2, beat in zip(constant_dynamics, constant_dynamics[1:], beats_with_constant_dyn[1:]):
+        (m1, v1), (m2, v2) = marking1, marking2
         m1_, m2_ = OLS.index(m1), OLS.index(m2)
         # preventing correlation returning nan when the values are constant
         v2 = v2 + 1e-5
         m2_ = m2_ + 1e-5        
         tau, _ = stats.kendalltau([v1, v2], [m1_, m2_])
         assert(tau == tau) # not nan
-        marking_aggrements.append((f"{m1}-{m2}", tau))
+        marking_agreements.append((f"{m1}-{m2}", tau))
+        dynamics_['agreement'][m_score['onset'] == beat] = tau
 
     # consistency: how much fluctuations does each marking have 
     markings = np.array(markings)
     velocity_agg = np.array(velocity_agg, dtype=object)
     marking_consistency = []
-    for marking in np.unique(markings):
+    for marking, beat in zip(np.unique(markings), beats_with_constant_dyn):
         marking_std = np.std(np.hstack(velocity_agg[markings == marking]))
         marking_consistency.append((f"{marking}", marking_std))
-
-    dynamics_['agreement'] = marking_aggrements
-    dynamics_["consistency_std"] = marking_consistency
-
-    # changing dynamics
-    increase_ob, decrease_ob = parse_changing_ramp(unique_onset_idxs, m_score)
-    ramp_cor_incr, ramp_cor_decr = [], []
-    for start, end in increase_ob:
-        score_dynamics, performed_dyanmics = [], []
-        for onset in m_score[(m_score['onset'] >= start) & (m_score['onset'] <= end)]['onset']:
-            score_dynamics.append(m_score[m_score['onset'] == onset][0]['loudness_direction_feature.loudness_incr'])
-            performed_dyanmics.append(m_score[m_score['onset'] == onset]['velocity'].mean())
-        ramp_cor_incr.append(stats.pearsonr(score_dynamics, performed_dyanmics)[0])
-
-    for start, end in decrease_ob:
-        score_dynamics, performed_dyanmics = [], []
-        for onset in m_score[(m_score['onset'] >= start) & (m_score['onset'] <= end)]['onset']:
-            score_dynamics.append((-1) * m_score[m_score['onset'] == onset][0]['loudness_direction_feature.loudness_decr'])
-            performed_dyanmics.append(m_score[m_score['onset'] == onset]['velocity'].mean())
-        ramp_cor_decr.append(stats.pearsonr(score_dynamics, performed_dyanmics)[0])
+        dynamics_['consistency_std'][m_score['onset'] == beat] = marking_std
 
 
-    dynamics_['ramp_cor_incr'] = np.array(ramp_cor_incr)
-    dynamics_['ramp_cor_decr'] = np.array(ramp_cor_decr)
+    # changing dynamics - correlation with each incr and decr ramp
+    (increase_ob, decrease_ob), unique_m_score = parse_changing_ramp(unique_onset_idxs, m_score)
+    for onset_boundaries, feat_name in zip([increase_ob, decrease_ob], 
+                                            ['loudness_direction_feature.loudness_incr', 'loudness_direction_feature.loudness_decr']):
+        for start, end in onset_boundaries:
+            score_dynamics, performed_dyanmics, performed_bp = [], [], []
+            for onset in unique_m_score[(unique_m_score['onset'] >= start) & (unique_m_score['onset'] <= end)]['onset']:
+                score_dynamics.append(unique_m_score[unique_m_score['onset'] == onset][0][feat_name])
+                performed_dyanmics.append(unique_m_score[unique_m_score['onset'] == onset]['velocity'].mean())
+                performed_bp.append(unique_m_score[unique_m_score['onset'] == onset]['beat_period'].item())
+            cor = stats.pearsonr(score_dynamics, performed_dyanmics)[0]
+            if "decr" in feat_name:
+                cor *= -1 
+            ramp_mask = (m_score['onset'] >= start) & (m_score['onset'] <= end)
+            dynamics_['ramp_cor'][ramp_mask] = cor
+            dynamics_['tempo_cor'][ramp_mask] = (-1) * stats.pearsonr(performed_bp, performed_dyanmics)[0]
 
     return dynamics_
 
@@ -308,8 +301,7 @@ def articulation_attributes(m_score):
     Returns
     -------
     kor_ : structured array
-        structured array on the onset level with fields kor, kor_legato, kor_staccato, 
-        kor_repeated
+        structured array on the onset level with fields kor, kor_legato, kor_staccato, kor_repeated
     """  
     
     m_score = rfn.append_fields(m_score, "offset", m_score['onset'] + m_score['duration'], usemask=False)
