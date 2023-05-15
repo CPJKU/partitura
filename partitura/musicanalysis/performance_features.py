@@ -118,7 +118,7 @@ def get_performance_expressions(score: ScoreLike,
 
     async_ = async_attributes(unique_onset_idxs, m_score)
     dynamics_ = dynamics_attributes(unique_onset_idxs, m_score)
-    articulations_ = articulation_attributes(m_score)
+    articulations_ = articulation_attributes(m_score, return_mask=True)
     phrasing_ = phrasing_attributes(m_score, 
                                     unique_onset_idxs,
                                     # plot=True
@@ -208,12 +208,11 @@ def dynamics_attributes(unique_onset_idxs: list,
     Returns
     -------
     dynamics_ : structured array (broadcasted to the note level) with the following fields
-            agreement: 
-            consistency: 
-            ramp_cor:
-            tempo_cor:
+            agreement [-1, 1]: for each pair of dynamics, whether it agree with the OLS. Default 0
+            consistency_std []:  Default 0
+            ramp_cor [-1, 1]: Default 0
+            tempo_cor [-1, 1]: Default 0
     """  
-    # dynamics_ = dict()
     dynamics_ = np.zeros(len(m_score), dtype=[(
         "agreement", "f4"), ("consistency_std", "f4"), ("ramp_cor", "f4"), ("tempo_cor", "f4")])
 
@@ -274,11 +273,18 @@ def dynamics_attributes(unique_onset_idxs: list,
 
 ### Articulation
 
-def get_next_note(i, note_info, match_voiced):
+def get_next_note(note_info, match_voiced):
     """get the next note in the same voice that's a resonalble transition 
+    note_info: the row of current note
+    match_voiced: all notes in the same voice
     """
 
     next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
+
+    # if the next note is not immediate successor of the previous one...
+    if next_position != note_info['onset'] + note_info['duration']:
+        return None
+    
     next_position_notes = match_voiced[match_voiced['onset'] == next_position]
 
     # from the notes in the next position, find the one that's closest pitch-wise.
@@ -286,58 +292,63 @@ def get_next_note(i, note_info, match_voiced):
 
     return next_position_notes[closest_idx]
 
-def articulation_attributes(m_score):
+def articulation_attributes(m_score, return_mask=False):
     """
     Compute the articulation attributes (key overlap ratio) from the alignment.
     Key overlap ratio is the ratio between key overlap time (KOT) and IOI, result in a value between (-1, inf)
-    -1 is the dummy value. 
+        -1 is the dummy value. For normalization purposes we empirically cap the maximum to 5.
     B.Repp: Acoustics, Perception, and Production of Legato Articulation on a Digital Piano
 
     Parameters
     ----------
     m_score : structured array
         correspondance between score and performance notes, with score markings. 
+    return_mask : bool
+        if true, return a boolean mask of legato notes, staccato notes and repeated notes
 
     Returns
     -------
-    kor_ : structured array
-        structured array on the onset level with fields kor, kor_legato, kor_staccato, kor_repeated
+    kor_ : structured array (1, n_notes)
+        structured array on the note level with fields kor (-1, 5]
     """  
     
     m_score = rfn.append_fields(m_score, "offset", m_score['onset'] + m_score['duration'], usemask=False)
     m_score = rfn.append_fields(m_score, "p_offset", m_score['p_onset'] + m_score['p_duration'], usemask=False)
 
-    kor_ =  (-1) * np.ones((len(m_score)))
-    kor_ = np.array(kor_, dtype=[("kor", "f4"), ("kor_legato", "f4"), ("kor_staccato", "f4"),  ("kor_repeated", "f4")])
+    kor_ = np.full(len(m_score), -1, dtype=[("kor", "f4")])
+    if return_mask:
+        mask = np.full(len(m_score), False, dtype=[("legato", "?"), ("staccato", "?"), ("repeated", "?")])
 
     # consider the note transition by each voice
     for voice in np.unique(m_score['voice']):
         match_voiced = m_score[m_score['voice'] == voice]
-        for i, note_info in enumerate(match_voiced):
+        for _, note_info in enumerate(match_voiced):
 
             if note_info['onset'] == match_voiced['onset'].max():  # last beat
                 break
+            next_note_info = get_next_note(note_info, match_voiced) # find most plausible transition
 
-            next_note_info = get_next_note(i, note_info, match_voiced)
-            j = np.where(m_score == note_info)[0].item()  # original position
+            if next_note_info: # in some cases no meaningful transition
+                j = np.where(m_score == note_info)[0].item()  # original position
 
-            # KOR for general melodic transitions
-            if (note_info['offset'] == next_note_info['onset']):
-                kor_[j]['kor'] =  get_kor(note_info, next_note_info)
+                if (note_info['offset'] == next_note_info['onset']):
+                    kor_[j]['kor'] =  get_kor(note_info, next_note_info)
 
-            # KOR for legato notes - needs refinement
-            if (note_info['slur_feature.slur_incr'] > 0) or (note_info['slur_feature.slur_decr'] > 0): 
-                kor_[j]['kor_legato'] =  get_kor(note_info, next_note_info)
+                if return_mask: # return the 
+                    if (note_info['slur_feature.slur_incr'] > 0) or (note_info['slur_feature.slur_decr'] > 0): 
+                        mask[j]['legato'] = True
 
-            # KOR for staccato notes
-            if note_info['articulation'] == 'staccato':
-                kor_[j]['kor_staccato'] =  get_kor(note_info, next_note_info)
+                    if note_info['articulation'] == 'staccato':
+                        mask[j]['staccato'] =  True
 
-            # KOR for repeated notes 
-            if (note_info['pitch'] == next_note_info['pitch']):
-                kor_[j]['kor_repeated'] =  get_kor(note_info, next_note_info)
-
-    return kor_
+                    # KOR for repeated notes 
+                    if (note_info['pitch'] == next_note_info['pitch']):
+                        mask[j]['repeated'] =  True
+    
+    if return_mask:
+        return kor_, mask
+    else:
+        return kor_
 
 def get_kor(e1, e2):
     
@@ -347,7 +358,8 @@ def get_kor(e1, e2):
     kor = kot / ioi
     if kor <= -1:
         warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
-    return kor 
+    
+    return min(kor, 5)
 
 
 ### Phrasing
