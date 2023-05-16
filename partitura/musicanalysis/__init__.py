@@ -21,6 +21,7 @@ from .note_features import (
     make_rest_features,
 )
 from .performance_codec import encode_performance, decode_performance
+from .performance_features import compute_performance_features
 
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "decode_performance",
     "compute_note_array",
     "full_note_array",
+    "compute_performance_features"
 ]
