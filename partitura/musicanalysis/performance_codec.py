@@ -26,6 +26,7 @@ from partitura.performance import PerformedPart, PerformanceLike
 from partitura.musicanalysis import note_features
 from partitura.utils.misc import deprecated_alias
 from partitura.utils.generic import interp1d
+from partitura.utils.music import ensure_notearray
 from scipy.misc import derivative
 
 __all__ = ["encode_performance", "decode_performance", "to_matched_score"]
