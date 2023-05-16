@@ -235,7 +235,7 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
 
 
 ### Asynchrony
-def asynchrnoy_feature(m_score: list,
+def asynchrony_feature(m_score: list,
                      unique_onset_idxs: list,
                      v=False):
     """
@@ -375,6 +375,7 @@ def dynamics_feature(m_score : list,
 
 ### Articulation
 
+
 def get_next_note(note_info, match_voiced):
     """get the next note in the same voice that's a resonalble transition 
     note_info: the row of current note
@@ -393,6 +394,7 @@ def get_next_note(note_info, match_voiced):
     closest_idx = np.abs((next_position_notes['pitch'] - note_info['pitch'])).argmin()
 
     return next_position_notes[closest_idx]
+
 
 def articulation_feature(m_score : list, 
                          unique_onset_idxs: list,
@@ -454,6 +456,7 @@ def articulation_feature(m_score : list,
     else:
         return kor_
 
+
 def get_kor(e1, e2):
     
     kot = e1['p_offset'] - e2['p_onset']
@@ -467,6 +470,7 @@ def get_kor(e1, e2):
 
 
 ### Phrasing
+
 
 def freiberg_kinematic(params, xdata, ydata):
     w, q = params
@@ -500,6 +504,7 @@ def get_phrase_end(m_score, unique_onset_idxs):
 
     endings = [(xdata, ydata)]
     return endings
+
 
 def phrasing_attributes(m_score, unique_onset_idxs, plot=False):
     """
