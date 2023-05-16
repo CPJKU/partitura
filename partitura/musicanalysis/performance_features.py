@@ -17,6 +17,7 @@ from scipy.optimize import least_squares
 import numpy.lib.recfunctions as rfn
 from partitura.score import ScoreLike
 from partitura.performance import PerformanceLike
+from partitura.utils.generic import interp1d
 from partitura.musicanalysis.performance_codec import to_matched_score, onsetwise_to_notewise, encode_tempo
 
 
@@ -79,7 +80,7 @@ def compute_performance_features(score: ScoreLike,
             func = bf
         else:
             warnings.warn("Ignoring unknown performance feature function {}".format(bf))
-        features = func(m_score, unique_onset_idxs)
+        features = func(m_score, unique_onset_idxs, performance)
         # check if the size and number of the feature function are correct
         if features.size != 0:
             n_notes = len(m_score)
@@ -237,6 +238,7 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
 ### Asynchrony
 def asynchrnoy_feature(m_score: list,
                      unique_onset_idxs: list,
+                     performance: PerformanceLike,
                      v=False):
     """
     Compute the asynchrony attributes from the alignment. 
@@ -252,10 +254,10 @@ def asynchrnoy_feature(m_score: list,
     -------
     async_ : structured array
         structured array (broadcasted to the note level) with the following fields
-            delta: the largest time difference (in seconds) between onsets in this group [0, 1]
-            pitch_cor: correlation between timing and pitch [-1, 1]
-            vel_cor: correlation between timing and velocity [-1, 1]
-            voice_std: std of the avg timing (in seconds) of each voice in this group [0, 1]
+            delta [0, 1]: the largest time difference (in seconds) between onsets in this group 
+            pitch_cor [-1, 1]: correlation between timing and pitch 
+            vel_cor [-1, 1]: correlation between timing and velocity 
+            voice_std [0, 1]: std of the avg timing (in seconds) of each voice in this group 
     """
     
     async_ = np.zeros(len(unique_onset_idxs), dtype=[(
@@ -293,6 +295,7 @@ def asynchrnoy_feature(m_score: list,
 ### Dynamics 
 def dynamics_feature(m_score : list,
                         unique_onset_idxs: list,
+                        performance: PerformanceLike,
                         window : int = 3,
                         agg : str = "avg"):
     """
@@ -375,27 +378,9 @@ def dynamics_feature(m_score : list,
 
 ### Articulation
 
-def get_next_note(note_info, match_voiced):
-    """get the next note in the same voice that's a resonalble transition 
-    note_info: the row of current note
-    match_voiced: all notes in the same voice
-    """
-
-    next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
-
-    # if the next note is not immediate successor of the previous one...
-    if next_position != note_info['onset'] + note_info['duration']:
-        return None
-    
-    next_position_notes = match_voiced[match_voiced['onset'] == next_position]
-
-    # from the notes in the next position, find the one that's closest pitch-wise.
-    closest_idx = np.abs((next_position_notes['pitch'] - note_info['pitch'])).argmin()
-
-    return next_position_notes[closest_idx]
-
 def articulation_feature(m_score : list, 
                          unique_onset_idxs: list,
+                         performance: PerformanceLike,
                          return_mask=False):
     """
     Compute the articulation attributes (key overlap ratio) from the alignment.
@@ -464,6 +449,95 @@ def get_kor(e1, e2):
         warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
     
     return min(kor, 5)
+
+def get_next_note(note_info, match_voiced):
+    """get the next note in the same voice that's a resonalble transition 
+    note_info: the row of current note
+    match_voiced: all notes in the same voice
+    """
+
+    next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
+
+    # if the next note is not immediate successor of the previous one...
+    if next_position != note_info['onset'] + note_info['duration']:
+        return None
+    
+    next_position_notes = match_voiced[match_voiced['onset'] == next_position]
+
+    # from the notes in the next position, find the one that's closest pitch-wise.
+    closest_idx = np.abs((next_position_notes['pitch'] - note_info['pitch'])).argmin()
+
+    return next_position_notes[closest_idx]
+
+
+### Pedals 
+
+def pedal_ramp(ppart: PerformedPart):
+    """Pedal ramp.
+
+    Returns:
+    * pramp : a ramp function that ranges from 0
+                  to 127 with the change of sustain pedal
+    """
+    pedal_controls = ppart.controls
+    W = np.zeros((len(onsets), 2))
+
+    for slur in slurs:
+        if not slur.end:
+            continue
+        x = [slur.start.t, slur.end.t]
+        y_inc = [0, 1]
+        y_dec = [1, 0]
+        W[:, 0] += interp1d(x, y_inc, bounds_error=False, fill_value=0)(onsets)
+        W[:, 1] += interp1d(x, y_dec, bounds_error=False, fill_value=0)(onsets)
+
+    # Filter out NaN values
+    W[np.isnan(W)] = 0.0
+    return W
+
+
+def pedal_feature(m_score : list, 
+                unique_onset_idxs: list,
+                performance: PerformanceLike):
+    """
+    Compute the pedal features. 
+
+    Parameters
+    ----------
+    m_score : structured array
+        correspondance between score and performance notes, with score markings. 
+        
+    Returns
+    -------
+    pedal_ : structured array (4, n_notes) with fields
+        onset_value [0, 127]: 
+        offset_value [0, 127]:
+        prev_release_time :
+        next_release_time: 
+    """  
+    pedal_ramp(performance.performedparts[0])
+    hook()
+    kor_ = np.full(len(m_score), -1, dtype=[("kor", "f4")])
+
+    # consider the note transition by each voice
+    for voice in np.unique(m_score['voice']):
+        match_voiced = m_score[m_score['voice'] == voice]
+        for _, note_info in enumerate(match_voiced):
+
+            if note_info['onset'] == match_voiced['onset'].max():  # last beat
+                break
+            next_note_info = get_next_note(note_info, match_voiced) # find most plausible transition
+
+            if next_note_info: # in some cases no meaningful transition
+                j = np.where(m_score == note_info)[0].item()  # original position
+
+                if (note_info['offset'] == next_note_info['onset']):
+                    kor_[j]['kor'] =  get_kor(note_info, next_note_info)
+
+    
+
+    return kor_
+
 
 
 ### Phrasing
@@ -550,3 +624,4 @@ def phrasing_attributes(m_score, unique_onset_idxs, plot=False):
             plt.show()
 
     return phrasing_
+
