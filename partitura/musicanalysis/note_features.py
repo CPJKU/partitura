@@ -15,13 +15,15 @@ from partitura.utils import ensure_notearray, ensure_rest_array
 
 __all__ = [
     "list_note_feats_functions",
+    "list_note_feature_functions",
+    "print_note_feats_functions",
+    "print_note_feature_functions",
+    "make_note_feats", 
     "make_note_features",
-    "make_note_feats",
-    "full_note_array",
-    "compute_note_array",
-    "full_note_array",
     "make_rest_feats",
     "make_rest_features",
+    "compute_note_array",
+    "full_note_array",
 ]
 
 
@@ -300,6 +302,8 @@ def make_rest_features(
 # alias
 make_note_feats = make_note_features
 make_rest_feats = make_rest_features
+list_note_feature_functions = list_note_feats_functions
+print_note_feature_functions = print_note_feats_functions
 
 
 def compute_note_array(

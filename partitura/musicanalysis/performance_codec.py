@@ -31,6 +31,9 @@ from scipy.misc import derivative
 __all__ = ["encode_performance", "decode_performance", "to_matched_score"]
 
 
+#### Full Codecs ####
+
+
 @deprecated_alias(part='score', ppart="performance")
 def encode_performance(
     score: ScoreLike,
@@ -204,6 +207,9 @@ def decode_performance(
         return ppart
 
 
+#### Time and Articulation Codecs ####
+
+
 def decode_time(score_onsets, 
                 score_durations, 
                 parameters, 
@@ -261,6 +267,30 @@ def decode_time(score_onsets,
     performance[:, 0] -= np.min(performance[:, 0])
 
     return performance
+
+
+def encode_articulation(
+    score_durations, performed_durations, unique_onset_idxs, beat_period
+):
+    """
+    Encode articulation
+    """
+    articulation = np.zeros_like(score_durations)
+    for idx, bp in zip(unique_onset_idxs, beat_period):
+
+        sd = score_durations[idx]
+        pd = performed_durations[idx]
+
+        # indices of notes with duration 0 (grace notes)
+        grace_mask = sd <= 0
+
+        # Grace notes have an articulation ratio of 1
+        sd[grace_mask] = 1
+        pd[grace_mask] = bp
+        # Compute log articulation ratio
+        articulation[idx] = np.log2(pd / (bp * sd))
+
+    return articulation
 
 
 def decode_articulation(score_durations, articulation_parameter, beat_period):
@@ -558,75 +588,8 @@ def tempo_by_derivative(score_onsets, performed_onsets,
         return tempo_curve, input_onsets
 
 
-def get_unique_seq(onsets, offsets, unique_onset_idxs=None, return_diff=False):
-    """
-    Get unique onsets of a sequence of notes
-    """
-    eps = np.finfo(float).eps
+#### Alignment Processing ####
 
-    first_time = np.min(onsets)
-
-    # ensure last score time is later than last onset
-    last_time = max(np.max(onsets) + eps, np.max(offsets))
-
-    total_dur = last_time - first_time
-
-    if unique_onset_idxs is None:
-        # unique_onset_idxs = unique_onset_idx(score[:, 0])
-        unique_onset_idxs = get_unique_onset_idxs(onsets)
-
-    u_onset = np.array([np.mean(onsets[uix]) for uix in unique_onset_idxs])
-    # add last offset, so we have as many IOIs as notes
-    u_onset = np.r_[u_onset, last_time]
-
-    output_dict = dict(
-        u_onset=u_onset, total_dur=total_dur, unique_onset_idxs=unique_onset_idxs
-    )
-
-    if return_diff:
-        output_dict["diff_u_onset"] = np.diff(u_onset)
-
-    return output_dict
-
-
-def get_unique_onset_idxs(
-    onsets, eps: float = 1e-6, return_unique_onsets: bool = False
-):
-    """
-    Get unique onsets and their indices.
-    Parameters
-    ----------
-    onsets : np.ndarray
-        Score onsets in beats.
-    eps : float
-        Small epsilon (for dealing with quantization in symbolic scores).
-        This is particularly useful for dealing with triplets and other
-        similar rhytmical structures that do not have a finite decimal
-        representation.
-    return_unique_onsets : bool (optional)
-        If `True`, returns the unique score onsets.
-    Returns
-    -------
-    unique_onset_idxs : np.ndarray
-        Indices of the unique onsets in the score.
-    unique_onsets : np.ndarray
-        Unique score onsets
-    """
-    # Do not assume that the onsets are sorted
-    # (use a stable sorting algorithm for preserving the order
-    # of elements with the same onset, which is useful e.g. if the
-    # notes within a same onset are ordered by pitch)
-    sort_idx = np.argsort(onsets, kind="mergesort")
-    split_idx = np.where(np.diff(onsets[sort_idx]) > eps)[0] + 1
-    unique_onset_idxs = np.split(sort_idx, split_idx)
-
-    if return_unique_onsets:
-        # Instead of np.unique(onsets)
-        unique_onsets = np.array([onsets[uix].mean() for uix in unique_onset_idxs])
-
-        return unique_onset_idxs, unique_onsets
-    else:
-        return unique_onset_idxs
 
 @deprecated_alias(part='score', ppart="performance")
 def to_matched_score(score: ScoreLike, 
@@ -704,28 +667,216 @@ def to_matched_score(score: ScoreLike,
     return np.array(ms, dtype=fields), snote_ids
 
 
-def encode_articulation(
-    score_durations, performed_durations, unique_onset_idxs, beat_period
+def get_time_maps_from_alignment(
+    ppart_or_note_array, spart_or_note_array, alignment, remove_ornaments=True
 ):
     """
-    Encode articulation
+    Get time maps to convert performance time (in seconds) to score time (in beats)
+    and visceversa.
+
+    Parameters
+    ----------
+    ppart_or_note_array : PerformedPart or structured array
+        The performance information as either PerformedPart or the
+        note_array generated from such an object.
+    spart_or_note_array : Part or structured array
+        Score information as either a Part object or the note array
+        generated from such an object.
+    alignment : list
+        The score--performance alignment, a list of dictionaries.
+        (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
+    remove_ornaments : bool (optional)
+        Whether to consider or not ornaments (including grace notes)
+
+    Returns
+    -------
+    ptime_to_stime_map : scipy.interpolate.interp1d
+        An instance of interp1d (a callable) that maps performance time (in seconds)
+        to score time (in beats).
+    stime_to_ptime_map : scipy.interpolate.interp1d
+        An instance of inter1d (a callable) that maps score time (in beats) to
+        performance time (in seconds).
+
+    Note
+    ----
+    This methods uses the average value of the score onsets of notes that are
+    written in the score as part of a chord (i.e., which start at the same time).
     """
-    articulation = np.zeros_like(score_durations)
-    for idx, bp in zip(unique_onset_idxs, beat_period):
+    # Ensure that we are using structured note arrays
+    perf_note_array = ensure_notearray(ppart_or_note_array)
+    score_note_array = ensure_notearray(spart_or_note_array)
 
-        sd = score_durations[idx]
-        pd = performed_durations[idx]
+    # Get indices of the matched notes (notes in the score
+    # for which there is a performance note
+    match_idx = get_matched_notes(score_note_array, perf_note_array, alignment)
 
-        # indices of notes with duration 0 (grace notes)
-        grace_mask = sd <= 0
+    # Get onsets and durations
+    score_onsets = score_note_array[match_idx[:, 0]]["onset_beat"]
+    score_durations = score_note_array[match_idx[:, 0]]["duration_beat"]
 
-        # Grace notes have an articulation ratio of 1
-        sd[grace_mask] = 1
-        pd[grace_mask] = bp
-        # Compute log articulation ratio
-        articulation[idx] = np.log2(pd / (bp * sd))
+    perf_onsets = perf_note_array[match_idx[:, 1]]["onset_sec"]
 
-    return articulation
+    # Use only unique onsets
+    score_unique_onsets = np.unique(score_onsets)
+
+    # Remove grace notes
+    if remove_ornaments:
+        # TODO: check that all onsets have a duration?
+        # ornaments (grace notes) do not have a duration
+        score_unique_onset_idxs = np.array(
+            [
+                np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
+                for u in score_unique_onsets
+            ],
+            dtype=object,
+        )
+
+    else:
+        score_unique_onset_idxs = np.array(
+            [np.where(score_onsets == u)[0] for u in score_unique_onsets],
+            dtype=object,
+        )
+
+    # For chords, we use the average performed onset as a proxy for
+    # representing the "performeance time" of the position of the score
+    # onsets
+    eq_perf_onsets = np.array(
+        [np.mean(perf_onsets[u]) for u in score_unique_onset_idxs]
+    )
+
+    # Get maps
+    ptime_to_stime_map = interp1d(
+        x=eq_perf_onsets,
+        y=score_unique_onsets,
+        bounds_error=False,
+        fill_value="extrapolate",
+    )
+    stime_to_ptime_map = interp1d(
+        y=eq_perf_onsets,
+        x=score_unique_onsets,
+        bounds_error=False,
+        fill_value="extrapolate",
+    )
+
+    return ptime_to_stime_map, stime_to_ptime_map
+
+
+def get_matched_notes(spart_note_array, ppart_note_array, alignment):
+    """
+    Get the indices of the matched notes in an alignment
+
+    Parameters
+    ----------
+    spart_note_array : structured numpy array
+        note_array of the score part
+    ppart_note_array : structured numpy array
+        note_array of the performed part
+    alignment : list
+        The score--performance alignment, a list of dictionaries.
+        (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
+
+    Returns
+    -------
+    matched_idxs : np.ndarray
+        A 2D array containing the indices of the matched score and
+        performed notes, where the columns are
+        (index_in_score_note_array, index_in_performance_notearray)
+    """
+    # Get matched notes
+    matched_idxs = []
+    for al in alignment:
+        # Get only matched notes (i.e., ignore inserted or deleted notes)
+        if al["label"] == "match":
+
+            # if ppart_note_array['id'].dtype != type(al['performance_id']):
+            if not isinstance(ppart_note_array["id"], type(al["performance_id"])):
+                p_id = str(al["performance_id"])
+            else:
+                p_id = al["performance_id"]
+
+            p_idx = int(np.where(ppart_note_array["id"] == p_id)[0])
+
+            s_idx = np.where(spart_note_array["id"] == al["score_id"])[0]
+
+            if len(s_idx) > 0:
+                s_idx = int(s_idx)
+                matched_idxs.append((s_idx, p_idx))
+
+    return np.array(matched_idxs)
+
+
+#### Sequence Processing: onset-wise/note-wise/monotonicity/uniqueness ####
+
+
+def get_unique_seq(onsets, offsets, unique_onset_idxs=None, return_diff=False):
+    """
+    Get unique onsets of a sequence of notes
+    """
+    eps = np.finfo(float).eps
+
+    first_time = np.min(onsets)
+
+    # ensure last score time is later than last onset
+    last_time = max(np.max(onsets) + eps, np.max(offsets))
+
+    total_dur = last_time - first_time
+
+    if unique_onset_idxs is None:
+        # unique_onset_idxs = unique_onset_idx(score[:, 0])
+        unique_onset_idxs = get_unique_onset_idxs(onsets)
+
+    u_onset = np.array([np.mean(onsets[uix]) for uix in unique_onset_idxs])
+    # add last offset, so we have as many IOIs as notes
+    u_onset = np.r_[u_onset, last_time]
+
+    output_dict = dict(
+        u_onset=u_onset, total_dur=total_dur, unique_onset_idxs=unique_onset_idxs
+    )
+
+    if return_diff:
+        output_dict["diff_u_onset"] = np.diff(u_onset)
+
+    return output_dict
+
+
+def get_unique_onset_idxs(
+    onsets, eps: float = 1e-6, return_unique_onsets: bool = False
+):
+    """
+    Get unique onsets and their indices.
+    Parameters
+    ----------
+    onsets : np.ndarray
+        Score onsets in beats.
+    eps : float
+        Small epsilon (for dealing with quantization in symbolic scores).
+        This is particularly useful for dealing with triplets and other
+        similar rhytmical structures that do not have a finite decimal
+        representation.
+    return_unique_onsets : bool (optional)
+        If `True`, returns the unique score onsets.
+    Returns
+    -------
+    unique_onset_idxs : np.ndarray
+        Indices of the unique onsets in the score.
+    unique_onsets : np.ndarray
+        Unique score onsets
+    """
+    # Do not assume that the onsets are sorted
+    # (use a stable sorting algorithm for preserving the order
+    # of elements with the same onset, which is useful e.g. if the
+    # notes within a same onset are ordered by pitch)
+    sort_idx = np.argsort(onsets, kind="mergesort")
+    split_idx = np.where(np.diff(onsets[sort_idx]) > eps)[0] + 1
+    unique_onset_idxs = np.split(sort_idx, split_idx)
+
+    if return_unique_onsets:
+        # Instead of np.unique(onsets)
+        unique_onsets = np.array([onsets[uix].mean() for uix in unique_onset_idxs])
+
+        return unique_onset_idxs, unique_onsets
+    else:
+        return unique_onset_idxs
 
 
 def monotonize_times(s, deltas=None):
@@ -800,6 +951,7 @@ def onsetwise_to_notewise(onsetwise_input, unique_onset_idxs):
 
 
 #### Temo Parameter Normalizations ####
+
 
 def bp_scale(beat_period):
     return [beat_period]
