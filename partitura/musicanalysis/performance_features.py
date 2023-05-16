@@ -236,7 +236,7 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
 
 
 ### Asynchrony
-def asynchrnoy_feature(m_score: list,
+def asynchrony_feature(m_score: list,
                      unique_onset_idxs: list,
                      performance: PerformanceLike,
                      v=False):
@@ -439,6 +439,7 @@ def articulation_feature(m_score : list,
     else:
         return kor_
 
+
 def get_kor(e1, e2):
     
     kot = e1['p_offset'] - e2['p_onset']
@@ -542,6 +543,7 @@ def pedal_feature(m_score : list,
 
 ### Phrasing
 
+
 def freiberg_kinematic(params, xdata, ydata):
     w, q = params
     return ydata - (1 + (w ** q - 1) * xdata) ** (1/q)
@@ -574,6 +576,7 @@ def get_phrase_end(m_score, unique_onset_idxs):
 
     endings = [(xdata, ydata)]
     return endings
+
 
 def phrasing_attributes(m_score, unique_onset_idxs, plot=False):
     """

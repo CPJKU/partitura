@@ -7,10 +7,14 @@ This module contains test functions for the metrical position computation
 import unittest
 from partitura import load_musicxml
 from partitura.utils.music import note_array_from_part
+from partitura.score import TimeSignature
 
 import numpy as np
 
-from tests import METRICAL_POSITION_TESTFILES
+from tests import (
+    METRICAL_POSITION_TESTFILES,
+    TIME_SIGNATURE_MAP_EDGECASES_TESTFILES,
+)
 
 
 class TestMetricalPosition(unittest.TestCase):
@@ -108,6 +112,25 @@ class TestMetricalPosition(unittest.TestCase):
         # first note on the anacrusis is not a downbeat
         self.assertTrue(note_array["is_downbeat"][0] == 0)
         self.assertTrue(note_array["rel_onset_div"][0] == 3)
+
+
+class TestTimeSignatureMap(unittest.TestCase):
+    def test_time_signature_map(self):
+        for fn in TIME_SIGNATURE_MAP_EDGECASES_TESTFILES:
+            score = load_musicxml(fn)
+
+            for part in score:
+
+                tss = np.array(
+                    [
+                        (ts.start.t, ts.beats, ts.beat_type, ts.musical_beats)
+                        for ts in part.iter_all(TimeSignature)
+                    ]
+                )
+
+                self.assertTrue(
+                    np.all(part.time_signature_map(part.first_point.t) == tss[0, 1:])
+                )
 
 
 if __name__ == "__main__":

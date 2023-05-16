@@ -8,6 +8,7 @@ import partitura
 import numpy as np
 
 from partitura.utils import music
+from partitura.musicanalysis import performance_codec
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES
 
 from scipy.interpolate import interp1d as scinterp1d
@@ -25,7 +26,7 @@ class TestGetMatchedNotes(unittest.TestCase):
             )
             perf_note_array = perf.note_array()
             scr_note_array = scr.note_array()
-            matched_idxs = music.get_matched_notes(
+            matched_idxs = performance_codec.get_matched_notes(
                 spart_note_array=scr_note_array,
                 ppart_note_array=perf_note_array,
                 alignment=alignment,
@@ -53,7 +54,7 @@ class TestGetTimeMapsFromAlignment(unittest.TestCase):
                 (
                     ptime_to_stime_map,
                     stime_to_ptime_map,
-                ) = music.get_time_maps_from_alignment(
+                ) = performance_codec.get_time_maps_from_alignment(
                     spart_or_note_array=scr[0],
                     ppart_or_note_array=ppart,
                     alignment=alignment,
@@ -94,7 +95,7 @@ class TestPerformanceFromPart(unittest.TestCase):
                     for sid in snote_array["id"]
                 ]
 
-                matched_idxs = music.get_matched_notes(
+                matched_idxs = performance_codec.get_matched_notes(
                     spart_note_array=snote_array,
                     ppart_note_array=pnote_array,
                     alignment=alignment,
@@ -413,6 +414,51 @@ class TestPerformanceFromPart(unittest.TestCase):
 
         self.assertTrue(
             isinstance(random_performance, partitura.performance.Performance)
+        )
+
+    def test_sliceperf(self):
+
+        perf = partitura.load_performance_midi(MOZART_VARIATION_FILES["midi"])
+        ppart = perf[0]
+        ppart.sustain_pedal_threshold = 127
+
+        note_array = ppart.note_array()
+
+        start_time = 10
+        end_time = 20
+
+        idx = np.where(
+            np.logical_and(
+                note_array["onset_sec"] >= start_time,
+                note_array["onset_sec"] <= end_time,
+            )
+        )
+
+        target_note_array = note_array[idx]
+
+        ppart_slice = music.slice_ppart_by_time(
+            ppart=ppart,
+            start_time=start_time,
+            end_time=end_time,
+            clip_note_off=False,
+            reindex_notes=False,
+        )
+
+        slice_note_array = ppart_slice.note_array()
+
+        self.assertTrue(len(target_note_array) == len(slice_note_array))
+        self.assertTrue(slice_note_array["onset_sec"].max() <= (end_time - start_time))
+        self.assertTrue(
+            np.isclose(
+                target_note_array["onset_sec"].min() - start_time,
+                slice_note_array["onset_sec"].min(),
+            )
+        )
+        self.assertTrue(
+            np.isclose(
+                target_note_array["onset_sec"].max() - start_time,
+                slice_note_array["onset_sec"].max(),
+            )
         )
 
 
