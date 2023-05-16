@@ -5,7 +5,9 @@ This module implement a series of mid-level descriptors of the performance expre
 Built upon the low-level basis functions from the performance codec. 
 """
 
-# from typing import str 
+import sys
+import types
+from typing import Union, List
 import warnings
 import numpy as np
 np.set_printoptions(suppress=True)
@@ -15,8 +17,170 @@ from scipy.optimize import least_squares
 import numpy.lib.recfunctions as rfn
 from partitura.score import ScoreLike
 from partitura.performance import PerformanceLike
-from partitura.utils import music
-from partitura.musicanalysis.performance_codec import to_matched_score, encode_performance, encode_tempo
+from partitura.musicanalysis.performance_codec import to_matched_score, onsetwise_to_notewise, encode_tempo
+
+
+__all__ = [
+    "compute_performance_features",
+]
+
+# ordinal 
+OLS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
+
+
+class InvalidPerformanceFeatureException(Exception):
+    pass
+
+def compute_performance_features(score: ScoreLike, 
+                                performance: PerformanceLike,
+                                alignment: list,
+                                feature_functions: Union[List, str]
+):
+    """
+    Compute the performance features. This function is defined in the same 
+    style of note_features.make_note_features
+
+    Parameters
+    ----------
+    score : partitura.score.ScoreLike
+        Score information, can be a part, score
+    performance : partitura.performance.PerformanceLike
+        Performance information, can be a ppart, performance
+    alignment : list
+        The score--performance alignment, a list of dictionaries
+    feature_functions : list or str
+        A list of performance feature functions. Elements of the list can be either
+        the functions themselves or the names of a feature function as
+        strings (or a mix). 
+        currently implemented: 
+        asynchrony_feature, articulation_feature, dynamics_feature
+
+    Returns
+    -------
+    performance_features : structured array
+    """
+    m_score, unique_onset_idxs = compute_matched_score(score, performance, alignment)
+
+    acc = []
+    if isinstance(feature_functions, str) and feature_functions == "all":
+        feature_functions = list_note_feats_functions()
+    elif not isinstance(feature_functions, list):
+        raise TypeError(
+            "feature_functions variable {} needs to be list or all".format(
+                feature_functions
+            )
+        )
+
+    for bf in feature_functions:
+        if isinstance(bf, str):
+            # get function by name from module
+            func = getattr(sys.modules[__name__], bf)
+        elif isinstance(bf, types.FunctionType):
+            func = bf
+        else:
+            warnings.warn("Ignoring unknown performance feature function {}".format(bf))
+        features = func(m_score, unique_onset_idxs)
+        # check if the size and number of the feature function are correct
+        if features.size != 0:
+            n_notes = len(m_score)
+            if len(features) != n_notes:
+                msg = (
+                    "length of feature {} does not equal "
+                    "number of notes {}".format(len(features), n_notes)
+                )
+                raise InvalidPerformanceFeatureException(msg)
+
+            features_ = rfn.structured_to_unstructured(features)
+            if np.any(np.logical_or(np.isnan(features_), np.isinf(features_))):
+                problematic = np.unique(
+                    np.where(np.logical_or(np.isnan(features_), np.isinf(features_)))[1]
+                )
+                msg = "NaNs or Infs found in the following feature: {} ".format(
+                    ", ".join(np.array(features.dtype)[problematic])
+                )
+                raise InvalidPerformanceFeatureException(msg)
+
+            # prefix feature names by function name
+            feature_names = ["{}.{}".format(func.__name__, n) for n in features.dtype.names]
+            features = rfn.rename_fields(features, dict(zip(features.dtype.names, feature_names)))
+
+            acc.append(features)
+
+    performance_features = rfn.merge_arrays(acc, flatten=True, usemask=False)
+    return  performance_features
+
+
+def compute_matched_score(score: ScoreLike, 
+                            performance: PerformanceLike,
+                            alignment: list,):
+    """
+    Compute the matched score and add the score features
+
+    Parameters
+    ----------
+    score : partitura.score.ScoreLike
+        Score information, can be a part, score
+    performance : partitura.performance.PerformanceLike
+        Performance information, can be a ppart, performance
+    alignment : list
+        The score--performance alignment, a list of dictionaries
+
+    Returns
+    -------
+    m_score : np strutured array
+    unique_onset_idxs : list
+    """
+
+    m_score, _ = to_matched_score(score, performance, alignment, include_score_markings=True)
+    (time_params, unique_onset_idxs) = encode_tempo(
+        score_onsets=m_score["onset"],
+        performed_onsets=m_score["p_onset"],
+        score_durations=m_score["duration"],
+        performed_durations=m_score["p_duration"],
+        return_u_onset_idx=True,
+        tempo_smooth="average"
+    )
+    m_score = rfn.append_fields(m_score, "beat_period", time_params['beat_period'], "f4", usemask=False)
+
+    dyn_fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "loudness" in name]
+    constant_dyn = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), dyn_fields).flatten()
+
+    # process the dynamcis value into discrete markings on the first beat instead of a ramp.
+    constant_dyn = process_discrete_dynamics(constant_dyn)
+
+    art_fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "articulation" in name]
+    articulation = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), art_fields).flatten()
+
+    m_score = rfn.rec_append_fields(m_score, "constant_dyn", constant_dyn, "U256")
+    m_score = rfn.rec_append_fields(m_score, "articulation", articulation, "U256")
+
+    return m_score, unique_onset_idxs
+
+
+def list_note_feats_functions():
+    """Return a list of all feature function names defined in this module.
+
+    The feature function names listed here can be specified by name in
+    the `make_feature` function. For example:
+
+    >>> feature, names = make_note_feats(part, ['metrical_feature', 'articulation_feature'])
+
+    Returns
+    -------
+    list
+        A list of strings
+
+    """
+    module = sys.modules[__name__]
+    bfs = []
+    exclude = {"make_feature"}
+    for name in dir(module):
+        if name in exclude:
+            continue
+        member = getattr(sys.modules[__name__], name)
+        if isinstance(member, types.FunctionType) and name.endswith("_feature"):
+            bfs.append(name)
+    return bfs
 
 
 def map_fields(note_info, fields):
@@ -69,79 +233,13 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
 
     return tuple(onset_boundaries), unique_m_score
 
-# ordinal 
-OLS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
-
-def get_performance_expressions(score: ScoreLike, 
-                                performance: PerformanceLike,
-                                alignment: list
-):
-    """
-    Compute the performance expression attributes 
-
-    Parameters
-    ----------
-    score : partitura.score.ScoreLike
-        Score information, can be a part, score
-    performance : partitura.performance.PerformanceLike
-        Performance information, can be a ppart, performance
-    alignment : list
-        The score--performance alignment, a list of dictionaries
-
-    Returns
-    -------
-    expressions : dict
-        
-    """
-    m_score, snote_ids = to_matched_score(score, performance, alignment, include_score_markings=True)
-    (time_params, unique_onset_idxs) = encode_tempo(
-        score_onsets=m_score["onset"],
-        performed_onsets=m_score["p_onset"],
-        score_durations=m_score["duration"],
-        performed_durations=m_score["p_duration"],
-        return_u_onset_idx=True,
-        tempo_smooth="average"
-    )
-    m_score = rfn.append_fields(m_score, "beat_period", time_params['beat_period'], "f4", usemask=False)
-
-    dyn_fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "loudness" in name]
-    constant_dyn = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), dyn_fields).flatten()
-
-    # process the dynamcis value into discrete markings on the first beat instead of a ramp.
-    constant_dyn = process_discrete_dynamics(constant_dyn)
-
-    art_fields = [(i, name) for i, name in enumerate(m_score.dtype.names) if "articulation" in name]
-    articulation = np.apply_along_axis(map_fields, 1, rfn.structured_to_unstructured(m_score), art_fields).flatten()
-
-    m_score = rfn.rec_append_fields(m_score, "constant_dyn", constant_dyn, "U256")
-    m_score = rfn.rec_append_fields(m_score, "articulation", articulation, "U256")
-
-    async_ = async_attributes(unique_onset_idxs, m_score)
-    dynamics_ = dynamics_attributes(unique_onset_idxs, m_score)
-    articulations_ = articulation_attributes(m_score, return_mask=True)
-    phrasing_ = phrasing_attributes(m_score, 
-                                    unique_onset_idxs,
-                                    # plot=True
-                                    )
-    return {
-        "m_score": m_score,
-        "asynchrony": async_,
-        "dynamics": dynamics_,
-        "articulations": articulations_,
-        "phrasing": phrasing_
-    }
-
 
 ### Asynchrony
-def async_attributes(unique_onset_idxs: list,
-                     m_score: list,
+def asynchrnoy_feature(m_score: list,
+                     unique_onset_idxs: list,
                      v=False):
     """
     Compute the asynchrony attributes from the alignment. 
-        - delta: the largest time difference between onsets in this group (-inf, inf)
-        - pitch_cor: correlation between timing and pitch [-1, 1]
-        - vel_cor: correlation between timing and velocity [-1, 1]
-        - voice_std: std of the avg timing of each voice in this group (-inf, inf)
 
     Parameters
     ----------
@@ -153,7 +251,11 @@ def async_attributes(unique_onset_idxs: list,
     Returns
     -------
     async_ : structured array
-        structured array (on the beat level) with fields delta, pitch_cor, vel_cor, voice_cor
+        structured array (broadcasted to the note level) with the following fields
+            delta: the largest time difference (in seconds) between onsets in this group [0, 1]
+            pitch_cor: correlation between timing and pitch [-1, 1]
+            vel_cor: correlation between timing and velocity [-1, 1]
+            voice_std: std of the avg timing (in seconds) of each voice in this group [0, 1]
     """
     
     async_ = np.zeros(len(unique_onset_idxs), dtype=[(
@@ -163,7 +265,7 @@ def async_attributes(unique_onset_idxs: list,
         note_group = m_score[onset_idxs]
 
         onset_times = note_group['p_onset']
-        delta = onset_times.max() - onset_times.min()
+        delta = min(onset_times.max() - onset_times.min(), 1)
         async_[i]['delta'] = delta 
 
         midi_pitch = note_group['pitch']
@@ -183,14 +285,14 @@ def async_attributes(unique_onset_idxs: list,
         for voice in voices:
             note_in_voice = note_group[note_group['voice'] == voice]
             voices_onsets.append(note_in_voice['p_onset'].mean())
-        async_[i]['voice_std'] = np.std(np.array(voices_onsets))
-        
-    return async_
+        async_[i]['voice_std'] = min(np.std(np.array(voices_onsets)), 1)
+    
+    return onsetwise_to_notewise(async_, unique_onset_idxs)
 
 
 ### Dynamics 
-def dynamics_attributes(unique_onset_idxs: list,
-                        m_score : list,
+def dynamics_feature(m_score : list,
+                        unique_onset_idxs: list,
                         window : int = 3,
                         agg : str = "avg"):
     """
@@ -209,9 +311,9 @@ def dynamics_attributes(unique_onset_idxs: list,
     -------
     dynamics_ : structured array (broadcasted to the note level) with the following fields
             agreement [-1, 1]: for each pair of dynamics, whether it agree with the OLS. Default 0
-            consistency_std []:  Default 0
-            ramp_cor [-1, 1]: Default 0
-            tempo_cor [-1, 1]: Default 0
+            consistency_std [0, 127]: Std of the same marking thoughout the piece. Default 0
+            ramp_cor [-1, 1]: The correlation between each dynamics ramp and performed dynamics. Default 0
+            tempo_cor [-1, 1]: The correlation between performed dynamics and tempo change. Default 0
     """  
     dynamics_ = np.zeros(len(m_score), dtype=[(
         "agreement", "f4"), ("consistency_std", "f4"), ("ramp_cor", "f4"), ("tempo_cor", "f4")])
@@ -292,7 +394,9 @@ def get_next_note(note_info, match_voiced):
 
     return next_position_notes[closest_idx]
 
-def articulation_attributes(m_score, return_mask=False):
+def articulation_feature(m_score : list, 
+                         unique_onset_idxs: list,
+                         return_mask=False):
     """
     Compute the articulation attributes (key overlap ratio) from the alignment.
     Key overlap ratio is the ratio between key overlap time (KOT) and IOI, result in a value between (-1, inf)
@@ -399,6 +503,7 @@ def get_phrase_end(m_score, unique_onset_idxs):
 
 def phrasing_attributes(m_score, unique_onset_idxs, plot=False):
     """
+    Unfinished! after finishing will update to phrasing_feature
     rubato:
         Model the final tempo curve (last 2 measures) using Friberg & Sundberg’s kinematic model: 
             (https://www.researchgate.net/publication/220723460_Evidence_for_Pianist-specific_Rubato_Style_in_Chopin_Nocturnes)
