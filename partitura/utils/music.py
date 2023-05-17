@@ -3398,7 +3398,7 @@ def slice_ppart_by_time(
             new_note = note.copy()
             new_note['note_on'] = 0.
             if clip_note_off:
-                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
             else: 
                 new_note['note_off'] = note['note_off'] - start_time
             if ppq:
@@ -3414,7 +3414,7 @@ def slice_ppart_by_time(
                 new_note = note.copy()
                 new_note['note_on'] -= start_time
                 if clip_note_off:
-                    new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                    new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
                 else: 
                     new_note['note_off'] = note['note_off'] - start_time
                 if ppq:
