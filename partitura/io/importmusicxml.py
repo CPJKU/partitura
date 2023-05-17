@@ -60,6 +60,7 @@ PEDAL_DIRECTIONS = {
     "sustain_pedal": score.SustainPedalDirection,
 }
 
+OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
 def validate_musicxml(xml, debug=False):
     """
@@ -435,6 +436,25 @@ def _parse_parts(document, part_dict):
         # when constructed from MusicXML
         score.set_end_times(part)
 
+        # Octave Shifts are only visual doesn't to change the octave of notes.
+        # Apply octave shifts directly to notes
+        # for shift in part.iter_all(score.OctaveShiftDirection):
+        #     # Shifts normal notes
+        #     for note in part.iter_all(score.Note, start=shift.start.t, end=shift.end.t):
+        #         if note.staff == shift.staff:
+        #             if shift.shift_type == "up":
+        #                 note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #             elif shift.shift_type == "down":
+        #                 note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #     # Shifts grace notes
+        #     for note in part.iter_all(score.GraceNote, start=shift.start.t, end=shift.end.t):
+        #         if note.staff == shift.staff:
+        #             if shift.shift_type == "up":
+        #                 note.octave -= OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #             elif shift.shift_type == "down":
+        #                 note.octave += OCTAVE_SHIFTS[shift.shift_size] if shift.shift_size in OCTAVE_SHIFTS.keys() else 0
+        #     shift.applied = True
+
 
 def _handle_measure(measure_el, position, part, ongoing, doc_order):
     """
@@ -512,6 +532,9 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
             doc_order += 1
             measure_maxtime = max(measure_maxtime, position)
 
+        elif e.tag == "harmony":
+            _handle_harmony(e, position, part)
+
         elif e.tag == "barline":
             location = get_value_from_attribute(e, "location", str)
             if (location is None) or (location == "right"):
@@ -566,6 +589,25 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
     part.add(measure, None, measure_maxtime)
 
     return measure_maxtime, doc_order
+
+
+def _handle_harmony(e, position, part):
+    """Handle a <harmony> element."""
+    if e.find("function") is not None:
+        text = e.find("function").text
+        if text is not None:
+            part.add(score.RomanNumeral(text), position)
+    elif e.find("kind") is not None and e.find("root") is not None:
+        # TODO: handle kind text which is other kind of annotation also root
+        kind = e.find("kind").get("text")
+        root = e.find("root").find("root-step").text
+        part.add(score.ChordSymbol(root=root, kind=kind), position)
+        text = None
+    else:
+        text = None
+
+    if text is None:
+        warnings.warn("ignoring empty <harmony> tag", stacklevel=2)
 
 
 def _handle_repeat(e, position, part, ongoing):
@@ -730,8 +772,8 @@ def _handle_direction(e, position, part, ongoing):
 
     sound_directions = e.findall("sound")
     for sd in sound_directions:
-
-        if get_value_from_attribute(sd, "fine", str) == "yes":
+        # TODO: figure out which values occur in the wild for each attribute
+        if get_value_from_attribute(sd, "fine", str) in ("yes", "1"):
             part.add(score.Fine(), position)
         if get_value_from_attribute(sd, "dacapo", str) == "yes":
             part.add(score.DaCapo(), position)
@@ -833,6 +875,36 @@ def _handle_direction(e, position, part, ongoing):
             # system before they are continued at the start of the next, this
             # will not be treated correctly. I'm not sure how dashes spanning
             # systems are encoded in practice (need examples).
+        elif dt.tag == "octave-shift":
+            # start/stop
+            octave_shift_type = get_value_from_attribute(dt, "type", str)
+            octave_shift_size = get_value_from_attribute(dt, "size", int) or 8
+            octave_shift_number = get_value_from_attribute(dt, "number", int) or 1
+            key = ("octave-shift", octave_shift_number)
+            if octave_shift_type in ["up", "down"]:
+                if key in ongoing:
+                    eo = ongoing.pop(key)
+                    ending_directions.append(eo)
+
+                o = score.OctaveShiftDirection(
+                    octave_shift_type, octave_shift_size, staff=staff
+                )
+
+                starting_directions.append(o)
+
+                ongoing[key] = o
+
+            elif octave_shift_type == "stop":
+
+                o = ongoing.get(key)
+                if o is not None:
+                    ending_directions.append(o)
+                    del ongoing[key]
+
+                else:
+                    warnings.warn(
+                        "Did not find a octave_shift start element for octave_shift stop!"
+                    )
 
         elif dt.tag == "pedal":
 

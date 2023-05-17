@@ -98,7 +98,7 @@ INC_TEMPO_ADJ = [
     "rubato",
 ]
 DEC_TEMPO_ADJ = [
-    r"/(ritenuto|ritenente|riten\.?)/",
+    r"/(ritenuto|(ritenente|riten)\.?)/",
     r"/(ritardando|(ritard|rit)\.?)/",
     r"/(rallentando|(rallent|rall)\.?)/",
 ]

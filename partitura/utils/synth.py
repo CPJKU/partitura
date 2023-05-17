@@ -224,7 +224,7 @@ def additive_synthesis(
     duration: float,
     samplerate: Union[int, float] = SAMPLE_RATE,
     weights: Union[int, float, str, np.ndarray] = "equal",
-    envelope_fun="linear",
+    envelope_fun: Union[str, Callable[[int], np.ndarray]] = "linear",
 ) -> np.ndarray:
     """
     Additive synthesis for a single note
@@ -237,34 +237,81 @@ def additive_synthesis(
         Duration of the note in seconds.
     samplerate: int, float
         Sample rate of the note.
+    weights: int, float, str or np.ndarray
+        Additive weights for the frequencies. If "equal",
+        the weights will be 1 / len(freqs) for each frequency.
+    envelope_fun: callable, str
+        Function for defining the amplitude envelope. If a string,
+        it must be "linear" or "exp". See `lin_in_lin_out`
+        and `exp_in_exp_out`.
 
+    Returns
+    -------
+    output: np.ndarray
+        The signal corresponding to the note defined by the
+        given frequencies, duration, weights and envelop.
+        The length of the output is `int(np.round(duration * samplerate))`.
     """
-    if isinstance(freqs, (int, float)):
-        freqs = [freqs]
+    if isinstance(freqs, (int, float, np.integer, np.floating)):
+        freqs = np.array([freqs], dtype=DTYPE)
 
-    if isinstance(weights, (int, float)):
-        weights = [weights]
+    if not isinstance(freqs, np.ndarray):
+        raise ValueError(
+            "`freqs` should be a numpy array, an int or a float "
+            f"but is {type(freqs)}"
+        )
 
-    elif weights == "equal":
-        weights = np.ones(len(freqs), dtype=DTYPE) / len(freqs)
+    if duration < 0 or samplerate < 0:
+        raise ValueError(
+            "`duration` and `samplerate` must be larger than 0 "
+            f"but are {duration}, {samplerate}, respectively"
+        )
 
-    freqs = np.array(freqs).reshape(-1, 1)
-    weights = np.array(weights).reshape(-1, 1)
+    if isinstance(weights, (int, float, np.integer, np.floating)):
+        weights = np.array([weights], dtype=DTYPE)
 
-    if envelope_fun == "linear":
-        envelope_fun = lin_in_lin_out
-    elif envelope_fun == "exp":
-        envelope_fun = exp_in_exp_out
-    else:
-        if not callable(envelope_fun):
-            raise ValueError('`envelope_fun` must be "linear", "exp" or a callable')
+    elif isinstance(weights, str):
+        if weights == "equal":
+            weights = np.ones(len(freqs), dtype=DTYPE) / len(freqs)
+        else:
+            raise ValueError(
+                f"If `weights` is a string, it must be 'equal' but is {weights}"
+            )
+
+    if not isinstance(weights, np.ndarray):
+        raise ValueError(
+            "`weights` should be a numpy array, a number (int or float) or "
+            f"a string with value 'equal' but is {type(weights)}"
+        )
+
+    if len(freqs) != len(weights):
+        raise ValueError("`len(freqs)` should be equal to `len(weights)`")
+
+    freqs = freqs.reshape(-1, 1)
+    weights = weights.reshape(-1, 1)
+
+    if isinstance(envelope_fun, str):
+        if envelope_fun == "linear":
+            envelope_fun = lin_in_lin_out
+        elif envelope_fun == "exp":
+            envelope_fun = exp_in_exp_out
+        else:
+            raise ValueError(
+                "If `envelope_fun` is a string, it must be 'linear' or 'exp', "
+                f"but is {envelope_fun}"
+            )
+
+    if not callable(envelope_fun):
+        raise ValueError('`envelope_fun` must be "linear", "exp" or a callable')
 
     num_frames = int(np.round(duration * samplerate))
     envelope = envelope_fun(num_frames)
     x = np.linspace(0, duration, num=num_frames)
-    output = weights * np.sin(TWO_PI * freqs * x)
+    y = weights * np.sin(TWO_PI * freqs * x)
 
-    return output.sum(0) * envelope
+    output = y.sum(0) * envelope
+
+    return output
 
 
 class DistributedHarmonics(object):
