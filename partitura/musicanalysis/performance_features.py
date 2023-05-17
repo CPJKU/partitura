@@ -65,10 +65,10 @@ def compute_performance_features(score: ScoreLike,
 
     acc = []
     if isinstance(feature_functions, str) and feature_functions == "all":
-        feature_functions = list_note_feats_functions()
+        feature_functions = list_performance_feats_functions()
     elif not isinstance(feature_functions, list):
         raise TypeError(
-            "feature_functions variable {} needs to be list or all".format(
+            "feature_functions variable {} needs to be list or 'all'".format(
                 feature_functions
             )
         )
@@ -159,13 +159,16 @@ def compute_matched_score(score: ScoreLike,
     return m_score, unique_onset_idxs
 
 
-def list_note_feats_functions():
+def list_performance_feats_functions():
     """Return a list of all feature function names defined in this module.
 
     The feature function names listed here can be specified by name in
-    the `make_feature` function. For example:
+    the `compute_performance_features` function. For example:
 
-    >>> feature, names = make_note_feats(part, ['metrical_feature', 'articulation_feature'])
+    >>> feature, names = compute_performance_features(score,
+                                                    performance,
+                                                    alignment,
+                                                    ['asynchrony_feature'])
 
     Returns
     -------
@@ -184,6 +187,27 @@ def list_note_feats_functions():
             bfs.append(name)
     return bfs
 
+
+def print_performance_feats_functions():
+    """Print a list of all feature function names defined in this module,
+    with descriptions where available.
+
+    """
+    module = sys.modules[__name__]
+    doc_indent = 4
+    for name in list_performance_feats_functions():
+        print("* {}".format(name))
+        member = getattr(sys.modules[__name__], name)
+        if member.__doc__:
+            print(
+                " " * doc_indent + member.__doc__.replace("\n", " " * doc_indent + "\n")
+            )
+
+
+
+# alias
+list_performance_feature_functions = list_performance_feats_functions
+print_performance_feature_functions = print_performance_feats_functions
 
 def map_fields(note_info, fields):
     """

@@ -61,6 +61,7 @@ from partitura.utils.misc import (
     deprecated_parameter,
 )
 
+from partitura.utils.normalize import normalize
 
 __all__ = [
     "ensure_notearray",
@@ -78,4 +79,5 @@ __all__ = [
     "show_diff",
     "PrettyPrintTree",
     "synthesize",
+    "normalize"
 ]

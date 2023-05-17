@@ -51,7 +51,7 @@ def list_note_feats_functions():
     """Return a list of all feature function names defined in this module.
 
     The feature function names listed here can be specified by name in
-    the `make_feature` function. For example:
+    the `make_note_features` and `make_rest_features` functions. For example:
 
     >>> feature, names = make_note_feats(part, ['metrical_feature', 'articulation_feature'])
 
