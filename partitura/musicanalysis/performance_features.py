@@ -14,9 +14,11 @@ np.set_printoptions(suppress=True)
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.optimize import least_squares
+from scipy.signal import find_peaks
 import numpy.lib.recfunctions as rfn
 from partitura.score import ScoreLike
-from partitura.performance import PerformanceLike
+from partitura.performance import PerformanceLike, PerformedPart
+from partitura.utils.generic import interp1d
 from partitura.musicanalysis.performance_codec import to_matched_score, onsetwise_to_notewise, encode_tempo
 
 
@@ -53,7 +55,7 @@ def compute_performance_features(score: ScoreLike,
         the functions themselves or the names of a feature function as
         strings (or a mix). 
         currently implemented: 
-        asynchrony_feature, articulation_feature, dynamics_feature
+        asynchrony_feature, articulation_feature, dynamics_feature, pedal_feature
 
     Returns
     -------
@@ -79,7 +81,7 @@ def compute_performance_features(score: ScoreLike,
             func = bf
         else:
             warnings.warn("Ignoring unknown performance feature function {}".format(bf))
-        features = func(m_score, unique_onset_idxs)
+        features = func(m_score, unique_onset_idxs, performance)
         # check if the size and number of the feature function are correct
         if features.size != 0:
             n_notes = len(m_score)
@@ -259,27 +261,30 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
 
 
 ### Asynchrony
-def asynchrony_feature(m_score: list,
+def asynchrony_feature(m_score: np.ndarray,
                      unique_onset_idxs: list,
+                     performance: PerformanceLike,
                      v=False):
     """
     Compute the asynchrony attributes from the alignment. 
 
     Parameters
     ----------
-    unique_onset_idxs : list
-        a list of arrays with the note indexes that have the same onset
     m_score : list
         correspondance between score and performance notes, with score markings. 
+    unique_onset_idxs : list
+        a list of arrays with the note indexes that have the same onset
+    performance: PerformedPart
+        The original PerformedPart object
     
     Returns
     -------
     async_ : structured array
         structured array (broadcasted to the note level) with the following fields
-            delta: the largest time difference (in seconds) between onsets in this group [0, 1]
-            pitch_cor: correlation between timing and pitch [-1, 1]
-            vel_cor: correlation between timing and velocity [-1, 1]
-            voice_std: std of the avg timing (in seconds) of each voice in this group [0, 1]
+            delta [0, 1]: the largest time difference (in seconds) between onsets in this group 
+            pitch_cor [-1, 1]: correlation between timing and pitch 
+            vel_cor [-1, 1]: correlation between timing and velocity 
+            voice_std [0, 1]: std of the avg timing (in seconds) of each voice in this group 
     """
     
     async_ = np.zeros(len(unique_onset_idxs), dtype=[(
@@ -315,8 +320,9 @@ def asynchrony_feature(m_score: list,
 
 
 ### Dynamics 
-def dynamics_feature(m_score : list,
+def dynamics_feature(m_score : np.ndarray,
                         unique_onset_idxs: list,
+                        performance: PerformanceLike,
                         window : int = 3,
                         agg : str = "avg"):
     """
@@ -324,8 +330,12 @@ def dynamics_feature(m_score : list,
 
     Parameters
     ----------
-    m_score : structured array
+    m_score : list
         correspondance between score and performance notes, with score markings. 
+    unique_onset_idxs : list
+        a list of arrays with the note indexes that have the same onset
+    performance: PerformedPart
+        The original PerformedPart object
     window : int
         Length of window to look at the range of dynamic marking coverage, default 3. 
     agg : string
@@ -399,29 +409,9 @@ def dynamics_feature(m_score : list,
 
 ### Articulation
 
-
-def get_next_note(note_info, match_voiced):
-    """get the next note in the same voice that's a resonalble transition 
-    note_info: the row of current note
-    match_voiced: all notes in the same voice
-    """
-
-    next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
-
-    # if the next note is not immediate successor of the previous one...
-    if next_position != note_info['onset'] + note_info['duration']:
-        return None
-    
-    next_position_notes = match_voiced[match_voiced['onset'] == next_position]
-
-    # from the notes in the next position, find the one that's closest pitch-wise.
-    closest_idx = np.abs((next_position_notes['pitch'] - note_info['pitch'])).argmin()
-
-    return next_position_notes[closest_idx]
-
-
-def articulation_feature(m_score : list, 
+def articulation_feature(m_score : np.ndarray, 
                          unique_onset_idxs: list,
+                         performance: PerformanceLike,
                          return_mask=False):
     """
     Compute the articulation attributes (key overlap ratio) from the alignment.
@@ -431,8 +421,12 @@ def articulation_feature(m_score : list,
 
     Parameters
     ----------
-    m_score : structured array
+    m_score : list
         correspondance between score and performance notes, with score markings. 
+    unique_onset_idxs : list
+        a list of arrays with the note indexes that have the same onset
+    performance: PerformedPart
+        The original PerformedPart object
     return_mask : bool
         if true, return a boolean mask of legato notes, staccato notes and repeated notes
 
@@ -491,6 +485,101 @@ def get_kor(e1, e2):
         warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
     
     return min(kor, 5)
+
+def get_next_note(note_info, match_voiced):
+    """get the next note in the same voice that's a resonalble transition 
+    note_info: the row of current note
+    match_voiced: all notes in the same voice
+    """
+
+    next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
+
+    # if the next note is not immediate successor of the previous one...
+    if next_position != note_info['onset'] + note_info['duration']:
+        return None
+    
+    next_position_notes = match_voiced[match_voiced['onset'] == next_position]
+
+    # from the notes in the next position, find the one that's closest pitch-wise.
+    closest_idx = np.abs((next_position_notes['pitch'] - note_info['pitch'])).argmin()
+
+    return next_position_notes[closest_idx]
+
+
+### Pedals 
+
+def pedal_feature(m_score : list, 
+                unique_onset_idxs: list,
+                performance: PerformanceLike):
+    """
+    Compute the pedal features. 
+
+    Parameters
+    ----------
+    m_score : list
+        correspondance between score and performance notes, with score markings. 
+    unique_onset_idxs : list
+        a list of arrays with the note indexes that have the same onset
+    performance: PerformedPart
+        The original PerformedPart object
+        
+    Returns
+    -------
+    pedal_ : structured array (4, n_notes) with fields
+        onset_value [0, 127]: The interpolated pedal value at the onset
+        offset_value [0, 127]: The interpolated pedal value at the onset
+        to_prev_release [0, 10]: delta time from note onset to the previous pedal release 'peak'
+        to_next_release [0, 10]: delta time from note offset to the next pedal release 'peak'
+    """  
+    
+    onset_offset_pedals, ramp_func = pedal_ramp(performance.performedparts[0], m_score)
+
+    x = np.linspace(0, 100, 200)
+    y = ramp_func(x)
+
+    peaks, _ = find_peaks(-y, prominence=10)
+    peak_timepoints = x[peaks]
+
+    release_times = np.zeros(len(m_score), dtype=[("to_prev_release", "f4"), ("to_next_release", "f4")])
+    for i, note in enumerate(m_score):
+        peaks_before = peak_timepoints[note['p_onset'] >= peak_timepoints]
+        peaks_after = peak_timepoints[(note['p_onset'] + note['p_duration']) <= peak_timepoints]
+        if len(peaks_before):
+            release_times[i]["to_prev_release"] = min(note['p_onset'] - peaks_before.max(), 10)
+        if len(peaks_after):
+            release_times[i]["to_next_release"] = min(peaks_after.min() - (note['p_onset'] + note['p_duration']), 10)
+
+    # plt.plot(x[peaks], y[peaks], "x")
+    # plt.plot(x, y)
+    # plt.show()
+
+    return rfn.merge_arrays([onset_offset_pedals, release_times], flatten=True, usemask=False)
+
+def pedal_ramp(ppart: PerformedPart,
+               m_score: np.ndarray):
+    """Pedal ramp in the same shape as the m_score.
+
+    Returns:
+    * pramp : a ramp function that ranges from 0
+                  to 127 with the change of sustain pedal
+    """
+    pedal_controls = ppart.controls
+    W = np.zeros((len(m_score), 2))
+    onset_timepoints = m_score['p_onset']
+    offset_timepoints = m_score['p_onset'] + m_score['p_duration']
+
+    timepoints = [control['time'] for control in pedal_controls]
+    values = [control['value'] for control in pedal_controls]
+
+    agg_ramp_func = interp1d(timepoints, values, bounds_error=False, fill_value=0)
+    W[:, 0] = agg_ramp_func(onset_timepoints)
+    W[:, 1] = agg_ramp_func(offset_timepoints)
+
+    # Filter out NaN values
+    W[np.isnan(W)] = 0.0
+
+    return np.array([tuple(i) for i in W], dtype=[("onset_value", "f4"), ("offset_value", "f4")]), agg_ramp_func
+
 
 
 ### Phrasing
@@ -579,3 +668,4 @@ def phrasing_attributes(m_score, unique_onset_idxs, plot=False):
             plt.show()
 
     return phrasing_
+
