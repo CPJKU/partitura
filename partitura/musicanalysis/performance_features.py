@@ -527,7 +527,7 @@ def pedal_feature(m_score : list,
     -------
     pedal_ : structured array (4, n_notes) with fields
         onset_value [0, 127]: The interpolated pedal value at the onset
-        offset_value [0, 127]: The interpolated pedal value at the onset
+        offset_value [0, 127]: The interpolated pedal value at the offset
         to_prev_release [0, 10]: delta time from note onset to the previous pedal release 'peak'
         to_next_release [0, 10]: delta time from note offset to the next pedal release 'peak'
     """  
@@ -668,4 +668,7 @@ def phrasing_attributes(m_score, unique_onset_idxs, plot=False):
             plt.show()
 
     return phrasing_
+
+
+### Tempo
 
