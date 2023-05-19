@@ -487,7 +487,8 @@ def get_kor(e1, e2):
     return min(kor, 5)
 
 def get_next_note(note_info, match_voiced):
-    """get the next note in the same voice that's a resonalble transition 
+    """
+    get the next note in the same voice that's a reasonable transition 
     note_info: the row of current note
     match_voiced: all notes in the same voice
     """

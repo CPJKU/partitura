@@ -13,46 +13,6 @@ DEFAULT_NORM_FUNCS = {
 
 EPSILON=0.0001
 
-def normalize(array, 
-              norm_funcs = DEFAULT_NORM_FUNCS,
-              norm_func_fallback = minmaxrange_normalize,
-              default_value = -1.0):
-    
-    """
-    Normalize a note array.
-    May include note features as well as performance features.
-    
-    Parameters
-    ----------
-    array : np.ndarray
-        The performance array to be normalized.
-    norm_funcs : dict
-        A dictionary of normalization functions for each feature.
-    
-    Returns
-    -------
-    array : np.ndarray
-        The normalized performance array.
-    """
-
-    for feature in array.dtype.names:
-
-        # use mask for non-default values and don't change default values
-        non_default_mask = array[feature] != default_value
-
-        # check whether the feature has non-uniform values
-        if len(np.unique(array[feature][non_default_mask])) == 1:
-            array[feature][non_default_mask] = 0.0
-        else:
-            # check whether a normalization function is defined for the feature
-            if feature not in norm_funcs:
-                array[feature][non_default_mask] = norm_func_fallback(array[feature][non_default_mask])
-            else:
-                array[feature][non_default_mask] = norm_funcs[feature]["func"](array[feature][non_default_mask], 
-                                                                               **norm_funcs[feature]["kvargs"])     
-    
-    return array
-
 
 def range_normalize(array, 
                     min_value = None, 
@@ -113,3 +73,44 @@ def minmaxrange_normalize(array):
     Linear mapping a vector from range [min_value, max_value] to [0, 1].
     """
     return (array - array.min()) / (array.max() - array.min())
+
+
+def normalize(array, 
+              norm_funcs = DEFAULT_NORM_FUNCS,
+              norm_func_fallback = minmaxrange_normalize,
+              default_value = -1.0):
+    
+    """
+    Normalize a note array.
+    May include note features as well as performance features.
+    
+    Parameters
+    ----------
+    array : np.ndarray
+        The performance array to be normalized.
+    norm_funcs : dict
+        A dictionary of normalization functions for each feature.
+    
+    Returns
+    -------
+    array : np.ndarray
+        The normalized performance array.
+    """
+
+    for feature in array.dtype.names:
+
+        # use mask for non-default values and don't change default values
+        non_default_mask = array[feature] != default_value
+
+        # check whether the feature has non-uniform values
+        if len(np.unique(array[feature][non_default_mask])) == 1:
+            array[feature][non_default_mask] = 0.0
+        else:
+            # check whether a normalization function is defined for the feature
+            if feature not in norm_funcs:
+                array[feature][non_default_mask] = norm_func_fallback(array[feature][non_default_mask])
+            else:
+                array[feature][non_default_mask] = norm_funcs[feature]["func"](array[feature][non_default_mask], 
+                                                                               **norm_funcs[feature]["kvargs"])     
+    
+    return array
