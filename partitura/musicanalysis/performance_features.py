@@ -98,7 +98,7 @@ def compute_performance_features(score: ScoreLike,
                     np.where(np.logical_or(np.isnan(features_), np.isinf(features_)))[1]
                 )
                 msg = "NaNs or Infs found in the following feature: {} ".format(
-                    ", ".join(np.array(features.dtype)[problematic])
+                    ", ".join(np.array(features.dtype.names)[problematic])
                 )
                 raise InvalidPerformanceFeatureException(msg)
 
@@ -228,38 +228,6 @@ def map_fields(note_info, fields):
     return np.array(["N/A"], dtype="U256")
 
 
-def process_discrete_dynamics(constant_dyn):
-    """reverse the continuous dynamics ramp into discrete marks on the first beat. Rest of the events are filled with N/A"""
-    constant_dyn_shift = np.append(["N/A"], constant_dyn[:-1])
-    positions = np.where(constant_dyn != constant_dyn_shift)[0]
-
-    constant_dyn_ = np.full(len(constant_dyn), "N/A")
-    constant_dyn_[positions] = constant_dyn[positions]
-
-    return constant_dyn_
-
-
-def parse_changing_ramp(unique_onset_idxs, m_score):
-    """parse the cresceando / decresceando ramp for the actively changing subsequences. 
-        Return a list of (start, end) of the changing subsequences."""
-
-    unique_m_score = m_score[[idx[0] for idx in unique_onset_idxs]]
-
-    increase = unique_m_score['loudness_direction_feature.loudness_incr']
-    decrease = unique_m_score['loudness_direction_feature.loudness_decr']
-
-    onset_boundaries = []
-    # finding the increase & decrease boundaries 
-    for ramp in [increase, decrease]:
-        ramp_diff = np.append(ramp[1:], ramp[-1]) - ramp
-        has_ramp_diff = ramp_diff != 0
-        ramp_boundary = np.append(has_ramp_diff[0], has_ramp_diff[:-1]) ^ has_ramp_diff
-        onset_boundary = unique_m_score[ramp_boundary]['onset']
-        onset_boundaries.append([(onset_boundary[i], onset_boundary[i+1]) for i in range(0, len(onset_boundary), 2)])
-
-    return tuple(onset_boundaries), unique_m_score
-
-
 ### Asynchrony
 def asynchrony_feature(m_score: np.ndarray,
                      unique_onset_idxs: list,
@@ -282,8 +250,8 @@ def asynchrony_feature(m_score: np.ndarray,
     async_ : structured array
         structured array (broadcasted to the note level) with the following fields
             delta [0, 1]: the largest time difference (in seconds) between onsets in this group 
-            pitch_cor [-1, 1]: correlation between timing and pitch 
-            vel_cor [-1, 1]: correlation between timing and velocity 
+            pitch_cor [-1, 1]: correlation between timing and pitch, min-scaling 
+            vel_cor [-1, 1]: correlation between timing and velocity, min-scaling
             voice_std [0, 1]: std of the avg timing (in seconds) of each voice in this group 
     """
     
@@ -300,14 +268,20 @@ def asynchrony_feature(m_score: np.ndarray,
         midi_pitch = note_group['pitch']
         midi_pitch = midi_pitch - midi_pitch.min() # min-scaling
         onset_times = onset_times - onset_times.min()
-        cor = (-1) * np.corrcoef(midi_pitch, onset_times)[0, 1]
+        cor = (-1) * np.corrcoef(midi_pitch, onset_times)[0, 1] if (
+            len(midi_pitch) > 1 and sum(midi_pitch) != 0 and sum(onset_times) != 0) else 0
         # cor=nan if there is only one note in the group
-        async_[i]['pitch_cor'] = (0 if np.isnan(cor) else cor)
+        async_[i]['pitch_cor'] = cor
+
+        assert not np.isnan(cor) 
 
         midi_vel = note_group['velocity'].astype(float)
         midi_vel = midi_vel - midi_vel.min()
-        cor = (-1) * np.corrcoef(midi_vel, onset_times)[0, 1]
-        async_[i]['vel_cor'] = (0 if np.isnan(cor) else cor)
+        cor = (-1) * np.corrcoef(midi_vel, onset_times)[0, 1] if (
+            sum(midi_vel) != 0 and sum(onset_times) != 0) else 0
+        async_[i]['vel_cor'] = cor
+
+        assert not np.isnan(cor) 
 
         voices = np.unique(note_group['voice'])
         voices_onsets = []
@@ -361,6 +335,9 @@ def dynamics_feature(m_score : np.ndarray,
 
     constant_dynamics = list(zip(markings, velocity_agg))
 
+    # only consider those in the OLS (there exist others like dolce, )
+    constant_dynamics = [(m, v) for (m, v) in constant_dynamics if m in OLS]
+
     if len(constant_dynamics) < 2:
         return dynamics_
 
@@ -392,19 +369,66 @@ def dynamics_feature(m_score : np.ndarray,
     for onset_boundaries, feat_name in zip([increase_ob, decrease_ob], 
                                             ['loudness_direction_feature.loudness_incr', 'loudness_direction_feature.loudness_decr']):
         for start, end in onset_boundaries:
-            score_dynamics, performed_dyanmics, performed_bp = [], [], []
-            for onset in unique_m_score[(unique_m_score['onset'] >= start) & (unique_m_score['onset'] <= end)]['onset']:
+            score_dynamics, performed_dyanmics = [], []
+            notes_in_ramp = unique_m_score[(unique_m_score['onset'] >= start) & (unique_m_score['onset'] < end)]
+            for onset in notes_in_ramp['onset']:
                 score_dynamics.append(unique_m_score[unique_m_score['onset'] == onset][0][feat_name])
-                performed_dyanmics.append(unique_m_score[unique_m_score['onset'] == onset]['velocity'].mean())
-                performed_bp.append(unique_m_score[unique_m_score['onset'] == onset]['beat_period'].item())
-            cor = stats.pearsonr(score_dynamics, performed_dyanmics)[0]
+                performed_dyanmics.append(m_score[m_score['onset'] == onset]['velocity'].mean())
+            
+            performed_bp = notes_in_ramp['beat_period']
+            performed_bp = performed_bp - performed_bp.min()
+            performed_dyanmics = np.array(performed_dyanmics)
+            performed_dyanmics = performed_dyanmics - performed_dyanmics.min()
+
+            cor = stats.pearsonr(score_dynamics, performed_dyanmics)[0] if (
+                sum(performed_dyanmics) != 0 and  sum(score_dynamics) != 0) else 0
             if "decr" in feat_name:
                 cor *= -1 
             ramp_mask = (m_score['onset'] >= start) & (m_score['onset'] <= end)
             dynamics_['ramp_cor'][ramp_mask] = cor
-            dynamics_['tempo_cor'][ramp_mask] = (-1) * stats.pearsonr(performed_bp, performed_dyanmics)[0]
+            dynamics_['tempo_cor'][ramp_mask] = (-1) * stats.pearsonr(performed_bp, performed_dyanmics)[0] if (
+                sum(performed_bp) != 0 and sum(performed_dyanmics) != 0) else 0
 
     return dynamics_
+
+
+def process_discrete_dynamics(constant_dyn):
+    """reverse the continuous dynamics ramp into discrete marks on the first beat. Rest of the events are filled with N/A"""
+    constant_dyn_shift = np.append(["N/A"], constant_dyn[:-1])
+    positions = np.where(constant_dyn != constant_dyn_shift)[0]
+
+    constant_dyn_ = np.full(len(constant_dyn), "N/A", dtype="U256")
+    constant_dyn_[positions] = constant_dyn[positions]
+
+    return constant_dyn_
+
+
+def parse_changing_ramp(unique_onset_idxs, m_score):
+    """parse the cresceando / decresceando ramp for the actively changing subsequences. 
+        Return a list of (start, end) of the changing subsequences."""
+
+    unique_m_score = m_score[[idx[0] for idx in unique_onset_idxs]]
+
+    increase, decrease = np.zeros(unique_m_score.shape[0]), np.zeros(unique_m_score.shape[0])
+    if 'loudness_direction_feature.loudness_incr' in unique_m_score.dtype.names:
+        increase = unique_m_score['loudness_direction_feature.loudness_incr']
+    if 'loudness_direction_feature.loudness_decr' in unique_m_score.dtype.names:
+        decrease = unique_m_score['loudness_direction_feature.loudness_decr']
+
+    onset_boundaries = []
+    # finding the increase & decrease boundaries 
+    for ramp in [increase, decrease]:
+        ramp_diff = np.append(ramp[0], ramp[:-1]) - ramp
+        has_ramp_diff = ramp_diff != 0
+        ramp_boundary = np.append(has_ramp_diff[0], has_ramp_diff[:-1]) ^ has_ramp_diff
+        onset_boundary = unique_m_score[ramp_boundary]['onset']
+
+        if len(onset_boundary) % 2 != 0:
+            onset_boundary = onset_boundary[:-1]
+
+        onset_boundaries.append([(onset_boundary[i], onset_boundary[i+1]) for i in range(0, len(onset_boundary), 2)])
+
+    return tuple(onset_boundaries), unique_m_score
 
 
 ### Articulation
@@ -476,13 +500,18 @@ def articulation_feature(m_score : np.ndarray,
 
 
 def get_kor(e1, e2):
-    
+    """calculate the ratio between key overlap time and IOI.
+    In the case of a negative IOI (the order of notes in performance is reversed from the score),
+    set at default 0."""
+
     kot = e1['p_offset'] - e2['p_onset']
     ioi = e2['p_onset'] - e1['p_onset']
 
+    if ioi <= 0:
+        # warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
+        kor = 0
+
     kor = kot / ioi
-    if kor <= -1:
-        warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
     
     return min(kor, 5)
 
@@ -528,9 +557,10 @@ def pedal_feature(m_score : list,
     -------
     pedal_ : structured array (4, n_notes) with fields
         onset_value [0, 127]: The interpolated pedal value at the onset
-        offset_value [0, 127]: The interpolated pedal value at the offset
+        offset_value [0, 127]: The interpolated pedal value at the key offset
         to_prev_release [0, 10]: delta time from note onset to the previous pedal release 'peak'
         to_next_release [0, 10]: delta time from note offset to the next pedal release 'peak'
+        (think about something relates to the real duration)
     """  
     
     onset_offset_pedals, ramp_func = pedal_ramp(performance.performedparts[0], m_score)
@@ -571,6 +601,9 @@ def pedal_ramp(ppart: PerformedPart,
 
     timepoints = [control['time'] for control in pedal_controls]
     values = [control['value'] for control in pedal_controls]
+
+    if len(timepoints) <= 1: # the case there is no pedal
+        timepoints, values = [0, 0], [0, 0]
 
     agg_ramp_func = interp1d(timepoints, values, bounds_error=False, fill_value=0)
     W[:, 0] = agg_ramp_func(onset_timepoints)

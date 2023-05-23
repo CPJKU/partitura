@@ -289,6 +289,9 @@ def encode_articulation(
         sd[grace_mask] = 1
         pd[grace_mask] = bp
         # Compute log articulation ratio
+        if (pd / (bp * sd))[0] <= 0:
+            pass
+        # warnings is given for this line if we have a negative beat_period - performed notes have reversed timing.
         articulation[idx] = np.log2(pd / (bp * sd))
 
     return articulation
@@ -634,7 +637,6 @@ def to_matched_score(score: ScoreLike,
         for a in alignment
         if (a["label"] == "match" and a["score_id"] in part_by_id)
     ]
-
     ms = []
     # sort according to onset (primary) and pitch (secondary)
     pitch_onset = [(sn['pitch'].item(), sn['onset_div'].item()) for sn, _ in note_pairs]
