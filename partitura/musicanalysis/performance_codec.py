@@ -480,6 +480,7 @@ def tempo_by_average(
     s_iois = np.diff(unique_s_onsets_mt)
     beat_period = perf_iois / s_iois
 
+    hook()
     tempo_fun = interp1d(
         unique_s_onsets_mt[:-1],
         beat_period,
@@ -906,12 +907,16 @@ def monotonize_times(s, deltas=None):
     if deltas is not None:
         _deltas = np.r_[np.min(deltas) - eps, deltas, np.max(deltas) + eps]
     else:
-        _deltas = None
-    mask = np.ones(_s.shape[0], dtype=bool)
-    mask[0] = mask[-1] = False
+        _deltas = None    
     idx = np.arange(_s.shape[0])
+
+    # detect the position with value decrease and remove them from the interpolation values
+    mask = (_s[1:] - _s[:-1]) >= 0 
+    mask = np.r_[False, mask]
+    mask[-1] = False
+
     s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-    return _s[mask], _deltas[mask]
+    return s_mono, _deltas
 
 
 def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
