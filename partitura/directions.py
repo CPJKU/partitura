@@ -1,18 +1,19 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
 """
-Parse textual directions that occur in a score (in a MusicXML they are
-encoded as <words></words>), and if possible, convert them to a specific
-score.Direction class or subclass. For example "cresc." will produce a
-`score.DynamicLoudnessDirection` instance, and "Allegro molto" will produce a
-`score.ConstantTempoDirection` instance. If the meaning of the direction cannot
-be inferred, a `score.Words` instance is returned.
+This module contains methods to Parse textual directions that occur in a score
+(in a MusicXML they are encoded as <words></words>), and if possible, convert
+them to a specific score.Direction class or subclass. For example "cresc." will
+produce a `score.DynamicLoudnessDirection` instance, and "Allegro molto" will
+produce a `score.ConstantTempoDirection` instance. If the meaning of the
+direction cannot be inferred, a `score.Words` instance is returned.
 
 The functionality is provided by the function `parse_words`
 """
 
 import re
 import warnings
+
 try:
     from lark import Lark
 
@@ -21,7 +22,9 @@ except ImportError:
     warnings.warn(
         '''package "lark" not found; Textual directions will not be
 parsed to form `score.Direction` objects but included as `score.Words`
-instead; Install using "pip install lark-parser"''', ImportWarning, stacklevel=2
+instead; Install using "pip install lark-parser"''',
+        ImportWarning,
+        stacklevel=2,
     )
     HAVE_LARK = False
 
@@ -95,7 +98,7 @@ INC_TEMPO_ADJ = [
     "rubato",
 ]
 DEC_TEMPO_ADJ = [
-    r"/(ritenuto|ritenente|riten\.?)/",
+    r"/(ritenuto|(ritenente|riten)\.?)/",
     r"/(ritardando|(ritard|rit)\.?)/",
     r"/(rallentando|(rallent|rall)\.?)/",
 ]

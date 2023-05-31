@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Top level of the utilities module.
+"""
 
 from partitura.utils.generic import (
     ComparableMixin,
@@ -29,6 +33,7 @@ from partitura.utils.music import (
     ensure_pitch_spelling_format,
     ensure_notearray,
     compute_pianoroll,
+    compute_pitch_class_pianoroll,
     pianoroll_to_notearray,
     match_note_arrays,
     key_mode_to_int,
@@ -45,14 +50,24 @@ from partitura.utils.music import (
     rest_array_from_part,
     rest_array_from_rest_list,
     ensure_rest_array,
-    rest_array_from_part_list
+    rest_array_from_part_list,
+)
+from partitura.utils.synth import synthesize
+
+from partitura.utils.misc import (
+    PathLike,
+    get_document_name,
+    deprecated_alias,
+    deprecated_parameter,
 )
 
 
 __all__ = [
     "ensure_notearray",
+    "note_array_from_part",
     "ensure_rest_array",
     "compute_pianoroll",
+    "compute_pitch_class_pianoroll",
     "pianoroll_to_notearray",
     "slice_notearray_by_time",
     "key_name_to_fifths_mode",
@@ -61,5 +76,6 @@ __all__ = [
     "pitch_spelling_to_midi_pitch",
     "pitch_spelling_to_note_name",
     "show_diff",
-    "PrettyPrintTree"
+    "PrettyPrintTree",
+    "synthesize",
 ]

@@ -1,6 +1,137 @@
 Release Notes
 =============
 
+Version 1.2.2 (Released on 2023-10-05)
+--------------------------------------
+
+New features
+------------
+* slicing performed parts
+* roman numeral analysis
+* harmony class for part and export
+* staff with custom number of lines
+* transposition by intervals
+
+
+Bug fixes
+---------
+* file naming bug in load_musicxml()
+* fixed bug in score part unfolding
+* bugfix for fine, ritenuto parsing and unfolding
+* bugfix for performance codec
+
+
+Other changes
+-------------
+* Improved documentation
+* Added contributing file
+
+
+Version 1.2.1 (Released on 2023-02-09)
+--------------------------------------
+
+Bug fixes
+---------
+* fixed bug in exporting data for parangonada https://sildater.github.io/parangonada/
+* fixed bug in rendering via musescore
+* fixed bug in loading via musescore
+
+
+Version 1.2.0 (Released on 2022-12-01)
+--------------------------------------
+
+
+New features
+
+* Load and save alignments, performances, and scores stored in match files (.match) of all available versions
+* Support for mei loading via verovio (if installed)
+* PerformedPart notes store timing information in both ticks and seconds
+* Support for pitch class piano rolls
+* New MIDI time conversion functions
+
+
+Bug fixes
+
+* Fix render via musescore (if installed)
+* Fix bug slowing down musicxml export
+* Fix consecutive tie bug in kern import
+* Gracefully handle slur mismatch in kern import
+* Fix metrical position flag in note arrays
+* Fix in MEI import and handling multiple staff groups inside the main staffGroup
+* Fix measure map for single measure parts
+
+
+Other changes
+
+* Improved documentation
+* Extended test coverage
+* Extended and updated notebook tutorials: https://cpjku.github.io/partitura_tutorial/
+
+
+
+Version 1.1.1 (Released on 2022-10-31)
+--------------------------------------
+
+New features:
+
+* New minor feature : Adding midi pitch to freq for synthesizer add reference-based midi pitch to freq #163
+
+Bug fixes:
+
+* Documentation Fix of ReadTheDocs
+* Bug fix Bug synthesizing scores with pickup measures #166 Synthesizing score with pick up measure
+* Bug Fix of kern import Kern import fix #160
+* Bug Fix of Musicxml import repeat infer Bug with musicxml Import #161
+* Bug fix Note array with empty voice Note array from note list with empty voice bug. #159
+* Fix synthesizing scores with pickup measures #167
+
+Other changes:
+
+* Encoding declaration on all files.
+* Renaming master branch as main
+
+
+Version 1.0.0 (Released on 2022-09-20)
+--------------------------------------
+
+API changes:
+
+* Different `__call__` for `note_array` attribute (in `Score`, `Part`, `PerformedPart` and `PartGroup`).  `note_array` is now called as a method with brackets. One can specify additional fields for the note array such as key, pitch spelling, time signature, and others.
+* Every score is imported as a `Score` object where each part can be accessed individually.
+
+
+New features:
+
+* We now support import from humdrum **kern, and MEI (coming soon import Musescore and Music21, export MEI).
+* The music analysis functions now include:
+  + The basis features (from the Basis Mixer) use by typing : `partitura.utils.make_note_features(part)`.
+  + A simple version of the Performance Codec with encode, and decode functions.
+* The part object now contains several new methods such as: `part.measures()`, `part.use_musical_beat()`, and others.
+* Multiple parts of the same score can now be merged to one even if they contain different divs, call: `partitura.score.merge_parts([p1, p2, ...])`.
+* Ornaments now are supported.
+* Added i/o functionality for parangonada
+* There is now an unpitched note class.
+* Added unzipping for compressed musicxml files on import.
+* Added unifying function for import of individual score formats as a `load_score` function.
+* Added score unfolding features.
+
+Bug fixes:
+
+* Pianoroll starting with silence mismatch on pianoroll creation fixed.
+* Fixed consistency of time signature map.
+* Fixed pianoroll to note_array.
+* Fix for unpitch musicxml elements.
+* updated music analysis algorithm for Voice Separation based on Chew.
+* `ensure_note_array` now works even with parts with different divs.
+
+Other changes:
+
+* Logger is replaced by warnings.
+* Add documentation
+* Code cleanup
+* Coverage support
+* Unitesting running as a workflow
+
 Version 0.4.0 (Released on 2021-05-28)
 --------------------------------------
 

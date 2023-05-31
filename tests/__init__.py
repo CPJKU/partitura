@@ -1,10 +1,12 @@
-# encoding: utf-8
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # pylint: skip-file
 """
 This module contains tests.
 """
 
 import os
+import glob
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
@@ -13,6 +15,10 @@ MEI_PATH = os.path.join(DATA_PATH, "mei")
 KERN_PATH = os.path.join(DATA_PATH, "kern")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
 NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
+MIDI_PATH = os.path.join(DATA_PATH, "midi")
+PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
+WAV_PATH = os.path.join(DATA_PATH, "wav")
+PNG_PATH = os.path.join(DATA_PATH, "png")
 M21_PATH = DATA_PATH
 
 # this is a list of files for which importing and subsequent exporting should
@@ -37,7 +43,10 @@ MUSICXML_UNFOLD_TESTPAIRS = [
 ]
 
 MUSICXML_UNFOLD_COMPLEX = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
     for fn1, fn2 in [("test_unfold_complex.xml", "test_unfold_complex_result.xml")]
 ]
 
@@ -47,12 +56,20 @@ MUSICXML_NOTE_FEATURES = [
 ]
 
 MUSICXML_UNFOLD_VOLTA = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
-    for fn1, fn2 in [("test_unfold_volta_numbers.xml", "test_unfold_volta_numbers_result.xml")]
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
+    for fn1, fn2 in [
+        ("test_unfold_volta_numbers.xml", "test_unfold_volta_numbers_result.xml")
+    ]
 ]
 
 MUSICXML_UNFOLD_DACAPO = [
-    (os.path.join(MUSICXML_PATH, fn1), os.path.join(MUSICXML_PATH, fn2),)
+    (
+        os.path.join(MUSICXML_PATH, fn1),
+        os.path.join(MUSICXML_PATH, fn2),
+    )
     for fn1, fn2 in [("test_unfold_dacapo.xml", "test_unfold_dacapo_result.xml")]
 ]
 
@@ -82,9 +99,19 @@ METRICAL_POSITION_TESTFILES = [
     for fn in ["test_metrical_position.xml", "test_anacrusis.xml"]
 ]
 
-REST_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]]
+TIME_SIGNATURE_MAP_EDGECASES_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_ts_map_ts_starts_not_at_zero.xml"]
+]
+
+REST_ARRAY_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]
+]
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
+
+OCTAVE_SHIFT_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["example_octave_shift.musicxml"]]
 
 MERGE_PARTS_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
@@ -132,10 +159,12 @@ MEI_TESTFILES = [
         "test_barline.mei",
         "test_unfold_complex.mei",
         "test_articulation.mei",
+        "test_merge_voices2.mei",
+        "CRIM_Mass_0030_4.mei",
     ]
 ]
 
-KERN_TESFILES = [
+KERN_TESTFILES = [
     os.path.join(KERN_PATH, fn)
     for fn in [
         "single_voice_example.krn",
@@ -145,10 +174,33 @@ KERN_TESFILES = [
         "tuple_durations.krn",
         "voice_dublifications.krn",
         "variable_length_pr_bug.krn",
-        "chor228.krn"
+        "chor228.krn",
     ]
 ]
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
-
 M21_TESTFILES = [os.path.join(DATA_PATH, "musicxml","test_clefs_tss.xml"), os.path.join(DATA_PATH, "musicxml","test_grace_note.xml")]
+HARMONY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_harmony.musicxml"]]
+
+MOZART_VARIATION_FILES = dict(
+    musicxml=os.path.join(MUSICXML_PATH, "mozart_k265_var1.musicxml"),
+    midi=os.path.join(MIDI_PATH, "mozart_k265_var1.mid"),
+    match=os.path.join(MATCH_PATH, "mozart_k265_var1.match"),
+    parangonada_align=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "align.csv"),
+    parangonada_feature=os.path.join(
+        PARANGONADA_PATH, "mozart_k265_var1", "feature.csv"
+    ),
+    parangonada_spart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "part.csv"),
+    parangonada_ppart=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "ppart.csv"),
+    parangonada_zalign=os.path.join(PARANGONADA_PATH, "mozart_k265_var1", "zalign.csv"),
+)
+
+
+WAV_TESTFILES = [
+    os.path.join(WAV_PATH, fn)
+    for fn in [
+        "example_linear_equal_temperament_sr8000.wav",
+    ]
+]
+
+PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, "*.png"))

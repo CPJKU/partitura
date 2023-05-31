@@ -1,10 +1,19 @@
-import os.path
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing Humdrum Kern files.
+"""
 import re
 import warnings
 
-import partitura.score
-import partitura.score as score
+from typing import Union, Optional
+
 import numpy as np
+
+import partitura.score as score
+from partitura.utils import PathLike, get_document_name
+from partitura.utils.misc import deprecated_alias, deprecated_parameter
+
 
 __all__ = ["load_kern"]
 
@@ -32,20 +41,20 @@ class KernGlobalPart(object):
         }
 
         self.KERN_NOTES = {
-            'C': ("C", 3),
-            'D': ('D', 3),
-            'E': ('E', 3),
-            'F': ('F', 3),
-            'G': ('G', 3),
-            'A': ('A', 3),
-            'B': ('B', 3),
-            'c': ("C", 4),
-            'd': ('D', 4),
-            'e': ('E', 4),
-            'f': ('F', 4),
-            'g': ('G', 4),
-            'a': ('A', 4),
-            'b': ('B', 4)
+            "C": ("C", 3),
+            "D": ("D", 3),
+            "E": ("E", 3),
+            "F": ("F", 3),
+            "G": ("G", 3),
+            "A": ("A", 3),
+            "B": ("B", 3),
+            "c": ("C", 4),
+            "d": ("D", 4),
+            "e": ("E", 4),
+            "f": ("F", 4),
+            "g": ("G", 4),
+            "a": ("A", 4),
+            "b": ("B", 4),
         }
 
         self.KERN_DURS = {
@@ -68,6 +77,7 @@ class KernParserPart(KernGlobalPart):
     """
     Class for parsing kern file syntax.
     """
+
     def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
         super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
         self.position = int(init_pos)
@@ -75,7 +85,9 @@ class KernParserPart(KernGlobalPart):
         self.stream = stream
         self.prev_measure_pos = init_pos
         # Check if part has pickup measure.
-        self.measure_count = 0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
+        self.measure_count = (
+            0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
+        )
         self.last_repeat_pos = None
         self.mode = None
         self.barline_dict = dict() if not barline_dict else barline_dict
@@ -88,7 +100,7 @@ class KernParserPart(KernGlobalPart):
         for index, el in enumerate(self.stream):
             self.current_index = index
             if el.startswith("*staff"):
-                self.staff = eval(el[len("*staff"):])
+                self.staff = eval(el[len("*staff") :])
             # elif el.startswith("!!!"):
             #     self._handle_fileinfo(el)
             elif el.startswith("*"):
@@ -104,7 +116,10 @@ class KernParserPart(KernGlobalPart):
                 self._handle_rest(el, "r-" + str(index))
             else:
                 self._handle_note(el, "n-" + str(index))
-        self.nid_dict = dict([(n.id, n) for n in self.part.iter_all(cls=score.Note)] + [(n.id, n) for n in self.part.iter_all(cls=score.GraceNote)])
+        self.nid_dict = dict(
+            [(n.id, n) for n in self.part.iter_all(cls=score.Note)]
+            + [(n.id, n) for n in self.part.iter_all(cls=score.GraceNote)]
+        )
         self._handle_slurs()
         self._handle_ties()
 
@@ -125,34 +140,66 @@ class KernParserPart(KernGlobalPart):
         try:
             if len(self.tie_dict["open"]) < len(self.tie_dict["close"]):
                 for index, oid in enumerate(self.tie_dict["open"]):
-                    if self.nid_dict[oid].midi_pitch != self.nid_dict[self.tie_dict["close"][index]].midi_pitch:
+                    if (
+                        self.nid_dict[oid].midi_pitch
+                        != self.nid_dict[self.tie_dict["close"][index]].midi_pitch
+                    ):
                         dnote = self.nid_dict[self.tie_dict["close"][index]]
-                        m_num = [m for m in self.part.iter_all(partitura.score.Measure) if m.start.t == self.part.measure_map(dnote.start.t)[0]][0].number
-                        warnings.warn("Dropping Closing Tie of note {} at position {} measure {}".format(dnote.midi_pitch, dnote.start.t, m_num))
+                        m_num = [
+                            m
+                            for m in self.part.iter_all(score.Measure)
+                            if m.start.t == self.part.measure_map(dnote.start.t)[0]
+                        ][0].number
+                        warnings.warn(
+                            "Dropping Closing Tie of note {} at position {} measure {}".format(
+                                dnote.midi_pitch, dnote.start.t, m_num
+                            )
+                        )
                         self.tie_dict["close"].pop(index)
                         self._handle_ties()
             elif len(self.tie_dict["open"]) > len(self.tie_dict["close"]):
                 for index, cid in enumerate(self.tie_dict["close"]):
-                    if self.nid_dict[cid].midi_pitch != self.nid_dict[self.tie_dict["open"][index]].midi_pitch:
+                    if (
+                        self.nid_dict[cid].midi_pitch
+                        != self.nid_dict[self.tie_dict["open"][index]].midi_pitch
+                    ):
                         dnote = self.nid_dict[self.tie_dict["open"][index]]
-                        m_num = [m for m in self.part.iter_all(partitura.score.Measure) if m.start.t == self.part.measure_map(dnote.start.t)[0]][0].number
+                        m_num = [
+                            m
+                            for m in self.part.iter_all(score.Measure)
+                            if m.start.t == self.part.measure_map(dnote.start.t)[0]
+                        ][0].number
                         warnings.warn(
-                            "Dropping Opening Tie of note {} at position {} measure {}".format(dnote.midi_pitch,
-                                                                                                 dnote.start.t, m_num))
+                            "Dropping Opening Tie of note {} at position {} measure {}".format(
+                                dnote.midi_pitch, dnote.start.t, m_num
+                            )
+                        )
                         self.tie_dict["open"].pop(index)
                         self._handle_ties()
             else:
-                for (oid, cid) in list(zip(self.tie_dict["open"], self.tie_dict["close"])):
+                for (oid, cid) in list(
+                    zip(self.tie_dict["open"], self.tie_dict["close"])
+                ):
                     self.nid_dict[oid].tie_next = self.nid_dict[cid]
                     self.nid_dict[cid].tie_prev = self.nid_dict[oid]
-        except:
-            raise ValueError("Tie Mismatch! Uneven amount of closing to open tie brackets.")
+        except Exception:
+            raise ValueError(
+                "Tie Mismatch! Uneven amount of closing to open tie brackets."
+            )
 
     def _handle_slurs(self):
         if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
-            raise ValueError("Slur Mismatch! Uneven amount of closing to open slur brackets.")
+            warnings.warn(
+                "Slur Mismatch! Uneven amount of closing to open slur brackets. Skipping slur parsing.",
+                ImportWarning,
+            )
+            # raise ValueError(
+            #     "Slur Mismatch! Uneven amount of closing to open slur brackets."
+            # )
         else:
-            for (oid, cid) in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
+            for (oid, cid) in list(
+                zip(self.slur_dict["open"], self.slur_dict["close"])
+            ):
                 self.part.add(score.Slur(self.nid_dict[oid], self.nid_dict[cid]))
 
     def _handle_metersig(self, metersig):
@@ -182,7 +229,11 @@ class KernParserPart(KernGlobalPart):
             self.part.add(barline, self.position)
         if ":|" in element:
             barline = score.Repeat()
-            self.part.add(barline, self.position, self.last_repeat_pos if self.last_repeat_pos else None)
+            self.part.add(
+                barline,
+                self.position,
+                self.last_repeat_pos if self.last_repeat_pos else None,
+            )
         # update position for backward repeat signs
         if "|:" in element:
             self.last_repeat_pos = self.position
@@ -218,13 +269,15 @@ class KernParserPart(KernGlobalPart):
     def _handle_clef(self, element):
         # handle the case where we have clef information
         # TODO Compute Clef Octave
-        if element[5] not in ['G', 'F', 'C']:
+        if element[5] not in ["G", "F", "C"]:
             raise ValueError("Unknown Clef", element[5])
         if len(element) < 7:
             line = self.default_clef_lines[element[5]]
         else:
             line = int(element[6]) if element[6] != "v" else int(element[7])
-        new_clef = score.Clef(staff=self.staff, sign=element[5], line=line, octave_change=0)
+        new_clef = score.Clef(
+            staff=self.staff, sign=element[5], line=line, octave_change=0
+        )
         self.part.add(new_clef, self.position)
 
     def _handle_rest(self, el, rest_id):
@@ -249,7 +302,7 @@ class KernParserPart(KernGlobalPart):
     def _search_slurs_and_ties(self, note, note_id):
         if ")" in note:
             x = note.count(")")
-            if len(self.slur_dict["open"]) == len(self.slur_dict["close"])+x:
+            if len(self.slur_dict["open"]) == len(self.slur_dict["close"]) + x:
                 # for _ in range(x):
                 self.slur_dict["close"].append(note_id)
         if note.startswith("("):
@@ -258,8 +311,12 @@ class KernParserPart(KernGlobalPart):
             # for _ in range(n):
             self.slur_dict["open"].append(note_id)
             # Re-order for correct parsing
-            if len(self.slur_dict["open"]) > len(self.slur_dict["close"])+1:
-                warnings.warn("Cannot deal with nested slurs. Dropping Opening slur for note id {}".format(self.slur_dict["open"][len(self.slur_dict["open"]) - 2]))
+            if len(self.slur_dict["open"]) > len(self.slur_dict["close"]) + 1:
+                warnings.warn(
+                    "Cannot deal with nested slurs. Dropping Opening slur for note id {}".format(
+                        self.slur_dict["open"][len(self.slur_dict["open"]) - 2]
+                    )
+                )
                 self.slur_dict["open"].pop(len(self.slur_dict["open"]) - 2)
                 # x = note_id
                 # lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
@@ -268,6 +325,9 @@ class KernParserPart(KernGlobalPart):
             note = note[n:]
         if "]" in note:
             self.tie_dict["close"].append(note_id)
+        elif "_" in note:
+            self.tie_dict["open"].append(note_id)
+            self.tie_dict["close"].append(note_id)
         if note.startswith("["):
             self.tie_dict["open"].append(note_id)
             note = note[1:]
@@ -275,19 +335,26 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_duration(self, note, isgrace=False):
         if isgrace:
-            _ , dur, ntype = re.split('(\d+)', note)
+            _, dur, ntype = re.split("(\d+)", note)
             ntype = _ + ntype
         else:
-            _, dur, ntype = re.split('(\d+)', note)
+            _, dur, ntype = re.split("(\d+)", note)
         dur = eval(dur)
         if dur in self.KERN_DURS.keys():
             symbolic_duration = {"type": self.KERN_DURS[dur]}
         else:
-            diff = dict((map(lambda x : (dur-x, x) if dur>x else (dur+x, x) , self.KERN_DURS.keys())))
+            diff = dict(
+                (
+                    map(
+                        lambda x: (dur - x, x) if dur > x else (dur + x, x),
+                        self.KERN_DURS.keys(),
+                    )
+                )
+            )
             symbolic_duration = {
-                "type" : self.KERN_DURS[diff[min(list(diff.keys()))]],
-                "actual_notes" : dur/4,
-                "normal_notes" : diff[min(list(diff.keys()))]/4
+                "type": self.KERN_DURS[diff[min(list(diff.keys()))]],
+                "actual_notes": dur / 4,
+                "normal_notes": diff[min(list(diff.keys()))] / 4,
             }
 
         # calculate duration to divs.
@@ -295,7 +362,7 @@ class KernParserPart(KernGlobalPart):
         duration = qdivs * 4 / dur if dur != 0 else qdivs * 8
         if "." in note:
             symbolic_duration["dots"] = note.count(".")
-            ntype = ntype[note.count("."):]
+            ntype = ntype[note.count(".") :]
             d = duration
             for i in range(symbolic_duration["dots"]):
                 d = d / 2
@@ -316,7 +383,7 @@ class KernParserPart(KernGlobalPart):
             return
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
-        grace_attr = "q" in note # or "p" in note # for appoggiatura not sure yet.
+        grace_attr = "q" in note  # or "p" in note # for appoggiatura not sure yet.
         duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
         # Remove editorial symbols from string, i.e. "x"
         ntype = ntype.replace("x", "")
@@ -325,7 +392,7 @@ class KernParserPart(KernGlobalPart):
             octave = octave + ntype.count(ntype[0]) - 1
         elif octave == 3:
             octave = octave - ntype.count(ntype[0]) + 1
-        alter = ntype.count('#') - ntype.count("-")
+        alter = ntype.count("#") - ntype.count("-")
         # find if it's grace
         if not grace_attr:
             # create normal note
@@ -397,7 +464,8 @@ class KernParserPart(KernGlobalPart):
         elif el.startswith("Xstrophe"):
             self.parsing = "full"
 
-class KernParser():
+
+class KernParser:
     def __init__(self, document, doc_name):
         self.document = document
         self.doc_name = doc_name
@@ -414,7 +482,7 @@ class KernParser():
             48: 12,
             64: 16,
             128: 32,
-            256: 64
+            256: 64,
         }
         # self.qdivs =
         self.parts = self.process()
@@ -431,13 +499,18 @@ class KernParser():
         #     position = self._handle_pickup_position()
         position = 0
         # Add for parallel processing
-        parts = [self.collect(self.document[i], position, str(i), self.doc_name) for i in reversed(range(self.document.shape[0]))]
+        parts = [
+            self.collect(self.document[i], position, str(i), self.doc_name)
+            for i in reversed(range(self.document.shape[0]))
+        ]
         return [p for p in parts if p]
 
     def add2part(self, part, unprocessed):
         flatten = [item for sublist in unprocessed for item in sublist]
         if unprocessed:
-            new_part = KernParserPart(flatten, 0, self.doc_name, "x", self.qdivs, part.barline_dict)
+            new_part = KernParserPart(
+                flatten, 0, self.doc_name, "x", self.qdivs, part.barline_dict
+            )
             self.parts.append(new_part)
 
     def collect(self, doc, pos, id, doc_name):
@@ -452,27 +525,28 @@ class KernParser():
 
     def find_lcm(self, doc):
         kern_string = "-".join([row for row in doc])
-        match = re.findall('([0-9]+)([a-g]|[A-G]|r|\.)', kern_string)
+        match = re.findall(r"([0-9]+)([a-g]|[A-G]|r|\.)", kern_string)
         durs, _ = zip(*match)
-        x = np.array(list(map(lambda x : int(x), durs)))
-        divs = np.lcm.reduce(np.unique(x))
-        return float(divs)/4.00
+        x = np.array(list(map(lambda x: int(x), durs)))
+        divs = np.lcm.reduce(np.unique(x[x != 0]))
+        return float(divs) / 4.00
+
 
 # functions to initialize the kern parser
-def parse_kern(kern_path):
+def parse_kern(kern_path: PathLike) -> np.ndarray:
     """
     Parses an KERN file from path to an regular expression.
 
     Parameters
     ----------
-    kern_path : str
+    kern_path : PathLike
         The path of the KERN document.
     Returns
     -------
     continuous_parts : numpy character array
     non_continuous_parts : list
     """
-    with open(kern_path, encoding='cp437') as file:
+    with open(kern_path, encoding="cp437") as file:
         lines = file.read().splitlines()
     d = [line.split("\t") for line in lines if not line.startswith("!")]
     striped_parts = list()
@@ -480,8 +554,8 @@ def parse_kern(kern_path):
     for x in d:
         if merge_index:
             for midx in merge_index:
-                x[midx] = x[midx] + " " + x[midx+1]
-            y = [el for i, el in enumerate(x) if i-1 not in merge_index]
+                x[midx] = x[midx] + " " + x[midx + 1]
+            y = [el for i, el in enumerate(x) if i - 1 not in merge_index]
             striped_parts.append(y)
         else:
             striped_parts.append(x)
@@ -490,43 +564,42 @@ def parse_kern(kern_path):
             for i, el in enumerate(x):
                 # Some faulty kerns create an extra part half way through the score.
                 # We choose for the moment to add it to the closest column part.
-                if el=="*^" or el=="*+":
+                if el == "*^" or el == "*+":
                     k = i
                     if merge_index:
                         if k < min(merge_index):
-                            merge_index = [midx+1 for midx in merge_index]
+                            merge_index = [midx + 1 for midx in merge_index]
                     merge_index.append(k)
         if "*v *v" in x:
             k = x.index("*v *v")
             temp = list()
             for i in merge_index:
-                if i>k:
-                    temp.append(i-1)
-                elif i <k :
+                if i > k:
+                    temp.append(i - 1)
+                elif i < k:
                     temp.append(i)
             merge_index = temp
-    # Final filter for mistabs and inconsistent tabs that would create extra empty voice and would mess the parsing.
+    # Final filter for mistabs and inconsistent tabs that would create
+    # extra empty voice and would mess the parsing.
     striped_parts = [[el for el in part if el != ""] for part in striped_parts]
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
 
 
-def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=False):
+@deprecated_alias(kern_path="filename")
+@deprecated_parameter("ensure_list")
+def load_kern(
+    filename: PathLike,
+    force_note_ids: Optional[Union[bool, str]] = None,
+    parallel: bool = False,
+) -> score.Score:
     """Parse a Kern file and build a composite score ontology
     structure from it (see also scoreontology.py).
 
     Parameters
     ----------
-    kern_path : str
+    filename : PathLike
         Path to the Kern file to be parsed
-    ensure_list : bool, optional
-        When True return a list independent of how many part or
-        partgroup elements were created from the MIDI file. By
-        default, when the return value of `load_musicxml` produces a
-    single : class:`partitura.score.Part` or
-        :Class:`partitura.score.PartGroup` element, the element itself
-        is returned instead of a list containing the element. Defaults
-        to False.
     force_note_ids : (bool, 'keep') optional.
         When True each Note in the returned Part(s) will have a newly
         assigned unique id attribute. Existing note id attributes in
@@ -535,22 +608,21 @@ def load_kern(kern_path: str, ensure_list=True, force_note_ids=None, parallel=Fa
 
     Returns
     -------
-    partlist : list
-        A list of either Part or PartGroup objects
-
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
     # parse kern file
-    numpy_parts = parse_kern(kern_path)
-    doc_name = os.path.basename(kern_path[:-4])
+    numpy_parts = parse_kern(filename)
+    # doc_name = os.path.basename(filename[:-4])
+    doc_name = get_document_name(filename)
     parser = KernParser(numpy_parts, doc_name)
     partlist = parser.parts
 
-    score.assign_note_ids(partlist, keep= (force_note_ids is True or force_note_ids == "keep"))
+    score.assign_note_ids(
+        partlist, keep=(force_note_ids is True or force_note_ids == "keep")
+    )
 
+    # TODO: Parse score info (composer, lyricist, etc.)
+    scr = score.Score(id=doc_name, partlist=partlist)
 
-    if not ensure_list and len(partlist) == 1:
-        return partlist[0]
-    else:
-        return partlist
-
-
+    return scr

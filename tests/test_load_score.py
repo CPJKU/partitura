@@ -1,14 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for the load_score method
-
+This module contains test functions for the `load_score` method.
 """
 import unittest
 
 from tests import (
     MUSICXML_IMPORT_EXPORT_TESTFILES,
     MEI_TESTFILES,
-    KERN_TESFILES,
+    KERN_TESTFILES,
     MATCH_IMPORT_EXPORT_TESTFILES,
 )
 
@@ -33,7 +33,7 @@ class TestLoadScore(unittest.TestCase):
         for fn in (
             MUSICXML_IMPORT_EXPORT_TESTFILES
             + MEI_TESTFILES
-            + KERN_TESFILES
+            + KERN_TESTFILES
             + MATCH_IMPORT_EXPORT_TESTFILES
             + EXAMPLE_FILES
         ):
@@ -42,6 +42,11 @@ class TestLoadScore(unittest.TestCase):
     def load_score(self, fn):
         try:
             score = load_score(fn)
-            self.assertTrue(type(score) in (Part, PartGroup, list, Score))
+            self.assertTrue(isinstance(score, Score))
+
+            for pp in score.part_structure:
+                self.assertTrue(type(pp) in (Part, PartGroup))
+            for pp in score.parts:
+                self.assertTrue(isinstance(pp, Part))
         except NotSupportedFormatError:
             self.assertTrue(False)

@@ -1,10 +1,16 @@
-#!/usr/bin/env python
-
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+This module contains generic class- and numerical-related utilities
+"""
 import warnings
 from collections import defaultdict
+
+from typing import Union, Callable, Optional
+
 from textwrap import dedent
 import numpy as np
-
+from scipy.interpolate import interp1d as sc_interp1d
 
 
 __all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
@@ -316,7 +322,6 @@ class ComparableMixin(object):
         return self._compare(other, lambda s, o: s != o)
 
 
-
 def partition(func, iterable):
     """
     Return a dictionary containing the equivalence classes (actually bags)
@@ -469,6 +474,131 @@ def search(states, success, expand, combine):
             return state
         else:
             states = combine(expand(state), states)
+
+
+def interp1d(
+    x: np.ndarray,
+    y: np.ndarray,
+    dtype: Optional[type] = None,
+    axis: int = -1,
+    kind: Union[str, int] = "linear",
+    copy=True,
+    bounds_error=None,
+    fill_value=np.nan,
+    assume_sorted=False,
+) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
+    """
+    Interpolate a 1-D function using scipy's interp1d method. This utility allows for
+    handling the case where `x` and `y` are only a single value (i.e. have length one,
+    which results in a ValueError if using scipy's version directly). It also allows for
+    specifying the dtype of the output.
+
+    The description of the parameters has been taken from `scipy.interpolate.interp1d`.
+
+    `x` and `y` are arrays of values used to approximate some function f:
+    ``y = f(x)``. This class returns a function whose call method uses
+    interpolation to find the value of new points.
+
+
+    Parameters
+    ----------
+    x : (N,) np.ndarray
+        A 1-D array of real values.
+    y : (...,N,...) np.ndarray
+        A N-D array of real values. The length of `y` along the interpolation
+        axis must be equal to the length of `x`.
+    dtype : type, optional
+        Type of the output array (e.g.,  `float`, `int`). By default it is set to
+        None (i.e., the array will have the same type as the outputs from
+        scipy's interp1d method.
+    axis : int, optional
+        Specifies the axis of `y` along which to interpolate.
+        Interpolation defaults to the last axis of `y`.
+    kind : str or int, optional
+        Specifies the kind of interpolation as a string or as an integer
+        specifying the order of the spline interpolator to use.
+        The string has to be one of 'linear', 'nearest', 'nearest-up', 'zero',
+        'slinear', 'quadratic', 'cubic', 'previous', or 'next'. 'zero',
+        'slinear', 'quadratic' and 'cubic' refer to a spline interpolation of
+        zeroth, first, second or third order; 'previous' and 'next' simply
+        return the previous or next value of the point; 'nearest-up' and
+        'nearest' differ when interpolating half-integers (e.g. 0.5, 1.5)
+        in that 'nearest-up' rounds up and 'nearest' rounds down. Default
+        is 'linear'.
+    copy : bool, optional
+        If True, the class makes internal copies of x and y.
+        If False, references to `x` and `y` are used. The default is to copy.
+    bounds_error : bool, optional
+        If True, a ValueError is raised any time interpolation is attempted on
+        a value outside of the range of x (where extrapolation is
+        necessary). If False, out of bounds values are assigned `fill_value`.
+        By default, an error is raised unless ``fill_value="extrapolate"``.
+    fill_value : array-like or (array-like, array_like) or "extrapolate", optional
+        - if a ndarray (or float), this value will be used to fill in for
+          requested points outside of the data range. If not provided, then
+          the default is NaN. The array-like must broadcast properly to the
+          dimensions of the non-interpolation axes.
+        - If a two-element tuple, then the first element is used as a
+          fill value for ``x_new < x[0]`` and the second element is used for
+          ``x_new > x[-1]``. Anything that is not a 2-element tuple (e.g.,
+          list or ndarray, regardless of shape) is taken to be a single
+          array-like argument meant to be used for both bounds as
+          ``below, above = fill_value, fill_value``.
+        - If "extrapolate", then points outside the data range will be
+          extrapolated.
+    assume_sorted : bool, optional
+        If False, values of `x` can be in any order and they are sorted first.
+        If True, `x` has to be an array of monotonically increasing values.
+
+    Returns
+    -------
+    interp_fun : callable
+        The interpolator instance. This method takes an input array, float
+        or integer and returns an array with the specified dtype (if `dtype`
+        is not None).
+    """
+    if len(x) > 1:
+        interp_fun = sc_interp1d(
+            x=x,
+            y=y,
+            kind=kind,
+            axis=axis,
+            copy=copy,
+            bounds_error=bounds_error,
+            fill_value=fill_value,
+            assume_sorted=assume_sorted,
+        )
+
+    else:
+
+        # If there is only one value for x and y, assume that the method
+        # will always return the same value for any input.
+
+        def interp_fun(
+            input_var: Union[float, int, np.ndarray]
+        ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
+
+            if y.ndim > 1:
+                result = np.broadcast_to(y, (len(np.atleast_1d(input_var)), y.shape[1]))
+            else:
+                result = np.broadcast_to(y, (len(np.atleast_1d(input_var)),))
+
+            if not isinstance(input_var, np.ndarray):
+                # the output of scipy's interp1d is always an array
+                result = np.array(result[0])
+
+            return result
+
+    if dtype is not None:
+
+        def typed_interp(
+            input_var: Union[float, int, np.ndarray]
+        ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
+            return interp_fun(input_var).astype(dtype)
+
+        return typed_interp
+    else:
+        return interp_fun
 
 
 # def search_recursive(states, success, expand, combine):

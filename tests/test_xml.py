@@ -1,18 +1,20 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-
-This file contains test functions for MusicXML import and export.
-
+This module contains test functions for MusicXML import and export.
 """
 
 import logging
 import unittest
 from tempfile import TemporaryFile
 
-from tests import ( MUSICXML_IMPORT_EXPORT_TESTFILES, 
-                MUSICXML_UNFOLD_TESTPAIRS,
-                MUSICXML_UNFOLD_COMPLEX,
-                MUSICXML_UNFOLD_VOLTA,
-                MUSICXML_UNFOLD_DACAPO)
+from tests import (
+    MUSICXML_IMPORT_EXPORT_TESTFILES,
+    MUSICXML_UNFOLD_TESTPAIRS,
+    MUSICXML_UNFOLD_COMPLEX,
+    MUSICXML_UNFOLD_VOLTA,
+    MUSICXML_UNFOLD_DACAPO,
+)
 
 from partitura import load_musicxml, save_musicxml
 from partitura.directions import parse_direction
@@ -115,7 +117,7 @@ class TestMusicXML(unittest.TestCase):
                 fn
             )
             self.assertTrue(equal, msg)
-            
+
     def test_unfold_volta(self):
         for fn, fn_target in MUSICXML_UNFOLD_VOLTA:
             part = load_musicxml(fn, validate=False)[0]
@@ -133,7 +135,7 @@ class TestMusicXML(unittest.TestCase):
                 fn
             )
             self.assertTrue(equal, msg)
-            
+
     def test_unfold_dacapo(self):
         for fn, fn_target in MUSICXML_UNFOLD_DACAPO:
             sc = load_musicxml(fn, validate=False)
@@ -151,7 +153,6 @@ class TestMusicXML(unittest.TestCase):
                 fn
             )
             self.assertTrue(equal, msg)
-
 
     def test_export_import_pprint(self):
         # create a part
