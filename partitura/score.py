@@ -270,6 +270,7 @@ class Part(object):
 
     @property
     def measure_number_map(self):
+        print("measure_number_map") # NOTE del
         """A function mapping timeline times to the measure number of
         the measure they are contained in. The function can take
         scalar values or lists/arrays of values.
@@ -282,6 +283,9 @@ class Part(object):
         """
         # operations to avoid None values and filter them efficiently.
         m_it = self.measures
+        print(type(m_it))
+        print([m.number for m in self.measures])
+        
         measures = np.array(
             [
                 [

@@ -304,6 +304,7 @@ def load_musicxml(
 
 
 def _parse_parts(document, part_dict):
+    print('_parse_parts') # NOTE del
     """
     Populate the Part instances that are the values of `part_dict` with the
     musical content in document.
@@ -457,6 +458,7 @@ def _parse_parts(document, part_dict):
 
 
 def _handle_measure(measure_el, position, part, ongoing, doc_order):
+    # print('_handle_measure') # NOTE del
     """
     Parse a <measure>...</measure> element, adding it and its contents to the
     part.
@@ -697,12 +699,14 @@ def _handle_new_system(position, part, ongoing):
 
 
 def make_measure(xml_measure):
+    # print('make_measure fn') # NOTE del later
     measure = score.Measure()
     # try:
     #     measure.number = int(xml_measure.attrib['number'])
     # except:
     #     LOGGER.warn('No number attribute found for measure')
-    measure.number = get_value_from_attribute(xml_measure, "number", int)
+    measure.number = get_value_from_attribute(xml_measure, "number", int) # TODO this isn't called
+    # measure.number = get_value_from_attribute(xml_measure, "number", str) # TODO
     return measure
 
 
@@ -716,7 +720,7 @@ def _handle_attributes(e, position, part):
 
     fifths = get_value_from_tag(e, "key/fifths", int)
     mode = get_value_from_tag(e, "key/mode", str)
-    if fifths is not None or mode is not None:
+    if fifths is not None or mode is not jNone:
         part.add(score.KeySignature(fifths, mode), position)
 
     diat = get_value_from_tag(e, "transpose/diatonic", int)
