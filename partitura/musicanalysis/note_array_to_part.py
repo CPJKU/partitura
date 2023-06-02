@@ -1,4 +1,5 @@
-from partitura.score import Part, PartGroup
+import partitura.score
+from partitura.score import ScoreLike, Part
 from partitura.utils import (estimate_symbolic_duration, estimate_clef_properties, key_name_to_fifths_mode, fifths_mode_to_key_name)
 import warnings
 import numpy as np
@@ -29,10 +30,12 @@ def create_part(
         key_sigs,
         part_id=None,
         part_name=None,
+        sanitize=True,
+        anacrusis_divs=0
 ):
     warnings.warn("create_part", stacklevel=2)
 
-    part = score.Part(part_id, part_name=part_name)
+    part = Part(part_id, part_name=part_name, )
     part.set_quarter_duration(0, ticks)
 
     clef = score.Clef(
@@ -89,23 +92,28 @@ def create_part(
         time_sig = score.TimeSignature(num.item(), den.item())
         part.add(time_sig, ts_start, ts_end)
 
-    score.add_measures(part)
+    if anacrusis_divs > 0:
+        part.add(score.Measure(0), 0, anacrusis_divs)
 
-    warnings.warn("tie notes", stacklevel=2)
-    # tie notes where necessary (across measure boundaries, and within measures
-    # notes with compound duration)
-    score.tie_notes(part)
+    if sanitize:
+        warnings.warn("Inferring measures", stacklevel=2)
+        score.add_measures(part)
 
-    warnings.warn("find tuplets", stacklevel=2)
-    # apply simplistic tuplet finding heuristic
-    score.find_tuplets(part)
+        warnings.warn("Find and tie notes", stacklevel=2)
+        # tie notes where necessary (across measure boundaries, and within measures
+        # notes with compound duration)
+        score.tie_notes(part)
+
+        warnings.warn("find and ensure tuplets", stacklevel=2)
+        # apply simplistic tuplet finding heuristic
+        score.find_tuplets(part)
 
     warnings.warn("done create_part", stacklevel=2)
     return part
 
 
 def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: int = None, assign_note_ids: bool = True,
-                       ensurelist: bool = False, estimate_key: bool = False) -> Union[Union[Part, PartGroup], list]:
+                       ensurelist: bool = False, estimate_key: bool = False, sanitize: bool = True) -> ScoreLike:
     """
     A generic function to transform an enriched note_array to part.
 
@@ -141,7 +149,7 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
         parts = [
             note_array_to_part(note_array=x, part_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist) for
             i, x in enumerate(note_array)]
-        return parts
+        return score.Score(partlist=parts)
 
     if not isinstance(note_array, np.ndarray):
         raise TypeError("The note array does not have the correct format.")
@@ -150,17 +158,24 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
 
     if "id" not in note_array.dtype.names:
         note_ids = ["{}n{:4d}".format(part_id, i) for i in range(len(note_array))]
-        note_array = rfn.merge_arrays((note_array, np.array(note_ids, dtype=[("id", str)])), flatten=True)
+        note_array = rfn.append_fields(note_array, "id", np.array(note_ids, dtype='<U256'))
     elif assign_note_ids or np.all(note_array["id"] == note_array["id"][0]):
         note_ids = ["{}n{:4d}".format(part_id, i) for i in range(len(note_array))]
         note_array["id"] = np.array(note_ids)
 
     dtypes = note_array.dtype.names
+    # check if note array contains time signatures
     if not "ts_beats" in dtypes:
         raise AttributeError("The note array does not contain a time signature.")
+
+    anacrusis_mask = np.zeros(len(note_array), dtype=bool)
+
+
     if all([x in dtypes for x in ["onset_div", "pitch", "duration_div", "onset_beat", "duration_beat"]]):
-        pass
+        anacrusis_mask[note_array["onset_beat"] < 0] = True
+    # This clause is related to bar normalized representations with global time stamps
     elif all([x in dtypes for x in ["onset_beat", "duration_beat", "pitch", "global_score_time"]]):
+        anacrusis_mask[note_array["onset_beat"] < 0] = True
         x = np.unique(note_array["onset_beat"])
         renorm_onset_beat = False
         if x.max() > note_array["ts_beats"].max():
@@ -183,6 +198,7 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
                     note_array[idx]["onset_beat"] = tmp
         note_array = create_divs_from_beats(note_array)
     elif all([x in dtypes for x in ["onset_beat", "duration_beat", "pitch"]]):
+        anacrusis_mask[note_array["onset_beat"] < 0] = True
         note_array = create_divs_from_beats(note_array)
     elif all([x in dtypes for x in ["onset_div", "pitch", "duration_div"]]):
         pass
@@ -211,7 +227,7 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
             # Not sure if correct.
             if part_voice != np.inf:
                 estimated_voices[i] = part_voice
-        note_array = rfn.merge_arrays((note_array, np.array(estimated_voices, dtype=[("voice", int)])), flatten=True)
+        note_array = rfn.append_fields(note_array, "voice", np.array(estimated_voices, dtype=int))
 
     if estimate_key or ('ks_fifths' not in dtypes and 'ks_mode' not in dtypes):
         warnings.warn("key estimation", stacklevel=2)
@@ -223,7 +239,7 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
             if n["ts_beats"] != global_key_sigs[-1][1] or n["ts_beat_type"] != global_key_sigs[-1][2]:
                 global_key_sigs.append([n["onset_div"], fifths_mode_to_key_name(n["ks_fifths"], n["ks_mode"])])
     global_key_sigs = np.array(global_key_sigs)
-    # for convenience we add the end times for each time signature
+    # for convenience, we add the end times for each time signature
     ks_end_times = np.r_[global_key_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
     global_key_sigs = np.column_stack((global_key_sigs, ks_end_times))
 
@@ -234,14 +250,23 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
             if dur != 0:
                 break
         divs = int((note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])*(note_array[idx]["ts_beat_type"]/4))
+
+    if np.all(anacrusis_mask == False):
+        anacrusis_divs = 0
+    else:
+        last_neg_beat = np.max(note_array[anacrusis_mask]["onset_beat"])
+        last_neg_divs = np.max(note_array[anacrusis_mask]["onset_div"])
+        beat_type = np.max(note_array[anacrusis_mask]["ts_beat_type"])
+        difference_from_zero = (0 - last_neg_beat) * divs * (4 / beat_type)
+        anacrusis_divs = int(last_neg_divs + difference_from_zero)
+
     part = create_part(
         ticks=divs,
         note_array=note_array,
         key_sigs=global_key_sigs,
         part_id=part_id,
         part_name=None,
+        sanitize=sanitize,
+        anacrusis_divs = anacrusis_divs
     )
-    if ensurelist:
-        return [part]
-    else:
-        return part
+    return partitura.score.Score(partlist=[part])
