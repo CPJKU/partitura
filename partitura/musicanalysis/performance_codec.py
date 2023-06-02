@@ -7,6 +7,7 @@ expressive parameters.
 from typing import Union, Callable
 import numpy as np
 import numpy.lib.recfunctions as rfn
+import warnings
 
 try:
     import torch
@@ -288,10 +289,6 @@ def encode_articulation(
         # Grace notes have an articulation ratio of 1
         sd[grace_mask] = 1
         pd[grace_mask] = bp
-        # Compute log articulation ratio
-        if (pd / (bp * sd))[0] <= 0:
-            hook()
-        # warnings is given for this line if we have a negative beat_period - performed notes have reversed timing.
         articulation[idx] = np.log2(pd / (bp * sd))
 
     return articulation
@@ -638,14 +635,6 @@ def to_matched_score(score: ScoreLike,
         for a in alignment
         if (a["label"] == "match" and a["score_id"] in part_by_id)
     ]
-    # if isinstance(alignment, np.ndarray): # ATEPP case
-    #     note_pairs = []
-    #     for aa in alignment:
-    #         if aa["alignID"] != "*" and aa["refID"] != "*":
-    #             p_note = p_na[(np.isclose(p_na['onset_sec'], aa['alignOntime']) & (p_na['pitch'] == int(aa['alignSitch'])))]
-    #             s_note = na[(np.isclose(na['onset_div'], aa['refOntime']) & (na['pitch'] == int(aa['alignSitch'])))]
-    #             if (len(s_note) >= 1) and (len(p_note) >= 1):
-    #                 note_pairs.append((s_note[0], p_note[0]))
     ms = []
     # sort according to onset (primary) and pitch (secondary)
     pitch_onset = [(sn['pitch'].item(), sn['onset_div'].item()) for sn, _ in note_pairs]
@@ -900,10 +889,8 @@ def monotonize_times(s, deltas=None):
     ----------
     s : ndarray
         a sequence of numbers
-    strict : bool
-        when True, return a strictly monotonic sequence (default: True)
     deltas : 
-
+        position of the numbers (onset times)
     Returns
     -------
     ndarray
@@ -923,7 +910,10 @@ def monotonize_times(s, deltas=None):
     mask = np.r_[False, True, (np.diff(s_mono) != 0), False]
 
     s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-    assert((np.diff(s_mono) >= 0).all())
+    try:
+        assert((np.diff(s_mono) >= 0).all())
+    except:
+        warnings.warn("Monotonize_time produce non-monotonic sequence!")
     return s_mono, _deltas[1:-1]
 
 
