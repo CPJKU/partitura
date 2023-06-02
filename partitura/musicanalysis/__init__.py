@@ -28,7 +28,7 @@ __all__ = [
     "estimate_key",
     "estimate_spelling",
     "estimate_tonaltension",
-    "estimate_time", 
+    "estimate_time",
     "list_note_feats_functions",
     "make_note_features",
     "make_rest_features",

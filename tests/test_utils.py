@@ -415,6 +415,51 @@ class TestPerformanceFromPart(unittest.TestCase):
             isinstance(random_performance, partitura.performance.Performance)
         )
 
+    def test_sliceperf(self):
+
+        perf = partitura.load_performance_midi(MOZART_VARIATION_FILES["midi"])
+        ppart = perf[0]
+        ppart.sustain_pedal_threshold = 127
+
+        note_array = ppart.note_array()
+
+        start_time = 10
+        end_time = 20
+
+        idx = np.where(
+            np.logical_and(
+                note_array["onset_sec"] >= start_time,
+                note_array["onset_sec"] <= end_time,
+            )
+        )
+
+        target_note_array = note_array[idx]
+
+        ppart_slice = music.slice_ppart_by_time(
+            ppart=ppart,
+            start_time=start_time,
+            end_time=end_time,
+            clip_note_off=False,
+            reindex_notes=False,
+        )
+
+        slice_note_array = ppart_slice.note_array()
+
+        self.assertTrue(len(target_note_array) == len(slice_note_array))
+        self.assertTrue(slice_note_array["onset_sec"].max() <= (end_time - start_time))
+        self.assertTrue(
+            np.isclose(
+                target_note_array["onset_sec"].min() - start_time,
+                slice_note_array["onset_sec"].min(),
+            )
+        )
+        self.assertTrue(
+            np.isclose(
+                target_note_array["onset_sec"].max() - start_time,
+                slice_note_array["onset_sec"].max(),
+            )
+        )
+
 
 class TestGenericUtils(unittest.TestCase):
     def test_interp1d(self):

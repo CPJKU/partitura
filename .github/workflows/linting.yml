@@ -1,0 +1,39 @@
+name: Blacken code
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Format code with black
+        run: |
+          pip install black
+          black --include="\.py,\.pyi" --exclude="env/*,tests/*" .
+      - name: Commit changes
+        uses: EndBug/add-and-commit@v4
+        with:
+          author_name: ${{ github.actor }}
+          author_email: ${{ github.actor }}@users.noreply.github.com
+          message: "Format code with black"
+          add: "."
+          branch: ${{ github.ref }}
+      - name: Notify errors
+        if: failure()
+        uses: dawidd6/action-send-mail@v2
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Format code with black"
+          body: "Format code with black failed"
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          content_type: text/plain

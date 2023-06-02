@@ -6,6 +6,7 @@ This module contains tests.
 """
 
 import os
+import glob
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
@@ -17,6 +18,7 @@ NAKAMURA_PATH = os.path.join(DATA_PATH, "nakamura")
 MIDI_PATH = os.path.join(DATA_PATH, "midi")
 PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
 WAV_PATH = os.path.join(DATA_PATH, "wav")
+PNG_PATH = os.path.join(DATA_PATH, "png")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -96,12 +98,19 @@ METRICAL_POSITION_TESTFILES = [
     for fn in ["test_metrical_position.xml", "test_anacrusis.xml"]
 ]
 
+TIME_SIGNATURE_MAP_EDGECASES_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_ts_map_ts_starts_not_at_zero.xml"]
+]
+
 REST_ARRAY_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
     for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]
 ]
 
 NOTE_ARRAY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_beats.xml"]]
+
+OCTAVE_SHIFT_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["example_octave_shift.musicxml"]]
 
 MERGE_PARTS_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
@@ -170,6 +179,7 @@ KERN_TESTFILES = [
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
 
+HARMONY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_harmony.musicxml"]]
 
 MOZART_VARIATION_FILES = dict(
     musicxml=os.path.join(MUSICXML_PATH, "mozart_k265_var1.musicxml"),
@@ -191,3 +201,5 @@ WAV_TESTFILES = [
         "example_linear_equal_temperament_sr8000.wav",
     ]
 ]
+
+PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, "*.png"))
