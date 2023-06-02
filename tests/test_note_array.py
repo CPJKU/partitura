@@ -10,6 +10,7 @@ import unittest
 import partitura.score as score
 from partitura import load_musicxml, load_kern, load_score
 from partitura.utils.music import note_array_from_part, ensure_notearray
+from partitura.musicanalysis import note_array_to_score
 import numpy as np
 
 from tests import NOTE_ARRAY_TESTFILES, KERN_TESTFILES
@@ -69,6 +70,14 @@ class TestNoteArray(unittest.TestCase):
         score[0].use_notated_beat()
         self.assertTrue(score[0]._use_musical_beat == False)
         self.assertFalse(np.array_equal(score[0].note_array(), note_array))
+
+    def test_note_array_to_score(self):
+        score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        note_array = score.note_array(include_time_signature=True)
+        new_score = note_array_to_score(note_array)
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
 
     def test_notearray_ts_beats(self):
         part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
