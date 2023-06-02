@@ -21,7 +21,7 @@ from .note_features import (
     make_rest_features,
 )
 from .performance_codec import encode_performance, decode_performance
-from .note_array_to_part import note_array_to_part
+from .note_array_to_score import note_array_to_score
 
 __all__ = [
     "estimate_voices",
