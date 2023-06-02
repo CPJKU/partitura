@@ -112,8 +112,8 @@ def create_part(
     return part
 
 
-def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: int = None, assign_note_ids: bool = True,
-                       ensurelist: bool = False, estimate_key: bool = False, sanitize: bool = True) -> ScoreLike:
+def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: int = None, assign_note_ids: bool = True,
+                       ensurelist: bool = False, estimate_key: bool = False, sanitize: bool = True, scorify=True) -> ScoreLike:
     """
     A generic function to transform an enriched note_array to part.
 
@@ -147,7 +147,7 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
     """
     if isinstance(note_array, list):
         parts = [
-            note_array_to_part(note_array=x, part_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist) for
+            note_array_to_score(note_array=x, part_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist, scorify=False) for
             i, x in enumerate(note_array)]
         return score.Score(partlist=parts)
 
@@ -267,6 +267,9 @@ def note_array_to_part(note_array: Union[np.ndarray, list], part_id="", divs: in
         part_id=part_id,
         part_name=None,
         sanitize=sanitize,
-        anacrusis_divs = anacrusis_divs
+        anacrusis_divs=anacrusis_divs
     )
-    return partitura.score.Score(partlist=[part])
+    if scorify:
+        return partitura.score.Score(partlist=[part])
+    else:
+        return part
