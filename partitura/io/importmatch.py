@@ -584,16 +584,14 @@ def part_from_matchfile(
             onset_divs = onset_in_divs[ni]
         assert onset_divs >= 0
         assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
-
+        is_tied = False
         articulations = set()
         if "staccato" in note.ScoreAttributesList or "stac" in note.ScoreAttributesList:
             articulations.add("staccato")
         if "accent" in note.ScoreAttributesList:
             articulations.add("accent")
         if "leftOutTied" in note.ScoreAttributesList:
-            # continue introduces inconsistency when save_match
-            # continue
-            pass
+            is_tied = True
 
         # dictionary with keyword args with which the Note
         # (or GraceNote) will be instantiated
@@ -678,6 +676,14 @@ def part_from_matchfile(
                 part_note = score.Note(**note_attributes)
 
             part.add(part_note, onset_divs, offset_divs)
+
+            # Check if the note is tied and if so, add the tie information
+            if is_tied:
+                for el in part.iter_all(end=offset_divs):
+                    if isinstance(el, score.Note):
+                        if el.step == note_attributes["step"] and el.octave == note_attributes["octave"]:
+                            el.tie_next = part_note
+                            part_note.tie_prev = el
 
     # add time signatures
     for (ts_beat_time, ts_bar, tsg) in ts:
