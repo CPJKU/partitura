@@ -76,7 +76,8 @@ def make_note_features(
     part: ScoreLike,
     feature_functions: Union[List, str],
     add_idx: bool = False,
-    include_empty_features: bool = True
+    include_empty_features: bool = True,
+    force_fixed_size: bool = False,
 ) -> Tuple[np.ndarray, List]:
 
     """Compute the specified feature functions for a part.
@@ -86,7 +87,7 @@ def make_note_features(
     total number of descriptors of all feature functions that occur in
     part.
 
-    Furthermore the function returns the names of the feature functions.
+    Furthermore, the function returns the names of the feature functions.
     A list of strings of size M. The names have the name of the
     function prepended to the name of the descriptor. For example if a
     function named `abc_feature` returns descriptors `a`, `b`, and `c`,
@@ -108,6 +109,9 @@ def make_note_features(
         feature. This is useful for debugging.
     include_empty_features : bool (default: True)
         If True, features that are empty are included in the output.
+        Otherwise, they are omitted.
+    force_fixed_size : bool (default: False)
+        If True, the output array uses only features that have a fixed size with no new entries added.
 
     Returns
     -------
@@ -142,9 +146,11 @@ def make_note_features(
             func = getattr(sys.modules[__name__], bf)
         elif isinstance(bf, types.FunctionType):
             func = bf
+        elif force_fixed_size and bf == "time_signature_feature":
+            continue
         else:
             warnings.warn("Ignoring unknown feature function {}".format(bf))
-        bf, bn = func(na, part, include_empty_features=include_empty_features)
+        bf, bn = func(na, part, include_empty_features=(True if force_fixed_size else include_empty_features))
         # check if the size and number of the feature function are correct
         if bf.size != 0:
             if bf.shape[1] != len(bn):
