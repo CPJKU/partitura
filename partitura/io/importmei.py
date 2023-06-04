@@ -32,7 +32,7 @@ import numpy as np
 @deprecated_alias(mei_path="filename")
 def load_mei(filename: PathLike) -> score.Score:
     """
-    Loads a Mei score from path and returns a list of Partitura.Part
+    Loads a Mei score from path and returns a partitura Score object.
 
     Parameters
     ----------

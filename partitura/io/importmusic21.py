@@ -8,29 +8,35 @@ try:
 except ImportError:
     m21 = None
 
-def load_music21(mei_path: str) -> list:
+def load_music21(m21_score : m21.stream.Score) -> pt.score.Score:
     """
-    Loads a Mei score from path and returns a list of Partitura.Part
+    Loads a music21 score object and returns a Partitura Score object.
 
     Parameters
     ----------
-    mei_path : str
-        The path to an MEI score.
+    m21_score : :class:`music21.stream.Score`
+        The music21 score object, produced for example with the `music21.converter.parse()` function.
 
     Returns
     -------
-    part_list : list
-        A list of Partitura Part or GroupPart Objects.
+    scr: :class:`partitura.score.Score`
+        A `Score` object
     """
     if m21 is None:
         raise ImportError("Music21 must be installed for this function to work")
 
-    parser = M21Parser(mei_path)
-    # create parts from the specifications in the mei
+    parser = M21Parser(m21_score)
+    # create parts from the specifications in the music21 object
     parser.create_parts()
-    # fill parts with the content from the mei
+    # fill parts with the content from the music21 object
     parser.fill_parts()
-    return parser.parts
+    # create the score
+    doc_name = m21_score.metadata.title if m21_score.metadata.title is not None else "score"
+    scr = pt.score.Score(
+        id=doc_name,
+        partlist=parser.parts,
+    )
+    return scr
 
 
 class M21Parser:
@@ -102,18 +108,21 @@ class M21Parser:
                 pt_part.add(note, position, position + duration)
 
     def fill_part_ts(self, m21_part,pt_part, part_idx):
+        """ Fills the part with time signatures """
         for ts in m21_part.recurse().getElementsByClass(m21.meter.TimeSignature):
             new_time_signature = pt.score.TimeSignature(ts.numerator, ts.denominator)
             position = int(ts.getOffsetInHierarchy(self.m21_score)*self.ppq)
             pt_part.add(new_time_signature, position)
 
     def fill_part_ks(self, m21_part,pt_part, part_idx):
+        """ Fills the part with key signatures """
         for ks in m21_part.recurse().getElementsByClass(m21.key.KeySignature):
             new_key_signature = pt.score.KeySignature(ks.sharps, None)
             position = int(ks.getOffsetInHierarchy(self.m21_score)*self.ppq)
             pt_part.add(new_key_signature, position)
 
     def fill_part_clefs(self, m21_part,pt_part, part_idx):
+        """ Fills the part with clefs """
         for m21_clef in m21_part.recurse().getElementsByClass(m21.clef.Clef):
             pt_clef = pt.score.Clef(int(part_idx) +1 , m21_clef.sign, int(m21_clef.line), m21_clef.octaveChange)
             position = int(m21_clef.getOffsetInHierarchy(self.m21_score)*self.ppq)
