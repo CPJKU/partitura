@@ -1,23 +1,18 @@
 """
 This file contains test functions for music21 import
 """
-
 import unittest
-
 
 from tests import M21_TESTFILES
 from partitura import load_music21
 import partitura.score as score
 import partitura as pt
-from partitura.utils import compute_pianoroll
-import music21 as m21
 
+import music21 as m21
 import numpy as np
-from pathlib import Path
 
 
 class TestImportM21(unittest.TestCase):
-    
     def test_grace_note(self):
         m21_score = m21.converter.parse(M21_TESTFILES[1])
         pt_score = load_music21(m21_score)
@@ -65,7 +60,51 @@ class TestImportM21(unittest.TestCase):
         # compare the note arrays
         note_array_from_m21 = pt_score_from_m21.note_array()
         note_array_direct = pt_score_direct.note_array()
-        self.assertTrue(np.array_equal(note_array_from_m21["pitch"], note_array_direct["pitch"]))
-        self.assertTrue(np.array_equal(note_array_from_m21["onset_beat"], note_array_direct["onset_beat"]))
-        self.assertTrue(np.array_equal(note_array_from_m21["duration_beat"], note_array_direct["duration_beat"]))
+        self.assertTrue(
+            np.array_equal(note_array_from_m21["pitch"], note_array_direct["pitch"])
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["onset_beat"], note_array_direct["onset_beat"]
+            )
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["duration_beat"], note_array_direct["duration_beat"]
+            )
+        )
 
+    def test_note_array2(self):
+        # load score from music21
+        m21_score = m21.converter.parse(M21_TESTFILES[2])
+        pt_score_from_m21 = load_music21(m21_score)
+        # load score directly from partitura
+        pt_score_direct = pt.load_score(M21_TESTFILES[2])
+
+        # compare the note arrays
+        note_array_from_m21 = pt_score_from_m21.note_array()
+        note_array_direct = pt_score_direct.note_array()
+        self.assertTrue(
+            np.array_equal(note_array_from_m21["pitch"], note_array_direct["pitch"])
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["onset_beat"], note_array_direct["onset_beat"]
+            )
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["duration_beat"], note_array_direct["duration_beat"]
+            )
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["onset_quarter"], note_array_direct["onset_quarter"]
+            )
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["duration_quarter"],
+                note_array_direct["duration_quarter"],
+            )
+        )
