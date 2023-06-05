@@ -435,30 +435,65 @@ class TestPerformanceFromPart(unittest.TestCase):
 
         target_note_array = note_array[idx]
 
-        ppart_slice = music.slice_ppart_by_time(
-            ppart=ppart,
-            start_time=start_time,
-            end_time=end_time,
-            clip_note_off=False,
-            reindex_notes=False,
-        )
+        def test_arrays(clip_note_off, reindex_notes):
 
-        slice_note_array = ppart_slice.note_array()
+            # Test without clipping note offs
+            ppart_slice = music.slice_ppart_by_time(
+                ppart=ppart,
+                start_time=start_time,
+                end_time=end_time,
+                clip_note_off=clip_note_off,
+                reindex_notes=reindex_notes,
+            )
+            slice_note_array = ppart_slice.note_array()
 
-        self.assertTrue(len(target_note_array) == len(slice_note_array))
-        self.assertTrue(slice_note_array["onset_sec"].max() <= (end_time - start_time))
-        self.assertTrue(
-            np.isclose(
-                target_note_array["onset_sec"].min() - start_time,
-                slice_note_array["onset_sec"].min(),
+            self.assertTrue(len(target_note_array) == len(slice_note_array))
+            self.assertTrue(
+                slice_note_array["onset_sec"].max() <= (end_time - start_time)
             )
-        )
-        self.assertTrue(
-            np.isclose(
-                target_note_array["onset_sec"].max() - start_time,
-                slice_note_array["onset_sec"].max(),
+
+            if clip_note_off:
+                self.assertTrue(
+                    (
+                        slice_note_array["onset_sec"] + slice_note_array["duration_sec"]
+                    ).max()
+                    <= (end_time - start_time)
+                )
+            else:
+                self.assertTrue(
+                    (
+                        slice_note_array["onset_sec"] + slice_note_array["duration_sec"]
+                    ).max()
+                    >= (end_time - start_time)
+                )
+
+            self.assertTrue(
+                np.isclose(
+                    target_note_array["onset_sec"].min() - start_time,
+                    slice_note_array["onset_sec"].min(),
+                )
             )
-        )
+            self.assertTrue(
+                np.isclose(
+                    target_note_array["onset_sec"].max() - start_time,
+                    slice_note_array["onset_sec"].max(),
+                )
+            )
+
+            nidx = slice_note_array["id"]
+            nidx.sort()
+
+            if reindex_notes:
+                tidx = np.array([f"n{idx}" for idx in range(len(nidx))])
+            else:
+                tidx = target_note_array["id"]
+
+            tidx.sort()
+            self.assertTrue(np.all(nidx == tidx))
+
+        for cno in (True, False):
+            for rin in (True, False):
+                test_arrays(cno, rin)
 
 
 class TestGenericUtils(unittest.TestCase):
