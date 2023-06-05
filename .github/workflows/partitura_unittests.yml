@@ -27,7 +27,8 @@ jobs:
         pip install .
     - name: Instal Optional dependencies
       run: |
-        pip install music21        
+        pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1
+        pip install torch==1.5.0+cpu 
     - name: Run Tests
       run: |
         pip install coverage
