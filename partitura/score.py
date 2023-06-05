@@ -2401,16 +2401,16 @@ class Measure(TimedObject):
 
     Parameters
     ----------
-    counter : int
-        The running count independent of measure regularity/ volta endings, continuously counting up all measures in a musicxml score file (ignoring unfoldings) and always starting from one.
-    number : string, optional
-        The number of the measure in a given musicxml score file. Can be a non-number in case of volta endings, irregular measures (i.e., pickup measures in the middle of the piece). Defaults to None
+    number : int
+        The running count independent of measure regularity/ volta endings, continuously counting up all measures in a musicxml score file and always starting from one.
+    name : string, optional
+        The ID of the measure in a given musicxml score file. Can be a non-number in case of volta endings, irregular measures (i.e., pickup measures in the middle of the piece). Defaults to None
 
     Attributes
     ----------
-    number : str
+    number : int
         See parameters
-    counter : int
+    name : str
         See parameters
 
     """
