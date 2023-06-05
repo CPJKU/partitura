@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This module contains test functions for MEI export
+This file contains test functions for MEI import
 """
 
 import unittest

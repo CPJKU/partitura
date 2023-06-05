@@ -3344,9 +3344,9 @@ def slice_ppart_by_time(
 
     Returns
     -------
-    ppart_slice :  `PerformedPart` object 
-        A copy of input ppart containing notes, programs and control information 
-        only between `start_time` and `end_time` of ppart
+    ppart_slice :  `PerformedPart` object
+        A copy of input ppart containing notes, programs and control
+        information only between `start_time` and `end_time` of ppart
     """
     from partitura.performance import PerformedPart
 
@@ -3361,7 +3361,7 @@ def slice_ppart_by_time(
     # -> check `adjust_offsets_w_sustain` in partitura.performance
     ppart_slice = PerformedPart([{'note_on': 0, 'note_off': 0}])
 
-    # get ppq if PerformedPart contains it, 
+    # get ppq if PerformedPart contains it,
     # else skip time_tick info when e.g. created with 'load_performance_midi'
     try:
         ppq = ppart.ppq
@@ -3375,7 +3375,7 @@ def slice_ppart_by_time(
             if cc['time'] >= start_time and cc['time'] <= end_time:
                 new_cc = cc.copy()
                 new_cc['time'] -= start_time
-                if ppq: 
+                if ppq:
                     new_cc['time_tick'] = int(2 * ppq * cc['time'])
                 controls_slice.append(new_cc)
         ppart_slice.controls = controls_slice
@@ -3399,14 +3399,14 @@ def slice_ppart_by_time(
             new_note = note.copy()
             new_note['note_on'] = 0.
             if clip_note_off:
-                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
             else: 
                 new_note['note_off'] = note['note_off'] - start_time
             if ppq:
                 new_note['note_on_tick'] = 0
                 new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
             if reindex_notes:
-                new_note['id'] = 'n' + str(note_id)
+                new_note['id'] = f"n{note_id}"
                 note_id += 1
             notes_slice.append(new_note)
         # todo - combine both cases
@@ -3415,7 +3415,7 @@ def slice_ppart_by_time(
                 new_note = note.copy()
                 new_note['note_on'] -= start_time
                 if clip_note_off:
-                    new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                    new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
                 else: 
                     new_note['note_off'] = note['note_off'] - start_time
                 if ppq:
