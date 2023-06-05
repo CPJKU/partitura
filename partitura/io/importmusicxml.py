@@ -721,7 +721,7 @@ def _handle_attributes(e, position, part):
 
     fifths = get_value_from_tag(e, "key/fifths", int)
     mode = get_value_from_tag(e, "key/mode", str)
-    if fifths is not None or mode is not jNone:
+    if fifths is not None or mode is not None:
         part.add(score.KeySignature(fifths, mode), position)
 
     diat = get_value_from_tag(e, "transpose/diatonic", int)
