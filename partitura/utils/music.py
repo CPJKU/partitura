@@ -13,6 +13,16 @@ from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
+import partitura
+from tempfile import TemporaryDirectory
+import os
+
+try:
+    import miditok
+    import miditoolkit 
+except ImportError:
+    miditok = None
+    miditoolkit = None
 
 from partitura.utils.misc import deprecated_alias
 
@@ -3439,6 +3449,18 @@ def slice_ppart_by_time(
         ppart_slice.part_name = ppart.part_name 
 
     return ppart_slice
+
+
+def tokenize(score_data : ScoreLike, tokenizer : miditok.midi_tokenizer.MidiTokenizer):
+    if miditok is None:
+        raise ImportError("Miditok must be installed for this function to work")
+    with TemporaryDirectory() as tmpdir:
+        temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
+        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, part_voice_assign_mode = 4 )
+        midi = miditoolkit.MidiFile(temp_midi_path)
+        tokens = tokenizer(midi)
+    return tokens
+
 
 
 if __name__ == "__main__":

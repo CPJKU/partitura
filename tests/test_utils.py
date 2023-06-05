@@ -8,10 +8,13 @@ import partitura
 import numpy as np
 
 from partitura.utils import music
-from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES
+from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES, TOKENIZER_TESTFILES
 
 from scipy.interpolate import interp1d as scinterp1d
 from partitura.utils.generic import interp1d as pinterp1d
+from partitura.utils.music import tokenize
+import miditok
+import miditoolkit
 
 RNG = np.random.RandomState(1984)
 
@@ -596,3 +599,13 @@ class TestGenericUtils(unittest.TestCase):
         )
 
         self.assertTrue(np.all(sinterp(x) == pinterp(x)))
+
+class TestTokenizer(unittest.TestCase):
+    def test_sametokens1(self):
+        """ Test that the tokenizer called from the partitura wrapper returns the same tokens as the Miditok from MIDI"""
+        pt_score = partitura.load_score(TOKENIZER_TESTFILES[0]["score"])
+        tokenizer = miditok.Structured()
+        pt_tokens = tokenize(pt_score, tokenizer)
+        midi_score = miditoolkit.MidiFile(TOKENIZER_TESTFILES[0]["midi"])
+        mtok_tokens = tokenizer(midi_score) 
+        self.assertTrue(False)
