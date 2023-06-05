@@ -270,7 +270,6 @@ class Part(object):
 
     @property
     def measure_number_map(self):
-        print("measure_number_map") # NOTE del
         """A function mapping timeline times to the measure number of
         the measure they are contained in. The function can take
         scalar values or lists/arrays of values.
@@ -283,8 +282,6 @@ class Part(object):
         """
         # operations to avoid None values and filter them efficiently.
         m_it = self.measures
-        print(type(m_it))
-        print([m.number for m in self.measures])
         
         measures = np.array(
             [
@@ -2404,22 +2401,27 @@ class Measure(TimedObject):
 
     Parameters
     ----------
-    number : int or None, optional
-        The number of the measure. Defaults to None
+    counter : int
+        The running count independent of measure regularity/ volta endings, continuously counting up all measures in a musicxml score file (ignoring unfoldings) and always starting from one.
+    number : string, optional
+        The number of the measure in a given musicxml score file. Can be a non-number in case of volta endings, irregular measures (i.e., pickup measures in the middle of the piece). Defaults to None
 
     Attributes
     ----------
-    number : intp
+    number : str
+        See parameters
+    counter : int
         See parameters
 
     """
 
-    def __init__(self, number=None):
+    def __init__(self, number=None, name=None):
         super().__init__()
         self.number = number
+        self.name = name
 
     def __str__(self):
-        return f"{super().__str__()} number={self.number}"
+        return f"{super().__str__():16s} number={self.number} name={self.name}"
 
     @property
     def page(self):

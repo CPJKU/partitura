@@ -299,12 +299,12 @@ def load_musicxml(
         lyricist=lyricist,
         copyright=copyright,
     )
-
+    
     return scr
 
 
 def _parse_parts(document, part_dict):
-    print('_parse_parts') # NOTE del
+    # print('_parse_parts') # NOTE del
     """
     Populate the Part instances that are the values of `part_dict` with the
     musical content in document.
@@ -330,9 +330,9 @@ def _parse_parts(document, part_dict):
         _handle_new_page(position, part, ongoing)
         _handle_new_system(position, part, ongoing)
 
-        for measure_el in part_el.xpath("measure"):
+        for mc, measure_el in enumerate(part_el.xpath("measure")):
             position, doc_order = _handle_measure(
-                measure_el, position, part, ongoing, doc_order
+                measure_el, position, part, ongoing, doc_order, mc+1
             )
 
         # complete unfinished endings
@@ -457,14 +457,14 @@ def _parse_parts(document, part_dict):
         #     shift.applied = True
 
 
-def _handle_measure(measure_el, position, part, ongoing, doc_order):
+def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_counter):
     # print('_handle_measure') # NOTE del
     """
     Parse a <measure>...</measure> element, adding it and its contents to the
     part.
     """
     # make a measure object
-    measure = make_measure(measure_el)
+    measure = make_measure(measure_el, measure_counter)
 
     # add the start of the measure to the time line
     part.add(measure, position)
@@ -698,15 +698,17 @@ def _handle_new_system(position, part, ongoing):
     ongoing["system"] = system
 
 
-def make_measure(xml_measure):
-    # print('make_measure fn') # NOTE del later
+def make_measure(xml_measure, measure_counter):
     measure = score.Measure()
     # try:
     #     measure.number = int(xml_measure.attrib['number'])
     # except:
     #     LOGGER.warn('No number attribute found for measure')
-    measure.number = get_value_from_attribute(xml_measure, "number", int) # TODO this isn't called
-    # measure.number = get_value_from_attribute(xml_measure, "number", str) # TODO
+    
+    measure.number = measure_counter
+    measure.name = get_value_from_attribute(xml_measure, "number", str)
+
+    # print(f'{measure}')
     return measure
 
 

@@ -1,77 +1,63 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+#%%
 """
-This module contains tests for partial measures.
+This module contains tests for measures with non-integer IDs in musicxml. 
+
+Such measure IDs can occur in irregular measures (i.e., pickups in the middle of the piece, i.e. variations pieces, measures with fermata or cadenza ornamentations.
+
+Fix: added 'name' property to measures to reflect non-integer measures.
 """
 import unittest
 
-import os
 import numpy as np
-import partitura
-from partitura import load_musicxml
-from partitura import score
+from partitura.io import load_musicxml
+from partitura.score import *
 
-import xml.etree.ElementTree as ET
-
-# TODO tmp, del later
-import warnings
-warnings.filterwarnings("ignore")
+from tests import MUSICXML_PARTIAL_MEASURES_TESTFILES
 
 
- # TODO # import error, doesn't recognise path
-# from tests import MUSICXML_PARTIAL_MEASURES_TESTFILES 
-tests_dir = os.path.dirname(os.path.abspath(__file__))
-tests = os.path.dirname(os.path.abspath(__file__))
-partial_measures_test_file = os.path.join(tests, 'data', 'musicxml', 'test_partial_measures.musicxml')
-consecutive_partial_measures_test_file = os.path.join(tests, 'data', 'musicxml', 'test_partial_measures_consecutive.musicxml')
-
-# test_partial_measures.musicxml: Var. V from Sonata K331, 1. mov
-spart = load_musicxml(partial_measures_test_file).parts[0]
-snote_array = spart.note_array()
-# print(type(spart)) # part
-# print(type(snote_array)) # ndarray
-
-# print(dir(spart))
-# print([i for i in dir(spart) if 'measure' in i])
-
-# print(type(spart.notes)) # list
-# print(dir(spart.notes[0])) # list
-
-# print(type(spart.measures)) # list
-# print(type(spart.measures[0])) # Measure
-# print(dir(spart.measures[0])) # 
-
-for measure in spart.measures[:10]:
-    # print(type(measure.number))
-    print(measure.number)
-
-for note in spart.notes:
-    print(f"Note {note.id} starts in measure {spart.measure_number_map(note.start.t)}") # breaks
-    # print(f"Note {note.id} starts is contained in beats {spart.measure_map(note.start.t)}") # works
+class TestPartialMeasures(unittest.TestCase):
+    """
+    Test parsing of musicxml files with single partial/irregular measures
+    """
     
+    def test_measure_number_name_single(self):
+        sc = load_musicxml(MUSICXML_PARTIAL_MEASURES_TESTFILES[0])
+        spart = sc.parts[0]
+        spart_variants = make_score_variants(spart)
+        spart_unfolded = spart_variants[0].create_variant_part()
+        
+        unfolded_measure_numbers = [m.number for m in spart_unfolded.measures]
+        unfolded_measure_names = [m.name for m in spart_unfolded.measures]
+        
+        expected_unfolded_measure_numbers = [1,2,3,1,2,4,5,6,7]
+        expected_unfolded_measure_names = ['1','2','3','1','2','X1','4','X2','5']
+        
+        self.assertTrue(
+            np.array_equal(unfolded_measure_numbers, expected_unfolded_measure_numbers)
+        )
+        self.assertTrue(
+            np.array_equal(unfolded_measure_names, expected_unfolded_measure_names)
+        )
 
+    def test_measure_number_name_consecutive(self):
+        sc = load_musicxml(MUSICXML_PARTIAL_MEASURES_TESTFILES[1])
+        spart = sc.parts[0]
+        
+        measure_numbers = [m.number for m in spart.measures]
+        measure_names = [m.name for m in spart.measures]
+        
+        expected_measure_numbers = [1,2,3,4,5,6,7]
+        expected_measure_names = ['1','2','3','X1','X2','X3','4']
+        
+        self.assertTrue(
+            np.array_equal(measure_numbers, expected_measure_numbers)
+        )
+        self.assertTrue(
+            np.array_equal(measure_names, expected_measure_names)
+        )
 
-# print(spart.measure_map)
-# print(spart.measure_number_map)
-# print(spart.measures)
-
-
-# def create_measures_notes_dict(score_path, piece):
-    
-#     measures_notes_dict = {}
-#     musicxml_file = os.path.join(score_path, 'K%s-%s.musicxml' % (piece[:3], piece[-1]))
-#     root = ET.parse(musicxml_file)
-    
-#     for measure in root.findall("//measure"):
-#         measure_number = measure.get('number')
-#         notes = measure.findall('note')
-#         notes_id = [note.get('id') for note in notes]
-#         # measures can be organised within parts, or parts within measures.
-#         # handles the case where the same measures are split between different parts
-#         if measure_number in measures_notes_dict:
-#             measures_notes_dict[measure_number].extend(notes_id)
-#         else:
-#             measures_notes_dict[measure_number] = notes_id
-
-#     return measures_notes_dict
-    
+if __name__ == "__main__":
+    unittest.main()

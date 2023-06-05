@@ -54,7 +54,7 @@
         </pitch>
         <duration>1</duration>
         <voice>1</voice>
-        <type>half</type>
+        <type>quarter</type>
       </note>
       <note id='n4'>
         <pitch>
@@ -63,11 +63,14 @@
         </pitch>
         <duration>1</duration>
         <voice>1</voice>
-        <type>half</type>
+        <type>quarter</type>
       </note>
     </measure>
     <!--=======================================================-->
     <measure number="3">
+      <barline location="left">
+        <ending number="1" type="start" default-y="116.70"/>
+      </barline>
       <note id='n5'>
         <pitch>
           <step>F</step>
@@ -75,11 +78,19 @@
         </pitch>
         <duration>2</duration>
         <voice>1</voice>
-        <type>whole</type>
+        <type>half</type>
       </note>
+        <barline location="right">
+        <bar-style>light-heavy</bar-style>
+        <ending number="1" type="stop"/>
+        <repeat direction="backward"/>
+        </barline>
     </measure>
     <!--=======================================================-->
     <measure number="X1">
+     <barline location="left">
+        <ending number="2" type="start" default-y="110.10"/>
+        </barline>
       <note id='n6'>
         <pitch>
           <step>G</step>
@@ -87,11 +98,14 @@
         </pitch>
         <duration>4</duration>
         <voice>1</voice>
-        <type>half</type>
+        <type>whole</type>
       </note>
+      <barline location="right">
+        <ending number="2" type="stop"/>
+        </barline>
     </measure>
     <!--=======================================================-->
-    <measure number="X2">
+    <measure number="4">
       <note id='n7'>
         <pitch>
           <step>A</step>
@@ -103,7 +117,7 @@
       </note>
     </measure>
         <!--=======================================================-->
-    <measure number="X3">
+    <measure number="X2">
       <note id='n8'>
         <pitch>
           <step>B</step>
@@ -116,7 +130,7 @@
       </note>
     </measure>
     <!--=======================================================-->
-    <measure number="4">
+    <measure number="5">
       <note id='n9'>
         <pitch>
           <step>F</step>
@@ -124,7 +138,7 @@
         </pitch>
         <duration>2</duration>
         <voice>1</voice>
-        <type>whole</type>
+        <type>half</type>
       </note>
       <barline location="right">
         <bar-style>light-heavy</bar-style>
