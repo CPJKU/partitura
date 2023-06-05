@@ -1,4 +1,3 @@
-import partitura.score
 from partitura.score import ScoreLike, Part
 from partitura.utils import (estimate_symbolic_duration, estimate_clef_properties, key_name_to_fifths_mode, fifths_mode_to_key_name)
 import warnings
@@ -10,7 +9,20 @@ import partitura.musicanalysis as analysis
 import partitura.score as score
 
 
-def create_divs_from_beats(note_array):
+def create_divs_from_beats(note_array: np.ndarray):
+    """
+    Append onset_div and duration_div fields to the note array.
+
+    Parameters
+    ----------
+    note_array: np.ndarray
+        The note array to which the divs fields will be added. Normally only beat onset and duration are provided.
+
+    Returns
+    -------
+    np.ndarray
+        The note array with the divs fields added.
+    """
     duration_fractions = [Fraction(float(ix)).limit_denominator(256) for ix in note_array["duration_beat"]]
     onset_fractions = [Fraction(float(ix)).limit_denominator(256) for ix in note_array["onset_beat"]]
     divs = np.lcm.reduce(
@@ -25,14 +37,40 @@ def create_divs_from_beats(note_array):
 
 
 def create_part(
-        ticks,
-        note_array,
-        key_sigs,
-        part_id=None,
-        part_name=None,
-        sanitize=True,
-        anacrusis_divs=0
+        ticks: int,
+        note_array: np.ndarray,
+        key_sigs: list,
+        part_id: str = None,
+        part_name: str = None,
+        sanitize: bool = True,
+        anacrusis_divs: int = 0
 ):
+    """
+    Create a part from a note array and a list of key signatures.
+
+    Parameters
+    ----------
+    ticks: int
+        The number of ticks per quarter note for the part creation.
+    note_array: np.ndarray
+        The note array from which the part will be created.
+    key_sigs: list
+        A list of key signatures. Each key signature is a tuple of the form (onset, key_name, offset).
+    part_id: str
+        The id of the part.
+    part_name: str
+    sanitize: bool
+        If True, then measures, tied-notes and triplets will be sanitized.
+    anacrusis_divs: int
+        The number of divisions in the anacrusis. If 0, then there is no anacrusis measure.
+
+    Returns
+    -------
+    part : partitura.score.Part
+        The part created from the note array and key signatures.
+    """
+
+
     warnings.warn("create_part", stacklevel=2)
 
     part = Part(part_id, part_name=part_name, )
@@ -112,12 +150,21 @@ def create_part(
     return part
 
 
-def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: int = None, assign_note_ids: bool = True,
-                       ensurelist: bool = False, estimate_key: bool = False, sanitize: bool = True, scorify=True) -> ScoreLike:
+def note_array_to_score(
+        note_array: Union[np.ndarray, list],
+        name_id: str = "",
+        divs: int = None,
+        key_sigs: list = None,
+        part_name: str = "",
+        assign_note_ids: bool = True,
+        ensurelist: bool = False,
+        estimate_key: bool = False,
+        sanitize: bool = True,
+        return_part: bool = False) -> ScoreLike:
     """
-    A generic function to transform an enriched note_array to part.
+    A generic function to transform an enriched note_array to part or Score.
 
-    The function can be used for many different occasions, i.e. load_score_midi, part_from_match, part_from_graph, etc.
+    The function can be used for many different occasions, i.e. part_from_graph, part from note_array, part from midi score import, etc.
     This function requires a note array that contains time signatures and key signatures(optional - can also estimate it automatically).
     Note array should contain the following fields:
     - onset_div or onset_beat
@@ -131,14 +178,30 @@ def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: i
 
     Parameters
     ----------
-    note_array : structure array or list of structured arrays
+    note_array : structure array or list of structured arrays.
+        A note array with the following fields:
+        - onset_div or onset_beat
+        - duration_div or duration_beat
+        - pitch
+        - ts_beats
+        - ts_beat_type
+        - key_mode(optional)
+        - key_fifths(optional)
+        - id(required but can also be empty)
     divs : int (optional)
         Necessary Provided divs for midi import.
+    key_sigs : list (optional)
+        List of key signatures. Each key signature is a list of [onset_div, key_name, end_div].
     assign_note_ids : bool (optional)
-        Assign note_ids
+        Assign note_ids.
     ensurelist: bool (optional)
-        ensure that output part is a list
+        ensure that output part is a list.
     estimate_key: bool (optional)
+        estimate key from note_array.
+    sanitize: bool (optional)
+        sanitize the part by adding measures, tying notes, and finding tuplets.
+    return_part: bool (optional)
+        Return a Partitura score object instead of a part.
 
     Returns
     -------
@@ -147,30 +210,38 @@ def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: i
     """
     if isinstance(note_array, list):
         parts = [
-            note_array_to_score(note_array=x, part_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist, scorify=False) for
+            note_array_to_score(note_array=x, name_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist, return_part=True) for
             i, x in enumerate(note_array)]
         return score.Score(partlist=parts)
 
     if not isinstance(note_array, np.ndarray):
         raise TypeError("The note array does not have the correct format.")
+
     if len(note_array) == 0:
         raise ValueError("The note array is empty.")
 
+    # Test Note array for negative durations
+    if "duration_div" in note_array.dtype.names:
+        assert np.all(note_array["duration_div"] >= 0), "Note array contains negative durations."
+    elif "duration_beat" in note_array.dtype.names:
+        assert np.all(note_array["duration_beat"] >= 0), "Note array contains negative durations."
+
+    # Note id creation or re-assignment
     if "id" not in note_array.dtype.names:
-        note_ids = ["{}n{:4d}".format(part_id, i) for i in range(len(note_array))]
+        note_ids = ["{}n{:4d}".format(name_id, i) for i in range(len(note_array))]
         note_array = rfn.append_fields(note_array, "id", np.array(note_ids, dtype='<U256'))
     elif assign_note_ids or np.all(note_array["id"] == note_array["id"][0]):
-        note_ids = ["{}n{:4d}".format(part_id, i) for i in range(len(note_array))]
+        note_ids = ["{}n{:4d}".format(name_id, i) for i in range(len(note_array))]
         note_array["id"] = np.array(note_ids)
 
     dtypes = note_array.dtype.names
     # check if note array contains time signatures
-    if not "ts_beats" in dtypes:
+    if not "ts_beats" in dtypes and key_sigs is None:
         raise AttributeError("The note array does not contain a time signature.")
 
     anacrusis_mask = np.zeros(len(note_array), dtype=bool)
 
-
+    # Start Checking Note array for available fields
     if all([x in dtypes for x in ["onset_div", "pitch", "duration_div", "onset_beat", "duration_beat"]]):
         anacrusis_mask[note_array["onset_beat"] < 0] = True
     # This clause is related to bar normalized representations with global time stamps
@@ -234,10 +305,13 @@ def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: i
         k_name = analysis.estimate_key(note_array)
         global_key_sigs = [[0, k_name]]
     else:
-        global_key_sigs = [[0, fifths_mode_to_key_name(note_array[0]["ks_fifths"], note_array[0]["ks_mode"])]]
-        for n in note_array:
-            if n["ts_beats"] != global_key_sigs[-1][1] or n["ts_beat_type"] != global_key_sigs[-1][2]:
-                global_key_sigs.append([n["onset_div"], fifths_mode_to_key_name(n["ks_fifths"], n["ks_mode"])])
+        if key_sigs is None and "ts_beats" in dtypes:
+            global_key_sigs = [[0, fifths_mode_to_key_name(note_array[0]["ks_fifths"], note_array[0]["ks_mode"])]]
+            for n in note_array:
+                if n["ts_beats"] != global_key_sigs[-1][1] or n["ts_beat_type"] != global_key_sigs[-1][2]:
+                    global_key_sigs.append([n["onset_div"], fifths_mode_to_key_name(n["ks_fifths"], n["ks_mode"])])
+            else:
+                global_key_sigs = key_sigs
     global_key_sigs = np.array(global_key_sigs)
     # for convenience, we add the end times for each time signature
     ks_end_times = np.r_[global_key_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
@@ -251,6 +325,7 @@ def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: i
                 break
         divs = int((note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])*(note_array[idx]["ts_beat_type"]/4))
 
+    # Steps for dealing with anacrusis measure.
     if np.all(anacrusis_mask == False):
         anacrusis_divs = 0
     else:
@@ -260,16 +335,24 @@ def note_array_to_score(note_array: Union[np.ndarray, list], part_id="", divs: i
         difference_from_zero = (0 - last_neg_beat) * divs * (4 / beat_type)
         anacrusis_divs = int(last_neg_divs + difference_from_zero)
 
+    # Test again for negative divs
+    assert np.all(note_array["onset_div"] >= 0), "Negative divs found in note_array."
+    # Order Lexicographically
+    note_array = note_array[np.lexsort((note_array["onset_div"], note_array["pitch"]))]
+
+    # Create the part
     part = create_part(
         ticks=divs,
         note_array=note_array,
         key_sigs=global_key_sigs,
-        part_id=part_id,
-        part_name=None,
+        part_id=name_id,
+        part_name=part_name,
         sanitize=sanitize,
         anacrusis_divs=anacrusis_divs
     )
-    if scorify:
-        return partitura.score.Score(partlist=[part])
-    else:
+    # Return Part or Score
+    if return_part:
         return part
+    else:
+        return score.Score(partlist=[part], id=name_id)
+
