@@ -13,7 +13,7 @@ from partitura.utils.music import note_array_from_part, ensure_notearray
 from partitura.musicanalysis import note_array_to_score
 import numpy as np
 
-from tests import NOTE_ARRAY_TESTFILES, KERN_TESTFILES
+from tests import NOTE_ARRAY_TESTFILES, KERN_TESTFILES, METRICAL_POSITION_TESTFILES
 
 
 class TestNoteArray(unittest.TestCase):
@@ -71,8 +71,16 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(score[0]._use_musical_beat == False)
         self.assertFalse(np.array_equal(score[0].note_array(), note_array))
 
-    def test_note_array_to_score(self):
+    def test_note_array_to_score_multiple_ts(self):
         score = load_musicxml(NOTE_ARRAY_TESTFILES[0])
+        note_array = score.note_array(include_time_signature=True)
+        new_score = note_array_to_score(note_array)
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
+
+    def test_note_array_to_score_anacrusis(self):
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[1])
         note_array = score.note_array(include_time_signature=True)
         new_score = note_array_to_score(note_array)
         new_note_array = new_score.note_array(include_time_signature=True)
