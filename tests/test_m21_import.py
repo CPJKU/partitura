@@ -108,3 +108,27 @@ class TestImportM21(unittest.TestCase):
                 note_array_direct["duration_quarter"],
             )
         )
+
+    def test_note_array3(self):
+        # load score from music21
+        m21_score = m21.converter.parse(M21_TESTFILES[3])
+        pt_score_from_m21 = load_music21(m21_score)
+        # load score directly from partitura
+        pt_score_direct = pt.load_score(M21_TESTFILES[3])
+
+        # compare the note arrays
+        note_array_from_m21 = pt_score_from_m21.note_array()
+        note_array_direct = pt_score_direct.note_array()
+        self.assertTrue(
+            np.array_equal(note_array_from_m21["pitch"], note_array_direct["pitch"])
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["onset_beat"], note_array_direct["onset_beat"]
+            )
+        )
+        self.assertTrue(
+            np.array_equal(
+                note_array_from_m21["duration_beat"], note_array_direct["duration_beat"]
+            )
+        )

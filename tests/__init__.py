@@ -184,6 +184,7 @@ M21_TESTFILES = [
         "test_clefs_tss.xml",
         "test_grace_note.xml",
         "test_chew_vosa_example.xml",
+        "test_note_ties.xml",
     ]
 ]
 HARMONY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_harmony.musicxml"]]

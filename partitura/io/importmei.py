@@ -1037,7 +1037,7 @@ class MeiParser(object):
                 # remove the # in first position
                 start_id = start_id[1:]
                 end_id = end_id[1:]
-                # set tie prev and tie next in partira note objects
+                # set tie prev and tie next in partitura note objects
                 all_notes_dict[start_id].tie_next = all_notes_dict[end_id]
                 all_notes_dict[end_id].tie_prev = all_notes_dict[start_id]
 
