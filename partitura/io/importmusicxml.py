@@ -62,6 +62,7 @@ PEDAL_DIRECTIONS = {
 
 OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
+
 def validate_musicxml(xml, debug=False):
     """
     Validate an XML file against an XSD.
@@ -199,9 +200,7 @@ def load_musicxml(
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
                 contained_xml_name = zipped_xml.namelist()[-1]
-                xml = zipped_xml.open(
-                    contained_xml_name
-                )
+                xml = zipped_xml.open(contained_xml_name)
 
     if xml is None:
         xml = filename
@@ -299,7 +298,7 @@ def load_musicxml(
         lyricist=lyricist,
         copyright=copyright,
     )
-    
+
     return scr
 
 
@@ -332,7 +331,7 @@ def _parse_parts(document, part_dict):
 
         for mc, measure_el in enumerate(part_el.xpath("measure")):
             position, doc_order = _handle_measure(
-                measure_el, position, part, ongoing, doc_order, mc+1
+                measure_el, position, part, ongoing, doc_order, mc + 1
             )
 
         # complete unfinished endings
@@ -704,7 +703,7 @@ def make_measure(xml_measure, measure_counter):
     #     measure.number = int(xml_measure.attrib['number'])
     # except:
     #     LOGGER.warn('No number attribute found for measure')
-    
+
     measure.number = measure_counter
     measure.name = get_value_from_attribute(xml_measure, "number", str)
 
