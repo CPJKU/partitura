@@ -2,15 +2,19 @@ import partitura as pt
 import numpy as np
 from fractions import Fraction
 
-from partitura.utils import generic
 
 try:
     import music21 as m21
+    from music21.stream import Score as M21Score
 except ImportError:
+
     m21 = None
 
+    class M21Score(object):
+        pass
 
-def load_music21(m21_score: m21.stream.Score) -> pt.score.Score:
+
+def load_music21(m21_score: M21Score) -> pt.score.Score:
     """
     Loads a music21 score object and returns a Partitura Score object.
 
@@ -107,7 +111,7 @@ class M21Parser:
                         if pitch.accidental is not None
                         else None,
                         # id="{}_{}".format(generic_note.id, i_pitch),
-                        id = generic_note.id,
+                        id=generic_note.id,
                         voice=self.find_voice(generic_note),
                         staff=part_idx + 1,
                         symbolic_duration=generic_note.duration.type,
@@ -121,7 +125,7 @@ class M21Parser:
                         if pitch.accidental is not None
                         else None,
                         # id="{}_{}".format(generic_note.id, i_pitch),
-                        id = generic_note.id,
+                        id=generic_note.id,
                         voice=self.find_voice(generic_note),
                         staff=part_idx + 1,
                         symbolic_duration=generic_note.duration.type,
@@ -146,31 +150,28 @@ class M21Parser:
             new_key_signature = pt.score.KeySignature(ks.sharps, None)
             position = int(ks.getOffsetInHierarchy(self.m21_score) * self.ppq)
             pt_part.add(new_key_signature, position)
-    
+
     def tie_notes(self, m21_score, pt_part_list):
         """Fills the part with ties"""
         # create a dict of id : note, to speed up search
         all_notes = [
-            note
-            for part in pt_part_list
-            for note in part.iter_all(cls=pt.score.Note)
+            note for part in pt_part_list for note in part.iter_all(cls=pt.score.Note)
         ]
         all_notes_dict = {note.id: note for note in all_notes}
         for m21_note in m21_score.recurse().getElementsByClass(m21.note.Note):
             if m21_note.tie is not None:
                 if m21_note.tie.type == "start":
                     start_id = m21_note.id
-                    end_id = m21_note.next('Note').id
+                    end_id = m21_note.next("Note").id
                 elif m21_note.tie.type == "stop":
-                    pass # music21 don't require the stop to be set
+                    pass  # music21 don't require the stop to be set
                 elif m21_note.tie.type == "continue":
                     start_id = m21_note.id
-                    end_id = m21_note.next('Note').id
+                    end_id = m21_note.next("Note").id
 
                 # set tie prev and tie next in partitura note objects
                 all_notes_dict[start_id].tie_next = all_notes_dict[end_id]
                 all_notes_dict[end_id].tie_prev = all_notes_dict[start_id]
-
 
     def fill_part_clefs(self, m21_part, pt_part, part_idx):
         """Fills the part with clefs"""
