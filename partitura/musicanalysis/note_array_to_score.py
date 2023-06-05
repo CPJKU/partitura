@@ -13,6 +13,7 @@ def create_divs_from_beats(note_array: np.ndarray):
     """
     Append onset_div and duration_div fields to the note array.
 
+    This function may result in an error if time signature changes that affect the ratio of beat/div are present.
     Parameters
     ----------
     note_array: np.ndarray
