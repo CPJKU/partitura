@@ -3348,7 +3348,7 @@ def add_measures(part):
                 else:
                     measure_end = existing_measure.start.t
 
-            part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
+            part.add(Measure(number=mcounter, name=str(mcounter)), int(measure_start), int(measure_end))
 
             # if measure exists but was not at measure_start,
             # a filler measure is added with number mcounter

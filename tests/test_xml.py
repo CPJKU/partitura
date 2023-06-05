@@ -163,7 +163,7 @@ class TestMusicXML(unittest.TestCase):
         ts = score.TimeSignature(3, 4)
         page1 = score.Page(1)
         system1 = score.System(1)
-        measure1 = score.Measure(number=1)
+        measure1 = score.Measure(number=1, name='1')
         note1 = score.Note(step="A", octave=4, voice=1, staff=1)
         rest1 = score.Rest(voice=1, staff=1)
         note2 = score.Note(step="C", octave=5, alter=-1, voice=2, staff=1)
@@ -196,6 +196,7 @@ class TestMusicXML(unittest.TestCase):
 
         # test pretty printed strings for equality
         equal = pstring1 == pstring2
+        print('equal:', equal)
 
         if not equal:
             show_diff(pstring1, pstring2)
