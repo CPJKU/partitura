@@ -25,6 +25,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install .
+    - name: Instal Optional dependencies
+      run: |
+        pip install music21        
     - name: Run Tests
       run: |
         pip install coverage
