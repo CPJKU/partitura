@@ -157,7 +157,6 @@ def note_array_to_score(
         key_sigs: list = None,
         part_name: str = "",
         assign_note_ids: bool = True,
-        ensurelist: bool = False,
         estimate_key: bool = False,
         sanitize: bool = True,
         return_part: bool = False) -> ScoreLike:
@@ -194,8 +193,6 @@ def note_array_to_score(
         List of key signatures. Each key signature is a list of [onset_div, key_name, end_div].
     assign_note_ids : bool (optional)
         Assign note_ids.
-    ensurelist: bool (optional)
-        ensure that output part is a list.
     estimate_key: bool (optional)
         estimate key from note_array.
     sanitize: bool (optional)
@@ -210,7 +207,9 @@ def note_array_to_score(
     """
     if isinstance(note_array, list):
         parts = [
-            note_array_to_score(note_array=x, name_id=str(i), assign_note_ids=assign_note_ids, ensurelist=ensurelist, return_part=True) for
+            note_array_to_score(note_array=x, name_id=str(i), assign_note_ids=assign_note_ids,
+                                return_part=True, divs=divs, estimate_key=estimate_key, sanitize=sanitize,
+                                part_name=name_id+"_P"+str(i)) for
             i, x in enumerate(note_array)]
         return score.Score(partlist=parts)
 
