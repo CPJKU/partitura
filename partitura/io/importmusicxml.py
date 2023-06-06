@@ -303,7 +303,6 @@ def load_musicxml(
 
 
 def _parse_parts(document, part_dict):
-    # print('_parse_parts') # NOTE del
     """
     Populate the Part instances that are the values of `part_dict` with the
     musical content in document.
@@ -457,11 +456,32 @@ def _parse_parts(document, part_dict):
 
 
 def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_counter):
-    # print('_handle_measure') # NOTE del
+    """ Parse a <measure>...</measure> element, adding it and its contents to the part.
+    
+    Parameters
+    ----------
+    measure_el : etree.Element
+        An etree Element instance with a <measure> tag
+    position : int
+        The starting time of the measure
+    part : score.Part
+        The part object to which the measure belongs.
+    ongoing : dict
+        A dict specifying the score.Page and score.System of the measure
+    doc_order : int
+        The index of the first note element in the current measure in the xml file.
+    measure_counter : int
+        The index of the <measure> tag in the xml file, starting from 1
+    
+    Returns
+    -------
+    measure_maxtime : int
+        The ending time of the measure
+    doc_order : int
+        The index of the first note element in the next measure in the xml file.
+        
     """
-    Parse a <measure>...</measure> element, adding it and its contents to the
-    part.
-    """
+    
     # make a measure object
     measure = make_measure(measure_el, measure_counter)
 
@@ -588,7 +608,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_coun
 
     # add end time of measure
     part.add(measure, None, measure_maxtime)
-
+    
     return measure_maxtime, doc_order
 
 
@@ -698,16 +718,25 @@ def _handle_new_system(position, part, ongoing):
 
 
 def make_measure(xml_measure, measure_counter):
+    """
+    Parameters
+    ----------
+    xml_measure : etree.Element
+        An etree Element instance with a <measure> tag
+    measure_counter : int
+        The index of the <measure> tag in the xml file, starting from 1
+    
+    Returns
+    -------
+    measure : score.Measure
+        A measure object with a number and optional name attribute
+    """
+    
     measure = score.Measure()
-    # try:
-    #     measure.number = int(xml_measure.attrib['number'])
-    # except:
-    #     LOGGER.warn('No number attribute found for measure')
 
     measure.number = measure_counter
     measure.name = get_value_from_attribute(xml_measure, "number", str)
 
-    # print(f'{measure}')
     return measure
 
 
