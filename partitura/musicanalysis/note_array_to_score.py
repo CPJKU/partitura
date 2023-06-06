@@ -15,6 +15,7 @@ def create_divs_from_beats(note_array: np.ndarray):
     Assumes beats are in uniform units across the whole array 
     (no time signature change that modifies beat unit, e.g., 4/4 to 6/8).
 
+    This function may result in an error if time signature changes that affect the ratio of beat/div are present.
     Parameters
     ----------
     note_array: np.ndarray
@@ -65,6 +66,7 @@ def create_beats_from_divs(note_array: np.ndarray, divs: int):
     duration_beats = list(note_array["duration_div"]/divs)
     na_beats = np.array(list(zip(onset_beats, duration_beats)), dtype=[("onset_beat", int), ("duration_beat", int)])
     return rfn.merge_arrays((note_array, na_beats), flatten=True, usemask=False)
+
 
 def create_part(
         ticks: int,
@@ -291,10 +293,9 @@ def note_array_to_score(
 
     if isinstance(note_array, list):
         parts = [
-            note_array_to_score(note_array=x, 
-                                name_id=str(i), 
-                                assign_note_ids=assign_note_ids, 
-                                return_part=True) for
+            note_array_to_score(note_array=x, name_id=str(i), assign_note_ids=assign_note_ids,
+                                return_part=True, divs=divs, estimate_key=estimate_key, sanitize=sanitize,
+                                part_name=name_id+"_P"+str(i)) for
             i, x in enumerate(note_array)]
         return score.Score(partlist=parts)
 

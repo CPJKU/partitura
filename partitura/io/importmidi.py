@@ -428,6 +428,7 @@ or a list of these
             if len(ch_notes) > 0:
                 notes_by_track_ch[(track_nr, ch)] = ch_notes
 
+
     tr_ch_keys = sorted(notes_by_track_ch.keys())
     group_part_voice_keys, part_names, group_names = assign_group_part_voice(
         part_voice_assign_mode, tr_ch_keys, track_names_by_track
