@@ -178,7 +178,15 @@ KERN_TESTFILES = [
 ]
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
-
+M21_TESTFILES = [
+    os.path.join(DATA_PATH, "musicxml", fn)
+    for fn in [
+        "test_clefs_tss.xml",
+        "test_grace_note.xml",
+        "test_chew_vosa_example.xml",
+        "test_note_ties.xml",
+    ]
+]
 HARMONY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_harmony.musicxml"]]
 
 MOZART_VARIATION_FILES = dict(

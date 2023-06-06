@@ -9,18 +9,6 @@ import numpy as np
 import numpy.lib.recfunctions as rfn
 import warnings
 
-try:
-    import torch
-except ImportError:
-    # Dummy module to avoid ImportErrors
-    class DummyTorch(object):
-        Tensor = np.ndarray
-
-        def __init__(self):
-            pass
-
-    torch = DummyTorch()
-
 
 from partitura.score import Part, ScoreLike
 from partitura.performance import PerformedPart, PerformanceLike
@@ -882,17 +870,13 @@ def get_unique_onset_idxs(
 
 def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
     """Agregate basis functions per onset"""
-    if isinstance(notewise_inputs, np.ndarray):
-        if notewise_inputs.ndim == 1:
-            shape = len(unique_onset_idxs)
-        else:
-            shape = (len(unique_onset_idxs),) + notewise_inputs.shape[1:]
-        onsetwise_inputs = np.zeros(shape, dtype=notewise_inputs.dtype)
-    elif isinstance(notewise_inputs, torch.Tensor):
-        onsetwise_inputs = torch.zeros(
-            (len(unique_onset_idxs), notewise_inputs.shape[1]),
-            dtype=notewise_inputs.dtype,
-        )
+    
+    if notewise_inputs.ndim == 1:
+        shape = len(unique_onset_idxs)
+    else:
+        shape = (len(unique_onset_idxs),) + notewise_inputs.shape[1:]
+    onsetwise_inputs = np.zeros(shape, dtype=notewise_inputs.dtype)
+    
 
     for i, uix in enumerate(unique_onset_idxs):
         try:
@@ -906,14 +890,12 @@ def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
 def onsetwise_to_notewise(onsetwise_input, unique_onset_idxs):
     """Expand onsetwise predictions for each note"""
     n_notes = sum([len(uix) for uix in unique_onset_idxs])
-    if isinstance(onsetwise_input, np.ndarray):
-        if onsetwise_input.ndim == 1:
-            shape = n_notes
-        else:
-            shape = (n_notes,) + onsetwise_input.shape[1:]
-        notewise_inputs = np.zeros(shape, dtype=onsetwise_input.dtype)
-    elif isinstance(onsetwise_input, torch.Tensor):
-        notewise_inputs = torch.zeros(n_notes, dtype=onsetwise_input.dtype)
+    if onsetwise_input.ndim == 1:
+        shape = n_notes
+    else:
+        shape = (n_notes,) + onsetwise_input.shape[1:]
+    notewise_inputs = np.zeros(shape, dtype=onsetwise_input.dtype)
+    
     for i, uix in enumerate(unique_onset_idxs):
         notewise_inputs[uix] = onsetwise_input[[i]]
     return notewise_inputs
