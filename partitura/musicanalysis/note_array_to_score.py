@@ -283,7 +283,7 @@ def note_array_to_score(
     sanitize: bool (optional)
         sanitize the part by adding measures, tying notes, and finding tuplets.
     return_part: bool (optional)
-        Return a Partitura score object instead of a part.
+        Return a Partitura part object instead of a score.
 
     Returns
     -------
