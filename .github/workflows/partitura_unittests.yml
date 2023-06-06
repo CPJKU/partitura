@@ -25,7 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install .
-    - name: Instal Optional dependencies
+    - name: Install Optional dependencies
       run: |
         pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1
         pip install torch 

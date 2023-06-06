@@ -385,6 +385,10 @@ def compute_note_array(
         feature_data_struct = make_note_feats(part, feature_functions, add_idx=True)
         note_array_joined = np.lib.recfunctions.join_by("id", na, feature_data_struct)
         note_array = note_array_joined.data
+        pitch_sort_idx = np.argsort(note_array["pitch"])
+        note_array = note_array[pitch_sort_idx]
+        onset_sort_idx = np.argsort(note_array["onset_div"], kind="mergesort")
+        note_array = note_array_joined.data[onset_sort_idx]
     else:
         note_array = na
     return note_array
