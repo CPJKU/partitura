@@ -87,6 +87,72 @@ class TestNoteArray(unittest.TestCase):
         self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]))
         self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
 
+    def test_note_array_to_score_only_divs(self):
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[1])
+        note_array = score.note_array(include_time_signature=True)
+        for div in [1,2,4,8]:
+            new_score = note_array_to_score(note_array[["onset_div", "duration_div", "pitch"]],divs = div)
+            new_note_array = new_score.note_array(include_time_signature=True)
+            self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_div"]/div))
+            self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_div"]/div))
+
+    def test_note_array_to_score_only_div_time_sig(self):
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[1])
+        note_array = score.note_array(include_time_signature=True)
+        for time_sig in [4,8,9]:
+            new_score = note_array_to_score(note_array[["onset_div", "duration_div", "pitch"]],divs = 1, time_sigs = [(2,4, time_sig)])
+            new_note_array = new_score.note_array(include_time_signature=True)
+            self.assertTrue(np.all(new_note_array["ts_beat_type"] == np.ones_like(note_array["onset_div"])*time_sig))
+
+    def test_note_array_to_score_only_beats(self):
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[1])
+        note_array = score.note_array(include_time_signature=True)
+        # without time signature -> barebones score without measures/anacrusis
+        new_score = note_array_to_score(note_array[["onset_beat", "duration_beat", "pitch"]])
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]+1.0))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
+
+        # with time signature -> measures/anacrusis kept, but div/beat ratio might change
+        new_score = note_array_to_score(note_array[["onset_beat", "duration_beat", "pitch"]], time_sigs= [(1,3,8)] )
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]*2))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]*2))
+
+        # with default time signature -> measures/anacrusis kept, 4/4 corrsponds to original
+        new_score = note_array_to_score(note_array[["onset_beat", "duration_beat", "pitch"]], estimate_time = True)
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
+
+    def test_note_array_to_score_beats_and_div(self):
+        score = load_musicxml(METRICAL_POSITION_TESTFILES[1])
+        note_array = score.note_array(include_time_signature=True)
+        # without time signature -> barebones score without measures/anacrusis
+        new_score = note_array_to_score(note_array[["onset_div","duration_div","onset_beat", "duration_beat", "pitch"]])
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]+1.0))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
+
+        # with time signature -> measures/anacrusis kept, but div/beat ratio might change
+        new_score = note_array_to_score(note_array[["onset_div","duration_div","onset_beat", "duration_beat", "pitch"]], time_sigs= [(1,3,8)] )
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]*2))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]*2))
+
+        # with default time signature -> measures/anacrusis kept, 4/4 corrsponds to original
+        new_score = note_array_to_score(note_array[["onset_div","duration_div","onset_beat", "duration_beat", "pitch"]], estimate_time = True)
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
+
+        # with original time signature -> measures/anacrusis kept, other arguments overridden
+        new_score = note_array_to_score(note_array[["onset_div","duration_div","onset_beat", "duration_beat", "pitch", "ts_beats", "ts_beat_type"]] , time_sigs= [(1,3,8)], estimate_time = True)
+        new_note_array = new_score.note_array(include_time_signature=True)
+        self.assertTrue(np.all(new_note_array["onset_beat"] == note_array["onset_beat"]))
+        self.assertTrue(np.all(new_note_array["duration_beat"] == note_array["duration_beat"]))
+
+
     def test_notearray_ts_beats(self):
         part = load_musicxml(NOTE_ARRAY_TESTFILES[0])[0]
         note_array = note_array_from_part(part, include_time_signature=True)
