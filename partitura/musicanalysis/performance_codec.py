@@ -26,7 +26,7 @@ from partitura.score import Part, ScoreLike
 from partitura.performance import PerformedPart, PerformanceLike
 from partitura.musicanalysis import note_features
 from partitura.utils.misc import deprecated_alias
-from partitura.utils.generic import interp1d
+from partitura.utils.generic import interp1d, monotonize_times
 from partitura.utils.music import ensure_notearray
 from scipy.misc import derivative
 
@@ -878,43 +878,6 @@ def get_unique_onset_idxs(
         return unique_onset_idxs, unique_onsets
     else:
         return unique_onset_idxs
-
-
-def monotonize_times(s, deltas=None):
-    """Interpolate linearly over as many points in `s` as necessary to
-    obtain a monotonic sequence. The minimum and maximum of `s` are
-    prepended and appended, respectively, to ensure monotonicity at
-    the bounds of `s`.
-    Parameters
-    ----------
-    s : ndarray
-        a sequence of numbers
-    deltas : 
-        position of the numbers (onset times)
-    Returns
-    -------
-    ndarray
-       a monotonic sequence that has been linearly interpolated using a subset of s
-    """
-    eps = np.finfo(float).eps
-
-    _s = np.r_[np.min(s) - eps, s, np.max(s) + eps]
-    if deltas is not None:
-        _deltas = np.r_[np.min(deltas) - eps, deltas, np.max(deltas) + eps]
-    else:
-        _deltas = None    
-    idx = np.arange(_s.shape[0])
-
-    # detect the position with value decrease and remove them from the interpolation values
-    s_mono = np.maximum.accumulate(s)
-    mask = np.r_[False, True, (np.diff(s_mono) != 0), False]
-
-    s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-    try:
-        assert((np.diff(s_mono) >= 0).all())
-    except:
-        warnings.warn("Monotonize_time produce non-monotonic sequence!")
-    return s_mono, _deltas[1:-1]
 
 
 def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
