@@ -71,8 +71,8 @@ def create_beats_from_divs(note_array: np.ndarray, divs: int):
 def create_part(
         ticks: int,
         note_array: np.ndarray,
-        key_sigs: list = [],
-        time_sigs: list = [],
+        key_sigs: list = None,
+        time_sigs: list = None,
         part_id: str = None,
         part_name: str = None,
         sanitize: bool = True,
@@ -121,7 +121,7 @@ def create_part(
     part.add(clef, 0)
 
     # key sig
-    if len(key_sigs) > 0:
+    if key_sigs is not None:
         for t_start, name, t_end in key_sigs:
             fifths, mode = key_name_to_fifths_mode(name)
             t_start, t_end = int(t_start), int(t_end)
@@ -129,9 +129,8 @@ def create_part(
     else:
         warnings.warn("No key signatures added")
         
-
     # time sig
-    if len(time_sigs) > 0:
+    if time_sigs is not None:
         for ts_start, num, den, ts_end in time_sigs:
             time_sig = score.TimeSignature(num.item(), den.item())
             part.add(time_sig, ts_start, ts_end)
@@ -358,10 +357,18 @@ def note_array_to_score(
 
     if divs is None:
         # find first note with nonzero duration (in case score starts with grace_note).
-        for idx, dur in enumerate(note_array["duration_beat"]):
-            if dur != 0:
-                break
-        divs = int(note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])
+        if all([x in dtypes for x in ts_case]):
+            for idx, dur in enumerate(note_array["duration_beat"]):
+                if dur != 0:
+                    break
+            divs = int((note_array[idx]["duration_div"] / note_array[idx]["duration_beat"]) /
+                       (4 / note_array[idx]["ts_beat_type"] ))
+        else:
+            for idx, dur in enumerate(note_array["duration_beat"]):
+                if dur != 0:
+                    break
+            divs = int(note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])
+
         
     # handle time signatures
     if all([x in dtypes for x in ts_case]): 
