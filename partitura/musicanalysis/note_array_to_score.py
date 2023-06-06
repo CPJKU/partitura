@@ -357,16 +357,13 @@ def note_array_to_score(
 
     if divs is None:
         # find first note with nonzero duration (in case score starts with grace_note).
+        for idx, dur in enumerate(note_array["duration_beat"]):
+            if dur != 0:
+                break
         if all([x in dtypes for x in ts_case]):
-            for idx, dur in enumerate(note_array["duration_beat"]):
-                if dur != 0:
-                    break
             divs = int((note_array[idx]["duration_div"] / note_array[idx]["duration_beat"]) /
-                       (4 / note_array[idx]["ts_beat_type"] ))
-        else:
-            for idx, dur in enumerate(note_array["duration_beat"]):
-                if dur != 0:
-                    break
+                    (4 / note_array[idx]["ts_beat_type"] ))
+        else:    
             divs = int(note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])
 
         
@@ -395,6 +392,8 @@ def note_array_to_score(
         else:
             raise ValueError("time_sigs is given in a wrong format")
 
+        # make sure there is a time signature from the beginning
+        global_time_sigs[0, 0] = 0
     
     # Test Note array for negative durations
     assert np.all(note_array["duration_div"] >= 0), "Note array contains negative durations."
@@ -466,6 +465,9 @@ def note_array_to_score(
         else:
             raise ValueError("key_sigs is given in a wrong format")
         
+        # make sure there is a key signature from the beginning
+        global_key_sigs[0, 0] = 0
+        
     # Steps for dealing with anacrusis measure.
     anacrusis_mask = np.zeros(len(note_array), dtype=bool)
     anacrusis_mask[note_array["onset_beat"] < 0] = True
@@ -475,9 +477,14 @@ def note_array_to_score(
     else:
         last_neg_beat = np.max(note_array[anacrusis_mask]["onset_beat"])
         last_neg_divs = np.max(note_array[anacrusis_mask]["onset_div"])
-        beat_type = np.max(note_array[anacrusis_mask]["ts_beat_type"])
+        if all([x in dtypes for x in ts_case]): 
+            beat_type = np.max(note_array[anacrusis_mask]["ts_beat_type"])
+        else:
+            beat_type = 4
         difference_from_zero = (0 - last_neg_beat) * divs * (4 / beat_type)
         anacrusis_divs = int(last_neg_divs + difference_from_zero)
+
+        
     
     # Create the part
     part = create_part(
