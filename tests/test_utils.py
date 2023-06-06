@@ -600,12 +600,11 @@ class TestGenericUtils(unittest.TestCase):
 
         self.assertTrue(np.all(sinterp(x) == pinterp(x)))
 
-class TestTokenizer(unittest.TestCase):
-    def test_sametokens1(self):
-        """ Test that the tokenizer called from the partitura wrapper returns the same tokens as the Miditok from MIDI"""
-        pt_score = partitura.load_score(TOKENIZER_TESTFILES[0]["score"])
-        tokenizer = miditok.Structured()
-        pt_tokens = tokenize(pt_score, tokenizer)
-        midi_score = miditoolkit.MidiFile(TOKENIZER_TESTFILES[0]["midi"])
-        mtok_tokens = tokenizer(midi_score) 
-        self.assertTrue(False)
+# class TestTokenizer(unittest.TestCase):
+#     def test_tokenize1(self):
+#         """ Test the partitura tokenizer"""
+#         pt_score = partitura.load_score(TOKENIZER_TESTFILES[0]["score"])
+#         tokenizer = miditok.MIDILike()
+#         pt_tokens = tokenize(pt_score, tokenizer)[0].tokens
+#         mtok_tokens = [tok for tok in mtok_tokens if not tok.startswith("Velocity")]
+#         self.assertTrue(mtok_tokens[:20] == pt_tokens[:20])

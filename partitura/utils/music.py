@@ -3451,12 +3451,12 @@ def slice_ppart_by_time(
     return ppart_slice
 
 
-def tokenize(score_data : ScoreLike, tokenizer : miditok.midi_tokenizer.MidiTokenizer):
+def tokenize(score_data : ScoreLike, tokenizer : miditok.midi_tokenizer.MidiTokenizer if miditok is not None else None):
     if miditok is None:
         raise ImportError("Miditok must be installed for this function to work")
     with TemporaryDirectory() as tmpdir:
         temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
-        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, part_voice_assign_mode = 4 )
+        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior="time_sig_change", part_voice_assign_mode = 4, minimum_ppq = 480 )
         midi = miditoolkit.MidiFile(temp_midi_path)
         tokens = tokenizer(midi)
     return tokens

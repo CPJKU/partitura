@@ -9,12 +9,15 @@ import unittest
 from tempfile import TemporaryFile
 import mido
 import numpy as np
+from tempfile import TemporaryDirectory
+import os
 
-from partitura import save_score_midi, save_performance_midi, load_performance_midi
+from partitura import save_score_midi, save_performance_midi, load_performance_midi, load_score
 from partitura.utils import partition
 import partitura.score as score
 
 from partitura.performance import PerformedPart, Performance
+from tests import MIDIEXPORT_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -479,3 +482,33 @@ def generate_random_performance(n_notes=100, beat_period=0.5, n_tracks=3):
 
     performed_part = PerformedPart.from_note_array(note_array)
     return performed_part
+
+class TestIncompleteMeasures(unittest.TestCase):
+    def test_timesigchange(self):
+        # test the behavior with the time_sig_change parameter in midi export
+        score_data = load_score(MIDIEXPORT_TESTFILES[0])
+        with TemporaryDirectory() as tmpdir:
+            temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
+            save_score_midi(score_data, out=temp_midi_path, anacrusis_behavior="time_sig_change", part_voice_assign_mode = 4 )
+            mid_pt = mido.MidiFile(temp_midi_path)
+        ts_messages = [m for m in list(mid_pt.tracks[0]) if isinstance(m,mido.MetaMessage) and m.type == "time_signature"]
+        self.assertTrue(len(ts_messages)==5)
+        self.assertTrue(ts_messages[0].numerator == 1)
+        self.assertTrue(ts_messages[1].numerator == 4)
+        self.assertTrue(ts_messages[2].numerator == 3)
+        self.assertTrue(ts_messages[3].numerator == 1)
+        self.assertTrue(ts_messages[4].numerator == 4)
+
+    def test_pad_bar(self):
+        # test the behavior with the pad_bar parameter in midi export
+        score_data = load_score(MIDIEXPORT_TESTFILES[0])
+        with TemporaryDirectory() as tmpdir:
+            temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
+            save_score_midi(score_data, out=temp_midi_path, anacrusis_behavior="pad_bar", part_voice_assign_mode = 4 )
+            mid_pt = mido.MidiFile(temp_midi_path)
+        ts_messages = [m for m in list(mid_pt.tracks[0]) if isinstance(m,mido.MetaMessage) and m.type == "time_signature"]
+        self.assertTrue(len(ts_messages)==1)
+        note_on_messages = [m for m in list(mid_pt.tracks[0]) if isinstance(m,mido.Message) and m.type == "note_on"]
+        # TODO: check why the first note is still on a downbeat
+
+

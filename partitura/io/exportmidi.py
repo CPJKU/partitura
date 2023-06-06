@@ -233,6 +233,7 @@ def save_score_midi(
     part_voice_assign_mode: int = 0,
     velocity: int = 64,
     anacrusis_behavior: str = "shift",
+    minimum_ppq: int = 0,
 ) -> Optional[MidiFile]:
     """Write data from Part objects to a MIDI file
 
@@ -276,11 +277,20 @@ def save_score_midi(
         The default mode is 0.
     velocity : int, optional
         Default velocity for all MIDI notes. Defaults to 64.
-    anacrusis_behavior : {"shift", "pad_bar"}, optional
+    anacrusis_behavior : {"shift", "pad_bar", "time_sig_change"}, optional
         Strategy to deal with anacrusis. If "shift", all
         time points are shifted by the anacrusis (i.e., the first
         note starts at 0). If "pad_bar", the "incomplete" bar  of
         the anacrusis is padded with silence. Defaults to 'shift'.
+        If "time_sig_change", the time signature is changed to match
+        the duration of the measure. This also ensure the beat and
+        downbeats position are coherent in case of incomplete measures
+        later in the score.
+    minimum_ppq : int, optional
+        Minimum ppq to use for the MIDI file. If the ppq of the score is less, 
+        it will be doubled until it is above the threshold. This is useful
+        because some libraries like miditok require a certain minimum ppq to 
+        work properly.
 
     Returns
     -------
@@ -302,6 +312,10 @@ def save_score_midi(
             f" or a list of  `Part` instances but is {type(score_data)}"
         )
     ppq = get_ppq(parts)
+    # double it until it is above the minimum level.
+    # Doubling instead of setting it ensure that the common divisors stay the same.
+    while ppq < minimum_ppq:
+        ppq = ppq*2
 
     events = defaultdict(lambda: defaultdict(list))
     meta_events = defaultdict(lambda: defaultdict(list))
@@ -316,7 +330,7 @@ def save_score_midi(
     ftp = 0
     # Deal with anacrusis
     if first_time_point < 0:
-        if anacrusis_behavior == "shift":
+        if anacrusis_behavior == "shift" or anacrusis_behavior == "time_sig_change":
             ftp = first_time_point
         elif anacrusis_behavior == "pad_bar":
             time_signatures = []
@@ -346,12 +360,55 @@ def save_score_midi(
                 "set_tempo", tempo=tp.microseconds_per_quarter
             )
 
-        for ts in part.iter_all(score.TimeSignature):
-            meta_events[part][to_ppq(ts.start.t)].append(
-                MetaMessage(
-                    "time_signature", numerator=ts.beats, denominator=ts.beat_type
+        if anacrusis_behavior == "time_sig_change":
+            # Change time signature to match the duration of the measure
+            # This ensure the beat and downbeats position are coherent
+            # in case of incomplete measures later in the score.
+            all_ts = list(part.iter_all(score.TimeSignature))
+            ts_changing_time = [ts.start.t for ts in all_ts]
+            for measure in part.iter_all(score.Measure):
+                m_duration_beat = part.beat_map(measure.end.t) - part.beat_map(measure.start.t)
+                m_ts = part.time_signature_map(measure.start.t)
+                if m_duration_beat != m_ts[0]:
+                    # add ts change
+                    # TODO: add support for changing the beat type if number of beats is not integer
+                    meta_events[part][to_ppq(measure.start.t)].append(
+                        MetaMessage(
+                            "time_signature", numerator=int(m_duration_beat), denominator=int(m_ts[1])
+                        )
+                    )
+                    ts_changing_time.append(measure.start.t) # keep track of changing the ts
+                    # now go back to original ts if there is no ts change after this measure
+                    if not any([ts_t > measure.start.t for ts_t in ts_changing_time]):
+                        meta_events[part][to_ppq(measure.end.t)].append(
+                            MetaMessage(
+                                "time_signature", numerator=int(m_ts[0]), denominator=int(m_ts[1])
+                            )
+                        )
+            # filter out the multiple ts changes at the same time
+            # this happens when multiple measure in a row have wrong duration
+            for t in meta_events[part].keys():
+                if len(meta_events[part][t]) == 2:
+                    meta_events[part][t] = meta_events[part][t][1:]
+
+            # now add the normal time signature change
+            for ts in part.iter_all(score.TimeSignature):
+                if ts.start.t in ts_changing_time:
+                #don't add if something is already added at this time to cover the case of a ts change when the first measure is shorter/longer
+                    pass
+                else:
+                    meta_events[part][to_ppq(ts.start.t)].append(
+                        MetaMessage(
+                            "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                        )
+                    )
+        else: # just add the time signature that are explicit in partitura
+            for ts in part.iter_all(score.TimeSignature):
+                meta_events[part][to_ppq(ts.start.t)].append(
+                    MetaMessage(
+                        "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                    )
                 )
-            )
 
         for ks in part.iter_all(score.KeySignature):
             meta_events[part][to_ppq(ks.start.t)].append(

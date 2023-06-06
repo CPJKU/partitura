@@ -220,3 +220,7 @@ TOKENIZER_TESTFILES = [
     "score" : os.path.join(DATA_PATH, "musicxml", "mozart_k265_var1.musicxml"),
     },
 ]
+
+MIDIEXPORT_TESTFILES = [
+    os.path.join(DATA_PATH, "musicxml", "test_anacrusis.xml")
+]
