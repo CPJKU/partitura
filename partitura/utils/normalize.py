@@ -5,11 +5,6 @@ This module contains normalization utilities
 """
 import numpy as np
 
-DEFAULT_NORM_FUNCS = {
-    "FEATURE": {"func": lambda x: x / 127, # some normalization function
-                "kvargs": {}}, # some keyword arguments
-    # fill up with all note and performance features
-}
 
 EPSILON=0.0001
 
@@ -40,9 +35,9 @@ def range_normalize(array,
         return np.clip(array, 0, 1)
     else:
         return array
-    
 
-def range_normalize(array, 
+
+def zero_one_normalize(array, 
                     min_value = -3.0, 
                     max_value = 3.0,
                     log = False,
@@ -75,14 +70,24 @@ def minmaxrange_normalize(array):
     return (array - array.min()) / (array.max() - array.min())
 
 
-def normalize(array, 
+DEFAULT_NORM_FUNCS = {
+    "pitch": {"func": range_normalize, # some normalization function
+                "kwargs": {"min_value":0, "max_value":127}}, # some keyword arguments
+    # fill up with all note and performance features
+}
+
+
+def normalize(in_array, 
               norm_funcs = DEFAULT_NORM_FUNCS,
               norm_func_fallback = minmaxrange_normalize,
-              default_value = -1.0):
+              default_value = np.inf
+              ):
     
     """
     Normalize a note array.
     May include note features as well as performance features.
+    All input columns must be of numeric types, everything is
+    cast to single precision float.
     
     Parameters
     ----------
@@ -96,6 +101,8 @@ def normalize(array,
     array : np.ndarray
         The normalized performance array.
     """
+    dtype_new = np.dtype({'names':in_array.dtype.names, 'formats': [float for k in range(len(in_array.dtype.names))]})
+    array = in_array.copy().astype(dtype_new)
 
     for feature in array.dtype.names:
 
@@ -111,6 +118,6 @@ def normalize(array,
                 array[feature][non_default_mask] = norm_func_fallback(array[feature][non_default_mask])
             else:
                 array[feature][non_default_mask] = norm_funcs[feature]["func"](array[feature][non_default_mask], 
-                                                                               **norm_funcs[feature]["kvargs"])     
+                                                                               **norm_funcs[feature]["kwargs"])     
     
     return array
