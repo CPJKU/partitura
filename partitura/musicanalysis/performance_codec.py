@@ -7,6 +7,7 @@ expressive parameters.
 from typing import Union, Callable
 import numpy as np
 import numpy.lib.recfunctions as rfn
+import warnings
 
 try:
     import torch
@@ -25,7 +26,7 @@ from partitura.score import Part, ScoreLike
 from partitura.performance import PerformedPart, PerformanceLike
 from partitura.musicanalysis import note_features
 from partitura.utils.misc import deprecated_alias
-from partitura.utils.generic import interp1d
+from partitura.utils.generic import interp1d, monotonize_times
 from partitura.utils.music import ensure_notearray
 from scipy.misc import derivative
 
@@ -288,7 +289,6 @@ def encode_articulation(
         # Grace notes have an articulation ratio of 1
         sd[grace_mask] = 1
         pd[grace_mask] = bp
-        # Compute log articulation ratio
         articulation[idx] = np.log2(pd / (bp * sd))
 
     return articulation
@@ -490,6 +490,7 @@ def tempo_by_average(
 
     tempo_curve = tempo_fun(input_onsets)
 
+    assert((tempo_curve >= 0).all())
     if return_onset_idxs:
         return tempo_curve, input_onsets, unique_onset_idxs
     else:
@@ -634,7 +635,6 @@ def to_matched_score(score: ScoreLike,
         for a in alignment
         if (a["label"] == "match" and a["score_id"] in part_by_id)
     ]
-
     ms = []
     # sort according to onset (primary) and pitch (secondary)
     pitch_onset = [(sn['pitch'].item(), sn['onset_div'].item()) for sn, _ in note_pairs]
@@ -878,38 +878,6 @@ def get_unique_onset_idxs(
         return unique_onset_idxs, unique_onsets
     else:
         return unique_onset_idxs
-
-
-def monotonize_times(s, deltas=None):
-    """Interpolate linearly over as many points in `s` as necessary to
-    obtain a monotonic sequence. The minimum and maximum of `s` are
-    prepended and appended, respectively, to ensure monotonicity at
-    the bounds of `s`.
-    Parameters
-    ----------
-    s : ndarray
-        a sequence of numbers
-    strict : bool
-        when True, return a strictly monotonic sequence (default: True)
-    deltas : 
-
-    Returns
-    -------
-    ndarray
-       a monotonic sequence that has been linearly interpolated using a subset of s
-    """
-    eps = np.finfo(float).eps
-
-    _s = np.r_[np.min(s) - eps, s, np.max(s) + eps]
-    if deltas is not None:
-        _deltas = np.r_[np.min(deltas) - eps, deltas, np.max(deltas) + eps]
-    else:
-        _deltas = None
-    mask = np.ones(_s.shape[0], dtype=bool)
-    mask[0] = mask[-1] = False
-    idx = np.arange(_s.shape[0])
-    s_mono = interp1d(idx[mask], _s[mask])(idx[1:-1])
-    return _s[mask], _deltas[mask]
 
 
 def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):

@@ -6,7 +6,7 @@ This module contains generic class- and numerical-related utilities
 import warnings
 from collections import defaultdict
 
-from typing import Union, Callable, Optional
+from typing import Union, Callable, Optional, Tuple
 
 from textwrap import dedent
 import numpy as np
@@ -239,15 +239,15 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            warnings.warn(
-                                dedent(
-                                    """reference not found in
-                            o_map: {} start={} end={}, substituting None
-                            """.format(
-                                        o_el, o_el.start, o_el.end
-                                    )
-                                )
-                            )
+                            # warnings.warn(
+                            #     dedent(
+                            #         """reference not found in
+                            # o_map: {} start={} end={}, substituting None
+                            # """.format(
+                            #             o_el, o_el.start, o_el.end
+                            #         )
+                            #     )
+                            # )
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
@@ -614,6 +614,45 @@ def interp1d(
 #         warnings.warn('search exhausted stack, bailing out')
 #         return None
 
+
+def monotonize_times(
+    s: np.ndarray,
+    x: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Interpolate linearly over as many points in `s` as necessary to
+    obtain a monotonic sequence. The minimum and maximum of `s` are
+    prepended and appended, respectively, to ensure monotonicity at
+    the bounds of `s`.
+    Parameters
+    ----------
+    s : np.ndarray
+        a sequence of numbers s(x) which we want to monotonize
+    x : np.ndarray or None
+        The input variable of sequence s(x).
+    Returns
+    -------
+    s_mono: np.ndarray
+       a monotonic sequence that has been linearly interpolated using a subset of s
+    x_mono: np.ndarray
+        The input of the monotonic sequence. 
+    """
+    eps = np.finfo(float).eps
+
+    _s = np.r_[np.min(s) - eps, s, np.max(s) + eps]
+    if x is not None:
+        _x = np.r_[np.min(x) - eps, x, np.max(x) + eps]
+    else:
+        _x = np.r_[-eps, np.arange(len(s)), len(s) - 1 + eps]
+    idx = np.arange(_s.shape[0])
+
+    s_mono = np.maximum.accumulate(s)
+    mask = np.r_[False, True, (np.diff(s_mono) != 0), False]
+
+    x_mono = _x[1:-1]
+    s_mono = interp1d(idx[mask], _s[mask])(x_mono)
+    
+    return s_mono, x_mono
 
 if __name__ == "__main__":
     import doctest
