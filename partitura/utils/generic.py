@@ -483,7 +483,7 @@ def interp1d(
     axis: int = -1,
     kind: Union[str, int] = "linear",
     copy=True,
-    bounds_error=None,
+    bounds_error=False,
     fill_value=np.nan,
     assume_sorted=False,
 ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
@@ -644,13 +644,11 @@ def monotonize_times(
         _x = np.r_[np.min(x) - eps, x, np.max(x) + eps]
     else:
         _x = np.r_[-eps, np.arange(len(s)), len(s) - 1 + eps]
-    idx = np.arange(_s.shape[0])
 
     s_mono = np.maximum.accumulate(s)
     mask = np.r_[False, True, (np.diff(s_mono) != 0), False]
-
     x_mono = _x[1:-1]
-    s_mono = interp1d(idx[mask], _s[mask])(x_mono)
+    s_mono = interp1d(_x[mask], _s[mask], fill_value="extrapolate")(x_mono)
     
     return s_mono, x_mono
 

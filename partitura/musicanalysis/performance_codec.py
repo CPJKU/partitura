@@ -457,7 +457,7 @@ def tempo_by_average(
 
     # Monotonize times
     eq_onset_mt, unique_s_onsets_mt = monotonize_times(
-        eq_onsets, deltas=unique_s_onsets
+        eq_onsets, x=unique_s_onsets
     )
 
     # Estimate Beat Period
@@ -561,7 +561,7 @@ def tempo_by_derivative(score_onsets, performed_onsets,
 
     # Monotonize times
     eq_onset_mt, unique_s_onsets_mt = monotonize_times(eq_onsets,
-                                                       deltas=unique_s_onsets)
+                                                       x=unique_s_onsets)
     # Function that that interpolates the equivalent performed onsets
     # as a function of the score onset.
     onset_fun = interp1d(unique_s_onsets_mt, eq_onset_mt, kind='linear',

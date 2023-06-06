@@ -103,6 +103,8 @@ def make_note_features(
         the functions themselves or the names of a feature function as
         strings (or a mix), or the keywork "all". The feature functions specified by name are
         looked up in the `featuremixer.featurefunctions` module.
+    add_idx: bool
+        add score note idx column to feature array
 
     Returns
     -------
@@ -388,7 +390,7 @@ def compute_note_array(
         pitch_sort_idx = np.argsort(note_array["pitch"])
         note_array = note_array[pitch_sort_idx]
         onset_sort_idx = np.argsort(note_array["onset_div"], kind="mergesort")
-        note_array = note_array_joined.data[onset_sort_idx]
+        note_array = note_array_joined[onset_sort_idx]
     else:
         note_array = na
     return note_array
