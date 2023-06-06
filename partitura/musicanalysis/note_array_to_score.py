@@ -64,7 +64,7 @@ def create_beats_from_divs(note_array: np.ndarray, divs: int):
     """
     onset_beats = list(note_array["onset_div"]/divs)
     duration_beats = list(note_array["duration_div"]/divs)
-    na_beats = np.array(list(zip(onset_beats, duration_beats)), dtype=[("onset_beat", int), ("duration_beat", int)])
+    na_beats = np.array(list(zip(onset_beats, duration_beats)), dtype=[("onset_beat", float), ("duration_beat", float)])
     return rfn.merge_arrays((note_array, na_beats), flatten=True, usemask=False)
 
 
