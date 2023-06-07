@@ -2421,8 +2421,7 @@ class Measure(TimedObject):
         self.name = name
 
     def __str__(self):
-        # return f"{super().__str__():16s} number={str(self.number):3s} name={self.name:3s}"
-        return f"{super().__str__():16s} number={self.number} name={self.name}"
+        return f"{super().__str__()} number={self.number} name={self.name}"
 
     @property
     def page(self):
