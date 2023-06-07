@@ -135,6 +135,13 @@ PIANOROLL_TESTFILES = [
     ]
 ]
 
+MUSICXML_PARTIAL_MEASURES_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in [
+        "test_partial_measures.xml",
+        "test_partial_measures_consecutive.xml"
+    ]
+]
 
 MEI_TESTFILES = [
     os.path.join(MEI_PATH, fn)
