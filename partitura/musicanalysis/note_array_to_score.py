@@ -316,7 +316,7 @@ def note_array_to_score(
     case2_ex = ["onset_beat", "duration_beat"] 
     # case3 = ["onset_div", "duration_div", "onset_beat", "duration_beat", "pitch"]
 
-    if not all([x in dtypes for x in case1]) or all([x in dtypes for x in case2]):
+    if not (all([x in dtypes for x in case1]) or all([x in dtypes for x in case2])):
         raise ValueError("not all necessary note array fields are available")
     
     # sort the array
