@@ -560,7 +560,8 @@ def loudness_direction_feature(na, part, **kwargs):
         bf += feature_function_activation(d)(onsets)
 
     if not force_size:
-        names = [None] * len(feature_by_name)
+        M = len(feature_by_name) if len(feature_by_name) > 0 else 1
+        names = [None] * M
     W = np.zeros((len(onsets), len(names)))
     for name, (j, bf) in feature_by_name.items():
         if force_size:
@@ -645,7 +646,8 @@ def tempo_direction_feature(na, part, **kwargs):
 
 
     if not force_size:
-        names = [None] * len(feature_by_name)
+        M = len(feature_by_name) if len(feature_by_name) > 0 else 1
+        names = [None] * M
     W = np.zeros((len(onsets), len(names)))
     for name, (j, bf) in feature_by_name.items():
         if force_size:
@@ -693,8 +695,9 @@ def articulation_direction_feature(na, part, **kwargs):
         W = np.zeros((len(onsets), len(constant_names)))
         names = constant_names
     else:
-        W = np.zeros((len(onsets), len(feature_by_name)))
-        names = [None] * len(feature_by_name)
+        M = len(feature_by_name) if len(feature_by_name) > 0 else 1
+        W = np.zeros((len(onsets), M))
+        names = [None] * M
 
     for name, (j, bf) in feature_by_name.items():
         if force_size:
@@ -859,7 +862,7 @@ def articulation_feature(na, part, **kwargs):
     if force_size:
         M = len(names)
     else:
-        M = len(feature_by_name)
+        M = len(feature_by_name) if len(feature_by_name) > 0 else 1
         names = [None] * M
     W = np.zeros((N, M))
 
@@ -919,7 +922,7 @@ def ornament_feature(na, part, **kwargs):
     if fix_size:
         M = len(names)
     else:
-        M = len(feature_by_name)
+        M = len(feature_by_name) if len(feature_by_name) > 0 else 1
         names = [None] * M
     W = np.zeros((N, M))
 
