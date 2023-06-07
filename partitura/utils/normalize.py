@@ -30,7 +30,11 @@ def range_normalize(array,
         array = np.log(np.abs(array) + EPSILON)
     if exp:
         array = np.exp(array)
-    array = (array - min_value) / (max_value - min_value)
+    # handle div by zero
+    if min_value == max_value:
+        array = np.clip(array, 0, 1)
+    else:
+        array = (array - min_value) / (max_value - min_value)
     if hard_clip:
         return np.clip(array, 0, 1)
     else:
@@ -65,9 +69,10 @@ def zero_one_normalize(array,
 
 def minmaxrange_normalize(array):
     """
-    Linear mapping a vector from range [min_value, max_value] to [0, 1].
+    Linear mapping of a vector from range [array.min(), array.max()] to [0, 1].
+    Constant vector is clipped to [0, 1].
     """
-    return (array - array.min()) / (array.max() - array.min())
+    return range_normalize(array)
 
 
 DEFAULT_NORM_FUNCS = {
