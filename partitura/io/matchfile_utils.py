@@ -655,7 +655,7 @@ class MatchKeySignature(MatchParameter):
             component.fmt = fmt
 
     def fifths_mode_to_key_name_v0_1_0(self, fifths: int, mode: str) -> str:
-        if mode == "major":
+        if mode in ("major", None, "none", 1):
             keylist = MAJOR_KEYS
             suffix = "major"
         elif mode == "minor":
@@ -670,7 +670,7 @@ class MatchKeySignature(MatchParameter):
         return ks
 
     def fifths_mode_to_key_name_v0_3_0(self, fifths: int, mode: str) -> str:
-        if mode == "major":
+        if mode in ("major", None, "none", 1):
             keylist = MAJOR_KEYS
             suffix = "Maj"
         elif mode == "minor":
