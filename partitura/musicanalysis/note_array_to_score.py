@@ -316,6 +316,20 @@ def note_array_to_score(
     case2_ex = ["onset_beat", "duration_beat"] 
     # case3 = ["onset_div", "duration_div", "onset_beat", "duration_beat", "pitch"]
 
+    if not all([x in dtypes for x in case1]) or all([x in dtypes for x in case2]):
+        raise ValueError("not all necessary note array fields are available")
+    
+    # sort the array
+    onset_time = "onset_div"
+    if all([x not in dtypes for x in case1_ex]):
+        onset_time = "onset_beat"
+
+    pitch_sort_idx = np.argsort(note_array["pitch"])
+    note_array = note_array[pitch_sort_idx]
+    onset_sort_idx = np.argsort(note_array[onset_time], kind="mergesort")
+    note_array = note_array[onset_sort_idx]
+    
+
     # case 1, estimate divs
     if all([x in dtypes for x in case1] and [x not in dtypes for x in case1_ex]):
         # estimate onset_divs and duration_divs, assumes all beat times as quarters
@@ -366,7 +380,16 @@ def note_array_to_score(
         else:    
             divs = int(note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])
 
-        
+    # Test Note array for negative durations
+    if not np.all(note_array["duration_div"] >= 0):
+        raise ValueError("Note array contains negative durations.")
+    if not np.all(note_array["duration_beat"] >= 0):
+        raise ValueError("Note array contains negative durations.")
+    
+    # Test for negative divs
+    if not np.all(note_array["onset_div"] >= 0):
+        raise ValueError("Negative divs found in note_array.")
+    
     # handle time signatures
     if all([x in dtypes for x in ts_case]): 
         time_sigs = [[0, note_array[0]["ts_beats"], note_array[0]["ts_beat_type"]]]
@@ -395,12 +418,7 @@ def note_array_to_score(
         # make sure there is a time signature from the beginning
         global_time_sigs[0, 0] = 0
     
-    # Test Note array for negative durations
-    assert np.all(note_array["duration_div"] >= 0), "Note array contains negative durations."
-    assert np.all(note_array["duration_beat"] >= 0), "Note array contains negative durations."
-    
-    # Test for negative divs
-    assert np.all(note_array["onset_div"] >= 0), "Negative divs found in note_array."
+
 
     # Note id creation or re-assignment
     if "id" not in dtypes:
