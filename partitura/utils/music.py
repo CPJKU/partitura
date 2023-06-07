@@ -19,10 +19,13 @@ import os
 
 try:
     import miditok
+    from miditok.midi_tokenizer import MIDITokenizer
     import miditoolkit 
 except ImportError:
     miditok = None
     miditoolkit = None
+    class MIDITokenizer(object):
+        pass
 
 from partitura.utils.misc import deprecated_alias
 
@@ -3451,9 +3454,9 @@ def slice_ppart_by_time(
     return ppart_slice
 
 
-def tokenize(score_data : ScoreLike, tokenizer : miditok.midi_tokenizer.MidiTokenizer if miditok is not None else None):
-    if miditok is None:
-        raise ImportError("Miditok must be installed for this function to work")
+def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer):
+    if miditok is None or miditoolkit is None:
+        raise ImportError("Miditok and miditoolkit must be installed for this function to work")
     with TemporaryDirectory() as tmpdir:
         temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
         partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior="pad_bar", part_voice_assign_mode = 4, minimum_ppq = 480 )
