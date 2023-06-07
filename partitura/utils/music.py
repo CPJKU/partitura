@@ -729,7 +729,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     if mode in ("minor", -1):
         keylist = MINOR_KEYS
         suffix = "m"
-    elif mode in ("major", None, 1):
+    elif mode in ("major", None, "none", 1):
         keylist = MAJOR_KEYS
         suffix = ""
     else:
