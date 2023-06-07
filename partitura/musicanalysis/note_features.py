@@ -390,7 +390,7 @@ def compute_note_array(
         pitch_sort_idx = np.argsort(note_array["pitch"])
         note_array = note_array[pitch_sort_idx]
         onset_sort_idx = np.argsort(note_array["onset_div"], kind="mergesort")
-        note_array = note_array_joined[onset_sort_idx]
+        note_array = note_array[onset_sort_idx]
     else:
         note_array = na
     return note_array
