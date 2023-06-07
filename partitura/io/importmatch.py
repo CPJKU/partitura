@@ -677,21 +677,22 @@ def part_from_matchfile(
 
             part.add(part_note, onset_divs, offset_divs)
 
-            # Check if the note is tied and if so, add the tie information
-            if is_tied:
-                found = False
-                for el in part.iter_all(end=offset_divs):
-                    if isinstance(el, score.Note):
-                        condition = el.step == note_attributes["step"] and el.octave == note_attributes["octave"] and el.alter == note_attributes["alter"]
-                        if condition:
-                            el.tie_next = part_note
-                            part_note.tie_prev = el
-                            found = True
-                            break
-                if not found:
-                    warnings.warn(
-                        "Tie information found, but no previous note found to tie to for note {}.".format(part_note.id)
-                    )
+        # Check if the note is tied and if so, add the tie information
+        if is_tied:
+            found = False
+            # iterate over all notes in the Timeline that end at the starting point.
+            for el in part_note.start.iter_ending(score.Note):
+                if isinstance(el, score.Note):
+                    condition = el.step == note_attributes["step"] and el.octave == note_attributes["octave"] and el.alter == note_attributes["alter"]
+                    if condition:
+                        el.tie_next = part_note
+                        part_note.tie_prev = el
+                        found = True
+                        break
+            if not found:
+                warnings.warn(
+                    "Tie information found, but no previous note found to tie to for note {}.".format(part_note.id)
+                )
 
     # add time signatures
     for (ts_beat_time, ts_bar, tsg) in ts:
