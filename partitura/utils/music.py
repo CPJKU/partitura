@@ -3454,12 +3454,33 @@ def slice_ppart_by_time(
     return ppart_slice
 
 
-def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer):
+def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer, incomplete_bar_behaviour : str = "pad_bar"):
+    """
+    Tokenize a score using a tokenizer from miditok.
+    Parameters
+    ----------
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
+    tokenizer : MIDITokenizer
+        A tokenizer from miditok.
+    incomplete_bar_behaviour : str
+        How to handle incomplete bars at the beginning (pickup measures) and
+        during the score. Can be one of 'pad_bar', 'shift', or 'time_sig_change'.
+        See :func:`partitura.io.exportmidi.save_score_midi` for details.
+        Defaults to 'pad_bar'.
+    Returns
+    -------
+    ppart_slice :  `Tokens` object
+        Tokens as produced by the miditok library.
+    """
+
     if miditok is None or miditoolkit is None:
         raise ImportError("Miditok and miditoolkit must be installed for this function to work")
     with TemporaryDirectory() as tmpdir:
         temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
-        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior="pad_bar", part_voice_assign_mode = 4, minimum_ppq = 480 )
+        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior=incomplete_bar_behaviour, part_voice_assign_mode = 4, minimum_ppq = 480 )
         midi = miditoolkit.MidiFile(temp_midi_path)
         tokens = tokenizer(midi)
     return tokens
