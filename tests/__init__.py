@@ -218,3 +218,16 @@ WAV_TESTFILES = [
 ]
 
 PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, "*.png"))
+
+TOKENIZER_TESTFILES = [
+    {"midi" : os.path.join(DATA_PATH, "midi", "test_anacrusis.mid"),
+    "score" : os.path.join(DATA_PATH, "musicxml", "test_anacrusis.xml"),
+    },
+    {"midi" : os.path.join(DATA_PATH, "midi", "mozart_k265_var1_quantized.mid"),
+    "score" : os.path.join(DATA_PATH, "musicxml", "mozart_k265_var1.musicxml"),
+    },
+]
+
+MIDIEXPORT_TESTFILES = [
+    os.path.join(DATA_PATH, "musicxml", "test_anacrusis.xml")
+]
