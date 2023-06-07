@@ -491,7 +491,7 @@ def grace_feature(na, part, **kwargs):
         grace = grace_notes[i]
         n_grace = np.count_nonzero(grace_notes["onset_beat"] == grace["onset_beat"])
         W[index, 1] = n_grace
-        W[index, 2] = n_grace - sum(1 for _ in notes[grace["id"]].iter_grace_seq()) + 1
+        W[index, 2] = n_grace - sum(1 for _ in notes[grace["id"]].iter_grace_seq()) + 1 if grace["id"] not in (None, 'None', "") else 0
     return W, feature_names
 
 
@@ -941,11 +941,10 @@ def staff_feature(na, part, **kwargs):
     """Staff feature"""
     names = ["staff"]
     notes = {n.id: n.staff for n in part.notes_tied}
-    N = len(notes)
+    N = len(na)
     W = np.zeros((N, 1))
     for i, n in enumerate(na):
-        W[i, 0] = notes[n["id"]]
-
+        W[i, 0] = notes[n["id"]] if n["id"] not in (None, "None", "") else 0
     return W, names
 
 
