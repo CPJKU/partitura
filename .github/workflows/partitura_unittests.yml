@@ -27,9 +27,7 @@ jobs:
         pip install .
     - name: Install Optional dependencies
       run: |
-      # Music21 and musescore import dependencies
-        pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1
-      # Tokenization export dependencies.
+        pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1      
         pip install miditok==2.0.6 tokenizers==0.13.3 
     - name: Run Tests
       run: |
