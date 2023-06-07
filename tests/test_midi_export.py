@@ -508,7 +508,13 @@ class TestIncompleteMeasures(unittest.TestCase):
             mid_pt = mido.MidiFile(temp_midi_path)
         ts_messages = [m for m in list(mid_pt.tracks[0]) if isinstance(m,mido.MetaMessage) and m.type == "time_signature"]
         self.assertTrue(len(ts_messages)==1)
-        note_on_messages = [m for m in list(mid_pt.tracks[0]) if isinstance(m,mido.Message) and m.type == "note_on"]
-        # TODO: check why the first note is still on a downbeat
+        # check the position of the first note_on message
+        all_messages = list(mid_pt.tracks[0])
+        cumulative_position = 0
+        index = 0
+        while not (isinstance(all_messages[index],mido.Message) and all_messages[index].type == "note_on"):
+            cumulative_position += all_messages[index].time
+            index+=1
+        self.assertTrue(cumulative_position==3)
 
 

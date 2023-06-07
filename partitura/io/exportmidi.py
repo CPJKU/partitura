@@ -403,12 +403,20 @@ def save_score_midi(
                         )
                     )
         else: # just add the time signature that are explicit in partitura
-            for ts in part.iter_all(score.TimeSignature):
-                meta_events[part][to_ppq(ts.start.t)].append(
-                    MetaMessage(
+            for i, ts in enumerate(part.iter_all(score.TimeSignature)):
+                if anacrusis_behavior == "pad_bar" and i == 0:
+                    # shift the first time signature to 0 so MIDI players can pick up the correct measure position
+                    meta_events[part][0].append(
+                        MetaMessage(
                         "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                        )
+                    )   
+                else: #follow the position in the partitura part
+                    meta_events[part][to_ppq(ts.start.t)].append(
+                        MetaMessage(
+                            "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                        )
                     )
-                )
 
         for ks in part.iter_all(score.KeySignature):
             meta_events[part][to_ppq(ks.start.t)].append(

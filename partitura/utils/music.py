@@ -3456,7 +3456,7 @@ def tokenize(score_data : ScoreLike, tokenizer : miditok.midi_tokenizer.MidiToke
         raise ImportError("Miditok must be installed for this function to work")
     with TemporaryDirectory() as tmpdir:
         temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
-        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior="time_sig_change", part_voice_assign_mode = 4, minimum_ppq = 480 )
+        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior="pad_bar", part_voice_assign_mode = 4, minimum_ppq = 480 )
         midi = miditoolkit.MidiFile(temp_midi_path)
         tokens = tokenizer(midi)
     return tokens
