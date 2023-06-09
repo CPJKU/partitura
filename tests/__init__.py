@@ -82,6 +82,10 @@ MATCH_IMPORT_EXPORT_TESTFILES = [
     os.path.join(MATCH_PATH, fn) for fn in ["test_fuer_elise.match"]
 ]
 
+MATCH_EXPRESSIVE_FEATURES_TESTFILES= [
+    os.path.join(MATCH_PATH, fn) for fn in ["Chopin_op10_no3_p01.match"]
+]
+
 # This is a list of files for testing Nakamura et al.'s corresp and match file loading
 NAKAMURA_IMPORT_TESTFILES = [
     os.path.join(NAKAMURA_PATH, fn)

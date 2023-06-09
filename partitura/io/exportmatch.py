@@ -45,13 +45,16 @@ from partitura.io.matchfile_base import MatchFile
 
 from partitura.utils.music import (
     seconds_to_midi_ticks,
-    get_time_maps_from_alignment,
 )
 
 from partitura.utils.misc import (
     PathLike,
     deprecated_alias,
     deprecated_parameter,
+)
+
+from partitura.musicanalysis.performance_codec import (
+    get_time_maps_from_alignment
 )
 
 __all__ = ["save_match"]
