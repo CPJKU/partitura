@@ -8,6 +8,7 @@ import partitura
 import numpy as np
 
 from partitura.utils import music
+from partitura.musicanalysis import performance_codec
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES, TOKENIZER_TESTFILES
 
 from scipy.interpolate import interp1d as scinterp1d
@@ -28,7 +29,7 @@ class TestGetMatchedNotes(unittest.TestCase):
             )
             perf_note_array = perf.note_array()
             scr_note_array = scr.note_array()
-            matched_idxs = music.get_matched_notes(
+            matched_idxs = performance_codec.get_matched_notes(
                 spart_note_array=scr_note_array,
                 ppart_note_array=perf_note_array,
                 alignment=alignment,
@@ -56,7 +57,7 @@ class TestGetTimeMapsFromAlignment(unittest.TestCase):
                 (
                     ptime_to_stime_map,
                     stime_to_ptime_map,
-                ) = music.get_time_maps_from_alignment(
+                ) = performance_codec.get_time_maps_from_alignment(
                     spart_or_note_array=scr[0],
                     ppart_or_note_array=ppart,
                     alignment=alignment,
@@ -97,7 +98,7 @@ class TestPerformanceFromPart(unittest.TestCase):
                     for sid in snote_array["id"]
                 ]
 
-                matched_idxs = music.get_matched_notes(
+                matched_idxs = performance_codec.get_matched_notes(
                     spart_note_array=snote_array,
                     ppart_note_array=pnote_array,
                     alignment=alignment,

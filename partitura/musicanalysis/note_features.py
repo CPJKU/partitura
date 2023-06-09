@@ -16,13 +16,15 @@ from partitura.score import ScoreLike
 
 __all__ = [
     "list_note_feats_functions",
+    "list_note_feature_functions",
+    "print_note_feats_functions",
+    "print_note_feature_functions",
+    "make_note_feats", 
     "make_note_features",
-    "make_note_feats",
-    "full_note_array",
-    "compute_note_array",
-    "full_note_array",
     "make_rest_feats",
     "make_rest_features",
+    "compute_note_array",
+    "full_note_array",
 ]
 
 
@@ -50,7 +52,7 @@ def list_note_feats_functions():
     """Return a list of all feature function names defined in this module.
 
     The feature function names listed here can be specified by name in
-    the `make_feature` function. For example:
+    the `make_note_features` and `make_rest_features` functions. For example:
 
     >>> feature, names = make_note_feats(part, ['metrical_feature', 'articulation_feature'])
 
@@ -313,6 +315,8 @@ def make_rest_features(
 # alias
 make_note_feats = make_note_features
 make_rest_feats = make_rest_features
+list_note_feature_functions = list_note_feats_functions
+print_note_feature_functions = print_note_feats_functions
 
 
 def compute_note_array(
@@ -394,6 +398,10 @@ def compute_note_array(
         feature_data_struct = make_note_feats(part, feature_functions, add_idx=True)
         note_array_joined = np.lib.recfunctions.join_by("id", na, feature_data_struct)
         note_array = note_array_joined.data
+        sort_idx = np.lexsort((note_array["duration_div"], 
+                               note_array["pitch"], 
+                               note_array["onset_div"]))
+        note_array = note_array[sort_idx]
     else:
         note_array = na
     return note_array
