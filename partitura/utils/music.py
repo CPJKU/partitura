@@ -13,6 +13,19 @@ from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
+import partitura
+from tempfile import TemporaryDirectory
+import os
+
+try:
+    import miditok
+    from miditok.midi_tokenizer import MIDITokenizer
+    import miditoolkit 
+except ImportError:
+    miditok = None
+    miditoolkit = None
+    class MIDITokenizer(object):
+        pass
 
 from partitura.utils.misc import deprecated_alias
 
@@ -729,7 +742,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     if mode in ("minor", -1):
         keylist = MINOR_KEYS
         suffix = "m"
-    elif mode in ("major", None, 1):
+    elif mode in ("major", None, "none", 1):
         keylist = MAJOR_KEYS
         suffix = ""
     else:
@@ -3440,6 +3453,39 @@ def slice_ppart_by_time(
         ppart_slice.part_name = ppart.part_name 
 
     return ppart_slice
+
+
+def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer, incomplete_bar_behaviour : str = "pad_bar"):
+    """
+    Tokenize a score using a tokenizer from miditok.
+    Parameters
+    ----------
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
+    tokenizer : MIDITokenizer
+        A tokenizer from miditok.
+    incomplete_bar_behaviour : str
+        How to handle incomplete bars at the beginning (pickup measures) and
+        during the score. Can be one of 'pad_bar', 'shift', or 'time_sig_change'.
+        See :func:`partitura.io.exportmidi.save_score_midi` for details.
+        Defaults to 'pad_bar'.
+    Returns
+    -------
+    ppart_slice :  `Tokens` object
+        Tokens as produced by the miditok library.
+    """
+
+    if miditok is None or miditoolkit is None:
+        raise ImportError("Miditok and miditoolkit must be installed for this function to work")
+    with TemporaryDirectory() as tmpdir:
+        temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
+        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior=incomplete_bar_behaviour, part_voice_assign_mode = 4, minimum_ppq = 480 )
+        midi = miditoolkit.MidiFile(temp_midi_path)
+        tokens = tokenizer(midi)
+    return tokens
+
 
 
 if __name__ == "__main__":

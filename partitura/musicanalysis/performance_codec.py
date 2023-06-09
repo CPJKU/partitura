@@ -26,7 +26,7 @@ def encode_performance(
     alignment: list,
     return_u_onset_idx=False,
     beat_normalization: str = "beat_period",  # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
-    tempo_smooth: Union[str, Callable] = "average" 
+    tempo_smooth: Union[str, Callable] = "average"
 ):
     """
     Encode expressive parameters from a matched performance
@@ -43,10 +43,10 @@ def encode_performance(
     return_u_onset_idx : bool
         Return the indices of the unique score onsets
     beat_normalization : str (Optional)
-        Return extra columns for normalization parameters. 
+        Return extra columns for normalization parameters.
     tempo_smooth : str (Optional)
-        How the tempo curve is computed. average or derivative. 
-        Can also input a callable function for user-defined tempo curve. 
+        How the tempo curve is computed. average or derivative.
+        Can also input a callable function for user-defined tempo curve.
 
     Returns
     -------
@@ -54,7 +54,7 @@ def encode_performance(
         A performance array with 4 fields: beat_period, velocity,
         timing, and articulation_log.
         If beat_normalization is defined as any method other than beat_period,
-        return the normalization value as extra columns in parameters. 
+        return the normalization value as extra columns in parameters.
     snote_ids : dict
         A dict of snote_ids corresponding to performance notes.
     unique_onset_idxs : list (optional)
@@ -192,9 +192,9 @@ def decode_performance(
         return ppart
 
 
-def decode_time(score_onsets, 
-                score_durations, 
-                parameters, 
+def decode_time(score_onsets,
+                score_durations,
+                parameters,
                 normalization = "beat_period",
                 *args, **kwargs):
     """
@@ -213,8 +213,8 @@ def decode_time(score_onsets,
     unique_onset_idxs = score_info["unique_onset_idxs"]
     diff_u_onset_score = score_info["diff_u_onset"]
 
-    # reconstruct the time by the extra parameters, for testing the inversion. 
-    # In practice, always reconstruct the time by beat_period. 
+    # reconstruct the time by the extra parameters, for testing the inversion.
+    # In practice, always reconstruct the time by beat_period.
     if normalization != "beat_period":
         tempo_param_names = list(TEMPO_NORMALIZATION[normalization]['param_names'])
         time_param = np.array(
@@ -294,14 +294,14 @@ def encode_tempo(
             performed_durations=performance[:, 1],
             return_onset_idxs=True,
         )
-    elif tempo_smooth == "average": 
+    elif tempo_smooth == "average":
         beat_period, s_onsets, unique_onset_idxs = tempo_by_average(
             score_onsets=score[:, 0],
             performed_onsets=performance[:, 0],
             score_durations=score[:, 1],
             performed_durations=performance[:, 1],
             return_onset_idxs=True,
-        )   
+        )
     elif tempo_smooth == "derivative":
         beat_period, s_onsets, unique_onset_idxs = tempo_by_derivative(
             score_onsets=score[:, 0],
@@ -617,8 +617,8 @@ def get_unique_onset_idxs(
         return unique_onset_idxs
 
 @deprecated_alias(part='score', ppart="performance")
-def to_matched_score(score: ScoreLike, 
-                     performance: PerformanceLike, 
+def to_matched_score(score: ScoreLike,
+                     performance: PerformanceLike,
                      alignment: list,
                      include_score_markings=False):
     """
@@ -629,7 +629,7 @@ def to_matched_score(score: ScoreLike,
         score (score.ScoreLike): score information
         performance (performance.PerformanceLike): performance information
         alignment (List(Dict)): an alignment
-        include_score_markings (bool): include dynamcis and articulation 
+        include_score_markings (bool): include dynamcis and articulation
             markings (Optional)
 
     Returns:
@@ -644,9 +644,9 @@ def to_matched_score(score: ScoreLike,
 
     feature_functions = None
     if include_score_markings:
-        feature_functions = ["loudness_direction_feature", "articulation_feature", 
+        feature_functions = ["loudness_direction_feature", "articulation_feature",
                              "tempo_direction_feature", "slur_feature"]
-        
+
     na = note_features.compute_note_array(score, feature_functions=feature_functions)
     p_na = performance.note_array()
     part_by_id = dict((n['id'], na[na['id'] == n['id']]) for n in na)
@@ -725,7 +725,7 @@ def monotonize_times(s, deltas=None):
         a sequence of numbers
     strict : bool
         when True, return a strictly monotonic sequence (default: True)
-    deltas : 
+    deltas :
 
     Returns
     -------

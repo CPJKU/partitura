@@ -25,9 +25,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install .
-    - name: Instal Optional dependencies
+    - name: Install Optional dependencies
       run: |
-        pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1
+        pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1      
+        pip install miditok==2.0.6 tokenizers==0.13.3 
     - name: Run Tests
       run: |
         pip install coverage
