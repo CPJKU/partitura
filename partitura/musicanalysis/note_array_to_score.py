@@ -324,11 +324,11 @@ def note_array_to_score(
     if all([x not in dtypes for x in case1_ex]):
         onset_time = "onset_beat"
 
-    pitch_sort_idx = np.argsort(note_array["pitch"])
-    note_array = note_array[pitch_sort_idx]
-    onset_sort_idx = np.argsort(note_array[onset_time], kind="mergesort")
-    note_array = note_array[onset_sort_idx]
-    
+
+    # Order Lexicographically
+    sort_idx = np.lexsort((note_array["duration_div"], note_array["pitch"], note_array["onset_div"]))
+    note_array = note_array[sort_idx]
+
 
     # case 1, estimate divs
     if all([x in dtypes for x in case1] and [x not in dtypes for x in case1_ex]):
@@ -428,8 +428,7 @@ def note_array_to_score(
         note_ids = ["{}n{:4d}".format(name_id, i) for i in range(len(note_array))]
         note_array["id"] = np.array(note_ids)
 
-    # Order Lexicographically
-    note_array = note_array[np.lexsort((note_array["onset_div"], note_array["pitch"]))]
+    
 
     # estimate voice
     if "voice" in dtypes:
