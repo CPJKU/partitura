@@ -10,7 +10,6 @@ import types
 from typing import Union, List
 import warnings
 import numpy as np
-np.set_printoptions(suppress=True)
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.optimize import least_squares
