@@ -211,26 +211,6 @@ def print_performance_feats_functions():
 list_performance_feature_functions = list_performance_feats_functions
 print_performance_feature_functions = print_performance_feats_functions
 
-
-def map_fields(note_info, fields):
-    """
-    map the one-hot fields of dynamics and articulation marking into one column with field.
-
-    Args:
-        note_info (np.array): a row slice from the note_array, without dtype names
-        fields (list): list of tuples (index, field name)
-
-    Returns:
-        string: the name of the marking. 
-    """
-
-    for i, name in fields:
-        if note_info[i] == 1:
-            # hack for the return type
-            return np.array([name.split(".")[-1]], dtype="U256")
-    return np.array(["N/A"], dtype="U256")
-
-
 ### Asynchrony
 
 def asynchrony_feature(m_score: np.ndarray,
