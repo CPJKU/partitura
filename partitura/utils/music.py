@@ -1207,7 +1207,7 @@ def compute_pianoroll(
         The `vertical_position_in_piano_roll` might be different from
         `original_midi_pitch` depending on the `pitch_margin` and  `piano_range`
         arguments.
-    
+
 
     Examples
     --------
@@ -1304,6 +1304,7 @@ def _make_pianoroll(
     onset, duration and (optionally) MIDI velocity information. See
     `compute_pianoroll` for a complete description of the
     arguments of this function.
+
     """
 
     # Get pitch, onset, offset from the note_info array
