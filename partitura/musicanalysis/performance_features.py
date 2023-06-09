@@ -350,15 +350,29 @@ def articulation_feature(m_score : np.ndarray,
 
 
 def get_kor(e1, e2):
-    """calculate the ratio between key overlap time and IOI.
+    """
+    calculate the ratio between key overlap time and IOI.
     In the case of a negative IOI (the order of notes in performance is reversed from the score),
-    set at default 0."""
+    set at default 0.
+    is bounded within the interval [-1,5]
 
+    Parameters
+    ----------
+    e1 : np.ndarray
+        the m_score row of first note
+    e2 : np.ndarray
+        the m_score of second note
+
+    Returns
+    -------
+    kor : float
+        Key overlap ratio
+
+    """
     kot = e1['p_offset'] - e2['p_onset']
     ioi = e2['p_onset'] - e1['p_onset']
 
     if ioi <= 0:
-        # warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
         kor = 0
 
     kor = kot / ioi
@@ -369,8 +383,18 @@ def get_kor(e1, e2):
 def get_next_note(note_info, match_voiced):
     """
     get the next note in the same voice that's a reasonable transition 
-    note_info: the row of current note
-    match_voiced: all notes in the same voice
+   
+    Parameters
+    ----------
+    note_info : np.ndarray
+        the row of current note
+    match_voiced : np.ndarray
+        all notes in the same voice
+
+    Returns
+    -------
+    next_position : np.ndarray
+        the next note
     """
 
     next_position = min(o for o in match_voiced['onset'] if o > note_info['onset'])
