@@ -580,8 +580,8 @@ def tempo_by_derivative(score_onsets, performed_onsets,
 
 
 @deprecated_alias(part='score', ppart="performance")
-def to_matched_score(score: ScoreLike, 
-                     performance: PerformanceLike, 
+def to_matched_score(score: ScoreLike,
+                     performance: PerformanceLike,
                      alignment: list,
                      include_score_markings=False):
     """
@@ -592,7 +592,7 @@ def to_matched_score(score: ScoreLike,
         score (score.ScoreLike): score information
         performance (performance.PerformanceLike): performance information
         alignment (List(Dict)): an alignment
-        include_score_markings (bool): include dynamcis and articulation 
+        include_score_markings (bool): include dynamcis and articulation
             markings (Optional)
 
     Returns:
@@ -607,9 +607,9 @@ def to_matched_score(score: ScoreLike,
 
     feature_functions = None
     if include_score_markings:
-        feature_functions = ["loudness_direction_feature", "articulation_feature", 
+        feature_functions = ["loudness_direction_feature", "articulation_feature",
                              "tempo_direction_feature", "slur_feature"]
-        
+
     na = note_features.compute_note_array(score, feature_functions=feature_functions)
     p_na = performance.note_array()
     part_by_id = dict((n['id'], na[na['id'] == n['id']]) for n in na)
