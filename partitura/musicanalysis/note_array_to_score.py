@@ -321,14 +321,14 @@ def note_array_to_score(
     
     # sort the array
     onset_time = "onset_div"
+    duration_time = "duration_div"
     if all([x not in dtypes for x in case1_ex]):
         onset_time = "onset_beat"
-
+        duration_time = "duration_beat"
 
     # Order Lexicographically
-    sort_idx = np.lexsort((note_array["duration_div"], note_array["pitch"], note_array["onset_div"]))
+    sort_idx = np.lexsort((note_array[duration_time], note_array["pitch"], note_array[onset_time]))
     note_array = note_array[sort_idx]
-
 
     # case 1, estimate divs
     if all([x in dtypes for x in case1] and [x not in dtypes for x in case1_ex]):
