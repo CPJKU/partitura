@@ -282,6 +282,7 @@ class Part(object):
         """
         # operations to avoid None values and filter them efficiently.
         m_it = self.measures
+        
         measures = np.array(
             [
                 [
@@ -2400,22 +2401,27 @@ class Measure(TimedObject):
 
     Parameters
     ----------
-    number : int or None, optional
-        The number of the measure. Defaults to None
+    number : int
+        The running count independent of measure regularity/ volta endings, continuously counting up all measures in a musicxml score file and always starting from one.
+    name : string, optional
+        The ID of the measure in a given musicxml score file. Can be a non-number in case of volta endings, irregular measures (i.e., pickup measures in the middle of the piece). Defaults to None
 
     Attributes
     ----------
-    number : intp
+    number : int
+        See parameters
+    name : str
         See parameters
 
     """
 
-    def __init__(self, number=None):
+    def __init__(self, number=None, name=None):
         super().__init__()
         self.number = number
+        self.name = name
 
     def __str__(self):
-        return f"{super().__str__()} number={self.number}"
+        return f"{super().__str__()} number={self.number} name={self.name}"
 
     @property
     def page(self):
@@ -3342,7 +3348,7 @@ def add_measures(part):
                 else:
                     measure_end = existing_measure.start.t
 
-            part.add(Measure(number=mcounter), int(measure_start), int(measure_end))
+            part.add(Measure(number=mcounter, name=str(mcounter)), int(measure_start), int(measure_end))
 
             # if measure exists but was not at measure_start,
             # a filler measure is added with number mcounter

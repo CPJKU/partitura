@@ -9,10 +9,13 @@ import numpy as np
 
 from partitura.utils import music
 from partitura.musicanalysis import performance_codec
-from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES
+from tests import MATCH_IMPORT_EXPORT_TESTFILES, VOSA_TESTFILES, MOZART_VARIATION_FILES, TOKENIZER_TESTFILES
 
 from scipy.interpolate import interp1d as scinterp1d
 from partitura.utils.generic import interp1d as pinterp1d
+from partitura.utils.music import tokenize
+import miditok
+import miditoolkit
 
 RNG = np.random.RandomState(1984)
 
@@ -597,3 +600,46 @@ class TestGenericUtils(unittest.TestCase):
         )
 
         self.assertTrue(np.all(sinterp(x) == pinterp(x)))
+
+class TestTokenizer(unittest.TestCase):
+    def test_tokenize1(self):
+        """ Test the partitura tokenizer"""
+        tokenizer = miditok.MIDILike()
+        # produce tokens from the score with partitura
+        pt_score = partitura.load_score(TOKENIZER_TESTFILES[0]["score"])
+        pt_tokens = tokenize(pt_score, tokenizer)[0].tokens
+        # produce tokens from the manually created MIDI file
+        mtok_midi = miditoolkit.MidiFile(TOKENIZER_TESTFILES[0]["midi"])
+        mtok_tokens = tokenizer(mtok_midi)[0].tokens
+        # filter out velocity tokens
+        pt_tokens = [tok for tok in pt_tokens if not tok.startswith("Velocity")]
+        mtok_tokens = [tok for tok in mtok_tokens if not tok.startswith("Velocity")]
+        self.assertTrue(pt_tokens == mtok_tokens)
+
+    def test_tokenize2(self):
+        """ Test the partitura tokenizer"""
+        tokenizer = miditok.REMI()
+        # produce tokens from the score with partitura
+        pt_score = partitura.load_score(TOKENIZER_TESTFILES[0]["score"])
+        pt_tokens = tokenize(pt_score, tokenizer)[0].tokens
+        # produce tokens from the manually created MIDI file
+        mtok_midi = miditoolkit.MidiFile(TOKENIZER_TESTFILES[0]["midi"])
+        mtok_tokens = tokenizer(mtok_midi)[0].tokens
+        # filter out velocity tokens
+        pt_tokens = [tok for tok in pt_tokens if not tok.startswith("Velocity")]
+        mtok_tokens = [tok for tok in mtok_tokens if not tok.startswith("Velocity")]
+        self.assertTrue(pt_tokens == mtok_tokens)
+
+    def test_tokenize1(self):
+        """ Test the partitura tokenizer"""
+        tokenizer = miditok.MIDILike()
+        # produce tokens from the score with partitura
+        pt_score = partitura.load_score(TOKENIZER_TESTFILES[0]["score"])
+        pt_tokens = tokenize(pt_score, tokenizer)[0].tokens
+        # produce tokens from the manually created MIDI file
+        mtok_midi = miditoolkit.MidiFile(TOKENIZER_TESTFILES[0]["midi"])
+        mtok_tokens = tokenizer(mtok_midi)[0].tokens
+        # filter out velocity tokens
+        pt_tokens = [tok for tok in pt_tokens if not tok.startswith("Velocity")]
+        mtok_tokens = [tok for tok in mtok_tokens if not tok.startswith("Velocity")]
+        self.assertTrue(pt_tokens == mtok_tokens)
