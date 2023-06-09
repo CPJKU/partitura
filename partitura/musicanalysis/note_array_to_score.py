@@ -326,7 +326,7 @@ def note_array_to_score(
 
 
     # Order Lexicographically
-    sort_idx = np.lexsort((note_array["duration_div"], note_array["pitch"], note_array["onset_div"]))
+    sort_idx = np.lexsort((note_array[onset_time], note_array["pitch"]))
     note_array = note_array[sort_idx]
 
 
