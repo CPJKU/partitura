@@ -117,10 +117,11 @@ def compute_performance_features(score: ScoreLike,
     performance_features = rfn.merge_arrays(acc, flatten=True, usemask=False)
     full_performance_features = rfn.join_by("id", performance_features, m_score)
     full_performance_features = full_performance_features.data
-    pitch_sort_idx = np.argsort(full_performance_features["pitch"])
-    full_performance_features = full_performance_features[pitch_sort_idx]
-    onset_sort_idx = np.argsort(full_performance_features["onset"], kind="mergesort")
-    full_performance_features = full_performance_features[onset_sort_idx]
+
+    sort_idx = np.lexsort((full_performance_features["duration"],
+                           full_performance_features["pitch"], 
+                           full_performance_features["onset"]))
+    full_performance_features = full_performance_features[sort_idx]
     return  full_performance_features
 
 
@@ -154,8 +155,9 @@ def compute_matched_score(score: ScoreLike,
         return_u_onset_idx=True,
         tempo_smooth="average"
     )
-    m_score = rfn.append_fields(m_score, "beat_period", time_params['beat_period'], "f4", usemask=False)
-    m_score = rfn.append_fields(m_score, "id", snote_ids, "U256", usemask=False)
+    m_score = rfn.append_fields(m_score, ["beat_period", "id"], 
+                                [time_params['beat_period'], snote_ids], 
+                                ["f4", "U256"], usemask=False,)
     return m_score, unique_onset_idxs, snote_ids
 
 
@@ -307,8 +309,11 @@ def articulation_feature(m_score : np.ndarray,
     Compute the articulation attributes (key overlap ratio) from the alignment.
     Key overlap ratio is the ratio between key overlap time (KOT) and IOI, result in a value between (-1, inf)
         -1 is the dummy value. For normalization purposes we empirically cap the maximum to 5.
-    B.Repp: Acoustics, Perception, and Production of Legato Articulation on a Digital Piano
-
+    
+    References
+    ----------
+    ..  [1] B.Repp: Acoustics, Perception, and Production of Legato Articulation on a Digital Piano
+    
     Parameters
     ----------
     m_score : list
