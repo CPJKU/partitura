@@ -99,8 +99,8 @@ def make_note_features(
 
     Parameters
     ----------
-    score : Part
-        The score as a Part instance
+    part : ScoreLike
+        A partitura scoreLike object, can be Score, Part, or PartGroup.
     feature_functions : list or str
         A list of feature functions. Elements of the list can be either
         the functions themselves or the names of a feature function as
