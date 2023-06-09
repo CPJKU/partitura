@@ -22,7 +22,7 @@ from partitura.musicanalysis.performance_codec import to_matched_score, onsetwis
 
 
 __all__ = [
-    "compute_performance_features",
+    "make_performance_features",
 ]
 
 # ordinal 
@@ -32,12 +32,12 @@ OLS = ["ppp", "pp", "p", "mp", "mf", "f", "ff", "fff"]
 class InvalidPerformanceFeatureException(Exception):
     pass
 
-def compute_performance_features(score: ScoreLike, 
-                                performance: PerformanceLike,
-                                alignment: list,
-                                feature_functions: Union[List, str],
-                                add_idx: bool = True
-):
+def make_performance_features(score: ScoreLike,
+                              performance: PerformanceLike,
+                              alignment: list,
+                              feature_functions: Union[List, str],
+                              add_idx: bool = True
+                              ):
     """
     Compute the performance features. This function is defined in the same 
     style of note_features.make_note_features
@@ -164,9 +164,9 @@ def list_performance_feats_functions():
     """Return a list of all feature function names defined in this module.
 
     The feature function names listed here can be specified by name in
-    the `compute_performance_features` function. For example:
+    the `make_performance_features` function. For example:
 
-    >>> feature, names = compute_performance_features(score,
+    >>> feature, names = make_performance_features(score,
                                                     performance,
                                                     alignment,
                                                     ['asynchrony_feature'])

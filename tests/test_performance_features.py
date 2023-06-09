@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 from partitura import load_match
 from tests import MATCH_EXPRESSIVE_FEATURES_TESTFILES
-from partitura.musicanalysis.performance_features import compute_performance_features
+from partitura.musicanalysis.performance_features import make_performance_features
 import os
 
 
@@ -34,9 +34,9 @@ class TestPerformanceFeatures(unittest.TestCase):
              ('beat_period', '<f4')])
         fn = MATCH_EXPRESSIVE_FEATURES_TESTFILES[0]
         perf, alignment, score = load_match(filename=fn, create_score=True)
-        features = compute_performance_features(score, 
-                                                perf,
-                                                alignment,
-                                                feature_functions = "all")
+        features = make_performance_features(score,
+                                             perf,
+                                             alignment,
+                                             feature_functions = "all")
         
         self.assertTrue(np.all(True_array[fields] == features[fields][:3]), f"The expression features don't match the original.")
