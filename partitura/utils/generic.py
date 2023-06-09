@@ -239,15 +239,15 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            # warnings.warn(
-                            #     dedent(
-                            #         """reference not found in
-                            # o_map: {} start={} end={}, substituting None
-                            # """.format(
-                            #             o_el, o_el.start, o_el.end
-                            #         )
-                            #     )
-                            # )
+                            warnings.warn(
+                                dedent(
+                                    """reference not found in
+                            o_map: {} start={} end={}, substituting None
+                            """.format(
+                                        o_el, o_el.start, o_el.end
+                                    )
+                                )
+                            )
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
