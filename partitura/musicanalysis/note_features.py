@@ -587,9 +587,8 @@ def tempo_direction_feature(na, part, **kwargs):
     """
     onsets = na["onset_div"]
     N = len(onsets)
-    constant = ["adagio", "largo", "lento", "grave", "largo", "lento", "grave", "lento",
-                "larghetto", "adagietto", "andante", "andantino", "moderato", "allegretto",
-                "allegro", "vivace", "presto", "prestissimo", "tempo_incr", "tempo_decr",
+    constant = ["adagio", "largo", "lento", "grave", "larghetto", "adagietto", "andante",
+                "andantino", "moderato", "allegretto", "allegro", "vivace", "presto", "prestissimo",
                 "unknown_constant"]
     names = constant + ["tempo_incr", "tempo_decr"]
     directions = list(part.iter_all(score.TempoDirection, include_subclasses=True))
