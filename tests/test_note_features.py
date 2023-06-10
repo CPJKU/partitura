@@ -49,7 +49,7 @@ class TestingNoteFeatureExtraction(unittest.TestCase):
             trilltest = na["ornament_feature.trill-mark"] == np.array(
                 [0, 0, 1, 0, 0, 0]
             )
-            gracetest = na["grace_feature.grace_note"] == np.array([0, 0, 0, 0, 1, 1])
+            gracetest = na["grace_feature.grace_note"] == np.array([0, 0, 0, 1, 0, 1])
             dyntest = na["loudness_direction_feature.f"] == np.array([0, 0, 0, 1, 1, 1])
             slurtest = na["slur_feature.slur_decr"] == np.array([0, 0, 0, 1, 1, 1])
             self.assertTrue(np.all(stactest), "staccato feature does not match")

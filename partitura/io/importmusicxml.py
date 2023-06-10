@@ -62,6 +62,7 @@ PEDAL_DIRECTIONS = {
 
 OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
+
 def validate_musicxml(xml, debug=False):
     """
     Validate an XML file against an XSD.
@@ -199,9 +200,7 @@ def load_musicxml(
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
                 contained_xml_name = zipped_xml.namelist()[-1]
-                xml = zipped_xml.open(
-                    contained_xml_name
-                )
+                xml = zipped_xml.open(contained_xml_name)
 
     if xml is None:
         xml = filename
@@ -329,9 +328,9 @@ def _parse_parts(document, part_dict):
         _handle_new_page(position, part, ongoing)
         _handle_new_system(position, part, ongoing)
 
-        for measure_el in part_el.xpath("measure"):
+        for mc, measure_el in enumerate(part_el.xpath("measure")):
             position, doc_order = _handle_measure(
-                measure_el, position, part, ongoing, doc_order
+                measure_el, position, part, ongoing, doc_order, mc + 1
             )
 
         # complete unfinished endings
@@ -456,13 +455,35 @@ def _parse_parts(document, part_dict):
         #     shift.applied = True
 
 
-def _handle_measure(measure_el, position, part, ongoing, doc_order):
+def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_counter):
+    """ Parse a <measure>...</measure> element, adding it and its contents to the part.
+    
+    Parameters
+    ----------
+    measure_el : etree.Element
+        An etree Element instance with a <measure> tag
+    position : int
+        The starting time of the measure
+    part : score.Part
+        The part object to which the measure belongs.
+    ongoing : dict
+        A dict specifying the score.Page and score.System of the measure
+    doc_order : int
+        The index of the first note element in the current measure in the xml file.
+    measure_counter : int
+        The index of the <measure> tag in the xml file, starting from 1
+    
+    Returns
+    -------
+    measure_maxtime : int
+        The ending time of the measure
+    doc_order : int
+        The index of the first note element in the next measure in the xml file.
+        
     """
-    Parse a <measure>...</measure> element, adding it and its contents to the
-    part.
-    """
+    
     # make a measure object
-    measure = make_measure(measure_el)
+    measure = make_measure(measure_el, measure_counter)
 
     # add the start of the measure to the time line
     part.add(measure, position)
@@ -587,7 +608,7 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order):
 
     # add end time of measure
     part.add(measure, None, measure_maxtime)
-
+    
     return measure_maxtime, doc_order
 
 
@@ -696,13 +717,26 @@ def _handle_new_system(position, part, ongoing):
     ongoing["system"] = system
 
 
-def make_measure(xml_measure):
+def make_measure(xml_measure, measure_counter):
+    """
+    Parameters
+    ----------
+    xml_measure : etree.Element
+        An etree Element instance with a <measure> tag
+    measure_counter : int
+        The index of the <measure> tag in the xml file, starting from 1
+    
+    Returns
+    -------
+    measure : score.Measure
+        A measure object with a number and optional name attribute
+    """
+    
     measure = score.Measure()
-    # try:
-    #     measure.number = int(xml_measure.attrib['number'])
-    # except:
-    #     LOGGER.warn('No number attribute found for measure')
-    measure.number = get_value_from_attribute(xml_measure, "number", int)
+
+    measure.number = measure_counter
+    measure.name = get_value_from_attribute(xml_measure, "number", str)
+
     return measure
 
 

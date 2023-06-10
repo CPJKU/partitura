@@ -13,6 +13,19 @@ from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
+import partitura
+from tempfile import TemporaryDirectory
+import os
+
+try:
+    import miditok
+    from miditok.midi_tokenizer import MIDITokenizer
+    import miditoolkit 
+except ImportError:
+    miditok = None
+    miditoolkit = None
+    class MIDITokenizer(object):
+        pass
 
 from partitura.utils.misc import deprecated_alias
 
@@ -729,7 +742,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     if mode in ("minor", -1):
         keylist = MINOR_KEYS
         suffix = "m"
-    elif mode in ("major", None, 1):
+    elif mode in ("major", None, "none", 1):
         keylist = MAJOR_KEYS
         suffix = ""
     else:
@@ -1194,7 +1207,7 @@ def compute_pianoroll(
         The `vertical_position_in_piano_roll` might be different from
         `original_midi_pitch` depending on the `pitch_margin` and  `piano_range`
         arguments.
-    
+
 
     Examples
     --------
@@ -1291,6 +1304,7 @@ def _make_pianoroll(
     onset, duration and (optionally) MIDI velocity information. See
     `compute_pianoroll` for a complete description of the
     arguments of this function.
+
     """
 
     # Get pitch, onset, offset from the note_info array
@@ -3058,144 +3072,6 @@ def performance_notearray_from_score_notearray(
     return pnote_array
 
 
-def get_time_maps_from_alignment(
-    ppart_or_note_array, spart_or_note_array, alignment, remove_ornaments=True
-):
-    """
-    Get time maps to convert performance time (in seconds) to score time (in beats)
-    and visceversa.
-
-    Parameters
-    ----------
-    ppart_or_note_array : PerformedPart or structured array
-        The performance information as either PerformedPart or the
-        note_array generated from such an object.
-    spart_or_note_array : Part or structured array
-        Score information as either a Part object or the note array
-        generated from such an object.
-    alignment : list
-        The score--performance alignment, a list of dictionaries.
-        (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
-    remove_ornaments : bool (optional)
-        Whether to consider or not ornaments (including grace notes)
-
-    Returns
-    -------
-    ptime_to_stime_map : scipy.interpolate.interp1d
-        An instance of interp1d (a callable) that maps performance time (in seconds)
-        to score time (in beats).
-    stime_to_ptime_map : scipy.interpolate.interp1d
-        An instance of inter1d (a callable) that maps score time (in beats) to
-        performance time (in seconds).
-
-    Note
-    ----
-    This methods uses the average value of the score onsets of notes that are
-    written in the score as part of a chord (i.e., which start at the same time).
-    """
-    # Ensure that we are using structured note arrays
-    perf_note_array = ensure_notearray(ppart_or_note_array)
-    score_note_array = ensure_notearray(spart_or_note_array)
-
-    # Get indices of the matched notes (notes in the score
-    # for which there is a performance note
-    match_idx = get_matched_notes(score_note_array, perf_note_array, alignment)
-
-    # Get onsets and durations
-    score_onsets = score_note_array[match_idx[:, 0]]["onset_beat"]
-    score_durations = score_note_array[match_idx[:, 0]]["duration_beat"]
-
-    perf_onsets = perf_note_array[match_idx[:, 1]]["onset_sec"]
-
-    # Use only unique onsets
-    score_unique_onsets = np.unique(score_onsets)
-
-    # Remove grace notes
-    if remove_ornaments:
-        # TODO: check that all onsets have a duration?
-        # ornaments (grace notes) do not have a duration
-        score_unique_onset_idxs = np.array(
-            [
-                np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
-                for u in score_unique_onsets
-            ],
-            dtype=object,
-        )
-
-    else:
-        score_unique_onset_idxs = np.array(
-            [np.where(score_onsets == u)[0] for u in score_unique_onsets],
-            dtype=object,
-        )
-
-    # For chords, we use the average performed onset as a proxy for
-    # representing the "performeance time" of the position of the score
-    # onsets
-    eq_perf_onsets = np.array(
-        [np.mean(perf_onsets[u]) for u in score_unique_onset_idxs]
-    )
-
-    # Get maps
-    ptime_to_stime_map = interp1d(
-        x=eq_perf_onsets,
-        y=score_unique_onsets,
-        bounds_error=False,
-        fill_value="extrapolate",
-    )
-    stime_to_ptime_map = interp1d(
-        y=eq_perf_onsets,
-        x=score_unique_onsets,
-        bounds_error=False,
-        fill_value="extrapolate",
-    )
-
-    return ptime_to_stime_map, stime_to_ptime_map
-
-
-def get_matched_notes(spart_note_array, ppart_note_array, alignment):
-    """
-    Get the indices of the matched notes in an alignment
-
-    Parameters
-    ----------
-    spart_note_array : structured numpy array
-        note_array of the score part
-    ppart_note_array : structured numpy array
-        note_array of the performed part
-    alignment : list
-        The score--performance alignment, a list of dictionaries.
-        (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
-
-    Returns
-    -------
-    matched_idxs : np.ndarray
-        A 2D array containing the indices of the matched score and
-        performed notes, where the columns are
-        (index_in_score_note_array, index_in_performance_notearray)
-    """
-    # Get matched notes
-    matched_idxs = []
-    for al in alignment:
-        # Get only matched notes (i.e., ignore inserted or deleted notes)
-        if al["label"] == "match":
-
-            # if ppart_note_array['id'].dtype != type(al['performance_id']):
-            if not isinstance(ppart_note_array["id"], type(al["performance_id"])):
-                p_id = str(al["performance_id"])
-            else:
-                p_id = al["performance_id"]
-
-            p_idx = int(np.where(ppart_note_array["id"] == p_id)[0])
-
-            s_idx = np.where(spart_note_array["id"] == al["score_id"])[0]
-
-            if len(s_idx) > 0:
-                s_idx = int(s_idx)
-                matched_idxs.append((s_idx, p_idx))
-
-    return np.array(matched_idxs)
-
-
 def generate_random_performance_note_array(
     num_notes: int = 20,
     rng: Union[int, np.random.RandomState] = np.random.RandomState(1984),
@@ -3343,9 +3219,9 @@ def slice_ppart_by_time(
 
     Returns
     -------
-    ppart_slice :  `PerformedPart` object 
-        A copy of input ppart containing notes, programs and control information 
-        only between `start_time` and `end_time` of ppart
+    ppart_slice :  `PerformedPart` object
+        A copy of input ppart containing notes, programs and control
+        information only between `start_time` and `end_time` of ppart
     """
     from partitura.performance import PerformedPart
 
@@ -3360,7 +3236,7 @@ def slice_ppart_by_time(
     # -> check `adjust_offsets_w_sustain` in partitura.performance
     ppart_slice = PerformedPart([{'note_on': 0, 'note_off': 0}])
 
-    # get ppq if PerformedPart contains it, 
+    # get ppq if PerformedPart contains it,
     # else skip time_tick info when e.g. created with 'load_performance_midi'
     try:
         ppq = ppart.ppq
@@ -3374,7 +3250,7 @@ def slice_ppart_by_time(
             if cc['time'] >= start_time and cc['time'] <= end_time:
                 new_cc = cc.copy()
                 new_cc['time'] -= start_time
-                if ppq: 
+                if ppq:
                     new_cc['time_tick'] = int(2 * ppq * cc['time'])
                 controls_slice.append(new_cc)
         ppart_slice.controls = controls_slice
@@ -3398,14 +3274,14 @@ def slice_ppart_by_time(
             new_note = note.copy()
             new_note['note_on'] = 0.
             if clip_note_off:
-                new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
             else: 
                 new_note['note_off'] = note['note_off'] - start_time
             if ppq:
                 new_note['note_on_tick'] = 0
                 new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
             if reindex_notes:
-                new_note['id'] = 'n' + str(note_id)
+                new_note['id'] = f"n{note_id}"
                 note_id += 1
             notes_slice.append(new_note)
         # todo - combine both cases
@@ -3414,7 +3290,7 @@ def slice_ppart_by_time(
                 new_note = note.copy()
                 new_note['note_on'] -= start_time
                 if clip_note_off:
-                    new_note['note_off'] = min(note['note_off'] - start_time, end_time)
+                    new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
                 else: 
                     new_note['note_off'] = note['note_off'] - start_time
                 if ppq:
@@ -3439,6 +3315,39 @@ def slice_ppart_by_time(
         ppart_slice.part_name = ppart.part_name 
 
     return ppart_slice
+
+
+def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer, incomplete_bar_behaviour : str = "pad_bar"):
+    """
+    Tokenize a score using a tokenizer from miditok.
+    Parameters
+    ----------
+    score_data : Score, list, Part, or PartGroup
+        The musical score to be saved. A :class:`partitura.score.Score` object,
+        a :class:`partitura.score.Part`, a :class:`partitura.score.PartGroup` or
+        a list of these.
+    tokenizer : MIDITokenizer
+        A tokenizer from miditok.
+    incomplete_bar_behaviour : str
+        How to handle incomplete bars at the beginning (pickup measures) and
+        during the score. Can be one of 'pad_bar', 'shift', or 'time_sig_change'.
+        See :func:`partitura.io.exportmidi.save_score_midi` for details.
+        Defaults to 'pad_bar'.
+    Returns
+    -------
+    ppart_slice :  `Tokens` object
+        Tokens as produced by the miditok library.
+    """
+
+    if miditok is None or miditoolkit is None:
+        raise ImportError("Miditok and miditoolkit must be installed for this function to work")
+    with TemporaryDirectory() as tmpdir:
+        temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
+        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior=incomplete_bar_behaviour, part_voice_assign_mode = 4, minimum_ppq = 480 )
+        midi = miditoolkit.MidiFile(temp_midi_path)
+        tokens = tokenizer(midi)
+    return tokens
+
 
 
 if __name__ == "__main__":

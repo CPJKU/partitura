@@ -82,6 +82,10 @@ MATCH_IMPORT_EXPORT_TESTFILES = [
     os.path.join(MATCH_PATH, fn) for fn in ["test_fuer_elise.match"]
 ]
 
+MATCH_EXPRESSIVE_FEATURES_TESTFILES= [
+    os.path.join(MATCH_PATH, fn) for fn in ["Chopin_op10_no3_p01.match"]
+]
+
 # This is a list of files for testing Nakamura et al.'s corresp and match file loading
 NAKAMURA_IMPORT_TESTFILES = [
     os.path.join(NAKAMURA_PATH, fn)
@@ -135,6 +139,13 @@ PIANOROLL_TESTFILES = [
     ]
 ]
 
+MUSICXML_PARTIAL_MEASURES_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in [
+        "test_partial_measures.xml",
+        "test_partial_measures_consecutive.xml"
+    ]
+]
 
 MEI_TESTFILES = [
     os.path.join(MEI_PATH, fn)
@@ -178,7 +189,15 @@ KERN_TESTFILES = [
 ]
 
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
-
+M21_TESTFILES = [
+    os.path.join(DATA_PATH, "musicxml", fn)
+    for fn in [
+        "test_clefs_tss.xml",
+        "test_grace_note.xml",
+        "test_chew_vosa_example.xml",
+        "test_note_ties.xml",
+    ]
+]
 HARMONY_TESTFILES = [os.path.join(MUSICXML_PATH, fn) for fn in ["test_harmony.musicxml"]]
 
 MOZART_VARIATION_FILES = dict(
@@ -203,3 +222,16 @@ WAV_TESTFILES = [
 ]
 
 PNG_TESTFILES = glob.glob(os.path.join(PNG_PATH, "*.png"))
+
+TOKENIZER_TESTFILES = [
+    {"midi" : os.path.join(DATA_PATH, "midi", "test_anacrusis.mid"),
+    "score" : os.path.join(DATA_PATH, "musicxml", "test_anacrusis.xml"),
+    },
+    {"midi" : os.path.join(DATA_PATH, "midi", "mozart_k265_var1_quantized.mid"),
+    "score" : os.path.join(DATA_PATH, "musicxml", "mozart_k265_var1.musicxml"),
+    },
+]
+
+MIDIEXPORT_TESTFILES = [
+    os.path.join(DATA_PATH, "musicxml", "test_anacrusis.xml")
+]

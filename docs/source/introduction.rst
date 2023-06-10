@@ -147,6 +147,14 @@ alignments, that are not handled by music21.
 .. `partitura` intends to provide a convenient way to work with symbolic
 .. musical data in the context of problems such as musical expression modeling, or music generation.  Although it is not the main aim of the package to provide music analysis tools, the package does offer functionality for pitch spelling, voice assignment and key estimation.
 
+Additional Resources
+====================
+For a more hands on tutorial of `partitura` for providing an introduction to symbolic music processing for a broad MIR audience, with a particular focus on showing how to extract relevant MIR features from symbolic musical formats in a fast, intuitive, and scalable way. 
+
+Please visit:
+`https://cpjku.github.io/partitura_tutorial/ <https://cpjku.github.io/partitura_tutorial/>`_
+
+
 Credits
 =======
 
@@ -163,6 +171,8 @@ If you find Partitura useful, we would appreciate if you could cite us!
   address={Halifax, Canada},
   year={2022}
 }
+
+
 
 
 Acknowledgments

@@ -1,6 +1,49 @@
 Release Notes
 =============
 
+
+New Version 1.3.0 (Released on 2023-06-09)
+------------------------------------------
+
+This PR addresses release 1.3.0, it includes several bug fixes, code cleaning, documentation, and new functionality.
+
+
+New Features
+------------
+
+- Enhanced Performance features in the same fashion as the note features;
+- Fixed-size option for Note features. Use: `
+- Create a score from a note array functionality. Call `partitura.musicanalysis.scorify(note_array)`;
+
+New Optional Features
+---------------------
+
+- _If music21 is installed_ : Import music21 to Partitura by calling `partitura.load_music21(m21_score)`
+- _If MidiTok is installed_ : Export Partitura Score to Tokens by calling `partitura.utils.music.tokenize(score_data, tokenizer)`
+
+Bug Fixes
+----------
+
+- Fixed bug: #264 
+- Fixed bug: #251 
+- Fixed bug: #207
+- Fixed bug: #162
+- Fixed bug: #261
+- Fixed bug: #262
+- Fixed Issue: #256
+- Addressed Issue: #133
+- Fixed bug: #257
+- Fixed bug: #248 
+- Fixed bug: #223 
+
+Other Changes
+-------------
+
+- Minor Changes to the Documentation
+- Addition of Docs link to the Github header
+- Upgraded python version requirements to Python>= 3.7
+
+
 Version 1.2.2 (Released on 2023-10-05)
 --------------------------------------
 

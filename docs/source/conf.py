@@ -29,9 +29,9 @@ author = "Maarten Grachten, Carlos Cancino-Chacón, Silvan Peter, Emmanouil Kary
 # built documents.
 #
 # The short X.Y version.
-version = "1.2.2"  # pkg_resources.get_distribution("partitura").version
+version = "1.3.0"  # pkg_resources.get_distribution("partitura").version
 # The full version, including alpha/beta/rc tags.
-release = "1.2.2"
+release = "1.3.0"
 
 # # The full version, including alpha/beta/rc tags
 # release = pkg_resources.get_distribution("partitura").version

@@ -14,6 +14,7 @@ from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
 from .io.importmei import load_mei
 from .io.importkern import load_kern
+from .io.importmusic21 import load_music21
 from .io.importmidi import load_score_midi, load_performance_midi, midi_to_notearray
 from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
@@ -25,6 +26,7 @@ from .io.exportaudio import save_wav
 from .display import render
 from . import musicanalysis
 from .musicanalysis import make_note_features, compute_note_array, full_note_array
+
 
 # define a version variable
 __version__ = pkg_resources.get_distribution("partitura").version

@@ -15,8 +15,8 @@ KEYWORDS = "music notation musicxml midi"
 URL = "https://github.com/CPJKU/partitura"
 EMAIL = "partitura-users@googlegroups.com"
 AUTHOR = "Maarten Grachten, Carlos Cancino-Chacón, Silvan Peter, Emmanouil Karystinaios, Francesco Foscarin, Thassilo Gadermaier"
-REQUIRES_PYTHON = ">=3.6"
-VERSION = "1.2.2"
+REQUIRES_PYTHON = ">=3.7"
+VERSION = "1.3.0"
 
 # What packages are required for this module to be executed?
 REQUIRED = ["numpy", "scipy", "lxml", "lark-parser", "xmlschema", "mido"]
