@@ -3,10 +3,7 @@ name: Blacken code
 on:
   push:
     branches:
-      - master
-  pull_request:
-    branches:
-      - master
+      - develop
 jobs:
   format:
     runs-on: ubuntu-latest
