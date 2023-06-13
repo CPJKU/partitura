@@ -20,7 +20,6 @@ jobs:
           author_email: ${{ github.actor }}@users.noreply.github.com
           message: "Format code with black (bot)"
           add: "."
-          branch: develop
       - name: Notify errors
         if: failure()
         uses: dawidd6/action-send-mail@v2
