@@ -332,6 +332,7 @@ def compute_note_array(
     include_metrical_position=False,
     include_grace_notes=False,
     feature_functions=None,
+    force_fixed_size=False,
 ):
     """
     Create an extended note array from this part.
@@ -381,6 +382,10 @@ def compute_note_array(
         the functions themselves or the names of a feature function as
         strings (or a mix). The feature functions specified by name are
         looked up in the `featuremixer.featurefunctions` module.
+    force_fixed_size : bool (default: False)
+        If True, the output array uses only features that have a fixed
+        size with no new entries added.
+
 
     Returns:
 
@@ -400,7 +405,9 @@ def compute_note_array(
     )
 
     if feature_functions is not None:
-        feature_data_struct = make_note_feats(part, feature_functions, add_idx=True)
+        feature_data_struct = make_note_feats(
+            part, feature_functions, add_idx=True, force_fixed_size=force_fixed_size
+        )
         note_array_joined = np.lib.recfunctions.join_by("id", na, feature_data_struct)
         note_array = note_array_joined.data
         sort_idx = np.lexsort(
