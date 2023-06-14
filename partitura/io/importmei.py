@@ -489,7 +489,8 @@ class MeiParser(object):
 
     def _note_el_to_accid_int(self, note_el) -> int:
         """Accidental strings to integer pitch.
-        It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)"""
+        It consider the two values of accid and accid.ges (when the accidental is implicit in the bar)
+        """
         if note_el.get("accid") is not None:
             return SIGN_TO_ALTER[note_el.get("accid")]
         elif note_el.get("accid.ges") is not None:

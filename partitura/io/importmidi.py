@@ -124,7 +124,6 @@ def load_performance_midi(
     else:
         tracks = [(i, u) for i, u in enumerate(mid.tracks)]
     for i, track in tracks:
-
         notes = []
         controls = []
         programs = []
@@ -135,18 +134,15 @@ def load_performance_midi(
         sounding_notes = {}
 
         for msg in track:
-
             # update time deltas when they arrive
             t = t + msg.time * time_conversion_factor
             ttick = ttick + msg.time
 
             if msg.type == "set_tempo":
-
                 mpq = msg.tempo
                 time_conversion_factor = mpq / (ppq * 10**6)
 
             elif msg.type == "control_change":
-
                 controls.append(
                     dict(
                         time=t,
@@ -159,7 +155,6 @@ def load_performance_midi(
                 )
 
             elif msg.type == "program_change":
-
                 programs.append(
                     dict(
                         time=t,
@@ -171,7 +166,6 @@ def load_performance_midi(
                 )
 
             else:
-
                 note_on = msg.type == "note_on"
                 note_off = msg.type == "note_off"
 
@@ -183,13 +177,11 @@ def load_performance_midi(
 
                 # start note if it's a 'note on' event with velocity > 0
                 if note_on and msg.velocity > 0:
-
                     # save the onset time and velocity
                     sounding_notes[note] = (t, ttick, msg.velocity)
 
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
-
                     if note not in sounding_notes:
                         warnings.warn("ignoring MIDI message %s" % msg)
                         continue
@@ -364,7 +356,6 @@ or a list of these
         t_raw = 0
 
         for msg in track:
-
             t_raw = t_raw + msg.time
 
             if msg.type not in relevant:
@@ -393,13 +384,11 @@ or a list of these
 
                 # start note if it's a 'note on' event with velocity > 0
                 if note_on and msg.velocity > 0:
-
                     # save the onset time and velocity
                     sounding_notes[note] = (t, msg.velocity)
 
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
-
                     if note not in sounding_notes:
                         warnings.warn("ignoring MIDI message %s" % msg)
                         continue
@@ -427,7 +416,6 @@ or a list of these
             # sig / tempo information under the key (track_nr, ch_nr)
             if len(ch_notes) > 0:
                 notes_by_track_ch[(track_nr, ch)] = ch_notes
-
 
     tr_ch_keys = sorted(notes_by_track_ch.keys())
     group_part_voice_keys, part_names, group_names = assign_group_part_voice(

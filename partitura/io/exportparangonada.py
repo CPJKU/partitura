@@ -48,7 +48,6 @@ def alignment_dicts_to_array(alignment: List[dict]) -> np.ndarray:
     # for all dicts create an appropriate entry in an array:
     # match = 0, deletion  = 1, insertion = 2
     for no, i in enumerate(alignment):
-
         if i["label"] == "match":
             array.append((no, "0", i["score_id"], str(i["performance_id"])))
         elif i["label"] == "insertion":
@@ -112,26 +111,26 @@ def save_parangonada_csv(
     perf_note_array = ensure_notearray(performance_data)
 
     valid_score_note_array_fields = [
-                    "onset_beat",
-                    "duration_beat",
-                    "onset_quarter",
-                    "duration_quarter",
-                    "onset_div",
-                    "duration_div",
-                    "pitch",
-                    "voice",
-                    "id"
-                ]
+        "onset_beat",
+        "duration_beat",
+        "onset_quarter",
+        "duration_quarter",
+        "onset_div",
+        "duration_div",
+        "pitch",
+        "voice",
+        "id",
+    ]
 
     valid_perf_note_array_fields = [
-                    "onset_sec",
-                    "duration_sec",
-                    "pitch",
-                    "velocity",
-                    "track",
-                    "channel",
-                    "id",
-                ]
+        "onset_sec",
+        "duration_sec",
+        "pitch",
+        "velocity",
+        "track",
+        "channel",
+        "id",
+    ]
 
     ffields = [
         ("velocity", "<f4"),

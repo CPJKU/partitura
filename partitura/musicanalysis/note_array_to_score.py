@@ -1,5 +1,10 @@
 from partitura.score import ScoreLike, Part
-from partitura.utils import (estimate_symbolic_duration, estimate_clef_properties, key_name_to_fifths_mode, fifths_mode_to_key_name)
+from partitura.utils import (
+    estimate_symbolic_duration,
+    estimate_clef_properties,
+    key_name_to_fifths_mode,
+    fifths_mode_to_key_name,
+)
 import warnings
 import numpy as np
 from typing import Union
@@ -12,14 +17,14 @@ import partitura.score as score
 def create_divs_from_beats(note_array: np.ndarray):
     """
     Append onset_div and duration_div fields to the note array.
-    Assumes beats are in uniform units across the whole array 
+    Assumes beats are in uniform units across the whole array
     (no time signature change that modifies beat unit, e.g., 4/4 to 6/8).
 
     This function may result in an error if time signature changes that affect the ratio of beat/div are present.
     Parameters
     ----------
     note_array: np.ndarray
-        The note array to which the divs fields will be added. 
+        The note array to which the divs fields will be added.
         Normally only beat onset and duration are provided.
 
     Returns
@@ -28,18 +33,33 @@ def create_divs_from_beats(note_array: np.ndarray):
         The note array with the divs fields added.
     divs: int
         the divs per beat
-    
+
     """
-    duration_fractions = [Fraction(float(ix)).limit_denominator(256) for ix in note_array["duration_beat"]]
-    onset_fractions = [Fraction(float(ix)).limit_denominator(256) for ix in note_array["onset_beat"]]
+    duration_fractions = [
+        Fraction(float(ix)).limit_denominator(256) for ix in note_array["duration_beat"]
+    ]
+    onset_fractions = [
+        Fraction(float(ix)).limit_denominator(256) for ix in note_array["onset_beat"]
+    ]
     divs = np.lcm.reduce(
-        [Fraction(float(ix)).limit_denominator(256).denominator for ix in np.unique(note_array["duration_beat"])])
-    onset_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), onset_fractions))
+        [
+            Fraction(float(ix)).limit_denominator(256).denominator
+            for ix in np.unique(note_array["duration_beat"])
+        ]
+    )
+    onset_divs = list(
+        map(lambda r: int(divs * r.numerator / r.denominator), onset_fractions)
+    )
     min_onset_div = min(onset_divs)
     if min_onset_div < 0:
         onset_divs = list(map(lambda x: x - min_onset_div, onset_divs))
-    duration_divs = list(map(lambda r: int(divs * r.numerator / r.denominator), duration_fractions))
-    na_divs = np.array(list(zip(onset_divs, duration_divs)), dtype=[("onset_div", int), ("duration_div", int)])
+    duration_divs = list(
+        map(lambda r: int(divs * r.numerator / r.denominator), duration_fractions)
+    )
+    na_divs = np.array(
+        list(zip(onset_divs, duration_divs)),
+        dtype=[("onset_div", int), ("duration_div", int)],
+    )
     return rfn.merge_arrays((note_array, na_divs), flatten=True, usemask=False), divs
 
 
@@ -51,7 +71,7 @@ def create_beats_from_divs(note_array: np.ndarray, divs: int):
     Parameters
     ----------
     note_array: np.ndarray
-        The note array to which the divs fields will be added. 
+        The note array to which the divs fields will be added.
         Normally only beat onset and duration are provided.
     divs: int
         Divs/ticks per quarter note.
@@ -60,24 +80,27 @@ def create_beats_from_divs(note_array: np.ndarray, divs: int):
     -------
     note_array: np.ndarray
         The note array with the divs fields added.
-    
+
     """
-    onset_beats = list(note_array["onset_div"]/divs)
-    duration_beats = list(note_array["duration_div"]/divs)
-    na_beats = np.array(list(zip(onset_beats, duration_beats)), dtype=[("onset_beat", float), ("duration_beat", float)])
+    onset_beats = list(note_array["onset_div"] / divs)
+    duration_beats = list(note_array["duration_div"] / divs)
+    na_beats = np.array(
+        list(zip(onset_beats, duration_beats)),
+        dtype=[("onset_beat", float), ("duration_beat", float)],
+    )
     return rfn.merge_arrays((note_array, na_beats), flatten=True, usemask=False)
 
 
 def create_part(
-        ticks: int,
-        note_array: np.ndarray,
-        key_sigs: list = None,
-        time_sigs: list = None,
-        part_id: str = None,
-        part_name: str = None,
-        sanitize: bool = True,
-        anacrusis_divs: int = 0,
-        barebones: bool = False,
+    ticks: int,
+    note_array: np.ndarray,
+    key_sigs: list = None,
+    time_sigs: list = None,
+    part_id: str = None,
+    part_name: str = None,
+    sanitize: bool = True,
+    anacrusis_divs: int = 0,
+    barebones: bool = False,
 ):
     """
     Create a part from a note array and a list of key signatures.
@@ -109,15 +132,15 @@ def create_part(
         The part created from the note array and key signatures.
     """
 
-
     warnings.warn("create_part", stacklevel=2)
 
-    part = Part(part_id, part_name=part_name, )
+    part = Part(
+        part_id,
+        part_name=part_name,
+    )
     part.set_quarter_duration(0, ticks)
 
-    clef = score.Clef(
-        staff=1, **estimate_clef_properties(note_array["pitch"])
-    )
+    clef = score.Clef(staff=1, **estimate_clef_properties(note_array["pitch"]))
     part.add(clef, 0)
 
     # key sig
@@ -128,7 +151,7 @@ def create_part(
             part.add(score.KeySignature(fifths, mode), t_start, t_end)
     else:
         warnings.warn("No key signatures added")
-        
+
     # time sig
     if time_sigs is not None:
         for ts_start, num, den, ts_end in time_sigs:
@@ -149,7 +172,7 @@ def create_part(
                 alter=n["alter"],
                 voice=int(n["voice"] or 0),
                 id=n["id"],
-                symbolic_duration=estimate_symbolic_duration(n["duration_div"], ticks)
+                symbolic_duration=estimate_symbolic_duration(n["duration_div"], ticks),
             )
         else:
             note = score.GraceNote(
@@ -190,17 +213,18 @@ def create_part(
 
 
 def note_array_to_score(
-        note_array: Union[np.ndarray, list],
-        name_id: str = "",
-        divs: int = None,
-        key_sigs: list = None,
-        time_sigs: list = None,
-        part_name: str = "",
-        assign_note_ids: bool = True,
-        estimate_key: bool = False,
-        estimate_time: bool = False,
-        sanitize: bool = True,
-        return_part: bool = False) -> ScoreLike:
+    note_array: Union[np.ndarray, list],
+    name_id: str = "",
+    divs: int = None,
+    key_sigs: list = None,
+    time_sigs: list = None,
+    part_name: str = "",
+    assign_note_ids: bool = True,
+    estimate_key: bool = False,
+    estimate_time: bool = False,
+    sanitize: bool = True,
+    return_part: bool = False,
+) -> ScoreLike:
     """
     A generic function to transform an enriched note_array to part or Score.
 
@@ -263,7 +287,7 @@ def note_array_to_score(
         - key_fifths(optional)
         - id (optional)
     divs : int (optional)
-        Divs/ticks per quarter note. 
+        Divs/ticks per quarter note.
         If not given, it is estimated assuming a beats in quarters.
     key_sigs: list (optional)
         A list of key signatures. Each key signature is a tuple of the form (onset, key_name, offset).
@@ -292,10 +316,18 @@ def note_array_to_score(
 
     if isinstance(note_array, list):
         parts = [
-            note_array_to_score(note_array=x, name_id=str(i), assign_note_ids=assign_note_ids,
-                                return_part=True, divs=divs, estimate_key=estimate_key, sanitize=sanitize,
-                                part_name=name_id+"_P"+str(i)) for
-            i, x in enumerate(note_array)]
+            note_array_to_score(
+                note_array=x,
+                name_id=str(i),
+                assign_note_ids=assign_note_ids,
+                return_part=True,
+                divs=divs,
+                estimate_key=estimate_key,
+                sanitize=sanitize,
+                part_name=name_id + "_P" + str(i),
+            )
+            for i, x in enumerate(note_array)
+        ]
         return score.Score(partlist=parts)
 
     # Input validation
@@ -311,14 +343,14 @@ def note_array_to_score(
     ks_case = ["key_fifths", "key_mode"]
 
     case1 = ["onset_beat", "duration_beat", "pitch"]
-    case1_ex = ["onset_div", "duration_div"] 
+    case1_ex = ["onset_div", "duration_div"]
     case2 = ["onset_div", "duration_div", "pitch"]
-    case2_ex = ["onset_beat", "duration_beat"] 
+    case2_ex = ["onset_beat", "duration_beat"]
     # case3 = ["onset_div", "duration_div", "onset_beat", "duration_beat", "pitch"]
 
     if not (all([x in dtypes for x in case1]) or all([x in dtypes for x in case2])):
         raise ValueError("not all necessary note array fields are available")
-    
+
     # sort the array
     onset_time = "onset_div"
     duration_time = "duration_div"
@@ -327,7 +359,9 @@ def note_array_to_score(
         duration_time = "duration_beat"
 
     # Order Lexicographically
-    sort_idx = np.lexsort((note_array[duration_time], note_array["pitch"], note_array[onset_time]))
+    sort_idx = np.lexsort(
+        (note_array[duration_time], note_array["pitch"], note_array[onset_time])
+    )
     note_array = note_array[sort_idx]
 
     # case 1, estimate divs
@@ -336,37 +370,37 @@ def note_array_to_score(
         note_array, divs_ = create_divs_from_beats(note_array)
         if divs is not None and divs != divs_:
             raise ValueError("estimated divs don't correspond to input divs")
-        else: 
+        else:
             divs = divs_
 
-        # case 1: convert key sig times to divs 
+        # case 1: convert key sig times to divs
         if key_sigs is not None:
             key_sigs = np.array(key_sigs)
             if key_sigs.shape[1] == 2:
-                key_sigs[:,0] = (key_sigs[:,0] / divs).astype(int)
+                key_sigs[:, 0] = (key_sigs[:, 0] / divs).astype(int)
             elif key_sigs.shape[1] == 3:
-                key_sigs[:,0] = (key_sigs[:,0] / divs).astype(int)
-                key_sigs[:,2] = (key_sigs[:,2] / divs).astype(int)
+                key_sigs[:, 0] = (key_sigs[:, 0] / divs).astype(int)
+                key_sigs[:, 2] = (key_sigs[:, 2] / divs).astype(int)
             else:
                 raise ValueError("key_sigs is given in a wrong format")
-            
-        # case 1: convert time sig times to divs 
+
+        # case 1: convert time sig times to divs
         if time_sigs is not None:
             time_sigs = np.array(time_sigs)
             if time_sigs.shape[1] == 3:
-                time_sigs[:,0] = (time_sigs[:,0] / divs).astype(int)
+                time_sigs[:, 0] = (time_sigs[:, 0] / divs).astype(int)
             elif time_sigs.shape[1] == 4:
-                time_sigs[:,0] = (time_sigs[:,0] / divs).astype(int)
-                time_sigs[:,3] = (time_sigs[:,3] / divs).astype(int)
+                time_sigs[:, 0] = (time_sigs[:, 0] / divs).astype(int)
+                time_sigs[:, 3] = (time_sigs[:, 3] / divs).astype(int)
             else:
                 raise ValueError("time_sigs is given in a wrong format")
 
     # case 2, estimate beats
     if all([x in dtypes for x in case2] and [x not in dtypes for x in case2_ex]):
         # estimate onset_beats and duration_beats in quarters
-        if divs is None :
+        if divs is None:
             raise ValueError("Divs/ticks need to be specified")
-        else: 
+        else:
             note_array = create_beats_from_divs(note_array, divs)
 
     if divs is None:
@@ -375,40 +409,50 @@ def note_array_to_score(
             if dur != 0:
                 break
         if all([x in dtypes for x in ts_case]):
-            divs = int((note_array[idx]["duration_div"] / note_array[idx]["duration_beat"]) /
-                    (4 / note_array[idx]["ts_beat_type"] ))
-        else:    
-            divs = int(note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])
+            divs = int(
+                (note_array[idx]["duration_div"] / note_array[idx]["duration_beat"])
+                / (4 / note_array[idx]["ts_beat_type"])
+            )
+        else:
+            divs = int(
+                note_array[idx]["duration_div"] / note_array[idx]["duration_beat"]
+            )
 
     # Test Note array for negative durations
     if not np.all(note_array["duration_div"] >= 0):
         raise ValueError("Note array contains negative durations.")
     if not np.all(note_array["duration_beat"] >= 0):
         raise ValueError("Note array contains negative durations.")
-    
+
     # Test for negative divs
     if not np.all(note_array["onset_div"] >= 0):
         raise ValueError("Negative divs found in note_array.")
-    
+
     # handle time signatures
-    if all([x in dtypes for x in ts_case]): 
+    if all([x in dtypes for x in ts_case]):
         time_sigs = [[0, note_array[0]["ts_beats"], note_array[0]["ts_beat_type"]]]
         for n in note_array:
-            if n["ts_beats"] != time_sigs[-1][1] or n["ts_beat_type"] != time_sigs[-1][2]:
+            if (
+                n["ts_beats"] != time_sigs[-1][1]
+                or n["ts_beat_type"] != time_sigs[-1][2]
+            ):
                 time_sigs.append([n["onset_div"], n["ts_beats"], n["ts_beat_type"]])
         global_time_sigs = np.array(time_sigs)
     elif time_sigs is not None:
         global_time_sigs = time_sigs
     elif estimate_time:
         global_time_sigs = [[0, 4, 4]]
-    else: 
+    else:
         global_time_sigs = None
 
     if global_time_sigs is not None:
         global_time_sigs = np.array(global_time_sigs)
         if global_time_sigs.shape[1] == 3:
             # for convenience, we add the end times for each time signature
-            ts_end_times = np.r_[global_time_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
+            ts_end_times = np.r_[
+                global_time_sigs[1:, 0],
+                np.max(note_array["onset_div"] + note_array["duration_div"]),
+            ]
             global_time_sigs = np.column_stack((global_time_sigs, ts_end_times))
         elif global_time_sigs.shape[1] == 4:
             pass
@@ -417,18 +461,16 @@ def note_array_to_score(
 
         # make sure there is a time signature from the beginning
         global_time_sigs[0, 0] = 0
-    
-
 
     # Note id creation or re-assignment
     if "id" not in dtypes:
         note_ids = ["{}n{:4d}".format(name_id, i) for i in range(len(note_array))]
-        note_array = rfn.append_fields(note_array, "id", np.array(note_ids, dtype='<U256'))
+        note_array = rfn.append_fields(
+            note_array, "id", np.array(note_ids, dtype="<U256")
+        )
     elif assign_note_ids or np.all(note_array["id"] == note_array["id"][0]):
         note_ids = ["{}n{:4d}".format(name_id, i) for i in range(len(note_array))]
         note_array["id"] = np.array(note_ids)
-
-    
 
     # estimate voice
     if "voice" in dtypes:
@@ -444,23 +486,36 @@ def note_array_to_score(
         # Zero duration notes are currently deleted
         estimated_voices = analysis.estimate_voices(note_array)
         assert len(part_voice_list) == len(estimated_voices)
-        for i, (part_voice, voice_est) in enumerate(zip(part_voice_list, estimated_voices)):
+        for i, (part_voice, voice_est) in enumerate(
+            zip(part_voice_list, estimated_voices)
+        ):
             # Not sure if correct.
             if part_voice != np.inf:
                 estimated_voices[i] = part_voice
-        note_array = rfn.append_fields(note_array, "voice", np.array(estimated_voices, dtype=int))
+        note_array = rfn.append_fields(
+            note_array, "voice", np.array(estimated_voices, dtype=int)
+        )
 
     # estimate pitch spelling
-    if not all(x in dtypes for x in ['step', 'alter', 'octave']):
+    if not all(x in dtypes for x in ["step", "alter", "octave"]):
         warnings.warn("pitch spelling")
         spelling_global = analysis.estimate_spelling(note_array)
         note_array = rfn.merge_arrays((note_array, spelling_global), flatten=True)
 
     # handle or estimate key signature
-    if all([x in dtypes for x in ks_case]): 
-        global_key_sigs = [[0, fifths_mode_to_key_name(note_array[0]["ks_fifths"], note_array[0]["ks_mode"])]]
+    if all([x in dtypes for x in ks_case]):
+        global_key_sigs = [
+            [
+                0,
+                fifths_mode_to_key_name(
+                    note_array[0]["ks_fifths"], note_array[0]["ks_mode"]
+                ),
+            ]
+        ]
         for n in note_array:
-            global_key_sigs.append([n["onset_div"], fifths_mode_to_key_name(n["ks_fifths"], n["ks_mode"])])
+            global_key_sigs.append(
+                [n["onset_div"], fifths_mode_to_key_name(n["ks_fifths"], n["ks_mode"])]
+            )
         else:
             global_key_sigs = key_sigs
     elif key_sigs is not None:
@@ -475,16 +530,19 @@ def note_array_to_score(
         global_key_sigs = np.array(global_key_sigs)
         if global_key_sigs.shape[1] == 2:
             # for convenience, we add the end times for each time signature
-            ks_end_times = np.r_[global_key_sigs[1:, 0], np.max(note_array["onset_div"]+note_array["duration_div"])]
+            ks_end_times = np.r_[
+                global_key_sigs[1:, 0],
+                np.max(note_array["onset_div"] + note_array["duration_div"]),
+            ]
             global_key_sigs = np.column_stack((global_key_sigs, ks_end_times))
         elif global_key_sigs.shape[1] == 3:
             pass
         else:
             raise ValueError("key_sigs is given in a wrong format")
-        
+
         # make sure there is a key signature from the beginning
         global_key_sigs[0, 0] = 0
-        
+
     # Steps for dealing with anacrusis measure.
     anacrusis_mask = np.zeros(len(note_array), dtype=bool)
     anacrusis_mask[note_array["onset_beat"] < 0] = True
@@ -494,15 +552,13 @@ def note_array_to_score(
     else:
         last_neg_beat = np.max(note_array[anacrusis_mask]["onset_beat"])
         last_neg_divs = np.max(note_array[anacrusis_mask]["onset_div"])
-        if all([x in dtypes for x in ts_case]): 
+        if all([x in dtypes for x in ts_case]):
             beat_type = np.max(note_array[anacrusis_mask]["ts_beat_type"])
         else:
             beat_type = 4
         difference_from_zero = (0 - last_neg_beat) * divs * (4 / beat_type)
         anacrusis_divs = int(last_neg_divs + difference_from_zero)
 
-        
-    
     # Create the part
     part = create_part(
         ticks=divs,
@@ -512,11 +568,10 @@ def note_array_to_score(
         part_id=name_id,
         part_name=part_name,
         sanitize=sanitize,
-        anacrusis_divs=anacrusis_divs
+        anacrusis_divs=anacrusis_divs,
     )
     # Return Part or Score
     if return_part:
         return part
     else:
         return score.Score(partlist=[part], id=name_id)
-

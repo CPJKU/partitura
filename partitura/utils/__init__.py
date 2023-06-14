@@ -79,5 +79,5 @@ __all__ = [
     "show_diff",
     "PrettyPrintTree",
     "synthesize",
-    "normalize"
+    "normalize",
 ]

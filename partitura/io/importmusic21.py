@@ -6,7 +6,6 @@ try:
     import music21 as m21
     from music21.stream import Score as M21Score
 except ImportError:
-
     m21 = None
 
     class M21Score(object):

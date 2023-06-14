@@ -249,7 +249,6 @@ class CloudDiameter(TonalTension):
     """
 
     def compute_tension(self, cloud, scale_factor=SCALE_FACTOR, **kwargs):
-
         if len(cloud) > 1:
             return cloud_diameter(cloud) * scale_factor
         else:
@@ -264,13 +263,11 @@ class TensileStrain(TonalTension):
     def __init__(
         self, tonic_idx=0, mode="major", w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA
     ):
-
         self.update_key(tonic_idx, mode, w, alpha, beta)
 
     def compute_tension(
         self, cloud, duration, scale_factor=SCALE_FACTOR, *args, **kwargs
     ):
-
         if duration.sum() == 0:
             return 0
 
@@ -279,7 +276,6 @@ class TensileStrain(TonalTension):
         return e_distance(cloud_ce, self.key_ce) * scale_factor
 
     def update_key(self, tonic_idx, mode, w=DEFAULT_WEIGHTS, alpha=ALPHA, beta=BETA):
-
         if mode in ("major", None, 1):
             self.key_ce = major_key(tonic_idx, w=w)
         elif mode in ("minor", -1):
@@ -297,7 +293,6 @@ class CloudMomentum(TonalTension):
     def compute_tension(
         self, cloud, duration, reset=False, scale_factor=SCALE_FACTOR, *args, **kwargs
     ):
-
         if duration.sum() == 0:
             return 0
 
@@ -328,7 +323,6 @@ def notes_to_idx(note_array):
 
 
 def prepare_note_array(note_info):
-
     note_array = ensure_notearray(
         note_info, include_pitch_spelling=True, include_key_signature=True
     )

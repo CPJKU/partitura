@@ -114,18 +114,15 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
 
     cur = start
     try:
-
         if cur is _sentinel:
             cur = next(iterable)
 
         while True:
-
             nxt = next(iterable)
             yield (cur, nxt)
             cur = nxt
 
     except StopIteration:
-
         if cur is not _sentinel and end is not _sentinel:
             yield (cur, end)
 
@@ -570,14 +567,12 @@ def interp1d(
         )
 
     else:
-
         # If there is only one value for x and y, assume that the method
         # will always return the same value for any input.
 
         def interp_fun(
             input_var: Union[float, int, np.ndarray]
         ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
-
             if y.ndim > 1:
                 result = np.broadcast_to(y, (len(np.atleast_1d(input_var)), y.shape[1]))
             else:
@@ -635,7 +630,7 @@ def monotonize_times(
     s_mono: np.ndarray
        a monotonic sequence that has been linearly interpolated using a subset of s
     x_mono: np.ndarray
-        The input of the monotonic sequence. 
+        The input of the monotonic sequence.
     """
     eps = np.finfo(float).eps
 
@@ -649,8 +644,9 @@ def monotonize_times(
     mask = np.r_[False, True, (np.diff(s_mono) != 0), False]
     x_mono = _x[1:-1]
     s_mono = interp1d(_x[mask], _s[mask], fill_value="extrapolate")(x_mono)
-    
+
     return s_mono, x_mono
+
 
 if __name__ == "__main__":
     import doctest

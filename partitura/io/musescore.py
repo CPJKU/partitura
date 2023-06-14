@@ -60,7 +60,6 @@ def find_musescore3():
             pass
 
         elif platform.system() == "Darwin":
-
             result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
 
         elif platform.system() == "Windows":
@@ -108,7 +107,6 @@ or a list of these
     mscore_exec = find_musescore3()
 
     if not mscore_exec:
-
         raise MuseScoreNotFoundException()
 
     xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
@@ -116,18 +114,15 @@ or a list of these
     cmd = [mscore_exec, "-o", xml_fh, filename]
 
     try:
-
         ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
         if ps.returncode != 0:
-
             raise FileImportException(
                 (
                     "Command {} failed with code {}. MuseScore " "error messages:\n {}"
                 ).format(cmd, ps.returncode, ps.stderr.decode("UTF-8"))
             )
     except FileNotFoundError as f:
-
         raise FileImportException(
             'Executing "{}" returned  {}.'.format(" ".join(cmd), f)
         )
@@ -175,11 +170,9 @@ def render_musescore(
     mscore_exec = find_musescore3()
 
     if not mscore_exec:
-
         return None
 
     if fmt not in ("png", "pdf"):
-
         warnings.warn("warning: unsupported output format")
         return None
 
@@ -202,7 +195,6 @@ def render_musescore(
             os.fspath(xml_fh),
         ]
         try:
-
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             if ps.returncode != 0:
@@ -219,7 +211,6 @@ def render_musescore(
                 return None
 
         except FileNotFoundError as f:
-
             warnings.warn(
                 'Executing "{}" returned  {}.'.format(" ".join(cmd), f),
                 ImportWarning,
@@ -232,7 +223,6 @@ def render_musescore(
         #                      ps.stderr.decode('UTF-8')))
 
         if fmt == "png":
-
             if PIL_EXISTS:
                 # get all generated image files
                 img_files = glob.glob(

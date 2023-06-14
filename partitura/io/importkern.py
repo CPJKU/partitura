@@ -177,7 +177,7 @@ class KernParserPart(KernGlobalPart):
                         self.tie_dict["open"].pop(index)
                         self._handle_ties()
             else:
-                for (oid, cid) in list(
+                for oid, cid in list(
                     zip(self.tie_dict["open"], self.tie_dict["close"])
                 ):
                     self.nid_dict[oid].tie_next = self.nid_dict[cid]
@@ -197,9 +197,7 @@ class KernParserPart(KernGlobalPart):
             #     "Slur Mismatch! Uneven amount of closing to open slur brackets."
             # )
         else:
-            for (oid, cid) in list(
-                zip(self.slur_dict["open"], self.slur_dict["close"])
-            ):
+            for oid, cid in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
                 self.part.add(score.Slur(self.nid_dict[oid], self.nid_dict[cid]))
 
     def _handle_metersig(self, metersig):

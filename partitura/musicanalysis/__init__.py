@@ -39,5 +39,5 @@ __all__ = [
     "compute_note_array",
     "full_note_array",
     "make_performance_features",
-    "note_array_to_score"
+    "note_array_to_score",
 ]

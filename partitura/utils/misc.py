@@ -239,7 +239,6 @@ def concatenate_images(
     anchor_x = 0
     anchor_y = 0
     for img, size in zip(images, image_sizes):
-
         new_image.paste(img, (anchor_x, anchor_y))
 
         # update coordinates according to the concatenation mode

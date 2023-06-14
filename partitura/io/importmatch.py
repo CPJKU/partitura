@@ -121,7 +121,6 @@ def get_version(line: str) -> Version:
                 return version
 
         except MatchError:
-
             pass
 
     return version
@@ -530,7 +529,6 @@ def part_from_matchfile(
         t = t - t % beats_map(min_time)
 
     for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
-
         bar_times.setdefault(b0, t)
         if t < 0:
             t = 0
@@ -683,7 +681,11 @@ def part_from_matchfile(
             # iterate over all notes in the Timeline that end at the starting point.
             for el in part_note.start.iter_ending(score.Note):
                 if isinstance(el, score.Note):
-                    condition = el.step == note_attributes["step"] and el.octave == note_attributes["octave"] and el.alter == note_attributes["alter"]
+                    condition = (
+                        el.step == note_attributes["step"]
+                        and el.octave == note_attributes["octave"]
+                        and el.alter == note_attributes["alter"]
+                    )
                     if condition:
                         el.tie_next = part_note
                         part_note.tie_prev = el
@@ -691,11 +693,13 @@ def part_from_matchfile(
                         break
             if not found:
                 warnings.warn(
-                    "Tie information found, but no previous note found to tie to for note {}.".format(part_note.id)
+                    "Tie information found, but no previous note found to tie to for note {}.".format(
+                        part_note.id
+                    )
                 )
 
     # add time signatures
-    for (ts_beat_time, ts_bar, tsg) in ts:
+    for ts_beat_time, ts_bar, tsg in ts:
         ts_beats = tsg.numerator
         ts_beat_type = tsg.denominator
         # check if time signature is in a known measure (from notes)
@@ -707,8 +711,7 @@ def part_from_matchfile(
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
 
     # add key signatures
-    for (ks_beat_time, ks_bar, keys) in mf.key_signatures:
-
+    for ks_beat_time, ks_bar, keys in mf.key_signatures:
         if ks_bar in bar_times.keys():
             bar_start_divs = int(divs * (bar_times[ks_bar] - offset))  # in quarters
             bar_start_divs = max(0, bar_start_divs)
@@ -827,7 +830,6 @@ def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
     # assign staffs using a hard limit
     notes = part.notes_tied
     for n in notes:
-
         if only_missing and n.staff:
             continue
 
@@ -848,5 +850,4 @@ def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
 
 
 if __name__ == "__main__":
-
     pass
