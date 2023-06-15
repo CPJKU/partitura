@@ -203,6 +203,9 @@ def load_matchfile(
 
     mf = MatchFile(lines=parsed_lines)
 
+    # Validate match for duplicate snote_ids or pnote_ids
+    validate_match(mf)
+
     return mf
 
 
@@ -847,6 +850,68 @@ def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
 
     part.add(score.Clef(staff=1, sign="G", line=2, octave_change=0), 0)
     part.add(score.Clef(staff=2, sign="F", line=4, octave_change=0), 0)
+
+
+def validate_match(mf):
+    """
+    Validate a matchfile by checking for duplicate score or performance notes.
+
+    This function will:
+    - remove duplicate score notes that have entries both as match and deletions, by removing the deletions.
+    - remove duplicate performance notes that have entries both as match and insertions, by removing the insertions.
+
+    Parameters
+    ----------
+    mf: MatchFile
+        MatchFile to validate
+
+    Returns
+    -------
+    Updates the representation of the matchfile by removing match lines.
+    """
+
+    # Check if the matchfile is valid (i.e. check for snote duplicates)
+    sids = np.array([n.Anchor for n in mf.snotes])
+    # First check if score ids are unique
+    if not len(sids) == len(np.unique(sids)):
+        # If not, check if there are duplicates
+        m_sim = np.expand_dims(sids, 1) == np.expand_dims(sids, 0)
+        # Remove diagonal and lower triangle (symmetry)
+        m_sim = np.triu(m_sim, k=1)
+        if np.any(m_sim):
+            # delete the duplicate deletions
+            sids_tocheck = np.unique(sids[np.where(m_sim)[0]])
+            indices_to_del = []
+            for i, line in enumerate(mf.lines):
+                if isinstance(line, BaseDeletionLine):
+                    if line.Anchor in sids_tocheck:
+                        indices_to_del.append(i)
+            warnings.warn(
+                "Matchfile contains duplicate score notes. "
+                "Removing {} deletions.".format(len(indices_to_del))
+            )
+            mf.lines = np.delete(mf.lines, indices_to_del)
+
+    # Check if the matchfile is valid (i.e. check for performance note duplicates)
+    pids = np.array([n.Id for n in mf.notes])
+    if not len(pids) == len(np.unique(pids)):
+        # If not, check if there are duplicates
+        m_sim = np.expand_dims(pids, 1) == np.expand_dims(pids, 0)
+        # Remove diagonal and lower triangle (symmetry)
+        m_sim = np.triu(m_sim, k=1)
+        if np.any(m_sim):
+            # delete the duplicate Insertions
+            pids_tocheck = np.unique(pids[np.where(m_sim)[0]])
+            indices_to_del = []
+            for i, line in enumerate(mf.lines):
+                if isinstance(line, BaseInsertionLine):
+                    if line.Id in pids_tocheck:
+                        indices_to_del.append(i)
+            warnings.warn(
+                "Matchfile contains duplicate performance notes. "
+                "Removing {} insertions.".format(len(indices_to_del))
+            )
+            mf.lines = np.delete(mf.lines, indices_to_del)
 
 
 if __name__ == "__main__":
