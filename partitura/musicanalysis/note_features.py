@@ -771,7 +771,7 @@ def feature_function_activation(direction):
                 # no measure, unlikely, but not impossible.
                 direction_end = direction.start.t + 1
 
-        x = [direction.start.t, direction_end , direction_end + epsilon]
+        x = [direction.start.t, direction_end, direction_end + epsilon]
         y = [0, 1, 0]
 
     elif isinstance(
