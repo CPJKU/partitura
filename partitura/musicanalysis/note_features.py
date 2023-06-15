@@ -719,7 +719,7 @@ def articulation_direction_feature(na, part, **kwargs):
             if d.text in constant_names:
                 return d.text
             else:
-                return "unknown_direction"
+                return "unknown_articulation"
 
     else:
 
