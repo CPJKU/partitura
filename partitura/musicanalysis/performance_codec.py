@@ -492,7 +492,11 @@ def tempo_by_average(
 
     tempo_curve = tempo_fun(input_onsets)
 
-    assert (tempo_curve >= 0).all()
+    if not (tempo_curve >= 0).all():
+        warnings.warn(
+            "The estimated tempo curve is not always positive. "
+            "This might be due to a bad alignment."
+        )
     if return_onset_idxs:
         return tempo_curve, input_onsets, unique_onset_idxs
     else:
