@@ -857,8 +857,17 @@ def validate_match(mf):
     Validate a matchfile by checking for duplicate score or performance notes.
 
     This function will:
-    - remove duplicate score notes that have entries both as match and deletions, by removing the deletions.
-    - remove duplicate performance notes that have entries both as match and insertions, by removing the insertions.
+    - remove all deletions with a score ID that occurs in multiple lines.
+    - remove all insertions with a performance ID that occurs in multiple lines.
+
+    Handles cases with conflicting match/insertion(s) and match/deletion(s) tuples 
+    with any number of insertions or deletions and a single match by keeping 
+    only the match.
+
+    Unhandled cases: 
+    - multiple conflicting matches: all are kept.
+    - multiple insertions with the same ID: all are deleted.
+    - multiple deletions with the same ID: all are deleted.
 
     Parameters
     ----------
