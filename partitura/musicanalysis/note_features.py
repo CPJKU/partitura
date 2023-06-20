@@ -758,13 +758,8 @@ def feature_function_activation(direction):
     if isinstance(
         direction, (score.DynamicLoudnessDirection, score.DynamicTempoDirection)
     ):
-        # a dynamic direction will be encoded as a ramp from d.start.t to
-        # d.end.t, and then a step from d.end.t to the start of the next
-        # constant direction.
-
-        # There are two potential issues:
-
-        # Issue 1. d.end is None (e.g. just a ritardando without dashes). In this case
+        # a dynamic direction will be encoded as a ramp from d.start.t to d.end.t
+        # if d.end is None (e.g. just a ritardando without dashes)
         if direction.end:
             direction_end = direction.end.t
         else:
@@ -774,31 +769,10 @@ def feature_function_activation(direction):
                 direction_end = measure.start.t
             else:
                 # no measure, unlikely, but not impossible.
-                direction_end = direction.start.t
+                direction_end = direction.start.t + 1
 
-        if isinstance(direction, score.TempoDirection):
-            next_dir = next(
-                direction.start.iter_next(score.ConstantTempoDirection), None
-            )
-        if isinstance(direction, score.ArticulationDirection):
-            next_dir = next(
-                direction.start.iter_next(score.ConstantArticulationDirection), None
-            )
-        else:
-            next_dir = next(
-                direction.start.iter_next(score.ConstantLoudnessDirection), None
-            )
-
-        if next_dir:
-            # TODO: what do we do when next_dir is too far away?
-            sustained_end = next_dir.start.t
-        else:
-            # Issue 2. there is no next constant direction. In that case the
-            # feature function will be a ramp with a quarter note ramp
-            sustained_end = direction_end + direction.start.quarter
-
-        x = [direction.start.t, direction_end - epsilon, sustained_end - epsilon]
-        y = [0, 1, 1]
+        x = [direction.start.t, direction_end, direction_end + epsilon]
+        y = [0, 1, 0]
 
     elif isinstance(
         direction,

@@ -10,9 +10,6 @@ import types
 from typing import Union, List
 import warnings
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy import stats
-from scipy.optimize import least_squares
 from scipy.signal import find_peaks
 import numpy.lib.recfunctions as rfn
 from partitura.score import ScoreLike
@@ -511,10 +508,6 @@ def pedal_feature(m_score: list, unique_onset_idxs: list, performance: Performan
             release_times[i]["to_next_release"] = min(
                 peaks_after.min() - (note["p_onset"] + note["p_duration"]), 10
             )
-
-    # plt.plot(x[peaks], y[peaks], "x")
-    # plt.plot(x, y)
-    # plt.show()
 
     return rfn.merge_arrays(
         [onset_offset_pedals, release_times], flatten=True, usemask=False
