@@ -491,7 +491,6 @@ def tempo_by_average(
         input_onsets = unique_s_onsets[:-1]
 
     tempo_curve = tempo_fun(input_onsets)
-
     if not (tempo_curve >= 0).all():
         warnings.warn(
             "The estimated tempo curve is not always positive. "
@@ -838,12 +837,15 @@ def get_unique_seq(onsets, offsets, unique_onset_idxs=None, return_diff=False):
     """
     Get unique onsets of a sequence of notes
     """
-    eps = np.finfo(float).eps
 
     first_time = np.min(onsets)
 
     # ensure last score time is later than last onset
-    last_time = max(np.max(onsets) + eps, np.max(offsets))
+    if np.max(onsets) == np.max(offsets):
+        # last note without duration (grace note)
+        last_time = np.max(onsets) + 1
+    else:
+        last_time = np.max(offsets)
 
     total_dur = last_time - first_time
 
