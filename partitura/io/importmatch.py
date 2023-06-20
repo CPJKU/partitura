@@ -204,7 +204,7 @@ def load_matchfile(
     mf = MatchFile(lines=parsed_lines)
 
     # Validate match for duplicate snote_ids or pnote_ids
-    validate_match(mf)
+    validate_match_ids(mf)
 
     return mf
 
@@ -852,9 +852,9 @@ def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
     part.add(score.Clef(staff=2, sign="F", line=4, octave_change=0), 0)
 
 
-def validate_match(mf):
+def validate_match_ids(mf):
     """
-    Validate a matchfile by checking for duplicate score or performance notes.
+    Check a matchfile for duplicate snote and note IDs.
 
     This function will:
     - remove all deletions with a score ID that occurs in multiple lines.
