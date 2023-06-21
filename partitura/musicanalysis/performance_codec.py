@@ -469,7 +469,7 @@ def tempo_by_average(
 
     # Monotonize times
     eq_onset_mt, unique_s_onsets_mt = monotonize_times(
-        eq_onsets, deltas=unique_s_onsets
+        eq_onsets, x=unique_s_onsets
     )
 
     # Estimate Beat Period

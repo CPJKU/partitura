@@ -297,10 +297,14 @@ def asynchrony_feature(m_score: np.ndarray,
 def dynamics_feature(m_score : np.ndarray,
                         unique_onset_idxs: list,
                         performance: PerformanceLike,
-                        window : int = 3,
+                        w : int = 5,
                         agg : str = "avg"):
     """
-    Compute the dynamics attributes from the alignment.
+    Compute the dynamics attributes from the alignment. There are two parts of attributes being defined:
+        Dynamics - score marking (Kosta et al.)
+
+        Dynamics - Tempo coupling (Todd et al.)
+            For each note we compute the correlation of dynamics and tempo with a window w beats before and after. 
 
     Parameters
     ----------
@@ -310,7 +314,7 @@ def dynamics_feature(m_score : np.ndarray,
         a list of arrays with the note indexes that have the same onset
     performance: PerformedPart
         The original PerformedPart object
-    window : int
+    w : int
         Length of window to look at the range of dynamic marking coverage, default 3. 
     agg : string
         how to aggregate velocity of notes with the same marking, default avg
@@ -321,10 +325,10 @@ def dynamics_feature(m_score : np.ndarray,
             agreement [-1, 1]: for each pair of dynamics, whether it agree with the OLS. Default 0
             consistency_std [0, 127]: Std of the same marking thoughout the piece. Default 0
             ramp_cor [-1, 1]: The correlation between each dynamics ramp and performed dynamics. Default 0
-            tempo_cor [-1, 1]: The correlation between performed dynamics and tempo change. Default 0
+            tempo_grad [-1, 1]: The slope between performed dynamics and tempo change.  Default 0
     """  
     dynamics_ = np.zeros(len(m_score), dtype=[(
-        "agreement", "f4"), ("consistency_std", "f4"), ("ramp_cor", "f4"), ("tempo_cor", "f4")])
+        "agreement", "f4"), ("consistency_std", "f4"), ("ramp_cor", "f4"), ("tempo_grad", "f4")])
 
     # append the marking into m_score based on the time position and windowing
     beats_with_constant_dyn = np.unique(m_score[m_score['constant_dyn'] != 'N/A']['onset'])
@@ -338,6 +342,24 @@ def dynamics_feature(m_score : np.ndarray,
     # only consider those in the OLS (there exist others like dolce, )
     constant_dynamics = [(m, v) for (m, v) in constant_dynamics if m in OLS]
 
+    unique_m_score = m_score[[idx[0] for idx in unique_onset_idxs]]
+
+    # dynamics - tempo correlation
+    avg_vel = np.zeros(len(unique_m_score))
+    for i, onset in enumerate(np.unique(m_score['onset'])): # average velocity on 
+        avg_vel[i] = m_score[m_score['onset'] == onset]['velocity'].mean()
+    for i, onset in enumerate(np.unique(m_score['onset'])):
+        window_mask = (np.abs(unique_m_score['onset'] - onset) <= w)
+        bp = unique_m_score[window_mask]['beat_period']
+        vel = avg_vel[window_mask]
+        tempo = 1 / bp
+        if len(bp) >= 2 and (np.diff(bp) != 0).any():
+            slope = stats.linregress(tempo, vel).slope
+        else:
+            slope = 0
+        dynamics_['tempo_grad'][m_score['onset'] == onset] = slope
+
+    # if the dynamics markings are scarce, then don't compute the marking-dependent features
     if len(constant_dynamics) < 2:
         return dynamics_
 
@@ -363,9 +385,8 @@ def dynamics_feature(m_score : np.ndarray,
         marking_consistency.append((f"{marking}", marking_std))
         dynamics_['consistency_std'][m_score['onset'] == beat] = marking_std
 
-
     # changing dynamics - correlation with each incr and decr ramp
-    (increase_ob, decrease_ob), unique_m_score = parse_changing_ramp(unique_onset_idxs, m_score)
+    (increase_ob, decrease_ob) = parse_changing_ramp(unique_onset_idxs, unique_m_score)
     for onset_boundaries, feat_name in zip([increase_ob, decrease_ob], 
                                             ['loudness_direction_feature.loudness_incr', 'loudness_direction_feature.loudness_decr']):
         for start, end in onset_boundaries:
@@ -374,9 +395,6 @@ def dynamics_feature(m_score : np.ndarray,
             for onset in notes_in_ramp['onset']:
                 score_dynamics.append(unique_m_score[unique_m_score['onset'] == onset][0][feat_name])
                 performed_dyanmics.append(m_score[m_score['onset'] == onset]['velocity'].mean())
-            
-            performed_bp = notes_in_ramp['beat_period']
-            performed_bp = performed_bp - performed_bp.min()
             performed_dyanmics = np.array(performed_dyanmics)
             performed_dyanmics = performed_dyanmics - performed_dyanmics.min()
 
@@ -386,8 +404,6 @@ def dynamics_feature(m_score : np.ndarray,
                 cor *= -1 
             ramp_mask = (m_score['onset'] >= start) & (m_score['onset'] <= end)
             dynamics_['ramp_cor'][ramp_mask] = cor
-            dynamics_['tempo_cor'][ramp_mask] = (-1) * stats.pearsonr(performed_bp, performed_dyanmics)[0] if (
-                sum(performed_bp) != 0 and sum(performed_dyanmics) != 0) else 0
 
     return dynamics_
 
@@ -403,11 +419,9 @@ def process_discrete_dynamics(constant_dyn):
     return constant_dyn_
 
 
-def parse_changing_ramp(unique_onset_idxs, m_score):
+def parse_changing_ramp(unique_onset_idxs, unique_m_score):
     """parse the cresceando / decresceando ramp for the actively changing subsequences. 
         Return a list of (start, end) of the changing subsequences."""
-
-    unique_m_score = m_score[[idx[0] for idx in unique_onset_idxs]]
 
     increase, decrease = np.zeros(unique_m_score.shape[0]), np.zeros(unique_m_score.shape[0])
     if 'loudness_direction_feature.loudness_incr' in unique_m_score.dtype.names:
@@ -428,7 +442,7 @@ def parse_changing_ramp(unique_onset_idxs, m_score):
 
         onset_boundaries.append([(onset_boundary[i], onset_boundary[i+1]) for i in range(0, len(onset_boundary), 2)])
 
-    return tuple(onset_boundaries), unique_m_score
+    return tuple(onset_boundaries)
 
 
 ### Articulation
@@ -510,8 +524,8 @@ def get_kor(e1, e2):
     if ioi <= 0:
         # warnings.warn(f"Getting KOR smaller than -1 in {e1['onset']}-{e1['pitch']} and {e2['onset']}-{e2['pitch']}.")
         kor = 0
-
-    kor = kot / ioi
+    else:
+        kor = kot / ioi
     
     return min(kor, 5)
 
@@ -544,6 +558,9 @@ def pedal_feature(m_score : list,
     """
     Compute the pedal features. 
 
+    Repp: Pedal Timing and Tempo in Expressive Piano Performance: A Preliminary Investigation
+        How pedal timing adjust to the IOI variations. 
+
     Parameters
     ----------
     m_score : list
@@ -560,7 +577,6 @@ def pedal_feature(m_score : list,
         offset_value [0, 127]: The interpolated pedal value at the key offset
         to_prev_release [0, 10]: delta time from note onset to the previous pedal release 'peak'
         to_next_release [0, 10]: delta time from note offset to the next pedal release 'peak'
-        (think about something relates to the real duration)
     """  
     
     onset_offset_pedals, ramp_func = pedal_ramp(performance.performedparts[0], m_score)
