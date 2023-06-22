@@ -195,11 +195,17 @@ def load_matchfile(
     if version < Version(1, 0, 0):
         from_matchline_methods = FROM_MATCHLINE_METHODSV0
 
-    parsed_lines = [
-        parse_matchline(line, from_matchline_methods, version) for line in raw_lines
-    ]
-
-    parsed_lines = [pl for pl in parsed_lines if pl is not None]
+    parsed_lines = list()
+    # Functionality to remove duplicate lines
+    for i, line in enumerate(raw_lines):
+        if line in raw_lines[i + 1 :] and line != "":
+            warnings.warn(f"Duplicate line found in matchfile: {line}")
+            continue
+        parsed_line = parse_matchline(line, from_matchline_methods, version)
+        if parsed_line is None:
+            warnings.warn(f"Could not empty parse line: {line} ")
+            continue
+        parsed_lines.append(parsed_line)
 
     mf = MatchFile(lines=parsed_lines)
 
