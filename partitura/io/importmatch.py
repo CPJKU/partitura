@@ -195,13 +195,22 @@ def load_matchfile(
     if version < Version(1, 0, 0):
         from_matchline_methods = FROM_MATCHLINE_METHODSV0
 
-    parsed_lines = [
-        parse_matchline(line, from_matchline_methods, version) for line in raw_lines
-    ]
-
-    parsed_lines = [pl for pl in parsed_lines if pl is not None]
+    parsed_lines = list()
+    # Functionality to remove duplicate lines
+    for i, line in enumerate(raw_lines):
+        if line in raw_lines[i + 1 :] and line != "":
+            warnings.warn(f"Duplicate line found in matchfile: {line}")
+            continue
+        parsed_line = parse_matchline(line, from_matchline_methods, version)
+        if parsed_line is None:
+            warnings.warn(f"Could not empty parse line: {line} ")
+            continue
+        parsed_lines.append(parsed_line)
 
     mf = MatchFile(lines=parsed_lines)
+
+    # Validate match for duplicate snote_ids or pnote_ids
+    validate_match_ids(mf)
 
     return mf
 
@@ -847,6 +856,67 @@ def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
 
     part.add(score.Clef(staff=1, sign="G", line=2, octave_change=0), 0)
     part.add(score.Clef(staff=2, sign="F", line=4, octave_change=0), 0)
+
+
+def validate_match_ids(mf):
+    """
+    Check a matchfile for duplicate snote and note IDs.
+
+    This function will:
+    - remove all deletions with a score ID that occurs in multiple lines.
+    - remove all insertions with a performance ID that occurs in multiple lines.
+
+    Handles cases with conflicting match/insertion(s) and match/deletion(s) tuples 
+    with any number of insertions or deletions and a single match by keeping 
+    only the match.
+
+    Unhandled cases: 
+    - multiple conflicting matches: all are kept.
+    - multiple insertions with the same ID: all are deleted.
+    - multiple deletions with the same ID: all are deleted.
+
+    Parameters
+    ----------
+    mf: MatchFile
+        MatchFile to validate
+
+    Returns
+    -------
+    Updates the representation of the matchfile by removing match lines.
+    """
+
+    # Check if the matchfile is valid (i.e. check for snote duplicates)
+    sids = np.array([n.Anchor for n in mf.snotes])
+    # First check if score ids are unique
+    sids_unique, counts = np.unique(sids, return_counts=True)
+    sids_to_check = sids_unique[np.where(counts > 1)[0]]
+    if len(sids_to_check) > 0:
+        indices_to_del = []
+        for i, line in enumerate(mf.lines):
+            if isinstance(line, BaseDeletionLine):
+                if line.Anchor in sids_to_check:
+                    indices_to_del.append(i)
+        warnings.warn(
+            "Matchfile contains duplicate score notes. "
+            "Removing {} deletions.".format(len(indices_to_del))
+        )
+        mf.lines = np.delete(mf.lines, indices_to_del)
+
+    # Check if the matchfile is valid (i.e. check for performance note duplicates)
+    pids = np.array([n.Id for n in mf.notes])
+    pids_unique, counts = np.unique(pids, return_counts=True)
+    pids_to_check = pids_unique[np.where(counts > 1)[0]]
+    if len(pids_to_check) > 0:
+        indices_to_del = []
+        for i, line in enumerate(mf.lines):
+            if isinstance(line, BaseInsertionLine):
+                if line.Id in pids_to_check:
+                    indices_to_del.append(i)
+        warnings.warn(
+            "Matchfile contains duplicate performance notes. "
+            "Removing {} insertions.".format(len(indices_to_del))
+        )
+        mf.lines = np.delete(mf.lines, indices_to_del)
 
 
 if __name__ == "__main__":
