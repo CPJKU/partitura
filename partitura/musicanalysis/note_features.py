@@ -142,13 +142,18 @@ def make_note_features(
         )
 
     for bf in feature_functions:
+        # skip time_signature_feature if force_fixed_size is True
+        if force_fixed_size and (bf == "time_signature_feature" or bf == time_signature_feature):
+            continue
+        # skip metrical_feature if force_fixed_size is True
+        if force_fixed_size and (bf == "metrical_feature" or bf == metrical_feature):
+            continue
+
         if isinstance(bf, str):
             # get function by name from module
             func = getattr(sys.modules[__name__], bf)
         elif isinstance(bf, types.FunctionType):
             func = bf
-        elif force_fixed_size and bf == "time_signature_feature":
-            continue
         else:
             warnings.warn("Ignoring unknown feature function {}".format(bf))
         bf, bn = func(
