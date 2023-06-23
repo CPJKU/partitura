@@ -145,6 +145,9 @@ def make_note_features(
         # skip time_signature_feature if force_fixed_size is True
         if force_fixed_size and (bf == "time_signature_feature" or bf == time_signature_feature):
             continue
+        # skip metrical_feature if force_fixed_size is True
+        if force_fixed_size and (bf == "metrical_feature" or bf == metrical_feature):
+            continue
 
         if isinstance(bf, str):
             # get function by name from module

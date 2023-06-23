@@ -173,9 +173,9 @@ def compute_matched_score(
     )
     m_score = rfn.append_fields(
         m_score,
-        ["beat_period", "id"],
-        [time_params["beat_period"], snote_ids],
-        ["f4", "U256"],
+        ["beat_period", "timing", "articulation_log", "id"],
+        [time_params["beat_period"],time_params["timing"],time_params["articulation_log"], snote_ids],
+        ["f4", "f4", "f4", "U256"],
         usemask=False,
     )
     return m_score, unique_onset_idxs, snote_ids
