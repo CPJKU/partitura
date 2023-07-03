@@ -10,7 +10,14 @@ EPSILON = 0.0001
 
 
 def range_normalize(
-    array, min_value=None, max_value=None, log=False, exp=False, hard_clip=True
+    array, 
+    min_value=None, 
+    max_value=None, 
+    log=False, 
+    log2=False, 
+    exp=False, 
+    exp2=False, 
+    hard_clip=True
 ):
     """
     Linear mapping a vector from range [min_value, max_value] to [0, 1].
@@ -24,8 +31,12 @@ def range_normalize(
         max_value = array.max()
     if log:
         array = np.log(np.abs(array) + EPSILON)
+    elif log2:
+        array = np.log2(np.abs(array) + EPSILON)
     if exp:
         array = np.exp(array)
+    elif exp2:
+        array = np.exp2(array)
     # handle div by zero
     if min_value == max_value:
         array = np.clip(array, 0, 1)
@@ -69,9 +80,38 @@ def minmaxrange_normalize(array):
 
 DEFAULT_NORM_FUNCS = {
     "pitch": {
-        "func": range_normalize,  # some normalization function
+        "func": range_normalize, 
         "kwargs": {"min_value": 0, "max_value": 127},
-    },  # some keyword arguments
+    },
+    "velocity": {
+        "func": range_normalize,  
+        "kwargs": {"min_value": 0, "max_value": 127},
+    },
+    "onset_beat": {
+        "func": minmaxrange_normalize,  
+        "kwargs": {},
+    }, 
+    "duration_beat": {
+        "func": range_normalize,  
+        "kwargs": {"min_value": -3, "max_value": 3, "log2": True}, 
+        # ref beat = 4th -> -3 = 32nd, 3 = breve
+    },
+    "beat_period": {
+        "func": range_normalize,  
+        "kwargs": {"min_value": -3, "max_value": 2, "log2": True}, 
+        # ref 1 second / beat -> -3 = 0.125 sec / beat , 2 = 4 sec / beat
+    },
+    "timing": {
+        "func": range_normalize,  
+        "kwargs": {"min_value": -0.2, "max_value": 0.2}, 
+        # deviation in seconds
+    },  
+    "articulation_log": { 
+        "func": range_normalize,  
+        "kwargs": {"min_value": -4, "max_value": 3}, 
+        # thia ia the ratio in base2 log -> just min max clip
+    },            
+
     # fill up with all note and performance features
 }
 
