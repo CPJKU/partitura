@@ -62,7 +62,6 @@ def _load_csv(filename: PathLike) -> np.ndarray:
 
     struct_array = np.empty(len(raw_array) - 1, dtype=dtypes)
     for i, (c, dt) in enumerate(zip(columns, dtypes)):
-
         if dt[-1] == "i4":
             # Weird behavior trying to cast 0.0 as an integer
             struct_array[c] = raw_array[1:, i].astype(float).astype(int)

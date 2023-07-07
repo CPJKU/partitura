@@ -19,7 +19,7 @@ __all__ = [
     "list_note_feature_functions",
     "print_note_feats_functions",
     "print_note_feature_functions",
-    "make_note_feats", 
+    "make_note_feats",
     "make_note_features",
     "make_rest_feats",
     "make_rest_features",
@@ -81,7 +81,6 @@ def make_note_features(
     include_empty_features: bool = True,
     force_fixed_size: bool = False,
 ) -> Tuple[np.ndarray, List]:
-
     """Compute the specified feature functions for a part.
 
     The function returns the computed feature functions as a N x M
@@ -143,16 +142,29 @@ def make_note_features(
         )
 
     for bf in feature_functions:
+        # skip time_signature_feature if force_fixed_size is True
+        if force_fixed_size and (
+            bf == "time_signature_feature" or bf == time_signature_feature
+        ):
+            continue
+        # skip metrical_feature if force_fixed_size is True
+        if force_fixed_size and (bf == "metrical_feature" or bf == metrical_feature):
+            continue
+
         if isinstance(bf, str):
             # get function by name from module
             func = getattr(sys.modules[__name__], bf)
         elif isinstance(bf, types.FunctionType):
             func = bf
-        elif force_fixed_size and bf == "time_signature_feature":
-            continue
         else:
             warnings.warn("Ignoring unknown feature function {}".format(bf))
-        bf, bn = func(na, part, include_empty_features=(True if force_fixed_size else include_empty_features))
+        bf, bn = func(
+            na,
+            part,
+            include_empty_features=(
+                True if force_fixed_size else include_empty_features
+            ),
+        )
         # check if the size and number of the feature function are correct
         if bf.size != 0:
             if bf.shape[1] != len(bn):
@@ -320,13 +332,14 @@ print_note_feature_functions = print_note_feats_functions
 
 
 def compute_note_array(
-    part : ScoreLike,
+    part: ScoreLike,
     include_pitch_spelling=False,
     include_key_signature=False,
     include_time_signature=False,
     include_metrical_position=False,
     include_grace_notes=False,
     feature_functions=None,
+    force_fixed_size=False,
 ):
     """
     Create an extended note array from this part.
@@ -376,6 +389,10 @@ def compute_note_array(
         the functions themselves or the names of a feature function as
         strings (or a mix). The feature functions specified by name are
         looked up in the `featuremixer.featurefunctions` module.
+    force_fixed_size : bool (default: False)
+        If True, the output array uses only features that have a fixed
+        size with no new entries added.
+
 
     Returns:
 
@@ -395,12 +412,14 @@ def compute_note_array(
     )
 
     if feature_functions is not None:
-        feature_data_struct = make_note_feats(part, feature_functions, add_idx=True)
+        feature_data_struct = make_note_feats(
+            part, feature_functions, add_idx=True, force_fixed_size=force_fixed_size
+        )
         note_array_joined = np.lib.recfunctions.join_by("id", na, feature_data_struct)
         note_array = note_array_joined.data
-        sort_idx = np.lexsort((note_array["duration_div"], 
-                               note_array["pitch"], 
-                               note_array["onset_div"]))
+        sort_idx = np.lexsort(
+            (note_array["duration_div"], note_array["pitch"], note_array["onset_div"])
+        )
         note_array = note_array[sort_idx]
     else:
         note_array = na
@@ -499,7 +518,11 @@ def grace_feature(na, part, **kwargs):
         grace = grace_notes[i]
         n_grace = np.count_nonzero(grace_notes["onset_beat"] == grace["onset_beat"])
         W[index, 1] = n_grace
-        W[index, 2] = n_grace - sum(1 for _ in notes[grace["id"]].iter_grace_seq()) + 1 if grace["id"] not in (None, 'None', "") else 0
+        W[index, 2] = (
+            n_grace - sum(1 for _ in notes[grace["id"]].iter_grace_seq()) + 1
+            if grace["id"] not in (None, "None", "")
+            else 0
+        )
     return W, feature_names
 
 
@@ -533,6 +556,7 @@ def loudness_direction_feature(na, part, **kwargs):
     else:
         force_size = False
     if force_size:
+
         def to_name(d):
             if isinstance(d, score.ConstantLoudnessDirection):
                 if d.text in constant:
@@ -548,7 +572,9 @@ def loudness_direction_feature(na, part, **kwargs):
                 return "loudness_incr"
             elif isinstance(d, score.DecreasingLoudnessDirection):
                 return "loudness_decr"
+
     else:
+
         def to_name(d):
             if isinstance(d, score.ConstantLoudnessDirection):
                 return d.text
@@ -558,7 +584,6 @@ def loudness_direction_feature(na, part, **kwargs):
                 return "loudness_incr"
             elif isinstance(d, score.DecreasingLoudnessDirection):
                 return "loudness_decr"
-
 
     feature_by_name = {}
     for d in directions:
@@ -595,18 +620,32 @@ def tempo_direction_feature(na, part, **kwargs):
     """
     onsets = na["onset_div"]
     N = len(onsets)
-    constant = ["adagio", "largo", "lento", "grave", "larghetto", "adagietto", "andante",
-                "andantino", "moderato", "allegretto", "allegro", "vivace", "presto", "prestissimo",
-                "unknown_constant"]
+    constant = [
+        "adagio",
+        "largo",
+        "lento",
+        "grave",
+        "larghetto",
+        "adagietto",
+        "andante",
+        "andantino",
+        "moderato",
+        "allegretto",
+        "allegro",
+        "vivace",
+        "presto",
+        "prestissimo",
+        "unknown_constant",
+    ]
     names = constant + ["tempo_incr", "tempo_decr"]
     directions = list(part.iter_all(score.TempoDirection, include_subclasses=True))
-
 
     if "include_empty_features" in kwargs.keys():
         force_size = kwargs["include_empty_features"]
     else:
         force_size = False
     if force_size:
+
         def to_name(d):
             if isinstance(d, score.ResetTempoDirection):
                 ref = d.reference_tempo
@@ -629,7 +668,9 @@ def tempo_direction_feature(na, part, **kwargs):
                 return "tempo_incr"
             elif isinstance(d, score.DecreasingTempoDirection):
                 return "tempo_decr"
+
     else:
+
         def to_name(d):
             if isinstance(d, score.ResetTempoDirection):
                 ref = d.reference_tempo
@@ -650,7 +691,6 @@ def tempo_direction_feature(na, part, **kwargs):
             to_name(d), (len(feature_by_name), np.zeros(N))
         )
         bf += feature_function_activation(d)(onsets)
-
 
     if not force_size:
         M = len(feature_by_name) if len(feature_by_name) > 0 else 1
@@ -681,12 +721,15 @@ def articulation_direction_feature(na, part, **kwargs):
     else:
         force_size = False
     if force_size:
+
         def to_name(d):
             if d.text in constant_names:
                 return d.text
             else:
-                return "unknown_direction"
+                return "unknown_articulation"
+
     else:
+
         def to_name(d):
             return d.text
 
@@ -722,13 +765,8 @@ def feature_function_activation(direction):
     if isinstance(
         direction, (score.DynamicLoudnessDirection, score.DynamicTempoDirection)
     ):
-        # a dynamic direction will be encoded as a ramp from d.start.t to
-        # d.end.t, and then a step from d.end.t to the start of the next
-        # constant direction.
-
-        # There are two potential issues:
-
-        # Issue 1. d.end is None (e.g. just a ritardando without dashes). In this case
+        # a dynamic direction will be encoded as a ramp from d.start.t to d.end.t
+        # if d.end is None (e.g. just a ritardando without dashes)
         if direction.end:
             direction_end = direction.end.t
         else:
@@ -738,31 +776,10 @@ def feature_function_activation(direction):
                 direction_end = measure.start.t
             else:
                 # no measure, unlikely, but not impossible.
-                direction_end = direction.start.t
+                direction_end = direction.start.t + 1
 
-        if isinstance(direction, score.TempoDirection):
-            next_dir = next(
-                direction.start.iter_next(score.ConstantTempoDirection), None
-            )
-        if isinstance(direction, score.ArticulationDirection):
-            next_dir = next(
-                direction.start.iter_next(score.ConstantArticulationDirection), None
-            )
-        else:
-            next_dir = next(
-                direction.start.iter_next(score.ConstantLoudnessDirection), None
-            )
-
-        if next_dir:
-            # TODO: what do we do when next_dir is too far away?
-            sustained_end = next_dir.start.t
-        else:
-            # Issue 2. there is no next constant direction. In that case the
-            # feature function will be a ramp with a quarter note ramp
-            sustained_end = direction_end + direction.start.quarter
-
-        x = [direction.start.t, direction_end - epsilon, sustained_end - epsilon]
-        y = [0, 1, 1]
+        x = [direction.start.t, direction_end, direction_end + epsilon]
+        y = [0, 1, 0]
 
     elif isinstance(
         direction,
@@ -933,7 +950,6 @@ def ornament_feature(na, part, **kwargs):
         names = [None] * M
     W = np.zeros((N, M))
 
-
     for name, (j, bf) in feature_by_name.items():
         if fix_size:
             j = names.index(name)
@@ -999,7 +1015,6 @@ def metrical_feature(na, part, **kwargs):
     eps = 10**-6
 
     for i, n in enumerate(notes):
-
         beats, beat_type, mus_beats = ts_map(n.start.t).astype(int)
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 

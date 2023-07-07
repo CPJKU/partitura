@@ -1,9 +1,34 @@
 Release Notes
 =============
 
+Version 1.3.1 (Released on 2023-07-06)
+--------------------------------------
 
-New Version 1.3.0 (Released on 2023-06-09)
-------------------------------------------
+New Features
+------------
+
+* (Partial) match note ID validation.
+* Normalization module and (partial) normalization defaults for note and performance features. 
+
+Bug Fixes
+------------
+
+* Fixed bug: #289 
+* Fixed bug: #277 
+* Fixed bug: #275
+* Fixed several bugs of fixed-size note feature array extraction: #270, #271, #272
+* Fixed bug: #269
+
+Other Changes
+------------
+
+* Encoding of Dynamic Score Markings in note feature arrays changed to a simple ramp from 0 to 1, starting at the start position of the marking and ending at the end.
+* Refactor all alignment-related processing to performance_codec.
+
+
+
+Version 1.3.0 (Released on 2023-06-09)
+--------------------------------------
 
 This PR addresses release 1.3.0, it includes several bug fixes, code cleaning, documentation, and new functionality.
 
@@ -11,44 +36,46 @@ This PR addresses release 1.3.0, it includes several bug fixes, code cleaning, d
 New Features
 ------------
 
-- Enhanced Performance features in the same fashion as the note features;
-- Fixed-size option for Note features. Use: `
-- Create a score from a note array functionality. Call `partitura.musicanalysis.scorify(note_array)`;
+* Enhanced Performance features in the same fashion as the note features;
+* Fixed-size option for Note features. Use: `
+* Create a score from a note array functionality. Call `partitura.musicanalysis.scorify(note_array)`;
 
 New Optional Features
 ---------------------
 
-- _If music21 is installed_ : Import music21 to Partitura by calling `partitura.load_music21(m21_score)`
-- _If MidiTok is installed_ : Export Partitura Score to Tokens by calling `partitura.utils.music.tokenize(score_data, tokenizer)`
+* _If music21 is installed_ : Import music21 to Partitura by calling `partitura.load_music21(m21_score)`
+* _If MidiTok is installed_ : Export Partitura Score to Tokens by calling `partitura.utils.music.tokenize(score_data, tokenizer)`
 
 Bug Fixes
 ----------
 
-- Fixed bug: #264 
-- Fixed bug: #251 
-- Fixed bug: #207
-- Fixed bug: #162
-- Fixed bug: #261
-- Fixed bug: #262
-- Fixed Issue: #256
-- Addressed Issue: #133
-- Fixed bug: #257
-- Fixed bug: #248 
-- Fixed bug: #223 
+* Fixed bug: #264 
+* Fixed bug: #251 
+* Fixed bug: #207
+* Fixed bug: #162
+* Fixed bug: #261
+* Fixed bug: #262
+* Fixed Issue: #256
+* Addressed Issue: #133
+* Fixed bug: #257
+* Fixed bug: #248 
+* Fixed bug: #223 
 
 Other Changes
 -------------
 
-- Minor Changes to the Documentation
-- Addition of Docs link to the Github header
-- Upgraded python version requirements to Python>= 3.7
+* Minor Changes to the Documentation
+* Addition of Docs link to the Github header
+* Upgraded python version requirements to Python>= 3.7
 
 
-Version 1.2.2 (Released on 2023-10-05)
+
+Version 1.2.2 (Released on 2023-05-10)
 --------------------------------------
 
 New features
 ------------
+
 * slicing performed parts
 * roman numeral analysis
 * harmony class for part and export
@@ -58,6 +85,7 @@ New features
 
 Bug fixes
 ---------
+
 * file naming bug in load_musicxml()
 * fixed bug in score part unfolding
 * bugfix for fine, ritenuto parsing and unfolding
@@ -66,8 +94,10 @@ Bug fixes
 
 Other changes
 -------------
+
 * Improved documentation
 * Added contributing file
+
 
 
 Version 1.2.1 (Released on 2023-02-09)
@@ -75,16 +105,18 @@ Version 1.2.1 (Released on 2023-02-09)
 
 Bug fixes
 ---------
+
 * fixed bug in exporting data for parangonada https://sildater.github.io/parangonada/
 * fixed bug in rendering via musescore
 * fixed bug in loading via musescore
 
 
+
 Version 1.2.0 (Released on 2022-12-01)
 --------------------------------------
 
-
 New features
+-------------
 
 * Load and save alignments, performances, and scores stored in match files (.match) of all available versions
 * Support for mei loading via verovio (if installed)
@@ -94,6 +126,7 @@ New features
 
 
 Bug fixes
+-------------
 
 * Fix render via musescore (if installed)
 * Fix bug slowing down musicxml export
@@ -105,6 +138,7 @@ Bug fixes
 
 
 Other changes
+-------------
 
 * Improved documentation
 * Extended test coverage
@@ -116,10 +150,12 @@ Version 1.1.1 (Released on 2022-10-31)
 --------------------------------------
 
 New features:
+-------------
 
 * New minor feature : Adding midi pitch to freq for synthesizer add reference-based midi pitch to freq #163
 
 Bug fixes:
+-------------
 
 * Documentation Fix of ReadTheDocs
 * Bug fix Bug synthesizing scores with pickup measures #166 Synthesizing score with pick up measure
@@ -129,6 +165,7 @@ Bug fixes:
 * Fix synthesizing scores with pickup measures #167
 
 Other changes:
+-------------
 
 * Encoding declaration on all files.
 * Renaming master branch as main
@@ -138,12 +175,14 @@ Version 1.0.0 (Released on 2022-09-20)
 --------------------------------------
 
 API changes:
+-------------
 
 * Different `__call__` for `note_array` attribute (in `Score`, `Part`, `PerformedPart` and `PartGroup`).  `note_array` is now called as a method with brackets. One can specify additional fields for the note array such as key, pitch spelling, time signature, and others.
 * Every score is imported as a `Score` object where each part can be accessed individually.
 
 
 New features:
+-------------
 
 * We now support import from humdrum **kern, and MEI (coming soon import Musescore and Music21, export MEI).
 * The music analysis functions now include:
@@ -159,6 +198,7 @@ New features:
 * Added score unfolding features.
 
 Bug fixes:
+-------------
 
 * Pianoroll starting with silence mismatch on pianoroll creation fixed.
 * Fixed consistency of time signature map.
@@ -168,6 +208,7 @@ Bug fixes:
 * `ensure_note_array` now works even with parts with different divs.
 
 Other changes:
+-------------
 
 * Logger is replaced by warnings.
 * Add documentation
@@ -179,6 +220,7 @@ Version 0.4.0 (Released on 2021-05-28)
 --------------------------------------
 
 API changes:
+-------------
 
 * Different format for `note_array` attribute (in `Part`, `PerformedPart` and `PartGroup`). The name of the fields in the note arrays for onset and duration information now include the units: `beat`, `quarter`, and `div` for scores and `sec` for performances.
 * The music analysis functions now accept `Part` and `PerformedPart` as well as note arrays
@@ -187,6 +229,7 @@ API changes:
 
   
 New features:
+-------------
 
 * Add function to create 2D pianoroll representations from `Part`, `PerformedPart` or note arrays.
 * Add document order index to parts read from MusicXML
@@ -197,7 +240,8 @@ New features:
 * Add `sanitize_part` function removing incomplete slurs and tuplets.
 
 Bug fixes:
-  
+-------------
+
 * Fix tempo change bug in load_performance_midi
 * Fix saving parts with anacrusis to score MIDI
 * When defining `Note` objects, lower-case note names are converted to upper-case. Before this the behavior was undefined when using lower-case note names
@@ -207,6 +251,7 @@ Bug fixes:
 * Fix GraceNote bug
 
 Other changes:
+-------------
 
 * Add documentation
 * Code cleanup
@@ -215,6 +260,7 @@ Version 0.3.5 (Released on 2019-11-08)
 --------------------------------------
 
 Other changes:
+-------------
 
 * Add documentation
 
@@ -223,19 +269,22 @@ Version 0.3.4 (Released on 2019-11-08)
 --------------------------------------
 
 API changes:
+-------------
 
 * Rename `out_fmt` kwarg to `fmt` in `show`
 * Add `dpi` kwarg to `show`
 * Rename `show` function to `render`
 
 New features:
+-------------
 
 * Save rendered scores to image file using `render`
 * Add `wedge` attribute to DynamicLoudnessMarkings to differentiate them
   from textual directions
 
 Bug fixes:
-  
+------------- 
+
 * Do not crash when calling time_signature_map on empty Part instances
 * Fix bug in repeat unfolding
 
@@ -244,7 +293,8 @@ Version 0.3.3 (Released on 2019-11-04)
 --------------------------------------
 
 Bug fixes:
-  
+-------------  
+
 * Fix missing dedent import
 
 
@@ -252,16 +302,19 @@ Version 0.3.2 (Released on 2019-11-03)
 --------------------------------------
 
 API changes:
+-------------
 
 * More systematic direction ontology
 
 New features:
+-------------
 
 * Add `grace_seq_len` property to grace note
 * Add `backwards` keyword arg to `iter_grace_seq`
 
 Bug fixes:
-  
+-------------  
+
 * Fix regression in slur handling; Remove unended objects in import
 
 
@@ -269,6 +322,7 @@ Version 0.3.1 (Released on 2019-10-30)
 --------------------------------------
 
 API changes:
+-------------
 
 * Rename load_midi -> load_score_midi
 * Rename xml_to_notearray -> musicxml_to_notearray
@@ -279,6 +333,7 @@ API changes:
 version)
 
 New features:
+-------------
 
 * Save Part as MIDI file (save_score_midi)
 * Add PerformedPart to represent performances
@@ -300,6 +355,7 @@ New features:
 * Add load_via_musescore to load scores in other formats 
 
 Bug fixes:
+-------------
 
 * Better clef support in musicxml export
 * export_musicxml: fixes in handle wedge/dashes export
@@ -312,6 +368,7 @@ Bug fixes:
 * import_musicxml: check for <backup> crossing measure boundary
     
 Other changes:
+-------------
 
 * Get rid of deprecated get_prev/next_of_type
 * Tuplet/Slur: make use of getter/setter for start/end_note
@@ -327,10 +384,12 @@ Version 0.2.0 (prerelease; Released on 2019-10-04)
 --------------------------------------------------
 
 API changes:
+-------------
 
 * The TimeLine class has been merged into the Part class
   
 New features:
+-------------
 
 * Add `find_tuplets` and `tie_notes` to public API
 * New Tuplet class analog to Slur, allows for better musicxml tuplet
@@ -339,10 +398,12 @@ New features:
   iter_starting/iter_ending)
 
 Bug fixes:
+-------------
 
 * Multiple fixes in tuplet and slur handling 
 
 Other changes:
+-------------
 
 * Update package description/long description
 * More documentation
@@ -354,6 +415,7 @@ Version 0.1.2 (prerelease; Released on 2019-09-29)
 --------------------------------------------------
 
 API changes:
+-------------
 
 * New approach to handling divisions
 * Treat missing key signature mode as major
@@ -369,11 +431,13 @@ API changes:
 * Remove `Measure.upbeat` property (use `Measure.incomplete`)
 
 New features:
+-------------
 
 * New add_measures function to automatically add measures to a Part
 * Add inverted quarter/beat map
 
 Bug fixes:
+-------------
 
 * Avoid sharing symbolic_duration dictionaries between notes
 * Rework MIDI loading: do not accumulate quantization errors
@@ -390,7 +454,8 @@ Bug fixes:
 * fix bug in `estimate_symbolic_duration`
   
 Other changes:
-  
+-------------
+
 * Add test case for beat maps and symbolic durations
 * Improve direction parsing
 * Remove polyphony within voices when exporting to musicxml
@@ -406,12 +471,15 @@ Other changes:
 
 Version 0.1.1 (prerelease)
 --------------------------
+
 Bug fixes:
+-------------
 
 * Tweak docs/conf.py to work correctly on readthedocs.org
 
 Other changes:
-  
+-------------
+
 * Fix incorrect version in setup.py
 
 Version 0.1.0 (prerelease)

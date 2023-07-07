@@ -208,7 +208,6 @@ class MatchInfo(BaseInfoLine):
         value_type: type,
         format_fun: Callable[Any, str],
     ) -> None:
-
         if version >= Version(1, 0, 0):
             raise ValueError("The version must be < 1.0.0")
 
@@ -294,7 +293,6 @@ META_LINE = {
 
 
 class MatchMeta(MatchLine):
-
     field_names = (
         "Attribute",
         "Value",
@@ -322,7 +320,6 @@ class MatchMeta(MatchLine):
         measure: int,
         time_in_beats: float,
     ) -> None:
-
         if version >= Version(1, 0, 0):
             raise ValueError("The version must be < 1.0.0")
 
@@ -382,7 +379,6 @@ class MatchMeta(MatchLine):
         class_dict = META_LINE[version]
 
         if match_pattern is not None:
-
             (
                 attribute,
                 value_str,
@@ -681,7 +677,6 @@ class MatchNote(BaseNoteLine):
         velocity: int,
         **kwargs,
     ) -> None:
-
         if version not in NOTE_LINE:
             raise ValueError(
                 f"Unknown version {version}!. "
@@ -720,7 +715,6 @@ class MatchNote(BaseNoteLine):
         self.AdjOffset = offset
 
         if "adj_offset" in kwargs:
-
             self.AdjOffset = kwargs["adj_offset"]
 
     @property
@@ -734,7 +728,6 @@ class MatchNote(BaseNoteLine):
         pos: int = 0,
         version: Version = LAST_VERSION,
     ) -> MatchNote:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} >= Version(1, 0, 0)")
 
@@ -760,7 +753,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         snote: MatchSnote,
         note: MatchNote,
     ) -> None:
-
         super().__init__(
             version=version,
             snote=snote,
@@ -773,7 +765,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         matchline: str,
         version: Version = LAST_VERSION,
     ) -> MatchSnoteNote:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} >= Version(1, 0, 0)")
 
@@ -789,7 +780,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
 
 class MatchSnoteDeletion(BaseDeletionLine):
     def __init__(self, version: Version, snote: MatchSnote) -> None:
-
         super().__init__(
             version=version,
             snote=snote,
@@ -801,7 +791,6 @@ class MatchSnoteDeletion(BaseDeletionLine):
         matchline: str,
         version: Version = LAST_VERSION,
     ) -> MatchSnoteDeletion:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} >= Version(1, 0, 0)")
 
@@ -834,7 +823,6 @@ class MatchSnoteNoPlayedNote(MatchSnoteDeletion):
 
 class MatchInsertionNote(BaseInsertionLine):
     def __init__(self, version: Version, note: MatchNote) -> None:
-
         super().__init__(
             version=version,
             note=note,
@@ -846,7 +834,6 @@ class MatchInsertionNote(BaseInsertionLine):
         matchline: str,
         version: Version = LAST_VERSION,
     ) -> MatchInsertionNote:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} >= Version(1, 0, 0)")
 
@@ -860,7 +847,6 @@ class MatchInsertionNote(BaseInsertionLine):
 
 
 class MatchHammerBounceNote(MatchInsertionNote):
-
     out_pattern = "hammer_bounce-{NoteLine}"
 
     def __init__(self, version: Version, note: MatchNote) -> None:
@@ -869,7 +855,6 @@ class MatchHammerBounceNote(MatchInsertionNote):
 
 
 class MatchTrailingPlayedNote(MatchInsertionNote):
-
     out_pattern = "trailing_played_note-{NoteLine}"
 
     def __init__(self, version: Version, note: MatchNote) -> None:
@@ -878,7 +863,6 @@ class MatchTrailingPlayedNote(MatchInsertionNote):
 
 
 class MatchTrillNote(BaseOrnamentLine):
-
     out_pattern = "trill({Anchor})-{NoteLine}"
     ornament_pattern: re.Pattern = re.compile(r"trill\((?P<Anchor>[^\)]*)\)-")
 
@@ -900,7 +884,6 @@ class MatchTrillNote(BaseOrnamentLine):
         matchline: str,
         version: Version = LAST_VERSION,
     ) -> MatchTrillNote:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} >= Version(1, 0, 0)")
 
@@ -924,7 +907,6 @@ class MatchSustainPedal(BaseSustainPedalLine):
         time: int,
         value: int,
     ) -> None:
-
         super().__init__(
             version=version,
             time=time,
@@ -938,7 +920,6 @@ class MatchSustainPedal(BaseSustainPedalLine):
         version: Version = LAST_VERSION,
         pos: int = 0,
     ) -> MatchSustainPedal:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} less than 1.0.0")
 
@@ -961,7 +942,6 @@ class MatchSoftPedal(BaseSoftPedalLine):
         time: int,
         value: int,
     ) -> None:
-
         super().__init__(
             version=version,
             time=time,
@@ -975,7 +955,6 @@ class MatchSoftPedal(BaseSoftPedalLine):
         version: Version = LAST_VERSION,
         pos: int = 0,
     ) -> MatchSoftPedal:
-
         if version >= Version(1, 0, 0):
             raise ValueError(f"{version} should be less than 1.0.0")
 
@@ -1025,7 +1004,6 @@ def parse_matchline(line: str, version: Version) -> Optional[MatchLine]:
         return parse(MatchMeta)
 
     if line.startswith("snote"):
-
         for mlt in [
             MatchSnoteNote,
             MatchSnoteDeletion,

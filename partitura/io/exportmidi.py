@@ -32,7 +32,7 @@ def map_to_track_channel(note_keys, mode):
     tr_helper = {}
     track = {}
     channel = {}
-    for (pg, p, v) in note_keys:
+    for pg, p, v in note_keys:
         if mode == 0:
             trk = tr_helper.setdefault(p, len(tr_helper))
             ch1 = ch_helper.setdefault(p, {})
@@ -287,9 +287,9 @@ def save_score_midi(
         downbeats position are coherent in case of incomplete measures
         later in the score.
     minimum_ppq : int, optional
-        Minimum ppq to use for the MIDI file. If the ppq of the score is less, 
+        Minimum ppq to use for the MIDI file. If the ppq of the score is less,
         it will be doubled until it is above the threshold. This is useful
-        because some libraries like miditok require a certain minimum ppq to 
+        because some libraries like miditok require a certain minimum ppq to
         work properly.
 
     Returns
@@ -315,7 +315,7 @@ def save_score_midi(
     # double it until it is above the minimum level.
     # Doubling instead of setting it ensure that the common divisors stay the same.
     while ppq < minimum_ppq:
-        ppq = ppq*2
+        ppq = ppq * 2
 
     events = defaultdict(lambda: defaultdict(list))
     meta_events = defaultdict(lambda: defaultdict(list))
@@ -346,7 +346,6 @@ def save_score_midi(
             )
 
     for qm, part in zip(quarter_maps, score.iter_parts(parts)):
-
         pg = get_partgroup(part)
 
         notes = part.notes_tied
@@ -367,22 +366,30 @@ def save_score_midi(
             all_ts = list(part.iter_all(score.TimeSignature))
             ts_changing_time = [ts.start.t for ts in all_ts]
             for measure in part.iter_all(score.Measure):
-                m_duration_beat = part.beat_map(measure.end.t) - part.beat_map(measure.start.t)
+                m_duration_beat = part.beat_map(measure.end.t) - part.beat_map(
+                    measure.start.t
+                )
                 m_ts = part.time_signature_map(measure.start.t)
                 if m_duration_beat != m_ts[0]:
                     # add ts change
                     # TODO: add support for changing the beat type if number of beats is not integer
                     meta_events[part][to_ppq(measure.start.t)].append(
                         MetaMessage(
-                            "time_signature", numerator=int(m_duration_beat), denominator=int(m_ts[1])
+                            "time_signature",
+                            numerator=int(m_duration_beat),
+                            denominator=int(m_ts[1]),
                         )
                     )
-                    ts_changing_time.append(measure.start.t) # keep track of changing the ts
+                    ts_changing_time.append(
+                        measure.start.t
+                    )  # keep track of changing the ts
                     # now go back to original ts if there is no ts change after this measure
                     if not any([ts_t > measure.start.t for ts_t in ts_changing_time]):
                         meta_events[part][to_ppq(measure.end.t)].append(
                             MetaMessage(
-                                "time_signature", numerator=int(m_ts[0]), denominator=int(m_ts[1])
+                                "time_signature",
+                                numerator=int(m_ts[0]),
+                                denominator=int(m_ts[1]),
                             )
                         )
             # filter out the multiple ts changes at the same time
@@ -394,27 +401,33 @@ def save_score_midi(
             # now add the normal time signature change
             for ts in part.iter_all(score.TimeSignature):
                 if ts.start.t in ts_changing_time:
-                #don't add if something is already added at this time to cover the case of a ts change when the first measure is shorter/longer
+                    # don't add if something is already added at this time to cover the case of a ts change when the first measure is shorter/longer
                     pass
                 else:
                     meta_events[part][to_ppq(ts.start.t)].append(
                         MetaMessage(
-                            "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                            "time_signature",
+                            numerator=ts.beats,
+                            denominator=ts.beat_type,
                         )
                     )
-        else: # just add the time signature that are explicit in partitura
+        else:  # just add the time signature that are explicit in partitura
             for i, ts in enumerate(part.iter_all(score.TimeSignature)):
                 if anacrusis_behavior == "pad_bar" and i == 0:
                     # shift the first time signature to 0 so MIDI players can pick up the correct measure position
                     meta_events[part][0].append(
                         MetaMessage(
-                        "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                            "time_signature",
+                            numerator=ts.beats,
+                            denominator=ts.beat_type,
                         )
-                    )   
-                else: #follow the position in the partitura part
+                    )
+                else:  # follow the position in the partitura part
                     meta_events[part][to_ppq(ts.start.t)].append(
                         MetaMessage(
-                            "time_signature", numerator=ts.beats, denominator=ts.beat_type
+                            "time_signature",
+                            numerator=ts.beats,
+                            denominator=ts.beat_type,
                         )
                     )
 
@@ -424,7 +437,6 @@ def save_score_midi(
             )
 
         for note in notes:
-
             # key is a tuple (part_group, part, voice) that will be
             # converted into a (track, channel) pair.
             key = (pg, part, note.voice)

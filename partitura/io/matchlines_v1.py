@@ -127,7 +127,6 @@ class MatchInfo(BaseInfoLine):
         value_type: type,
         format_fun: Callable[Any, str],
     ) -> None:
-
         if version < Version(1, 0, 0):
             raise ValueError("The version must be >= 1.0.0")
 
@@ -195,7 +194,6 @@ class MatchInfo(BaseInfoLine):
     def from_instance(
         cls, instance: BaseInfoLine, version: Version = LATEST_VERSION
     ) -> MatchInfo:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -250,7 +248,6 @@ SCOREPROP_ATTRIBUTE_EQUIVALENCES = dict(
 
 
 class MatchScoreProp(MatchLine):
-
     field_names = (
         "Attribute",
         "Value",
@@ -285,7 +282,6 @@ class MatchScoreProp(MatchLine):
         offset: FractionalSymbolicDuration,
         time_in_beats: float,
     ) -> None:
-
         if version < Version(1, 0, 0):
             raise ValueError("The version must be >= 1.0.0")
 
@@ -351,7 +347,6 @@ class MatchScoreProp(MatchLine):
         class_dict = SCOREPROP_LINE[version]
 
         if match_pattern is not None:
-
             (
                 attribute,
                 value_str,
@@ -401,7 +396,6 @@ class MatchScoreProp(MatchLine):
         offset: Optional[FractionalSymbolicDuration] = None,
         time_in_beats: Optional[float] = None,
     ) -> MatchScoreProp:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -511,7 +505,6 @@ class MatchSection(MatchLine):
         end_in_beats_original: float,
         repeat_end_type: List[str],
     ) -> None:
-
         if version not in SECTION_LINE:
             raise ValueError(
                 f"Unknown version {version}!. "
@@ -549,7 +542,6 @@ class MatchSection(MatchLine):
         class_dict = SECTION_LINE[version]
 
         if match_pattern is not None:
-
             kwargs = dict(
                 [
                     (to_snake_case(fn), class_dict[fn][0](match_pattern.group(fn)))
@@ -588,7 +580,6 @@ class MatchStime(BaseStimeLine):
         onset_in_beats: float,
         annotation_type: List[str],
     ) -> None:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -613,7 +604,6 @@ class MatchStime(BaseStimeLine):
         pos: int = 0,
         version: Version = LATEST_VERSION,
     ) -> MatchStime:
-
         if version not in STIME_LINE:
             raise ValueError(
                 f"Unknown version {version}!. "
@@ -647,7 +637,6 @@ class MatchPtime(BasePtimeLine):
         version: Version,
         onsets: List[int],
     ) -> None:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -668,7 +657,6 @@ class MatchPtime(BasePtimeLine):
         pos: int = 0,
         version: Version = LATEST_VERSION,
     ) -> MatchStime:
-
         if version not in PTIME_LINE:
             raise ValueError(
                 f"Unknown version {version}!. "
@@ -690,7 +678,6 @@ class MatchPtime(BasePtimeLine):
 
 
 class MatchSnote(BaseSnoteLine):
-
     format_fun = dict(
         Anchor=format_string,
         NoteName=lambda x: str(x.upper()),
@@ -720,7 +707,6 @@ class MatchSnote(BaseSnoteLine):
         offset_in_beats: float,
         score_attributes_list: List[str],
     ) -> None:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
         super().__init__(
@@ -816,7 +802,6 @@ NOTE_LINE = {
 
 
 class MatchNote(BaseNoteLine):
-
     field_names = (
         "Id",
         "MidiPitch",
@@ -852,7 +837,6 @@ class MatchNote(BaseNoteLine):
         channel: int,
         track: int,
     ) -> None:
-
         if version not in NOTE_LINE:
             raise ValueError(
                 f"Unknown version {version}!. "
@@ -883,7 +867,6 @@ class MatchNote(BaseNoteLine):
         pos: int = 0,
         version: Version = LATEST_VERSION,
     ) -> MatchNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -907,7 +890,6 @@ class MatchNote(BaseNoteLine):
         instance: BaseNoteLine,
         version: Version = LATEST_VERSION,
     ) -> MatchNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -915,7 +897,6 @@ class MatchNote(BaseNoteLine):
             raise ValueError("`instance` needs to be a subclass of `BaseNoteLine`")
 
         if instance.version < Version(1, 0, 0):
-
             return cls(
                 version=version,
                 id=instance.Id,
@@ -947,7 +928,6 @@ class MatchStimePtime(BaseStimePtimeLine):
         matchline: str,
         version: Version = LATEST_VERSION,
     ) -> MatchSnoteNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -968,7 +948,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         snote: BaseSnoteLine,
         note: BaseNoteLine,
     ) -> None:
-
         super().__init__(
             version=version,
             snote=snote,
@@ -981,7 +960,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
         matchline: str,
         version: Version = LATEST_VERSION,
     ) -> MatchSnoteNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -998,7 +976,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
     def from_instance(
         cls, instance: BaseSnoteNoteLine, version: Version
     ) -> MatchSnoteNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1014,7 +991,6 @@ class MatchSnoteNote(BaseSnoteNoteLine):
 
 class MatchSnoteDeletion(BaseDeletionLine):
     def __init__(self, version: Version, snote: MatchSnote) -> None:
-
         super().__init__(
             version=version,
             snote=snote,
@@ -1026,7 +1002,6 @@ class MatchSnoteDeletion(BaseDeletionLine):
         matchline: str,
         version: Version = LATEST_VERSION,
     ) -> MatchSnoteDeletion:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1042,7 +1017,6 @@ class MatchSnoteDeletion(BaseDeletionLine):
     def from_instance(
         cls, instance: BaseDeletionLine, version: Version
     ) -> MatchSnoteNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1057,7 +1031,6 @@ class MatchSnoteDeletion(BaseDeletionLine):
 
 class MatchInsertionNote(BaseInsertionLine):
     def __init__(self, version: Version, note: MatchNote) -> None:
-
         super().__init__(
             version=version,
             note=note,
@@ -1069,7 +1042,6 @@ class MatchInsertionNote(BaseInsertionLine):
         matchline: str,
         version: Version = LATEST_VERSION,
     ) -> MatchInsertionNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1085,7 +1057,6 @@ class MatchInsertionNote(BaseInsertionLine):
     def from_instance(
         cls, instance: BaseInsertionLine, version: Version
     ) -> MatchInsertionNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1099,7 +1070,6 @@ class MatchInsertionNote(BaseInsertionLine):
 
 
 class MatchOrnamentNote(BaseOrnamentLine):
-
     field_names = (
         "Anchor",
         "OrnamentType",
@@ -1142,7 +1112,6 @@ class MatchOrnamentNote(BaseOrnamentLine):
         matchline: str,
         version: Version = LATEST_VERSION,
     ) -> MatchOrnamentNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1163,7 +1132,6 @@ class MatchOrnamentNote(BaseOrnamentLine):
     def from_instance(
         cls, instance: BaseOrnamentLine, version: Version
     ) -> MatchOrnamentNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1187,7 +1155,6 @@ class MatchSustainPedal(BaseSustainPedalLine):
         time: int,
         value: int,
     ) -> None:
-
         super().__init__(
             version=version,
             time=time,
@@ -1201,7 +1168,6 @@ class MatchSustainPedal(BaseSustainPedalLine):
         version: Version = LATEST_VERSION,
         pos: int = 0,
     ) -> MatchSustainPedal:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1220,7 +1186,6 @@ class MatchSustainPedal(BaseSustainPedalLine):
     def from_instance(
         cls, instance: BaseSustainPedalLine, version: Version
     ) -> MatchOrnamentNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1243,7 +1208,6 @@ class MatchSoftPedal(BaseSoftPedalLine):
         time: int,
         value: int,
     ) -> None:
-
         super().__init__(
             version=version,
             time=time,
@@ -1257,7 +1221,6 @@ class MatchSoftPedal(BaseSoftPedalLine):
         version: Version = LATEST_VERSION,
         pos: int = 0,
     ) -> MatchSoftPedal:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1278,7 +1241,6 @@ class MatchSoftPedal(BaseSoftPedalLine):
         instance: BaseSoftPedalLine,
         version: Version,
     ) -> MatchOrnamentNote:
-
         if version < Version(1, 0, 0):
             raise ValueError(f"{version} < Version(1, 0, 0)")
 
@@ -1344,7 +1306,6 @@ def make_scoreprop(
     offset: FractionalSymbolicDuration,
     time_in_beats: float,
 ) -> MatchScoreProp:
-
     class_dict = SCOREPROP_LINE[version]
 
     _, format_fun, dtype = class_dict[attribute]
@@ -1372,7 +1333,6 @@ def make_section(
     end_in_beats_original: float,
     repeat_end_type: Union[str, List[str]],
 ) -> MatchSection:
-
     ml = MatchSection(
         version=version,
         start_in_beats_unfolded=start_in_beats_unfolded,
@@ -1406,7 +1366,6 @@ def to_v1(matchline: MatchLine, version: Version = LATEST_VERSION) -> MatchLine:
     from partitura.io.matchlines_v0 import MatchMeta
 
     if isinstance(matchline, BaseInfoLine):
-
         if (
             matchline.Attribute in INFO_LINE[version]
             or matchline.Attribute in INFO_ATTRIBUTE_EQUIVALENCES
@@ -1417,7 +1376,6 @@ def to_v1(matchline: MatchLine, version: Version = LATEST_VERSION) -> MatchLine:
             matchline.Attribute in SCOREPROP_LINE[version]
             or matchline.Attribute in SCOREPROP_ATTRIBUTE_EQUIVALENCES
         ):
-
             return MatchScoreProp.from_instance(instance=matchline, version=version)
 
     if isinstance(matchline, MatchMeta):

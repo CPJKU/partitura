@@ -595,11 +595,9 @@ class BaseSnoteLine(MatchLine):
         matchline: str,
         pos: int = 0,
     ) -> Dict:
-
         match_pattern = cls.pattern.search(matchline, pos)
 
         if match_pattern is not None:
-
             (
                 anchor_str,
                 note_name_str,
@@ -640,7 +638,6 @@ class BaseSnoteLine(MatchLine):
 
 
 class BaseNoteLine(MatchLine):
-
     # All derived classes should include at least
     # these field names
     field_names = (
@@ -683,7 +680,6 @@ class BaseNoteLine(MatchLine):
 
 
 class BaseSnoteNoteLine(MatchLine):
-
     out_pattern = "{SnoteLine}-{NoteLine}"
 
     def __init__(
@@ -692,7 +688,6 @@ class BaseSnoteNoteLine(MatchLine):
         snote: BaseSnoteLine,
         note: BaseNoteLine,
     ) -> None:
-
         super().__init__(version)
 
         self.snote = snote
@@ -714,7 +709,6 @@ class BaseSnoteNoteLine(MatchLine):
         )
 
     def __str__(self) -> str:
-
         """
         Prints the printing the match line
         """
@@ -775,11 +769,9 @@ class BaseSnoteNoteLine(MatchLine):
 
 
 class BaseDeletionLine(MatchLine):
-
     out_pattern = "{SnoteLine}-deletion."
 
     def __init__(self, version: Version, snote: BaseSnoteLine) -> None:
-
         super().__init__(version)
 
         self.snote = snote
@@ -808,7 +800,6 @@ class BaseDeletionLine(MatchLine):
         snote_class: BaseSnoteLine,
         version: Version,
     ) -> Dict:
-
         snote = snote_class.from_matchline(matchline, version=version)
 
         kwargs = dict(
@@ -820,11 +811,9 @@ class BaseDeletionLine(MatchLine):
 
 
 class BaseInsertionLine(MatchLine):
-
     out_pattern = "insertion-{NoteLine}"
 
     def __init__(self, version: Version, note: BaseNoteLine) -> None:
-
         super().__init__(version)
 
         self.note = note
@@ -853,7 +842,6 @@ class BaseInsertionLine(MatchLine):
         note_class: BaseNoteLine,
         version: Version,
     ) -> Dict:
-
         note = note_class.from_matchline(matchline, version=version)
 
         kwargs = dict(
@@ -865,7 +853,6 @@ class BaseInsertionLine(MatchLine):
 
 
 class BaseOrnamentLine(MatchLine):
-
     # These field names and types need to be expanded
     # with the attributes of the note
     field_names = ("Anchor",)
@@ -875,7 +862,6 @@ class BaseOrnamentLine(MatchLine):
     ornament_pattern: re.Pattern = re.compile(r"ornament\((?P<Anchor>[^\)]*)\)-")
 
     def __init__(self, version: Version, anchor: str, note: BaseNoteLine) -> None:
-
         super().__init__(version)
 
         self.note = note
@@ -907,7 +893,6 @@ class BaseOrnamentLine(MatchLine):
         note_class: BaseNoteLine,
         version: Version,
     ) -> Dict:
-
         anchor_pattern = cls.ornament_pattern.search(matchline)
 
         if anchor_pattern is None:
@@ -957,14 +942,12 @@ class BasePedalLine(MatchLine):
         version: Version,
         pos: int = 0,
     ) -> Dict:
-
         kwargs = None
         # pattern = re.compile(cls.base_pattern.format(pedal_type=pedal_type))
 
         match_pattern = cls.pattern.search(matchline, pos=pos)
 
         if match_pattern is not None:
-
             time_str, value_str = match_pattern.groups()
 
             kwargs = dict(
@@ -977,7 +960,6 @@ class BasePedalLine(MatchLine):
 
 
 class BaseSustainPedalLine(BasePedalLine):
-
     pattern = re.compile(r"sustain\((?P<Time>[^,]+),(?P<Value>[^,]+)\)\.")
     out_pattern: str = "sustain({Time},{Value})."
 
@@ -991,7 +973,6 @@ class BaseSustainPedalLine(BasePedalLine):
 
 
 class BaseSoftPedalLine(BasePedalLine):
-
     pattern = re.compile(r"soft\((?P<Time>[^,]+),(?P<Value>[^,]+)\)\.")
     out_pattern: str = "soft({Time},{Value})."
 
@@ -1022,7 +1003,6 @@ class MatchFile(object):
     lines: np.ndarray
 
     def __init__(self, lines: Iterable[MatchLine]) -> None:
-
         # check that all lines have the same version
         same_version = all([line.version == lines[0].version for line in lines])
 
@@ -1187,7 +1167,6 @@ class MatchFile(object):
 
     @property
     def key_sig_lines(self):
-
         ml = [
             line
             for line in self.lines

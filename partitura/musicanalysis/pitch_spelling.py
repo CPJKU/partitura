@@ -171,7 +171,6 @@ def compute_chroma_vector_array(chroma_array, K_pre, K_post):
 
 
 def compute_morph_array(chroma_array, chroma_vector_array):
-
     n = len(chroma_array)
     # Line 1: Initialize morph array
     morph_array = np.empty(n, dtype=int)
@@ -233,7 +232,6 @@ def compute_morph_array(chroma_array, chroma_vector_array):
 
 
 def compute_ocm_chord_list(sorted_ocp, chroma_array, morph_array):
-
     # Lines 1-3
     ocm_array = np.column_stack((sorted_ocp[:, 0], chroma_array, morph_array)).astype(
         int

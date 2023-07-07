@@ -320,7 +320,6 @@ class DistributedHarmonics(object):
         n_harmonics: int,
         weights: Union[np.ndarray, str] = "equal",
     ) -> None:
-
         self.n_harmonics = n_harmonics
         self.weights = weights
 
@@ -330,7 +329,6 @@ class DistributedHarmonics(object):
         self._overtones = np.arange(1, self.n_harmonics + 2)
 
     def __call__(self, freq: float) -> Tuple[np.ndarray]:
-
         return self._overtones * freq, self.weights
 
 
@@ -344,7 +342,6 @@ class ShepardTones(object):
         min_freq: Union[float, int] = 77.8,
         max_freq: Union[float, int] = 2349,
     ) -> None:
-
         self.min_freq = min_freq
         self.max_freq = max_freq
 
@@ -361,7 +358,6 @@ class ShepardTones(object):
         )
 
     def __call__(self, freq) -> Tuple[np.ndarray]:
-
         min_freq = self.min_f(freq)
 
         freqs = 2 ** np.arange(5) * min_freq
@@ -485,15 +481,13 @@ def synthesize(
             return x, 1
 
     elif isinstance(harmonic_dist, int):
-
         harmonic_dist = DistributedHarmonics(harmonic_dist)
 
     elif isinstance(harmonic_dist, str):
         if harmonic_dist in ("shepard",):
             harmonic_dist = ShepardTones()
 
-    for (f, oif, dur) in zip(freq_in_hz, onsets_in_frames, duration):
-
+    for f, oif, dur in zip(freq_in_hz, onsets_in_frames, duration):
         freqs, weights = harmonic_dist(f)
 
         note = additive_synthesis(

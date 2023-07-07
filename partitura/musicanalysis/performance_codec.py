@@ -24,14 +24,14 @@ __all__ = ["encode_performance", "decode_performance", "to_matched_score"]
 #### Full Codecs ####
 
 
-@deprecated_alias(part='score', ppart="performance")
+@deprecated_alias(part="score", ppart="performance")
 def encode_performance(
     score: ScoreLike,
     performance: PerformanceLike,
     alignment: list,
     return_u_onset_idx=False,
     beat_normalization: str = "beat_period",  # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
-    tempo_smooth: Union[str, Callable] = "average"
+    tempo_smooth: Union[str, Callable] = "average",
 ):
     """
     Encode expressive parameters from a matched performance
@@ -77,7 +77,7 @@ def encode_performance(
         performed_durations=m_score["p_duration"],
         return_u_onset_idx=True,
         beat_normalization=beat_normalization,
-        tempo_smooth=tempo_smooth
+        tempo_smooth=tempo_smooth,
     )
 
     # Get dynamics-related parameters
@@ -93,7 +93,7 @@ def encode_performance(
         return parameters, snote_ids
 
 
-@deprecated_alias(part='score')
+@deprecated_alias(part="score")
 def decode_performance(
     score: ScoreLike,
     performance_array: np.ndarray,
@@ -101,7 +101,7 @@ def decode_performance(
     part_id=None,
     part_name=None,
     return_alignment=False,
-    beat_normalization: str = "beat_period", # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
+    beat_normalization: str = "beat_period",  # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
     *args,
     **kwargs
 ) -> PerformedPart:
@@ -131,10 +131,10 @@ def decode_performance(
     snotes = score.note_array()
 
     if snote_ids is None:
-        snote_ids = [n['id'] for n in snotes]
+        snote_ids = [n["id"] for n in snotes]
         snote_info = snotes
     else:
-        snote_info = snotes[np.isin(snotes['id'], snote_ids)]
+        snote_info = snotes[np.isin(snotes["id"], snote_ids)]
 
     # sort
     sort_idx = np.lexsort((snote_info["pitch"], snote_info["onset_div"]))
@@ -147,7 +147,7 @@ def decode_performance(
 
     dynamics_params = performance_array["velocity"][sort_idx]
     if beat_normalization != "beat_period":
-        norm_params = list(TEMPO_NORMALIZATION[beat_normalization]['param_names'])
+        norm_params = list(TEMPO_NORMALIZATION[beat_normalization]["param_names"])
     else:
         norm_params = []
     time_params = performance_array[
@@ -188,21 +188,25 @@ def decode_performance(
         alignment = []
         for snote, pnote in zip(snote_info, ppart.notes):
             alignment.append(
-                dict(label="match", score_id=snote['id'], performance_id=pnote["id"])
+                dict(label="match", score_id=snote["id"], performance_id=pnote["id"])
             )
 
         return ppart, alignment
     else:
-
         return ppart
+
 
 #### Time and Articulation Codecs ####
 
-def decode_time(score_onsets,
-                score_durations,
-                parameters,
-                normalization = "beat_period",
-                *args, **kwargs):
+
+def decode_time(
+    score_onsets,
+    score_durations,
+    parameters,
+    normalization="beat_period",
+    *args,
+    **kwargs
+):
     """
     Decode a performance into onsets and durations in seconds
     for each note in the score.
@@ -222,16 +226,29 @@ def decode_time(score_onsets,
     # reconstruct the time by the extra parameters, for testing the inversion.
     # In practice, always reconstruct the time by beat_period.
     if normalization != "beat_period":
-        tempo_param_names = list(TEMPO_NORMALIZATION[normalization]['param_names'])
+        tempo_param_names = list(TEMPO_NORMALIZATION[normalization]["param_names"])
         time_param = np.array(
-            [tuple(np.mean(rfn.structured_to_unstructured(parameters[tempo_param_names][uix]), axis=0),) for uix in unique_onset_idxs],
-            dtype=[(tp, "f4") for tp in tempo_param_names]
+            [
+                tuple(
+                    np.mean(
+                        rfn.structured_to_unstructured(
+                            parameters[tempo_param_names][uix]
+                        ),
+                        axis=0,
+                    ),
+                )
+                for uix in unique_onset_idxs
+            ],
+            dtype=[(tp, "f4") for tp in tempo_param_names],
         )
-        beat_period = TEMPO_NORMALIZATION[normalization]['rescale'](time_param)
+        beat_period = TEMPO_NORMALIZATION[normalization]["rescale"](time_param)
 
     else:
         time_param = np.array(
-            [tuple([np.mean(parameters["beat_period"][uix])]) for uix in unique_onset_idxs],
+            [
+                tuple([np.mean(parameters["beat_period"][uix])])
+                for uix in unique_onset_idxs
+            ],
             dtype=[("beat_period", "f4")],
         )
         beat_period = time_param["beat_period"]
@@ -265,7 +282,6 @@ def encode_articulation(
     """
     articulation = np.zeros_like(score_durations)
     for idx, bp in zip(unique_onset_idxs, beat_period):
-
         sd = score_durations[idx]
         pd = performed_durations[idx]
 
@@ -296,8 +312,8 @@ def encode_tempo(
     score_durations,
     performed_durations,
     return_u_onset_idx: bool = False,
-    beat_normalization: str = "beat_period", # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
-    tempo_smooth: Union[str, Callable] = "average"  # "average" or "derivative"
+    beat_normalization: str = "beat_period",  # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
+    tempo_smooth: Union[str, Callable] = "average",  # "average" or "derivative"
 ) -> np.ndarray:
     """
     Compute time-related performance parameters from a performance
@@ -348,8 +364,10 @@ def encode_tempo(
 
     # Compute tempo parameter and normalize
     if beat_normalization != "beat_period":
-        tempo_params = np.array(TEMPO_NORMALIZATION[beat_normalization]['scale'](beat_period))
-        tempo_param_names = list(TEMPO_NORMALIZATION[beat_normalization]['param_names'])
+        tempo_params = np.array(
+            TEMPO_NORMALIZATION[beat_normalization]["scale"](beat_period)
+        )
+        tempo_param_names = list(TEMPO_NORMALIZATION[beat_normalization]["param_names"])
 
     # Compute articulation parameter
     articulation_param = encode_articulation(
@@ -454,9 +472,7 @@ def tempo_by_average(
     eq_onsets = perf_info["u_onset"]
 
     # Monotonize times
-    eq_onset_mt, unique_s_onsets_mt = monotonize_times(
-        eq_onsets, x=unique_s_onsets
-    )
+    eq_onset_mt, unique_s_onsets_mt = monotonize_times(eq_onsets, x=unique_s_onsets)
 
     # Estimate Beat Period
     perf_iois = np.diff(eq_onset_mt)
@@ -475,19 +491,26 @@ def tempo_by_average(
         input_onsets = unique_s_onsets[:-1]
 
     tempo_curve = tempo_fun(input_onsets)
-
-    assert((tempo_curve >= 0).all())
+    if not (tempo_curve >= 0).all():
+        warnings.warn(
+            "The estimated tempo curve is not always positive. "
+            "This might be due to a bad alignment."
+        )
     if return_onset_idxs:
         return tempo_curve, input_onsets, unique_onset_idxs
     else:
         return tempo_curve, input_onsets
 
 
-def tempo_by_derivative(score_onsets, performed_onsets,
-                        score_durations, performed_durations,
-                        unique_onset_idxs=None,
-                        input_onsets=None,
-                        return_onset_idxs=False):
+def tempo_by_derivative(
+    score_onsets,
+    performed_onsets,
+    score_durations,
+    performed_durations,
+    unique_onset_idxs=None,
+    input_onsets=None,
+    return_onset_idxs=False,
+):
     """
     Computes a tempo curve using the derivative of the average performed
     onset times of all notes belonging to the same score onset with respect
@@ -542,28 +565,32 @@ def tempo_by_derivative(score_onsets, performed_onsets,
         unique_onset_idxs = get_unique_onset_idxs((1e4 * score_onsets).astype(int))
 
     # Get score information
-    score_info = get_unique_seq(onsets=score_onsets,
-                                offsets=score_onsets + score_durations,
-                                unique_onset_idxs=unique_onset_idxs,
-                                return_diff=False)
+    score_info = get_unique_seq(
+        onsets=score_onsets,
+        offsets=score_onsets + score_durations,
+        unique_onset_idxs=unique_onset_idxs,
+        return_diff=False,
+    )
     # Get performance information
-    perf_info = get_unique_seq(onsets=performed_onsets,
-                               offsets=performed_onsets + performed_durations,
-                               unique_onset_idxs=unique_onset_idxs,
-                               return_diff=False)
+    perf_info = get_unique_seq(
+        onsets=performed_onsets,
+        offsets=performed_onsets + performed_durations,
+        unique_onset_idxs=unique_onset_idxs,
+        return_diff=False,
+    )
 
     # unique score onsets
-    unique_s_onsets = score_info['u_onset']
+    unique_s_onsets = score_info["u_onset"]
     # equivalent onsets
-    eq_onsets = perf_info['u_onset']
+    eq_onsets = perf_info["u_onset"]
 
     # Monotonize times
-    eq_onset_mt, unique_s_onsets_mt = monotonize_times(eq_onsets,
-                                                       x=unique_s_onsets)
+    eq_onset_mt, unique_s_onsets_mt = monotonize_times(eq_onsets, x=unique_s_onsets)
     # Function that that interpolates the equivalent performed onsets
     # as a function of the score onset.
-    onset_fun = interp1d(unique_s_onsets_mt, eq_onset_mt, kind='linear',
-                         fill_value='extrapolate')
+    onset_fun = interp1d(
+        unique_s_onsets_mt, eq_onset_mt, kind="linear", fill_value="extrapolate"
+    )
 
     if input_onsets is None:
         input_onsets = unique_s_onsets[:-1]
@@ -579,11 +606,13 @@ def tempo_by_derivative(score_onsets, performed_onsets,
 #### Alignment Processing ####
 
 
-@deprecated_alias(part='score', ppart="performance")
-def to_matched_score(score: ScoreLike,
-                     performance: PerformanceLike,
-                     alignment: list,
-                     include_score_markings=False):
+@deprecated_alias(part="score", ppart="performance")
+def to_matched_score(
+    score: ScoreLike,
+    performance: PerformanceLike,
+    alignment: list,
+    include_score_markings=False,
+):
     """
     Returns a mixed score-performance note array
     consisting of matched notes in the alignment.
@@ -607,13 +636,17 @@ def to_matched_score(score: ScoreLike,
 
     feature_functions = None
     if include_score_markings:
-        feature_functions = ["loudness_direction_feature", "articulation_feature",
-                             "tempo_direction_feature", "slur_feature"]
+        feature_functions = [
+            "loudness_direction_feature",
+            "articulation_feature",
+            "tempo_direction_feature",
+            "slur_feature",
+        ]
 
     na = note_features.compute_note_array(score, feature_functions=feature_functions)
     p_na = performance.note_array()
-    part_by_id = dict((n['id'], na[na['id'] == n['id']]) for n in na)
-    ppart_by_id = dict((n['id'], p_na[p_na['id'] == n['id']]) for n in p_na)
+    part_by_id = dict((n["id"], na[na["id"] == n["id"]]) for n in na)
+    ppart_by_id = dict((n["id"], p_na[p_na["id"] == n["id"]]) for n in p_na)
 
     # pair matched score and performance notes
     note_pairs = [
@@ -623,21 +656,23 @@ def to_matched_score(score: ScoreLike,
     ]
     ms = []
     # sort according to onset (primary) and pitch (secondary)
-    pitch_onset = [(sn['pitch'].item(), sn['onset_div'].item()) for sn, _ in note_pairs]
+    pitch_onset = [(sn["pitch"].item(), sn["onset_div"].item()) for sn, _ in note_pairs]
     sort_order = np.lexsort(list(zip(*pitch_onset)))
     snote_ids = []
     for i in sort_order:
         sn, n = note_pairs[int(i)]
-        sn_on, sn_off = [sn['onset_beat'], sn['onset_beat'] + sn['duration_beat']]
+        sn_on, sn_off = [sn["onset_beat"], sn["onset_beat"] + sn["duration_beat"]]
         sn_dur = sn_off - sn_on
         # hack for notes with negative durations
         n_dur = max(n["duration_sec"], 60 / 200 * 0.25)
-        pair_info = (sn_on, sn_dur, sn['pitch'], n["onset_sec"], n_dur, n["velocity"])
+        pair_info = (sn_on, sn_dur, sn["pitch"], n["onset_sec"], n_dur, n["velocity"])
         if include_score_markings:
-            pair_info += (sn['voice'].item(), )
-            pair_info += tuple([sn[field].item() for field in sn.dtype.names if "feature" in field])
+            pair_info += (sn["voice"].item(),)
+            pair_info += tuple(
+                [sn[field].item() for field in sn.dtype.names if "feature" in field]
+            )
         ms.append(pair_info)
-        snote_ids.append(sn['id'].item())
+        snote_ids.append(sn["id"].item())
 
     fields = [
         ("onset", "f4"),
@@ -649,7 +684,11 @@ def to_matched_score(score: ScoreLike,
     ]
     if include_score_markings:
         fields += [("voice", "i4")]
-        fields += [(field, sn.dtype.fields[field][0]) for field in sn.dtype.fields if "feature" in field]
+        fields += [
+            (field, sn.dtype.fields[field][0])
+            for field in sn.dtype.fields
+            if "feature" in field
+        ]
 
     return np.array(ms, dtype=fields), snote_ids
 
@@ -774,7 +813,6 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
     for al in alignment:
         # Get only matched notes (i.e., ignore inserted or deleted notes)
         if al["label"] == "match":
-
             # if ppart_note_array['id'].dtype != type(al['performance_id']):
             if not isinstance(ppart_note_array["id"], type(al["performance_id"])):
                 p_id = str(al["performance_id"])
@@ -799,12 +837,15 @@ def get_unique_seq(onsets, offsets, unique_onset_idxs=None, return_diff=False):
     """
     Get unique onsets of a sequence of notes
     """
-    eps = np.finfo(float).eps
 
     first_time = np.min(onsets)
 
     # ensure last score time is later than last onset
-    last_time = max(np.max(onsets) + eps, np.max(offsets))
+    if np.max(onsets) == np.max(offsets):
+        # last note without duration (grace note)
+        last_time = np.max(onsets) + 1
+    else:
+        last_time = np.max(offsets)
 
     total_dur = last_time - first_time
 
@@ -868,13 +909,12 @@ def get_unique_onset_idxs(
 
 def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
     """Agregate basis functions per onset"""
-    
+
     if notewise_inputs.ndim == 1:
         shape = len(unique_onset_idxs)
     else:
         shape = (len(unique_onset_idxs),) + notewise_inputs.shape[1:]
     onsetwise_inputs = np.zeros(shape, dtype=notewise_inputs.dtype)
-    
 
     for i, uix in enumerate(unique_onset_idxs):
         try:
@@ -893,7 +933,7 @@ def onsetwise_to_notewise(onsetwise_input, unique_onset_idxs):
     else:
         shape = (n_notes,) + onsetwise_input.shape[1:]
     notewise_inputs = np.zeros(shape, dtype=onsetwise_input.dtype)
-    
+
     for i, uix in enumerate(unique_onset_idxs):
         notewise_inputs[uix] = onsetwise_input[[i]]
     return notewise_inputs
@@ -907,7 +947,7 @@ def bp_scale(beat_period):
 
 
 def bp_rescale(tempo_params):
-    return tempo_params['beat_period']
+    return tempo_params["beat_period"]
 
 
 def beat_period_log_scale(beat_period):
@@ -915,7 +955,7 @@ def beat_period_log_scale(beat_period):
 
 
 def beat_period_log_rescale(tempo_params):
-    return 2 ** tempo_params['beat_period_log']
+    return 2 ** tempo_params["beat_period_log"]
 
 
 def beat_period_standardized_scale(beat_period):
@@ -926,8 +966,10 @@ def beat_period_standardized_scale(beat_period):
 
 
 def beat_period_standardized_rescale(tempo_params):
-    return (tempo_params['beat_period_standardized'] * tempo_params['beat_period_std']
-            + tempo_params['beat_period_mean'])
+    return (
+        tempo_params["beat_period_standardized"] * tempo_params["beat_period_std"]
+        + tempo_params["beat_period_mean"]
+    )
 
 
 def beat_period_ratio_scale(beat_period):
@@ -937,7 +979,7 @@ def beat_period_ratio_scale(beat_period):
 
 
 def beat_period_ratio_rescale(tempo_params):
-    return tempo_params['beat_period_ratio'] * tempo_params['beat_period_mean']
+    return tempo_params["beat_period_ratio"] * tempo_params["beat_period_mean"]
 
 
 def beat_period_ratio_log_scale(beat_period):
@@ -946,27 +988,29 @@ def beat_period_ratio_log_scale(beat_period):
 
 
 def beat_period_ratio_log_rescale(tempo_params):
-    return (2 ** tempo_params['beat_period_ratio_log'] * tempo_params['beat_period_mean'])
+    return 2 ** tempo_params["beat_period_ratio_log"] * tempo_params["beat_period_mean"]
 
 
 TEMPO_NORMALIZATION = dict(
-    beat_period=dict(scale=bp_scale,
-                     rescale=bp_rescale,
-                     param_names=('beat_period',)),
-    beat_period_log=dict(scale=beat_period_log_scale,
-                         rescale=beat_period_log_rescale,
-                         param_names=('beat_period_log',)),
-    beat_period_ratio=dict(scale=beat_period_ratio_scale,
-                           rescale=beat_period_ratio_rescale,
-                           param_names=('beat_period_ratio',
-                                        'beat_period_mean')),
-    beat_period_ratio_log=dict(scale=beat_period_ratio_log_scale,
-                               rescale=beat_period_ratio_log_rescale,
-                               param_names=('beat_period_ratio_log',
-                                            'beat_period_mean')),
-    beat_period_standardized=dict(scale=beat_period_standardized_scale,
-                                  rescale=beat_period_standardized_rescale,
-                                  param_names=('beat_period_standardized',
-                                               'beat_period_mean', 'beat_period_std'))
+    beat_period=dict(scale=bp_scale, rescale=bp_rescale, param_names=("beat_period",)),
+    beat_period_log=dict(
+        scale=beat_period_log_scale,
+        rescale=beat_period_log_rescale,
+        param_names=("beat_period_log",),
+    ),
+    beat_period_ratio=dict(
+        scale=beat_period_ratio_scale,
+        rescale=beat_period_ratio_rescale,
+        param_names=("beat_period_ratio", "beat_period_mean"),
+    ),
+    beat_period_ratio_log=dict(
+        scale=beat_period_ratio_log_scale,
+        rescale=beat_period_ratio_log_rescale,
+        param_names=("beat_period_ratio_log", "beat_period_mean"),
+    ),
+    beat_period_standardized=dict(
+        scale=beat_period_standardized_scale,
+        rescale=beat_period_standardized_rescale,
+        param_names=("beat_period_standardized", "beat_period_mean", "beat_period_std"),
+    ),
 )
-

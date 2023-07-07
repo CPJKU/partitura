@@ -3,10 +3,7 @@ name: Blacken code
 on:
   push:
     branches:
-      - master
-  pull_request:
-    branches:
-      - master
+      - develop
 jobs:
   format:
     runs-on: ubuntu-latest
@@ -15,15 +12,14 @@ jobs:
       - name: Format code with black
         run: |
           pip install black
-          black --include="\.py,\.pyi" --exclude="env/*,tests/*" .
+          black ./partitura
       - name: Commit changes
         uses: EndBug/add-and-commit@v4
         with:
           author_name: ${{ github.actor }}
           author_email: ${{ github.actor }}@users.noreply.github.com
-          message: "Format code with black"
+          message: "Format code with black (bot)"
           add: "."
-          branch: ${{ github.ref }}
       - name: Notify errors
         if: failure()
         uses: dawidd6/action-send-mail@v2

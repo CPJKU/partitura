@@ -53,9 +53,7 @@ from partitura.utils.misc import (
     deprecated_parameter,
 )
 
-from partitura.musicanalysis.performance_codec import (
-    get_time_maps_from_alignment
-)
+from partitura.musicanalysis.performance_codec import get_time_maps_from_alignment
 
 __all__ = ["save_match"]
 
@@ -207,11 +205,9 @@ def matchfile_from_alignment(
     # Info for sorting lines
     snote_sort_info = dict()
     for (mnum, msd, msb), m in zip(measure_starts, measures):
-
         time_signatures = spart.iter_all(score.TimeSignature, m.start, m.end)
 
         for tsig in time_signatures:
-
             time_divs = int(tsig.start.t)
             time_beats = float(beat_map(time_divs))
             dpq = int(spart.quarter_duration_map(time_divs))
@@ -282,7 +278,6 @@ def matchfile_from_alignment(
         # Beginning of each measure
 
         for snote in snotes:
-
             onset_divs, offset_divs = snote.start.t, snote.start.t + snote.duration_tied
             duration_divs = offset_divs - onset_divs
 
@@ -378,7 +373,6 @@ def matchfile_from_alignment(
     sort_stime = []
     note_lines = []
     for al_note in alignment:
-
         label = al_note["label"]
 
         if label == "match":

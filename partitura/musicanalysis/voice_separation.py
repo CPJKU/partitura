@@ -124,16 +124,14 @@ def estimate_voices(note_info, monophonic_voices=True):
     #     grace_by_key[i].append(
 
     if monophonic_voices:
-
         # identity mapping
         idx_equivs = dict((n, n) for n in notearray["id"])
         input_array = notearray
 
     else:
-
         note_by_key = defaultdict(list)
 
-        for (pitch, onset, dur, i) in notearray:
+        for pitch, onset, dur, i in notearray:
             note_by_key[(onset, dur)].append(i)
 
         # dict that maps first chord note index to the list of all note indices
@@ -270,7 +268,6 @@ def est_best_connections(cost, mode="prev"):
 
     # while there are fewer than n_assignments
     while len(best_assignment) < n_assignments:
-
         # Get the remaining minimal cost
         next_best = mcost.min(1).argmin()
         next_assig = mcost.argmin(1)[next_best]
@@ -367,7 +364,6 @@ class VSNote(object):
     """
 
     def __init__(self, pitch, onset, duration, note_id, velocity=None, voice=None):
-
         # ID of the note
         self.id = note_id
         self.pitch = pitch
@@ -423,7 +419,6 @@ class VSChord(object):
     """
 
     def __init__(self, notes, rep_note="highest"):
-
         if any([n.onset != notes[0].onset for n in notes]):
             raise ValueError("All notes in the chord must have the same onset")
         if any([n.offset != notes[0].offset for n in notes]):
@@ -470,7 +465,6 @@ class Voice(object):
     """
 
     def __init__(self, stream_or_streams, voice=None):
-
         if isinstance(stream_or_streams, list):
             self.streams = stream_or_streams
         elif isinstance(stream_or_streams, NoteStream):
@@ -485,7 +479,6 @@ class Voice(object):
             self.notes = []
 
     def _setup_voice(self):
-
         # sort stream by onset
         self.streams.sort(key=lambda x: x.onset)
 
@@ -549,7 +542,6 @@ class VoiceManager(object):
     """
 
     def __init__(self, num_voices):
-
         self.num_voices = num_voices
 
         self.voices = [Voice([], voice) for voice in range(self.num_voices)]
@@ -578,7 +570,6 @@ class VSBaseScore(object):
     """
 
     def __init__(self, notes):
-
         # Set list of notes
         self.notes = notes
 
@@ -679,7 +670,6 @@ class VSBaseScore(object):
 
 class NoteStream(VSBaseScore):
     def __init__(self, notes=[], voice="auto", prev_stream=None, next_stream=None):
-
         super(NoteStream, self).__init__(notes)
         self._voice = voice
         self.prev_stream = prev_stream
@@ -738,7 +728,6 @@ class NoteStream(VSBaseScore):
 
 class Contig(VSBaseScore):
     def __init__(self, notes, is_maxcontig=False):
-
         super(Contig, self).__init__(notes)
         self._is_maxcontig = is_maxcontig
         # Onset time of the contig
@@ -758,7 +747,6 @@ class Contig(VSBaseScore):
 
         for on in self.unique_onsets[np.where(self.unique_onsets >= self.onset)[0]]:
             for i, note in enumerate(self.sounding_notes(on)):
-
                 if note not in streams[i]:
                     streams[i].append(note)
 
@@ -808,7 +796,6 @@ class VoSA(VSBaseScore):
     """
 
     def __init__(self, score, delete_gracenotes=False):
-
         # Score
         self.score = score
 
@@ -847,7 +834,6 @@ class VoSA(VSBaseScore):
         self.notes = []
 
         for n in self.score:
-
             note = VSNote(
                 pitch=n["pitch"],
                 onset=n["onset"],
@@ -910,7 +896,6 @@ class VoSA(VSBaseScore):
         )
 
     def make_contigs(self):
-
         # number of voices at each time point in the score
         n_voices = np.array([len(sn) for sn in self])
 
@@ -935,7 +920,6 @@ class VoSA(VSBaseScore):
 
         # Look for voice status changes
         for i, sn in enumerate(self):
-
             # an array of booleans that indicate whether each currently sounding note
             # was sounding in the previous time point (segment)
             note_sounding_in_prev_segment = np.array([n in self[i - 1] for n in sn])
@@ -944,13 +928,11 @@ class VoSA(VSBaseScore):
             # * there are sounding notes in the previous segment; and
             # * there is a change in number of voices in the current segment
             if any(note_sounding_in_prev_segment) and n_voice_changes[i] != 0:
-
                 # indices of the sounding notes belonging to the previous time point
                 prev_sounding_note_idxs = np.where(note_sounding_in_prev_segment)[0]
 
                 # Update segment boundaries
                 for psnix in prev_sounding_note_idxs:
-
                     # get sounding note
                     prev_sounding_note = sn[psnix]
                     # Get index of the timepoint of the onset of the prev_sounding_note
@@ -968,7 +950,6 @@ class VoSA(VSBaseScore):
 
         # iterate over timepoints, sounding notes and segment boundaries
         for tp, sn, sb, nv in zip(self.utp, self, segment_boundaries, n_voices):
-
             # If there is a segment boundary and there are sounding notes
             # (i.e. do not make empty contigs)
             if sb and len(sn) > 0:
@@ -1026,7 +1007,6 @@ class VoSA(VSBaseScore):
         while keep_loop:
             # Cristalization process around the maximal contigs
             for mci in maximal_contigs_idxs:
-
                 # Get voice manager corresponding to the current
                 # maximal contig
                 vm = voice_managers_dict[mci]
@@ -1063,7 +1043,6 @@ class VoSA(VSBaseScore):
                         # been assigned (assigne voice wrt the closest
                         # maximal contig)
                         if not next_contig.has_voice_info:
-
                             # flag voices without a connection in
                             # the previous step in the loop
                             for es in f_unassigned:

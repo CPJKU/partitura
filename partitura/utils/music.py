@@ -20,12 +20,14 @@ import os
 try:
     import miditok
     from miditok.midi_tokenizer import MIDITokenizer
-    import miditoolkit 
+    import miditoolkit
 except ImportError:
     miditok = None
     miditoolkit = None
+
     class MIDITokenizer(object):
         pass
+
 
 from partitura.utils.misc import deprecated_alias
 
@@ -277,13 +279,39 @@ INTERVALCLASSES = [
     for specific in ["dd", "d", "P", "A", "AA"]
 ]
 
-INTERVAL_TO_SEMITONES = dict(zip(INTERVALCLASSES, [
-    generic+specific for generic in [1, 3, 8, 10] for specific in [-2, -1, 0, 1, 2, 3]
-] + [generic+specific for generic in [0, 5, 7] for specific in [-2, -1, 0, 1, 2]]))
+INTERVAL_TO_SEMITONES = dict(
+    zip(
+        INTERVALCLASSES,
+        [
+            generic + specific
+            for generic in [1, 3, 8, 10]
+            for specific in [-2, -1, 0, 1, 2, 3]
+        ]
+        + [
+            generic + specific
+            for generic in [0, 5, 7]
+            for specific in [-2, -1, 0, 1, 2]
+        ],
+    )
+)
 
 
-STEPS = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6, 0: "C", 1: "D", 2: "E", 3: "F", 4: "G", 5: "A", 6: "B"}
-
+STEPS = {
+    "C": 0,
+    "D": 1,
+    "E": 2,
+    "F": 3,
+    "G": 4,
+    "A": 5,
+    "B": 6,
+    0: "C",
+    1: "D",
+    2: "E",
+    3: "F",
+    4: "G",
+    5: "A",
+    6: "B",
+}
 
 
 MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
@@ -406,7 +434,7 @@ def transpose_step(step, interval, direction):
     if interval == "P1":
         pass
     else:
-        step = STEPS[op(STEPS[step.capitalize()], interval-1)]
+        step = STEPS[op(STEPS[step.capitalize()], interval - 1)]
     return step
 
 
@@ -419,7 +447,7 @@ def _transpose_note(note, interval):
     inverval
 
     """
-    if interval.quality+str(interval.number) == "P1":
+    if interval.quality + str(interval.number) == "P1":
         pass
     else:
         # TODO work for arbitrary octave.
@@ -438,7 +466,9 @@ def _transpose_note(note, interval):
             diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
         else:
             diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        note.alter = INTERVAL_TO_SEMITONES[interval.quality+str(interval.number)] - diff_sm
+        note.alter = (
+            INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+        )
 
 
 def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
@@ -458,6 +488,7 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Transposed score.
     """
     import partitura.score as s
+
     new_score = copy.deepcopy(score)
     if isinstance(score, s.Score):
         for part in new_score.parts:
@@ -671,7 +702,6 @@ SIGN_TO_ALTER = {
 
 
 def ensure_pitch_spelling_format(step, alter, octave):
-
     if step.lower() not in MIDI_BASE_CLASS:
         if step.lower() != "r":
             raise ValueError("Invalid `step`")
@@ -961,14 +991,12 @@ def format_symbolic_duration(symbolic_dur):
 
     """
     if symbolic_dur is None:
-
         return "unknown"
 
     else:
         result = (symbolic_dur.get("type") or "") + "." * symbolic_dur.get("dots", 0)
 
         if "actual_notes" in symbolic_dur and "normal_notes" in symbolic_dur:
-
             result += "_{}/{}".format(
                 symbolic_dur["actual_notes"], symbolic_dur["normal_notes"]
             )
@@ -1712,7 +1740,6 @@ def match_note_arrays(
     target_note_array = ensure_notearray(target_note_array)
 
     if fields is not None:
-
         if isinstance(fields, (list, tuple)):
             onset_key, duration_key = fields
         elif isinstance(fields, str):
@@ -1861,7 +1888,6 @@ def remove_silence_from_performed_part(ppart):
     for track in control_dict:
         for channel in control_dict[track]:
             for number, ct in control_dict[track][channel].items():
-
                 cta = np.array(ct)
                 cinterp = interp1d(
                     x=cta[:, 0],
@@ -2567,7 +2593,6 @@ def note_array_from_note_list(
 
     note_array = []
     for note in note_list:
-
         note_info = tuple()
         note_on_div = note.start.t
         note_off_div = note.start.t + note.duration_tied
@@ -2762,7 +2787,6 @@ def rest_array_from_rest_list(
 
     rest_array = []
     for rest in rest_list:
-
         rest_info = tuple()
         rest_on_div = rest.start.t
         rest_off_div = rest.start.t + rest.duration_tied
@@ -2875,14 +2899,12 @@ def rec_collapse_rests(rest_array):
 
 
 def update_note_ids_after_unfolding(part):
-
     note_id_dict = defaultdict(list)
 
     for n in part.notes:
         note_id_dict[n.id].append(n)
 
     for nid, notes in note_id_dict.items():
-
         if nid is None:
             continue
 
@@ -2988,9 +3010,7 @@ def performance_notearray_from_score_notearray(
     pnote_array = np.zeros(len(snote_array), dtype=ppart_fields)
 
     if isinstance(velocity, np.ndarray):
-
         if velocity.ndim == 2:
-
             velocity_fun = interp1d(
                 x=velocity[:, 0],
                 y=velocity[:, 1],
@@ -3026,7 +3046,6 @@ def performance_notearray_from_score_notearray(
     iois = np.diff(unique_onsets)
 
     if callable(bpm) or isinstance(bpm, np.ndarray):
-
         if callable(bpm):
             # bpm parameter is a callable that returns a bpm value
             # for each score onset
@@ -3036,7 +3055,6 @@ def performance_notearray_from_score_notearray(
             )
 
         elif isinstance(bpm, np.ndarray):
-
             if bpm.ndim != 2:
                 raise ValueError("`bpm` should be a 2D array")
 
@@ -3209,7 +3227,7 @@ def slice_ppart_by_time(
     ----------
     ppart : `PerformedPart` object
     start_time : float
-        Starting time in seconds 
+        Starting time in seconds
     end_time : float
         End time in seconds
     clip_note_off : bool
@@ -3234,7 +3252,7 @@ def slice_ppart_by_time(
     # create a new (empty) instance of a PerformedPart
     # single dummy note added to be able to set sustain_pedal_threshold in __init__
     # -> check `adjust_offsets_w_sustain` in partitura.performance
-    ppart_slice = PerformedPart([{'note_on': 0, 'note_off': 0}])
+    ppart_slice = PerformedPart([{"note_on": 0, "note_off": 0}])
 
     # get ppq if PerformedPart contains it,
     # else skip time_tick info when e.g. created with 'load_performance_midi'
@@ -3247,77 +3265,85 @@ def slice_ppart_by_time(
     if ppart.controls:
         controls_slice = []
         for cc in ppart.controls:
-            if cc['time'] >= start_time and cc['time'] <= end_time:
+            if cc["time"] >= start_time and cc["time"] <= end_time:
                 new_cc = cc.copy()
-                new_cc['time'] -= start_time
+                new_cc["time"] -= start_time
                 if ppq:
-                    new_cc['time_tick'] = int(2 * ppq * cc['time'])
+                    new_cc["time_tick"] = int(2 * ppq * cc["time"])
                 controls_slice.append(new_cc)
         ppart_slice.controls = controls_slice
-    
+
     if ppart.programs:
         programs_slice = []
         for pr in ppart.programs:
-            if pr['time'] >= start_time and pr['time'] <= end_time:
+            if pr["time"] >= start_time and pr["time"] <= end_time:
                 new_pr = pr.copy()
-                new_pr['time'] -= start_time
+                new_pr["time"] -= start_time
                 if ppq:
-                    new_pr['time_tick'] = int(2 * ppq * pr['time'])
+                    new_pr["time_tick"] = int(2 * ppq * pr["time"])
                 programs_slice.append(new_pr)
         ppart_slice.programs = programs_slice
 
     notes_slice = []
     note_id = 0
-    for note in ppart.notes: 
+    for note in ppart.notes:
         # collect previous sounding notes at start_time
         if note["note_on"] < start_time and note["note_off"] > start_time:
             new_note = note.copy()
-            new_note['note_on'] = 0.
+            new_note["note_on"] = 0.0
             if clip_note_off:
-                new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
-            else: 
-                new_note['note_off'] = note['note_off'] - start_time
+                new_note["note_off"] = min(
+                    note["note_off"] - start_time, end_time - start_time
+                )
+            else:
+                new_note["note_off"] = note["note_off"] - start_time
             if ppq:
-                new_note['note_on_tick'] = 0
-                new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+                new_note["note_on_tick"] = 0
+                new_note["note_off_tick"] = int(2 * ppq * new_note["note_off"])
             if reindex_notes:
-                new_note['id'] = f"n{note_id}"
+                new_note["id"] = f"n{note_id}"
                 note_id += 1
             notes_slice.append(new_note)
         # todo - combine both cases
-        if note['note_on'] >= start_time: 
-            if note['note_on'] < end_time:
+        if note["note_on"] >= start_time:
+            if note["note_on"] < end_time:
                 new_note = note.copy()
-                new_note['note_on'] -= start_time
+                new_note["note_on"] -= start_time
                 if clip_note_off:
-                    new_note['note_off'] = min(note['note_off'] - start_time, end_time - start_time)
-                else: 
-                    new_note['note_off'] = note['note_off'] - start_time
+                    new_note["note_off"] = min(
+                        note["note_off"] - start_time, end_time - start_time
+                    )
+                else:
+                    new_note["note_off"] = note["note_off"] - start_time
                 if ppq:
-                    new_note['note_on_tick'] = int(2 * ppq * new_note['note_on'])
-                    new_note['note_off_tick'] = int(2 * ppq * new_note['note_off'])
+                    new_note["note_on_tick"] = int(2 * ppq * new_note["note_on"])
+                    new_note["note_off_tick"] = int(2 * ppq * new_note["note_off"])
                 if reindex_notes:
-                    new_note['id'] = 'n' + str(note_id)
+                    new_note["id"] = "n" + str(note_id)
                     note_id += 1
                 notes_slice.append(new_note)
-            # assumes notes in list are sorted by onset time   
-            else: 
-                break               
-    
+            # assumes notes in list are sorted by onset time
+            else:
+                break
+
     ppart_slice.notes = notes_slice
-    
-    # set threshold property after creating notes list to update 'sound_offset' values 
+
+    # set threshold property after creating notes list to update 'sound_offset' values
     ppart_slice.sustain_pedal_threshold = ppart.sustain_pedal_threshold
 
     if ppart.id:
-        ppart_slice.id = ppart.id + '_slice_{}s_to_{}s'.format(start_time, end_time)     
+        ppart_slice.id = ppart.id + "_slice_{}s_to_{}s".format(start_time, end_time)
     if ppart.part_name:
-        ppart_slice.part_name = ppart.part_name 
+        ppart_slice.part_name = ppart.part_name
 
     return ppart_slice
 
 
-def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer, incomplete_bar_behaviour : str = "pad_bar"):
+def tokenize(
+    score_data: ScoreLike,
+    tokenizer: MIDITokenizer,
+    incomplete_bar_behaviour: str = "pad_bar",
+):
     """
     Tokenize a score using a tokenizer from miditok.
     Parameters
@@ -3340,14 +3366,21 @@ def tokenize(score_data : ScoreLike, tokenizer : MIDITokenizer, incomplete_bar_b
     """
 
     if miditok is None or miditoolkit is None:
-        raise ImportError("Miditok and miditoolkit must be installed for this function to work")
+        raise ImportError(
+            "Miditok and miditoolkit must be installed for this function to work"
+        )
     with TemporaryDirectory() as tmpdir:
         temp_midi_path = os.path.join(tmpdir, "temp_midi.mid")
-        partitura.io.exportmidi.save_score_midi(score_data, out = temp_midi_path, anacrusis_behavior=incomplete_bar_behaviour, part_voice_assign_mode = 4, minimum_ppq = 480 )
+        partitura.io.exportmidi.save_score_midi(
+            score_data,
+            out=temp_midi_path,
+            anacrusis_behavior=incomplete_bar_behaviour,
+            part_voice_assign_mode=4,
+            minimum_ppq=480,
+        )
         midi = miditoolkit.MidiFile(temp_midi_path)
         tokens = tokenizer(midi)
     return tokens
-
 
 
 if __name__ == "__main__":

@@ -214,7 +214,6 @@ old_string_pat = re.compile(r"'(?P<value>.+)'")
 
 
 def interpret_as_string_old(value: str) -> str:
-
     val = old_string_pat.match(value)
     if val is not None:
         return val.group("value").strip()
@@ -272,7 +271,6 @@ class FractionalSymbolicDuration(object):
         tuple_div: Optional[int] = None,
         add_components: Optional[List[Tuple[int, int, Optional[int]]]] = None,
     ) -> None:
-
         self.numerator = numerator
         self.denominator = denominator
         self.tuple_div = tuple_div
@@ -459,7 +457,6 @@ class FractionalSymbolicDuration(object):
 
     @classmethod
     def from_string(cls, string: str, allow_additions: bool = True):
-
         m = rational_pattern.match(string)
         m2 = double_rational_pattern.match(string)
         m3 = integer_pattern.match(string)
@@ -537,7 +534,6 @@ def format_fractional_rational(value: FractionalSymbolicDuration) -> str:
     """
 
     if value.denominator == 1 and value.tuple_div is None:
-
         out = f"{value.numerator}/1"
 
     else:
@@ -588,14 +584,12 @@ def format_list(value: List[Any]) -> str:
 
 
 def format_accidental(value: Optional[int]) -> str:
-
     alter = "n" if value == 0 else ALTER_SIGNS[value]
 
     return alter
 
 
 def format_accidental_old(value: Optional[int]) -> str:
-
     if value is None:
         return "-"
     else:
@@ -603,7 +597,6 @@ def format_accidental_old(value: Optional[int]) -> str:
 
 
 def format_pnote_id(value: Any) -> str:
-
     pnote_id = f"n{str(value)}" if not str(value).startswith("n") else str(value)
 
     return pnote_id
@@ -684,7 +677,6 @@ class MatchKeySignature(MatchParameter):
         return ks
 
     def __str__(self):
-
         if self.fmt == "v1.0.0":
             ks = fifths_mode_to_key_name(self.fifths, self.mode)
 
@@ -705,7 +697,6 @@ class MatchKeySignature(MatchParameter):
         return ks
 
     def __eq__(self, ks: MatchKeySignature) -> bool:
-
         crit = (
             self.fifths == ks.fifths
             and self.mode == ks.mode
@@ -718,7 +709,6 @@ class MatchKeySignature(MatchParameter):
 
     @classmethod
     def _parse_key_signature(cls, kstr: str) -> MatchKeySignature:
-
         # import pdb
         # pdb.set_trace()
         ksinfo = key_signature_pattern.search(kstr)
@@ -731,7 +721,6 @@ class MatchKeySignature(MatchParameter):
             if len(ksinfo) == 2:
                 fifths2, mode2 = key_name_to_fifths_mode(ksinfo[1].upper())
         else:
-
             fmt = "v0.3.0"
             step1, alter1, mode1, step2, alter2, mode2 = ksinfo.groups()
             mode1_str = "m" if mode1.lower() in ("minor", "min") else ""
@@ -779,7 +768,6 @@ class MatchKeySignature(MatchParameter):
                 return cls(fifths=fifths, mode=mode, fmt="v0.1.0")
 
         if len(content) > 0:
-
             ksigs = [cls._parse_key_signature(ksig) for ksig in content]
 
             ks = ksigs[0]
@@ -838,7 +826,6 @@ class MatchTimeSignature(MatchParameter):
         self.is_list = is_list
 
     def __str__(self):
-
         ts = f"{self.numerator}/{self.denominator}"
         if self.is_list:
             return format_list([ts] + self.other_components)
@@ -846,7 +833,6 @@ class MatchTimeSignature(MatchParameter):
             return ts
 
     def __eq__(self, ts: MatchKeySignature) -> bool:
-
         crit = (
             (self.numerator == ts.numerator)
             and (self.denominator == ts.denominator)
@@ -871,7 +857,6 @@ class MatchTimeSignature(MatchParameter):
 
 
 def interpret_as_time_signature(value: str) -> MatchTimeSignature:
-
     ts = MatchTimeSignature.from_string(value)
     return ts
 
@@ -912,7 +897,6 @@ def to_camel_case(field_name: str) -> str:
     camel_case = f"{parts[0].lower()}"
 
     if len(parts) > 1:
-
         camel_case += "".join([p.title() for p in parts[1:]])
 
     return camel_case
@@ -943,7 +927,6 @@ def get_kwargs_from_matchline(
     match_pattern = pattern.search(matchline, pos=pos)
 
     if match_pattern is not None:
-
         kwargs = dict(
             [
                 (to_snake_case(fn), class_dict[fn][0](match_pattern.group(fn)))

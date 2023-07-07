@@ -345,7 +345,6 @@ class Performance(object):
         if isinstance(performedparts, PerformedPart):
             self.performedparts = [performedparts]
         elif isinstance(performedparts, Itertype):
-
             if not all([isinstance(pp, PerformedPart) for pp in performedparts]):
                 raise ValueError(
                     "`performedparts` should be a list of  `PerformedPart` objects!"
@@ -416,9 +415,7 @@ class Performance(object):
         track_map = dict([(tid, ti) for ti, tid in enumerate(unique_track_ids)])
 
         for i, ppart in enumerate(self):
-
             for note in ppart.notes:
-
                 note["track"] = track_map[(i, note.get("track", -1))]
 
             for control in ppart.controls:
