@@ -84,6 +84,7 @@ class KernParserPart(KernGlobalPart):
         self.parsing = "full"
         self.stream = stream
         self.prev_measure_pos = init_pos
+        self.EDITORIAL_SYMBOLS = ["x", "p", "q", "<", "(", ">", ")"]
         # Check if part has pickup measure.
         self.measure_count = (
             0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
@@ -384,7 +385,8 @@ class KernParserPart(KernGlobalPart):
         grace_attr = "q" in note  # or "p" in note # for appoggiatura not sure yet.
         duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
         # Remove editorial symbols from string, i.e. "x"
-        ntype = ntype.replace("x", "")
+        for x in self.EDITORIAL_SYMBOLS:
+            ntype = ntype.replace(x, "")
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
             octave = octave + ntype.count(ntype[0]) - 1
@@ -408,10 +410,12 @@ class KernParserPart(KernGlobalPart):
                 self._handle_fermata(note)
         else:
             # create grace note
-            if "p" in ntype:
+            if "p" in note:
                 grace_type = "acciaccatura"
-            elif "q" in ntype:
+            elif "q" in note:
                 grace_type = "appoggiatura"
+            else:
+                raise ValueError("Grace note not recognized")
             note = score.GraceNote(
                 grace_type=grace_type,
                 step=step,
