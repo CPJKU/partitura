@@ -333,12 +333,17 @@ class KernParserPart(KernGlobalPart):
         return note
 
     def _handle_duration(self, note, isgrace=False):
-        if isgrace:
-            _, dur, ntype = re.split("(\d+)", note)
-            ntype = _ + ntype
+        foundRational = re.search(r'(\d+)%(\d+)', note)
+        if foundRational:
+            ntype = note[foundRational.span()[-1]:]
+            durationFirst = int(foundRational.group(1))
+            durationSecond = float(foundRational.group(2))
+            dur = 4 * durationSecond / durationFirst
         else:
             _, dur, ntype = re.split("(\d+)", note)
-        dur = eval(dur)
+            ntype = _ + ntype if isgrace else ntype
+            dur = eval(dur)
+
         if dur in self.KERN_DURS.keys():
             symbolic_duration = {"type": self.KERN_DURS[dur]}
         else:
@@ -531,7 +536,7 @@ class KernParser:
         durs, _ = zip(*match)
         x = np.array(list(map(lambda x: int(x), durs)))
         divs = np.lcm.reduce(np.unique(x[x != 0]))
-        return float(divs) / 4.00
+        return float(divs) # / 4.00
 
 
 # functions to initialize the kern parser
