@@ -563,6 +563,7 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
             striped_parts.append(x)
         if "*^" in x or "*+":
             # Accounting for multiple voice ups at the same time.
+            already_parsed = 0
             for i, el in enumerate(x):
                 # Some faulty kerns create an extra part half way through the score.
                 # We choose for the moment to add it to the closest column part.
@@ -571,7 +572,10 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
                     if merge_index:
                         if k < min(merge_index):
                             merge_index = [midx + 1 for midx in merge_index]
+                        else:
+                            k = i + already_parsed
                     merge_index.append(k)
+                    already_parsed += 1
         if "*v *v" in x:
             k = x.index("*v *v")
             temp = list()
@@ -585,6 +589,7 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
     # extra empty voice and would mess the parsing.
     striped_parts = [[el for el in part if el != ""] for part in striped_parts]
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
+    # numpy_parts = np.array(striped_parts).squeeze(1).T
     return numpy_parts
 
 
