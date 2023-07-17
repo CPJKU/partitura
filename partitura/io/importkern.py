@@ -84,7 +84,7 @@ class KernParserPart(KernGlobalPart):
         self.parsing = "full"
         self.stream = stream
         self.prev_measure_pos = init_pos
-        self.EDITORIAL_SYMBOLS = ["x", "p", "q", "<", "(", ">", ")"]
+        self.EDITORIAL_SYMBOLS = ["x", "p", "q", "<", "(", ">", ")", "[", "]"]
         # Check if part has pickup measure.
         self.measure_count = (
             0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
@@ -417,12 +417,10 @@ class KernParserPart(KernGlobalPart):
                 self._handle_fermata(note)
         else:
             # create grace note
-            if "p" in note:
+            if "p" in ntype:
                 grace_type = "acciaccatura"
-            elif "q" in note:
+            elif "q" in ntype:
                 grace_type = "appoggiatura"
-            else:
-                raise ValueError("Grace note not recognized")
             note = score.GraceNote(
                 grace_type=grace_type,
                 step=step,
