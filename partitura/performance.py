@@ -85,7 +85,7 @@ class PerformedPart(object):
         super().__init__()
         self.id = id
         self.part_name = part_name
-        self.notes = notes
+        self.notes = list(map(lambda n: PerformedNote(n), notes))
         self.controls = controls or []
         self.programs = programs or []
         self.ppq = ppq
@@ -203,7 +203,11 @@ class PerformedPart(object):
         if "id" not in note_array.dtype.names:
             n_ids = ["n{0}".format(i) for i in range(len(note_array))]
         else:
-            n_ids = note_array["id"]
+            # Check if all ids are the same
+            if np.all(note_array["id"] == note_array["id"][0]):
+                n_ids = ["n{0}".format(i) for i in range(len(note_array))]
+            else:
+                n_ids = note_array["id"]
 
         if "track" not in note_array.dtype.names:
             tracks = np.zeros(len(note_array), dtype=int)
@@ -278,6 +282,96 @@ def adjust_offsets_w_sustain(
 
     for offset, note in zip(offs, notes):
         note["sound_off"] = offset
+
+
+class PerformedNote(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self["id"] = self.get("id", None)
+        self["pitch"] = self.get("pitch", self["midi_pitch"])
+        self["note_on"] = self.get("note_on", -1)
+        self["note_off"] = self.get("note_off", -1)
+        self["sound_off"] = self.get("sound_off", self["note_off"])
+        self["track"] = self.get("track", 0)
+        self["channel"] = self.get("channel", 1)
+        self["velocity"] = self.get("velocity", 60)
+        self.validate_values()
+        self._accepted_keys = ["id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off"]
+        self.__setitem__ = self._setitem_new
+
+    def __repr__(self):
+        return f"PerformedNote: {self['id']}"
+
+    def __str__(self):
+        return f"PerformedNote: {self['id']}"
+
+    def __eq__(self, other):
+        return self["id"] == other["id"]
+
+    def __hash__(self):
+        return hash(self["id"])
+
+    def __lt__(self, other):
+        return self["note_on"] < other["note_on"]
+
+    def __le__(self, other):
+        return self["note_on"] <= other["note_on"]
+
+    def __gt__(self, other):
+        return self["note_on"] > other["note_on"]
+
+    def __ge__(self, other):
+        return self["note_on"] >= other["note_on"]
+
+    def __getitem__(self, key):
+        return self.get(key, None)
+
+    def _setitem_new(self, key, value):
+        if key not in self._accepted_keys:
+            raise KeyError(f"Key {key} not in PerformedNote")
+        elif key == "note_off":
+            # Verify that the note_off is after the note_on
+            if value < self["note_on"]:
+                raise ValueError(f"note_off must be after note_on")
+            self["sound_off"] = value if self["sound_off"] < value else self["sound_off"]
+            self["note_off"] = value
+        elif key == "note_on":
+            # Verify that the note_on is before the note_off
+            if value > self["note_off"]:
+                raise ValueError(f"note_on must be before note_off")
+
+            self["duration_sec"] = self["note_off"] - value
+            self["note_on"] = value
+        elif key == "sound_off":
+            # Verify that the sound_off is after the note_on
+            if value < self["note_off"]:
+                raise ValueError(f"sound_off must be after note_off")
+            self["sound_off"] = value
+        else:
+            self[key] = value
+
+    def __delitem__(self, key):
+        raise KeyError("Cannot delete items from PerformedNote")
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __contains__(self, key):
+        return key in self.keys()
+
+    def validate_values(self):
+        if self["pitch"] > 127 or self["pitch"] < 0:
+            raise ValueError(f"pitch must be between 0 and 127")
+        if self["note_on"] < 0:
+            raise ValueError(f"Note on value provided is invalid, must be greater than or equal to 0")
+        if self["note_off"] < 0 or self["note_off"] < self["note_on"]:
+            raise ValueError(f"Note off value provided is invalid, "
+                             f"must be greater than or equal to 0 and greater than note_on")
+        if self["velocity"] > 127 or self["velocity"] < 0:
+            raise ValueError(f"velocity must be between 0 and 127")
 
 
 class Performance(object):
