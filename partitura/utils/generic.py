@@ -650,7 +650,7 @@ def monotonize_times(
     mask = np.r_[False, True, (np.diff(s_mono) != 0), False]
 
     x_mono = _x[1:-1]
-    s_mono = interp1d(idx[mask], _s[mask])(x_mono)
+    s_mono = interp1d(_x[mask], _s[mask])(x_mono)
     
     return s_mono, x_mono
 
