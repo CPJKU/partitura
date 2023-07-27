@@ -70,17 +70,18 @@ def find_musescore():
         When no MuseScore executable was found
     """
 
-    mscore_exec = find_musescore(preferred_version=4)
+    mscore_exec = find_musescore_version(version=4)
     if not mscore_exec:
-        mscore_exec = find_musescore(preferred_version=3)
+        mscore_exec = find_musescore_version(version=3)
         if mscore_exec:
             warnings.warn("Only Musescore 3 is installed. Consider upgrading to musescore 4.")
         else:
-            mscore_exec = find_musescore(preferred_version="")
+            mscore_exec = find_musescore_version(version="")
             if mscore_exec:
                 warnings.warn("A unspecified version of MuseScore was found. Consider upgrading to musescore 4.")
             else:
                 raise MuseScoreNotFoundException()
+    return mscore_exec
 
 
 @deprecated_alias(fn="filename")
