@@ -25,10 +25,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install .
-    - name: Install Optional dependencies
+    - name: Install Musescore
       run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then              
+        if matrix.os == 'ubuntu-latest':
           sudo apt-get install musescore
+#        elif matrix.os == 'macos-latest':
+#          brew install musescore
+#        elif matrix.os == 'windows-latest':
+#          choco install musescore
+    - name: Install Optional dependencies
+      run: |        
         pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1      
         pip install miditok==2.0.6 tokenizers==0.13.3 
     - name: Run Tests
