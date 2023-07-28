@@ -27,12 +27,13 @@ jobs:
         pip install .
     - name: Install Musescore
       run: |
-        if matrix.os == 'ubuntu-latest':
+        if [ "$RUNNER_OS" == "Linux" ]; then
           sudo apt-get install musescore
 #        elif matrix.os == 'macos-latest':
 #          brew install musescore
 #        elif matrix.os == 'windows-latest':
 #          choco install musescore
+      shell: bash
     - name: Install Optional dependencies
       run: |        
         pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1      
