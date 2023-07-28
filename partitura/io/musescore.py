@@ -119,6 +119,14 @@ or a list of these
         One or more part or partgroup objects
 
     """
+    # open the file as text and check if the first symbol is "<" to avoid 
+    # further processing in case of non-XML files
+    with open(filename, "r") as f: 
+        if f.read(1) != "<":
+            raise FileImportException(
+                "File {} is not a valid XML file.".format(filename)
+            )
+    
     mscore_exec = find_musescore()
                 
     xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
