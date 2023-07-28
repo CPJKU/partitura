@@ -188,6 +188,11 @@ KERN_TESTFILES = [
     ]
 ]
 
+MUSESCORE_TESTFILES = [
+    os.path.join(DATA_PATH, "musescore", fn)
+    for fn in ["mozart_k265_var1.mscz", "160.03_Pastorale.mscx"]
+]
+
 KERN_TIES = [os.path.join(KERN_PATH, fn) for fn in ["tie_mismatch.krn"]]
 M21_TESTFILES = [
     os.path.join(DATA_PATH, "musicxml", fn)
