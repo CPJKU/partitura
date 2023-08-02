@@ -476,6 +476,7 @@ class KernParser:
     def __init__(self, document, doc_name):
         self.document = document
         self.doc_name = doc_name
+        self.qdivs = self.find_lcm(document.flatten())
         # TODO review this code
         self.DIVS2Q = {
             1: 0.25,
@@ -522,7 +523,7 @@ class KernParser:
 
     def collect(self, doc, pos, id, doc_name):
         if doc[0] == "**kern":
-            qdivs = self.find_lcm(doc)
+            qdivs = self.find_lcm(doc) if self.qdivs is None else self.qdivs
             x = KernParserPart(doc, pos, id, doc_name, qdivs).part
             return x
 
