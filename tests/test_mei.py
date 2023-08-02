@@ -273,11 +273,11 @@ class TestImportMEI(unittest.TestCase):
         self.assertTrue(np.array_equal(staves, expected_staves))
 
     def test_nopart(self):
-        parts = load_mei(MEI_TESTFILES[16])
+        my_score = load_mei(MEI_TESTFILES[16])
         last_measure_duration = [
-            list(p.iter_all(score.Measure))[-1].end.t
+            list(p.iter_all(score.Barline))[-1].start.t
             - list(p.iter_all(score.Measure))[-1].start.t
-            for p in parts
+            for p in my_score.parts
         ]
         self.assertTrue(all([d == 4096 for d in last_measure_duration]))
 

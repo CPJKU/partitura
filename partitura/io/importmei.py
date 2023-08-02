@@ -1039,15 +1039,15 @@ class MeiParser(object):
                     warnings.warn(
                         f"Warning : parts have measures of different duration in measure {element.attrib[self._ns_name('id',XML_NAMESPACE)]}"
                     )
-                    # enlarge measures to the max
-                    for part in parts:
-                        last_measure = list(part.iter_all(pt.score.Measure))[-1]
-                        if last_measure.end.t != max_position:
-                            part.add(
-                                pt.score.Measure(number=last_measure.number),
-                                max_position
-                            )
-                            part.remove(last_measure)
+                    # # enlarge measures to the max
+                    # for part in parts:
+                    #     last_measure = list(part.iter_all(pt.score.Measure))[-1]
+                    #     if last_measure.end.t != max_position:
+                    #         part.add(
+                    #             pt.score.Measure(number=last_measure.number),
+                    #             max_position
+                    #         )
+                    #         part.remove(last_measure)
                 position = max_position
                 # handle right barline symbol
                 self._handle_barline_symbols(element, position, "right")
