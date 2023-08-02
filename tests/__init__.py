@@ -150,10 +150,6 @@ MUSICXML_PARTIAL_MEASURES_TESTFILES = [
 MEI_TESTFILES = [
     os.path.join(MEI_PATH, fn)
     for fn in [
-        "example_noMeasures_noBeams.mei",
-        "example_noMeasures_withBeams.mei",
-        "example_withMeasures_noBeams.mei",
-        "example_withMeasures_withBeams.mei",
         "Bach_Prelude.mei",
         "Schubert_An_die_Sonne_D.439.mei",
         "test_tuplets.mei",
@@ -171,6 +167,7 @@ MEI_TESTFILES = [
         "test_articulation.mei",
         "test_merge_voices2.mei",
         "CRIM_Mass_0030_4.mei",
+        "test_divs_tuplet.mei"
     ]
 ]
 
