@@ -5,6 +5,7 @@ This module contains methods for importing MEI files.
 """
 from collections import OrderedDict
 from lxml import etree
+from fractions import Fraction
 from xmlschema.names import XML_NAMESPACE
 import partitura.score as score
 from partitura.utils.music import (
@@ -357,18 +358,21 @@ class MeiParser(object):
         self._handle_clef(staffdef_el, position, part)
 
     def _intsymdur_from_symbolic(self, symbolic_dur):
-        """Produce a int symbolic dur (e.g. 12 is a eight note triplet) and a dot number by looking at the symbolic dur dictionary:
-        i.e., symbol, eventual tuplet ancestors."""
+        """Produce a int symbolic dur (e.g. 8 is a eight note), a dot number, and a tuplet modifier,
+        e.g., (2,3) means there are 3 notes in the space of 2 notes."""
         intsymdur = SYMBOLIC_TO_INT_DURS[symbolic_dur["type"]]
         # deals with tuplets
         if symbolic_dur.get("actual_notes") is not None:
             assert symbolic_dur.get("normal_notes") is not None
-            intsymdur = (
-                intsymdur * symbolic_dur["actual_notes"] / symbolic_dur["normal_notes"]
-            )
+            # intsymdur = (
+            #     intsymdur * symbolic_dur["actual_notes"] / symbolic_dur["normal_notes"]
+            # )
+            tuplet_modifier = (symbolic_dur["normal_notes"], symbolic_dur["actual_notes"])
+        else:
+            tuplet_modifier = None
         # deals with dots
         dots = symbolic_dur.get("dots") if symbolic_dur.get("dots") is not None else 0
-        return intsymdur, dots
+        return intsymdur, dots, tuplet_modifier
 
     def _find_ppq(self):
         """Finds the ppq for MEI filed that do not explicitely encode this information"""
@@ -377,7 +381,11 @@ class MeiParser(object):
         durs_ppq = []
         for el in els_with_dur:
             symbolic_duration = self._get_symbolic_duration(el)
-            intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
+            intsymdur, dots, tuplet_mod = self._intsymdur_from_symbolic(symbolic_duration)
+            if tuplet_mod is not None:
+                # consider time modifications keeping the numerator of the minimized fraction
+                minimized_fraction = Fraction(intsymdur * tuplet_mod[1], tuplet_mod[0])
+                intsymdur = minimized_fraction.numerator
             # double the value if we have dots, to be sure be able to encode that with integers in partitura
             durs.append(intsymdur * (2**dots))
             durs_ppq.append(
@@ -580,9 +588,11 @@ class MeiParser(object):
             duration = 0 if el.get("grace") is not None else int(el.get("dur.ppq"))
         else:
             # compute the duration from the symbolic duration
-            intsymdur, dots = self._intsymdur_from_symbolic(symbolic_duration)
+            intsymdur, dots, tuplet_mod = self._intsymdur_from_symbolic(symbolic_duration)
             divs = part._quarter_durations[0]  # divs is the same as ppq
-            duration = divs * 4 / intsymdur
+            if tuplet_mod is None:
+                tuplet_mod = (1,1) # if no tuplet modifier, set one that does not change the duration
+            duration = (divs * 4 * tuplet_mod[0]) / (intsymdur * tuplet_mod[1])
             for d in range(dots):
                 duration = duration + 0.5 * duration
             # sanity check to verify the divs are correctly set
