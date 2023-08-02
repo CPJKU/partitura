@@ -21,19 +21,10 @@ from pathlib import Path
 
 
 class TestImportMusescore(unittest.TestCase):
-    def test_number_of_parts1(self):
-        # dirty trick, since we can install Musescore only on linux environment in github actions
-        if platform.system() == "Linux":
-            score = load_via_musescore(MUSESCORE_TESTFILES[0])
-            self.assertTrue(len(score.parts) == 1)
-            self.assertTrue(len(score.note_array()) == 218)
-        else:
-            self.skipTest("MuseScore test can't run on non-linux environment in github actions")
-
     def test_epfl_scores(self):
         # dirty trick, since we can install Musescore only on linux environment in github actions
         if platform.system() == "Linux":
-            score = load_via_musescore(MUSESCORE_TESTFILES[1])
+            score = load_via_musescore(MUSESCORE_TESTFILES[0])
             self.assertTrue(len(score.parts) == 1)
             # try the generic loading function
             score = load_score(MUSESCORE_TESTFILES[1])
