@@ -37,9 +37,9 @@ class TestLoadScore(unittest.TestCase):
             + MATCH_IMPORT_EXPORT_TESTFILES
             + EXAMPLE_FILES
         ):
-            self.load_score(fn)
+            self.check_return_type(fn)
 
-    def load_score(self, fn):
+    def check_return_type(self, fn):
         try:
             score = load_score(fn)
             self.assertTrue(isinstance(score, Score))
@@ -49,4 +49,4 @@ class TestLoadScore(unittest.TestCase):
             for pp in score.parts:
                 self.assertTrue(isinstance(pp, Part))
         except NotSupportedFormatError:
-            self.assertTrue(False)
+            self.assertTrue(False, f"Score {fn} failing when parsed.")

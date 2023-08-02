@@ -3,6 +3,7 @@
 """
 This module contains methods for importing MEI files.
 """
+from collections import OrderedDict
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 import partitura.score as score
@@ -68,6 +69,11 @@ class MeiParser(object):
         self.parts = (
             None  # parts get initialized in create_parts() and filled in fill_parts()
         )
+        # find the music tag inside the document
+        music_el = self.document.findall(self._ns_name("music", all=True))
+        if len(music_el) != 1:
+            raise Exception("Only MEI with a single music element are supported")
+        self.music_el = music_el[0]
         self.repetitions = (
             []
         )  # to be filled when we encounter repetitions and process in the end
@@ -78,12 +84,12 @@ class MeiParser(object):
 
     def create_parts(self):
         # handle main scoreDef info: create the part list
-        main_partgroup_el = self.document.find(self._ns_name("staffGrp", all=True))
+        main_partgroup_el = self.music_el.find(self._ns_name("staffGrp", all=True))
         self.parts = self._handle_main_staff_group(main_partgroup_el)
 
     def fill_parts(self):
         # fill parts with the content of the score
-        scores_el = self.document.findall(self._ns_name("score", all=True))
+        scores_el = self.music_el.findall(self._ns_name("score", all=True))
         if len(scores_el) != 1:
             raise Exception("Only MEI with a single score element are supported")
         sections_el = scores_el[0].findall(self._ns_name("section"))
@@ -366,7 +372,7 @@ class MeiParser(object):
 
     def _find_ppq(self):
         """Finds the ppq for MEI filed that do not explicitely encode this information"""
-        els_with_dur = self.document.xpath(".//*[@dur]")
+        els_with_dur = self.music_el.xpath(".//*[@dur]")
         durs = []
         durs_ppq = []
         for el in els_with_dur:
@@ -728,6 +734,53 @@ class MeiParser(object):
         )
         # add mrest to the part
         part.add(rest, position, position + parts_per_measure)
+        # return duration to update the position in the layer
+        return position + parts_per_measure
+    
+    def _handle_multirest(self, multirest_el, position, voice, staff, part):
+        """
+        Handles a rest that spawn multiple measures
+
+        Parameters
+        ----------
+        multirest_el : lxml tree
+            A mrest element in the lxml tree.
+        position : int
+            The current position on the timeline.
+        voice : int
+            The voice of the section.
+        staff : int
+            The current staff also refers to a Part.
+        part : Partitura.Part
+            The created part to add elements to.
+
+        Returns
+        -------
+        position + duration : int
+            Next position on the timeline.
+        """
+        # find id
+        multirest_id = multirest_el.attrib[self._ns_name("id", XML_NAMESPACE)]
+        # find how many measures
+        n_measures = int(multirest_el.attrib["num"])
+        if n_measures > 1:
+            raise Exception(f"Multi-rests with more than 1 measure are not supported yet. Found one with {n_measures}.")
+        # find closest time signature
+        last_ts = list(part.iter_all(cls=score.TimeSignature))[-1]
+        # find divs per measure
+        ppq = part.quarter_duration_map(position)
+        parts_per_measure = int(ppq * 4 * last_ts.beats / last_ts.beat_type)
+
+        # create dummy rest to insert in the timeline
+        rest = score.Rest(
+            id=multirest_id,
+            voice=voice,
+            staff=1,
+            symbolic_duration=estimate_symbolic_duration(parts_per_measure, ppq),
+            articulations=None,
+        )
+        # add mrest to the part
+        part.add(rest, position, position + parts_per_measure)
         # now iterate
         # return duration to update the position in the layer
         return position + parts_per_measure
@@ -780,7 +833,18 @@ class MeiParser(object):
 
     def _handle_space(self, e, position, part):
         """Moves current position."""
-        space_id, duration, symbolic_duration = self._duration_info(e, part)
+        try:
+            space_id, duration, symbolic_duration = self._duration_info(e, part)
+        except KeyError: # if the space don't have a duration, move to the end of the measure
+            # find closest time signature
+            last_ts = list(part.iter_all(cls=score.TimeSignature))[-1]
+            # find divs per measure
+            ppq = part.quarter_duration_map(position)
+            parts_per_measure = int(ppq * 4 * last_ts.beats / last_ts.beat_type)
+            # find divs elapsed since last barline
+            last_barline = list(part.iter_all(cls=pt.score.Measure))[-1]
+            duration = position - last_barline.start.t
+
         return position + duration
 
     def _handle_barline_symbols(self, measure_el, position: int, left_or_right: str):
@@ -821,6 +885,10 @@ class MeiParser(object):
                 )
             elif e.tag == self._ns_name("mRest"):  # rest that spawn the entire measure
                 new_position = self._handle_mrest(
+                    e, position, ind_layer, ind_staff, part
+                )
+            elif e.tag == self._ns_name("multiRest"):  # rest that spawn more than one measure
+                new_position = self._handle_multirest(
                     e, position, ind_layer, ind_staff, part
                 )
             elif e.tag == self._ns_name("beam"):
@@ -967,8 +1035,7 @@ class MeiParser(object):
                         if last_measure.end.t != max_position:
                             part.add(
                                 pt.score.Measure(number=last_measure.number),
-                                position,
-                                max_position,
+                                max_position
                             )
                             part.remove(last_measure)
                 position = max_position
@@ -1024,7 +1091,7 @@ class MeiParser(object):
         all_notes = [
             note
             for part in score.iter_parts(part_list)
-            for note in part.iter_all(cls=score.Note)
+            for note in part.iter_all(cls=score.Note, include_subclasses=True)
         ]
         all_notes_dict = {note.id: note for note in all_notes}
         for tie_el in ties_el:
@@ -1052,6 +1119,7 @@ class MeiParser(object):
                 "WARNING : unmatched repetitions. adding a repetition start at position 0"
             )
             self.repetitions.insert(0, {"type": "start", "pos": 0})
+
         status = "stop"
         sanitized_repetition_list = []
         # check if start-stop are alternate
@@ -1082,11 +1150,13 @@ class MeiParser(object):
         # check if ending with a start
         if sanitized_repetition_list[-1] == "start":
             print("WARNING : unmatched repetitions. Ignoring last start")
+        ## sanitize the found repetitions to remove duplicates
+        sanitized_repetition_list = list(OrderedDict((tuple(d.items()), d) for d in sanitized_repetition_list).values())
         self.repetitions = sanitized_repetition_list
 
         ## insert the repetitions to all parts
         for rep_start, rep_stop in zip(self.repetitions[:-1:2], self.repetitions[1::2]):
-            assert rep_start["type"] == "start" and rep_stop["type"] == "stop"
+            assert rep_start["type"] == "start" and rep_stop["type"] == "stop", "Something wrong with repetitions"
             for part in score.iter_parts(self.parts):
                 part.add(score.Repeat(), rep_start["pos"], rep_stop["pos"])
 
