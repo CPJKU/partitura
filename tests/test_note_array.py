@@ -175,9 +175,9 @@ class TestNoteArray(unittest.TestCase):
         # note_arrays = [p.note_array(include_divs_per_quarter= True) for p in parts]
         merged_note_array = ensure_notearray(parts)
         for note in merged_note_array[-4:]:
-            self.assertTrue(note["onset_div"] == 92)
-            self.assertTrue(note["duration_div"] == 4)
-            self.assertTrue(note["divs_pq"] == 4)
+            self.assertTrue(note["onset_div"] == 368)
+            self.assertTrue(note["duration_div"] == 16)
+            self.assertTrue(note["divs_pq"] == 16)
 
     def test_score_notearray_method(self):
         """

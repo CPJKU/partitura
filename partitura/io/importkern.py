@@ -617,6 +617,9 @@ def parse_kern_v2(kern_path: PathLike) -> np.ndarray:
     """
     with open(kern_path, encoding="cp437") as file:
         lines = file.read().splitlines()
+    if lines[0][0] == "<":
+        # we are using a heuristic to stop the import if we are dealing with a XML file
+        raise Exception("Invalid Kern file")
     document_lines = [line.split("\t") for line in lines if not line.startswith("!")]
     number_of_voices = len(document_lines[0])
     number_of_lines = len(document_lines)
