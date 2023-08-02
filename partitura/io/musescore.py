@@ -119,19 +119,22 @@ or a list of these
         One or more part or partgroup objects
 
     """
-    # open the file as text and check if the first symbol is "<" to avoid 
-    # further processing in case of non-XML files
-    with open(filename, "r") as f: 
-        if f.read(1) != "<":
-            raise FileImportException(
-                "File {} is not a valid XML file.".format(filename)
-            )
+    if filename.endswith(".mscz"):
+        pass
+    else:
+        # open the file as text and check if the first symbol is "<" to avoid 
+        # further processing in case of non-XML files
+        with open(filename, "r") as f: 
+            if f.read(1) != "<":
+                raise FileImportException(
+                    "File {} is not a valid XML file.".format(filename)
+                )
     
     mscore_exec = find_musescore()
                 
     xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
 
-    cmd = [mscore_exec, "-o", xml_fh, filename]
+    cmd = [mscore_exec, "-o", xml_fh, filename, "-f"]
 
     try:
         ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -210,6 +213,7 @@ def render_musescore(
             "-o",
             os.fspath(img_fh),
             os.fspath(xml_fh),
+            "-f"
         ]
         try:
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
