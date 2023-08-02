@@ -28,7 +28,7 @@ jobs:
     - if: matrix.platform == 'ubuntu-latest'
       name: Install Musescore
       run: |
-        sudo apt-get install musescore
+        sudo apt-get install musescore3
     - name: Install Optional dependencies
       run: |        
         pip install music21==8.3.0 Pillow==9.5.0 musescore==0.0.1      
