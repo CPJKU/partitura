@@ -9,7 +9,7 @@ object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
 
-from copy import copy
+from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
@@ -4588,15 +4588,15 @@ def iter_unfolded_parts(part, update_ids=True):
 
 
 # UPDATED VERSION
-def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
-    """Return the "maximally" unfolded part, that is, a copy of the
+def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
+    """Return the "maximally" unfolded part/score, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
 
     Parameters
     ----------
-    part : :class:`Part`
-        The Part to unfold.
+    score : :class:`Part`
+        The Part/Score to unfold.
     update_ids : bool (optional)
         Update note ids to reflect the repetitions. Note IDs will have
         a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
@@ -4613,12 +4613,63 @@ def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
         The unfolded Part
 
     """
+    if isinstance(score, Score):
+        new_score = deepcopy(score)
+        new_partlist = list()
+        for score in new_score.parts:
+            unfolded_part = unfold_part_maximal(score, update_ids=update_ids, ignore_leaps=ignore_leaps)
+            new_partlist.append(unfolded_part)
+        new_score.parts = new_partlist
+        return new_score
 
     paths = get_paths(
-        part, no_repeats=False, all_repeats=True, ignore_leap_info=ignore_leaps
+        score, no_repeats=False, all_repeats=True, ignore_leap_info=ignore_leaps
     )
 
-    unfolded_part = new_part_from_path(paths[0], part, update_ids=update_ids)
+    unfolded_part = new_part_from_path(paths[0], score, update_ids=update_ids)
+    return unfolded_part
+
+
+def unfold_part_minimal(score: ScoreLike, update_ids=True, ignore_leaps=True):
+    """Return the "minimally" unfolded score/part, that is, a copy of the
+    part where all segments marked with repeat or volta signs are not included.
+    For voltas only the last volta segment is included.
+
+
+    Parameters
+    ----------
+    score: ScoreLike
+        The score/part to unfold.
+    update_ids : bool (optional)
+        Update note ids to reflect the repetitions. Note IDs will have
+        a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
+        represent the first and second repetition of 'n132' in the
+        input `part`. Defaults to False.
+    ignore_leaps : bool (optional)
+        If ignored, repetitions after a leap are unfolded fully.
+        A leap is a used dal segno, da capo, or al coda marking.
+        Defaults to True.
+
+    Returns
+    -------
+    unfolded_part : :class:`Part`
+        The unfolded Part
+
+    """
+    if isinstance(score, Score):
+        new_score = deepcopy(score)
+        new_partlist = list()
+        for part in new_score.parts:
+            unfolded_part = unfold_part_minimal(part, update_ids=update_ids, ignore_leaps=ignore_leaps)
+            new_partlist.append(unfolded_part)
+        new_score.parts = new_partlist
+        return new_score
+
+    paths = get_paths(
+        score, no_repeats=True, all_repeats=True, ignore_leap_info=ignore_leaps
+    )
+
+    unfolded_part = new_part_from_path(paths[0], score, update_ids=update_ids)
     return unfolded_part
 
 
