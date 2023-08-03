@@ -176,18 +176,34 @@ def load_performance_midi(
                 note = note_hash(msg.channel, msg.note)
 
                 # start note if it's a 'note on' event with velocity > 0
+                # key_exists = False
                 if note_on and msg.velocity > 0:
+                    # note_on_ctr += 1
+                    # if note in sounding_notes.keys():
+                        # key_exists = True
+                        # print('key_exists')
+                        # print(f'\t{note} {sounding_notes[note]} - existing key')
+                        # print('\tmsg number:', msg_i, msg, 'incoming msg')
+                    
                     # save the onset time and velocity
                     sounding_notes[note] = (t, ttick, msg.velocity)
+                    
+                    # if key_exists:
+                    #     print(f'\t{note} {sounding_notes[note]} - overwritten key')
+                    #     key_exists = False
 
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
                     if note not in sounding_notes:
-                        warnings.warn("ignoring MIDI message %s" % msg)
+                        # print('ignoring:')
+                        # print('\tmsg number:', msg_i, msg)
+                        # print(f'\t{note} {(t, ttick, msg.velocity)}')
+                        # print((f"\tMIDI message {msg}"))
+                        warnings.warn(f"ignoring MIDI message {msg}, {note}")
+                        print()
                         continue
 
                     # append the note to the list associated with the channel
-
                     notes.append(
                         dict(
                             # id=f"n{len(notes)}",
@@ -218,7 +234,7 @@ def load_performance_midi(
 
         # add note id to every note
         for k, note in enumerate(notes):
-            note["id"] = f"n{k}"
+            note["id"] = f"n{k+1}"
 
         if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
             pp = performance.PerformedPart(
