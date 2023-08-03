@@ -207,7 +207,6 @@ def matchfile_from_alignment(
 
     # Score prop header lines
     scoreprop_lines = defaultdict(list)
-
     # For score notes
     score_info = dict()
     # Info for sorting lines
