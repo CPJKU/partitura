@@ -367,7 +367,10 @@ class MeiParser(object):
             # intsymdur = (
             #     intsymdur * symbolic_dur["actual_notes"] / symbolic_dur["normal_notes"]
             # )
-            tuplet_modifier = (symbolic_dur["normal_notes"], symbolic_dur["actual_notes"])
+            tuplet_modifier = (
+                symbolic_dur["normal_notes"],
+                symbolic_dur["actual_notes"],
+            )
         else:
             tuplet_modifier = None
         # deals with dots
@@ -381,7 +384,9 @@ class MeiParser(object):
         durs_ppq = []
         for el in els_with_dur:
             symbolic_duration = self._get_symbolic_duration(el)
-            intsymdur, dots, tuplet_mod = self._intsymdur_from_symbolic(symbolic_duration)
+            intsymdur, dots, tuplet_mod = self._intsymdur_from_symbolic(
+                symbolic_duration
+            )
             if tuplet_mod is not None:
                 # consider time modifications keeping the numerator of the minimized fraction
                 minimized_fraction = Fraction(intsymdur * tuplet_mod[1], tuplet_mod[0])
@@ -588,10 +593,15 @@ class MeiParser(object):
             duration = 0 if el.get("grace") is not None else int(el.get("dur.ppq"))
         else:
             # compute the duration from the symbolic duration
-            intsymdur, dots, tuplet_mod = self._intsymdur_from_symbolic(symbolic_duration)
+            intsymdur, dots, tuplet_mod = self._intsymdur_from_symbolic(
+                symbolic_duration
+            )
             divs = part._quarter_durations[0]  # divs is the same as ppq
             if tuplet_mod is None:
-                tuplet_mod = (1,1) # if no tuplet modifier, set one that does not change the duration
+                tuplet_mod = (
+                    1,
+                    1,
+                )  # if no tuplet modifier, set one that does not change the duration
             duration = (divs * 4 * tuplet_mod[0]) / (intsymdur * tuplet_mod[1])
             for d in range(dots):
                 duration = duration + 0.5 * duration
@@ -746,7 +756,7 @@ class MeiParser(object):
         part.add(rest, position, position + parts_per_measure)
         # return duration to update the position in the layer
         return position + parts_per_measure
-    
+
     def _handle_multirest(self, multirest_el, position, voice, staff, part):
         """
         Handles a rest that spawn multiple measures
@@ -774,7 +784,9 @@ class MeiParser(object):
         # find how many measures
         n_measures = int(multirest_el.attrib["num"])
         if n_measures > 1:
-            raise Exception(f"Multi-rests with more than 1 measure are not supported yet. Found one with {n_measures}.")
+            raise Exception(
+                f"Multi-rests with more than 1 measure are not supported yet. Found one with {n_measures}."
+            )
         # find closest time signature
         last_ts = list(part.iter_all(cls=score.TimeSignature))[-1]
         # find divs per measure
@@ -845,7 +857,9 @@ class MeiParser(object):
         """Moves current position."""
         try:
             space_id, duration, symbolic_duration = self._duration_info(e, part)
-        except KeyError: # if the space don't have a duration, move to the end of the measure
+        except (
+            KeyError
+        ):  # if the space don't have a duration, move to the end of the measure
             # find closest time signature
             last_ts = list(part.iter_all(cls=score.TimeSignature))[-1]
             # find divs per measure
@@ -897,7 +911,9 @@ class MeiParser(object):
                 new_position = self._handle_mrest(
                     e, position, ind_layer, ind_staff, part
                 )
-            elif e.tag == self._ns_name("multiRest"):  # rest that spawn more than one measure
+            elif e.tag == self._ns_name(
+                "multiRest"
+            ):  # rest that spawn more than one measure
                 new_position = self._handle_multirest(
                     e, position, ind_layer, ind_staff, part
                 )
@@ -1161,12 +1177,18 @@ class MeiParser(object):
         if sanitized_repetition_list[-1] == "start":
             print("WARNING : unmatched repetitions. Ignoring last start")
         ## sanitize the found repetitions to remove duplicates
-        sanitized_repetition_list = list(OrderedDict((tuple(d.items()), d) for d in sanitized_repetition_list).values())
+        sanitized_repetition_list = list(
+            OrderedDict(
+                (tuple(d.items()), d) for d in sanitized_repetition_list
+            ).values()
+        )
         self.repetitions = sanitized_repetition_list
 
         ## insert the repetitions to all parts
         for rep_start, rep_stop in zip(self.repetitions[:-1:2], self.repetitions[1::2]):
-            assert rep_start["type"] == "start" and rep_stop["type"] == "stop", "Something wrong with repetitions"
+            assert (
+                rep_start["type"] == "start" and rep_stop["type"] == "stop"
+            ), "Something wrong with repetitions"
             for part in score.iter_parts(self.parts):
                 part.add(score.Repeat(), rep_start["pos"], rep_stop["pos"])
 
