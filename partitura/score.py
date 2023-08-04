@@ -9,7 +9,7 @@ object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
 
-from copy import copy
+from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
@@ -4588,15 +4588,15 @@ def iter_unfolded_parts(part, update_ids=True):
 
 
 # UPDATED VERSION
-def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
-    """Return the "maximally" unfolded part, that is, a copy of the
+def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
+    """Return the "maximally" unfolded part/score, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
 
     Parameters
     ----------
-    part : :class:`Part`
-        The Part to unfold.
+    score : ScoreLike
+        The Part/Score to unfold.
     update_ids : bool (optional)
         Update note ids to reflect the repetitions. Note IDs will have
         a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
@@ -4609,17 +4609,60 @@ def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
 
     Returns
     -------
-    unfolded_part : :class:`Part`
+    unfolded_part : ScoreLike
+        The unfolded Part/Score
+
+    """
+    if isinstance(score, Score):
+        new_score = deepcopy(score)
+        new_partlist = list()
+        for score in new_score.parts:
+            unfolded_part = unfold_part_maximal(score, update_ids=update_ids, ignore_leaps=ignore_leaps)
+            new_partlist.append(unfolded_part)
+        new_score.parts = new_partlist
+        return new_score
+
+    paths = get_paths(
+        score, no_repeats=False, all_repeats=True, ignore_leap_info=ignore_leaps
+    )
+
+    unfolded_part = new_part_from_path(paths[0], score, update_ids=update_ids)
+    return unfolded_part
+
+
+def unfold_part_minimal(score: ScoreLike):
+    """Return the "minimally" unfolded score/part, that is, a copy of the
+    part where all segments marked with repeat are included only once.
+    For voltas only the last volta segment is included.
+    Note this might not be musically valid, e.g. a passing a "fine" even a first time will stop this unfolding.
+    Warning: The unfolding of repeats is computed part-wise, inconsistent repeat markings of parts of a single result
+    in inconsistent unfoldings.
+
+    Parameters
+    ----------
+    score: ScoreLike
+        The score/part to unfold.
+
+    Returns
+    -------
+    unfolded_score : ScoreLike
         The unfolded Part
 
     """
+    if isinstance(score, Score):
+        unfolded_score = deepcopy(score)
+        new_partlist = list()
+        for part in unfolded_score.parts:
+            unfolded_part = unfold_part_minimal(part)
+            new_partlist.append(unfolded_part)
+        unfolded_score.parts = new_partlist
+        return unfolded_score
 
     paths = get_paths(
-        part, no_repeats=False, all_repeats=True, ignore_leap_info=ignore_leaps
-    )
+        score, no_repeats=True, all_repeats=False, ignore_leap_info=True)
 
-    unfolded_part = new_part_from_path(paths[0], part, update_ids=update_ids)
-    return unfolded_part
+    unfolded_score = new_part_from_path(paths[0], score, update_ids=False)
+    return unfolded_score
 
 
 # UPDATED / UNCHANGED VERSION
