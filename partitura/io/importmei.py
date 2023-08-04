@@ -73,7 +73,7 @@ class MeiParser(object):
         # find the music tag inside the document
         music_el = self.document.findall(self._ns_name("music", all=True))
         if len(music_el) != 1:
-            raise Exception("Only MEI with a single music element are supported")
+            raise Exception("Only MEI with a single <music> element are supported")
         self.music_el = music_el[0]
         self.repetitions = (
             []
