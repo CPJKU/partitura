@@ -4617,7 +4617,9 @@ def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
         new_score = deepcopy(score)
         new_partlist = list()
         for score in new_score.parts:
-            unfolded_part = unfold_part_maximal(score, update_ids=update_ids, ignore_leaps=ignore_leaps)
+            unfolded_part = unfold_part_maximal(
+                score, update_ids=update_ids, ignore_leaps=ignore_leaps
+            )
             new_partlist.append(unfolded_part)
         new_score.parts = new_partlist
         return new_score
@@ -4658,8 +4660,7 @@ def unfold_part_minimal(score: ScoreLike):
         unfolded_score.parts = new_partlist
         return unfolded_score
 
-    paths = get_paths(
-        score, no_repeats=True, all_repeats=False, ignore_leap_info=True)
+    paths = get_paths(score, no_repeats=True, all_repeats=False, ignore_leap_info=True)
 
     unfolded_score = new_part_from_path(paths[0], score, update_ids=False)
     return unfolded_score
