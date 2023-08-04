@@ -35,37 +35,53 @@ class MuseScoreNotFoundException(Exception):
 class FileImportException(Exception):
     pass
 
-
-def find_musescore3():
-    # # possible way to detect MuseScore... executable
-    # for p in os.environ['PATH'].split(':'):
-    #     c = glob.glob(os.path.join(p, 'MuseScore*'))
-    #     if c:
-    #         print(c)
-    #         break
-
-    result = shutil.which("musescore")
-
+def find_musescore_version(version=4):
+    """Find the path to the MuseScore executable for a specific version.
+    If version is a empty string it tries to find an unspecified version of 
+    MuseScore which is used in some systems.
+    """
+    result = shutil.which(f"musescore{version}")
     if result is None:
-        result = shutil.which("musescore3")
-
-    if result is None:
-        result = shutil.which("mscore")
-
-    if result is None:
-        result = shutil.which("mscore3")
-
+        result = shutil.which(f"mscore{version}")
     if result is None:
         if platform.system() == "Linux":
             pass
-
         elif platform.system() == "Darwin":
-            result = shutil.which("/Applications/MuseScore 3.app/Contents/MacOS/mscore")
-
+            result = shutil.which(f"/Applications/MuseScore {version}.app/Contents/MacOS/mscore")
         elif platform.system() == "Windows":
-            result = shutil.which(r"C:\Program Files\MuseScore 3\bin\MuseScore3.exe")
+            result = shutil.which(rf"C:\Program Files\MuseScore {version}\bin\MuseScore{version}.exe")
 
     return result
+
+def find_musescore():
+    """Find the path to the MuseScore executable.
+
+    This function first tries to find the executable for MuseScore 4,
+    then for MuseScore 3, and finally for any version of MuseScore.
+
+    Returns
+    -------
+    str
+        Path to the MuseScore executable
+
+    Raises
+    ------
+    MuseScoreNotFoundException
+        When no MuseScore executable was found
+    """
+
+    mscore_exec = find_musescore_version(version=4)
+    if not mscore_exec:
+        mscore_exec = find_musescore_version(version=3)
+        if mscore_exec:
+            warnings.warn("Only Musescore 3 is installed. Consider upgrading to musescore 4.")
+        else:
+            mscore_exec = find_musescore_version(version="")
+            if mscore_exec:
+                warnings.warn("A unspecified version of MuseScore was found. Consider upgrading to musescore 4.")
+            else:
+                raise MuseScoreNotFoundException()
+    return mscore_exec
 
 
 @deprecated_alias(fn="filename")
@@ -103,15 +119,22 @@ or a list of these
         One or more part or partgroup objects
 
     """
-
-    mscore_exec = find_musescore3()
-
-    if not mscore_exec:
-        raise MuseScoreNotFoundException()
-
+    if filename.endswith(".mscz"):
+        pass
+    else:
+        # open the file as text and check if the first symbol is "<" to avoid 
+        # further processing in case of non-XML files
+        with open(filename, "r") as f: 
+            if f.read(1) != "<":
+                raise FileImportException(
+                    "File {} is not a valid XML file.".format(filename)
+                )
+    
+    mscore_exec = find_musescore()
+                
     xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
 
-    cmd = [mscore_exec, "-o", xml_fh, filename]
+    cmd = [mscore_exec, "-o", xml_fh, filename, "-f"]
 
     try:
         ps = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -167,10 +190,7 @@ def render_musescore(
     out : Optional[PathLike]
        Path to the output generated image (or None if no image was generated)
     """
-    mscore_exec = find_musescore3()
-
-    if not mscore_exec:
-        return None
+    mscore_exec = find_musescore()
 
     if fmt not in ("png", "pdf"):
         warnings.warn("warning: unsupported output format")
@@ -193,6 +213,7 @@ def render_musescore(
             "-o",
             os.fspath(img_fh),
             os.fspath(xml_fh),
+            "-f"
         ]
         try:
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

@@ -686,6 +686,8 @@ def midi_ticks_to_seconds(
 
 SIGN_TO_ALTER = {
     "n": 0,
+    "ns" : 1,
+    "nf" : -1,
     "#": 1,
     "s": 1,
     "ss": 2,
