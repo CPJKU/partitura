@@ -10,6 +10,7 @@ from tempfile import TemporaryFile
 
 from tests import (
     MUSICXML_IMPORT_EXPORT_TESTFILES,
+    MUSICXML_SCORE_OBJECT_TESTFILES,
     MUSICXML_UNFOLD_TESTPAIRS,
     MUSICXML_UNFOLD_COMPLEX,
     MUSICXML_UNFOLD_VOLTA,
@@ -55,7 +56,7 @@ class TestMusicXML(unittest.TestCase):
     """
 
     def test_import_export(self):
-        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES[:2]:
+        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             with open(fn) as f:
                 parts = load_musicxml(f, validate=False)
                 result = save_musicxml(parts).decode("UTF-8")
@@ -243,7 +244,7 @@ class TestMusicXML(unittest.TestCase):
         self.assertTrue(equal, msg)
         
     def test_score_attribute(self):
-        score = load_musicxml(MUSICXML_IMPORT_EXPORT_TESTFILES[2])
+        score = load_musicxml(MUSICXML_SCORE_OBJECT_TESTFILES[0])
         test_work_title = "Test Title"
         test_work_number = "Test Opus 1"
 

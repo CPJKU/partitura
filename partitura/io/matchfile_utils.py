@@ -888,7 +888,7 @@ class MatchTempoIndication(MatchParameter):
     
     def from_string(cls, string: str) -> MatchTempoIndication:
         
-        # Note particularities of the BpM dataset....
+        # NOTE particularities of the BpM dataset....
         if string is not None:
             if 'Rond' in string:
                 content = string.split(' ')
@@ -897,9 +897,11 @@ class MatchTempoIndication(MatchParameter):
                 content = ['Allegretto']
             elif 'Menuetto' in string:
                 content = ['Menuetto']
+            else: content = interpret_as_list(string)
         else:
             content = interpret_as_list(string)  
         
+        print(f'{string} -> {content}')
         return content
 
     

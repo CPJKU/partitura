@@ -214,7 +214,7 @@ class TestNotesFromPianoroll(unittest.TestCase):
         self.assertTrue(test)
 
     def test_reconstruction_score(self):
-        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES[:2]:
+        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             score = load_musicxml(fn)
             note_array = score[0].note_array()
             pr = compute_pianoroll(

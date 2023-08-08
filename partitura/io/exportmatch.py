@@ -401,16 +401,18 @@ def matchfile_from_alignment(
     note_lines = []
     
     # Get ids of notes which voice overlap
-    spart_array = np.array([list(row) for row in spart.note_array()])
-    onset_pitch_slice = [tuple(i) for i in list(spart_array[:, [0, 6]])]
+    print('12987329412398476')
+    print(type(spart))
+    print(type(spart.note_array()))
+    onset_pitch_slice = [tuple(i) for i in list(spart.note_array()[["onset_beat", "pitch"]])]
 
     onset_pitch_dict = defaultdict(list)
     for index, tup in enumerate(onset_pitch_slice):
         onset_pitch_dict[tup].append(index)
     duplicates = {key: indices for key, indices in onset_pitch_dict.items() if len(indices) > 1}
-
-    voice_overlap_note_ids = [spart_array[idx][:,-1] for k, idx in duplicates.items()]
-    voice_overlap_note_ids = [i for sub in voice_overlap_note_ids for i in sub]
+    if len(duplicates) > 0:
+        duplicate_idx = np.array(list(duplicates.values())).flatten()
+        voice_overlap_note_ids = list(spart[duplicate_idx]['id'])
     
     for al_note in alignment:
         label = al_note["label"]
