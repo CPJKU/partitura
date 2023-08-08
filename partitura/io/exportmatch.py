@@ -401,9 +401,6 @@ def matchfile_from_alignment(
     note_lines = []
     
     # Get ids of notes which voice overlap
-    print('12987329412398476')
-    print(type(spart))
-    print(type(spart.note_array()))
     onset_pitch_slice = [tuple(i) for i in list(spart.note_array()[["onset_beat", "pitch"]])]
 
     onset_pitch_dict = defaultdict(list)
