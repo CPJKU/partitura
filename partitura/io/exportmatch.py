@@ -8,7 +8,6 @@ Notes
 * The methods only export matchfiles version 1.0.0.
 """
 import numpy as np
-import pandas as pd
 
 from typing import List, Optional, Iterable
 
@@ -401,14 +400,18 @@ def matchfile_from_alignment(
     sort_stime = []
     note_lines = []
     
-    # Filter out voice overlap notes using a pd.Dataframe structure
-    spart_df = pd.DataFrame(spart.note_array())
-    voice_overlap_candidates = spart_df.groupby(['onset_beat', 'pitch'])
-    voice_overlap_note_ids = []
-    for _, group in voice_overlap_candidates:
-        if len(group) > 1:
-            voice_overlap_note_ids.extend(np.array(group.values.tolist())[:,-1].tolist())
-            
+    # Get ids of notes which voice overlap
+    spart_array = np.array([list(row) for row in spart.note_array()])
+    onset_pitch_slice = [tuple(i) for i in list(spart_array[:, [0, 6]])]
+
+    onset_pitch_dict = defaultdict(list)
+    for index, tup in enumerate(onset_pitch_slice):
+        onset_pitch_dict[tup].append(index)
+    duplicates = {key: indices for key, indices in onset_pitch_dict.items() if len(indices) > 1}
+
+    voice_overlap_note_ids = [spart_array[idx][:,-1] for k, idx in duplicates.items()]
+    voice_overlap_note_ids = [i for sub in voice_overlap_note_ids for i in sub]
+    
     for al_note in alignment:
         label = al_note["label"]
 
@@ -450,7 +453,6 @@ def matchfile_from_alignment(
     # sort notes by score onset (performed insertions are sorted
     # according to the interpolation map
     sort_stime = np.array(sort_stime)
-    # print(sort_stime)
     sort_stime_idx = np.lexsort((sort_stime[:, 1], sort_stime[:, 0]))
     note_lines = np.array(note_lines)[sort_stime_idx]
 

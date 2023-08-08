@@ -202,8 +202,6 @@ def save_performance_midi(
                     track_events[tr][min(timepoints)].append(
                         Message("program_change", program=0, channel=ch)
                     )
-    # TODOph fix diff i/o notes 
-    print('==== exported midi notes:', len(performed_part.notes))
     
     midi_type = 0 if len(track_events) == 1 else 1
 

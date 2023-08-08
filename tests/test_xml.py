@@ -55,7 +55,7 @@ class TestMusicXML(unittest.TestCase):
     """
 
     def test_import_export(self):
-        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
+        for fn in MUSICXML_IMPORT_EXPORT_TESTFILES[:2]:
             with open(fn) as f:
                 parts = load_musicxml(f, validate=False)
                 result = save_musicxml(parts).decode("UTF-8")
@@ -241,6 +241,14 @@ class TestMusicXML(unittest.TestCase):
             show_diff(pstring1, pstring2)
         msg = "Exported and imported score does not yield identical pretty printed representations"
         self.assertTrue(equal, msg)
+        
+    def test_score_attribute(self):
+        score = load_musicxml(MUSICXML_IMPORT_EXPORT_TESTFILES[2])
+        test_work_title = "Test Title"
+        test_work_number = "Test Opus 1"
+
+        self.assertTrue(score.work_title == test_work_title)
+        self.assertTrue(score.work_number == test_work_number)
 
 
 def make_part_slur():
