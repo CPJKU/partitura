@@ -899,9 +899,7 @@ class MatchTempoIndication(MatchParameter):
                 content = ['Menuetto']
             else: content = interpret_as_list(string)
         else:
-            content = interpret_as_list(string)  
-        
-        print(f'{string} -> {content}')
+            content = interpret_as_list(string)
         return content
 
     
