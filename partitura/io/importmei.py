@@ -940,7 +940,7 @@ class MeiParser(object):
             position = new_position
         return position
 
-    def _handle_staff_in_measure(self, staff_el, staff_ind, position: int, part):
+    def _handle_staff_in_measure(self, staff_el, staff_ind, position: int, part: pt.score.Part, measure_number: int):
         """
         Handles staffs inside a measure element.
 
@@ -954,6 +954,9 @@ class MeiParser(object):
             The current position on the timeline.
         part : Partitura.Part
             The created partitura part object.
+        measure_number : int
+            The number of the measure. This number is independent of the measure name specified in the score.
+            It starts from 0 and always increases by 1 at each measure
 
         Returns
         -------
@@ -961,7 +964,7 @@ class MeiParser(object):
             The final position on the timeline.
         """
         # add measure
-        measure = score.Measure(number=staff_el.getparent().get("n"))
+        measure = score.Measure(number=measure_number,name=staff_el.getparent().get("n"))
         part.add(measure, position)
 
         layers_el = staff_el.findall(self._ns_name("layer"))
@@ -1033,6 +1036,7 @@ class MeiParser(object):
         position : int
             The end position of the section.
         """
+        measure_number = 0
         for i_el, element in enumerate(section_el):
             # handle measures
             if element.tag == self._ns_name("measure"):
@@ -1045,7 +1049,7 @@ class MeiParser(object):
                 end_positions = []
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
-                        self._handle_staff_in_measure(staff_el, i_s + 1, position, part)
+                        self._handle_staff_in_measure(staff_el, i_s + 1, position, part, measure_number)
                     )
                 # handle directives (dir elements)
                 self._handle_directives(element, position)
@@ -1067,6 +1071,7 @@ class MeiParser(object):
                 position = max_position
                 # handle right barline symbol
                 self._handle_barline_symbols(element, position, "right")
+                measure_number += 1
             # handle staffDef elements
             elif element.tag == self._ns_name("scoreDef"):
                 # meter modifications

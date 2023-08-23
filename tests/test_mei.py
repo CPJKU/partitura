@@ -285,5 +285,14 @@ class TestImportMEI(unittest.TestCase):
         score = load_mei(MEI_TESTFILES[17])
         self.assertTrue(np.array_equal(score.note_array()["duration_div"],[3,3,3,3,3,3,3,3,24]))
 
+    def test_measure_number(self):
+        score = load_mei(MEI_TESTFILES[0])
+        measure_number_map = score.parts[0].measure_number_map
+        onsets = score.note_array()["onset_div"]
+        measure_number_per_each_onset = measure_number_map(onsets)
+        self.assertTrue(measure_number_per_each_onset[0].dtype == int)
+        self.assertTrue(min(measure_number_per_each_onset) == 0)
+        self.assertTrue(max(measure_number_per_each_onset) == 33)
+
 if __name__ == "__main__":
     unittest.main()
