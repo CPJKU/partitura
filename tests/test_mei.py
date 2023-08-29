@@ -291,8 +291,8 @@ class TestImportMEI(unittest.TestCase):
         onsets = score.note_array()["onset_div"]
         measure_number_per_each_onset = measure_number_map(onsets)
         self.assertTrue(measure_number_per_each_onset[0].dtype == int)
-        self.assertTrue(min(measure_number_per_each_onset) == 0)
-        self.assertTrue(max(measure_number_per_each_onset) == 33)
+        self.assertTrue(min(measure_number_per_each_onset) == 1)
+        self.assertTrue(max(measure_number_per_each_onset) == 34)
 
 if __name__ == "__main__":
     unittest.main()

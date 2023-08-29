@@ -956,7 +956,7 @@ class MeiParser(object):
             The created partitura part object.
         measure_number : int
             The number of the measure. This number is independent of the measure name specified in the score.
-            It starts from 0 and always increases by 1 at each measure
+            It starts from 1 and always increases by 1 at each measure
 
         Returns
         -------
@@ -1036,7 +1036,7 @@ class MeiParser(object):
         position : int
             The end position of the section.
         """
-        measure_number = 0
+        measure_number = 1
         for i_el, element in enumerate(section_el):
             # handle measures
             if element.tag == self._ns_name("measure"):
