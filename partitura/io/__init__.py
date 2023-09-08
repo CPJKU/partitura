@@ -35,7 +35,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     """
     Load a score format supported by partitura. Currently the accepted formats
     are MusicXML, MIDI, Kern and MEI, plus all formats for which
-    MuseScore has support import-support (requires MuseScore 3).
+    MuseScore has support import-support (requires MuseScore 4 or 3).
 
     Parameters
     ----------
@@ -54,20 +54,15 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     scr: :class:`partitura.score.Score`
         A score instance.
     """
-    part = None
-
-    # Catch exceptions
-    exception_dictionary = dict()
-    # Load MusicXML
-    try:
+    extension = filename.split(".")[-1].lower()
+    if extension in ("mxl", "xml", "musicxml"):
+        # Load MusicXML
         return load_musicxml(
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    except Exception as e:
-        exception_dictionary["MusicXML"] = e
-    # Load MIDI
-    try:
+    elif extension in ["midi", "mid"]:
+        # Load MIDI
         if (force_note_ids is None) or (not force_note_ids):
             assign_note_ids = False
         else:
@@ -76,44 +71,29 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             filename=filename,
             assign_note_ids=assign_note_ids,
         )
-    except Exception as e:
-        exception_dictionary["MIDI"] = e
-    # Load MEI
-    try:
+    elif extension in ["mei"]:
+        # Load MEI
         return load_mei(filename=filename)
-    except Exception as e:
-        exception_dictionary["MEI"] = e
-    # Load Kern
-    try:
+    elif extension in ["kern", "krn"]:
         return load_kern(
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    except Exception as e:
-        exception_dictionary["Kern"] = e
-    # Load MuseScore
-    try:
+    elif extension in ["mscz", "mscx", "musescore", "mscore", "ms"]:
+        # Load MuseScore
         return load_via_musescore(
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    except Exception as e:
-        exception_dictionary["MuseScore"] = e
-    try:
+    elif extension in ["match"]:
         # Load the score information from a Matchfile
-        _, _, part = load_match(
+        _, _, score = load_match(
             filename=filename,
             create_score=True,
         )
-
-    except Exception as e:
-        exception_dictionary["matchfile"] = e
-    if part is None:
-        for score_format, exception in exception_dictionary.items():
-            print(f"Error loading score as {score_format}:")
-            print(exception)
-
-        raise NotSupportedFormatError
+        return score
+    else:
+        raise NotSupportedFormatError(f"{filename.split('.')[-1].lower()} file extension is not supported. If this should be supported, consider editing partitura/io/__init__.py file")
 
 
 def load_score_as_part(filename: PathLike) -> Part:
