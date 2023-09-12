@@ -4,6 +4,7 @@
 This module contains methods for importing and exporting symbolic music formats.
 """
 from typing import Union
+import os
 
 from .importmusicxml import load_musicxml
 from .importmidi import load_score_midi, load_performance_midi
@@ -54,14 +55,15 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     scr: :class:`partitura.score.Score`
         A score instance.
     """
-    extension = filename.split(".")[-1].lower()
-    if extension in ("mxl", "xml", "musicxml"):
+    
+    extension = os.path.splitext(filename)[-1].lower()
+    if extension in (".mxl", ".xml", ".musicxml"):
         # Load MusicXML
         return load_musicxml(
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    elif extension in ["midi", "mid"]:
+    elif extension in [".midi", ".mid"]:
         # Load MIDI
         if (force_note_ids is None) or (not force_note_ids):
             assign_note_ids = False
@@ -71,21 +73,21 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             filename=filename,
             assign_note_ids=assign_note_ids,
         )
-    elif extension in ["mei"]:
+    elif extension in [".mei"]:
         # Load MEI
         return load_mei(filename=filename)
-    elif extension in ["kern", "krn"]:
+    elif extension in [".kern", ".krn"]:
         return load_kern(
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    elif extension in ["mscz", "mscx", "musescore", "mscore", "ms"]:
+    elif extension in [".mscz", ".mscx", ".musescore", ".mscore", ".ms"]:
         # Load MuseScore
         return load_via_musescore(
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    elif extension in ["match"]:
+    elif extension in [".match"]:
         # Load the score information from a Matchfile
         _, _, score = load_match(
             filename=filename,
@@ -93,7 +95,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         )
         return score
     else:
-        raise NotSupportedFormatError(f"{filename.split('.')[-1].lower()} file extension is not supported. If this should be supported, consider editing partitura/io/__init__.py file")
+        raise NotSupportedFormatError(f"{extension} file extension is not supported. If this should be supported, consider editing partitura/io/__init__.py file")
 
 
 def load_score_as_part(filename: PathLike) -> Part:
