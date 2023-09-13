@@ -55,7 +55,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     scr: :class:`partitura.score.Score`
         A score instance.
     """
-    
+
     extension = os.path.splitext(filename)[-1].lower()
     if extension in (".mxl", ".xml", ".musicxml"):
         # Load MusicXML
@@ -95,7 +95,9 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         )
         return score
     else:
-        raise NotSupportedFormatError(f"{extension} file extension is not supported. If this should be supported, consider editing partitura/io/__init__.py file")
+        raise NotSupportedFormatError(
+            f"{extension} file extension is not supported. If this should be supported, consider editing partitura/io/__init__.py file"
+        )
 
 
 def load_score_as_part(filename: PathLike) -> Part:
