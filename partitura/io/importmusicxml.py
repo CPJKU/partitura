@@ -841,8 +841,9 @@ def _handle_direction(e, position, part, ongoing):
             # first child of direction-type is dynamics, there may be subsequent
             # dynamics items, so we loop:
             for child in direction_type:
+                # check if child has no children, in which case continue
                 # interpret as score.Direction, fall back to score.Words
-                dyn_el = next(iter(child))
+                dyn_el = next(iter(child), None)
                 if dyn_el is not None:
                     direction = DYN_DIRECTIONS.get(dyn_el.tag, score.Words)(
                         dyn_el.tag, staff=staff
