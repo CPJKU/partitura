@@ -201,19 +201,9 @@ def load_matchfile(
     np_lines = np.array(raw_lines, dtype=str)
     # Remove empty lines
     np_lines = np_lines[np_lines != ""]
-    len_after_empty_lines = len(np_lines)
-    if len_raw_lines != len_after_empty_lines:
-        warnings.warn(
-            f"Removed {len_raw_lines - len_after_empty_lines} empty lines from match file"
-        )
     # Remove duplicate lines
     _, idx = np.unique(np_lines, return_index=True)
     np_lines = np_lines[np.sort(idx)]
-    len_after_duplicate_lines = len(np_lines)
-    if len_after_empty_lines != len_after_duplicate_lines:
-        warnings.warn(
-            f"Removed {len_after_empty_lines - len_after_duplicate_lines} duplicate lines from match file"
-        )
     # Parse lines
     f = partial(parse_matchline, version=version, from_matchline_methods=from_matchline_methods)
     f_vec = np.vectorize(f)
