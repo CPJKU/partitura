@@ -205,7 +205,9 @@ def load_matchfile(
     _, idx = np.unique(np_lines, return_index=True)
     np_lines = np_lines[np.sort(idx)]
     # Parse lines
-    f = partial(parse_matchline, version=version, from_matchline_methods=from_matchline_methods)
+    f = partial(
+        parse_matchline, version=version, from_matchline_methods=from_matchline_methods
+    )
     f_vec = np.vectorize(f)
     parsed_lines = f_vec(np_lines).tolist()
     # Create MatchFile instance
