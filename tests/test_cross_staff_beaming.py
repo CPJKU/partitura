@@ -14,7 +14,7 @@ class CrossStaffBeaming(unittest.TestCase):
         cross_staff_mask = (note_array["pitch"] > 52) & (note_array["pitch"] < 72)
         note_array_staff = note_array[cross_staff_mask]["staff"]
         expected_voice = np.ones(len(note_array_staff), dtype=int)
-        note_array_voice = note_array[[cross_staff_mask]]["voice"]
+        note_array_voice = note_array[cross_staff_mask]["voice"]
         self.assertTrue(np.all(note_array_staff == expected_staff))
         self.assertTrue(np.all(note_array_voice == expected_voice))
 
