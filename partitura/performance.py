@@ -311,9 +311,6 @@ class PerformedNote(dict):
         self._accepted_keys = ["id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off"]
         self.__setitem__ = self._setitem_new
 
-    def __repr__(self):
-        return f"PerformedNote: {self['id']}"
-
     def __str__(self):
         return f"PerformedNote: {self['id']}"
 
