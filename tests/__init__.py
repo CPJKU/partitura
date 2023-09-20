@@ -237,3 +237,7 @@ TOKENIZER_TESTFILES = [
 MIDIEXPORT_TESTFILES = [
     os.path.join(DATA_PATH, "musicxml", "test_anacrusis.xml")
 ]
+
+MIDIINPORT_TESTFILES = [
+    os.path.join(DATA_PATH, "midi", "bach_midi_score.mid")
+]
