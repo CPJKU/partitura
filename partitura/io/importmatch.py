@@ -6,7 +6,7 @@ This module contains methods for parsing matchfiles
 import os
 from typing import Union, Tuple, Optional, Callable, List
 import warnings
-
+from functools import partial
 import numpy as np
 
 from partitura import score
@@ -197,21 +197,21 @@ def load_matchfile(
 
     parsed_lines = list()
     # Functionality to remove duplicate lines
-    for i, line in enumerate(raw_lines):
-        if line in raw_lines[i + 1 :] and line != "":
-            warnings.warn(f"Duplicate line found in matchfile: {line}")
-            continue
-        parsed_line = parse_matchline(line, from_matchline_methods, version)
-        if parsed_line is None:
-            warnings.warn(f"Could not empty parse line: {line} ")
-            continue
-        parsed_lines.append(parsed_line)
-
+    len_raw_lines = len(raw_lines)
+    np_lines = np.array(raw_lines, dtype=str)
+    # Remove empty lines
+    np_lines = np_lines[np_lines != ""]
+    # Remove duplicate lines
+    _, idx = np.unique(np_lines, return_index=True)
+    np_lines = np_lines[np.sort(idx)]
+    # Parse lines
+    f = partial(parse_matchline, version=version, from_matchline_methods=from_matchline_methods)
+    f_vec = np.vectorize(f)
+    parsed_lines = f_vec(np_lines).tolist()
+    # Create MatchFile instance
     mf = MatchFile(lines=parsed_lines)
-
     # Validate match for duplicate snote_ids or pnote_ids
     validate_match_ids(mf)
-
     return mf
 
 
