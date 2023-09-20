@@ -475,12 +475,22 @@ or a list of these
 
     ## sanitize time signature, when they are only present in one track, and no global is set
     # find the number of ts per each track
-    number_of_time_sig_per_track = [len(time_sigs_by_track[t]) for t in key_sigs_by_track.keys()]
+    number_of_time_sig_per_track = [
+        len(time_sigs_by_track[t]) for t in key_sigs_by_track.keys()
+    ]
     # if one track has 0 ts, and another has !=0 ts, and no global_time_sigs is present, sanitize
     # all key signatures are copied to global, and the track ts are removed
-    if len(global_time_sigs) == 0 and min(number_of_time_sig_per_track) == 0 and max(number_of_time_sig_per_track)!= 0:
-        warnings.warn("Sanitizing time signatures. They will be shared across all tracks.")
-        for ts in [ts for ts_track in time_sigs_by_track.values() for ts in ts_track]: #flattening all track time signatures to a list of ts
+    if (
+        len(global_time_sigs) == 0
+        and min(number_of_time_sig_per_track) == 0
+        and max(number_of_time_sig_per_track) != 0
+    ):
+        warnings.warn(
+            "Sanitizing time signatures. They will be shared across all tracks."
+        )
+        for ts in [
+            ts for ts_track in time_sigs_by_track.values() for ts in ts_track
+        ]:  # flattening all track time signatures to a list of ts
             global_time_sigs.append(ts)
         # now clear all track_ts
         time_sigs_by_track.clear()
