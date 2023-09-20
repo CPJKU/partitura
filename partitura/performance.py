@@ -285,8 +285,20 @@ def adjust_offsets_w_sustain(
 
 
 class PerformedNote(dict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    """
+    A dictionary-like object representing a performed note.
+
+    Parameters
+    ----------
+    pnote_dict : dict
+        A dictionary containing performed note information.
+        This information can contain the following fields:
+        "id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off".
+        If not provided, the default values will be used.
+        Pitch, note_on, and note_off are required.
+    """
+    def __init__(self, pnote_dict):
+        super().__init__(pnote_dict)
         self["id"] = self.get("id", None)
         self["pitch"] = self.get("pitch", self["midi_pitch"])
         self["note_on"] = self.get("note_on", -1)
@@ -295,7 +307,7 @@ class PerformedNote(dict):
         self["track"] = self.get("track", 0)
         self["channel"] = self.get("channel", 1)
         self["velocity"] = self.get("velocity", 60)
-        self.validate_values()
+        self._validate_values()
         self._accepted_keys = ["id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off"]
         self.__setitem__ = self._setitem_new
 
@@ -306,7 +318,11 @@ class PerformedNote(dict):
         return f"PerformedNote: {self['id']}"
 
     def __eq__(self, other):
-        return self["id"] == other["id"]
+        if not isinstance(PerformedNote):
+            return False
+        if not self.keys() == other.keys():
+            return False
+        return np.all(np.array([self[k] == other[k] for k in self.keys() if k in other.keys()]))
 
     def __hash__(self):
         return hash(self["id"])
@@ -332,20 +348,20 @@ class PerformedNote(dict):
         elif key == "note_off":
             # Verify that the note_off is after the note_on
             if value < self["note_on"]:
-                raise ValueError(f"note_off must be after note_on")
+                raise ValueError(f"note_off must be after or equal to note_on")
             self["sound_off"] = value if self["sound_off"] < value else self["sound_off"]
             self["note_off"] = value
         elif key == "note_on":
             # Verify that the note_on is before the note_off
             if value > self["note_off"]:
-                raise ValueError(f"note_on must be before note_off")
+                raise ValueError(f"note_on must be before or equal to note_off")
 
             self["duration_sec"] = self["note_off"] - value
             self["note_on"] = value
         elif key == "sound_off":
-            # Verify that the sound_off is after the note_on
-            if value < self["note_off"]:
-                raise ValueError(f"sound_off must be after note_off")
+            # Verify that the sound_off is after the note_off
+            if value <= self["note_off"]:
+                raise ValueError(f"sound_off must be after or equal to note_off")
             self["sound_off"] = value
         else:
             self[key] = value
@@ -362,14 +378,14 @@ class PerformedNote(dict):
     def __contains__(self, key):
         return key in self.keys()
 
-    def validate_values(self):
+    def _validate_values(self):
         if self["pitch"] > 127 or self["pitch"] < 0:
             raise ValueError(f"pitch must be between 0 and 127")
         if self["note_on"] < 0:
             raise ValueError(f"Note on value provided is invalid, must be greater than or equal to 0")
         if self["note_off"] < 0 or self["note_off"] < self["note_on"]:
             raise ValueError(f"Note off value provided is invalid, "
-                             f"must be greater than or equal to 0 and greater than note_on")
+                             f"must be greater than or equal to 0 and greater or equal to note_on")
         if self["velocity"] > 127 or self["velocity"] < 0:
             raise ValueError(f"velocity must be between 0 and 127")
 
