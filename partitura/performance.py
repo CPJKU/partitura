@@ -297,6 +297,7 @@ class PerformedNote(dict):
         If not provided, the default values will be used.
         Pitch, note_on, and note_off are required.
     """
+
     def __init__(self, pnote_dict):
         super().__init__(pnote_dict)
         self["id"] = self.get("id", None)
@@ -308,7 +309,16 @@ class PerformedNote(dict):
         self["channel"] = self.get("channel", 1)
         self["velocity"] = self.get("velocity", 60)
         self._validate_values()
-        self._accepted_keys = ["id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off"]
+        self._accepted_keys = [
+            "id",
+            "pitch",
+            "note_on",
+            "note_off",
+            "velocity",
+            "track",
+            "channel",
+            "sound_off",
+        ]
         self.__setitem__ = self._setitem_new
 
     def __str__(self):
@@ -319,7 +329,9 @@ class PerformedNote(dict):
             return False
         if not self.keys() == other.keys():
             return False
-        return np.all(np.array([self[k] == other[k] for k in self.keys() if k in other.keys()]))
+        return np.all(
+            np.array([self[k] == other[k] for k in self.keys() if k in other.keys()])
+        )
 
     def __hash__(self):
         return hash(self["id"])
@@ -346,7 +358,9 @@ class PerformedNote(dict):
             # Verify that the note_off is after the note_on
             if value < self["note_on"]:
                 raise ValueError(f"note_off must be after or equal to note_on")
-            self["sound_off"] = value if self["sound_off"] < value else self["sound_off"]
+            self["sound_off"] = (
+                value if self["sound_off"] < value else self["sound_off"]
+            )
             self["note_off"] = value
         elif key == "note_on":
             # Verify that the note_on is before the note_off
@@ -379,10 +393,14 @@ class PerformedNote(dict):
         if self["pitch"] > 127 or self["pitch"] < 0:
             raise ValueError(f"pitch must be between 0 and 127")
         if self["note_on"] < 0:
-            raise ValueError(f"Note on value provided is invalid, must be greater than or equal to 0")
+            raise ValueError(
+                f"Note on value provided is invalid, must be greater than or equal to 0"
+            )
         if self["note_off"] < 0 or self["note_off"] < self["note_on"]:
-            raise ValueError(f"Note off value provided is invalid, "
-                             f"must be greater than or equal to 0 and greater or equal to note_on")
+            raise ValueError(
+                f"Note off value provided is invalid, "
+                f"must be greater than or equal to 0 and greater or equal to note_on"
+            )
         if self["velocity"] > 127 or self["velocity"] < 0:
             raise ValueError(f"velocity must be between 0 and 127")
 

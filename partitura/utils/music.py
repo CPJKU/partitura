@@ -3283,7 +3283,6 @@ def slice_ppart_by_time(
                     new_pr["time_tick"] = int(2 * ppq * pr["time"])
                 programs_slice.append(new_pr)
 
-
     notes_slice = []
     note_id = 0
     for note in ppart.notes:
@@ -3327,7 +3326,9 @@ def slice_ppart_by_time(
                 break
 
     # Create slice PerformedPart
-    ppart_slice = PerformedPart(notes=notes_slice, programs=programs_slice, controls=controls_slice, ppq=ppq)
+    ppart_slice = PerformedPart(
+        notes=notes_slice, programs=programs_slice, controls=controls_slice, ppq=ppq
+    )
 
     # set threshold property after creating notes list to update 'sound_offset' values
     ppart_slice.sustain_pedal_threshold = ppart.sustain_pedal_threshold
