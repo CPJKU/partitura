@@ -373,29 +373,38 @@ def performed_part_from_match(
     # PerformedNote instances for all MatchNotes
     notes = []
 
-    first_note = next(mf.iter_notes(), None)
-    if first_note and first_note_at_zero:
-        offset = midi_ticks_to_seconds(first_note.Onset, mpq=mpq, ppq=ppq)
-        offset_tick = first_note.Onset
-    else:
-        offset = 0
-        offset_tick = 0
-
-    notes = [
-        dict(
-            id=format_pnote_id(note.Id),
-            midi_pitch=note.MidiPitch,
-            note_on=midi_ticks_to_seconds(note.Onset, mpq, ppq) - offset,
-            note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
-            note_on_tick=note.Onset - offset_tick,
-            note_off_tick=note.Offset - offset_tick,
-            sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
-            velocity=note.Velocity,
-            track=getattr(note, "Track", 0),
-            channel=getattr(note, "Channel", 1),
+    notes = list()
+    note_onsets_in_secs = np.array(np.zeros(len(mf.notes)), dtype=float)
+    note_onsets_in_tick = np.array(np.zeros(len(mf.notes)), dtype=int)
+    for i, note in enumerate(mf.notes):
+        n_onset_sec = midi_ticks_to_seconds(note.Onset, mpq, ppq)
+        note_onsets_in_secs[i] = n_onset_sec
+        note_onsets_in_tick[i] = note.Onset
+        notes.append(
+            dict(
+                id=format_pnote_id(note.Id),
+                midi_pitch=note.MidiPitch,
+                note_on=n_onset_sec,
+                note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
+                note_on_tick=note.Onset,
+                note_off_tick=note.Offset,
+                sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
+                velocity=note.Velocity,
+                track=getattr(note, "Track", 0),
+                channel=getattr(note, "Channel", 1),
+            )
         )
-        for note in mf.notes
-    ]
+    # Set first note_on to zero in ticks and seconds if first_note_at_zero
+    if first_note_at_zero and len(note_onsets_in_secs) > 0:
+        offset = note_onsets_in_secs.min()
+        offset_tick = note_onsets_in_tick.min()
+        if offset > 0 and offset_tick > 0:
+            for note in notes:
+                note["note_on"] -= offset
+                note["note_off"] -= offset
+                note["sound_off"] -= offset
+                note["note_on_tick"] -= offset_tick
+                note["note_off_tick"] -= offset_tick
 
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = [
