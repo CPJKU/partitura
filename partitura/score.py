@@ -16,7 +16,7 @@ from numbers import Number
 
 # import copy
 from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
-import warnings
+import warnings, sys
 import numpy as np
 from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
@@ -4614,7 +4614,13 @@ def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
 
     """
     if isinstance(score, Score):
+        # Copy needs to be deep, otherwise the recursion limit will be exceeded
+        old_recursion_depth = sys.getrecursionlimit()
+        sys.setrecursionlimit(10000)
+        # Deep copy of score
         new_score = deepcopy(score)
+        # Reset recursion limit to previous value to avoid side effects
+        sys.setrecursionlimit(old_recursion_depth)
         new_partlist = list()
         for score in new_score.parts:
             unfolded_part = unfold_part_maximal(
@@ -4652,7 +4658,13 @@ def unfold_part_minimal(score: ScoreLike):
 
     """
     if isinstance(score, Score):
+        # Copy needs to be deep, otherwise the recursion limit will be exceeded
+        old_recursion_depth = sys.getrecursionlimit()
+        sys.setrecursionlimit(10000)
+        # Deep copy of score
         unfolded_score = deepcopy(score)
+        # Reset recursion limit to previous value to avoid side effects
+        sys.setrecursionlimit(old_recursion_depth)
         new_partlist = list()
         for part in unfolded_score.parts:
             unfolded_part = unfold_part_minimal(part)

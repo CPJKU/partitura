@@ -488,8 +488,15 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Transposed score.
     """
     import partitura.score as s
+    import sys
 
+    # Copy needs to be deep, otherwise the recursion limit will be exceeded
+    old_recursion_depth = sys.getrecursionlimit()
+    sys.setrecursionlimit(10000)
+    # Deep copy of score
     new_score = copy.deepcopy(score)
+    # Reset recursion limit to previous value to avoid side effects
+    sys.setrecursionlimit(old_recursion_depth)
     if isinstance(score, s.Score):
         for part in new_score.parts:
             transpose(part, interval)
