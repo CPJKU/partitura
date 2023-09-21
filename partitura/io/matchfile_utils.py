@@ -885,23 +885,9 @@ class MatchTempoIndication(MatchParameter):
         return self.value
 
     @classmethod
-    
     def from_string(cls, string: str) -> MatchTempoIndication:
-        
-        # NOTE particularities of the BpM dataset....
-        if string is not None:
-            if 'Rond' in string:
-                content = string.split(' ')
-                content = [content[-1]]
-            elif 'Alla' in string: # for kv331_3
-                content = ['Allegretto']
-            elif 'Menuetto' in string:
-                content = ['Menuetto']
-            else: content = interpret_as_list(string)
-        else:
-            content = interpret_as_list(string)
+        content = interpret_as_list(string)
         return content
-
     
 def interpret_as_tempo_indication(value: str) -> MatchTempoIndication:
     tempo_indication = MatchTempoIndication.from_string(value)
@@ -910,7 +896,6 @@ def interpret_as_tempo_indication(value: str) -> MatchTempoIndication:
 def format_tempo_indication(value: MatchTempoIndication) -> str:
     value.is_list = False
     return str(value)
-    
     
 ## Miscellaneous utils
 
