@@ -187,7 +187,7 @@ def matchfile_from_alignment(
         alignment=alignment,
         remove_ornaments=True,
     )
-    
+
     measures = np.array(list(spart.iter_all(score.Measure)))
     measure_starts_divs = np.array([m.start.t for m in measures])
     measure_starts_beats = beat_map(measure_starts_divs)
@@ -328,11 +328,14 @@ def matchfile_from_alignment(
 
             if fermata is not None:
                 score_attributes_list.append("fermata")
-                
+
             if isinstance(snote, score.GraceNote):
                 score_attributes_list.append("grace")
-               
-            if diff_score_version_notes is not None and snote.id in diff_score_version_notes:
+
+            if (
+                diff_score_version_notes is not None
+                and snote.id in diff_score_version_notes
+            ):
                 score_attributes_list.append("diff_score_version")
 
             score_info[snote.id] = MatchSnote(
@@ -360,19 +363,19 @@ def matchfile_from_alignment(
     # # NOTE time position is hardcoded, not pretty...  Assumes there is only one tempo indication at the beginning of the score
     if tempo_indication is not None:
         score_tempo_direction_header = make_scoreprop(
-                        version=version,
-                        attribute="tempoIndication",
-                        value=MatchTempoIndication(
-                            tempo_indication,
-                            is_list=False,
-                        ),
-                        measure=measure_starts[0][0],
-                        beat=1,
-                        offset=0,
-                        time_in_beats=measure_starts[0][2],
-                    )
+            version=version,
+            attribute="tempoIndication",
+            value=MatchTempoIndication(
+                tempo_indication,
+                is_list=False,
+            ),
+            measure=measure_starts[0][0],
+            beat=1,
+            offset=0,
+            time_in_beats=measure_starts[0][2],
+        )
         scoreprop_lines["tempo_indication"].append(score_tempo_direction_header)
-        
+
     perf_info = dict()
     pnote_sort_info = dict()
     for pnote in ppart.notes:
@@ -412,8 +415,8 @@ def matchfile_from_alignment(
     voice_overlap_note_ids = []
     if len(duplicates) > 0:
         duplicate_idx = np.concatenate(np.array(list(duplicates.values()))).flatten()
-        voice_overlap_note_ids = list(sna[duplicate_idx]['id'])
-    
+        voice_overlap_note_ids = list(sna[duplicate_idx]["id"])
+
     for al_note in alignment:
         label = al_note["label"]
 
@@ -427,7 +430,7 @@ def matchfile_from_alignment(
         elif label == "deletion":
             snote = score_info[al_note["score_id"]]
             if al_note["score_id"] in voice_overlap_note_ids:
-                snote.ScoreAttributesList.append('voice_overlap')            
+                snote.ScoreAttributesList.append("voice_overlap")
             deletion_line = MatchSnoteDeletion(version=version, snote=snote)
             note_lines.append(deletion_line)
             sort_stime.append(snote_sort_info[al_note["score_id"]])
@@ -451,7 +454,7 @@ def matchfile_from_alignment(
 
             note_lines.append(ornament_line)
             sort_stime.append(pnote_sort_info[al_note["performance_id"]])
-        
+
     # sort notes by score onset (performed insertions are sorted
     # according to the interpolation map
     sort_stime = np.array(sort_stime)

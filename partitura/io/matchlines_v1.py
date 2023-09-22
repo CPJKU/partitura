@@ -227,6 +227,7 @@ class MatchInfo(BaseInfoLine):
             format_fun=format_fun,
         )
 
+
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
         "timeSignature": (

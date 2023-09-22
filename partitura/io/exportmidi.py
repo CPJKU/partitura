@@ -202,7 +202,7 @@ def save_performance_midi(
                     track_events[tr][min(timepoints)].append(
                         Message("program_change", program=0, channel=ch)
                     )
-    
+
     midi_type = 0 if len(track_events) == 1 else 1
 
     mf = MidiFile(type=midi_type, ticks_per_beat=ppq)
@@ -222,7 +222,7 @@ def save_performance_midi(
 
     if merge_tracks_save and len(mf.tracks) > 1:
         mf.tracks = [merge_tracks(mf.tracks)]
-    
+
     if out is not None:
         if hasattr(out, "write"):
             mf.save(file=out)

@@ -624,7 +624,7 @@ class Part(object):
         list
             List of TempoDirection objects
 
-        """        
+        """
         return [e for e in self.iter_all(TempoDirection, include_subclasses=True)]
 
     @property
@@ -2806,7 +2806,7 @@ class Direction(TimedObject):
         else:
             return f'{super().__str__()} "{self.text}"'
 
- 
+
 class LoudnessDirection(Direction):
     pass
 
@@ -2841,6 +2841,7 @@ class ConstantLoudnessDirection(ConstantDirection, LoudnessDirection):
 
 class ConstantTempoDirection(ConstantDirection, TempoDirection):
     pass
+
 
 class ConstantArticulationDirection(ConstantDirection, ArticulationDirection):
     pass

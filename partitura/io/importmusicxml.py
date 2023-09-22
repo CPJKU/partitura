@@ -261,7 +261,7 @@ def load_musicxml(
     subtitle = None
     lyricist = None
     copyright = None
-    
+
     # The work tag is preferred for the title of the score, otherwise
     # this method will search in the credit tags
     work_info_el = document.find("work")
@@ -276,12 +276,12 @@ def load_musicxml(
             e=work_info_el,
             tag="work-number",
             as_type=str,
-        ) 
+        )
         work_title = scid
         work_number = scidn
 
-    movement_title_el = document.find('.//movement-title')
-    movement_number_el = document.find('.//movement-number')
+    movement_title_el = document.find(".//movement-title")
+    movement_number_el = document.find(".//movement-number")
     if movement_title_el is not None:
         movement_title = movement_title_el.text
     if movement_number_el is not None:
@@ -914,7 +914,6 @@ def _handle_direction(e, position, part, ongoing):
                     warnings.warn("Did not find a wedge start element for wedge stop!")
 
         elif dt.tag == "dashes":
-
             # start/stop/continue
             dashes_type = get_value_from_attribute(dt, "type", str)
             number = get_value_from_attribute(dt, "number", int) or 1
