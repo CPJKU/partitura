@@ -1,7 +1,7 @@
 Release Notes
 =============
 
-Version 1.3.2 (Released on 2023-09-22)
+Version 1.4.0 (Released on 2023-09-22)
 --------------------------------------
 
 New Features
