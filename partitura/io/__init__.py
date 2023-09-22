@@ -81,7 +81,29 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             filename=filename,
             force_note_ids=force_note_ids,
         )
-    elif extension in [".mscz", ".mscx", ".musescore", ".mscore", ".ms", ".kar", ".md", ".cap", ".capx", ".bww", ".mgu", ".sgu", ".ove", ".scw", ".ptb", ".gtp", ".gp3", ".gp4", ".gp5", ".gpx",  ".gp"]:
+    elif extension in [
+        ".mscz",
+        ".mscx",
+        ".musescore",
+        ".mscore",
+        ".ms",
+        ".kar",
+        ".md",
+        ".cap",
+        ".capx",
+        ".bww",
+        ".mgu",
+        ".sgu",
+        ".ove",
+        ".scw",
+        ".ptb",
+        ".gtp",
+        ".gp3",
+        ".gp4",
+        ".gp5",
+        ".gpx",
+        ".gp",
+    ]:
         # Load MuseScore
         return load_via_musescore(
             filename=filename,
