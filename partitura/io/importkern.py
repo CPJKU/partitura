@@ -546,9 +546,6 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
     """
     with open(kern_path, encoding="cp437") as file:
         lines = file.read().splitlines()
-    if lines[0][0] == "<":
-        # we are using a heuristic to stop the import if we are dealing with a XML file
-        raise Exception("Invalid Kern file")
     d = [line.split("\t") for line in lines if not line.startswith("!")]
     striped_parts = list()
     merge_index = []
