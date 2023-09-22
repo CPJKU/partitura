@@ -6,7 +6,7 @@ Version 1.3.2 (Released on 2023-09-22)
 
 New Features
 ------------
-
+* new class for performed notes
 * minimal unfolding for part
 * updated Musescore parser for version 4
 * `load_score` auto-selects parser based on file type
