@@ -183,11 +183,10 @@ def load_performance_midi(
                 # end note if it's a 'note off' event or 'note on' with velocity 0
                 elif note_off or (note_on and msg.velocity == 0):
                     if note not in sounding_notes:
-                        warnings.warn("ignoring MIDI message %s" % msg)
+                        warnings.warn(f"ignoring MIDI message {msg}")
                         continue
 
                     # append the note to the list associated with the channel
-
                     notes.append(
                         dict(
                             # id=f"n{len(notes)}",
@@ -218,7 +217,7 @@ def load_performance_midi(
 
         # add note id to every note
         for k, note in enumerate(notes):
-            note["id"] = f"n{k}"
+            note["id"] = f"n{k+1}"
 
         if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
             pp = performance.PerformedPart(

@@ -616,6 +616,18 @@ class Part(object):
         return [e for e in self.iter_all(LoudnessDirection, include_subclasses=True)]
 
     @property
+    def tempo_directions(self):
+        """Return a list of all tempo direction in the part
+
+        Returns
+        -------
+        list
+            List of TempoDirection objects
+
+        """        
+        return [e for e in self.iter_all(TempoDirection, include_subclasses=True)]
+
+    @property
     def articulations(self):
         """Return a list of all Articulation markings in the part
 
@@ -2794,7 +2806,7 @@ class Direction(TimedObject):
         else:
             return f'{super().__str__()} "{self.text}"'
 
-
+ 
 class LoudnessDirection(Direction):
     pass
 
@@ -2829,7 +2841,6 @@ class ConstantLoudnessDirection(ConstantDirection, LoudnessDirection):
 
 class ConstantTempoDirection(ConstantDirection, TempoDirection):
     pass
-
 
 class ConstantArticulationDirection(ConstantDirection, ArticulationDirection):
     pass
@@ -2990,8 +3001,16 @@ class Score(object):
         the identifier should not start with a number.
     partlist : `Part`, `PartGroup` or list of `Part` or `PartGroup` instances.
         List of  `Part` or `PartGroup` objects.
-    title: str, optional
-        Title of the score.
+    work_title: str, optional
+        Work title of the score, if applicable.
+    work_number: str, optional
+        Work number of the score, if applicable.
+    movement_title: str, optional
+        Movement title of the score, if applicable.
+    movement_number: str, optional
+        Movement number of the score, if applicable.
+    title : str, optional
+        Title of the score, from <credit-words> tag
     subtitle: str, optional
         Subtitle of the score.
     composer: str, optional
@@ -3010,7 +3029,13 @@ class Score(object):
     part_structure: list of `Part` or `PartGrop`
         List of all `Part` or `PartGroup` objects that specify the structure of
         the score.
-     title: str
+    work_title: str
+        See parameters.
+    work_number: str
+        See parameters.
+    movement_title: str
+        See parameters.
+    movement_number: str
         See parameters.
     subtitle: str
         See parameters.
@@ -3024,6 +3049,10 @@ class Score(object):
     """
 
     id: Optional[str]
+    work_title: Optional[str]
+    work_number: Optional[str]
+    movement_title: Optional[str]
+    movement_number: Optional[str]
     title: Optional[str]
     subtitle: Optional[str]
     composer: Optional[str]
@@ -3036,6 +3065,10 @@ class Score(object):
         self,
         partlist: Union[Part, PartGroup, Itertype[Union[Part, PartGroup]]],
         id: Optional[str] = None,
+        work_title: Optional[str] = None,
+        work_number: Optional[str] = None,
+        movement_title: Optional[str] = None,
+        movement_number: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
         composer: Optional[str] = None,
@@ -3045,6 +3078,10 @@ class Score(object):
         self.id = id
 
         # Score Information (default from MuseScore/MusicXML)
+        self.work_title = work_title
+        self.work_number = work_number
+        self.movement_title = movement_title
+        self.movement_number = movement_number
         self.title = title
         self.subtitle = subtitle
         self.composer = composer

@@ -871,6 +871,32 @@ def format_time_signature_list(value: MatchTimeSignature) -> str:
     return str(value)
 
 
+class MatchTempoIndication(MatchParameter):
+    def __init__(
+            self,
+            value: str,
+            is_list: bool = False,
+    ):
+        super().__init__()
+        self.value = self.from_string(value)[0]
+        self.is_list = is_list
+    
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def from_string(cls, string: str) -> MatchTempoIndication:
+        content = interpret_as_list(string)
+        return content
+    
+def interpret_as_tempo_indication(value: str) -> MatchTempoIndication:
+    tempo_indication = MatchTempoIndication.from_string(value)
+    return tempo_indication
+
+def format_tempo_indication(value: MatchTempoIndication) -> str:
+    value.is_list = False
+    return str(value)
+    
 ## Miscellaneous utils
 
 

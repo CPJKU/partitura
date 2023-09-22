@@ -60,6 +60,22 @@ PEDAL_DIRECTIONS = {
     "sustain_pedal": score.SustainPedalDirection,
 }
 
+TEMPO_DIRECTIONS = {
+    "Adagio": score.ConstantTempoDirection,
+    "Andante": score.ConstantTempoDirection,
+    "Andante amoroso": score.ConstantTempoDirection,
+    "Andante cantabile": score.ConstantTempoDirection,
+    "Andante grazioso": score.ConstantTempoDirection,
+    "Menuetto": score.ConstantTempoDirection,
+    "Allegretto grazioso": score.ConstantTempoDirection,
+    "Allegro moderato": score.ConstantTempoDirection,
+    "Allegro assai": score.ConstantTempoDirection,
+    "Allegro": score.ConstantTempoDirection,
+    "Allegretto": score.ConstantTempoDirection,
+    "Molto allegro": score.ConstantTempoDirection,
+    "Presto": score.ConstantTempoDirection,
+}
+
 OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
 
@@ -114,7 +130,6 @@ def _parse_partlist(partlist):
     structure = []
     current_group = None
     part_dict = {}
-
     for e in partlist:
         if e.tag == "part-group":
             if e.get("type") == "start":
@@ -146,7 +161,6 @@ def _parse_partlist(partlist):
             part.part_abbreviation = next(
                 iter(e.xpath("part-abbreviation/text()")), None
             )
-
             part_dict[part_id] = part
 
             if current_group is None:
@@ -239,11 +253,15 @@ def load_musicxml(
 
     composer = None
     scid = None
+    work_title = None
+    work_number = None
+    movement_title = None
+    movement_number = None
     title = None
     subtitle = None
     lyricist = None
     copyright = None
-
+    
     # The work tag is preferred for the title of the score, otherwise
     # this method will search in the credit tags
     work_info_el = document.find("work")
@@ -254,8 +272,20 @@ def load_musicxml(
             tag="work-title",
             as_type=str,
         )
+        scidn = get_value_from_tag(
+            e=work_info_el,
+            tag="work-number",
+            as_type=str,
+        ) 
+        work_title = scid
+        work_number = scidn
 
-        title = scid
+    movement_title_el = document.find('.//movement-title')
+    movement_number_el = document.find('.//movement-number')
+    if movement_title_el is not None:
+        movement_title = movement_title_el.text
+    if movement_number_el is not None:
+        movement_number = movement_number_el.text
 
     score_identification_el = document.find("identification")
 
@@ -289,6 +319,10 @@ def load_musicxml(
     scr = score.Score(
         id=scid,
         partlist=partlist,
+        work_number=work_number,
+        work_title=work_title,
+        movement_number=movement_number,
+        movement_title=movement_title,
         title=title,
         subtitle=subtitle,
         composer=composer,
@@ -880,6 +914,7 @@ def _handle_direction(e, position, part, ongoing):
                     warnings.warn("Did not find a wedge start element for wedge stop!")
 
         elif dt.tag == "dashes":
+
             # start/stop/continue
             dashes_type = get_value_from_attribute(dt, "type", str)
             number = get_value_from_attribute(dt, "number", int) or 1
@@ -1138,7 +1173,7 @@ def _handle_sound(e, position, part):
     if "tempo" in e.attrib:
         tempo = score.Tempo(int(e.attrib["tempo"]), "q")
         # part.add_starting_object(position, tempo)
-        _add_tempo_if_unique(position, part, tempo)
+        (position, part, tempo)
 
 
 def _handle_note(e, position, part, ongoing, prev_note, doc_order):

@@ -37,6 +37,7 @@ from partitura.io.matchfile_utils import (
     FractionalSymbolicDuration,
     MatchKeySignature,
     MatchTimeSignature,
+    MatchTempoIndication,
     Version,
 )
 
@@ -71,6 +72,8 @@ def matchfile_from_alignment(
     score_filename: Optional[PathLike] = None,
     performance_filename: Optional[PathLike] = None,
     assume_part_unfolded: bool = False,
+    tempo_indication: Optional[str] = None,
+    diff_score_version_notes: Optional[list] = None,
     version: Version = LATEST_VERSION,
     debug: bool = False,
 ) -> MatchFile:
@@ -106,6 +109,10 @@ def matchfile_from_alignment(
         repetitions in the alignment. If False, the part will be automatically
         unfolded to have maximal coverage of the notes in the alignment.
         See `partitura.score.unfold_part_alignment`.
+    tempo_indication : str or None
+        The tempo direction indicated in the beginning of the score
+    diff_score_version_notes : list or None
+        A list of score notes that reflect a special score version (e.g., original edition/Erstdruck, Editors note etc.)
     version: Version
         Version of the match file. For now only 1.0.0 is supported.
     Returns
@@ -180,7 +187,7 @@ def matchfile_from_alignment(
         alignment=alignment,
         remove_ornaments=True,
     )
-
+    
     measures = np.array(list(spart.iter_all(score.Measure)))
     measure_starts_divs = np.array([m.start.t for m in measures])
     measure_starts_beats = beat_map(measure_starts_divs)
@@ -199,7 +206,6 @@ def matchfile_from_alignment(
 
     # Score prop header lines
     scoreprop_lines = defaultdict(list)
-
     # For score notes
     score_info = dict()
     # Info for sorting lines
@@ -276,7 +282,6 @@ def matchfile_from_alignment(
         # Get all notes in the measure
         snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
-
         for snote in snotes:
             onset_divs, offset_divs = snote.start.t, snote.start.t + snote.duration_tied
             duration_divs = offset_divs - onset_divs
@@ -323,6 +328,12 @@ def matchfile_from_alignment(
 
             if fermata is not None:
                 score_attributes_list.append("fermata")
+                
+            if isinstance(snote, score.GraceNote):
+                score_attributes_list.append("grace")
+               
+            if diff_score_version_notes is not None and snote.id in diff_score_version_notes:
+                score_attributes_list.append("diff_score_version")
 
             score_info[snote.id] = MatchSnote(
                 version=version,
@@ -346,6 +357,22 @@ def matchfile_from_alignment(
             )
             snote_sort_info[snote.id] = (onset_beats, snote.doc_order)
 
+    # # NOTE time position is hardcoded, not pretty...  Assumes there is only one tempo indication at the beginning of the score
+    if tempo_indication is not None:
+        score_tempo_direction_header = make_scoreprop(
+                        version=version,
+                        attribute="tempoIndication",
+                        value=MatchTempoIndication(
+                            tempo_indication,
+                            is_list=False,
+                        ),
+                        measure=measure_starts[0][0],
+                        beat=1,
+                        offset=0,
+                        time_in_beats=measure_starts[0][2],
+                    )
+        scoreprop_lines["tempo_indication"].append(score_tempo_direction_header)
+        
     perf_info = dict()
     pnote_sort_info = dict()
     for pnote in ppart.notes:
@@ -372,6 +399,21 @@ def matchfile_from_alignment(
 
     sort_stime = []
     note_lines = []
+
+    # Get ids of notes which voice overlap
+    sna = spart.note_array()
+    onset_pitch_slice = sna[["onset_div", "pitch"]]
+    uniques, counts = np.unique(onset_pitch_slice, return_counts=True)
+    duplicate_values = uniques[counts > 1]
+    duplicates = dict()
+    for v in duplicate_values:
+        idx = np.where(onset_pitch_slice == v)[0]
+        duplicates[tuple(v)] = idx
+    voice_overlap_note_ids = []
+    if len(duplicates) > 0:
+        duplicate_idx = np.concatenate(np.array(list(duplicates.values()))).flatten()
+        voice_overlap_note_ids = list(sna[duplicate_idx]['id'])
+    
     for al_note in alignment:
         label = al_note["label"]
 
@@ -384,6 +426,8 @@ def matchfile_from_alignment(
 
         elif label == "deletion":
             snote = score_info[al_note["score_id"]]
+            if al_note["score_id"] in voice_overlap_note_ids:
+                snote.ScoreAttributesList.append('voice_overlap')            
             deletion_line = MatchSnoteDeletion(version=version, snote=snote)
             note_lines.append(deletion_line)
             sort_stime.append(snote_sort_info[al_note["score_id"]])
@@ -407,7 +451,7 @@ def matchfile_from_alignment(
 
             note_lines.append(ornament_line)
             sort_stime.append(pnote_sort_info[al_note["performance_id"]])
-
+        
     # sort notes by score onset (performed insertions are sorted
     # according to the interpolation map
     sort_stime = np.array(sort_stime)
@@ -441,6 +485,7 @@ def matchfile_from_alignment(
         "clock_rate",
         "key_signatures",
         "time_signatures",
+        "tempo_indication",
     ]
     all_match_lines = []
     for h in header_order:
@@ -537,7 +582,7 @@ def save_match(
     else:
         raise ValueError(
             "`performance_data` should be a `Performance`, a `PerformedPart`, or a "
-            f"list of `PerformedPart` objects, but is {type(score_data)}"
+            f"list of `PerformedPart` objects, but is {type(performance_data)}"
         )
 
     # Get matchfile

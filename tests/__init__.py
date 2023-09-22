@@ -26,6 +26,10 @@ MUSICXML_IMPORT_EXPORT_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
     for fn in ["test_note_ties.xml", "test_note_ties_divs.xml"]
 ]
+MUSICXML_SCORE_OBJECT_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_score_object.musicxml"]
+]
 MUSICXML_UNFOLD_TESTPAIRS = [
     (
         os.path.join(MUSICXML_PATH, fn1),

@@ -58,6 +58,9 @@ from partitura.io.matchfile_utils import (
     format_key_signature_v1_0_0,
     to_snake_case,
     get_kwargs_from_matchline,
+    MatchTempoIndication,
+    interpret_as_tempo_indication,
+    format_tempo_indication,
 )
 
 # Define current version of the match file format
@@ -224,7 +227,6 @@ class MatchInfo(BaseInfoLine):
             format_fun=format_fun,
         )
 
-
 SCOREPROP_LINE = {
     Version(1, 0, 0): {
         "timeSignature": (
@@ -236,6 +238,11 @@ SCOREPROP_LINE = {
             interpret_as_key_signature,
             format_key_signature_v1_0_0,
             MatchKeySignature,
+        ),
+        "tempoIndication": (
+            interpret_as_tempo_indication,
+            format_tempo_indication,
+            MatchTempoIndication,
         ),
         "beatSubDivision": (interpret_as_list_int, format_list, list),
         "directions": (interpret_as_list, format_list, list),

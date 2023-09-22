@@ -8,7 +8,7 @@ import numpy as np
 from collections import defaultdict, OrderedDict
 from typing import Optional, Iterable
 
-from mido import MidiFile, MidiTrack, Message, MetaMessage
+from mido import MidiFile, MidiTrack, Message, MetaMessage, merge_tracks
 
 import partitura.score as score
 from partitura.score import Score, Part, PartGroup, ScoreLike
@@ -87,6 +87,7 @@ def save_performance_midi(
     mpq: int = 500000,
     ppq: int = 480,
     default_velocity: int = 64,
+    merge_tracks_save: Optional[bool] = False,
 ) -> Optional[MidiFile]:
     """Save a :class:`~partitura.performance.PerformedPart` or
     a :class:`~partitura.performance.Performance` as a MIDI file
@@ -107,6 +108,8 @@ def save_performance_midi(
     default_velocity : int, optional
         A default velocity value (between 0 and 127) to be used for
         notes without a specified velocity. Defaults to 64.
+    merge_tracks_save : bool, optional
+        Determines whether midi tracks are merged when exporting to a midi file. Defaults to False.
 
     Returns
     -------
@@ -134,7 +137,6 @@ def save_performance_midi(
         )
 
     track_events = defaultdict(lambda: defaultdict(list))
-
     for performed_part in performed_parts:
         for c in performed_part.controls:
             track = c.get("track", 0)
@@ -200,7 +202,7 @@ def save_performance_midi(
                     track_events[tr][min(timepoints)].append(
                         Message("program_change", program=0, channel=ch)
                     )
-
+    
     midi_type = 0 if len(track_events) == 1 else 1
 
     mf = MidiFile(type=midi_type, ticks_per_beat=ppq)
@@ -217,6 +219,10 @@ def save_performance_midi(
                 track.append(msg.copy(time=t_delta))
                 t_delta = 0
             t = t_msg
+
+    if merge_tracks_save and len(mf.tracks) > 1:
+        mf.tracks = [merge_tracks(mf.tracks)]
+    
     if out is not None:
         if hasattr(out, "write"):
             mf.save(file=out)
