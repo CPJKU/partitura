@@ -304,7 +304,9 @@ class PerformedNote:
         self.pnote_dict["pitch"] = self.pnote_dict.get("pitch", self["midi_pitch"])
         self.pnote_dict["note_on"] = self.pnote_dict.get("note_on", -1)
         self.pnote_dict["note_off"] = self.pnote_dict.get("note_off", -1)
-        self.pnote_dict["sound_off"] = self.pnote_dict.get("sound_off", self["note_off"])
+        self.pnote_dict["sound_off"] = self.pnote_dict.get(
+            "sound_off", self["note_off"]
+        )
         self.pnote_dict["track"] = self.pnote_dict.get("track", 0)
         self.pnote_dict["channel"] = self.pnote_dict.get("channel", 1)
         self.pnote_dict["velocity"] = self.pnote_dict.get("velocity", 60)
@@ -407,7 +409,10 @@ class PerformedNote:
     def _validate_note_off(self):
         if self.pnote_dict.get("note_on", -1) < 0:
             return
-        if self.pnote_dict["note_off"] < 0 or self.pnote_dict["note_off"] < self.pnote_dict["note_on"]:
+        if (
+            self.pnote_dict["note_off"] < 0
+            or self.pnote_dict["note_off"] < self.pnote_dict["note_on"]
+        ):
             raise ValueError(
                 f"Note off value provided is invalid, "
                 f"must be greater than or equal to 0 and greater or equal to note_on"
