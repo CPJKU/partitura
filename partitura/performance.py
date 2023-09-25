@@ -413,6 +413,9 @@ class PerformedNote:
                 f"must be greater than or equal to 0 and greater or equal to note_on"
             )
 
+    def copy(self):
+        return PerformedNote(self.pnote_dict.copy())
+
     def _validate_pitch(self):
         if self.pnote_dict["pitch"] > 127 or self.pnote_dict["pitch"] < 0:
             raise ValueError(f"pitch must be between 0 and 127")
