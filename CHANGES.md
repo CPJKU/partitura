@@ -26,7 +26,6 @@ Bug Fixes
 Other Changes
 ------------
 * new unit test for cross-staff beaming for musicxml
-* note ID numbering starts at 1 (instead of 0) when creating a performed part from MIDI
 
 
 Version 1.3.1 (Released on 2023-07-06)
