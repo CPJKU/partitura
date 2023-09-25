@@ -26,9 +26,9 @@ class TestTonalTension(unittest.TestCase):
     def test_prepare_notearray(self):
         target_note_array = np.array(
             [
-                (0.0, 2.0, 69, 64, "n1", "A", 0, 4, 0, -1),
-                (1.0, 1.0, 72, 64, "n2", "C", 0, 5, 0, -1),
-                (1.0, 1.0, 76, 64, "n3", "E", 0, 5, 0, -1),
+                (0.0, 2.0, 69, 64, "n0", "A", 0, 4, 0, -1),
+                (1.0, 1.0, 72, 64, "n1", "C", 0, 5, 0, -1),
+                (1.0, 1.0, 76, 64, "n2", "E", 0, 5, 0, -1),
             ],
             dtype=[
                 ("onset_sec", "<f4"),

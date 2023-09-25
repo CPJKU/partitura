@@ -217,7 +217,7 @@ def load_performance_midi(
 
         # add note id to every note
         for k, note in enumerate(notes):
-            note["id"] = f"n{k+1}"
+            note["id"] = f"n{k}"
 
         if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
             pp = performance.PerformedPart(
