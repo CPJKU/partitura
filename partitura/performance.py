@@ -393,6 +393,8 @@ class PerformedNote:
                 self._validate_sound_off()
 
     def _validate_sound_off(self):
+        if self.get("note_off", -1) < 0:
+            return
         if self.pnote_dict["sound_off"] < self.pnote_dict["note_off"]:
             raise ValueError(f"sound_off must be greater or equal to note_off")
 
