@@ -400,7 +400,10 @@ class PerformedNote:
                 self._validate_velocity(value)
             elif key == "sound_off":
                 self._validate_sound_off(value)
-
+            elif key == "note_on_tick":
+                self._validate_note_on_tick(value)
+            elif key == "note_off_tick":
+                self._validate_note_off_tick(value)
 
     def _validate_sound_off(self, value):
         if self.get("note_off", -1) < 0:
