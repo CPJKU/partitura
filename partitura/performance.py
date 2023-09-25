@@ -320,6 +320,8 @@ class PerformedNote:
             "track",
             "channel",
             "sound_off",
+            "note_on_tick",
+            "note_off_tick",
         ]
 
     def __str__(self):
@@ -376,6 +378,9 @@ class PerformedNote:
     def __contains__(self, key):
         return key in self.keys()
 
+    def copy(self):
+        return PerformedNote(self.pnote_dict.copy())
+
     def _validate_values(self, key=None):
         if key is None:
             keys = self.keys()
@@ -418,8 +423,23 @@ class PerformedNote:
                 f"must be greater than or equal to 0 and greater or equal to note_on"
             )
 
-    def copy(self):
-        return PerformedNote(self.pnote_dict.copy())
+    def _validate_note_on_tick(self):
+        if self.pnote_dict["note_on_tick"] < 0:
+            raise ValueError(
+                f"Note on tick value provided is invalid, must be greater than or equal to 0"
+            )
+
+    def _validate_note_off_tick(self):
+        if self.pnote_dict.get("note_on_tick", -1) < 0:
+            return
+        if (
+            self.pnote_dict["note_off_tick"] < 0
+            or self.pnote_dict["note_off_tick"] < self.pnote_dict["note_on_tick"]
+        ):
+            raise ValueError(
+                f"Note off tick value provided is invalid, "
+                f"must be greater than or equal to 0 and greater or equal to note_on_tick"
+            )
 
     def _validate_pitch(self):
         if self.pnote_dict["pitch"] > 127 or self.pnote_dict["pitch"] < 0:
