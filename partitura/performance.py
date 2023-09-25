@@ -284,7 +284,7 @@ def adjust_offsets_w_sustain(
         note["sound_off"] = offset
 
 
-class PerformedNote(dict):
+class PerformedNote:
     """
     A dictionary-like object representing a performed note.
 
@@ -299,15 +299,15 @@ class PerformedNote(dict):
     """
 
     def __init__(self, pnote_dict):
-        super().__init__(pnote_dict)
-        self["id"] = self.get("id", None)
-        self["pitch"] = self.get("pitch", self["midi_pitch"])
-        self["note_on"] = self.get("note_on", -1)
-        self["note_off"] = self.get("note_off", -1)
-        self["sound_off"] = self.get("sound_off", self["note_off"])
-        self["track"] = self.get("track", 0)
-        self["channel"] = self.get("channel", 1)
-        self["velocity"] = self.get("velocity", 60)
+        self.pnote_dict = pnote_dict
+        self.pnote_dict["id"] = self.pnote_dict.get("id", None)
+        self.pnote_dict["pitch"] = self.pnote_dict.get("pitch", self["midi_pitch"])
+        self.pnote_dict["note_on"] = self.pnote_dict.get("note_on", -1)
+        self.pnote_dict["note_off"] = self.pnote_dict.get("note_off", -1)
+        self.pnote_dict["sound_off"] = self.pnote_dict.get("sound_off", self["note_off"])
+        self.pnote_dict["track"] = self.pnote_dict.get("track", 0)
+        self.pnote_dict["channel"] = self.pnote_dict.get("channel", 1)
+        self.pnote_dict["velocity"] = self.pnote_dict.get("velocity", 60)
         self._validate_values()
         self._accepted_keys = [
             "id",
@@ -319,7 +319,6 @@ class PerformedNote(dict):
             "channel",
             "sound_off",
         ]
-        self.__setitem__ = self._setitem_new
 
     def __str__(self):
         return f"PerformedNote: {self['id']}"
@@ -332,6 +331,12 @@ class PerformedNote(dict):
         return np.all(
             np.array([self[k] == other[k] for k in self.keys() if k in other.keys()])
         )
+
+    def keys(self):
+        return self.pnote_dict.keys()
+
+    def get(self, key, default=None):
+        return self.pnote_dict.get(key, default)
 
     def __hash__(self):
         return hash(self["id"])
@@ -349,33 +354,13 @@ class PerformedNote(dict):
         return self["note_on"] >= other["note_on"]
 
     def __getitem__(self, key):
-        return self.get(key, None)
+        return self.pnote_dict.get(key, None)
 
-    def _setitem_new(self, key, value):
+    def __setitem__(self, key, value):
         if key not in self._accepted_keys:
-            raise KeyError(f"Key {key} not in PerformedNote")
-        elif key == "note_off":
-            # Verify that the note_off is after the note_on
-            if value < self["note_on"]:
-                raise ValueError(f"note_off must be after or equal to note_on")
-            self["sound_off"] = (
-                value if self["sound_off"] < value else self["sound_off"]
-            )
-            self["note_off"] = value
-        elif key == "note_on":
-            # Verify that the note_on is before the note_off
-            if value > self["note_off"]:
-                raise ValueError(f"note_on must be before or equal to note_off")
-
-            self["duration_sec"] = self["note_off"] - value
-            self["note_on"] = value
-        elif key == "sound_off":
-            # Verify that the sound_off is after the note_off
-            if value <= self["note_off"]:
-                raise ValueError(f"sound_off must be after or equal to note_off")
-            self["sound_off"] = value
-        else:
-            self[key] = value
+            raise KeyError(f"Key {key} not accepted for PerformedNote")
+        self.pnote_dict[key] = value
+        self._validate_values(key)
 
     def __delitem__(self, key):
         raise KeyError("Cannot delete items from PerformedNote")
@@ -389,19 +374,49 @@ class PerformedNote(dict):
     def __contains__(self, key):
         return key in self.keys()
 
-    def _validate_values(self):
-        if self["pitch"] > 127 or self["pitch"] < 0:
-            raise ValueError(f"pitch must be between 0 and 127")
-        if self["note_on"] < 0:
+    def _validate_values(self, key=None):
+        if key is None:
+            keys = self.keys()
+        else:
+            keys = [key]
+
+        for key in keys:
+            if key == "pitch":
+                self._validate_pitch()
+            elif key == "note_on":
+                self._validate_note_on()
+            elif key == "note_off":
+                self._validate_note_off()
+            elif key == "velocity":
+                self._validate_velocity()
+            elif key == "sound_off":
+                self._validate_sound_off()
+
+    def _validate_sound_off(self):
+        if self.pnote_dict["sound_off"] < self.pnote_dict["note_off"]:
+            raise ValueError(f"sound_off must be greater or equal to note_off")
+
+    def _validate_note_on(self):
+        if self.pnote_dict["note_on"] < 0:
             raise ValueError(
                 f"Note on value provided is invalid, must be greater than or equal to 0"
             )
-        if self["note_off"] < 0 or self["note_off"] < self["note_on"]:
+
+    def _validate_note_off(self):
+        if self.pnote_dict.get("note_on", -1) < 0:
+            return
+        if self.pnote_dict["note_off"] < 0 or self.pnote_dict["note_off"] < self.pnote_dict["note_on"]:
             raise ValueError(
                 f"Note off value provided is invalid, "
                 f"must be greater than or equal to 0 and greater or equal to note_on"
             )
-        if self["velocity"] > 127 or self["velocity"] < 0:
+
+    def _validate_pitch(self):
+        if self.pnote_dict["pitch"] > 127 or self.pnote_dict["pitch"] < 0:
+            raise ValueError(f"pitch must be between 0 and 127")
+
+    def _validate_velocity(self):
+        if self.pnote_dict["velocity"] > 127 or self.pnote_dict["velocity"] < 0:
             raise ValueError(f"velocity must be between 0 and 127")
 
 
