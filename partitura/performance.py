@@ -85,7 +85,11 @@ class PerformedPart(object):
         super().__init__()
         self.id = id
         self.part_name = part_name
-        self.notes = list(map(lambda n: n if isinstance(n, PerformedNote) else PerformedNote(n), notes))
+        self.notes = list(
+            map(
+                lambda n: n if isinstance(n, PerformedNote) else PerformedNote(n), notes
+            )
+        )
         self.controls = controls or []
         self.programs = programs or []
         self.ppq = ppq
@@ -401,7 +405,6 @@ class PerformedNote:
             elif key == "sound_off":
                 self._validate_sound_off(value)
 
-
     def _validate_sound_off(self, value):
         if self.get("note_off", -1) < 0:
             return
@@ -419,10 +422,7 @@ class PerformedNote:
     def _validate_note_off(self, value):
         if self.pnote_dict.get("note_on", -1) < 0:
             return
-        if (
-            value < 0
-            or value < self.pnote_dict["note_on"]
-        ):
+        if value < 0 or value < self.pnote_dict["note_on"]:
             raise ValueError(
                 f"Note off value provided is invalid, "
                 f"must be a positive value greater than or equal to 0 and greater or equal to note_on"
@@ -437,10 +437,7 @@ class PerformedNote:
     def _validate_note_off_tick(self, value):
         if self.pnote_dict.get("note_on_tick", -1) < 0:
             return
-        if (
-            value < 0
-            or value < self.pnote_dict["note_on_tick"]
-        ):
+        if value < 0 or value < self.pnote_dict["note_on_tick"]:
             raise ValueError(
                 f"Note off tick value provided is invalid, "
                 f"must be a positive value greater than or equal to 0 and greater or equal to note_on_tick"
