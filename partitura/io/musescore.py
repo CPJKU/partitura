@@ -91,7 +91,8 @@ def find_musescore():
                 )
             else:
                 raise MuseScoreNotFoundException()
-    if "DISPLAY" not in os.environ:
+    # check if a screen is available (only on Linux)
+    if "DISPLAY" not in os.environ and platform.system() == "Linux":
         raise MuseScoreNotFoundException(
             "Musescore Executable was found, but a screen is missing. Musescore needs a screen to load scores"
         )
