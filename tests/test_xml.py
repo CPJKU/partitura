@@ -10,6 +10,7 @@ from tempfile import TemporaryFile
 
 from tests import (
     MUSICXML_IMPORT_EXPORT_TESTFILES,
+    MUSICXML_SCORE_OBJECT_TESTFILES,
     MUSICXML_UNFOLD_TESTPAIRS,
     MUSICXML_UNFOLD_COMPLEX,
     MUSICXML_UNFOLD_VOLTA,
@@ -241,6 +242,14 @@ class TestMusicXML(unittest.TestCase):
             show_diff(pstring1, pstring2)
         msg = "Exported and imported score does not yield identical pretty printed representations"
         self.assertTrue(equal, msg)
+        
+    def test_score_attribute(self):
+        score = load_musicxml(MUSICXML_SCORE_OBJECT_TESTFILES[0])
+        test_work_title = "Test Title"
+        test_work_number = "Test Opus 1"
+
+        self.assertTrue(score.work_title == test_work_title)
+        self.assertTrue(score.work_number == test_work_number)
 
 
 def make_part_slur():

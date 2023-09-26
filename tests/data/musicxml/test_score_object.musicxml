@@ -3,6 +3,7 @@
 <score-partwise version="3.1">
   <work>
     <work-title>Test Title</work-title>
+    <work-number>Test Opus 1</work-number>
     </work>
   <identification>
     <creator type="composer">T. H. E. Composer</creator>

@@ -1,6 +1,33 @@
 Release Notes
 =============
 
+Version 1.4.0 (Released on 2023-09-22)
+--------------------------------------
+
+New Features
+------------
+* new class for performed notes
+* minimal unfolding for part
+* updated Musescore parser for version 4
+* `load_score` auto-selects parser based on file type
+* new attributes for `Score` object for capturing meta information
+* new score note attributes in matchfile export (`grace`, `voice_overlap`)
+* new `tempo_indication` score property line in matchfile export
+
+Bug Fixes
+------------
+* Fixed bug: #297 
+* Fixed bug: #304 
+* Fixed bug: #306
+* Fixed bug: #308
+* Fixed bug: #310
+* Fixed bug: #315
+
+Other Changes
+------------
+* new unit test for cross-staff beaming for musicxml
+
+
 Version 1.3.1 (Released on 2023-07-06)
 --------------------------------------
 

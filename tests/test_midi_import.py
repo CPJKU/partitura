@@ -13,6 +13,7 @@ import mido
 from partitura import load_score_midi
 from partitura.utils import partition
 import partitura.score as score
+from tests import MIDIINPORT_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -310,3 +311,11 @@ class TestMIDIImportModes(unittest.TestCase):
     def tearDown(self):
         # remove tmp file
         self.tmpfile = None
+
+class TestScoreMidi(unittest.TestCase):
+    def test_time_signature(self):
+        score = load_score_midi(MIDIINPORT_TESTFILES[0])
+        self.assertEqual(score.note_array()["onset_beat"][2], 0.5)
+        na = score.note_array(include_time_signature=True)
+        self.assertTrue(all([n==3 for n in na["ts_beats"]]))
+        self.assertTrue(all([d==8 for d in na["ts_beat_type"]]))
