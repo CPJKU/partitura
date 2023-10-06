@@ -149,7 +149,7 @@ def load_nakamuramatch(filename: PathLike) -> Tuple[Union[np.ndarray, list]]:
     missing = np.fromregex(filename, pattern, dtype=dtype_missing)
 
     midi_pitch = np.array(
-        [note_name_to_midi_pitch(n.replace("#", r"\#")) for n in result["alignSitch"]]
+        [note_name_to_midi_pitch(n) for n in result["alignSitch"]]
     )
 
     align_valid = result["alignID"] != "*"
