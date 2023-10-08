@@ -619,8 +619,8 @@ def part_from_matchfile(
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
 
-        if "s" in note.ScoreAttributesList:
-            note_attributes["voice"] = 1
+        if "v" in note.ScoreAttributesList[0]:
+            note_attributes["voice"] = note.ScoreAttributesList[0].split("v")[-1]
         else:
             note_attributes["voice"] = next(
                 (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
