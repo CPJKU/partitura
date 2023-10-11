@@ -618,14 +618,15 @@ def part_from_matchfile(
         except (TypeError, ValueError):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
-
-        if "v" in note.ScoreAttributesList[0]:
-            note_attributes["voice"] = note.ScoreAttributesList[0].split("v")[-1]
-        else:
-            note_attributes["voice"] = next(
-                (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
-                None,
-            )
+        
+        # @CC: Is there a reason for this (aka should it stay)? I checked some older datasets (vienna, magaloff, zeilinger) but they either don't have voice info or have voice info following the v+int pattern
+        # if "s" in note.ScoreAttributesList: 
+        #     note_attributes["voice"] = 1
+        # else:
+        note_attributes["voice"] = next(
+            (int(a[1:]) for a in note.ScoreAttributesList if number_pattern.match(a)),
+            None,
+        )
 
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
