@@ -619,7 +619,7 @@ def part_from_matchfile(
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
         
-        if "s" in note.ScoreAttributesList: 
+        if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
         else:
             note_attributes["voice"] = next(
