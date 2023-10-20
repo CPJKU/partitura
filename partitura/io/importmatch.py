@@ -629,15 +629,14 @@ def part_from_matchfile(
         except (TypeError, ValueError):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
-
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
         else:
             note_attributes["voice"] = next(
-                (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
+                (int(a[1:]) for a in note.ScoreAttributesList if number_pattern.match(a)),
                 None,
             )
-
+    
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
         # and compound durations separately.
@@ -692,12 +691,9 @@ def part_from_matchfile(
 
             else:
                 part_note = score.Note(**note_attributes)
-
             part.add(part_note, onset_divs, offset_divs)
-
         # Check if the note is tied and if so, add the tie information
         if is_tied:
-            found = False
             # iterate over all notes in the Timeline that end at the starting point.
             for el in part_note.start.iter_ending(score.Note):
                 if isinstance(el, score.Note):
@@ -717,7 +713,6 @@ def part_from_matchfile(
                         part_note.id
                     )
                 )
-
     # add time signatures
     for ts_beat_time, ts_bar, tsg in ts:
         ts_beats = tsg.numerator
@@ -729,7 +724,6 @@ def part_from_matchfile(
         else:
             bar_start_divs = 0
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
-
     # add key signatures
     for ks_beat_time, ks_bar, keys in mf.key_signatures:
         if ks_bar in bar_times.keys():
@@ -754,11 +748,11 @@ def part_from_matchfile(
     score.add_measures(part)
     score.tie_notes(part)
     score.find_tuplets(part)
-
-    if not all([n.voice for n in part.notes_tied]):
-        for note in part.notes_tied:
-            if note.voice is None:
-                note.voice = 1
+    
+    # if not all([n.voice for n in part.notes_tied]):
+    #     for note in part.notes_tied:
+    #         if note.voice is None:
+    #             note.voice = 1
 
     return part
 
