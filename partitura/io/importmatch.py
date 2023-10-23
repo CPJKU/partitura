@@ -765,7 +765,7 @@ def part_from_matchfile(
         n_voices.remove(None)
         for note in part.notes_tied:
             if note.voice is None:
-                note.voice = max(n_voices)
+                note.voice = max(n_voices) + 1
 
     return part
 
