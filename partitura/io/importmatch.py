@@ -67,6 +67,7 @@ from partitura.io.matchfile_base import (
 from partitura.io.matchfile_utils import (
     Version,
     number_pattern,
+    vnumber_pattern,
     MatchTimeSignature,
     MatchKeySignature,
     format_pnote_id,
@@ -629,15 +630,19 @@ def part_from_matchfile(
         except (TypeError, ValueError):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
-
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
+        elif any(a.startswith("v") for a in note.ScoreAttributesList):
+            note_attributes["voice"] = next(
+                (int(a[1:]) for a in note.ScoreAttributesList if vnumber_pattern.match(a)),
+                None,
+            )
         else:
             note_attributes["voice"] = next(
                 (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
                 None,
             )
-
+    
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
         # and compound durations separately.
@@ -692,9 +697,7 @@ def part_from_matchfile(
 
             else:
                 part_note = score.Note(**note_attributes)
-
             part.add(part_note, onset_divs, offset_divs)
-
         # Check if the note is tied and if so, add the tie information
         if is_tied:
             found = False
@@ -717,7 +720,6 @@ def part_from_matchfile(
                         part_note.id
                     )
                 )
-
     # add time signatures
     for ts_beat_time, ts_bar, tsg in ts:
         ts_beats = tsg.numerator
@@ -729,7 +731,6 @@ def part_from_matchfile(
         else:
             bar_start_divs = 0
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
-
     # add key signatures
     for ks_beat_time, ks_bar, keys in mf.key_signatures:
         if ks_bar in bar_times.keys():
@@ -742,7 +743,7 @@ def part_from_matchfile(
         # * use key estimation if there are multiple defined keys
         # fifths, mode = key_name_to_fifths_mode(key_name)
         part.add(score.KeySignature(keys.fifths, keys.mode), ks_bar)
-
+    
     add_staffs(part)
     # add_clefs(part)
 
@@ -754,11 +755,17 @@ def part_from_matchfile(
     score.add_measures(part)
     score.tie_notes(part)
     score.find_tuplets(part)
-
-    if not all([n.voice for n in part.notes_tied]):
+    
+    n_voices = set([n.voice for n in part.notes])
+    if len(n_voices) == 1 and None in n_voices:
         for note in part.notes_tied:
             if note.voice is None:
                 note.voice = 1
+    elif len(n_voices) > 1 and None in n_voices:
+        n_voices.remove(None)
+        for note in part.notes_tied:
+            if note.voice is None:
+                note.voice = max(n_voices) + 1
 
     return part
 

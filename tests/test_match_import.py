@@ -107,6 +107,7 @@ class TestLoadMatch(unittest.TestCase):
         )
 
         sna_musicxml = score_musicxml.note_array()
+        assert np.all(sna_match['voice'] == sna_musicxml['voice'])
 
         for note in alignment:
 
@@ -564,7 +565,7 @@ class TestMatchLinesV1(unittest.TestCase):
             self.assertTrue(True)
 
     def test_snote_lines(self):
-
+        
         snote_lines = [
             "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])",
             "snote(n3,[G,#],3,1:1,0,1/16,0.0000,0.2500,[v3])",
@@ -1992,3 +1993,6 @@ class TestMatchUtils(unittest.TestCase):
             for component in ks.other_components:
                 key_name = fifths_mode_to_key_name(component.fifths, component.mode)
                 self.assertTrue(str(component).startswith(key_name))
+
+if __name__ == "__main__":
+    unittest.main()
