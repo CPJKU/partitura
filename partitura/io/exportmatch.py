@@ -358,7 +358,10 @@ def matchfile_from_alignment(
                 offset_in_beats=offset_beats,
                 score_attributes_list=score_attributes_list,
             )
-            snote_sort_info[snote.id] = (onset_beats, snote.doc_order if snote.doc_order is not None else 0)
+            snote_sort_info[snote.id] = (
+                onset_beats,
+                snote.doc_order if snote.doc_order is not None else 0,
+            )
 
     # # NOTE time position is hardcoded, not pretty...  Assumes there is only one tempo indication at the beginning of the score
     if tempo_indication is not None:
