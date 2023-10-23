@@ -634,7 +634,11 @@ def part_from_matchfile(
             note_attributes["voice"] = 1
         elif any(a.startswith("v") for a in note.ScoreAttributesList):
             note_attributes["voice"] = next(
-                (int(a[1:]) for a in note.ScoreAttributesList if vnumber_pattern.match(a)),
+                (
+                    int(a[1:])
+                    for a in note.ScoreAttributesList
+                    if vnumber_pattern.match(a)
+                ),
                 None,
             )
         else:
@@ -642,7 +646,7 @@ def part_from_matchfile(
                 (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
                 None,
             )
-    
+
         # get rid of this if as soon as we have a way to iterate over the
         # duration components. For now we have to treat the cases simple
         # and compound durations separately.
@@ -743,7 +747,7 @@ def part_from_matchfile(
         # * use key estimation if there are multiple defined keys
         # fifths, mode = key_name_to_fifths_mode(key_name)
         part.add(score.KeySignature(keys.fifths, keys.mode), ks_bar)
-    
+
     add_staffs(part)
     # add_clefs(part)
 
@@ -755,7 +759,7 @@ def part_from_matchfile(
     score.add_measures(part)
     score.tie_notes(part)
     score.find_tuplets(part)
-    
+
     n_voices = set([n.voice for n in part.notes])
     if len(n_voices) == 1 and None in n_voices:
         for note in part.notes_tied:
