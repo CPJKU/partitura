@@ -67,6 +67,7 @@ from partitura.io.matchfile_base import (
 from partitura.io.matchfile_utils import (
     Version,
     number_pattern,
+    vnumber_pattern,
     MatchTimeSignature,
     MatchKeySignature,
     format_pnote_id,
@@ -631,9 +632,14 @@ def part_from_matchfile(
             note_attributes["staff"] = None
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
+        elif any(a.startswith("v") for a in note.ScoreAttributesList):
+            note_attributes["voice"] = next(
+                (int(a[1:]) for a in note.ScoreAttributesList if vnumber_pattern.match(a)),
+                None,
+            )
         else:
             note_attributes["voice"] = next(
-                (int(a[1:]) for a in note.ScoreAttributesList if number_pattern.match(a)),
+                (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
                 None,
             )
     
@@ -749,10 +755,11 @@ def part_from_matchfile(
     score.tie_notes(part)
     score.find_tuplets(part)
     
-    # if not all([n.voice for n in part.notes_tied]):
-    #     for note in part.notes_tied:
-    #         if note.voice is None:
-    #             note.voice = 1
+    n_voices = set([n.voice for n in part.notes])
+    if len(n_voices) == 1 and None in n_voices:
+        for note in part.notes_tied:
+            if note.voice is None:
+                note.voice = 1
 
     return part
 
