@@ -743,7 +743,7 @@ def part_from_matchfile(
         # * use key estimation if there are multiple defined keys
         # fifths, mode = key_name_to_fifths_mode(key_name)
         part.add(score.KeySignature(keys.fifths, keys.mode), ks_bar)
-
+    
     add_staffs(part)
     # add_clefs(part)
 
@@ -761,6 +761,11 @@ def part_from_matchfile(
         for note in part.notes_tied:
             if note.voice is None:
                 note.voice = 1
+    elif len(n_voices) > 1 and None in n_voices:
+        n_voices.remove(None)
+        for note in part.notes_tied:
+            if note.voice is None:
+                note.voice = max(n_voices)
 
     return part
 
