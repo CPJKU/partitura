@@ -700,6 +700,7 @@ def part_from_matchfile(
             part.add(part_note, onset_divs, offset_divs)
         # Check if the note is tied and if so, add the tie information
         if is_tied:
+            found = False
             # iterate over all notes in the Timeline that end at the starting point.
             for el in part_note.start.iter_ending(score.Note):
                 if isinstance(el, score.Note):
