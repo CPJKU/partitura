@@ -802,7 +802,6 @@ class BaseDeletionLine(MatchLine):
         version: Version,
         pos: int = 0,
     ) -> Dict:
-
         match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
 
         if match_pattern is None:
@@ -851,7 +850,6 @@ class BaseInsertionLine(MatchLine):
         version: Version,
         pos: int = 0,
     ) -> Dict:
-
         match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
 
         if match_pattern is None:
