@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+Version 1.4.1 (Released on 2023-10-25)
+--------------------------------------
+
+## Bug Fixes
+- remove unnecessary escape characters for correct parsing of sharp accidentals in Nakamura match files.
+- don't consider the propriety `doc_order` for sorting notes in the `matchfile_from_alignment` function if it is not present. This propriety is only present in parts from musicxml scores and previously resulted in an exception for other score formats. This solves https://github.com/CPJKU/partitura/issues/326
+- during matchfile parsing, voice info is now parsed as follows: If there is no voice info, all notes get assigned voice number 1. If there is only voice info for the solo voice, the non-solo voiced notes get voice 2. If multiple notes have different voices, but not every note has a voice annotated, those with voice annotation get the annotated voice number and those without voice annotation get assigned the max voice+1 voice number. Previously all notes were assigned to voice 1 if there were any None voiced note
+- during matchfile parsing, all note classes are now matched correctly. Previously classes `MatchSnoteTrailingScore` and `MatchSnoteNoPlayedNote` were always marked as `MatchSnoteDeletion`  and `MatchHammerBounceNote`, `MatchTrailingPlayedNote`, `MatchTrillNote` always ended up as `MatchInsertionNote`. This solves https://github.com/CPJKU/partitura/issues/286
+- during matchfile parsing, lines which can't be parsed are removed. Before they ended up as `None` in the output.
+
 Version 1.4.0 (Released on 2023-09-22)
 --------------------------------------
 
