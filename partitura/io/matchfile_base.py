@@ -770,6 +770,7 @@ class BaseSnoteNoteLine(MatchLine):
 
 class BaseDeletionLine(MatchLine):
     out_pattern = "{SnoteLine}-deletion."
+    identifier_pattern = re.compile(r"-deletion\.")
 
     def __init__(self, version: Version, snote: BaseSnoteLine) -> None:
         super().__init__(version)
@@ -801,26 +802,9 @@ class BaseDeletionLine(MatchLine):
         version: Version,
         pos: int = 0,
     ) -> Dict:
-        # this is very roundabout, but since this is a class method
-        # we can't use instance properties without a dummy instance of cls.
-        # and the note class pattern is only set when instantiated
-        # for some note classes (expecially v0)
-        dummy_snote = snote_class(
-            version=version,
-            anchor=0,
-            note_name="C",
-            modifier="",
-            octave=4,
-            measure=0,
-            beat=0,
-            offset=FractionalSymbolicDuration(1),
-            duration=FractionalSymbolicDuration(1),
-            onset_in_beats=0.0,
-            offset_in_beats=0.0,
-            score_attributes_list=[],
-        )
-        dummy_instance = cls(version=version, snote=dummy_snote)
-        match_pattern = dummy_instance.pattern.search(matchline, pos=pos)
+
+        match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
+
         if match_pattern is None:
             raise MatchError("")
         snote = snote_class.from_matchline(matchline, version=version)
@@ -835,6 +819,7 @@ class BaseDeletionLine(MatchLine):
 
 class BaseInsertionLine(MatchLine):
     out_pattern = "insertion-{NoteLine}"
+    identifier_pattern = re.compile(r"insertion-")
 
     def __init__(self, version: Version, note: BaseNoteLine) -> None:
         super().__init__(version)
@@ -866,35 +851,9 @@ class BaseInsertionLine(MatchLine):
         version: Version,
         pos: int = 0,
     ) -> Dict:
-        # this is very roundabout, but since this is a class method
-        # we can't use instance properties without a dummy instance of cls.
-        # and the note class pattern is only set when instantiated
-        # for some note classes (expecially v0)
-        if version >= Version(1, 0, 0):
-            dummy_note = note_class(
-                version=version,
-                id="id",
-                midi_pitch=60,
-                onset=0,
-                offset=0,
-                velocity=0,
-                channel=0,
-                track=0,
-            )
-        else:
-            dummy_note = note_class(
-                version=version,
-                id="id",
-                note_name="C",
-                modifier=0,
-                octave=0,
-                onset=0,
-                offset=0,
-                velocity=0,
-            )
 
-        dummy_instance = cls(version=version, note=dummy_note)
-        match_pattern = dummy_instance.pattern.search(matchline, pos=pos)
+        match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
+
         if match_pattern is None:
             raise MatchError("")
 

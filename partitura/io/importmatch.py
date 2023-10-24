@@ -210,7 +210,9 @@ def load_matchfile(
         parse_matchline, version=version, from_matchline_methods=from_matchline_methods
     )
     f_vec = np.vectorize(f)
-    parsed_lines = f_vec(np_lines).tolist()
+    parsed_lines_raw = f_vec(np_lines).tolist()
+    # do not return unparseable lines
+    parsed_lines = [line for line in parsed_lines_raw if line is not None]
     # Create MatchFile instance
     mf = MatchFile(lines=parsed_lines)
     # Validate match for duplicate snote_ids or pnote_ids
