@@ -210,9 +210,9 @@ def load_matchfile(
         parse_matchline, version=version, from_matchline_methods=from_matchline_methods
     )
     f_vec = np.vectorize(f)
-    parsed_lines_raw = f_vec(np_lines).tolist()
+    parsed_lines_raw = f_vec(np_lines)
     # do not return unparseable lines
-    parsed_lines = [line for line in parsed_lines_raw if line is not None]
+    parsed_lines = parsed_lines_raw[parsed_lines_raw != None].tolist()
     # Create MatchFile instance
     mf = MatchFile(lines=parsed_lines)
     # Validate match for duplicate snote_ids or pnote_ids
@@ -632,6 +632,7 @@ def part_from_matchfile(
         except (TypeError, ValueError):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
+        
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
         elif any(a.startswith("v") for a in note.ScoreAttributesList):
