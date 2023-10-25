@@ -632,7 +632,7 @@ def part_from_matchfile(
         except (TypeError, ValueError):
             # no staff attribute, or staff attribute does not end with a number
             note_attributes["staff"] = None
-        
+
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
         elif any(a.startswith("v") for a in note.ScoreAttributesList):
