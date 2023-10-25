@@ -805,7 +805,7 @@ class BaseDeletionLine(MatchLine):
         match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
 
         if match_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
         snote = snote_class.from_matchline(matchline, version=version)
 
         kwargs = dict(
@@ -853,7 +853,7 @@ class BaseInsertionLine(MatchLine):
         match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
 
         if match_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
 
         note = note_class.from_matchline(matchline, version=version)
 
@@ -909,7 +909,7 @@ class BaseOrnamentLine(MatchLine):
         anchor_pattern = cls.ornament_pattern.search(matchline)
 
         if anchor_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
 
         anchor = interpret_as_string(anchor_pattern.group("Anchor"))
         note = note_class.from_matchline(matchline, version=version)

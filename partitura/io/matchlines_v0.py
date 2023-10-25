@@ -894,7 +894,7 @@ class MatchTrillNote(BaseOrnamentLine):
         anchor_pattern = cls.ornament_pattern.search(matchline)
 
         if anchor_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
         note = MatchNote.from_matchline(matchline, version=version)
 
         return cls(
