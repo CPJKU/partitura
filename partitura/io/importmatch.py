@@ -67,6 +67,7 @@ from partitura.io.matchfile_base import (
 from partitura.io.matchfile_utils import (
     Version,
     number_pattern,
+    vnumber_pattern,
     MatchTimeSignature,
     MatchKeySignature,
     format_pnote_id,
@@ -209,7 +210,9 @@ def load_matchfile(
         parse_matchline, version=version, from_matchline_methods=from_matchline_methods
     )
     f_vec = np.vectorize(f)
-    parsed_lines = f_vec(np_lines).tolist()
+    parsed_lines_raw = f_vec(np_lines)
+    # do not return unparseable lines
+    parsed_lines = parsed_lines_raw[parsed_lines_raw != None].tolist()
     # Create MatchFile instance
     mf = MatchFile(lines=parsed_lines)
     # Validate match for duplicate snote_ids or pnote_ids
@@ -632,6 +635,15 @@ def part_from_matchfile(
 
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
+        elif any(a.startswith("v") for a in note.ScoreAttributesList):
+            note_attributes["voice"] = next(
+                (
+                    int(a[1:])
+                    for a in note.ScoreAttributesList
+                    if vnumber_pattern.match(a)
+                ),
+                None,
+            )
         else:
             note_attributes["voice"] = next(
                 (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
@@ -692,9 +704,7 @@ def part_from_matchfile(
 
             else:
                 part_note = score.Note(**note_attributes)
-
             part.add(part_note, onset_divs, offset_divs)
-
         # Check if the note is tied and if so, add the tie information
         if is_tied:
             found = False
@@ -717,7 +727,6 @@ def part_from_matchfile(
                         part_note.id
                     )
                 )
-
     # add time signatures
     for ts_beat_time, ts_bar, tsg in ts:
         ts_beats = tsg.numerator
@@ -729,7 +738,6 @@ def part_from_matchfile(
         else:
             bar_start_divs = 0
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
-
     # add key signatures
     for ks_beat_time, ks_bar, keys in mf.key_signatures:
         if ks_bar in bar_times.keys():
@@ -755,10 +763,16 @@ def part_from_matchfile(
     score.tie_notes(part)
     score.find_tuplets(part)
 
-    if not all([n.voice for n in part.notes_tied]):
+    n_voices = set([n.voice for n in part.notes])
+    if len(n_voices) == 1 and None in n_voices:
         for note in part.notes_tied:
             if note.voice is None:
                 note.voice = 1
+    elif len(n_voices) > 1 and None in n_voices:
+        n_voices.remove(None)
+        for note in part.notes_tied:
+            if note.voice is None:
+                note.voice = max(n_voices) + 1
 
     return part
 
