@@ -6,7 +6,7 @@ This module contains methods for importing MIDI files.
 import warnings
 
 from collections import defaultdict
-from typing import Union, Optional
+from typing import Union, Optional, List, Tuple
 import numpy as np
 
 
@@ -409,7 +409,13 @@ or a list of these
     track_names_by_track = {}
     # notes are indexed by (track, channel) tuples
     notes_by_track_ch = {}
-    relevant = {"time_signature", "key_signature", "set_tempo", "note_on", "note_off"}
+    relevant = {
+        "time_signature",
+        "key_signature",
+        "set_tempo",
+        "note_on",
+        "note_off",
+    }
     for track_nr, track in enumerate(mid.tracks):
         time_sigs = []
         key_sigs = []
@@ -714,15 +720,15 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
 
 
 def create_part(
-    ticks,
-    notes,
-    spellings,
-    voices,
-    note_ids,
-    time_sigs,
-    key_sigs,
-    part_id=None,
-    part_name=None,
+    ticks: int,
+    notes: List[Tuple[int, int, int]],
+    spellings: List[Tuple[str, str, int]],
+    voices: List[int],
+    note_ids: List[str],
+    time_sigs: List[Tuple[int, int, int]],
+    key_sigs: List[Tuple[int, str]],
+    part_id: Optional[str] = None,
+    part_name: Optional[str] = None,
 ) -> score.Part:
     warnings.warn("create_part", stacklevel=2)
 
@@ -814,7 +820,10 @@ def create_part(
     return part
 
 
-def quantize(v, unit):
+def quantize(
+    v: Union[np.ndarray, float, int],
+    unit: Union[float, int],
+) -> Union[np.ndarray, float, int]:
     """Quantize value `v` to a multiple of `unit`. When `unit` is an integer,
     the return value will be integer as well, otherwise the function will
     return a float.
