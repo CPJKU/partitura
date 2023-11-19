@@ -96,7 +96,7 @@ class PerformedPart(object):
         self.controls = controls or []
         self.programs = programs or []
         self.time_signatures = time_signatures or []
-        self.key_signature = key_signatures or []
+        self.key_signatures = key_signatures or []
         self.meta_other = meta_other or []
         self.ppq = ppq
         self.mpq = mpq
