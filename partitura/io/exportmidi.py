@@ -13,7 +13,7 @@ from mido import MidiFile, MidiTrack, Message, MetaMessage, merge_tracks
 import partitura.score as score
 from partitura.score import Score, Part, PartGroup, ScoreLike
 from partitura.performance import Performance, PerformedPart, PerformanceLike
-from partitura.utils import partition
+from partitura.utils import partition, fifths_mode_to_key_name
 
 from partitura.utils.misc import deprecated_alias, PathLike
 
@@ -138,6 +138,43 @@ def save_performance_midi(
 
     track_events = defaultdict(lambda: defaultdict(list))
     for performed_part in performed_parts:
+
+        for c in performed_part.meta_other:
+            track = c.get("track", 0)
+            t = int(np.round(10**6 * ppq * c["time"] / mpq))
+            msg_info = dict(
+                [
+                    (key, val)
+                    for key, val in c.items()
+                    if key not in ("time", "time_tick", "track")
+                ]
+            )
+            track_events[track][t].append(MetaMessage(**msg_info))
+
+        for c in performed_part.key_signatures:
+            track = c.get("track", 0)
+            t = int(np.round(10**6 * ppq * c["time"] / mpq))
+            track_events[track][t].append(
+                MetaMessage(
+                    type="key_signature",
+                    key=fifths_mode_to_key_name(
+                        fifths=c.get("fifths", 0),
+                        mode=c.get("mode", None),
+                    ),
+                )
+            )
+
+        for c in performed_part.time_signatures:
+            track = c.get("track", 0)
+            t = int(np.round(10**6 * ppq * c["time"] / mpq))
+            track_events[track][t].append(
+                MetaMessage(
+                    type="time_signature",
+                    numerator=c.get("beats", 4),
+                    denominator=c.get("beat_type", 4),
+                ),
+            )
+
         for c in performed_part.controls:
             track = c.get("track", 0)
             ch = c.get("channel", 1)

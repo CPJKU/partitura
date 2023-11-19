@@ -77,6 +77,9 @@ class PerformedPart(object):
         part_name: str = None,
         controls: List[dict] = None,
         programs: List[dict] = None,
+        key_signatures: List[dict] = None,
+        time_signatures: List[dict] = None,
+        meta_other: List[dict] = None,
         sustain_pedal_threshold: int = 64,
         ppq: int = 480,
         mpq: int = 500000,
@@ -92,6 +95,9 @@ class PerformedPart(object):
         )
         self.controls = controls or []
         self.programs = programs or []
+        self.time_signatures = time_signatures or []
+        self.key_signature = key_signatures or []
+        self.meta_other = meta_other or []
         self.ppq = ppq
         self.mpq = mpq
         self.track = track

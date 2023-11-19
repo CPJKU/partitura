@@ -127,6 +127,15 @@ def load_performance_midi(
         notes = []
         controls = []
         programs = []
+        # This information is just for completeness,
+        # but loading a MIDI file as a performance
+        # assumes that key and time signature information
+        # is not reliable (e.g., a performance recorded with
+        # a MIDI keyboard, without metronome)
+        key_signatures = []
+        time_signatures = []
+        # other MetaMessages (not including key and time_signature)
+        meta_other = []
 
         t = 0
         ttick = 0
@@ -138,9 +147,59 @@ def load_performance_midi(
             t = t + msg.time * time_conversion_factor
             ttick = ttick + msg.time
 
-            if msg.type == "set_tempo":
-                mpq = msg.tempo
-                time_conversion_factor = mpq / (ppq * 10**6)
+            if isinstance(msg, mido.MetaMessage):
+                # Meta Messages apply to all channels in the track
+
+                # The tempo is set globally in PerformedParts,
+                # i.e., the tempo_conversion_factor is adjusted
+                # with every tempo change, rather than creating new
+                # tempo events.
+                if msg.type == "set_tempo":
+                    mpq = msg.tempo
+                    time_conversion_factor = mpq / (ppq * 10**6)
+
+                elif msg.type == "time_signature":
+                    time_signatures.append(
+                        dict(
+                            time=t,
+                            time_tick=ttick,
+                            beats=int(msg.numerator),
+                            beat_type=int(msg.denominator),
+                            track=i,
+                        )
+                    )
+                elif msg.type == "key_signature":
+                    key_name = str(msg.key)
+                    fifths, mode = key_name_to_fifths_mode(key_name)
+                    key_signatures.append(
+                        dict(
+                            time=t,
+                            time_tick=ttick,
+                            key_name=str(msg.key),
+                            fifths=fifths,
+                            mode=mode,
+                            track=i,
+                        )
+                    )
+
+                else:
+                    # Other MetaMessages
+                    # For more info, see
+                    # https://mido.readthedocs.io/en/latest/meta_message_types.html
+                    msg_dict = dict(
+                        [
+                            ("time", t),
+                            ("time_tick", ttick),
+                            ("track", i),
+                        ]
+                        + [
+                            (key, val)
+                            for key, val in msg.__dict__.items()
+                            if key not in ("time", "track", "time_tick")
+                        ]
+                    )
+
+                    meta_other.append(msg_dict)
 
             elif msg.type == "control_change":
                 controls.append(
@@ -221,7 +280,15 @@ def load_performance_midi(
 
         if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
             pp = performance.PerformedPart(
-                notes, controls=controls, programs=programs, ppq=ppq, mpq=mpq, track=i
+                notes,
+                controls=controls,
+                programs=programs,
+                key_signatures=key_signatures,
+                time_signatures=time_signatures,
+                meta_other=meta_other,
+                ppq=ppq,
+                mpq=mpq,
+                track=i,
             )
 
             pps.append(pp)
