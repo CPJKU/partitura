@@ -6,7 +6,7 @@ This module contains methods for importing MIDI files.
 import warnings
 
 from collections import defaultdict
-from typing import Union, Optional, List, Tuple
+from typing import Union, Optional, List, Tuple, Dict
 import numpy as np
 
 
@@ -655,7 +655,11 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
     return track_to_part_keys
 
 
-def assign_group_part_voice(mode, track_ch_combis, track_names):
+def assign_group_part_voice(
+    mode: int,
+    track_ch_combis: Dict[Tuple[int, int], List],
+    track_names: Dict[int, str],
+) -> Tuple[List[Tuple], Dict, Dict]:
     """
     0: return one Part per track, with voices assigned by channel
     1. return one PartGroup per track, with Parts assigned by channel (no voices)
@@ -730,6 +734,29 @@ def create_part(
     part_id: Optional[str] = None,
     part_name: Optional[str] = None,
 ) -> score.Part:
+    """
+    Create score part object
+
+    Parameters
+    ----------
+    ticks: int
+        Integer unit to represent onset and duration information
+        in the score in a lossless way.
+    notes: List[Tuple[int, int, int]]
+        Note information (onset, pitch, duration)
+    spellings: List[Tuple[str, str, int]]
+    voices: List[str]
+    note_ids: List[str]
+    time_sigs: List[Tuple[int, int, int]]
+    key_sigs:
+    part_id
+    part_name
+
+    Returns
+    -------
+    part: partitura.score.Part
+        An object representing a Part in the score
+    """
     warnings.warn("create_part", stacklevel=2)
 
     part = score.Part(part_id, part_name=part_name)
