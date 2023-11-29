@@ -15,6 +15,8 @@ from .importkern import load_kern
 from .importparangonada import load_parangonada_csv
 from .exportparangonada import save_parangonada_csv
 from .importmusic21 import load_music21
+from .importdcml import load_tsv
+
 
 from partitura.utils.misc import (
     deprecated_alias,
