@@ -18,6 +18,7 @@ from numbers import Number
 from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings, sys
 import numpy as np
+import re
 from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
 
@@ -2734,13 +2735,112 @@ class RomanNumeral(TimedObject):
         See parameters
     """
 
-    def __init__(self, text):
+    def __init__(self, text, inversion=None, local_key=None, primary_degree=None, secondary_degree=None, quality=None):
         super().__init__()
         self.text = text
-        # assert issubclass(note, GenericNote)
+        self.inversion = inversion if inversion is not None else self._process_inversion()
+        self.local_key = local_key if local_key is not None else self._process_local_key()
+        self.primary_degree = primary_degree if primary_degree is not None else self._process_primary_degree()
+        self.secondary_degree = secondary_degree if secondary_degree is not None else self._process_secondary_degree()
+        self.quality = quality if quality is not None else self._process_quality()
+
+    def _process_inversion(self):
+        """Find the inversion of the roman numeral from the text"""
+        # The inversion should be right after the roman numeral.
+        # If there is no inversion, return 0
+        numeric_indications_in_text = re.findall(r'\d+', self.text)
+        if len(numeric_indications_in_text) > 0:
+            inversion_state = int(numeric_indications_in_text[0])
+            if inversion_state == 2:
+                return 3
+            elif inversion_state in [43, 64]:
+                return 2
+            elif inversion_state in [6, 65]:
+                return 1
+        return 0
+
+    def _process_local_key(self):
+        """Find the local key of the roman numeral from the text"""
+        # The local key should be before the roman numeral.
+        # If there is no local key, return None
+        local_key = self.text.split(":")
+        if len(local_key) > 1:
+            return local_key[0]
+        return None
+
+    def _process_primary_degree(self):
+        """Find the primary degree of the roman numeral from the text
+
+        The primary degree should be a roman numeral between 1 and 7.
+        """
+        # The primary degree should be a roman numeral between 1 and 7.
+        # If there is no primary degree, return None
+        primary_degree = re.findall(r'[ivIV]+', self.text)
+        if len(primary_degree) > 0:
+            return primary_degree[0]
+        return None
+
+    def _process_secondary_degree(self):
+        """Find the secondary degree of the roman numeral from the text
+
+        The secondary degree should be a roman numeral between 1 and 7.
+        If it is not specified in the text, return I (the tonic) when the primary degree is not none.
+        """
+        # The secondary degree should be a roman numeral between 1 and 7.
+        # If it is not specified in the text, return I (the tonic) when the primary degree is not none.
+        secondary_degree = re.findall(r'[ivIV]+', self.text)
+        if len(secondary_degree) > 1:
+            return secondary_degree[1]
+        elif self.primary_degree is not None:
+            return "I"
+        return None
+
+    def _process_quality(self):
+        """Find the quality of the roman numeral from the text
+
+        Accepted quality values are M, m, +, o, and None.
+        """
+        # The quality should be M, m, +, o, or None.
+        # If there is no quality, return None
+        quality = re.findall(r'[Mm+o]', self.text)
+        if len(quality) > 0:
+            return quality[0]
+        return None
+
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
+
+
+class Cadence(TimedObject):
+    """A cadence element in the score usually for Cadences."""
+    def __init__(self, text, local_key=None):
+        super().__init__()
+        self.text = text
+        self._filter_cadence_type()
+        self.local_key = local_key
+
+    def _filter_cadence_type(self):
+        """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
+        # capitalize text
+        self.text = self.text.upper()
+        if "IAC" in self.text:
+            self.text = "IAC"
+        if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
+            warnings.warn(f"Cadence type {self.text} not found. Setting to None")
+            self.text = None
+
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class Phrase(TimedObject):
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self):
+        return f'{super().__str__()}'
 
 
 class ChordSymbol(TimedObject):
