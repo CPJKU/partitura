@@ -10,10 +10,9 @@ except ImportError:
 def read_note_tsv(note_tsv_path, metadata=None):
     data = pd.read_csv(note_tsv_path, sep="\t")
     unique_durations = data["duration"].unique()
-    nominators = [int(qb.split("/")[0]) for qb in unique_durations]
     denominators = [int(qb.split("/")[1]) for qb in unique_durations if "/" in qb]
     # transform quarter_beats to quarter_divs
-    qdivs = np.lcm.reduce(denominators)
+    qdivs = np.lcm.reduce(denominators) if len(denominators) > 0 else 4
     quarter_durations = data["duration_qb"]
     duration_div = np.array([int(qd * qdivs) for qd in quarter_durations])
     onset_div = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
@@ -89,8 +88,25 @@ def read_harmony_tsv(beat_tsv_path, part):
     data = pd.read_csv(beat_tsv_path, sep="\t")
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
     data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
+    # Find Phrase Starts where data["phraseend"] == "{"
     for _, row in data.iterrows():
-        part.add(spt.RomanNumeral(roman=row["chord"]), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
+        part.add(
+            spt.RomanNumeral(roman=row["chord"],
+                             local_key=row["localkey"],
+                             quality=row["chord_type"],
+                             ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
+        if row["cadence"] is not None:
+            part.add(
+                spt.Cadence(cadence_type=row["cadence"],
+                            local_key=row["localkey"],
+                            ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
+
+    phrase_starts = data[data["phraseend"] == "{"]
+    phrase_ends = data[data["phraseend"] == "}"]
+    # Check that the number of phrase starts and ends match
+    assert len(phrase_starts) == len(phrase_ends), "Number of phrase starts and ends do not match"
+    for start, end in zip(phrase_starts.iterrows(), phrase_ends.iterrows()):
+        part.add(spt.Phrase(), start=start[1]["onset_div"], end=end[1]["onset_div"])
     return
 
 
