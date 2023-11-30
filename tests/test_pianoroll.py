@@ -214,14 +214,12 @@ class TestNotesFromPianoroll(unittest.TestCase):
         self.assertTrue(test)
 
     def test_reconstruction_score(self):
-
         for fn in MUSICXML_IMPORT_EXPORT_TESTFILES:
             score = load_musicxml(fn)
             note_array = score[0].note_array()
             pr = compute_pianoroll(
                 score[0], time_unit="div", time_div=1, remove_silence=False
             )
-
             rec_note_array = pianoroll_to_notearray(pr, time_div=1, time_unit="div")
 
             original_pitch_idx = np.argsort(note_array["pitch"])
@@ -233,7 +231,7 @@ class TestNotesFromPianoroll(unittest.TestCase):
             rec_note_array = rec_note_array[rec_pitch_idx]
             rec_onset_idx = np.argsort(rec_note_array["onset_div"], kind="mergesort")
             rec_note_array = rec_note_array[rec_onset_idx]
-
+            
             test_pitch = np.all(note_array["pitch"] == rec_note_array["pitch"])
             self.assertTrue(test_pitch)
             test_onset = np.all(note_array["onset_div"] == rec_note_array["onset_div"])
@@ -442,3 +440,6 @@ class TestPitchClassPianoroll(unittest.TestCase):
 
         # Onsets and offsets should be identical
         self.assertTrue(np.all(pr_idxs[:, 2:4] == pcr_idxs[:, 2:4]))
+
+if __name__ == "__main__":
+    unittest.main()

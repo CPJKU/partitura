@@ -805,6 +805,7 @@ class MatchSnoteDeletion(BaseDeletionLine):
 
 class MatchSnoteTrailingScore(MatchSnoteDeletion):
     out_pattern = "{SnoteLine}-trailing_score_note."
+    identifier_pattern = re.compile(r"-trailing_score_note\.")
 
     def __init__(self, version: Version, snote: MatchSnote) -> None:
         super().__init__(version=version, snote=snote)
@@ -815,6 +816,7 @@ class MatchSnoteTrailingScore(MatchSnoteDeletion):
 
 class MatchSnoteNoPlayedNote(MatchSnoteDeletion):
     out_pattern = "{SnoteLine}-no_played_note."
+    identifier_pattern = re.compile(r"-no_played_note\.")
 
     def __init__(self, version: Version, snote: MatchSnote) -> None:
         super().__init__(version=version, snote=snote)
@@ -848,6 +850,7 @@ class MatchInsertionNote(BaseInsertionLine):
 
 class MatchHammerBounceNote(MatchInsertionNote):
     out_pattern = "hammer_bounce-{NoteLine}"
+    identifier_pattern = re.compile(r"hammer_bounce-")
 
     def __init__(self, version: Version, note: MatchNote) -> None:
         super().__init__(version=version, note=note)
@@ -856,6 +859,7 @@ class MatchHammerBounceNote(MatchInsertionNote):
 
 class MatchTrailingPlayedNote(MatchInsertionNote):
     out_pattern = "trailing_played_note-{NoteLine}"
+    identifier_pattern = re.compile(r"trailing_played_note-")
 
     def __init__(self, version: Version, note: MatchNote) -> None:
         super().__init__(version=version, note=note)
@@ -890,7 +894,7 @@ class MatchTrillNote(BaseOrnamentLine):
         anchor_pattern = cls.ornament_pattern.search(matchline)
 
         if anchor_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
         note = MatchNote.from_matchline(matchline, version=version)
 
         return cls(

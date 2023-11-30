@@ -84,6 +84,14 @@
           <line>2</line>
           </clef>
         </attributes>
+      <direction placement="below">
+        <direction-type>
+          <dynamics>
+          </dynamics>
+        </direction-type>
+        <staff>1</staff>
+        <sound dynamics="100.00"/>
+      </direction>
       <note default-x="80.72" default-y="-30.00">
         <pitch>
           <step>G</step>

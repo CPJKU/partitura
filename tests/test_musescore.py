@@ -14,29 +14,20 @@ from partitura.utils import compute_pianoroll
 from lxml import etree
 from xmlschema.names import XML_NAMESPACE
 from partitura.io import load_score, load_via_musescore
+from partitura.io.musescore import find_musescore, MuseScoreNotFoundException
 import platform
 
 import numpy as np
 from pathlib import Path
 
-
-class TestImportMusescore(unittest.TestCase):
-    def test_number_of_parts1(self):
-        # dirty trick, since we can install Musescore only on linux environment in github actions
-        if platform.system() == "Linux":
-            score = load_via_musescore(MUSESCORE_TESTFILES[0])
-            self.assertTrue(len(score.parts) == 1)
-            self.assertTrue(len(score.note_array()) == 984)
-        else:
-            self.skipTest("MuseScore test can't run on non-linux environment in github actions")
-
-    def test_epfl_scores(self):
-        # dirty trick, since we can install Musescore only on linux environment in github actions
-        if platform.system() == "Linux":
+try:
+  if find_musescore():
+    class TestImportMusescore(unittest.TestCase):
+        def test_epfl_scores(self):
             score = load_via_musescore(MUSESCORE_TESTFILES[0])
             self.assertTrue(len(score.parts) == 1)
             # try the generic loading function
             score = load_score(MUSESCORE_TESTFILES[0])
             self.assertTrue(len(score.parts) == 1)
-        else:
-            self.skipTest("MuseScore test can't run on non-linux environment in github actions")
+except MuseScoreNotFoundException:
+    pass

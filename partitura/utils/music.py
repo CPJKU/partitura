@@ -488,8 +488,15 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Transposed score.
     """
     import partitura.score as s
+    import sys
 
+    # Copy needs to be deep, otherwise the recursion limit will be exceeded
+    old_recursion_depth = sys.getrecursionlimit()
+    sys.setrecursionlimit(10000)
+    # Deep copy of score
     new_score = copy.deepcopy(score)
+    # Reset recursion limit to previous value to avoid side effects
+    sys.setrecursionlimit(old_recursion_depth)
     if isinstance(score, s.Score):
         for part in new_score.parts:
             transpose(part, interval)
@@ -686,8 +693,8 @@ def midi_ticks_to_seconds(
 
 SIGN_TO_ALTER = {
     "n": 0,
-    "ns" : 1,
-    "nf" : -1,
+    "ns": 1,
+    "nf": -1,
     "#": 1,
     "s": 1,
     "ss": 2,
@@ -3254,18 +3261,17 @@ def slice_ppart_by_time(
     # create a new (empty) instance of a PerformedPart
     # single dummy note added to be able to set sustain_pedal_threshold in __init__
     # -> check `adjust_offsets_w_sustain` in partitura.performance
-    ppart_slice = PerformedPart([{"note_on": 0, "note_off": 0}])
+    # ppart_slice = PerformedPart([{"note_on": 0, "note_off": 0, "pitch": 0}])
 
     # get ppq if PerformedPart contains it,
     # else skip time_tick info when e.g. created with 'load_performance_midi'
     try:
         ppq = ppart.ppq
-        ppart_slice.ppq = ppq
     except AttributeError:
         ppq = None
 
+    controls_slice = []
     if ppart.controls:
-        controls_slice = []
         for cc in ppart.controls:
             if cc["time"] >= start_time and cc["time"] <= end_time:
                 new_cc = cc.copy()
@@ -3273,10 +3279,9 @@ def slice_ppart_by_time(
                 if ppq:
                     new_cc["time_tick"] = int(2 * ppq * cc["time"])
                 controls_slice.append(new_cc)
-        ppart_slice.controls = controls_slice
 
+    programs_slice = []
     if ppart.programs:
-        programs_slice = []
         for pr in ppart.programs:
             if pr["time"] >= start_time and pr["time"] <= end_time:
                 new_pr = pr.copy()
@@ -3284,7 +3289,6 @@ def slice_ppart_by_time(
                 if ppq:
                     new_pr["time_tick"] = int(2 * ppq * pr["time"])
                 programs_slice.append(new_pr)
-        ppart_slice.programs = programs_slice
 
     notes_slice = []
     note_id = 0
@@ -3328,7 +3332,10 @@ def slice_ppart_by_time(
             else:
                 break
 
-    ppart_slice.notes = notes_slice
+    # Create slice PerformedPart
+    ppart_slice = PerformedPart(
+        notes=notes_slice, programs=programs_slice, controls=controls_slice, ppq=ppq
+    )
 
     # set threshold property after creating notes list to update 'sound_offset' values
     ppart_slice.sustain_pedal_threshold = ppart.sustain_pedal_threshold

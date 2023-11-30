@@ -6,7 +6,7 @@ This module contains methods for parsing matchfiles
 import os
 from typing import Union, Tuple, Optional, Callable, List
 import warnings
-
+from functools import partial
 import numpy as np
 
 from partitura import score
@@ -67,6 +67,7 @@ from partitura.io.matchfile_base import (
 from partitura.io.matchfile_utils import (
     Version,
     number_pattern,
+    vnumber_pattern,
     MatchTimeSignature,
     MatchKeySignature,
     format_pnote_id,
@@ -197,21 +198,25 @@ def load_matchfile(
 
     parsed_lines = list()
     # Functionality to remove duplicate lines
-    for i, line in enumerate(raw_lines):
-        if line in raw_lines[i + 1 :] and line != "":
-            warnings.warn(f"Duplicate line found in matchfile: {line}")
-            continue
-        parsed_line = parse_matchline(line, from_matchline_methods, version)
-        if parsed_line is None:
-            warnings.warn(f"Could not empty parse line: {line} ")
-            continue
-        parsed_lines.append(parsed_line)
-
+    len_raw_lines = len(raw_lines)
+    np_lines = np.array(raw_lines, dtype=str)
+    # Remove empty lines
+    np_lines = np_lines[np_lines != ""]
+    # Remove duplicate lines
+    _, idx = np.unique(np_lines, return_index=True)
+    np_lines = np_lines[np.sort(idx)]
+    # Parse lines
+    f = partial(
+        parse_matchline, version=version, from_matchline_methods=from_matchline_methods
+    )
+    f_vec = np.vectorize(f)
+    parsed_lines_raw = f_vec(np_lines)
+    # do not return unparseable lines
+    parsed_lines = parsed_lines_raw[parsed_lines_raw != None].tolist()
+    # Create MatchFile instance
     mf = MatchFile(lines=parsed_lines)
-
     # Validate match for duplicate snote_ids or pnote_ids
     validate_match_ids(mf)
-
     return mf
 
 
@@ -371,29 +376,38 @@ def performed_part_from_match(
     # PerformedNote instances for all MatchNotes
     notes = []
 
-    first_note = next(mf.iter_notes(), None)
-    if first_note and first_note_at_zero:
-        offset = midi_ticks_to_seconds(first_note.Onset, mpq=mpq, ppq=ppq)
-        offset_tick = first_note.Onset
-    else:
-        offset = 0
-        offset_tick = 0
-
-    notes = [
-        dict(
-            id=format_pnote_id(note.Id),
-            midi_pitch=note.MidiPitch,
-            note_on=midi_ticks_to_seconds(note.Onset, mpq, ppq) - offset,
-            note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
-            note_on_tick=note.Onset - offset_tick,
-            note_off_tick=note.Offset - offset_tick,
-            sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq) - offset,
-            velocity=note.Velocity,
-            track=getattr(note, "Track", 0),
-            channel=getattr(note, "Channel", 1),
+    notes = list()
+    note_onsets_in_secs = np.array(np.zeros(len(mf.notes)), dtype=float)
+    note_onsets_in_tick = np.array(np.zeros(len(mf.notes)), dtype=int)
+    for i, note in enumerate(mf.notes):
+        n_onset_sec = midi_ticks_to_seconds(note.Onset, mpq, ppq)
+        note_onsets_in_secs[i] = n_onset_sec
+        note_onsets_in_tick[i] = note.Onset
+        notes.append(
+            dict(
+                id=format_pnote_id(note.Id),
+                midi_pitch=note.MidiPitch,
+                note_on=n_onset_sec,
+                note_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
+                note_on_tick=note.Onset,
+                note_off_tick=note.Offset,
+                sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
+                velocity=note.Velocity,
+                track=getattr(note, "Track", 0),
+                channel=getattr(note, "Channel", 1),
+            )
         )
-        for note in mf.notes
-    ]
+    # Set first note_on to zero in ticks and seconds if first_note_at_zero
+    if first_note_at_zero and len(note_onsets_in_secs) > 0:
+        offset = note_onsets_in_secs.min()
+        offset_tick = note_onsets_in_tick.min()
+        if offset > 0 and offset_tick > 0:
+            for note in notes:
+                note["note_on"] -= offset
+                note["note_off"] -= offset
+                note["sound_off"] -= offset
+                note["note_on_tick"] -= offset_tick
+                note["note_off_tick"] -= offset_tick
 
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = [
@@ -621,6 +635,15 @@ def part_from_matchfile(
 
         if "s" in note.ScoreAttributesList:
             note_attributes["voice"] = 1
+        elif any(a.startswith("v") for a in note.ScoreAttributesList):
+            note_attributes["voice"] = next(
+                (
+                    int(a[1:])
+                    for a in note.ScoreAttributesList
+                    if vnumber_pattern.match(a)
+                ),
+                None,
+            )
         else:
             note_attributes["voice"] = next(
                 (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
@@ -681,9 +704,7 @@ def part_from_matchfile(
 
             else:
                 part_note = score.Note(**note_attributes)
-
             part.add(part_note, onset_divs, offset_divs)
-
         # Check if the note is tied and if so, add the tie information
         if is_tied:
             found = False
@@ -706,7 +727,6 @@ def part_from_matchfile(
                         part_note.id
                     )
                 )
-
     # add time signatures
     for ts_beat_time, ts_bar, tsg in ts:
         ts_beats = tsg.numerator
@@ -718,7 +738,6 @@ def part_from_matchfile(
         else:
             bar_start_divs = 0
         part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
-
     # add key signatures
     for ks_beat_time, ks_bar, keys in mf.key_signatures:
         if ks_bar in bar_times.keys():
@@ -744,10 +763,16 @@ def part_from_matchfile(
     score.tie_notes(part)
     score.find_tuplets(part)
 
-    if not all([n.voice for n in part.notes_tied]):
+    n_voices = set([n.voice for n in part.notes])
+    if len(n_voices) == 1 and None in n_voices:
         for note in part.notes_tied:
             if note.voice is None:
                 note.voice = 1
+    elif len(n_voices) > 1 and None in n_voices:
+        n_voices.remove(None)
+        for note in part.notes_tied:
+            if note.voice is None:
+                note.voice = max(n_voices) + 1
 
     return part
 

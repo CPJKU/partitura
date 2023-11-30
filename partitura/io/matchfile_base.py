@@ -770,6 +770,7 @@ class BaseSnoteNoteLine(MatchLine):
 
 class BaseDeletionLine(MatchLine):
     out_pattern = "{SnoteLine}-deletion."
+    identifier_pattern = re.compile(r"-deletion\.")
 
     def __init__(self, version: Version, snote: BaseSnoteLine) -> None:
         super().__init__(version)
@@ -799,7 +800,12 @@ class BaseDeletionLine(MatchLine):
         matchline: str,
         snote_class: BaseSnoteLine,
         version: Version,
+        pos: int = 0,
     ) -> Dict:
+        match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
+
+        if match_pattern is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
         snote = snote_class.from_matchline(matchline, version=version)
 
         kwargs = dict(
@@ -812,6 +818,7 @@ class BaseDeletionLine(MatchLine):
 
 class BaseInsertionLine(MatchLine):
     out_pattern = "insertion-{NoteLine}"
+    identifier_pattern = re.compile(r"insertion-")
 
     def __init__(self, version: Version, note: BaseNoteLine) -> None:
         super().__init__(version)
@@ -841,7 +848,13 @@ class BaseInsertionLine(MatchLine):
         matchline: str,
         note_class: BaseNoteLine,
         version: Version,
+        pos: int = 0,
     ) -> Dict:
+        match_pattern = cls.identifier_pattern.search(matchline, pos=pos)
+
+        if match_pattern is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
         note = note_class.from_matchline(matchline, version=version)
 
         kwargs = dict(
@@ -896,7 +909,7 @@ class BaseOrnamentLine(MatchLine):
         anchor_pattern = cls.ornament_pattern.search(matchline)
 
         if anchor_pattern is None:
-            raise MatchError("")
+            raise MatchError("Input match line does not fit the expected pattern.")
 
         anchor = interpret_as_string(anchor_pattern.group("Anchor"))
         note = note_class.from_matchline(matchline, version=version)

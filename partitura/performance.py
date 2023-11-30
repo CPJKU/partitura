@@ -85,7 +85,11 @@ class PerformedPart(object):
         super().__init__()
         self.id = id
         self.part_name = part_name
-        self.notes = notes
+        self.notes = list(
+            map(
+                lambda n: n if isinstance(n, PerformedNote) else PerformedNote(n), notes
+            )
+        )
         self.controls = controls or []
         self.programs = programs or []
         self.ppq = ppq
@@ -203,7 +207,11 @@ class PerformedPart(object):
         if "id" not in note_array.dtype.names:
             n_ids = ["n{0}".format(i) for i in range(len(note_array))]
         else:
-            n_ids = note_array["id"]
+            # Check if all ids are the same
+            if np.all(note_array["id"] == note_array["id"][0]):
+                n_ids = ["n{0}".format(i) for i in range(len(note_array))]
+            else:
+                n_ids = note_array["id"]
 
         if "track" not in note_array.dtype.names:
             tracks = np.zeros(len(note_array), dtype=int)
@@ -278,6 +286,174 @@ def adjust_offsets_w_sustain(
 
     for offset, note in zip(offs, notes):
         note["sound_off"] = offset
+
+
+class PerformedNote:
+    """
+    A dictionary-like object representing a performed note.
+
+    Parameters
+    ----------
+    pnote_dict : dict
+        A dictionary containing performed note information.
+        This information can contain the following fields:
+        "id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off".
+        If not provided, the default values will be used.
+        Pitch, note_on, and note_off are required.
+    """
+
+    def __init__(self, pnote_dict):
+        self.pnote_dict = pnote_dict
+        self.pnote_dict["id"] = self.pnote_dict.get("id", None)
+        self.pnote_dict["pitch"] = self.pnote_dict.get("pitch", self["midi_pitch"])
+        self.pnote_dict["note_on"] = self.pnote_dict.get("note_on", -1)
+        self.pnote_dict["note_off"] = self.pnote_dict.get("note_off", -1)
+        self.pnote_dict["sound_off"] = self.pnote_dict.get(
+            "sound_off", self["note_off"]
+        )
+        self.pnote_dict["track"] = self.pnote_dict.get("track", 0)
+        self.pnote_dict["channel"] = self.pnote_dict.get("channel", 1)
+        self.pnote_dict["velocity"] = self.pnote_dict.get("velocity", 60)
+        self._validate_values(pnote_dict)
+        self._accepted_keys = [
+            "id",
+            "pitch",
+            "note_on",
+            "note_off",
+            "velocity",
+            "track",
+            "channel",
+            "sound_off",
+            "note_on_tick",
+            "note_off_tick",
+        ]
+
+    def __str__(self):
+        return f"PerformedNote: {self['id']}"
+
+    def __eq__(self, other):
+        if not isinstance(PerformedNote):
+            return False
+        if not self.keys() == other.keys():
+            return False
+        return np.all(
+            np.array([self[k] == other[k] for k in self.keys() if k in other.keys()])
+        )
+
+    def keys(self):
+        return self.pnote_dict.keys()
+
+    def get(self, key, default=None):
+        return self.pnote_dict.get(key, default)
+
+    def __hash__(self):
+        return hash(self["id"])
+
+    def __lt__(self, other):
+        return self["note_on"] < other["note_on"]
+
+    def __le__(self, other):
+        return self["note_on"] <= other["note_on"]
+
+    def __gt__(self, other):
+        return self["note_on"] > other["note_on"]
+
+    def __ge__(self, other):
+        return self["note_on"] >= other["note_on"]
+
+    def __getitem__(self, key):
+        return self.pnote_dict.get(key, None)
+
+    def __setitem__(self, key, value):
+        if key not in self._accepted_keys:
+            raise KeyError(f"Key {key} not accepted for PerformedNote")
+        self._validate_values((key, value))
+        self.pnote_dict[key] = value
+
+    def __delitem__(self, key):
+        raise KeyError("Cannot delete items from PerformedNote")
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __contains__(self, key):
+        return key in self.keys()
+
+    def copy(self):
+        return PerformedNote(self.pnote_dict.copy())
+
+    def _validate_values(self, d):
+        if isinstance(d, dict):
+            dd = d
+        elif isinstance(d, tuple):
+            dd = {d[0]: d[1]}
+        else:
+            raise ValueError(f"Invalid value {d} provided for PerformedNote")
+
+        for key, value in dd.items():
+            if key == "pitch":
+                self._validate_pitch(value)
+            elif key == "note_on":
+                self._validate_note_on(value)
+            elif key == "note_off":
+                self._validate_note_off(value)
+            elif key == "velocity":
+                self._validate_velocity(value)
+            elif key == "sound_off":
+                self._validate_sound_off(value)
+            elif key == "note_on_tick":
+                self._validate_note_on_tick(value)
+            elif key == "note_off_tick":
+                self._validate_note_off_tick(value)
+
+    def _validate_sound_off(self, value):
+        if self.get("note_off", -1) < 0:
+            return
+        if value < 0:
+            raise ValueError(f"sound_off must be greater than or equal to 0")
+        if value < self.pnote_dict["note_off"]:
+            raise ValueError(f"sound_off must be greater or equal to note_off")
+
+    def _validate_note_on(self, value):
+        if value < 0:
+            raise ValueError(
+                f"Note on value provided is invalid, must be greater than or equal to 0"
+            )
+
+    def _validate_note_off(self, value):
+        if self.pnote_dict.get("note_on", -1) < 0:
+            return
+        if value < 0 or value < self.pnote_dict["note_on"]:
+            raise ValueError(
+                f"Note off value provided is invalid, "
+                f"must be a positive value greater than or equal to 0 and greater or equal to note_on"
+            )
+
+    def _validate_note_on_tick(self, value):
+        if value < 0:
+            raise ValueError(
+                f"Note on tick value provided is invalid, must be greater than or equal to 0"
+            )
+
+    def _validate_note_off_tick(self, value):
+        if self.pnote_dict.get("note_on_tick", -1) < 0:
+            return
+        if value < 0 or value < self.pnote_dict["note_on_tick"]:
+            raise ValueError(
+                f"Note off tick value provided is invalid, "
+                f"must be a positive value greater than or equal to 0 and greater or equal to note_on_tick"
+            )
+
+    def _validate_pitch(self, value):
+        if value > 127 or value < 0:
+            raise ValueError(f"pitch must be between 0 and 127")
+
+    def _validate_velocity(self, value):
+        if value > 127 or value < 0:
+            raise ValueError(f"velocity must be between 0 and 127")
 
 
 class Performance(object):

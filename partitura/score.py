@@ -9,14 +9,14 @@ object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
 
-from copy import copy
+from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
 
 # import copy
 from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
-import warnings
+import warnings, sys
 import numpy as np
 from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
@@ -614,6 +614,18 @@ class Part(object):
 
         """
         return [e for e in self.iter_all(LoudnessDirection, include_subclasses=True)]
+
+    @property
+    def tempo_directions(self):
+        """Return a list of all tempo direction in the part
+
+        Returns
+        -------
+        list
+            List of TempoDirection objects
+
+        """
+        return [e for e in self.iter_all(TempoDirection, include_subclasses=True)]
 
     @property
     def articulations(self):
@@ -2990,8 +3002,16 @@ class Score(object):
         the identifier should not start with a number.
     partlist : `Part`, `PartGroup` or list of `Part` or `PartGroup` instances.
         List of  `Part` or `PartGroup` objects.
-    title: str, optional
-        Title of the score.
+    work_title: str, optional
+        Work title of the score, if applicable.
+    work_number: str, optional
+        Work number of the score, if applicable.
+    movement_title: str, optional
+        Movement title of the score, if applicable.
+    movement_number: str, optional
+        Movement number of the score, if applicable.
+    title : str, optional
+        Title of the score, from <credit-words> tag
     subtitle: str, optional
         Subtitle of the score.
     composer: str, optional
@@ -3010,7 +3030,13 @@ class Score(object):
     part_structure: list of `Part` or `PartGrop`
         List of all `Part` or `PartGroup` objects that specify the structure of
         the score.
-     title: str
+    work_title: str
+        See parameters.
+    work_number: str
+        See parameters.
+    movement_title: str
+        See parameters.
+    movement_number: str
         See parameters.
     subtitle: str
         See parameters.
@@ -3024,6 +3050,10 @@ class Score(object):
     """
 
     id: Optional[str]
+    work_title: Optional[str]
+    work_number: Optional[str]
+    movement_title: Optional[str]
+    movement_number: Optional[str]
     title: Optional[str]
     subtitle: Optional[str]
     composer: Optional[str]
@@ -3036,6 +3066,10 @@ class Score(object):
         self,
         partlist: Union[Part, PartGroup, Itertype[Union[Part, PartGroup]]],
         id: Optional[str] = None,
+        work_title: Optional[str] = None,
+        work_number: Optional[str] = None,
+        movement_title: Optional[str] = None,
+        movement_number: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
         composer: Optional[str] = None,
@@ -3045,6 +3079,10 @@ class Score(object):
         self.id = id
 
         # Score Information (default from MuseScore/MusicXML)
+        self.work_title = work_title
+        self.work_number = work_number
+        self.movement_title = movement_title
+        self.movement_number = movement_number
         self.title = title
         self.subtitle = subtitle
         self.composer = composer
@@ -4588,15 +4626,15 @@ def iter_unfolded_parts(part, update_ids=True):
 
 
 # UPDATED VERSION
-def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
-    """Return the "maximally" unfolded part, that is, a copy of the
+def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
+    """Return the "maximally" unfolded part/score, that is, a copy of the
     part where all segments marked with repeat signs are included
     twice.
 
     Parameters
     ----------
-    part : :class:`Part`
-        The Part to unfold.
+    score : ScoreLike
+        The Part/Score to unfold.
     update_ids : bool (optional)
         Update note ids to reflect the repetitions. Note IDs will have
         a '-<repetition number>', e.g., 'n132-1' and 'n132-2'
@@ -4609,17 +4647,73 @@ def unfold_part_maximal(part, update_ids=True, ignore_leaps=True):
 
     Returns
     -------
-    unfolded_part : :class:`Part`
+    unfolded_part : ScoreLike
+        The unfolded Part/Score
+
+    """
+    if isinstance(score, Score):
+        # Copy needs to be deep, otherwise the recursion limit will be exceeded
+        old_recursion_depth = sys.getrecursionlimit()
+        sys.setrecursionlimit(10000)
+        # Deep copy of score
+        new_score = deepcopy(score)
+        # Reset recursion limit to previous value to avoid side effects
+        sys.setrecursionlimit(old_recursion_depth)
+        new_partlist = list()
+        for score in new_score.parts:
+            unfolded_part = unfold_part_maximal(
+                score, update_ids=update_ids, ignore_leaps=ignore_leaps
+            )
+            new_partlist.append(unfolded_part)
+        new_score.parts = new_partlist
+        return new_score
+
+    paths = get_paths(
+        score, no_repeats=False, all_repeats=True, ignore_leap_info=ignore_leaps
+    )
+
+    unfolded_part = new_part_from_path(paths[0], score, update_ids=update_ids)
+    return unfolded_part
+
+
+def unfold_part_minimal(score: ScoreLike):
+    """Return the "minimally" unfolded score/part, that is, a copy of the
+    part where all segments marked with repeat are included only once.
+    For voltas only the last volta segment is included.
+    Note this might not be musically valid, e.g. a passing a "fine" even a first time will stop this unfolding.
+    Warning: The unfolding of repeats is computed part-wise, inconsistent repeat markings of parts of a single result
+    in inconsistent unfoldings.
+
+    Parameters
+    ----------
+    score: ScoreLike
+        The score/part to unfold.
+
+    Returns
+    -------
+    unfolded_score : ScoreLike
         The unfolded Part
 
     """
+    if isinstance(score, Score):
+        # Copy needs to be deep, otherwise the recursion limit will be exceeded
+        old_recursion_depth = sys.getrecursionlimit()
+        sys.setrecursionlimit(10000)
+        # Deep copy of score
+        unfolded_score = deepcopy(score)
+        # Reset recursion limit to previous value to avoid side effects
+        sys.setrecursionlimit(old_recursion_depth)
+        new_partlist = list()
+        for part in unfolded_score.parts:
+            unfolded_part = unfold_part_minimal(part)
+            new_partlist.append(unfolded_part)
+        unfolded_score.parts = new_partlist
+        return unfolded_score
 
-    paths = get_paths(
-        part, no_repeats=False, all_repeats=True, ignore_leap_info=ignore_leaps
-    )
+    paths = get_paths(score, no_repeats=True, all_repeats=False, ignore_leap_info=True)
 
-    unfolded_part = new_part_from_path(paths[0], part, update_ids=update_ids)
-    return unfolded_part
+    unfolded_score = new_part_from_path(paths[0], score, update_ids=False)
+    return unfolded_score
 
 
 # UPDATED / UNCHANGED VERSION

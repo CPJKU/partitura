@@ -40,13 +40,9 @@ class TestLoadScore(unittest.TestCase):
             self.check_return_type(fn)
 
     def check_return_type(self, fn):
-        try:
-            score = load_score(fn)
-            self.assertTrue(isinstance(score, Score))
-
-            for pp in score.part_structure:
-                self.assertTrue(type(pp) in (Part, PartGroup))
-            for pp in score.parts:
-                self.assertTrue(isinstance(pp, Part))
-        except NotSupportedFormatError:
-            self.assertTrue(False, f"Score {fn} failing when parsed.")
+        score = load_score(fn)
+        self.assertTrue(isinstance(score, Score), f"results of load_score type are not Score for score {fn}.")
+        for pp in score.part_structure:
+            self.assertTrue(type(pp) in (Part, PartGroup), f"results of score.part_structure type are neither Part or PartGroup for score {fn}.")
+        for pp in score.parts:
+            self.assertTrue(isinstance(pp, Part), f"results of score.parts type are not Part for score {fn}.")

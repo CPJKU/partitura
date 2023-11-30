@@ -35,9 +35,10 @@ class MuseScoreNotFoundException(Exception):
 class FileImportException(Exception):
     pass
 
+
 def find_musescore_version(version=4):
     """Find the path to the MuseScore executable for a specific version.
-    If version is a empty string it tries to find an unspecified version of 
+    If version is a empty string it tries to find an unspecified version of
     MuseScore which is used in some systems.
     """
     result = shutil.which(f"musescore{version}")
@@ -47,11 +48,16 @@ def find_musescore_version(version=4):
         if platform.system() == "Linux":
             pass
         elif platform.system() == "Darwin":
-            result = shutil.which(f"/Applications/MuseScore {version}.app/Contents/MacOS/mscore")
+            result = shutil.which(
+                f"/Applications/MuseScore {version}.app/Contents/MacOS/mscore"
+            )
         elif platform.system() == "Windows":
-            result = shutil.which(rf"C:\Program Files\MuseScore {version}\bin\MuseScore{version}.exe")
+            result = shutil.which(
+                rf"C:\Program Files\MuseScore {version}\bin\MuseScore{version}.exe"
+            )
 
     return result
+
 
 def find_musescore():
     """Find the path to the MuseScore executable.
@@ -74,13 +80,23 @@ def find_musescore():
     if not mscore_exec:
         mscore_exec = find_musescore_version(version=3)
         if mscore_exec:
-            warnings.warn("Only Musescore 3 is installed. Consider upgrading to musescore 4.")
+            warnings.warn(
+                "Only Musescore 3 is installed. Consider upgrading to musescore 4."
+            )
         else:
             mscore_exec = find_musescore_version(version="")
             if mscore_exec:
-                warnings.warn("A unspecified version of MuseScore was found. Consider upgrading to musescore 4.")
+                warnings.warn(
+                    "A unspecified version of MuseScore was found. Consider upgrading to musescore 4."
+                )
             else:
                 raise MuseScoreNotFoundException()
+    # check if a screen is available (only on Linux)
+    if "DISPLAY" not in os.environ and platform.system() == "Linux":
+        raise MuseScoreNotFoundException(
+            "Musescore Executable was found, but a screen is missing. Musescore needs a screen to load scores"
+        )
+
     return mscore_exec
 
 
@@ -119,19 +135,19 @@ or a list of these
         One or more part or partgroup objects
 
     """
-    # open the file as text and check if the first symbol is "<" to avoid 
-    # further processing in case of non-XML files
     if filename.endswith(".mscz"):
         pass
     else:
+        # open the file as text and check if the first symbol is "<" to avoid
+        # further processing in case of non-XML files
         with open(filename, "r") as f:
             if f.read(1) != "<":
                 raise FileImportException(
                     "File {} is not a valid XML file.".format(filename)
                 )
-    
+
     mscore_exec = find_musescore()
-                
+
     xml_fh = os.path.splitext(os.path.basename(filename))[0] + ".musicxml"
 
     cmd = [mscore_exec, "-o", xml_fh, filename, "-f"]
@@ -213,7 +229,7 @@ def render_musescore(
             "-o",
             os.fspath(img_fh),
             os.fspath(xml_fh),
-            "-f"
+            "-f",
         ]
         try:
             ps = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
