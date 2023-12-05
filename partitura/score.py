@@ -2404,9 +2404,15 @@ class Measure(TimedObject):
     Parameters
     ----------
     number : int
-        The running count independent of measure regularity/ volta endings, continuously counting up all measures in a musicxml score file and always starting from one.
+        The running count independent of measure regularity/ volta endings,
+        continuously counting up all measures in a musicxml score file and always starting from one.
+        It can be viewed as measure count.
     name : string, optional
-        The ID of the measure in a given musicxml score file. Can be a non-number in case of volta endings, irregular measures (i.e., pickup measures in the middle of the piece). Defaults to None
+        The ID of the measure in a given musicxml score file. Can be a non-number in case of volta endings,
+        irregular measures (i.e., pickup measures in the middle of the piece). Defaults to None
+        It can be viewed as measure number from an xml file.
+    next : :class:`Measure`, optional
+        The next measure in the score. Defaults to None.
 
     Attributes
     ----------
@@ -2417,10 +2423,18 @@ class Measure(TimedObject):
 
     """
 
-    def __init__(self, number=None, name=None):
+    def __init__(self, number=None, name=None, next=None):
         super().__init__()
         self.number = number
         self.name = name
+        self.next = next
+        self.validate()
+
+    def validate(self):
+        if self.number is not None:
+            assert isinstance(self.number, int), "Measure number must be an integer"
+        if self.next is not None:
+            assert isinstance(self.next, Measure), "Measure next must be a Measure object"
 
     def __str__(self):
         return f"{super().__str__()} number={self.number} name={self.name}"

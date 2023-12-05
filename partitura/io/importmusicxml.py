@@ -362,6 +362,9 @@ def _parse_parts(document, part_dict):
             position, doc_order = _handle_measure(
                 measure_el, position, part, ongoing, doc_order, mc + 1
             )
+        if len(part.measures) > 1:
+            for i, m in enumerate(part.measures[:-1]):
+                m.next = part.measures[i+1]
 
         # complete unfinished endings
         for o in part.iter_all(score.Ending, mode="ending"):
@@ -753,11 +756,8 @@ def make_measure(xml_measure, measure_counter):
         A measure object with a number and optional name attribute
     """
 
-    measure = score.Measure()
-
-    measure.number = measure_counter
-    measure.name = get_value_from_attribute(xml_measure, "number", str)
-
+    number = get_value_from_attribute(xml_measure, "number", str)
+    measure = score.Measure(number=measure_counter, name=number)
     return measure
 
 
