@@ -127,6 +127,7 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
     except ValueError:
         # This version of the parser supports spine splitting but is slower.
         # It adds the splines to with a special character.
+        raise NotImplementedError("Spine splitting is not supported yet.")
         file = _handle_kern_with_spine_splitting(kern_path)
 
     # Get Main Number of parts and Spline Types
@@ -140,14 +141,18 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
     splines = file[1:].T[note_parts]
     for spline in splines:
         parser = SplineParser(size=spline.shape[-1])
-
+        same_part = False
         if parser.id in [p.id for p in parts]:
+            same_part = True
             warnings.warn("Part {} already exists. Adding to previous Part.".format(parser.id))
             parser.voice += 1
             part = [p for p in parts if p.id == parser.id][0]
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
-            parser.staff = staff
+            if parser.staff != staff:
+                parser.staff = staff
+            else:
+                parser.voice += 1
             elements = parser.parse(spline)
             unique_durs = np.unique(parser.total_duration_values).astype(int)
             divs_pq = np.lcm.reduce(unique_durs)
@@ -174,14 +179,16 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
                 current_tl_pos = el_end
             elif isinstance(element, tuple):
                 # Chord
-                quarter_duration = parser.total_duration_values[i]
+                quarter_duration = 4 / parser.total_duration_values[i]
                 duration_divs = int(part.inv_quarter_map(quarter_duration))
                 el_end = current_tl_pos + duration_divs
                 for note in element[1]:
                     part.add(note, start=current_tl_pos, end=el_end)
                 current_tl_pos = el_end
             else:
-                part.add(element, start=current_tl_pos)
+                # Do not repeat structural elements if they are being added to the same part.
+                if not same_part:
+                    part.add(element, start=current_tl_pos)
 
         # For all measures add end time as beginning time of next measure
         measures = part.measures
@@ -203,6 +210,10 @@ class SplineParser(object):
         self.total_duration_values = []
         self.size = size
         self.total_parsed_elements = 0
+        self.tie_prev = None
+        self.tie_next = None
+
+
 
     def parse(self, spline):
         # Remove "-" lines
@@ -212,26 +223,42 @@ class SplineParser(object):
         # Empty Numpy array with objects
         elements = np.empty(len(spline), dtype=object)
         self.total_duration_values = np.ones(len(spline))
-        # Find Global indices, i.e. where spline cells start with "*"
+        # Find Global indices, i.e. where spline cells start with "*" and process
         tandem_mask = np.char.find(spline, "*") != -1
+        elements[tandem_mask] = np.vectorize(self.meta_tandem_line, otypes=[object])(spline[tandem_mask])
         # Find Barline indices, i.e. where spline cells start with "="
         bar_mask = np.char.find(spline, "=") != -1
+        elements[bar_mask] = np.vectorize(self.meta_barline_line, otypes=[object])(spline[bar_mask])
         # Find Chord indices, i.e. where spline cells contain " "
         chord_mask = np.char.find(spline, " ") != -1
-        # All the rest are note indices
-        note_mask = np.logical_and(~tandem_mask, np.logical_and(~bar_mask, ~chord_mask))
-        elements[tandem_mask] = np.vectorize(self.meta_tandem_line, otypes=[object])(spline[tandem_mask])
-        self.total_parsed_elements = -1
-        self.note_duration_values = np.ones(len(spline[note_mask]))
-        elements[note_mask] = np.vectorize(self.meta_note_line, otypes=[object])(spline[note_mask])
-        self.total_duration_values[note_mask] = self.note_duration_values
         self.total_parsed_elements = -1
         self.note_duration_values = np.ones(len(spline[chord_mask]))
+        chord_num = np.count_nonzero(chord_mask)
+        self.tie_next = np.zeros(chord_num, dtype=bool)
+        self.tie_prev = np.zeros(chord_num, dtype=bool)
         elements[chord_mask] = np.vectorize(self.meta_chord_line, otypes=[object])(spline[chord_mask])
         self.total_duration_values[chord_mask] = self.note_duration_values
-        elements[bar_mask] = np.vectorize(self.meta_barline_line, otypes=[object])(spline[bar_mask])
+        # All the rest are note indices
+        note_mask = np.logical_and(~tandem_mask, np.logical_and(~bar_mask, ~chord_mask))
+        self.total_parsed_elements = -1
+        self.note_duration_values = np.ones(len(spline[note_mask]))
+        note_num = np.count_nonzero(note_mask)
+        self.tie_next = np.zeros(note_num, dtype=bool)
+        self.tie_prev = np.zeros(note_num, dtype=bool)
+        notes = np.vectorize(self.meta_note_line, otypes=[object])(spline[note_mask])
+        self.total_duration_values[note_mask] = self.note_duration_values
+        # shift tie_next by one to the right
+        for note, to_tie in np.c_[notes[self.tie_next], notes[np.roll(self.tie_next, -1)]]:
+            to_tie.tie_next = note
+            # note.tie_prev = to_tie
+        for note, to_tie in np.c_[notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]]:
+            note.tie_prev = to_tie
+            # to_tie.tie_next = note
 
+        elements[note_mask] = notes
         return elements
+
+
 
     def meta_tandem_line(self, line):
         """
@@ -272,23 +299,33 @@ class SplineParser(object):
         elif line.endswith(":"):
             rest = line[1:]
             return self.process_key_line(rest)
+        elif line.startswith("*-"):
+            return self.process_fine()
 
     def process_tempo_line(self, line):
         return spt.Tempo(float(line))
 
+    def process_fine(self):
+        return spt.Fine()
+
     def process_istrument_line(self, line):
+        #TODO: add support for instrument lines
         return
 
     def process_istrument_class_line(self, line):
+        # TODO: add support for instrument class lines
         return
 
     def process_istrument_group_line(self, line):
+        # TODO: add support for instrument group lines
         return
 
     def process_timebase_line(self, line):
+        # TODO: add support for timebase lines
         return
 
     def process_istrument_transpose_line(self, line):
+        # TODO: add support for instrument transpose lines
         return
 
     def process_key_line(self, line):
@@ -312,12 +349,7 @@ class SplineParser(object):
         return spt.Clef(sign=clef, staff=self.staff, line=int(line), octave_change=0)
 
     def process_key_signature_line(self, line):
-        fifths = 0
-        for c in line:
-            if c == "#":
-                fifths += 1
-            if c == "b":
-                fifths -= 1
+        fifths = line.count("#") - line.count("-")
         # TODO retrieve the key mode
         mode = "major"
         return spt.KeySignature(fifths, mode)
@@ -363,6 +395,38 @@ class SplineParser(object):
         self.note_duration_values[self.total_parsed_elements] = dot_function(float(dur), symbolic_duration["dots"])
         return symbolic_duration
 
+    def process_symbol(self, note, symbols):
+        """
+        Process the symbols of a note.
+
+        Parameters
+        ----------
+        note
+        symbol
+
+        Returns
+        -------
+
+        """
+        if "[" in symbols:
+            self.tie_prev[self.total_parsed_elements] = True
+            # pop symbol and call again
+            symbols.pop(symbols.index("["))
+            self.process_symbol(note, symbols)
+        if "]" in symbols:
+            self.tie_next[self.total_parsed_elements] = True
+            symbols.pop(symbols.index("]"))
+            self.process_symbol(note, symbols)
+        if "_" in symbols:
+            # continuing tie
+            self.tie_prev[self.total_parsed_elements] = True
+            self.tie_next[self.total_parsed_elements] = True
+            symbols.pop(symbols.index("_"))
+            self.process_symbol(note, symbols)
+        return
+
+
+
     def meta_note_line(self, line, voice=None, add=True):
         """
         Grammar Defining a note line.
@@ -385,13 +449,16 @@ class SplineParser(object):
         # extract duration can be any of the following: 0-9 .
         duration = re.search(r"([0-9]+|\.)", line).group(0)
         # extract symbol can be any of the following: _()[]{}<>|:
-        symbol = re.findall(r"([_()[]{}<>|:])", line)
+        symbols = re.findall(r"([_()\[\]{}<>|:])", line)
         symbolic_duration = self._process_kern_duration(duration)
         el_id = "{}-s{}-v{}-el{}".format(self.id, self.staff, voice, self.total_parsed_elements)
         if pitch == "r":
             return spt.Rest(symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
         step, octave, alter = self._process_kern_pitch(pitch)
-        return spt.Note(step, octave, alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
+        note = spt.Note(step, octave, alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
+        if symbols:
+            self.process_symbol(note, symbols)
+        return note
 
     def meta_barline_line(self, line):
         """
