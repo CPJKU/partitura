@@ -128,6 +128,7 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
         # This version of the parser supports spine splitting but is slower.
         # It adds the splines to with a special character.
         raise NotImplementedError("Spine splitting is not supported yet.")
+        # TODO add support for spine splitting
         file = _handle_kern_with_spine_splitting(kern_path)
 
     # Get Main Number of parts and Spline Types
@@ -213,8 +214,6 @@ class SplineParser(object):
         self.tie_prev = None
         self.tie_next = None
 
-
-
     def parse(self, spline):
         # Remove "-" lines
         spline = spline[spline != "-"]
@@ -238,6 +237,8 @@ class SplineParser(object):
         self.tie_prev = np.zeros(chord_num, dtype=bool)
         elements[chord_mask] = np.vectorize(self.meta_chord_line, otypes=[object])(spline[chord_mask])
         self.total_duration_values[chord_mask] = self.note_duration_values
+        # TODO: figure out slurs for chords
+
         # All the rest are note indices
         note_mask = np.logical_and(~tandem_mask, np.logical_and(~bar_mask, ~chord_mask))
         self.total_parsed_elements = -1
@@ -257,8 +258,6 @@ class SplineParser(object):
 
         elements[note_mask] = notes
         return elements
-
-
 
     def meta_tandem_line(self, line):
         """
@@ -424,8 +423,6 @@ class SplineParser(object):
             symbols.pop(symbols.index("_"))
             self.process_symbol(note, symbols)
         return
-
-
 
     def meta_note_line(self, line, voice=None, add=True):
         """
