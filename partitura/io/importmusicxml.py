@@ -362,9 +362,10 @@ def _parse_parts(document, part_dict):
             position, doc_order = _handle_measure(
                 measure_el, position, part, ongoing, doc_order, mc + 1
             )
-        if len(part.measures) > 1:
-            for i, m in enumerate(part.measures[:-1]):
-                m.next = part.measures[i+1]
+        # NOTE: the following code is not a necessary addition if measure object has previous instead of next attribute.
+        # if len(part.measures) > 1:
+        #     for i, m in enumerate(part.measures[:-1]):
+        #         m.next = part.measures[i+1]
 
         # complete unfinished endings
         for o in part.iter_all(score.Ending, mode="ending"):
