@@ -73,38 +73,87 @@ def dot_function(duration, dots):
     else:
         return add_durations((2**dots)*duration, dot_function(duration, dots - 1))
 
+def parse_by_voice(file, dtype=np.object_):
+    indices_to_remove = []
+    voices = 1
+    for i, line in enumerate(file):
+        try:
+            if any([line[v] == "*^" for v in range(voices)]):
+                voices += 1
+            elif sum([(line[v] == "*v") for v in range(voices)]):
+                voices -= sum([line[v] == "*v" for v in range(voices)]) // 2
+            else:
+                for v in range(voices):
+                    indices_to_remove.append([i, v])
+        except IndexError:
+            pass
+
+
+    voice_indices = np.array(indices_to_remove)
+    num_voices = voice_indices[:, 1].max() + 1
+    data = np.empty((len(file), num_voices), dtype=dtype)
+    for line, voice in voice_indices:
+        data[line, voice] = file[line][voice]
+    data = data.T
+    if num_voices > 1:
+        # Copy global lines from the first voice to all other voices
+        cp_idx = np.char.startswith(data[0], "*")
+        for i in range(1, num_voices):
+            data[i][cp_idx] = data[0][cp_idx]
+        # Copy Measure Lines from the first voice to all other voices
+        cp_idx = np.char.startswith(data[0], "=")
+        for i in range(1, num_voices):
+            data[i][cp_idx] = data[0][cp_idx]
+    return data, voice_indices
+
 
 def _handle_kern_with_spine_splitting(kern_path):
     file = np.loadtxt(kern_path, dtype=str, delimiter="\n", comments="!", encoding="utf-8")
     # Get Main Number of parts and Spline Types
     spline_types = file[0].split("\t")
-    # Decide Parts
+    dtype = file.dtype
+    data = []
+    file = file.tolist()
+    file = [line.split("\t") for line in file]
+    continue_parsing = True
+    for i in range(len(spline_types)):
+        # Parse by voice
+        d, voice_indices = parse_by_voice(file, dtype=dtype)
+        data.append(d)
+        # Remove all parsed cells from the file
+        voice_indices = voice_indices[np.lexsort((voice_indices[:, 1]*-1, voice_indices[:, 0]))]
+        for line, voice in voice_indices:
+            file[line].pop(voice)
 
-    # Find all expansions points
-    expansion_indices = np.where(np.char.find(file, "*^") != -1)[0]
-    # For all expansion points find which stream is being expanded
-    expansion_streams_per_index = [np.argwhere(np.array(line.split("\t")) == "*^")[0] for line in
-                                   file[expansion_indices]]
-
-    # Find all Spline Reduction points
-    reduction_indices = np.where(np.char.find(file, "*v\t*v") != -1)[0]
-    # For all reduction points find which stream is being reduced
-    reduction_streams_per_index = [
-        np.argwhere(np.char.add(np.array(line.split("\t")[:-1]), np.array(line.split("\t")[1:])) == "*v*v")[0] for line
-        in file[reduction_indices]]
-
-    # Find all pairs of expansion and reduction points
-    expansion_reduction_pairs = []
-    last_exhaustive_reduction = 0
-    for expansion_index in expansion_indices:
-        for expansion_stream in expansion_index:
-            # Find the first reduction index that is after the expansion index and has the same index.
-            for i, reduction_index in enumerate(reduction_indices[last_exhaustive_reduction:]):
-                for reduction_stream in reduction_streams_per_index[i]:
-                    if expansion_stream == reduction_stream:
-                        expansion_reduction_pairs.append((expansion_index, reduction_index))
-                        last_exhaustive_reduction = i if i == last_exhaustive_reduction + 1 else last_exhaustive_reduction
-                        break
+    data = np.vstack(data).T
+    return data
+    #
+    #
+    # # Find all expansions points
+    # expansion_indices = np.where(np.char.find(file, "*^") != -1)[0]
+    # # For all expansion points find which stream is being expanded
+    # expansion_streams_per_index = [np.argwhere(np.array(line.split("\t")) == "*^")[0] for line in
+    #                                file[expansion_indices]]
+    #
+    # # Find all Spline Reduction points
+    # reduction_indices = np.where(np.char.find(file, "*v\t*v") != -1)[0]
+    # # For all reduction points find which stream is being reduced
+    # reduction_streams_per_index = [
+    #     np.argwhere(np.char.add(np.array(line.split("\t")[:-1]), np.array(line.split("\t")[1:])) == "*v*v")[0] for line
+    #     in file[reduction_indices]]
+    #
+    # # Find all pairs of expansion and reduction points
+    # expansion_reduction_pairs = []
+    # last_exhaustive_reduction = 0
+    # for expansion_index in expansion_indices:
+    #     for expansion_stream in expansion_index:
+    #         # Find the first reduction index that is after the expansion index and has the same index.
+    #         for i, reduction_index in enumerate(reduction_indices[last_exhaustive_reduction:]):
+    #             for reduction_stream in reduction_streams_per_index[i]:
+    #                 if expansion_stream == reduction_stream:
+    #                     expansion_reduction_pairs.append((expansion_index, reduction_index))
+    #                     last_exhaustive_reduction = i if i == last_exhaustive_reduction + 1 else last_exhaustive_reduction
+    #                     break
 
 
 # functions to initialize the kern parser
@@ -124,17 +173,17 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
     try:
         # This version of the parser is faster but does not support spine splitting.
         file = np.loadtxt(kern_path, dtype=str, delimiter="\t", comments="!", encoding="utf-8")
+        # Decide Parts
+        parts = []
     except ValueError:
         # This version of the parser supports spine splitting but is slower.
-        # It adds the splines to with a special character.
-        raise NotImplementedError("Spine splitting is not supported yet.")
-        # TODO add support for spine splitting
         file = _handle_kern_with_spine_splitting(kern_path)
+        parts = []
+
 
     # Get Main Number of parts and Spline Types
     spline_types = file[0]
-    # Decide Parts
-    parts = []
+
     # Find parsable parts if they start with "**kern" or "**notes"
     note_parts = np.char.startswith(spline_types, "**kern") | np.char.startswith(spline_types, "**notes")
 
@@ -219,6 +268,8 @@ class SplineParser(object):
         spline = spline[spline != "-"]
         # Remove "." lines
         spline = spline[spline != "."]
+        # Remove Empty lines
+        spline = spline[spline != ""]
         # Empty Numpy array with objects
         elements = np.empty(len(spline), dtype=object)
         self.total_duration_values = np.ones(len(spline))
@@ -377,18 +428,20 @@ class SplineParser(object):
         if dur in KERN_DURS.keys():
             symbolic_duration = {"type": KERN_DURS[dur]}
         else:
+            dur = eval(dur)
             diff = dict(
                 (
                     map(
-                        lambda x: (dur - x, x) if dur > x else (dur + x, x),
+                        lambda x: (str(dur - int(x)), str(int(x))) if dur > int(x) else (str(dur + int(x)), str(int(x))),
                         KERN_DURS.keys(),
                     )
                 )
             )
+
             symbolic_duration = {
                 "type": KERN_DURS[diff[min(list(diff.keys()))]],
                 "actual_notes": dur / 4,
-                "normal_notes": diff[min(list(diff.keys()))] / 4,
+                "normal_notes": int(diff[min(list(diff.keys()))]) / 4,
             }
         symbolic_duration["dots"] = duration.count(".")
         self.note_duration_values[self.total_parsed_elements] = dot_function(float(dur), symbolic_duration["dots"])
@@ -449,7 +502,7 @@ class SplineParser(object):
         symbols = re.findall(r"([_()\[\]{}<>|:])", line)
         symbolic_duration = self._process_kern_duration(duration)
         el_id = "{}-s{}-v{}-el{}".format(self.id, self.staff, voice, self.total_parsed_elements)
-        if pitch == "r":
+        if pitch.startswith("r"):
             return spt.Rest(symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
         step, octave, alter = self._process_kern_pitch(pitch)
         note = spt.Note(step, octave, alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
@@ -501,7 +554,7 @@ class SplineParser(object):
 
 
 if __name__ == "__main__":
-    kern_path = "/home/manos/Desktop/JKU/data/wtc-fugues/wtc1f02.krn"
+    kern_path = "/home/manos/Desktop/test.krn"
     x = parse_kern(kern_path)
     import partitura as pt
     pt.save_musicxml(x, "/home/manos/Desktop/test_kern.musicxml")
