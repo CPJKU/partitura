@@ -2824,12 +2824,10 @@ class Cadence(TimedObject):
         """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
         # capitalize text
         self.text = self.text.upper()
-        if "IAC" in self.text:
-            self.text = "IAC"
+        self.text = "IAC" if "IAC" in self.text else self.text
         if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
             warnings.warn(f"Cadence type {self.text} not found. Setting to None")
             self.text = None
-
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
