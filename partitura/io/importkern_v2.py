@@ -175,7 +175,7 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
     """
     try:
         # This version of the parser is faster but does not support spine splitting.
-        file = np.loadtxt(kern_path, dtype=str, delimiter="\t", comments="!", encoding="utf-8")
+        file = np.loadtxt(kern_path, dtype=str, delimiter="\t", comments="!!", encoding="utf-8")
         parsing_idxs = np.arange(file.shape[0])
         # Decide Parts
 
@@ -271,9 +271,9 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
             parts.append(part)
 
     # currate parts to the same divs per quarter
-    # divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in parts])
-    # for part in parts:
-    #     part.set_quarter_duration(0, divs_pq)
+    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in parts])
+    for part in parts:
+        part.set_quarter_duration(0, divs_pq)
 
     return spt.Score(parts)
 
@@ -542,7 +542,9 @@ class SplineParser(object):
         # extract first occurence of one of the following: a-g A-G r # - n
         pitch = re.search(r"([a-gA-Gr\-n#]+)", line).group(0)
         # extract duration can be any of the following: 0-9 .
-        duration = re.search(r"([0-9.]+)", line).group(0)
+        dur_search = re.search(r"([0-9.]+)", line)
+        # if no duration is found, then the duration is 8 by default (for grace notes with no duration)
+        duration = dur_search.group(0) if dur_search else "8"
         # extract symbol can be any of the following: _()[]{}<>|:
         symbols = re.findall(r"([_()\[\]{}<>|:])", line)
         symbolic_duration = self._process_kern_duration(duration, is_grace="q" in line)
