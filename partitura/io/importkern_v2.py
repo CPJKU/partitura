@@ -3,13 +3,13 @@
 """
 This module contains methods for importing Humdrum Kern files.
 """
+import math
 import re
 import warnings
 
 from typing import Union, Optional
-
 import numpy as np
-from math import inf
+from math import inf, ceil
 import partitura.score as spt
 from partitura.utils import PathLike
 
@@ -27,7 +27,8 @@ SIGN_TO_ACC = {
     "bb": -2,
     "ff": -2,
     "bbb": -3,
-    "-": None,
+    "-": -1,
+    "--": -2,
 }
 
 KERN_NOTES = {
@@ -77,16 +78,13 @@ def parse_by_voice(file, dtype=np.object_):
     indices_to_remove = []
     voices = 1
     for i, line in enumerate(file):
-        try:
-            if any([line[v] == "*^" for v in range(voices)]):
-                voices += 1
-            elif sum([(line[v] == "*v") for v in range(voices)]):
-                voices -= sum([line[v] == "*v" for v in range(voices)]) // 2
-            else:
-                for v in range(voices):
-                    indices_to_remove.append([i, v])
-        except IndexError:
-            pass
+        for v in range(voices):
+            indices_to_remove.append([i, v])
+        if any([line[v] == "*^" for v in range(voices)]):
+            voices += 1
+        elif sum([(line[v] == "*v") for v in range(voices)]):
+            sum_vred = sum([line[v] == "*v" for v in range(voices)]) // 2
+            voices = voices - sum_vred
 
 
     voice_indices = np.array(indices_to_remove)
@@ -108,13 +106,13 @@ def parse_by_voice(file, dtype=np.object_):
 
 
 def _handle_kern_with_spine_splitting(kern_path):
-    file = np.loadtxt(kern_path, dtype=str, delimiter="\n", comments="!", encoding="utf-8")
+    org_file = np.loadtxt(kern_path, dtype=str, delimiter="\n", comments="!!", encoding="utf-8")
     # Get Main Number of parts and Spline Types
-    spline_types = file[0].split("\t")
+    spline_types = org_file[0].split("\t")
     parsing_idxs = []
-    dtype = file.dtype
+    dtype = org_file.dtype
     data = []
-    file = file.tolist()
+    file = org_file.tolist()
     file = [line.split("\t") for line in file]
     continue_parsing = True
     for i in range(len(spline_types)):
@@ -125,8 +123,10 @@ def _handle_kern_with_spine_splitting(kern_path):
         # Remove all parsed cells from the file
         voice_indices = voice_indices[np.lexsort((voice_indices[:, 1]*-1, voice_indices[:, 0]))]
         for line, voice in voice_indices:
-            file[line].pop(voice)
-
+            if voice < len(file[line]):
+                file[line].pop(voice)
+            else:
+                print("Line {} does not have a voice {} from original line {}".format(line, voice, org_file[line]))
     data = np.vstack(data).T
     parsing_idxs = np.hstack(parsing_idxs).T
     return data, parsing_idxs
@@ -194,8 +194,12 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
 
     # Get Splines
     splines = file[1:].T[note_parts]
+
+    has_instrument = np.char.startswith(splines, "*I")
+    # if all parts have the same instrument, then they are the same part.
+    p_same_part = np.all(splines[has_instrument] == splines[has_instrument][0], axis=0) if np.any(has_instrument) else False
     for i, spline in enumerate(splines):
-        parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[i]))
+        parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[i]) if not p_same_part else "P1")
         same_part = False
         if parser.id in [p.id for p in parts]:
             same_part = True
@@ -211,6 +215,8 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
             unique_durs = np.unique(parser.total_duration_values).astype(int)
             divs_pq = np.lcm.reduce(unique_durs)
             divs_pq = divs_pq if divs_pq > 4 else 4
+            # compare divs_pq to the divs_pq of the part
+            divs_pq = np.lcm.reduce([divs_pq, part._quarter_durations[0]])
             part.set_quarter_duration(0, divs_pq)
         else:
             has_staff = np.char.startswith(spline, "*staff")
@@ -232,7 +238,7 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
                 continue
             if isinstance(element, spt.GenericNote):
                 quarter_duration = 4 / parser.total_duration_values[i]
-                duration_divs = int(quarter_duration*divs_pq)
+                duration_divs = ceil(quarter_duration*divs_pq)
                 el_end = current_tl_pos + duration_divs
                 part.add(element, start=current_tl_pos, end=el_end)
                 current_tl_pos = el_end
@@ -257,16 +263,26 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
         for i in range(len(measures) - 1):
             measures[i].end = measures[i + 1].start
         measures[-1].end = part.last_point
+        # find and add pickup measure
+        if part.measures[0].start.t != 0:
+            part.add(spt.Measure(number=0), start=0, end=part.measures[0].start.t)
 
         if parser.id not in [p.id for p in parts]:
             parts.append(part)
 
     # currate parts to the same divs per quarter
-    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in parts])
-    for part in parts:
-        part.set_quarter_duration(0, divs_pq)
+    # divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in parts])
+    # for part in parts:
+    #     part.set_quarter_duration(0, divs_pq)
 
     return spt.Score(parts)
+
+
+def rec_divisible_by_two(number):
+    if number % 2 == 0:
+        return rec_divisible_by_two(number // 2)
+    else:
+        return number
 
 
 class SplineParser(object):
@@ -276,6 +292,7 @@ class SplineParser(object):
         self.staff = staff
         self.voice = voice
         self.total_duration_values = []
+        self.alters = []
         self.size = size
         self.total_parsed_elements = 0
         self.tie_prev = None
@@ -290,6 +307,8 @@ class SplineParser(object):
         spline = spline[spline != ""]
         # Remove None lines
         spline = spline[spline != None]
+        # Remove lines that start with "!"
+        spline = spline[np.char.startswith(spline, "!") == False]
         # Empty Numpy array with objects
         elements = np.empty(len(spline), dtype=object)
         self.total_duration_values = np.ones(len(spline))
@@ -420,6 +439,10 @@ class SplineParser(object):
 
     def process_key_signature_line(self, line):
         fifths = line.count("#") - line.count("-")
+        alters = re.findall(r"([a-gA-G#\-]+)", line)
+        alters = "".join(alters)
+        # split alters by two characters
+        self.alters = [alters[i:i + 2] for i in range(0, len(alters), 2)]
         # TODO retrieve the key mode
         mode = "major"
         return spt.KeySignature(fifths, mode)
@@ -432,15 +455,16 @@ class SplineParser(object):
 
     def _process_kern_pitch(self, pitch):
         # find accidentals
-        alter = re.search(r"([n#\-]+)", pitch)
+        alter = re.search(r"([n#-]+)", pitch)
         # remove alter from pitch
         pitch = pitch.replace(alter.group(0), "") if alter else pitch
         step, octave = KERN_NOTES[pitch[0]]
+        # do_alt = (step + alter.group(0)).lower() not in self.alters if alter else False
         if octave == 4:
             octave = octave + pitch.count(pitch[0]) - 1
         elif octave == 3:
             octave = octave - pitch.count(pitch[0]) + 1
-        alter = SIGN_TO_ACC[alter.group(0)] if alter else None
+        alter = SIGN_TO_ACC[alter.group(0)] if alter is not None else None
         return step, octave, alter
 
     def _process_kern_duration(self, duration, is_grace=False):
@@ -461,7 +485,7 @@ class SplineParser(object):
 
             symbolic_duration = {
                 "type": KERN_DURS[diff[min(list(diff.keys()))]],
-                "actual_notes": dur // 4,
+                "actual_notes": int(dur // 4),
                 "normal_notes": int(diff[min(list(diff.keys()))]) // 4,
             }
         symbolic_duration["dots"] = dots
