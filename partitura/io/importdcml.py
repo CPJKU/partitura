@@ -79,8 +79,22 @@ def read_note_tsv(note_tsv_path, metadata=None):
     return part
 
 
-def read_measure_tsv(measure_tsv_path):
-    return
+def read_measure_tsv(measure_tsv_path, part):
+    qdivs = part._quarter_durations[0]
+    data = pd.read_csv(measure_tsv_path, sep="\t")
+    data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
+    data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
+    repeat_index = 0
+
+    for idx, row in data.iterrows():
+        part.add(spt.Measure(), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
+        # if row["repeat"] == "start":
+        if row["repeat"] == "start" or row["repeat"] == "startend":
+            repeat_index = idx
+        elif row["repeat"] == "":
+            # Find the previous repeat start
+            start_times = data[repeat_index]["onset_div"]
+            part.add(spt.Repeat(), start=start_times, end=row["onset_div"])
 
 
 def read_harmony_tsv(beat_tsv_path, part):
