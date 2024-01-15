@@ -82,16 +82,16 @@ def read_note_tsv(note_tsv_path, metadata=None):
 def read_measure_tsv(measure_tsv_path, part):
     qdivs = part._quarter_durations[0]
     data = pd.read_csv(measure_tsv_path, sep="\t")
-    data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
+    data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
     data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
     repeat_index = 0
 
     for idx, row in data.iterrows():
         part.add(spt.Measure(), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
         # if row["repeat"] == "start":
-        if row["repeat"] == "start" or row["repeat"] == "startend":
+        if row["repeats"] == "start":
             repeat_index = idx
-        elif row["repeat"] == "":
+        elif row["repeats"] == "":
             # Find the previous repeat start
             start_times = data[repeat_index]["onset_div"]
             part.add(spt.Repeat(), start=start_times, end=row["onset_div"])
@@ -102,18 +102,21 @@ def read_harmony_tsv(beat_tsv_path, part):
     data = pd.read_csv(beat_tsv_path, sep="\t")
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
     data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
+    is_na_cad = data["cadence"].isna()
+    is_na_roman = data["chord"].isna()
     # Find Phrase Starts where data["phraseend"] == "{"
-    for _, row in data.iterrows():
+    for idx, row in data[~is_na_roman].iterrows():
         part.add(
-            spt.RomanNumeral(roman=row["chord"],
+            spt.RomanNumeral(text=row["chord"],
                              local_key=row["localkey"],
                              quality=row["chord_type"],
                              ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
-        if row["cadence"] is not None:
-            part.add(
-                spt.Cadence(cadence_type=row["cadence"],
-                            local_key=row["localkey"],
-                            ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
+
+    for idx, row in data[~is_na_cad].iterrows():
+        part.add(
+            spt.Cadence(text=row["cadence"],
+                        local_key=row["localkey"],
+                        ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
 
     phrase_starts = data[data["phraseend"] == "{"]
     phrase_ends = data[data["phraseend"] == "}"]
@@ -125,6 +128,32 @@ def read_harmony_tsv(beat_tsv_path, part):
 
 
 def load_tsv(note_tsv_path, measure_tsv_path=None, harmony_tsv_path=None, metadata=None):
+    """
+    Load a score from tsv files containing the notes, measures and harmony annotations.
+
+    These files are provided by the DCML datasets.
+    ATTENTION: This functionality requires pandas to be installed, which is not a requirement for partitura.
+
+    Parameters
+    ----------
+    note_tsv_path: str
+        Path to the tsv file containing the notes
+    measure_tsv_path: str
+        Path to the tsv file containing the measures
+    harmony_tsv_path:
+        Path to the tsv file containing the harmony annotations
+    metadata: dict
+        Metadata to add to the score. This is useful to add the composer, title, etc.
+
+    Returns
+    -------
+    score: :class:`partitura.score.Score`
+        A `Score` instance.
+
+    """
+    if pd is None:
+        raise ImportError("This functionality requires pandas to be installed")
+
     part = read_note_tsv(note_tsv_path, metadata=metadata)
     if measure_tsv_path is not None:
         read_measure_tsv(measure_tsv_path, part)
