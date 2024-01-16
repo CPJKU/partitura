@@ -1,6 +1,7 @@
 import numpy as np
-
+from math import ceil
 import partitura.score as spt
+from partitura.utils.music import estimate_symbolic_duration
 try:
     import pandas as pd
 except ImportError:
@@ -14,8 +15,8 @@ def read_note_tsv(note_tsv_path, metadata=None):
     # transform quarter_beats to quarter_divs
     qdivs = np.lcm.reduce(denominators) if len(denominators) > 0 else 4
     quarter_durations = data["duration_qb"]
-    duration_div = np.array([int(qd * qdivs) for qd in quarter_durations])
-    onset_div = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
+    duration_div = np.array([ceil(qd * qdivs) for qd in quarter_durations])
+    onset_div = np.array([ceil(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
     flats = data["name"].str.contains("b")
     sharps = data["name"].str.contains("#")
     double_sharps = data["name"].str.contains("##")
@@ -38,14 +39,16 @@ def read_note_tsv(note_tsv_path, metadata=None):
     # Add notes
     notes = note_array[~grace_mask]
     for note in notes:
+        symbolic_duration = estimate_symbolic_duration(note["duration_div"], qdivs)
         part.add(
             spt.Note(
-                id=note["id"],
+                id="n-{}".format(note["id"]),
                 step=note["step"],
                 octave=note["octave"],
                 alter=note["alter"],
                 staff=note["staff"],
-                voice=note["voice"]
+                voice=note["voice"],
+                symbolic_duration=symbolic_duration
             ), start=note["onset_div"], end=note["onset_div"]+note["duration_div"])
     # Add Grace notes
     grace_notes = note_array[grace_mask]
@@ -53,12 +56,13 @@ def read_note_tsv(note_tsv_path, metadata=None):
         part.add(
             spt.GraceNote(
                 grace_type="grace",
-                id=grace_note["id"],
+                id="n-{}".format(grace_note["id"]),
                 step=grace_note["step"],
                 octave=grace_note["octave"],
                 alter=grace_note["alter"],
                 staff=grace_note["staff"],
-                voice=grace_note["voice"]
+                voice=grace_note["voice"],
+                symbolic_duration={"type": "eighth"}
             ),
             start=grace_note["onset_div"],
             end=grace_note["onset_div"]
