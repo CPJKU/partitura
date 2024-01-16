@@ -939,7 +939,14 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
-        return None
+        # Guess tuplets (Naive)
+        type = SYM_DURS[i+3]["type"]
+        return {
+            "type": type,
+            "actual_notes": int(1/qdur),
+            "normal_notes": 4,
+        }
+
 
 
 def to_quarter_tempo(unit, tempo):
