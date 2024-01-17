@@ -160,7 +160,7 @@ def _handle_kern_with_spine_splitting(kern_path):
 
 
 # functions to initialize the kern parser
-def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
+def load_kern(kern_path: PathLike) -> np.ndarray:
     """
     Parses an KERN file from path to Part.
 
@@ -170,8 +170,8 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
         The path of the KERN document.
     Returns
     -------
-    continuous_parts : numpy character array
-    non_continuous_parts : list
+    score : Score
+        The score object containing the parts.
     """
     try:
         # This version of the parser is faster but does not support spine splitting.
@@ -194,7 +194,8 @@ def parse_kern(kern_path: PathLike, num_workers=0) -> np.ndarray:
 
     # Get Splines
     splines = file[1:].T[note_parts]
-
+    # Inverse Order
+    splines = splines[::-1]
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
     p_same_part = np.all(splines[has_instrument] == splines[has_instrument][0], axis=0) if np.any(has_instrument) else False
@@ -606,6 +607,6 @@ class SplineParser(object):
 
 if __name__ == "__main__":
     kern_path = "/home/manos/Desktop/test.krn"
-    x = parse_kern(kern_path)
+    x = load_kern(kern_path)
     import partitura as pt
     pt.save_musicxml(x, "/home/manos/Desktop/test_kern.musicxml")
