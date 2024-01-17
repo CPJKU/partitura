@@ -52,36 +52,30 @@ def read_note_tsv(note_tsv_path, metadata=None):
             ), start=note["onset_div"], end=(note["onset_div"]+note["duration_div"]))
     # Add Grace notes
     grace_note_idxs = np.where(grace_mask)[0]
+    grace_note_idxs = []
     for grace_idx in grace_note_idxs:
         grace_note = note_array[grace_idx]
-        next_note = note_array[grace_idx + 1]
-        prev_note = note_array[grace_idx - 1]
-        next_note_el, prev_note_el = None, None
-        for note in part.iter_all(spt.Note, grace_note["onset_div"], grace_note["onset_div"]+1):
-            if note.id == "n-{}".format(next_note["id"]):
-                next_note_el = note
-                break
-        for note in part.iter_all(spt.Note, prev_note["onset_div"], prev_note["onset_div"]+1):
-            if note.id == "n-{}".format(prev_note["id"]):
-                prev_note_el = note
-                break
-
         grace_el = spt.GraceNote(
-                grace_type="grace",
-                id="n-{}".format(grace_note["id"]),
-                step=grace_note["step"],
-                octave=grace_note["octave"],
-                alter=grace_note["alter"],
-                staff=grace_note["staff"],
-                voice=grace_note["voice"],
-                symbolic_duration={"type": "eighth"},
-            )
-        grace_el.grace_next = next_note_el
-        grace_el.grace_prev = prev_note_el
+            grace_type="grace",
+            id="n-{}".format(grace_note["id"]),
+            step=grace_note["step"],
+            octave=grace_note["octave"],
+            alter=grace_note["alter"],
+            staff=grace_note["staff"],
+            voice=grace_note["voice"],
+            symbolic_duration={"type": "eighth"},
+        )
+
+        if grace_mask[grace_idx-1]:
+            prev_note = note_array[grace_idx-1]
+            for note in part.iter_all(spt.GraceNote, grace_note["onset_div"], grace_note["onset_div"]+1):
+                if note.id == "n-{}".format(prev_note["id"]):
+                    grace_el.grace_prev = note
+                    note.grace_next = grace_el
+                    break
+
         part.add(
-            grace_el,
-            start=grace_note["onset_div"],
-            end=grace_note["onset_div"]
+            grace_el, grace_note["onset_div"], grace_note["onset_div"]
         )
 
     # Find time signatures
