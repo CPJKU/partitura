@@ -52,7 +52,6 @@ def read_note_tsv(note_tsv_path, metadata=None):
             ), start=note["onset_div"], end=(note["onset_div"]+note["duration_div"]))
     # Add Grace notes
     grace_note_idxs = np.where(grace_mask)[0]
-    grace_note_idxs = []
     for grace_idx in grace_note_idxs:
         grace_note = note_array[grace_idx]
         grace_el = spt.GraceNote(
