@@ -1,0 +1,39 @@
+**kern	**kern	**kern	**kern
+*staff2	*staff2	*staff1	*staff1
+*clefF4	*clefF4	*clefG2	*clefG2
+*k[f#c#g#]	*k[f#c#g#]	*k[f#c#g#]	*k[f#c#g#]
+*M4/4	*M4/4	*M4/4	*M4/4
+4AA	4c#	4a	4ee
+=1	=1	=1	=1
+*   *   *   *^
+8AL	4c#	4a	4ee 8eee
+8BJ	.	.	.   8eee
+8c#L	4c#	4a	4ee 8ee
+8AJ	.	.	.   .
+8DL	4d	4a	4ff#    8fff#
+8EJ	.	.	.   8fff#
+8F#L	4d	4a	4ff#    4fff#
+8DJ	.	.	.   .
+=2	=2	=2	=2  =2
+*   *   *   *v  *v
+2A;	2c#;	2a;	2ee;
+4r	4r	4r	4r
+4A	4e	4a	4cc#
+=3	=3	=3	=3
+4G#	4e	4b	4dd
+4A	4e	4a	4cc#
+8EL	4e	4g#	4b
+8DJ	.	.	.
+8C#L	4e	[4a	8.cc#L
+8AAJ	.	.	.
+.	.	.	16ddJ
+=4	=4	=4	=4
+*^   *   *   *v
+2.EE 2E	8eL	8a]L	2b
+.   .	16d	8f#J	.
+.   .	16c#J	.	.
+.   .	4d	4g#	.
+.   4AA;	4c#;	4e;	4a;
+=:|!    =:|!	=:|	=:|	=:|!
+*v  *v  *   *   *
+*-	*-	*-	*-

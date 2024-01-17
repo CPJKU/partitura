@@ -6,7 +6,8 @@ This module contains test functions for KERN import and export.
 import unittest
 
 import partitura
-from tests import KERN_TESTFILES, KERN_TIES
+import os
+from tests import KERN_TESTFILES, KERN_TIES, KERN_PATH
 from partitura.score import merge_parts
 from partitura.utils import ensure_notearray
 from partitura.io.importkern import load_kern
@@ -32,17 +33,25 @@ class TestImportKERN(unittest.TestCase):
 
     def test_examples(self):
         for fn in KERN_TESTFILES:
-            part = merge_parts(load_kern(fn))
-            ka = ensure_notearray(part)
+            score = load_kern(fn)
             self.assertTrue(True)
 
     def test_tie_mismatch(self):
 
         fn = KERN_TIES[0]
-        part = merge_parts(load_kern(fn))
+        score = load_kern(fn)
 
         self.assertTrue(True)
 
+    def test_spline_splitting(self):
+        file_path = os.path.join(KERN_PATH, "spline_splitting.krn")
+        score = load_kern(file_path)
+        num_parts = 4
+        voices_per_part = [2, 1, 1, 2]
+        self.assertTrue(num_parts == len(score.parts))
+        for i, part in enumerate(score.parts):
+            vn = part.note_array()["voice"].max()
+            self.assertTrue(voices_per_part[i] == vn)
 
 # if __name__ == "__main__":
 #     unittest.main()
