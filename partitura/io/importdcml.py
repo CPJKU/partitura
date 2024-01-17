@@ -49,12 +49,24 @@ def read_note_tsv(note_tsv_path, metadata=None):
                 staff=note["staff"],
                 voice=note["voice"],
                 symbolic_duration=symbolic_duration
-            ), start=note["onset_div"], end=note["onset_div"]+note["duration_div"])
+            ), start=note["onset_div"], end=(note["onset_div"]+note["duration_div"]))
     # Add Grace notes
-    grace_notes = note_array[grace_mask]
-    for grace_note in grace_notes:
-        part.add(
-            spt.GraceNote(
+    grace_note_idxs = np.where(grace_mask)[0]
+    for grace_idx in grace_note_idxs:
+        grace_note = note_array[grace_idx]
+        next_note = note_array[grace_idx + 1]
+        prev_note = note_array[grace_idx - 1]
+        next_note_el, prev_note_el = None, None
+        for note in part.iter_all(spt.Note, grace_note["onset_div"], grace_note["onset_div"]+1):
+            if note.id == "n-{}".format(next_note["id"]):
+                next_note_el = note
+                break
+        for note in part.iter_all(spt.Note, prev_note["onset_div"], prev_note["onset_div"]+1):
+            if note.id == "n-{}".format(prev_note["id"]):
+                prev_note_el = note
+                break
+
+        grace_el = spt.GraceNote(
                 grace_type="grace",
                 id="n-{}".format(grace_note["id"]),
                 step=grace_note["step"],
@@ -62,8 +74,12 @@ def read_note_tsv(note_tsv_path, metadata=None):
                 alter=grace_note["alter"],
                 staff=grace_note["staff"],
                 voice=grace_note["voice"],
-                symbolic_duration={"type": "eighth"}
-            ),
+                symbolic_duration={"type": "eighth"},
+            )
+        grace_el.grace_next = next_note_el
+        grace_el.grace_prev = prev_note_el
+        part.add(
+            grace_el,
             start=grace_note["onset_div"],
             end=grace_note["onset_div"]
         )
@@ -77,6 +93,9 @@ def read_note_tsv(note_tsv_path, metadata=None):
     for ts, start, end in zip(time_signatures, start_divs, end_divs):
         part.add(spt.TimeSignature(beats=int(ts.split("/")[0]), beat_type=int(ts.split("/")[1])), start=start, end=end)
 
+    # Add default clefs for piano pieces (Naive)
+    part.add(spt.Clef(staff=1, sign="G", line=2, octave_change=0), start=0)
+    part.add(spt.Clef(staff=2, sign="F", line=4, octave_change=0), start=0)
     # TODO: Find Ties
     tied_notes = data["tied"].dropna()
 
