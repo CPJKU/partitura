@@ -33,6 +33,16 @@ def read_note_tsv(note_tsv_path, metadata=None):
     data["pitch"] = data["midi"]
     grace_mask = ~data["gracenote"].isna()
     data["id"] = np.arange(len(data))
+    # Rewrite Voices for correct export
+    staffs = data["staff"].unique()
+    re_index_voice_value = 0
+    for staff in staffs:
+        staff_mask = data["staff"] == staff
+        # add re_index_voice_value to the voice values of the staff
+        data.loc[staff_mask, "voice"] += re_index_voice_value
+        # update re_index_voice_value
+        re_index_voice_value = data.loc[staff_mask, "voice"].max()
+
     note_array = data[["onset_div", "duration_div", "pitch", "step", "alter", "octave", "id", "staff", "voice"]].to_records(index=False)
     part = spt.Part("P0", "Metadata", quarter_duration=qdivs)
 
