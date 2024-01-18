@@ -234,7 +234,14 @@ def load_kern(
                 parser.staff = staff
                 prev_staff = staff
             elements = parser.parse(spline)
-            unique_durs = np.unique(parser.total_duration_values).astype(int)
+            # Routine to filter out non integer durations
+            unique_durs = np.unique(parser.total_duration_values)
+            d_mul = 1
+            while not np.all(np.isclose(unique_durs % 1, 0)):
+                unique_durs = unique_durs * d_mul
+                d_mul += 1
+            unique_durs = unique_durs.astype(int)
+
             divs_pq = np.lcm.reduce(unique_durs)
             divs_pq = divs_pq if divs_pq > 4 else 4
             # Initialize Part
@@ -281,9 +288,9 @@ def load_kern(
             partlist.append(part)
 
     # currate parts to the same divs per quarter
-    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in partlist])
-    for part in partlist:
-        part.set_quarter_duration(0, divs_pq)
+    # divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in partlist])
+    # for part in partlist:
+    #     part.set_quarter_duration(0, divs_pq)
 
     spt.assign_note_ids(
         partlist, keep=(force_note_ids is True or force_note_ids == "keep")
