@@ -11,7 +11,7 @@ from typing import Union, Optional
 import numpy as np
 from math import inf, ceil
 import partitura.score as spt
-from partitura.utils import PathLike
+from partitura.utils import PathLike, get_document_name
 
 
 SIGN_TO_ACC = {
@@ -160,29 +160,34 @@ def _handle_kern_with_spine_splitting(kern_path):
 
 
 # functions to initialize the kern parser
-def load_kern(kern_path: PathLike) -> np.ndarray:
+def load_kern(
+    filename: PathLike,
+    force_note_ids: Optional[Union[bool, str]] = None,
+) -> spt.Score:
     """
     Parses an KERN file from path to Part.
 
     Parameters
     ----------
-    kern_path : PathLike
+    filename : PathLike
         The path of the KERN document.
+    force_note_ids : (None, bool or "keep")
+        When True each Note in the returned Part(s) will have a newly assigned unique id attribute.
     Returns
     -------
-    score : Score
+    score : partitura.score.Score
         The score object containing the parts.
     """
     try:
         # This version of the parser is faster but does not support spine splitting.
-        file = np.loadtxt(kern_path, dtype=str, delimiter="\t", comments="!!", encoding="utf-8")
+        file = np.loadtxt(filename, dtype=str, delimiter="\t", comments="!!", encoding="utf-8")
         parsing_idxs = np.arange(file.shape[0])
         # Decide Parts
 
 
     except ValueError:
         # This version of the parser supports spine splitting but is slower.
-        file, parsing_idxs = _handle_kern_with_spine_splitting(kern_path)
+        file, parsing_idxs = _handle_kern_with_spine_splitting(filename)
 
 
     parts = []
@@ -280,7 +285,15 @@ def load_kern(kern_path: PathLike) -> np.ndarray:
     for part in parts:
         part.set_quarter_duration(0, divs_pq)
 
-    return spt.Score(parts)
+    partlist = parts
+
+    spt.assign_note_ids(
+        partlist, keep=(force_note_ids is True or force_note_ids == "keep")
+    )
+
+    doc_name = get_document_name(filename)
+    score = spt.Score(partlist=partlist, id=doc_name)
+    return score
 
 
 def rec_divisible_by_two(number):
