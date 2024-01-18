@@ -190,7 +190,7 @@ def load_kern(
         file, parsing_idxs = _handle_kern_with_spine_splitting(filename)
 
 
-    parts = []
+    partlist = []
     # Get Main Number of parts and Spline Types
     spline_types = file[0]
 
@@ -209,10 +209,10 @@ def load_kern(
     for j, spline in enumerate(splines):
         parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j), staff=prev_staff)
         same_part = False
-        if parser.id in [p.id for p in parts]:
+        if parser.id in [p.id for p in partlist]:
             same_part = True
             warnings.warn("Part {} already exists. Adding to previous Part.".format(parser.id))
-            part = [p for p in parts if p.id == parser.id][0]
+            part = [p for p in partlist if p.id == parser.id][0]
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
             if parser.staff != staff:
@@ -277,15 +277,13 @@ def load_kern(
         if part.measures[0].start.t != 0:
             part.add(spt.Measure(number=0), start=0, end=part.measures[0].start.t)
 
-        if parser.id not in [p.id for p in parts]:
-            parts.append(part)
+        if parser.id not in [p.id for p in partlist]:
+            partlist.append(part)
 
     # currate parts to the same divs per quarter
-    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in parts])
-    for part in parts:
+    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in partlist])
+    for part in partlist:
         part.set_quarter_duration(0, divs_pq)
-
-    partlist = parts
 
     spt.assign_note_ids(
         partlist, keep=(force_note_ids is True or force_note_ids == "keep")
