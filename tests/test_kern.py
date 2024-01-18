@@ -10,7 +10,7 @@ import os
 from tests import KERN_TESTFILES, KERN_TIES, KERN_PATH
 from partitura.score import merge_parts
 from partitura.utils import ensure_notearray
-from partitura.io.importkern import load_kern
+from partitura.io.importkern_v2 import load_kern
 from partitura import load_musicxml
 import numpy as np
 

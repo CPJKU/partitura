@@ -196,11 +196,13 @@ def load_kern(kern_path: PathLike) -> np.ndarray:
     splines = file[1:].T[note_parts]
     # Inverse Order
     splines = splines[::-1]
+    parsing_idxs = parsing_idxs[::-1]
+    prev_staff = 1
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
     p_same_part = np.all(splines[has_instrument] == splines[has_instrument][0], axis=0) if np.any(has_instrument) else False
-    for i, spline in enumerate(splines):
-        parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[i]) if not p_same_part else "P1")
+    for j, spline in enumerate(splines):
+        parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j), staff=prev_staff)
         same_part = False
         if parser.id in [p.id for p in parts]:
             same_part = True
@@ -222,8 +224,10 @@ def load_kern(kern_path: PathLike) -> np.ndarray:
         else:
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
+            # Correction for currating multiple staffs.
             if parser.staff != staff:
                 parser.staff = staff
+                prev_staff = staff
             elements = parser.parse(spline)
             unique_durs = np.unique(parser.total_duration_values).astype(int)
             divs_pq = np.lcm.reduce(unique_durs)
@@ -301,11 +305,11 @@ class SplineParser(object):
 
     def parse(self, spline):
         # Remove "-" lines
-        spline = spline[spline != "-"]
+        spline = spline[spline != '-']
         # Remove "." lines
-        spline = spline[spline != "."]
+        spline = spline[spline != '.']
         # Remove Empty lines
-        spline = spline[spline != ""]
+        spline = spline[spline != '']
         # Remove None lines
         spline = spline[spline != None]
         # Remove lines that start with "!"
