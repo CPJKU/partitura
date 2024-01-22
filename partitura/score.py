@@ -2775,9 +2775,14 @@ class RomanNumeral(TimedObject):
         """
         # The primary degree should be a roman numeral between 1 and 7.
         # If there is no primary degree, return None
-        primary_degree = re.findall(r'[ivIV]+', self.text)
-        if len(primary_degree) > 0:
-            return primary_degree[0]
+        roman_text = self.text.split(":")[-1]
+        if "7" in roman_text or "65" in roman_text or "43" in roman_text or "2" in roman_text:
+            add_on = "7"
+        else:
+            add_on = ""
+        primary_degree = re.findall(r'[a-zA-Z+]+', roman_text)
+        if primary_degree:
+            return primary_degree.group(0) + add_on
         return None
 
     def _process_secondary_degree(self):
