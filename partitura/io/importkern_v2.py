@@ -196,7 +196,6 @@ def load_kern(
 
     # Find parsable parts if they start with "**kern" or "**notes"
     note_parts = np.char.startswith(spline_types, "**kern") | np.char.startswith(spline_types, "**notes")
-
     # Get Splines
     splines = file[1:].T[note_parts]
     # Inverse Order
@@ -236,8 +235,10 @@ def load_kern(
             elements = parser.parse(spline)
             # Routine to filter out non integer durations
             unique_durs = np.unique(parser.total_duration_values)
-            d_mul = 1
-            while not np.all(np.isclose(unique_durs % 1, 0)):
+            # Remove all infinite values
+            unique_durs = unique_durs[np.isfinite(unique_durs)]
+            d_mul = 2
+            while not np.all(np.isclose(unique_durs % 1, 0.0)):
                 unique_durs = unique_durs * d_mul
                 d_mul += 1
             unique_durs = unique_durs.astype(int)
@@ -267,6 +268,11 @@ def load_kern(
                 for note in element[1]:
                     part.add(note, start=current_tl_pos, end=el_end)
                 current_tl_pos = el_end
+            elif isinstance(element, spt.Slur):
+                start_sl = element.start_note.start.t
+                end_sl = element.end_note.start.t
+                part.add(element, start=start_sl, end=end_sl)
+
             else:
                 # Do not repeat structural elements if they are being added to the same part.
                 if not same_part:
@@ -320,6 +326,8 @@ class SplineParser(object):
         self.total_parsed_elements = 0
         self.tie_prev = None
         self.tie_next = None
+        self.slurs_start = []
+        self.slurs_end = []
 
     def parse(self, spline):
         # Remove "-" lines
@@ -368,8 +376,23 @@ class SplineParser(object):
         for note, to_tie in np.c_[notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]]:
             note.tie_prev = to_tie
             # to_tie.tie_next = note
-
         elements[note_mask] = notes
+
+        # Find Slur indices, i.e. where spline cells contain "(" or ")"
+        open_slur_mask = np.char.find(spline[note_mask], "(") != -1
+        close_slur_mask = np.char.find(spline[note_mask], ")") != -1
+        self.slurs_start = np.where(open_slur_mask)[0]
+        self.slurs_end = np.where(close_slur_mask)[0]
+        # Only add slur if there is a start and end
+        if len(self.slurs_start) == len(self.slurs_end):
+            slurs = np.empty(len(self.slurs_start), dtype=object)
+            for i, (start, end) in enumerate(zip(self.slurs_start, self.slurs_end)):
+                slurs[i] = spt.Slur(notes[start], notes[end])
+            # Add slurs to elements
+            elements = np.append(elements, slurs)
+        else:
+            warnings.warn("Slurs openings and closings do not match. Skipping parsing slurs for this part {}.".format(self.id))
+
         return elements
 
     def meta_tandem_line(self, line):
@@ -627,8 +650,8 @@ class SplineParser(object):
         return chord
 
 
-if __name__ == "__main__":
-    kern_path = "/home/manos/Desktop/test.krn"
-    x = load_kern(kern_path)
-    import partitura as pt
-    pt.save_musicxml(x, "/home/manos/Desktop/test_kern.musicxml")
+# if __name__ == "__main__":
+#     kern_path = "/home/manos/Desktop/test.krn"
+#     x = load_kern(kern_path)
+#     import partitura as pt
+#     pt.save_musicxml(x, "/home/manos/Desktop/test_kern.musicxml")
