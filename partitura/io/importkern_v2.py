@@ -11,15 +11,18 @@ from typing import Union, Optional
 import numpy as np
 from math import inf, ceil
 import partitura.score as spt
-from partitura.utils import PathLike, get_document_name
+from partitura.utils import PathLike, get_document_name, symbolic_to_numeric_duration
 
 
 SIGN_TO_ACC = {
+    "nn": 0,
     "n": 0,
     "#": 1,
     "s": 1,
     "ss": 2,
     "x": 2,
+    "n#": 1,
+    "#n": 1,
     "##": 2,
     "###": 3,
     "b": -1,
@@ -28,6 +31,8 @@ SIGN_TO_ACC = {
     "ff": -2,
     "bbb": -3,
     "-": -1,
+    "n-": -1,
+    "-n": -1,
     "--": -2,
 }
 
@@ -71,6 +76,8 @@ def add_durations(a, b):
 def dot_function(duration, dots):
     if dots == 0:
         return duration
+    elif duration == 0:
+        return 0
     else:
         return add_durations((2**dots)*duration, dot_function(duration, dots - 1))
 
@@ -106,14 +113,14 @@ def parse_by_voice(file, dtype=np.object_):
 
 
 def _handle_kern_with_spine_splitting(kern_path):
-    org_file = np.loadtxt(kern_path, dtype=str, delimiter="\n", comments="!!", encoding="utf-8")
+    org_file = np.loadtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
     # Get Main Number of parts and Spline Types
     spline_types = org_file[0].split("\t")
     parsing_idxs = []
     dtype = org_file.dtype
     data = []
     file = org_file.tolist()
-    file = [line.split("\t") for line in file]
+    file = [line.split("\t") for line in file if not line.startswith("!")]
     continue_parsing = True
     for i in range(len(spline_types)):
         # Parse by voice
@@ -180,7 +187,7 @@ def load_kern(
     """
     try:
         # This version of the parser is faster but does not support spine splitting.
-        file = np.loadtxt(filename, dtype=str, delimiter="\t", comments="!!", encoding="utf-8")
+        file = np.loadtxt(filename, dtype="U", delimiter="\t", comments="!!", encoding="cp437")
         parsing_idxs = np.arange(file.shape[0])
         # Decide Parts
 
@@ -255,15 +262,18 @@ def load_kern(
             if element is None:
                 continue
             if isinstance(element, spt.GenericNote):
-                quarter_duration = 4 / parser.total_duration_values[i]
-                duration_divs = ceil(quarter_duration*divs_pq)
+                if parser.total_duration_values[i] == 0:
+                    duration_divs = symbolic_to_numeric_duration(element.symbolic_duration, divs_pq)
+                else:
+                    quarter_duration = 4 / parser.total_duration_values[i]
+                    duration_divs = ceil(quarter_duration*divs_pq)
                 el_end = current_tl_pos + duration_divs
                 part.add(element, start=current_tl_pos, end=el_end)
                 current_tl_pos = el_end
             elif isinstance(element, tuple):
                 # Chord
                 quarter_duration = 4 / parser.total_duration_values[i]
-                duration_divs = int(part.inv_quarter_map(quarter_duration))
+                duration_divs = ceil(quarter_duration*divs_pq)
                 el_end = current_tl_pos + duration_divs
                 for note in element[1]:
                     part.add(note, start=current_tl_pos, end=el_end)
@@ -351,6 +361,7 @@ class SplineParser(object):
         elements[bar_mask] = np.vectorize(self.meta_barline_line, otypes=[object])(spline[bar_mask])
         # Find Chord indices, i.e. where spline cells contain " "
         chord_mask = np.char.find(spline, " ") != -1
+        chord_mask = np.logical_and(chord_mask, np.logical_and(~tandem_mask, ~bar_mask))
         self.total_parsed_elements = -1
         self.note_duration_values = np.ones(len(spline[chord_mask]))
         chord_num = np.count_nonzero(chord_mask)
@@ -476,12 +487,23 @@ class SplineParser(object):
     def process_clef_line(self, line):
         # if the cleff line does not contain any of the following characters, ["G", "F", "C"], raise a ValueError.
         if not any(c in line for c in ["G", "F", "C"]):
-            raise ValueError("Unrecognized clef line: {}".format(line))
+            raise ValueError("Unrecognized clef: {}".format(line))
         # find the clef
         clef = re.search(r"([GFC])", line).group(0)
         # find the octave
-        line = re.search(r"([0-9])", line).group(0)
-        return spt.Clef(sign=clef, staff=self.staff, line=int(line), octave_change=0)
+        has_line = re.search(r"([0-9])", line)
+        if has_line is None:
+            if clef == "G":
+                clef_line = 2
+            elif clef == "F":
+                clef_line = 4
+            elif clef == "C":
+                clef_line = 3
+            else:
+                raise ValueError("Unrecognized clef line: {}".format(line))
+        else:
+            clef_line = has_line.group(0)
+        return spt.Clef(sign=clef, staff=self.staff, line=int(clef_line), octave_change=0)
 
     def process_key_signature_line(self, line):
         fifths = line.count("#") - line.count("-")
@@ -496,7 +518,10 @@ class SplineParser(object):
     def process_meter_line(self, line):
         if " " in line:
             line = line.split(" ")[0]
-        numerator, denominator = map(eval, line.split("/"))
+        numerator, denominator = line.split("/")
+        # Find digits in numerator and denominator and convert to int
+        numerator = int(re.search(r"([0-9]+)", numerator).group(0))
+        denominator = int(re.search(r"([0-9]+)", denominator).group(0))
         return spt.TimeSignature(numerator, denominator)
 
     def _process_kern_pitch(self, pitch):
@@ -586,7 +611,12 @@ class SplineParser(object):
         self.total_parsed_elements += 1 if add else 0
         voice = self.voice if voice is None else voice
         # extract first occurence of one of the following: a-g A-G r # - n
-        pitch = re.search(r"([a-gA-Gr\-n#]+)", line).group(0)
+        find_pitch = re.search(r"([a-gA-Gr\-n#]+)", line)
+        if find_pitch is None:
+            warnings.warn("No pitch found in line: {}, transforming to a rest".format(line))
+            pitch = "r"
+        else:
+            pitch = find_pitch.group(0)
         # extract duration can be any of the following: 0-9 .
         dur_search = re.search(r"([0-9.]+)", line)
         # if no duration is found, then the duration is 8 by default (for grace notes with no duration)
