@@ -2738,11 +2738,14 @@ class RomanNumeral(TimedObject):
     def __init__(self, text, inversion=None, local_key=None, primary_degree=None, secondary_degree=None, quality=None):
         super().__init__()
         self.text = text
+        self.accepted_qualities = ('7', 'aug', 'aug6', 'aug7', 'dim', 'dim7', 'hdim7', 'maj', 'maj7', 'min', 'min7')
+        self.has_seven = "7" in text
         self.inversion = inversion if inversion is not None else self._process_inversion()
         self.local_key = local_key if local_key is not None else self._process_local_key()
         self.primary_degree = primary_degree if primary_degree is not None else self._process_primary_degree()
         self.secondary_degree = secondary_degree if secondary_degree is not None else self._process_secondary_degree()
-        self.quality = quality if quality is not None else self._process_quality()
+        self.quality = quality if quality is not None and quality in self.accepted_qualities else self._process_quality()
+
 
     def _process_inversion(self):
         """Find the inversion of the roman numeral from the text"""
@@ -2752,10 +2755,19 @@ class RomanNumeral(TimedObject):
         if len(numeric_indications_in_text) > 0:
             inversion_state = int(numeric_indications_in_text[0])
             if inversion_state == 2:
+                self.has_seven = True
                 return 3
-            elif inversion_state in [43, 64]:
+            elif inversion_state == 43:
+                self.has_seven = True
                 return 2
-            elif inversion_state in [6, 65]:
+            elif inversion_state == 64:
+                self.has_seven = False
+                return 2
+            elif inversion_state == 6:
+                self.has_seven = False
+                return 1
+            elif inversion_state == 65:
+                self.has_seven = True
                 return 1
         return 0
 
@@ -2776,13 +2788,9 @@ class RomanNumeral(TimedObject):
         # The primary degree should be a roman numeral between 1 and 7.
         # If there is no primary degree, return None
         roman_text = self.text.split(":")[-1]
-        if "7" in roman_text or "65" in roman_text or "43" in roman_text or "2" in roman_text:
-            add_on = "7"
-        else:
-            add_on = ""
         primary_degree = re.findall(r'[a-zA-Z+]+', roman_text)
         if primary_degree:
-            return primary_degree.group(0) + add_on
+            return primary_degree.group(0)
         return None
 
     def _process_secondary_degree(self):
@@ -2803,15 +2811,42 @@ class RomanNumeral(TimedObject):
     def _process_quality(self):
         """Find the quality of the roman numeral from the text
 
-        Accepted quality values are M, m, +, o, and None.
+        Accepted quality values are 7, aug, aug6, aug7, dim, dim7, hdim7, maj, maj7, min, min7.
+        This format follows the standards from the latest version of the AugmentedNet model.
+        Found out more here: github.com/napulen/AugmentedNet
         """
         # The quality should be M, m, +, o, or None.
-        # If there is no quality, return None
-        quality = re.findall(r'[Mm+o]', self.text)
-        if len(quality) > 0:
-            return quality[0]
-        return None
-
+        aug_cond = "aug" in self.text.lower() or "+" in self.text.lower()
+        minor_cond = self.primary_degree.islower() if self.primary_degree is not None else False
+        major_cond = self.primary_degree.isupper() if self.primary_degree is not None else False
+        dim_cond = "dim" in self.text or "o" in self.text
+        aug6_cond = "ger" in self.text.lower() or "it" in self.text.lower() or "fr" in self.text.lower()
+        hdim_cond = "0" in self.text or "%" in self.text or "ø" in self.text
+        if aug6_cond:
+            quality = "aug6"
+        elif "maj7" in self.text.lower():
+            quality = "maj7"
+        elif dim_cond and self.has_seven:
+            quality = "dim7"
+        elif dim_cond:
+            quality = "dim"
+        elif aug_cond and self.has_seven:
+            quality = "aug7"
+        elif aug_cond:
+            quality = "aug"
+        elif hdim_cond:
+            quality = "hdim7"
+        elif minor_cond and self.has_seven:
+            quality = "min7"
+        elif minor_cond:
+            quality = "min"
+        elif major_cond and self.has_seven:
+            quality = "7"
+        elif major_cond:
+            quality = "maj"
+        else:
+            raise ValueError(f"Quality for {self.text} was not found")
+        return quality
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'

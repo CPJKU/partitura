@@ -159,10 +159,14 @@ def read_harmony_tsv(beat_tsv_path, part):
     is_na_roman = data["chord"].isna()
     # Find Phrase Starts where data["phraseend"] == "{"
     for idx, row in data[~is_na_roman].iterrows():
+        # row["chord_type"] contains the quality of the chord but it is encoded differently than for other formats
+        # and datasets. For example, a minor chord is encoded as "m" instead of "min" or "minor"
+        # Therefore we do not add the quality to the RomanNumeral object. Then it is extracted from the text.
         part.add(
             spt.RomanNumeral(text=row["chord"],
                              local_key=row["localkey"],
-                             quality=row["chord_type"],
+
+                             # quality=row["chord_type"],
                              ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
 
     for idx, row in data[~is_na_cad].iterrows():
