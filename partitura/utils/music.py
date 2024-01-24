@@ -421,7 +421,7 @@ def ensure_rest_array(restarray_or_part, *args, **kwargs):
         )
 
 
-def transpose_step(step, interval, direction):
+def _transpose_step(step, interval, direction):
     """
     Transpose a note by a given interval.
     Parameters
@@ -438,7 +438,7 @@ def transpose_step(step, interval, direction):
     return step
 
 
-def _transpose_note(note, interval):
+def _transpose_note_inplace(note, interval):
     """
     Transpose a note by a given interval.
     Parameters
@@ -452,7 +452,7 @@ def _transpose_note(note, interval):
     else:
         # TODO work for arbitrary octave.
         prev_step = note.step.capitalize()
-        note.step = transpose_step(prev_step, interval.number, interval.direction)
+        note.step = _transpose_step(prev_step, interval.number, interval.direction)
         if STEPS[note.step] - STEPS[prev_step] < 0 and interval.direction == "up":
             note.octave += 1
         elif STEPS[note.step] - STEPS[prev_step] > 0 and interval.direction == "down":
@@ -469,6 +469,46 @@ def _transpose_note(note, interval):
         note.alter = (
             INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
         )
+
+
+def transpose_note(step, alter, interval):
+    """
+    Transpose a note by a given interval without changing the octave or creating a Note Object.
+
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    interval: Interval
+        The interval to transpose by.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the pitch, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    """
+    if interval.quality + str(interval.number) == "P1":
+        new_step = step
+        new_alter = alter
+    else:
+        prev_step = step.capitalize()
+        new_step = _transpose_step(prev_step, interval.number, interval.direction)
+        prev_alter = alter if alter is not None else 0
+        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
+        tmp_pc = MIDI_BASE_CLASS[new_step.lower()]
+        if interval.direction == "up":
+            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
+        else:
+            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
+        new_alter = (
+                INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+        )
+    return new_step, new_alter
 
 
 def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
@@ -502,7 +542,7 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
             transpose(part, interval)
     elif isinstance(score, s.Part):
         for note in score.notes_tied:
-            _transpose_note(note, interval)
+            _transpose_note_inplace(note, interval)
     return new_score
 
 
