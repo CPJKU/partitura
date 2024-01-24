@@ -2746,7 +2746,6 @@ class RomanNumeral(TimedObject):
         self.secondary_degree = secondary_degree if secondary_degree is not None else self._process_secondary_degree()
         self.quality = quality if quality is not None and quality in self.accepted_qualities else self._process_quality()
 
-
     def _process_inversion(self):
         """Find the inversion of the roman numeral from the text"""
         # The inversion should be right after the roman numeral.
@@ -2788,7 +2787,7 @@ class RomanNumeral(TimedObject):
         # The primary degree should be a roman numeral between 1 and 7.
         # If there is no primary degree, return None
         roman_text = self.text.split(":")[-1]
-        primary_degree = re.findall(r'[a-zA-Z+]+', roman_text)
+        primary_degree = re.search(r'[a-zA-Z+]+', roman_text)
         if primary_degree:
             return primary_degree.group(0)
         return None
@@ -2801,11 +2800,14 @@ class RomanNumeral(TimedObject):
         """
         # The secondary degree should be a roman numeral between 1 and 7.
         # If it is not specified in the text, return I (the tonic) when the primary degree is not none.
-        secondary_degree = re.findall(r'[ivIV]+', self.text)
-        if len(secondary_degree) > 1:
-            return secondary_degree[1]
-        elif self.primary_degree is not None:
-            return "I"
+        roman_text = self.text.split(":")[-1]
+        split_pr_sec = roman_text.split("/")
+        if len(split_pr_sec) > 1:
+            secondary_degree = re.search(r'[a-zA-Z+]+', split_pr_sec[-1])
+            return secondary_degree.group(0)
+        elif self.primary_degree is not None and self.local_key is not None:
+            secondary_degree = "I" if self.local_key.isupper() else "i"
+            return secondary_degree
         return None
 
     def _process_quality(self):
