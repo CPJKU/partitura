@@ -5,6 +5,9 @@ This module contains methods for exporting Kern files.
 """
 import math
 from collections import defaultdict
+
+import numpy
+
 import partitura.score as spt
 from operator import itemgetter
 from typing import Optional
@@ -110,7 +113,7 @@ def markings_to_kern(element: spt.GenericNote) -> str:
 def save_kern(
     score_data: spt.ScoreLike,
     out: Optional[PathLike] = None,
-    ) -> Optional[str]:
+    ) -> Optional[np.ndarray]:
     # Header extracts meta information about the score
     header = "Here is some random piece"
     # Kern can output only from part so first let's merge parts (we need a timewise representation)
@@ -193,10 +196,13 @@ def save_kern(
     out_data = out_data[~np.all(out_data == ".", axis=1)]
     # Use numpy savetxt to save the file
     footer = "Encoded using the Partitura Python package, version 1.5.0"
-    np.savetxt(fname=out, X=out_data, fmt="%1.26s",
-               delimiter="\t", newline="\n",
-               header=header, footer=footer,
-               comments="!!!", encoding="utf-8")
+    if out is not None:
+        np.savetxt(fname=out, X=out_data, fmt="%1.26s",
+                   delimiter="\t", newline="\n",
+                   header=header, footer=footer,
+                   comments="!!!", encoding="utf-8")
+    else:
+        return out_data
 
 
 if __name__ == "__main__":
