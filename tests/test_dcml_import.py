@@ -1,5 +1,5 @@
 import unittest
-from partitura import load_tsv
+from partitura import load_dcml
 from tests import TSV_PATH
 import os
 
@@ -9,7 +9,7 @@ class ImportDCMLAnnotations(unittest.TestCase):
         note_path = os.path.join(TSV_PATH, "test_notes.tsv")
         measure_path = os.path.join(TSV_PATH, "test_measures.tsv")
         harmony_path = os.path.join(TSV_PATH, "test_harmonies.tsv")
-        score = load_tsv(note_path, measure_path, harmony_path)
+        score = load_dcml(note_path, measure_path, harmony_path)
         self.assertEqual(len(score.parts), 1)
 
 

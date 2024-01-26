@@ -9,6 +9,8 @@ except ImportError:
 
 
 def read_note_tsv(note_tsv_path, metadata=None):
+    # data = np.genfromtxt(note_tsv_path, delimiter="\t", dtype=None, names=True, invalid_raise=False)
+    # unique_durations = np.unique(data["duration"])
     data = pd.read_csv(note_tsv_path, sep="\t")
     unique_durations = data["duration"].unique()
     denominators = [int(qb.split("/")[1]) for qb in unique_durations if "/" in qb]
@@ -184,7 +186,7 @@ def read_harmony_tsv(beat_tsv_path, part):
     return
 
 
-def load_tsv(note_tsv_path, measure_tsv_path=None, harmony_tsv_path=None, metadata=None):
+def load_dcml(note_tsv_path, measure_tsv_path=None, harmony_tsv_path=None, metadata=None):
     """
     Load a score from tsv files containing the notes, measures and harmony annotations.
 
