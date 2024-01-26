@@ -59,61 +59,205 @@ KERN_DURS = {
     '256th': '256'
      }
 
+KEYS = ["f", "c", "g", "d", "a", "e", "b"]
 
-def sym_dur_to_kern(symbolic_duration: dict) -> str:
-    kern_base = KERN_DURS[symbolic_duration["type"]]
-    dots = "."*symbolic_duration["dots"] if "dots" in symbolic_duration.keys() else ""
-    if "actual_notes" in symbolic_duration.keys() and "normal_notes":
-        kern_base = int(kern_base) * symbolic_duration["actual_notes"] / symbolic_duration["normal_notes"]
-        kern_base = str(kern_base)
-    return kern_base + dots
 
-def duration_to_kern(element: spt.GenericNote) -> str:
-    if isinstance(element, spt.GraceNote):
-        if element.grace_type == "acciaccatura":
-            return "p"
+
+class KernExporter(object):
+    """
+    Class for exporting a partitura score to Kern format.
+
+    Parameters
+    ----------
+    part: spt.Part
+        Part to export to Kern format.
+    """
+    def __init__(self, part):
+        self.part = part
+        note_array = part.note_array(include_staff=True)
+        num_measures = len(part.measures)
+        num_notes = len(part.notes)
+        num_rests = len(part.rests)
+        self.unique_voc_staff = np.unique(note_array[["voice", "staff"]], axis=0)
+        self.vocstaff_map_dict = {f"{self.unique_voc_staff[i][0]}-{self.unique_voc_staff[i][1]}": i for i in
+                             range(self.unique_voc_staff.shape[0])}
+        # Part elements is really the maximum number of lines we could have in the kern file
+        # we add some to account for the **kern and the *- encoding at beginning and end of file and also tandem elements
+        # that might be added. We also add the number of measures to account for the measure encoding
+        total_elements_ish = num_measures + num_notes + num_rests + 2 + 10
+        self.out_data = np.empty((total_elements_ish, len(self.unique_voc_staff)), dtype=object)
+        self.unique_times = np.array([p.t for p in part._points])
+        # Fill all values with the "." character to filter afterwards
+        self.out_data.fill(".")
+        self.out_data[0] = "**kern"
+        self.out_data[-1] = "*-"
+        # Add the staff element to the second line
+        for i in range(self.unique_voc_staff.shape[0]):
+            self.out_data[1, i] = f"*staff{self.unique_voc_staff[i][1]}"
+        self.prev_note_time = None
+        self.prev_note_col_idx = None
+        self.prev_note_row_idx = None
+
+    def parse(self):
+        row_idx = 2
+        for start_time in self.unique_times:
+            end_time = start_time + 1
+            # Get all elements starting at this time
+            elements_starting = np.array(list(self.part.iter_all(start=start_time, end=end_time)), dtype=object)
+            # Find notes
+            note_mask = np.array([isinstance(el, spt.GenericNote) for el in elements_starting])
+            if np.any(~note_mask):
+                bar_mask = np.array([isinstance(el, spt.Measure) for el in elements_starting[~note_mask]])
+                tandem_mask = ~bar_mask
+                structural_elements = elements_starting[~note_mask]
+                structural_elements = np.hstack((structural_elements[tandem_mask], structural_elements[bar_mask]))
+            else:
+                structural_elements = elements_starting[~note_mask]
+            # Put structural elements first (start with tandem elements, then measure elements, then notes and rests)
+            elements_starting = np.hstack((structural_elements, elements_starting[note_mask]))
+            for el in elements_starting:
+                add_row = True
+                if isinstance(el, spt.GenericNote):
+                    self._handle_note(el, row_idx)
+                elif isinstance(el, spt.Clef):
+                    # Apply clef to all voices of the same staff
+                    currect_staff = el.staff
+                    for staff_idx in range(self.unique_voc_staff.shape[0]):
+                        if self.unique_voc_staff[staff_idx][1] == currect_staff:
+                            kern_el = f"*clef{el.sign.upper()}{el.line}"
+                            self.out_data[row_idx, staff_idx] = kern_el
+                elif isinstance(el, spt.Tempo):
+                    # Apply tempo to all splines
+                    kern_el = f"*MM{to_quarter_tempo(el.qpm)}"
+                    self.out_data[row_idx] = kern_el
+                elif isinstance(el, spt.Measure):
+                    # Apply measure to all splines
+                    kern_el = f"={el.number}"
+                    self.out_data[row_idx] = kern_el
+                elif isinstance(el, spt.TimeSignature):
+                    # Apply element to all splines
+                    kern_el = f"*M{el.beats}/{el.beat_type}"
+                    self.out_data[row_idx] = kern_el
+                elif isinstance(el, spt.KeySignature):
+                    # Apply element to all splines
+                    if el.fifths < 0:
+                        alters = "-".join(KEYS[:el.fifths])
+                    elif el.fifths > 0:
+                        alters = "#".join(KEYS[:el.fifths])
+                    else:
+                        alters = ""
+                    kern_el = f"*k[{alters}]"
+                    self.out_data[row_idx] = kern_el
+                else:
+                    add_row = False
+                    warnings.warn(f"Element {el} is not supported for kern export yet.")
+                if add_row:
+                    row_idx += 1
+        return self.out_data
+
+    def trim(self, data):
+        # if an entire row is filled with "." elements remove it.
+        out_data = data[~np.all(data == ".", axis=1)]
+        return out_data
+
+    def sym_dur_to_kern(self, symbolic_duration: dict) -> str:
+        kern_base = KERN_DURS[symbolic_duration["type"]]
+        dots = "." * symbolic_duration["dots"] if "dots" in symbolic_duration.keys() else ""
+        if "actual_notes" in symbolic_duration.keys() and "normal_notes":
+            kern_base = int(kern_base) * symbolic_duration["actual_notes"] / symbolic_duration["normal_notes"]
+            kern_base = str(kern_base)
+        return kern_base + dots
+
+    def duration_to_kern(self, element: spt.GenericNote) -> str:
+        if isinstance(element, spt.GraceNote):
+            if element.grace_type == "acciaccatura":
+                return "p"
+            else:
+                return "q"
         else:
-            return "q"
-    else:
-        return sym_dur_to_kern(element.symbolic_duration)
+            if "type" not in element.symbolic_duration.keys():
+                warnings.warn(f"Element {element} has no symbolic duration type")
+                return "4"
+            return self.sym_dur_to_kern(element.symbolic_duration)
 
-def pitch_to_kern(element: spt.GenericNote) -> str:
-    if isinstance(element, spt.Rest):
-        return "r"
-    step, alter, octave = element.step, element.alter, element.octave
-    if octave > 4:
-        octave = 4
-        multiply_character = octave - 3
-    elif octave < 3:
-        octave = 3
-        multiply_character = 4 - octave
-    else:
-        multiply_character = 1
-    kern_step = KERN_NOTES[(step, octave)] * multiply_character
-    kern_alter = ACC_TO_SIGN[alter] if alter is not None else ""
-    return kern_step + kern_alter
+    def pitch_to_kern(self, element: spt.GenericNote) -> str:
+        if isinstance(element, spt.Rest):
+            return "r"
+        step, alter, octave = element.step, element.alter, element.octave
+        if octave > 4:
+            multiply_character = octave - 3
+            octave = 4
+        elif octave < 3:
+            multiply_character = 4 - octave
+            octave = 3
+        else:
+            multiply_character = 1
+        kern_step = KERN_NOTES[(step, octave)] * multiply_character
+        kern_alter = ACC_TO_SIGN[alter] if alter is not None else ""
+        return kern_step + kern_alter
 
+    def markings_to_kern(self, element: spt.GenericNote) -> str:
+        symbols = ""
+        if not isinstance(element, spt.Rest):
+            if element.tie_next and element.tie_prev:
+                symbols += "-"
+            elif element.tie_next:
+                symbols += "["
+            elif element.tie_prev:
+                symbols += "]"
+            if element.slur_starts:
+                symbols += "("
+            if element.slur_stops:
+                symbols += ")"
+        if isinstance(element, spt.Note):
+            if element.beam is not None:
+                symbols += "L" if element.beam == "begin" else "J" if element.beam == "end" else "K"
+        return symbols
 
-def markings_to_kern(element: spt.GenericNote) -> str:
-    symbols = ""
-    if not isinstance(element, spt.Rest):
-        if element.tie_next and element.tie_prev:
-            symbols += "-"
-        elif element.tie_next:
-            symbols += "["
-        elif element.tie_prev:
-            symbols += "]"
-        if element.slur_starts:
-            symbols += "("
-        if element.slur_stops:
-            symbols += ")"
-    return symbols
+    def _handle_note(self, el: spt.GenericNote, row_idx) -> str:
+        voice = el.voice
+        staff = el.staff
+        duration = self.duration_to_kern(el)
+        pitch = self.pitch_to_kern(el)
+        col_idx = self.vocstaff_map_dict[f"{voice}-{staff}"]
+        markings = self.markings_to_kern(el)
+        kern_el = duration + pitch + markings
+        if self.prev_note_time == el.start.t:
+            if self.prev_note_col_idx == col_idx:
+                # Chords in Kern
+                self.out_data[self.prev_note_row_idx, self.prev_note_col_idx] = self.out_data[
+                                                                                    self.prev_note_row_idx, self.prev_note_col_idx] + " " + kern_el
+            else:
+                # Same row (start.t) other spline
+                self.out_data[self.prev_note_row_idx, col_idx] = kern_el
+        else:
+            # New line
+            self.out_data[row_idx, col_idx] = kern_el
+            self.prev_note_row_idx = row_idx
+        self.prev_note_col_idx = col_idx
+        self.prev_note_time = el.start.t
 
 
 def save_kern(
     score_data: spt.ScoreLike,
     out: Optional[PathLike] = None,
     ) -> Optional[np.ndarray]:
+    """
+    Save a score in Kern format.
+
+    Parameters
+    ----------
+    score_data: spt.ScoreLike
+        Score to save in Kern format
+
+    out: Optional[PathLike]
+        Path to save the Kern file. If None, the function returns the Kern file as a numpy array.
+
+    Returns
+    -------
+    Optional[np.ndarray]
+        If out is None, the Kern file is returned as a numpy array.
+    """
     # Header extracts meta information about the score
     header = "Here is some random piece"
     # Kern can output only from part so first let's merge parts (we need a timewise representation)
@@ -122,78 +266,12 @@ def save_kern(
         part = spt.merge_parts(score_data.parts)
     else:
         part = score_data
-
-    note_array = part.note_array(include_staff=True)
-    unique_voc_staff = np.unique(note_array[["voice", "staff"]], axis=0)
-    vocstaff_map_dict = {f"{unique_voc_staff[i][0]}-{unique_voc_staff[i][1]}": i for i in range(unique_voc_staff.shape[0])}
-    part_elements = np.array(list(part.iter_all()))
-    # Part elements is really the maximum number of lines we could have in the kern file
-    # we add two to account for the **kern and the *- encoding at beginning and end of file
-    out_data = np.empty((len(part_elements) + 2, len(unique_voc_staff)), dtype=object)
-    part_el_start_times = np.array([el.start.t for el in part_elements])
-    unique_start_times, indices = np.unique(part_el_start_times, return_inverse=True)
-    # Fill all values with the "." character to filter afterwards
-    out_data.fill(".")
-    out_data[0] = "**kern"
-    out_data[-1] = "*-"
-    prev_note_time = None
-    prev_note_col_idx = None
-    prev_note_row_idx = None
-    row_idx = 1
-    for unique_start_time_idx in range(len(unique_start_times)):
-        # Get all elements starting at this time
-        elements_starting = part_elements[indices == unique_start_time_idx]
-        # Find notes
-        note_mask = np.array([isinstance(el, spt.GenericNote) for el in elements_starting])
-        if np.any(~note_mask):
-            bar_mask = np.array([isinstance(el, spt.Measure) for el in elements_starting[~note_mask]])
-            tandem_mask = ~bar_mask
-            structural_elements = elements_starting[~note_mask]
-            structural_elements = np.hstack((structural_elements[tandem_mask], structural_elements[bar_mask]))
-        else:
-            structural_elements = elements_starting[~note_mask]
-        # Put structural elements first (start with tandem elements, then measure elements, then notes and rests)
-        elements_starting = np.hstack((structural_elements, elements_starting[note_mask]))
-        for el in elements_starting:
-            if isinstance(el, spt.GenericNote):
-                voice = el.voice
-                staff = el.staff
-                duration = duration_to_kern(el)
-                pitch = pitch_to_kern(el)
-                col_idx = vocstaff_map_dict[f"{voice}-{staff}"]
-                markings = markings_to_kern(el)
-                kern_el = duration + pitch + markings
-                if prev_note_time == el.start.t:
-                    if prev_note_col_idx == col_idx:
-                        # Chords in Kern
-                        out_data[prev_note_row_idx, prev_note_col_idx] = out_data[prev_note_row_idx, prev_note_col_idx] + " " + kern_el
-                    else:
-                        # Same row (start.t) other spline
-                        out_data[prev_note_row_idx, col_idx] = kern_el
-                else:
-                    # New line
-                    out_data[row_idx, col_idx] = kern_el
-                    prev_note_row_idx = row_idx
-                prev_note_col_idx = col_idx
-                prev_note_time = el.start.t
-            elif isinstance(el, spt.Measure):
-                # Apply measure to all splines
-                kern_el = f"={el.number}"
-                out_data[row_idx] = kern_el
-            elif isinstance(el, spt.TimeSignature):
-                # Apply element to all splines
-                kern_el = f"*M{el.beats}/{el.beat_type}"
-                out_data[row_idx] = kern_el
-            elif isinstance(el, spt.KeySignature):
-                # Apply element to all splines
-                alters = ""
-                kern_el = f"*{alters}"
-                out_data[row_idx] = kern_el
-            else:
-                warnings.warn(f"Element {el} is supported for kern export yet.")
-            row_idx += 1
-    # if an entire row is filled with "." elements remove it.
-    out_data = out_data[~np.all(out_data == ".", axis=1)]
+    if not part.measures:
+        spt.add_measures(part)
+    spt.fill_rests(part, measurewise=False)
+    exporter = KernExporter(part)
+    out_data = exporter.parse()
+    out_data = exporter.trim(out_data)
     # Use numpy savetxt to save the file
     footer = "Encoded using the Partitura Python package, version 1.5.0"
     if out is not None:
@@ -207,5 +285,5 @@ def save_kern(
 
 if __name__ == "__main__":
     import partitura as pt
-    score = pt.load_score(pt.EXAMPLE_MUSICXML)
-    save_kern(score, "C:/Users/melki/Desktop/test.krn")
+    score = pt.load_score("/home/manos/Desktop/JKU/data/mozart_piano_sonatas/K279-1.musicxml")
+    save_kern(score, "/home/manos/Desktop/test.krn")
