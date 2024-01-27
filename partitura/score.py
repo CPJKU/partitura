@@ -4818,10 +4818,18 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
             rest = Rest(symbolic_duration=sym_dur, staff=min_start_note.staff, voice=min_start_note.voice)
             part.add(rest, start_time, min_start_note.start.t)
 
+        min_end_note = notes_per_vocstaff[np.argmin(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))]
+        if min_end_note.end.t < end_time:
+            sym_dur = estimate_symbolic_duration(end_time - min_end_note.end.t, part._quarter_durations[0])
+            rest = Rest(symbolic_duration=sym_dur, staff=min_end_note.staff, voice=min_end_note.voice)
+            part.add(rest, min_end_note.end.t, end_time)
+
 
 def _fill_rests_global(measure: Measure, part: Part, unique_voc_staff: np.ndarray) -> None:
     start_time = measure.start.t
     end_time = measure.end.t
+    if end_time - start_time == 0:
+        return
     notes = np.array(list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True)))
     voc_staff = np.array([[n.voice, n.staff] for n in notes])
     un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
@@ -4835,7 +4843,7 @@ def _fill_rests_global(measure: Measure, part: Part, unique_voc_staff: np.ndarra
             rest = Rest(symbolic_duration=sym_dur, staff=min_start_note.staff, voice=min_start_note.voice)
             part.add(rest, start_time, min_start_note.start.t)
 
-        min_end_note = notes_per_vocstaff[np.argmin(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))]
+        min_end_note = notes_per_vocstaff[np.argmax(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))]
         if min_end_note.end.t < end_time:
             sym_dur = estimate_symbolic_duration(end_time - min_end_note.end.t, part._quarter_durations[0])
             rest = Rest(symbolic_duration=sym_dur, staff=min_end_note.staff, voice=min_end_note.voice)
