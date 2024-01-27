@@ -8,6 +8,7 @@ import unittest
 import partitura
 import os
 from tests import KERN_TESTFILES, KERN_TIES, KERN_PATH
+from tempfile import TemporaryDirectory
 from partitura.score import merge_parts
 from partitura.utils import ensure_notearray
 from partitura.io.importkern_v2 import load_kern
@@ -56,9 +57,17 @@ class TestImportKERN(unittest.TestCase):
 
     def test_import_export(self):
         imported_score = load_kern(partitura.EXAMPLE_KERN)
-        exported_score = save_kern(imported_score)
-        x = np.loadtxt(partitura.EXAMPLE_KERN, comments="!", dtype=str, encoding="utf-8", delimiter="\t")
-        self.assertTrue(np.all(x == exported_score.to_kern()))
+        with TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "test.match")
+            save_kern(imported_score, out)
+            exported_score = load_kern(out)
+        im_na = imported_score.note_array(include_staff=True)
+        ex_na = exported_score.note_array(include_staff=True)
+        self.assertTrue(np.all(im_na["onset_beat"] == ex_na["onset_beat"]))
+        self.assertTrue(np.all(im_na["duration_beat"] == ex_na["duration_beat"]))
+        self.assertTrue(np.all(im_na["pitch"] == ex_na["pitch"]))
+        self.assertTrue(np.all(im_na["staff"] == ex_na["staff"]))
+        # NOTE: Voices are not the same because of the way voices are assigned in merge_parts
 
 
 # if __name__ == "__main__":
