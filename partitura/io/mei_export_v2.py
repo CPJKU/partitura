@@ -26,6 +26,39 @@ ALTER_TO_MEI = {
     2: "ss",
 }
 
+FIFTHS_AND_MODE_TO_PNAME = {
+    (-7, "major"): "Cb",
+    (-6, "major"): "Gb",
+    (-5, "major"): "Db",
+    (-4, "major"): "Ab",
+    (-3, "major"): "Eb",
+    (-2, "major"): "Bb",
+    (-1, "major"): "F",
+    (0, "major"): "C",
+    (1, "major"): "G",
+    (2, "major"): "D",
+    (3, "major"): "A",
+    (4, "major"): "E",
+    (5, "major"): "B",
+    (6, "major"): "F#",
+    (7, "major"): "C#",
+    (-7, "minor"): "ab",
+    (-6, "minor"): "eb",
+    (-5, "minor"): "bb",
+    (-4, "minor"): "f",
+    (-3, "minor"): "c",
+    (-2, "minor"): "g",
+    (-1, "minor"): "d",
+    (0, "minor"): "a",
+    (1, "minor"): "e",
+    (2, "minor"): "b",
+    (3, "minor"): "f#",
+    (4, "minor"): "c#",
+    (5, "minor"): "g#",
+    (6, "minor"): "d#",
+    (7, "minor"): "a#",
+}
+
 SYMBOLIC_TYPES_TO_MEI_DURS = {v: k for k, v in MEI_DURS_TO_SYMBOLIC.items()}
 
 DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
@@ -55,7 +88,8 @@ class MEIExporter:
         score = etree.SubElement(mdiv, 'score')
         score_def = etree.SubElement(score, 'scoreDef')
         staff_grp = etree.SubElement(score_def, 'staffGrp')
-        staff_def = etree.SubElement(staff_grp, 'staffDef')
+        self._handle_staffs(staff_grp)
+
         section = etree.SubElement(score, 'section')
 
         # Iterate over part's timeline
@@ -65,6 +99,45 @@ class MEIExporter:
             self._handle_measure(measure, xml_el)
 
         return mei
+
+    def _handle_staffs(self, xml_el):
+        clefs = self.part.iter_all(spt.Clef, start=0, end=1)
+        clefs = {c.staff: c for c in clefs}
+        key_sigs = list(self.part.iter_all(spt.KeySignature, start=0, end=1))
+        keys_sig = key_sigs[0] if len(key_sigs) > 0 else None
+        time_sigs = list(self.part.iter_all(spt.TimeSignature, start=0, end=1))
+        time_sig = time_sigs[0] if len(time_sigs) > 0 else None
+        for staff_num in range(self.part.number_of_staves):
+            staff_num += 1
+            staff_def = etree.SubElement(xml_el, 'staffDef')
+            staff_def.set('n', str(staff_num))
+            staff_def.set('id', "staffdef-" + self.elc_id())
+            staff_def.set('lines', '5')
+            # Get clef for this staff If no cleff is available for this staff, default to "G2"
+            clef_def = etree.SubElement(staff_def, 'clef')
+            clef_def.set('id', "clef-" + self.elc_id())
+            clef_shape = clefs[staff_num].step if staff_num in clefs.keys() else "G"
+            clef_def.set('shape', str(clef_shape))
+            clef_def.set('line', str(clefs[staff_num].line)) if staff_num in clefs.keys() else clef_def.set('line', '2')
+            # Get key signature for this staff
+            if keys_sig is not None:
+                ks_def = etree.SubElement(staff_def, 'keySig')
+                ks_def.set('id', "keysig-" + self.elc_id())
+                ks_def.set('mode', keys_sig.mode)
+                if keys_sig.fifths == 0:
+                    ks_def.set('sig', '0')
+                elif keys_sig.fifths > 0:
+                    ks_def.set('sig', str(keys_sig.fifths) + 's')
+                else:
+                    ks_def.set('sig', str(abs(keys_sig.fifths)) + 'f')
+                # Find the pname from the number of sharps or flats and the mode
+                ks_def.set('pname', FIFTHS_AND_MODE_TO_PNAME[(keys_sig.fifths, keys_sig.mode)])
+
+            if time_sig is not None:
+                ts_def = etree.SubElement(staff_def, 'meterSig')
+                ts_def.set('id', "msig-" + self.elc_id())
+                ts_def.set('count', str(time_sig.beats))
+                ts_def.set('unit', str(time_sig.beat_type))
 
     def _handle_measure(self, measure, xml_el):
         # Add measure number
