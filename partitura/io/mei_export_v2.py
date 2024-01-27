@@ -8,10 +8,13 @@ from collections import defaultdict
 from lxml import etree
 import partitura.score as spt
 from operator import itemgetter
+from itertools import groupby
 from typing import Optional
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
 import numpy as np
 from partitura.utils.misc import deprecated_alias, PathLike
+from partitura.utils.music import MEI_DURS_TO_SYMBOLIC
+
 
 __all__ = ["save_mei"]
 
@@ -23,7 +26,9 @@ ALTER_TO_MEI = {
     2: "ss",
 }
 
-DOCTYPE = '<?xml version="1.0" encoding="UTF-8"?> /n <?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?> \n <?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
+SYMBOLIC_TYPES_TO_MEI_DURS = {v: k for k, v in MEI_DURS_TO_SYMBOLIC.items()}
+
+DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
 
 class MEIExporter:
     def __init__(self, part):
@@ -33,7 +38,9 @@ class MEIExporter:
     def elc_id(self):
         # transforms an integer number to 8-digit string
         # The number is right aligned and padded with zeros
-        return str(self.element_counter).zfill(10)
+        out = str(self.element_counter).zfill(10)
+        self.element_counter += 1
+        return out
 
     def export_to_mei(self):
         # Create root MEI element
@@ -82,13 +89,15 @@ class MEIExporter:
                 voice_el.set('id', "voice-" + self.elc_id())
                 voice_notes = staff_notes[voice_inverse_map == j]
                 # Sort by onset
-                voice_notes = sorted(voice_notes, key=lambda x: x.start.t)
-                # group by start time
-                for _, group in iter_current_next(voice_notes, key=lambda x: x.start.t):
-                    if len(group) == 1:
-                        self._handle_note_or_rest(group[0], voice_el)
+                note_start_times = np.vectorize(lambda x: x.start.t)(voice_notes)
+                unique_onsets = np.unique(note_start_times)
+                for onset in unique_onsets:
+                    # group by start time
+                    notes = voice_notes[note_start_times == onset]
+                    if len(notes) > 1:
+                        self._handle_chord(notes, voice_el)
                     else:
-                        self._handle_chord(group, voice_el)
+                        self._handle_note_or_rest(notes[0], voice_el)
 
         return xml_el
 
@@ -106,12 +115,12 @@ class MEIExporter:
 
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, 'rest')
-        rest_el.set('dur', str(rest.duration))
+        rest_el.set('dur', SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]])
         rest_el.set('id', "rest-" + self.elc_id())
 
     def _handle_note(self, note, xml_voice_el):
         note_el = etree.SubElement(xml_voice_el, 'note')
-        note_el.set('dur', str(note.duration))
+        note_el.set('dur', SYMBOLIC_TYPES_TO_MEI_DURS[note.symbolic_duration["type"]])
         note_el.set('id', "note-" + self.elc_id())
         note_el.set('oct', str(note.octave))
         note_el.set('pname', note.step.lower())
@@ -151,7 +160,31 @@ def save_mei(
     exporter = MEIExporter(score_data)
     root = exporter.export_to_mei()
 
-    if out is None:
+    if out:
+        if hasattr(out, "write"):
+            out.write(
+                etree.tostring(
+                    root.getroottree(),
+                    encoding="UTF-8",
+                    xml_declaration=True,
+                    pretty_print=True,
+                    doctype=DOCTYPE,
+                )
+            )
+
+        else:
+            with open(out, "wb") as f:
+                f.write(
+                    etree.tostring(
+                        root.getroottree(),
+                        encoding="UTF-8",
+                        xml_declaration=True,
+                        pretty_print=True,
+                        doctype=DOCTYPE,
+                    )
+                )
+
+    else:
         return etree.tostring(
             root.getroottree(),
             encoding="UTF-8",
