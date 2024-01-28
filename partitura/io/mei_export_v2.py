@@ -10,7 +10,7 @@ import partitura.score as spt
 from operator import itemgetter
 from itertools import groupby
 from typing import Optional
-from partitura.utils import partition, iter_current_next, to_quarter_tempo
+from partitura.utils import partition, iter_current_next, to_quarter_tempo, fifths_mode_to_key_name
 import numpy as np
 from partitura.utils.misc import deprecated_alias, PathLike
 from partitura.utils.music import MEI_DURS_TO_SYMBOLIC
@@ -24,39 +24,6 @@ ALTER_TO_MEI = {
     0: "n",
     1: "s",
     2: "ss",
-}
-
-FIFTHS_AND_MODE_TO_PNAME = {
-    (-7, "major"): "Cb",
-    (-6, "major"): "Gb",
-    (-5, "major"): "Db",
-    (-4, "major"): "Ab",
-    (-3, "major"): "Eb",
-    (-2, "major"): "Bb",
-    (-1, "major"): "F",
-    (0, "major"): "C",
-    (1, "major"): "G",
-    (2, "major"): "D",
-    (3, "major"): "A",
-    (4, "major"): "E",
-    (5, "major"): "B",
-    (6, "major"): "F#",
-    (7, "major"): "C#",
-    (-7, "minor"): "ab",
-    (-6, "minor"): "eb",
-    (-5, "minor"): "bb",
-    (-4, "minor"): "f",
-    (-3, "minor"): "c",
-    (-2, "minor"): "g",
-    (-1, "minor"): "d",
-    (0, "minor"): "a",
-    (1, "minor"): "e",
-    (2, "minor"): "b",
-    (3, "minor"): "f#",
-    (4, "minor"): "c#",
-    (5, "minor"): "g#",
-    (6, "minor"): "d#",
-    (7, "minor"): "a#",
 }
 
 SYMBOLIC_TYPES_TO_MEI_DURS = {v: k for k, v in MEI_DURS_TO_SYMBOLIC.items()}
@@ -123,7 +90,7 @@ class MEIExporter:
             if keys_sig is not None:
                 ks_def = etree.SubElement(staff_def, 'keySig')
                 ks_def.set('id', "keysig-" + self.elc_id())
-                ks_def.set('mode', keys_sig.mode)
+                ks_def.set('mode', keys_sig.mode) if keys_sig.mode is not None else ks_def.set('mode', 'major')
                 if keys_sig.fifths == 0:
                     ks_def.set('sig', '0')
                 elif keys_sig.fifths > 0:
@@ -131,7 +98,7 @@ class MEIExporter:
                 else:
                     ks_def.set('sig', str(abs(keys_sig.fifths)) + 'f')
                 # Find the pname from the number of sharps or flats and the mode
-                ks_def.set('pname', FIFTHS_AND_MODE_TO_PNAME[(keys_sig.fifths, keys_sig.mode)])
+                ks_def.set('pname', fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower())
 
             if time_sig is not None:
                 ts_def = etree.SubElement(staff_def, 'meterSig')
