@@ -161,22 +161,27 @@ class MEIExporter:
         chord_el = etree.SubElement(xml_voice_el, 'chord')
         chord_el.set(XMLNS_ID, "chord-" + self.elc_id())
         for note in chord:
-            self._handle_note_or_rest(note, chord_el)
+            duration = self._handle_note_or_rest(note, chord_el)
+        chord_el.set('dur', duration)
 
     def _handle_note_or_rest(self, note, xml_voice_el):
         if isinstance(note, spt.Rest):
-            self._handle_rest(note, xml_voice_el)
+            duration = self._handle_rest(note, xml_voice_el)
         else:
-            self._handle_note(note, xml_voice_el)
+            duration = self._handle_note(note, xml_voice_el)
+        return duration
 
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, 'rest')
-        rest_el.set('dur', SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]])
+        duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
+        rest_el.set('dur', duration)
         rest_el.set(XMLNS_ID, "rest-" + self.elc_id())
+        return duration
 
     def _handle_note(self, note, xml_voice_el):
         note_el = etree.SubElement(xml_voice_el, 'note')
-        note_el.set('dur', SYMBOLIC_TYPES_TO_MEI_DURS[note.symbolic_duration["type"]])
+        duration = SYMBOLIC_TYPES_TO_MEI_DURS[note.symbolic_duration["type"]]
+        note_el.set('dur', duration)
         note_el.set(XMLNS_ID, "note-" + self.elc_id()) if note.id is None else note_el.set(XMLNS_ID, note.id)
         note_el.set('oct', str(note.octave))
         note_el.set('pname', note.step.lower())
@@ -194,6 +199,7 @@ class MEIExporter:
 
         if isinstance(note, spt.GraceNote):
             note_el.set('grace', 'acc')
+        return duration
 
     def _handle_tuplets(self, measure_el, start, end):
         for tuplet in self.part.iter_all(spt.Tuplet, start=start, end=end):
