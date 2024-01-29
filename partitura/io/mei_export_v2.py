@@ -18,6 +18,8 @@ from partitura.utils.music import MEI_DURS_TO_SYMBOLIC
 
 __all__ = ["save_mei"]
 
+XMLNS_ID = "{http://www.w3.org/XML/1998/namespace}id"
+
 ALTER_TO_MEI = {
     -2: "ff",
     -1: "f",
@@ -30,6 +32,7 @@ SYMBOLIC_TYPES_TO_MEI_DURS = {v: k for k, v in MEI_DURS_TO_SYMBOLIC.items()}
 
 DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
 
+
 class MEIExporter:
     def __init__(self, part):
         self.part = part
@@ -38,26 +41,34 @@ class MEIExporter:
     def elc_id(self):
         # transforms an integer number to 8-digit string
         # The number is right aligned and padded with zeros
-        out = str(self.element_counter).zfill(10)
         self.element_counter += 1
+        out = str(self.element_counter).zfill(10)
         return out
 
     def export_to_mei(self):
         # Create root MEI element
-        mei = etree.Element('mei')
-
+        etree.register_namespace("xml", "http://www.w3.org/XML/1998/namespace")
+        etree.register_namespace( "mei", "http://www.music-encoding.org/ns/mei")
+        mei = etree.Element('mei', nsmap={'xml': "http://www.w3.org/XML/1998/namespace",
+                                          'mei': "http://www.music-encoding.org/ns/mei"})
+        # mei.set('xmlns', "http://www.music-encoding.org/ns/mei")
+        mei.set('meiversion', "4.0.1")
         # Create child elements
         mei_head = etree.SubElement(mei, 'meiHead')
         file_desc = etree.SubElement(mei_head, 'fileDesc')
-        music = etree.SubElement(mei, 'music')
+        music = etree.SubElement(mei, 'music')  
         body = etree.SubElement(music, 'body')
         mdiv = etree.SubElement(body, 'mdiv')
         score = etree.SubElement(mdiv, 'score')
+        score.set(XMLNS_ID, "score-" + self.elc_id())
         score_def = etree.SubElement(score, 'scoreDef')
+        score_def.set(XMLNS_ID, "scoredef-" + self.elc_id())
         staff_grp = etree.SubElement(score_def, 'staffGrp')
+        staff_grp.set(XMLNS_ID, "staffgrp-" + self.elc_id())
         self._handle_staffs(staff_grp)
 
         section = etree.SubElement(score, 'section')
+        section.set(XMLNS_ID, "section-" + self.elc_id())
 
         # Iterate over part's timeline
         for measure in self.part.measures:
@@ -78,18 +89,18 @@ class MEIExporter:
             staff_num += 1
             staff_def = etree.SubElement(xml_el, 'staffDef')
             staff_def.set('n', str(staff_num))
-            staff_def.set('id', "staffdef-" + self.elc_id())
+            staff_def.set(XMLNS_ID, "staffdef-" + self.elc_id())
             staff_def.set('lines', '5')
             # Get clef for this staff If no cleff is available for this staff, default to "G2"
             clef_def = etree.SubElement(staff_def, 'clef')
-            clef_def.set('id', "clef-" + self.elc_id())
-            clef_shape = clefs[staff_num].step if staff_num in clefs.keys() else "G"
+            clef_def.set(XMLNS_ID, "clef-" + self.elc_id())
+            clef_shape = clefs[staff_num].sign if staff_num in clefs.keys() else "G"
             clef_def.set('shape', str(clef_shape))
             clef_def.set('line', str(clefs[staff_num].line)) if staff_num in clefs.keys() else clef_def.set('line', '2')
             # Get key signature for this staff
             if keys_sig is not None:
                 ks_def = etree.SubElement(staff_def, 'keySig')
-                ks_def.set('id', "keysig-" + self.elc_id())
+                ks_def.set(XMLNS_ID, "keysig-" + self.elc_id())
                 ks_def.set('mode', keys_sig.mode) if keys_sig.mode is not None else ks_def.set('mode', 'major')
                 if keys_sig.fifths == 0:
                     ks_def.set('sig', '0')
@@ -102,23 +113,23 @@ class MEIExporter:
 
             if time_sig is not None:
                 ts_def = etree.SubElement(staff_def, 'meterSig')
-                ts_def.set('id', "msig-" + self.elc_id())
+                ts_def.set(XMLNS_ID, "msig-" + self.elc_id())
                 ts_def.set('count', str(time_sig.beats))
                 ts_def.set('unit', str(time_sig.beat_type))
 
-    def _handle_measure(self, measure, xml_el):
+    def _handle_measure(self, measure, measure_el):
         # Add measure number
-        xml_el.set('n', str(measure.number))
-        xml_el.set('id', "measure-" + self.elc_id())
+        measure_el.set('n', str(measure.number))
+        measure_el.set(XMLNS_ID, "measure-" + self.elc_id())
         note_or_rest_elements = np.array(list(self.part.iter_all(spt.GenericNote, start=measure.start.t, end=measure.end.t, include_subclasses=True)))
         # Separate by staff
         staffs = np.vectorize(lambda x: x.staff)(note_or_rest_elements)
         unique_staffs, staff_inverse_map = np.unique(staffs, return_inverse=True)
         for i, staff in enumerate(unique_staffs):
-            staff_el = etree.SubElement(xml_el, 'staff')
+            staff_el = etree.SubElement(measure_el, 'staff')
             # Add staff number
             staff_el.set('n', str(staff))
-            staff_el.set('id', "staff-" + self.elc_id())
+            staff_el.set(XMLNS_ID, "staff-" + self.elc_id())
             staff_notes = note_or_rest_elements[staff_inverse_map == i]
             # Separate by voice
             voices = np.vectorize(lambda x: x.voice)(staff_notes)
@@ -126,7 +137,7 @@ class MEIExporter:
             for j, voice in enumerate(unique_voices):
                 voice_el = etree.SubElement(staff_el, 'layer')
                 voice_el.set('n', str(voice))
-                voice_el.set('id', "voice-" + self.elc_id())
+                voice_el.set(XMLNS_ID, "voice-" + self.elc_id())
                 voice_notes = staff_notes[voice_inverse_map == j]
                 # Sort by onset
                 note_start_times = np.vectorize(lambda x: x.start.t)(voice_notes)
@@ -139,11 +150,16 @@ class MEIExporter:
                     else:
                         self._handle_note_or_rest(notes[0], voice_el)
 
-        return xml_el
+        self._handle_tuplets(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_beams(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_clef_changes(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_ks_changes(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_ts_changes(measure_el, start=measure.start.t, end=measure.end.t)
+        return measure_el
 
     def _handle_chord(self, chord, xml_voice_el):
         chord_el = etree.SubElement(xml_voice_el, 'chord')
-        chord_el.set('id', "chord-" + self.elc_id())
+        chord_el.set(XMLNS_ID, "chord-" + self.elc_id())
         for note in chord:
             self._handle_note_or_rest(note, chord_el)
 
@@ -156,18 +172,132 @@ class MEIExporter:
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, 'rest')
         rest_el.set('dur', SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]])
-        rest_el.set('id', "rest-" + self.elc_id())
+        rest_el.set(XMLNS_ID, "rest-" + self.elc_id())
 
     def _handle_note(self, note, xml_voice_el):
         note_el = etree.SubElement(xml_voice_el, 'note')
         note_el.set('dur', SYMBOLIC_TYPES_TO_MEI_DURS[note.symbolic_duration["type"]])
-        note_el.set('id', "note-" + self.elc_id())
+        note_el.set(XMLNS_ID, "note-" + self.elc_id()) if note.id is None else note_el.set(XMLNS_ID, note.id)
         note_el.set('oct', str(note.octave))
         note_el.set('pname', note.step.lower())
+        if note.tie_next is not None and note.tie_prev is not None:
+            note_el.set('tie', 'm')
+        elif note.tie_next is not None:
+            note_el.set('tie', 'i')
+        elif note.tie_prev is not None:
+            note_el.set('tie', 't')
+
         if note.alter is not None:
             accidental = etree.SubElement(note_el, 'accid')
-            accidental.set('id', "accid-" + self.elc_id())
+            accidental.set(XMLNS_ID, "accid-" + self.elc_id())
             accidental.set('accid', ALTER_TO_MEI[note.alter])
+
+        if isinstance(note, spt.GraceNote):
+            note_el.set('grace', 'acc')
+
+    def _handle_tuplets(self, measure_el, start, end):
+        for tuplet in self.part.iter_all(spt.Tuplet, start=start, end=end):
+            start_note = tuplet.start_note
+            end_note = tuplet.end_note
+            # Find the note element corresponding to the start note i.e. has the same id value
+            start_note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
+            # Find the note element corresponding to the end note i.e. has the same id value
+            end_note_el = measure_el.xpath(f".//*[@xml:id='{end_note.id}']")[0]
+            # Create the tuplet element as parent of the start and end note elements
+            # Make it start at the same index as the start note element
+            tuplet_el = etree.Element('tuplet')
+            layer_el = start_note_el.getparent()
+            layer_el.insert(layer_el.index(start_note_el), tuplet_el)
+            tuplet_el.set(XMLNS_ID, "tuplet-" + self.elc_id())
+            tuplet_el.set('num', str(start_note.symbolic_duration["actual_notes"]))
+            tuplet_el.set('numbase', str(start_note.symbolic_duration["normal_notes"]))
+            # Add all elements between the start and end note elements to the tuplet element as childen
+            # Find them from the xml tree
+            start_note_index = start_note_el.getparent().index(start_note_el)
+            end_note_index = end_note_el.getparent().index(end_note_el)
+            xml_el_within_tuplet = [start_note_el.getparent()[i] for i in range(start_note_index, end_note_index + 1)]
+            for el in xml_el_within_tuplet:
+                tuplet_el.append(el)
+
+    def _handle_beams(self, measure_el, start, end):
+        for beam in self.part.iter_all(spt.Beam, start=start, end=end):
+            start_note = beam.notes[np.argmin([n.start.t for n in beam.notes])]
+            # Beam element is parent of the note element
+            note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
+            layer_el = note_el.getparent()
+            insert_index = layer_el.index(note_el)
+            # If the parent is a tuplet, the beam element should be added as parent of the tuplet element
+            if layer_el.tag == 'tuplet':
+                parent_el = layer_el.getparent()
+                insert_index = parent_el.index(layer_el)
+                layer_el = parent_el
+            # Create the beam element
+            beam_el = etree.Element('beam')
+            layer_el.insert(insert_index, beam_el)
+            beam_el.set(XMLNS_ID, "beam-" + self.elc_id())
+            for note in beam.notes:
+                # Find the note element corresponding to the start note i.e. has the same id value
+                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")
+                if len(note_el) > 0:
+                    note_el = note_el[0]
+                    beam_el.append(note_el)
+
+    def _handle_clef_changes(self, measure_el, start, end):
+        for clef in self.part.iter_all(spt.Clef, start=start, end=end):
+            # Clef element is parent of the note element
+            if clef.start.t == 0:
+                continue
+            # Find the note element corresponding to the start note i.e. has the same id value
+            for note in self.part.iter_all(spt.GenericNote, start=clef.start.t, end=clef.start.t):
+                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")
+                if len(note_el) > 0:
+                    note_el = note_el[0]
+                    layer_el = note_el.getparent()
+                    insert_index = layer_el.index(note_el)
+                    # Create the clef element
+                    clef_el = etree.Element('clef')
+                    layer_el.insert(insert_index, clef_el)
+                    clef_el.set(XMLNS_ID, "clef-" + self.elc_id())
+                    clef_el.set('shape', str(clef.sign))
+                    clef_el.set('line', str(clef.line))
+
+    def _handle_ks_changes(self, measure_el, start, end):
+        # For key signature changes, we add a new scoreDef element at the beginning of the measure
+        # and add the key signature element as attributes of the scoreDef element
+        for key_sig in self.part.iter_all(spt.KeySignature, start=start, end=end):
+            if key_sig.start.t == 0:
+                continue
+            # Create the scoreDef element
+            score_def_el = etree.Element('scoreDef')
+            score_def_el.set(XMLNS_ID, "scoredef-" + self.elc_id())
+            score_def_el.set('mode', key_sig.mode) if key_sig.mode is not None else score_def_el.set('mode', 'major')
+            if key_sig.fifths == 0:
+                score_def_el.set('sig', '0')
+            elif key_sig.fifths > 0:
+                score_def_el.set('sig', str(key_sig.fifths) + 's')
+            else:
+                score_def_el.set('sig', str(abs(key_sig.fifths)) + 'f')
+            # Find the pname from the number of sharps or flats and the mode
+            score_def_el.set('pname', fifths_mode_to_key_name(key_sig.fifths, key_sig.mode).lower())
+            # Add the scoreDef element at before the measure element starts
+            parent = measure_el.getparent()
+            parent.insert(parent.index(measure_el), score_def_el)
+
+    def _handle_ts_changes(self, measure_el, start, end):
+        # For key signature changes, we add a new scoreDef element at the beginning of the measure
+        # and add the key signature element as attributes of the scoreDef element
+        for time_sig in self.part.iter_all(spt.TimeSignature, start=start, end=end):
+            if time_sig.start.t == 0:
+                continue
+            # Create the scoreDef element
+            score_def_el = etree.Element('scoreDef')
+            score_def_el.set(XMLNS_ID, "scoredef-" + self.elc_id())
+
+            # Add the scoreDef element at before the measure element starts
+            parent = measure_el.getparent()
+            parent.insert(parent.index(measure_el), score_def_el)
+            score_def_el.set('count', str(time_sig.beats))
+            score_def_el.set('unit', str(time_sig.beat_type))
 
 
 @deprecated_alias(parts="score_data")
