@@ -50,7 +50,7 @@ class MEIExporter:
         etree.register_namespace("xml", "http://www.w3.org/XML/1998/namespace")
         etree.register_namespace( "mei", "http://www.music-encoding.org/ns/mei")
         mei = etree.Element('mei', nsmap={'xml': "http://www.w3.org/XML/1998/namespace",
-                                          'mei': "http://www.music-encoding.org/ns/mei"})
+                                          None: "http://www.music-encoding.org/ns/mei"})
         # mei.set('xmlns', "http://www.music-encoding.org/ns/mei")
         mei.set('meiversion', "4.0.1")
         # Create child elements
