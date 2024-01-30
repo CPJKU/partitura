@@ -5,6 +5,7 @@ This module contains music related utilities
 """
 from __future__ import annotations
 import copy
+import math
 from collections import defaultdict
 import re
 import warnings
@@ -975,16 +976,18 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     """
     global DURS, SYM_DURS
     qdur = dur / div
+    if qdur == 0:
+        return
     i = find_nearest(DURS, qdur)
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
-        # Guess tuplets (Naive)
+        # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
         type = SYM_DURS[i+3]["type"]
         normal_notes = 2
         return {
             "type": type,
-            "actual_notes": int(normal_notes/qdur),
+            "actual_notes": math.ceil(normal_notes/qdur),
             "normal_notes": normal_notes,
         }
 
