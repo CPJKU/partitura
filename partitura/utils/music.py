@@ -981,12 +981,12 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     else:
         # Guess tuplets (Naive)
         type = SYM_DURS[i+3]["type"]
+        normal_notes = 2
         return {
             "type": type,
-            "actual_notes": int(1/qdur),
-            "normal_notes": 4,
+            "actual_notes": int(normal_notes/qdur),
+            "normal_notes": normal_notes,
         }
-
 
 
 def to_quarter_tempo(unit, tempo):
