@@ -115,7 +115,8 @@ def parse_by_voice(file, dtype=np.object_):
 
 
 def _handle_kern_with_spine_splitting(kern_path):
-    org_file = np.loadtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
+    # org_file = np.loadtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
+    org_file = np.genfromtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
     # Get Main Number of parts and Spline Types
     spline_types = org_file[0].split("\t")
     parsing_idxs = []
