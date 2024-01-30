@@ -6,7 +6,7 @@ This file contains test functions for MEI import
 
 import unittest
 
-from tests import MEI_TESTFILES
+from tests import MEI_TESTFILES, MUSICXML_PATH
 from partitura import load_musicxml, load_mei, EXAMPLE_MEI, save_mei
 import partitura.score as score
 from partitura.io.importmei import MeiParser
@@ -44,6 +44,13 @@ class TestExportMEI(unittest.TestCase):
             self.assertTrue(np.all(ina["pitch"] == ena["pitch"]))
             self.assertTrue(np.all(ina["voice"] == ena["voice"]))
             self.assertTrue(np.all(ina["id"] == ena["id"]))
+
+    def test_export_with_harmony(self):
+        score_fn = os.path.join(MUSICXML_PATH, "test_harmony.musicxml")
+        import_score = load_musicxml(score_fn)
+        with TemporaryDirectory() as tmpdir:
+            tmp_mei = os.path.join(tmpdir, "test.mei")
+            save_mei(import_score, tmp_mei)
 
 
 class TestImportMEI(unittest.TestCase):
