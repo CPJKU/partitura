@@ -2847,7 +2847,8 @@ class RomanNumeral(TimedObject):
         elif major_cond:
             quality = "maj"
         else:
-            raise ValueError(f"Quality for {self.text} was not found")
+            warnings.warn(f"Quality for {self.text} was not found, could be a special case. Setting to None.")
+            quality = None
         return quality
 
     def __str__(self):
