@@ -54,18 +54,19 @@ KERN_NOTES = {
 }
 
 KERN_DURS = {
-    "000": "maxima",
-    "00": "long",
-    "0": "breve",
-    "1": "whole",
-    "2": "half",
-    "4": "quarter",
-    "8": "eighth",
-    "16": "16th",
-    "32": "32nd",
-    "64": "64th",
-    "128": "128th",
-    "256": "256th",
+    "3%2": {"type": "whole", "dots": 0, "actual_notes": 3, "normal_notes": 2},
+    "000": {"type": "maxima"},
+    "00": {"type": "long"},
+    "0": {"type": "breve"},
+    "1": {"type": "whole"},
+    "2": {"type": "half"},
+    "4": {"type": "quarter"},
+    "8": {"type": "eighth"},
+    "16": {"type": "16th"},
+    "32": {"type": "32nd"},
+    "64": {"type": "64th"},
+    "128": {"type": "128th"},
+    "256": {"type": "256th"},
 }
 
 
@@ -492,6 +493,7 @@ class SplineParser(object):
         clef = re.search(r"([GFC])", line).group(0)
         # find the octave
         has_line = re.search(r"([0-9])", line)
+        octave_change = "v" in line
         if has_line is None:
             if clef == "G":
                 clef_line = 2
@@ -503,7 +505,15 @@ class SplineParser(object):
                 raise ValueError("Unrecognized clef line: {}".format(line))
         else:
             clef_line = has_line.group(0)
-        return spt.Clef(sign=clef, staff=self.staff, line=int(clef_line), octave_change=0)
+        if octave_change and clef_line == 2 and clef == "G":
+            octave = -1
+        elif octave_change:
+            warnings.warn("Octave change not supported for clef: {}".format(line))
+            octave = 0
+        else:
+            octave = 0
+
+        return spt.Clef(sign=clef, staff=self.staff, line=int(clef_line), octave_change=octave)
 
     def process_key_signature_line(self, line):
         fifths = line.count("#") - line.count("-")
@@ -542,7 +552,7 @@ class SplineParser(object):
         dots = duration.count(".")
         dur = duration.replace(".", "")
         if dur in KERN_DURS.keys():
-            symbolic_duration = {"type": KERN_DURS[dur]}
+            symbolic_duration = KERN_DURS[dur]
         else:
             dur = float(dur)
             diff = dict(
@@ -553,12 +563,9 @@ class SplineParser(object):
                     )
                 )
             )
-
-            symbolic_duration = {
-                "type": KERN_DURS[diff[min(list(diff.keys()))]],
-                "actual_notes": int(dur // 4),
-                "normal_notes": int(diff[min(list(diff.keys()))]) // 4,
-            }
+            symbolic_duration = KERN_DURS[diff[min(list(diff.keys()))]]
+            symbolic_duration["actual_notes"] = int(dur // 4)
+            symbolic_duration["normal_notes"] = int(diff[min(list(diff.keys()))]) // 4
         symbolic_duration["dots"] = dots
         self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), symbolic_duration["dots"]) if not is_grace else inf
         return symbolic_duration
@@ -618,7 +625,7 @@ class SplineParser(object):
         else:
             pitch = find_pitch.group(0)
         # extract duration can be any of the following: 0-9 .
-        dur_search = re.search(r"([0-9.]+)", line)
+        dur_search = re.search(r"([0-9.%]+)", line)
         # if no duration is found, then the duration is 8 by default (for grace notes with no duration)
         duration = dur_search.group(0) if dur_search else "8"
         # extract symbol can be any of the following: _()[]{}<>|:
