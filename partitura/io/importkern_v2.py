@@ -55,6 +55,7 @@ KERN_NOTES = {
 
 KERN_DURS = {
     "3%2": {"type": "whole", "dots": 0, "actual_notes": 3, "normal_notes": 2},
+    "2%3": {"type": "whole", "dots": 1},
     "000": {"type": "maxima"},
     "00": {"type": "long"},
     "0": {"type": "breve"},
@@ -555,14 +556,16 @@ class SplineParser(object):
             symbolic_duration = KERN_DURS[dur]
         else:
             dur = float(dur)
+            key_loolup = [2 ** i for i in range(0, 9)]
             diff = dict(
                 (
                     map(
-                        lambda x: (dur - int(x), str(int(x))) if dur > int(x) else (dur + int(x), str(int(x))),
-                        KERN_DURS.keys(),
+                        lambda x: (dur - x, str(x)) if dur > x else (dur + x, str(x)),
+                        key_loolup,
                     )
                 )
             )
+
             symbolic_duration = KERN_DURS[diff[min(list(diff.keys()))]]
             symbolic_duration["actual_notes"] = int(dur // 4)
             symbolic_duration["normal_notes"] = int(diff[min(list(diff.keys()))]) // 4
@@ -685,10 +688,3 @@ class SplineParser(object):
         self.total_parsed_elements += 1
         chord = ("c", [self.meta_note_line(n, add=False) for n in line.split(" ")])
         return chord
-
-
-# if __name__ == "__main__":
-#     kern_path = "/home/manos/Desktop/test.krn"
-#     x = load_kern(kern_path)
-#     import partitura as pt
-#     pt.save_musicxml(x, "/home/manos/Desktop/test_kern.musicxml")
