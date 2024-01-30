@@ -155,6 +155,7 @@ class MEIExporter:
         self._handle_clef_changes(measure_el, start=measure.start.t, end=measure.end.t)
         self._handle_ks_changes(measure_el, start=measure.start.t, end=measure.end.t)
         self._handle_ts_changes(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_harmony(measure_el, start=measure.start.t, end=measure.end.t)
         return measure_el
 
     def _handle_chord(self, chord, xml_voice_el):
@@ -304,6 +305,18 @@ class MEIExporter:
             parent.insert(parent.index(measure_el), score_def_el)
             score_def_el.set('count', str(time_sig.beats))
             score_def_el.set('unit', str(time_sig.beat_type))
+
+    def _handle_harmony(self, measure_el, start, end):
+        # For key signature changes, we add a new scoreDef element at the beginning of the measure
+        # and add the key signature element as attributes of the scoreDef element
+        for harmony in self.part.iter_all(spt.RomanNumeral, start=start, end=end):
+            harm_el = etree.SubElement(measure_el, 'harm')
+            harm_el.set(XMLNS_ID, "harm-" + self.elc_id())
+            harm_el.set("staff", str(self.part.number_of_staves))
+            harm_el.set("tstamp", str(np.diff(self.part.quarter_map([start, harmony.start.t]))[0]+1))
+            harm_el.set("place", "below")
+            # text is a child element of harmony but not a xml element
+            harm_el.text = harmony.text
 
 
 @deprecated_alias(parts="score_data")
