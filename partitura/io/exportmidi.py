@@ -403,7 +403,7 @@ def save_score_midi(
             )
         # default tempo
         if not tempos:
-            tempos[0]  =   MetaMessage("set_tempo", tempo=500000)   
+            tempos[0] = MetaMessage("set_tempo", tempo=500000)
 
         if anacrusis_behavior == "time_sig_change":
             # Change time signature to match the duration of the measure
