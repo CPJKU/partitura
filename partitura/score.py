@@ -1227,7 +1227,6 @@ class Part(object):
 
 
 class TimePoint(ComparableMixin):
-
     """A TimePoint represents a temporal position within a
     :class:`Part`.
 
@@ -4872,16 +4871,20 @@ def merge_parts(parts, reassign="voice"):
     note_arrays = [part.note_array(include_staff=True) for part in parts]
     # find the maximum number of voices for each part (voice number start from 1)
     maximum_voices = [
-        max(note_array["voice"], default=0)
-        if max(note_array["voice"], default=0) != 0
-        else 1
+        (
+            max(note_array["voice"], default=0)
+            if max(note_array["voice"], default=0) != 0
+            else 1
+        )
         for note_array in note_arrays
     ]
     # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
     maximum_staves = [
-        max(note_array["staff"], default=0)
-        if max(note_array["staff"], default=0) != 0
-        else 1
+        (
+            max(note_array["staff"], default=0)
+            if max(note_array["staff"], default=0) != 0
+            else 1
+        )
         for note_array in note_arrays
     ]
 
