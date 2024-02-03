@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from math import ceil
 import partitura.score as spt
@@ -121,13 +123,18 @@ def read_note_tsv(note_tsv_path, metadata=None):
     for tied_note in note_array[tied_note_mask]:
         for note in part.iter_all(spt.Note, tied_note["onset_div"], tied_note["onset_div"]+1):
             if note.id == "n-{}".format(tied_note["id"]):
+                found_next = False
                 for note_next in part.iter_all(spt.Note, note.end.t, note.end.t+1, mode="starting"):
-                    if note_next.alter == note.alter and note_next.step == note.step and note_next.octave == note.octave:
-                        assert note_next.voice == note.voice, "Tied notes must be in the same voice"
-                        assert note_next.staff == note.staff, "Tied notes must be in the same staff"
+                    condition = note_next.alter == note.alter and note_next.step == note.step and \
+                                note_next.octave == note.octave and note.voice == note_next.voice and \
+                                note.staff == note_next.staff
+                    if condition:
                         note.tie_next = note_next
                         note_next.tie_prev = note
+                        found_next = condition
                         break
+                if not found_next:
+                    warnings.warn("Opening tie, but no matching note found.")
 
     return part
 
