@@ -142,6 +142,7 @@ def read_note_tsv(note_tsv_path, metadata=None):
 def read_measure_tsv(measure_tsv_path, part):
     qdivs = part._quarter_durations[0]
     data = pd.read_csv(measure_tsv_path, sep="\t")
+    data["quarterbeats"] = data["quarterbeats"].apply(eval) if data.dtypes["quarterbeats"] == str or data.dtypes["quarterbeats"] == object else data["quarterbeats"]
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
     data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
     repeat_index = 0
@@ -162,7 +163,9 @@ def read_measure_tsv(measure_tsv_path, part):
 def read_harmony_tsv(beat_tsv_path, part):
     qdivs = part._quarter_durations[0]
     data = pd.read_csv(beat_tsv_path, sep="\t")
-    data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"].apply(eval)])
+    data["quarterbeats"] = data["quarterbeats"].apply(eval) if data.dtypes["quarterbeats"] == str or data.dtypes[
+        "quarterbeats"] == object else data["quarterbeats"]
+    data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
     data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
     is_na_cad = data["cadence"].isna()
     is_na_roman = data["chord"].isna()
