@@ -14,6 +14,8 @@ def read_note_tsv(note_tsv_path, metadata=None):
     # data = np.genfromtxt(note_tsv_path, delimiter="\t", dtype=None, names=True, invalid_raise=False)
     # unique_durations = np.unique(data["duration"])
     data = pd.read_csv(note_tsv_path, sep="\t")
+    data["quarterbeats"] = data["quarterbeats"].apply(eval) if data.dtypes["quarterbeats"] == str or data.dtypes[
+        "quarterbeats"] == object else data["quarterbeats"]
     unique_durations = data["duration"].unique()
     denominators = [int(qb.split("/")[1]) for qb in unique_durations if "/" in qb]
     # transform quarter_beats to quarter_divs
