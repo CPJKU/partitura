@@ -629,6 +629,41 @@ class Part(object):
         return [e for e in self.iter_all(TempoDirection, include_subclasses=True)]
 
     @property
+    def cadences(self):
+        """Return a list of all cadences in the part
+
+        Returns
+        -------
+        list
+            List of Cadence objects
+
+        """
+        return [e for e in self.iter_all(Cadence, include_subclasses=False)]
+
+    @property
+    def harmony(self):
+        """Return a list of all harmony in the part
+
+        Returns
+        -------
+        list
+            List of Harmony objects
+
+        """
+        return [e for e in self.iter_all(Harmony, include_subclasses=True)]
+
+    @property
+    def phrases(self):
+        """Return a list of all phrases in the part
+
+        Returns
+        -------
+        list
+            List of Phrase objects
+        """
+        return [e for e in self.iter_all(Phrase, include_subclasses=False)]
+
+    @property
     def articulations(self):
         """Return a list of all Articulation markings in the part
 
@@ -2721,7 +2756,7 @@ class Harmony(TimedObject):
         return f'{super().__str__()} "{self.text}"'
 
 
-class RomanNumeral(TimedObject):
+class RomanNumeral(Harmony):
     """A harmony element in the score usually for Roman Numerals.
 
     Parameters
@@ -2736,7 +2771,7 @@ class RomanNumeral(TimedObject):
     """
 
     def __init__(self, text, inversion=None, local_key=None, primary_degree=None, secondary_degree=None, quality=None):
-        super().__init__()
+        super().__init__(text)
         self.text = text
         self.accepted_qualities = ('7', 'aug', 'aug6', 'aug7', 'dim', 'dim7', 'hdim7', 'maj', 'maj7', 'min', 'min7')
         self.has_seven = "7" in text
@@ -2884,11 +2919,11 @@ class Phrase(TimedObject):
         return f'{super().__str__()}'
 
 
-class ChordSymbol(TimedObject):
+class ChordSymbol(Harmony):
     """A harmony element in the score usually for Chord Symbols."""
 
     def __init__(self, root, kind, bass=None):
-        super().__init__()
+        super().__init__(text=root + kind + (f"/{bass}" if bass else ""))
         self.kind = kind
         self.root = root
         self.bass = bass
