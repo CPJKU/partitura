@@ -14,6 +14,10 @@ def read_note_tsv(note_tsv_path, metadata=None):
     # data = np.genfromtxt(note_tsv_path, delimiter="\t", dtype=None, names=True, invalid_raise=False)
     # unique_durations = np.unique(data["duration"])
     data = pd.read_csv(note_tsv_path, sep="\t")
+    # Hack for empty values in quarterbeats, to investigate.
+    # (It happens with voltas when the second volta has a different number of measures)
+    if not np.all(data["quarterbeats"].isna() == False):
+        data = data[~data["quarterbeats"].isna()]
     data["quarterbeats"] = data["quarterbeats"].apply(eval) if data.dtypes["quarterbeats"] == str or data.dtypes[
         "quarterbeats"] == object else data["quarterbeats"]
     unique_durations = data["duration"].unique()
@@ -37,7 +41,7 @@ def read_note_tsv(note_tsv_path, metadata=None):
     data["duration_div"] = duration_div
     data["alter"] = alter
     data["pitch"] = data["midi"]
-    grace_mask = ~data["gracenote"].isna()
+    grace_mask = ~data["gracenote"].isna().to_numpy() if "gracenote" in data.columns else np.zeros(len(data), dtype=bool)
     data["id"] = np.arange(len(data))
     # Rewrite Voices for correct export
     staffs = data["staff"].unique()
@@ -144,20 +148,26 @@ def read_note_tsv(note_tsv_path, metadata=None):
 def read_measure_tsv(measure_tsv_path, part):
     qdivs = part._quarter_durations[0]
     data = pd.read_csv(measure_tsv_path, sep="\t")
+    # Hack for empty values in quarterbeats, to investigate.
+    # (It happens with voltas when the second volta has a different number of measures)
+    if not np.all(data["quarterbeats"].isna() == False):
+        data = data[~data["quarterbeats"].isna()]
     data["quarterbeats"] = data["quarterbeats"].apply(eval) if data.dtypes["quarterbeats"] == str or data.dtypes["quarterbeats"] == object else data["quarterbeats"]
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
     data["duration_div"] = np.array([int(qd * qdivs) for qd in data["duration_qb"]])
-    repeat_index = 0
+    # Get first index
+    repeat_index, _ = next(data.iterrows())
 
     for idx, row in data.iterrows():
         part.add(spt.Measure(number=row["mc"], name=row["mn"]), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
-        # if row["repeat"] == "start":
+
         if row["repeats"] == "start":
             repeat_index = idx
-        elif row["repeats"] == "":
+        elif row["repeats"] == "end":
             # Find the previous repeat start
-            start_times = data[repeat_index]["onset_div"]
+            start_times = data.iloc[repeat_index]["onset_div"]
             part.add(spt.Repeat(), start=start_times, end=row["onset_div"])
+
     part.add(spt.Fine(), start=part.last_point.t)
     return
 
@@ -165,6 +175,10 @@ def read_measure_tsv(measure_tsv_path, part):
 def read_harmony_tsv(beat_tsv_path, part):
     qdivs = part._quarter_durations[0]
     data = pd.read_csv(beat_tsv_path, sep="\t")
+    # Hack for empty values in quarterbeats, to investigate.
+    # (It happens with voltas when the second volta has a different number of measures)
+    if not np.all(data["quarterbeats"].isna() == False):
+        data = data[~data["quarterbeats"].isna()]
     data["quarterbeats"] = data["quarterbeats"].apply(eval) if data.dtypes["quarterbeats"] == str or data.dtypes[
         "quarterbeats"] == object else data["quarterbeats"]
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
@@ -189,12 +203,19 @@ def read_harmony_tsv(beat_tsv_path, part):
                         local_key=row["localkey"],
                         ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
 
-    phrase_starts = data[data["phraseend"] == "{"]
-    phrase_ends = data[data["phraseend"] == "}"]
+    # Check if phrase information is available.
+    if np.all(data["phraseend"].isna()):
+        return
+    # search if character "{, }" in present in values of column phraseend
+    phrase_starts = data[data["phraseend"].str.contains("{") == True]
+    phrase_ends = data[data["phraseend"].str.contains("}") == True]
     # Check that the number of phrase starts and ends match
-    assert len(phrase_starts) == len(phrase_ends), "Number of phrase starts and ends do not match"
-    for start, end in zip(phrase_starts.iterrows(), phrase_ends.iterrows()):
-        part.add(spt.Phrase(), start=start[1]["onset_div"], end=end[1]["onset_div"])
+    if len(phrase_starts) == len(phrase_ends):
+        for start, end in zip(phrase_starts.iterrows(), phrase_ends.iterrows()):
+            part.add(spt.Phrase(), start=start[1]["onset_div"], end=end[1]["onset_div"])
+    else:
+        # TODO: account for unfoldings and repeats.
+        warnings.warn("Number of phrase starts and ends do not match, skipping parsing phrases")
     return
 
 
