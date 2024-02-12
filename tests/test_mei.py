@@ -31,7 +31,7 @@ import numpy as np
 #         self.assertTrue(mei.decode('utf-8') == target_mei, msg)
 
 class TestExportMEI(unittest.TestCase):
-    def test_export_mei(self):
+    def test_export_mei_simple(self):
         import_score = load_mei(EXAMPLE_MEI)
         ina = import_score.note_array()
         with TemporaryDirectory() as tmpdir:
@@ -44,6 +44,18 @@ class TestExportMEI(unittest.TestCase):
             self.assertTrue(np.all(ina["pitch"] == ena["pitch"]))
             self.assertTrue(np.all(ina["voice"] == ena["voice"]))
             self.assertTrue(np.all(ina["id"] == ena["id"]))
+
+    def test_export_mei(self):
+        import_score = load_musicxml(os.path.join(MUSICXML_PATH, "test_chew_vosa_example.xml"), force_note_ids=True)
+        ina = import_score.note_array()
+        with TemporaryDirectory() as tmpdir:
+            tmp_mei = os.path.join(tmpdir, "test.mei")
+            save_mei(import_score, tmp_mei)
+            export_score = load_mei(tmp_mei)
+            ena = export_score.note_array()
+            self.assertTrue(np.all(ina["onset_beat"] == ena["onset_beat"]))
+            self.assertTrue(np.all(ina["duration_beat"] == ena["duration_beat"]))
+            self.assertTrue(np.all(ina["pitch"] == ena["pitch"]))
 
     def test_export_with_harmony(self):
         score_fn = os.path.join(MUSICXML_PATH, "test_harmony.musicxml")
