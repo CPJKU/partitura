@@ -307,8 +307,11 @@ class MEIExporter:
             score_def_el.set('unit', str(time_sig.beat_type))
 
     def _handle_harmony(self, measure_el, start, end):
-        # For key signature changes, we add a new scoreDef element at the beginning of the measure
-        # and add the key signature element as attributes of the scoreDef element
+        """
+        For harmonies we add a new harm element at the beginning of the measure.
+        The position doesn't really matter since the tstamp attribute will place it correctly
+        The harmonies will be displayed below the lowest staff.
+        """
         for harmony in self.part.iter_all(spt.RomanNumeral, start=start, end=end):
             harm_el = etree.SubElement(measure_el, 'harm')
             harm_el.set(XMLNS_ID, "harm-" + self.elc_id())
