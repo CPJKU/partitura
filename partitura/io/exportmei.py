@@ -347,7 +347,16 @@ def save_mei(
     """
 
     if isinstance(score_data, spt.Score):
-        score_data = spt.merge_parts(score_data.parts)
+        parts = score_data.parts
+    elif isinstance(score_data, list):
+        parts = score_data
+    else:
+        parts = [score_data]
+
+    if len(parts) > 1:
+        raise ValueError("Partitura supports only one part or PartGroup per MEI file.")
+
+    score_data = parts[0]
 
     exporter = MEIExporter(score_data)
     root = exporter.export_to_mei()
