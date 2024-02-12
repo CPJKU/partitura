@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from numbers import Number
 
 # import copy
-from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
+from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES, INTERVAL_TO_SEMITONES
 import warnings, sys
 import numpy as np
 import re
@@ -2962,6 +2962,10 @@ class Interval(object):
             "up",
             "down",
         ], f"Interval direction {self.direction} not found"
+
+    @property
+    def semitones(self):
+        return INTERVAL_TO_SEMITONES[self.quality + str(self.number)]
 
     def __str__(self):
         return f'{super().__str__()} "{self.number}{self.quality}"'
