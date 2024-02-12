@@ -23,7 +23,7 @@ from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
 from .io.importparangonada import load_parangonada_csv
 from .io.exportparangonada import save_parangonada_csv, save_csv_for_parangonada
 from .io.exportaudio import save_wav
-from .io.mei_export_v2 import save_mei
+from .io.exportmei import save_mei
 from .display import render
 from . import musicanalysis
 from .musicanalysis import make_note_features, compute_note_array, full_note_array
