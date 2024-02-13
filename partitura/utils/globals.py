@@ -431,3 +431,50 @@ MAX_AGENTS = 100  # delete low-scoring agents when there are more than MAX_AGENT
 CHORD_SPREAD_TIME = 1 / 12  # for onset aggregation
 
 
+
+Voc_majmin = [
+    "Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7"
+]
+
+Voc_maj_only = [
+    "I", "ii", "iii", "IV", "vi", "I7", "ii7", "iii7", "IV7", "vi7", "viio7", "V+"
+]
+
+Voc_min_only = [
+    "i", "iio", "III+", "iv", "VI", "i7", "iio7", "III+7", "iv7", "VI7", "viio7"
+]
+
+Voc_maj = Voc_majmin + Voc_maj_only
+Voc_min = Voc_majmin + Voc_min_only
+
+Voc_T_degree = [
+    "I", "II", "III", "IV", "V", "VI", "VII",
+    "i", "ii", "iii", "iv", "v", "vi", "vii",
+]
+
+
+BASE_PC = {
+    "C": 0,
+    "D": 2,
+    "E": 4,
+    "F": 5,
+    "G": 7,
+    "A": 9,
+    "B": 11,
+}
+
+ALT_TO_INT = {
+    "--": -2,
+    "-": -1,
+    "": 0,
+    "#": 1,
+    "##": 2,
+}
+
+INT_TO_ALT = {
+    -2: "--",
+    -1: "-",
+    0: "",
+    1: "#",
+    2: "##",
+}
