@@ -11,6 +11,7 @@ from tests import KERN_TESTFILES, KERN_TIES, KERN_PATH
 from partitura.score import merge_parts
 from partitura.utils import ensure_notearray
 from partitura.io.importkern_v2 import load_kern
+from partitura.io.exportkern import save_kern
 from partitura import load_musicxml
 import numpy as np
 
@@ -52,6 +53,13 @@ class TestImportKERN(unittest.TestCase):
         for i, part in enumerate(score.parts):
             vn = part.note_array()["voice"].max()
             self.assertTrue(voices_per_part[i] == vn)
+
+    def test_import_export(self):
+        imported_score = load_kern(partitura.EXAMPLE_KERN)
+        exported_score = save_kern(imported_score)
+        x = np.loadtxt(partitura.EXAMPLE_KERN, comments="!", dtype=str, encoding="utf-8", delimiter="\t")
+        self.assertTrue(np.all(x == exported_score.to_kern()))
+
 
 # if __name__ == "__main__":
 #     unittest.main()
