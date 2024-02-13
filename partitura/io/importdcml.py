@@ -1,9 +1,10 @@
 import warnings
-
+import re
 import numpy as np
 from math import ceil
 import partitura.score as spt
-from partitura.utils.music import estimate_symbolic_duration
+from partitura.utils.music import estimate_symbolic_duration, transpose_note
+from partitura.utils.globals import ALT_TO_INT, INT_TO_ALT
 try:
     import pandas as pd
 except ImportError:
@@ -190,17 +191,33 @@ def read_harmony_tsv(beat_tsv_path, part):
         # row["chord_type"] contains the quality of the chord but it is encoded differently than for other formats
         # and datasets. For example, a minor chord is encoded as "m" instead of "min" or "minor"
         # Therefore we do not add the quality to the RomanNumeral object. Then it is extracted from the text.
+        # Local key is in relation to the global key.
+        if row["globalkey"].islower():
+            transposition_interval = spt.Roman2Interval_Min[row["localkey"]]
+        else:
+            transposition_interval = spt.Roman2Interval_Maj[row["localkey"]]
+
+        key_step = re.search(r"[a-gA-G]", row["globalkey"]).group(0)
+        key_alter = re.search(r"[#b]", row["globalkey"]).group(0) if re.search(r"[#b]", row["globalkey"]) else ""
+        key_alter = ALT_TO_INT[key_alter]
+        key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+        local_key = key_step + INT_TO_ALT[key_alter]
         part.add(
             spt.RomanNumeral(text=row["chord"],
-                             local_key=row["localkey"],
+                             local_key=local_key,
 
                              # quality=row["chord_type"],
                              ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
 
     for idx, row in data[~is_na_cad].iterrows():
+        key_step = re.search(r"[a-gA-G]", row["localkey"]).group(0)
+        key_alter = re.search(r"[#b]", row["localkey"]).group(0) if re.search(r"[#b]", row["localkey"]) else ""
+        key_alter = ALT_TO_INT[key_alter]
+        key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+        local_key = key_step + INT_TO_ALT[key_alter]
         part.add(
             spt.Cadence(text=row["cadence"],
-                        local_key=row["localkey"],
+                        local_key=local_key,
                         ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
 
     # Check if phrase information is available.
