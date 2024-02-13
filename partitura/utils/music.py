@@ -3164,6 +3164,27 @@ def tokenize(
     return tokens
 
 
+def step2pc(step, alter):
+    """
+    Convert a step to a pitch class.
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+
+    Returns
+    -------
+    pc: int
+        The pitch class of the step.
+    """
+    base_pc = BASE_PC[step]
+    pc = (base_pc + alter) % 12
+    return pc
+
+
 if __name__ == "__main__":
     import doctest
 
