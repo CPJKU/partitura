@@ -21,7 +21,7 @@ import numpy as np
 import re
 from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
-
+import difflib
 from partitura.utils import (
     ComparableMixin,
     ReplaceRefMixin,
@@ -47,7 +47,7 @@ from partitura.utils import (
 )
 from partitura.utils.generic import interp1d
 from partitura.utils.music import transpose_note, step2pc
-from partitura.utils.globals import (INT_TO_ALT, ALT_TO_INT)
+from partitura.utils.globals import (INT_TO_ALT, ALT_TO_INT, ACCEPTED_ROMANS)
 
 
 class Part(object):
@@ -2829,8 +2829,12 @@ class RomanNumeral(Harmony):
         roman_text = self.text.split(":")[-1]
         primary_degree = re.search(r'[a-zA-Z+]+', roman_text)
         if primary_degree:
-            # remove o from the text
-            return primary_degree.group(0).replace("o", "")
+            prim_d = primary_degree.group(0)
+            # if the primary degree is not in accepted values, return the closest one
+            if prim_d in ACCEPTED_ROMANS:
+                return prim_d
+            else:
+                return difflib.get_close_matches(prim_d, ACCEPTED_ROMANS, n=1, cutoff=0.5)[0]
         return None
 
     def _process_secondary_degree(self):
@@ -2909,7 +2913,7 @@ class RomanNumeral(Harmony):
         step, alter = transpose_note(key_step, key_alter, interval)
         # Corrected step after degree1
         # TODO add support for diminished and augmented chords
-        interval = Roman2Interval_Min[self.primary_degree] if self.primary_degree.islower() else Roman2Interval_Maj[self.primary_degree]
+        interval = Roman2Interval_Min[self.primary_degree] if key_step.islower() else Roman2Interval_Maj[self.primary_degree]
         step, alter = transpose_note(step, alter, interval)
         root = step + INT_TO_ALT[alter]
         return root
@@ -5225,12 +5229,19 @@ Roman2Interval_Maj = {
     "v": Interval(5, "P"),
     "vi": Interval(6, "M"),
     "vii": Interval(7, "M"),
+    "viio": Interval(7, "M"),
+    "N": Interval(2, "m"),
+    "iio": Interval(2, "M"),
+    "Ger7": Interval(4, "A"),
+    "Fr7": Interval(4, "A"),
+    "It": Interval(4, "A"),
 }
 
 Roman2Interval_Min = {
     "I": Interval(1, "P"),
     "II": Interval(2, "M"),
     "III": Interval(3, "m"),
+    "III+": Interval(3, "m"),
     "IV": Interval(4, "P"),
     "V": Interval(5, "P"),
     "VI": Interval(6, "m"),
@@ -5242,6 +5253,12 @@ Roman2Interval_Min = {
     "v": Interval(5, "P"),
     "vi": Interval(6, "m"),
     "vii": Interval(7, "m"),
+    "viio": Interval(7, "M"),
+    "N": Interval(2, "m"),
+    "iio": Interval(2, "M"),
+    "Ger7": Interval(4, "A"),
+    "Fr7": Interval(4, "A"),
+    "It": Interval(4, "A"),
 }
 
 

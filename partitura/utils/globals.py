@@ -433,7 +433,7 @@ CHORD_SPREAD_TIME = 1 / 12  # for onset aggregation
 
 
 Voc_majmin = [
-    "Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7"
+    "Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7", "v"
 ]
 
 Voc_maj_only = [
@@ -446,6 +446,8 @@ Voc_min_only = [
 
 Voc_maj = Voc_majmin + Voc_maj_only
 Voc_min = Voc_majmin + Voc_min_only
+
+ACCEPTED_ROMANS = list(set(Voc_maj + Voc_min))
 
 Voc_T_degree = [
     "I", "II", "III", "IV", "V", "VI", "VII",
