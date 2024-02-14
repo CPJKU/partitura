@@ -57,8 +57,8 @@ class TestImportKERN(unittest.TestCase):
     def test_import_export(self):
         imported_score = load_kern(partitura.EXAMPLE_KERN)
         exported_score = save_kern(imported_score)
-        x = np.loadtxt(partitura.EXAMPLE_KERN, comments="!", dtype=str, encoding="utf-8", delimiter="\t")
-        self.assertTrue(np.all(x == exported_score.to_kern()))
+        x = np.loadtxt(partitura.EXAMPLE_KERN, comments="!!", dtype=str, encoding="utf-8", delimiter="\t")
+        self.assertTrue(np.all(x == exported_score))
 
 
 # if __name__ == "__main__":

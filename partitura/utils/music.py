@@ -15,7 +15,7 @@ from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
 import partitura
 from tempfile import TemporaryDirectory
-import os
+import os, math
 
 try:
     import miditok
@@ -935,11 +935,20 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     """
     global DURS, SYM_DURS
     qdur = dur / div
+    if qdur == 0:
+        return {}
     i = find_nearest(DURS, qdur)
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
-        return None
+        # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
+        type = SYM_DURS[i+3]["type"]
+        normal_notes = 2
+        return {
+            "type": type,
+            "actual_notes": math.ceil(normal_notes/qdur),
+            "normal_notes": normal_notes,
+        }
 
 
 def to_quarter_tempo(unit, tempo):
