@@ -100,14 +100,18 @@ class M21Parser:
             for i_pitch, pitch in enumerate(generic_note.pitches):
                 if generic_note.duration.isGrace:
                     note = pt.score.GraceNote(
-                        grace_type="acciaccatura"
-                        if generic_note.duration.slash
-                        else "appoggiatura",
+                        grace_type=(
+                            "acciaccatura"
+                            if generic_note.duration.slash
+                            else "appoggiatura"
+                        ),
                         step=pitch.step,
                         octave=pitch.octave,
-                        alter=pitch.accidental.alter
-                        if pitch.accidental is not None
-                        else None,
+                        alter=(
+                            pitch.accidental.alter
+                            if pitch.accidental is not None
+                            else None
+                        ),
                         # id="{}_{}".format(generic_note.id, i_pitch),
                         id=generic_note.id,
                         voice=self.find_voice(generic_note),
@@ -119,9 +123,11 @@ class M21Parser:
                     note = pt.score.Note(
                         step=pitch.step,
                         octave=pitch.octave,
-                        alter=pitch.accidental.alter
-                        if pitch.accidental is not None
-                        else None,
+                        alter=(
+                            pitch.accidental.alter
+                            if pitch.accidental is not None
+                            else None
+                        ),
                         # id="{}_{}".format(generic_note.id, i_pitch),
                         id=generic_note.id,
                         voice=self.find_voice(generic_note),
