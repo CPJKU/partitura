@@ -1150,9 +1150,11 @@ class MatchOrnamentNote(BaseOrnamentLine):
             version=version,
             anchor=instance.Anchor,
             note=MatchNote.from_instance(instance.note, version=version),
-            ornament_type=["trill"]
-            if instance.version < Version(1, 0, 0)
-            else instance.OrnamentType,
+            ornament_type=(
+                ["trill"]
+                if instance.version < Version(1, 0, 0)
+                else instance.OrnamentType
+            ),
         )
 
 
@@ -1347,9 +1349,9 @@ def make_section(
         start_in_beats_original=start_in_beats_original,
         end_in_beats_unfolded=end_in_beats_unfolded,
         end_in_beats_original=end_in_beats_original,
-        repeat_end_type=[repeat_end_type]
-        if isinstance(repeat_end_type, str)
-        else repeat_end_type,
+        repeat_end_type=(
+            [repeat_end_type] if isinstance(repeat_end_type, str) else repeat_end_type
+        ),
     )
     return ml
 
