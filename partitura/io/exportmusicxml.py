@@ -841,7 +841,7 @@ def do_harmony(part, start, end):
     for h in harmony:
         harmony_e = etree.Element("harmony", print_frame="no")
         function = etree.SubElement(harmony_e, "function")
-        function.text = h.text
+        function.text = "|" + h.text
         kind_e = etree.SubElement(harmony_e, "kind", text="")
         kind_e.text = "none"
         result.append((h.start.t, None, harmony_e))
