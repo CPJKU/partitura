@@ -3,10 +3,9 @@
 """
 This module contains methods for importing Humdrum Kern files.
 """
-import math
-import re
+import copy
+import re, sys
 import warnings
-
 from typing import Union, Optional
 import numpy as np
 from math import inf, ceil
@@ -169,6 +168,45 @@ def _handle_kern_with_spine_splitting(kern_path):
     #                     break
 
 
+def element_parsing(part, elements, total_duration_values, same_part):
+    divs_pq = part._quarter_durations[0]
+    current_tl_pos = 0
+    measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
+    for i in range(elements.shape[0]):
+        element = elements[i]
+        if element is None:
+            continue
+        if isinstance(element, spt.GenericNote):
+            if total_duration_values[i] == 0:
+                duration_divs = symbolic_to_numeric_duration(element.symbolic_duration, divs_pq)
+            else:
+                quarter_duration = 4 / total_duration_values[i]
+                duration_divs = ceil(quarter_duration * divs_pq)
+            el_end = current_tl_pos + duration_divs
+            part.add(element, start=current_tl_pos, end=el_end)
+            current_tl_pos = el_end
+        elif isinstance(element, tuple):
+            # Chord
+            quarter_duration = 4 / total_duration_values[i]
+            duration_divs = ceil(quarter_duration * divs_pq)
+            el_end = current_tl_pos + duration_divs
+            for note in element[1]:
+                part.add(note, start=current_tl_pos, end=el_end)
+            current_tl_pos = el_end
+        elif isinstance(element, spt.Slur):
+            start_sl = element.start_note.start.t
+            end_sl = element.end_note.start.t
+            part.add(element, start=start_sl, end=end_sl)
+
+        else:
+            # Do not repeat structural elements if they are being added to the same part.
+            if not same_part:
+                part.add(element, start=current_tl_pos)
+            else:
+                if isinstance(element, spt.Measure):
+                    current_tl_pos = measure_mapping[element.number]
+
+
 # functions to initialize the kern parser
 def load_kern(
     filename: PathLike,
@@ -215,6 +253,10 @@ def load_kern(
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
     p_same_part = np.all(splines[has_instrument] == splines[has_instrument][0], axis=0) if np.any(has_instrument) else False
+    total_durations_list = list()
+    elements_list = list()
+    part_assignments = list()
+    copy_partlist = list()
     for j, spline in enumerate(splines):
         parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j), staff=prev_staff)
         same_part = False
@@ -257,43 +299,23 @@ def load_kern(
             divs_pq = divs_pq if divs_pq > 4 else 4
             # Initialize Part
             part = spt.Part(id=parser.id, quarter_duration=divs_pq, part_name=parser.name)
-        current_tl_pos = 0
 
-        measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
-        for i in range(elements.shape[0]):
-            element = elements[i]
-            if element is None:
-                continue
-            if isinstance(element, spt.GenericNote):
-                if parser.total_duration_values[i] == 0:
-                    duration_divs = symbolic_to_numeric_duration(element.symbolic_duration, divs_pq)
-                else:
-                    quarter_duration = 4 / parser.total_duration_values[i]
-                    duration_divs = ceil(quarter_duration*divs_pq)
-                el_end = current_tl_pos + duration_divs
-                part.add(element, start=current_tl_pos, end=el_end)
-                current_tl_pos = el_end
-            elif isinstance(element, tuple):
-                # Chord
-                quarter_duration = 4 / parser.total_duration_values[i]
-                duration_divs = ceil(quarter_duration*divs_pq)
-                el_end = current_tl_pos + duration_divs
-                for note in element[1]:
-                    part.add(note, start=current_tl_pos, end=el_end)
-                current_tl_pos = el_end
-            elif isinstance(element, spt.Slur):
-                start_sl = element.start_note.start.t
-                end_sl = element.end_note.start.t
-                part.add(element, start=start_sl, end=end_sl)
+        part_assignments.append(same_part)
+        total_durations_list.append(parser.total_duration_values)
+        elements_list.append(elements)
+        copy_partlist.append(part)
 
-            else:
-                # Do not repeat structural elements if they are being added to the same part.
-                if not same_part:
-                    part.add(element, start=current_tl_pos)
-                else:
-                    if isinstance(element, spt.Measure):
-                        current_tl_pos = measure_mapping[element.number]
+    # Currate parts to the same divs per quarter
+    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in copy_partlist])
+    for part in copy_partlist:
+        part.set_quarter_duration(0, divs_pq)
 
+    for (part, elements, total_duration_values, same_part) in zip(copy_partlist, elements_list, total_durations_list, part_assignments):
+        element_parsing(part, elements, total_duration_values, same_part)
+
+    for i, part in enumerate(copy_partlist):
+        if part_assignments[i]:
+            continue
         # For all measures add end time as beginning time of next measure
         measures = part.measures
         for i in range(len(measures) - 1):
@@ -306,10 +328,6 @@ def load_kern(
         if parser.id not in [p.id for p in partlist]:
             partlist.append(part)
 
-    # currate parts to the same divs per quarter
-    # divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in partlist])
-    # for part in partlist:
-    #     part.set_quarter_duration(0, divs_pq)
 
     spt.assign_note_ids(
         partlist, keep=(force_note_ids is True or force_note_ids == "keep")
