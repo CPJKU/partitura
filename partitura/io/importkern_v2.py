@@ -3,6 +3,7 @@
 """
 This module contains methods for importing Humdrum Kern files.
 """
+import copy
 import math
 import re
 import warnings
@@ -307,16 +308,28 @@ def load_kern(
             partlist.append(part)
 
     # currate parts to the same divs per quarter
-    # divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in partlist])
-    # for part in partlist:
-    #     part.set_quarter_duration(0, divs_pq)
+    # TODO: do this during parsing
+    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in partlist])
+    new_partlist = list()
+    for part in partlist:
+        if part._quarter_durations[0] != divs_pq:
+            new_part = spt.Part(part.id, part.part_name, part.part_abbreviation, quarter_duration=divs_pq)
+            multiplier = divs_pq // part._quarter_durations[0]
+            for el in part.iter_all(start=0, end=part.last_point):
+                new_el = copy.copy(el)
+                new_el.start.t = new_el.start.t * multiplier
+                if new_el.end is not None:
+                    new_el.end.t = new_el.end.t * multiplier
+                new_part.add(new_el)
+        else:
+            new_partlist.append(part)
 
     spt.assign_note_ids(
-        partlist, keep=(force_note_ids is True or force_note_ids == "keep")
+        new_partlist, keep=(force_note_ids is True or force_note_ids == "keep")
     )
 
     doc_name = get_document_name(filename)
-    score = spt.Score(partlist=partlist, id=doc_name)
+    score = spt.Score(partlist=new_partlist, id=doc_name)
     return score
 
 
