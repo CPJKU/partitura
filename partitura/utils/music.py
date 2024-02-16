@@ -699,7 +699,7 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     global DURS, SYM_DURS
     qdur = dur / div
     if qdur == 0:
-        return
+        return {}
     i = find_nearest(DURS, qdur)
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
