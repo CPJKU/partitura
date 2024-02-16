@@ -194,7 +194,7 @@ def _transpose_note_inplace(note, interval):
         )
 
 
-def transpose_note(step, alter, interval):
+def transpose_note_old(step, alter, interval):
     """
     Transpose a note by a given interval without changing the octave or creating a Note Object.
 
@@ -231,6 +231,42 @@ def transpose_note(step, alter, interval):
         new_alter = (
                 INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
         )
+    return new_step, new_alter
+
+
+def transpose_note(step, alter, interval):
+    """
+    Transpose a note by a given interval without changing the octave or creating a Note Object.
+
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    interval: Interval
+        The interval to transpose by. Only interval direction "up" is supported.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the pitch, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    """
+    prev_step = step.capitalize()
+    assert interval.direction == "up", "Only interval direction 'up' is supported."
+    assert -3 < alter < 3, f"Input Alteration {alter} is not in the range -2 to 2."
+    assert interval.number < 8, f"Input Interval {interval.number} is not in the range 1 to 7."
+    assert prev_step in BASE_PC.keys(), f"Input Step {prev_step} is must be one of: {BASE_PC.keys()}."
+    new_step = STEPS[(STEPS[prev_step] + interval.number - 1) % 7]
+    prev_alter = alter if alter is not None else 0
+    pc_prev = step2pc(prev_step, prev_alter)
+    pc_new = step2pc(new_step, prev_alter)
+    new_alter = interval.semitones - (pc_new - pc_prev) % 12 + prev_alter
+    # add test to check if the new alteration is correct (i.e. accept maximum of 2 flats or sharps)
+    assert -3 < new_alter < 3, f"New alteration {new_alter} is not in the range -2 to 2."
     return new_step, new_alter
 
 
