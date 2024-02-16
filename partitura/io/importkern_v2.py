@@ -260,10 +260,10 @@ def load_kern(
     for j, spline in enumerate(splines):
         parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j), staff=prev_staff)
         same_part = False
-        if parser.id in [p.id for p in partlist]:
+        if parser.id in [p.id for p in copy_partlist]:
             same_part = True
             warnings.warn("Part {} already exists. Adding to previous Part.".format(parser.id))
-            part = [p for p in partlist if p.id == parser.id][0]
+            part = [p for p in copy_partlist if p.id == parser.id][0]
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
             if parser.staff != staff:
