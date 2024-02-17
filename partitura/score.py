@@ -5223,6 +5223,7 @@ Roman2Interval_Maj = {
     "I": Interval(1, "P"),
     "II": Interval(2, "M"),
     "III": Interval(3, "M"),
+    "III+": Interval(3, "M"),
     "IV": Interval(4, "P"),
     "V": Interval(5, "P"),
     "VI": Interval(6, "M"),
