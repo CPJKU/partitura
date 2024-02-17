@@ -2825,7 +2825,9 @@ class RomanNumeral(Harmony):
         """
         # The primary degree should be a roman numeral between 1 and 7.
         # If there is no primary degree, return None
+        # Remove any key information
         roman_text = self.text.split(":")[-1]
+        roman_text = roman_text.split(".")[-1] if "." in roman_text else roman_text
         primary_degree = re.search(r'[a-zA-Z+]+', roman_text)
         if primary_degree:
             prim_d = primary_degree.group(0)
@@ -2905,7 +2907,7 @@ class RomanNumeral(Harmony):
             The number of the chord.
         """
         # Corrected step after degree2
-        interval = Roman2Interval_Min[self.secondary_degree] if self.secondary_degree.islower() else Roman2Interval_Maj[self.secondary_degree]
+        interval = Roman2Interval_Min[self.secondary_degree] if self.local_key.islower() else Roman2Interval_Maj[self.secondary_degree]
         key_step = re.search(r"[a-gA-G]", self.local_key).group(0)
         key_alter = re.search(r"[#b]", self.local_key).group(0) if re.search(r"[#b]", self.local_key) else ""
         key_alter = ALT_TO_INT[key_alter]
