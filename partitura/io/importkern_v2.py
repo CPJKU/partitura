@@ -229,7 +229,7 @@ def load_kern(
     try:
         # This version of the parser is faster but does not support spine splitting.
         file = np.loadtxt(filename, dtype="U", delimiter="\t", comments="!!", encoding="cp437")
-        parsing_idxs = np.arange(file.shape[0])
+        parsing_idxs = np.arange(file.shape[-1])
         # Decide Parts
 
 
@@ -399,7 +399,8 @@ class SplineParser(object):
         note_num = np.count_nonzero(note_mask)
         self.tie_next = np.zeros(note_num, dtype=bool)
         self.tie_prev = np.zeros(note_num, dtype=bool)
-        notes = np.vectorize(self.meta_note_line, otypes=[object])(spline[note_mask])
+        note_kern_elements = spline[note_mask]
+        notes = np.vectorize(self.meta_note_line, otypes=[object])(note_kern_elements)
         self.total_duration_values[note_mask] = self.note_duration_values
         # shift tie_next by one to the right
         for note, to_tie in np.c_[notes[self.tie_next], notes[np.roll(self.tie_next, -1)]]:
@@ -572,7 +573,7 @@ class SplineParser(object):
         dots = duration.count(".")
         dur = duration.replace(".", "")
         if dur in KERN_DURS.keys():
-            symbolic_duration = KERN_DURS[dur]
+            symbolic_duration = copy.deepcopy(KERN_DURS[dur])
         else:
             dur = float(dur)
             key_loolup = [2 ** i for i in range(0, 9)]
@@ -585,14 +586,15 @@ class SplineParser(object):
                 )
             )
 
-            symbolic_duration = KERN_DURS[diff[min(list(diff.keys()))]]
+            symbolic_duration = copy.deepcopy(KERN_DURS[diff[min(list(diff.keys()))]])
             symbolic_duration["actual_notes"] = int(dur // 4)
             symbolic_duration["normal_notes"] = int(diff[min(list(diff.keys()))]) // 4
-        symbolic_duration["dots"] = dots
-        self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), symbolic_duration["dots"]) if not is_grace else inf
+        if dots:
+            symbolic_duration["dots"] = dots
+        self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), dots) if not is_grace else inf
         return symbolic_duration
 
-    def process_symbol(self, note, symbols):
+    def process_symbol(self, symbols):
         """
         Process the symbols of a note.
 
@@ -609,17 +611,17 @@ class SplineParser(object):
             self.tie_prev[self.total_parsed_elements] = True
             # pop symbol and call again
             symbols.pop(symbols.index("["))
-            self.process_symbol(note, symbols)
+            self.process_symbol(symbols)
         if "]" in symbols:
             self.tie_next[self.total_parsed_elements] = True
             symbols.pop(symbols.index("]"))
-            self.process_symbol(note, symbols)
+            self.process_symbol(symbols)
         if "_" in symbols:
             # continuing tie
             self.tie_prev[self.total_parsed_elements] = True
             self.tie_next[self.total_parsed_elements] = True
             symbols.pop(symbols.index("_"))
-            self.process_symbol(note, symbols)
+            self.process_symbol(symbols)
         return
 
     def meta_note_line(self, line, voice=None, add=True):
@@ -653,18 +655,20 @@ class SplineParser(object):
         # extract symbol can be any of the following: _()[]{}<>|:
         symbols = re.findall(r"([_()\[\]{}<>|:])", line)
         symbolic_duration = self._process_kern_duration(duration, is_grace="q" in line)
-        el_id = "{}-s{}-v{}-el{}".format(self.id, self.staff, voice, self.total_parsed_elements)
+        el_id = "n{}-s{}-v{}-el{}".format(self.id, self.staff, voice, self.total_parsed_elements)
         if pitch.startswith("r"):
             return spt.Rest(symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
         step, octave, alter = self._process_kern_pitch(pitch)
+        if symbols:
+            self.process_symbol(symbols)
         # check if the note is a grace note
         if "q" in line:
-            note = spt.GraceNote(grace_type="grace", step=step, octave=octave, alter=alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
+            pnote = spt.GraceNote(grace_type="grace", step=step, octave=octave, alter=alter, staff=self.staff, voice=voice, id=el_id)
+            pnote._sym_dur = symbolic_duration
         else:
-            note = spt.Note(step, octave, alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
-        if symbols:
-            self.process_symbol(note, symbols)
-        return note
+            pnote = spt.Note(step, octave, alter, staff=self.staff, voice=voice, id=el_id)
+            pnote._sym_dur = symbolic_duration
+        return pnote
 
     def meta_barline_line(self, line):
         """
