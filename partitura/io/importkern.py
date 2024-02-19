@@ -84,6 +84,7 @@ class KernParserPart(KernGlobalPart):
         self.parsing = "full"
         self.stream = stream
         self.prev_measure_pos = init_pos
+        self.EDITORIAL_SYMBOLS = ["x", "p", "q", "<", "(", ">", ")", "[", "]"]
         # Check if part has pickup measure.
         self.measure_count = (
             0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
@@ -202,6 +203,8 @@ class KernParserPart(KernGlobalPart):
 
     def _handle_metersig(self, metersig):
         m = metersig[2:]
+        if " " in m:
+            m = m.split(" ")[0]
         numerator, denominator = map(eval, m.split("/"))
         new_time_signature = score.TimeSignature(numerator, denominator)
         self.part.add(new_time_signature, self.position)
@@ -332,12 +335,17 @@ class KernParserPart(KernGlobalPart):
         return note
 
     def _handle_duration(self, note, isgrace=False):
-        if isgrace:
-            _, dur, ntype = re.split("(\d+)", note)
-            ntype = _ + ntype
+        foundRational = re.search(r'(\d+)%(\d+)', note)
+        if foundRational:
+            ntype = note[foundRational.span()[-1]:]
+            durationFirst = int(foundRational.group(1))
+            durationSecond = float(foundRational.group(2))
+            dur = 4 * durationSecond / durationFirst
         else:
             _, dur, ntype = re.split("(\d+)", note)
-        dur = eval(dur)
+            ntype = _ + ntype if isgrace else ntype
+            dur = eval(dur)
+
         if dur in self.KERN_DURS.keys():
             symbolic_duration = {"type": self.KERN_DURS[dur]}
         else:
@@ -377,14 +385,15 @@ class KernParserPart(KernGlobalPart):
     # TODO Handle beams and tuplets.
 
     def _handle_note(self, note, note_id, voice=1):
-        if note == ".":
+        if note == "." or note == "" or note == " ":
             return
         has_fermata = ";" in note
         note = self._search_slurs_and_ties(note, note_id)
         grace_attr = "q" in note  # or "p" in note # for appoggiatura not sure yet.
         duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
         # Remove editorial symbols from string, i.e. "x"
-        ntype = ntype.replace("x", "")
+        for x in self.EDITORIAL_SYMBOLS:
+            ntype = ntype.replace(x, "")
         step, octave = self.KERN_NOTES[ntype[0]]
         if octave == 4:
             octave = octave + ntype.count(ntype[0]) - 1
@@ -467,6 +476,7 @@ class KernParser:
     def __init__(self, document, doc_name):
         self.document = document
         self.doc_name = doc_name
+        self.qdivs = self.find_lcm(document.flatten())
         # TODO review this code
         self.DIVS2Q = {
             1: 0.25,
@@ -513,7 +523,7 @@ class KernParser:
 
     def collect(self, doc, pos, id, doc_name):
         if doc[0] == "**kern":
-            qdivs = self.find_lcm(doc)
+            qdivs = self.find_lcm(doc) if self.qdivs is None else self.qdivs
             x = KernParserPart(doc, pos, id, doc_name, qdivs).part
             return x
 
@@ -527,7 +537,7 @@ class KernParser:
         durs, _ = zip(*match)
         x = np.array(list(map(lambda x: int(x), durs)))
         divs = np.lcm.reduce(np.unique(x[x != 0]))
-        return float(divs) / 4.00
+        return float(divs) # / 4.00
 
 
 # functions to initialize the kern parser
@@ -557,8 +567,9 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
             striped_parts.append(y)
         else:
             striped_parts.append(x)
-        if "*^" in x or "*+":
+        if "*^" in x or "*+" in x:
             # Accounting for multiple voice ups at the same time.
+            already_parsed = 0
             for i, el in enumerate(x):
                 # Some faulty kerns create an extra part half way through the score.
                 # We choose for the moment to add it to the closest column part.
@@ -567,7 +578,10 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
                     if merge_index:
                         if k < min(merge_index):
                             merge_index = [midx + 1 for midx in merge_index]
+                        k = i + already_parsed
                     merge_index.append(k)
+                    already_parsed += 1
+        merge_index = sorted(merge_index)
         if "*v *v" in x:
             k = x.index("*v *v")
             temp = list()
@@ -577,11 +591,77 @@ def parse_kern(kern_path: PathLike) -> np.ndarray:
                 elif i < k:
                     temp.append(i)
             merge_index = temp
+
     # Final filter for mistabs and inconsistent tabs that would create
     # extra empty voice and would mess the parsing.
     striped_parts = [[el for el in part if el != ""] for part in striped_parts]
     numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
     return numpy_parts
+
+
+def parse_kern_v2(kern_path: PathLike) -> np.ndarray:
+    """
+    Parses an KERN file from path to an regular expression.
+
+    Parameters
+    ----------
+    kern_path : PathLike
+        The path of the KERN document.
+    Returns
+    -------
+    continuous_parts : numpy character array
+    non_continuous_parts : list
+    """
+    with open(kern_path, encoding="cp437") as file:
+        lines = file.read().splitlines()
+    if lines[0][0] == "<":
+        # we are using a heuristic to stop the import if we are dealing with a XML file
+        raise Exception("Invalid Kern file")
+    document_lines = [line.split("\t") for line in lines if not line.startswith("!")]
+    number_of_voices = len(document_lines[0])
+    number_of_lines = len(document_lines)
+    out = np.empty((number_of_lines, number_of_voices), dtype="<U64")
+    voice_dev = []
+    for i, kern_line in enumerate(document_lines):
+        # Find the indices of the spine expansion symbols.
+        for j, symbol in enumerate(kern_line):
+            if symbol == "*v":
+                voice_dev.append((i, j, 0, 0))
+            elif symbol == "*^":
+                voice_dev.append((i, j, 1, 0))
+            elif symbol == "*+":
+                voice_dev.append((i, j, 1, 0))
+    voice_dev = np.array(voice_dev, dtype=[("line", int), ("index", int), ("type", int), ("voice", int)])
+    voice_dev = np.sort(voice_dev, order=["line", "type", "index"])
+    if voice_dev.size == 0:
+        no_voice_ext = True
+    else:
+        changes = np.split(voice_dev, np.unique(voice_dev["line"], return_index=True)[1][1:])
+        no_voice_ext = False
+
+    change_index = 0
+    voice_indices = [[i] for i in range(number_of_voices)]
+    for i, kern_line in enumerate(document_lines):
+        # remove duplicate indices
+        voice_indices = [list(set(vidx)) for vidx in voice_indices]
+        for j, vidx in enumerate(voice_indices):
+            out[i, j] = " ".join([kern_line[k] for k in vidx if k < len(kern_line)])
+
+        if no_voice_ext:
+            continue
+        if i == changes[change_index]["line"][0]:
+            # When the type is 0 then a voice is removed.
+            if changes[change_index]["type"][0] == 0:
+                alpha = changes[change_index]["index"].min()
+                voice_indices = [[(idx_in if idx_in < alpha else idx_in - 1) for idx_in in vidx] for vidx in voice_indices]
+            # When the type is 1 then a voice is added on the stream .
+            else:
+                for change in changes[change_index]:
+                    alpha = change["index"].item()
+                    func_revoice = lambda vidx: [(idx_in if idx_in < alpha else idx_in+1) for idx_in in vidx]
+                    voice_indices = [(func_revoice(vidx)+[alpha] if alpha-1 in vidx else func_revoice(vidx)) for vidx in voice_indices]
+            change_index = 1 + change_index if change_index < len(changes) - 1 else change_index
+    return out.T
 
 
 @deprecated_alias(kern_path="filename")
@@ -610,7 +690,7 @@ def load_kern(
         A `Score` object
     """
     # parse kern file
-    numpy_parts = parse_kern(filename)
+    numpy_parts = parse_kern_v2(filename)
     # doc_name = os.path.basename(filename[:-4])
     doc_name = get_document_name(filename)
     parser = KernParser(numpy_parts, doc_name)
