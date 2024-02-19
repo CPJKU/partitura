@@ -572,7 +572,7 @@ class SplineParser(object):
         dots = duration.count(".")
         dur = duration.replace(".", "")
         if dur in KERN_DURS.keys():
-            symbolic_duration = KERN_DURS[dur]
+            symbolic_duration = copy.deepcopy(KERN_DURS[dur])
         else:
             dur = float(dur)
             key_loolup = [2 ** i for i in range(0, 9)]
@@ -585,11 +585,12 @@ class SplineParser(object):
                 )
             )
 
-            symbolic_duration = KERN_DURS[diff[min(list(diff.keys()))]]
+            symbolic_duration = copy.deepcopy(KERN_DURS[diff[min(list(diff.keys()))]])
             symbolic_duration["actual_notes"] = int(dur // 4)
             symbolic_duration["normal_notes"] = int(diff[min(list(diff.keys()))]) // 4
-        symbolic_duration["dots"] = dots
-        self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), symbolic_duration["dots"]) if not is_grace else inf
+        if dots:
+            symbolic_duration["dots"] = dots
+        self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), dots) if not is_grace else inf
         return symbolic_duration
 
     def process_symbol(self, note, symbols):
