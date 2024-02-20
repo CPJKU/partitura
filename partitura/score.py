@@ -2954,6 +2954,8 @@ class Cadence(TimedObject):
         """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
         # capitalize text
         self.text = self.text.upper()
+        # Filter alphabet characters only.
+        self.text = re.findall(r'[A-Z]+', self.text)[0]
         self.text = "IAC" if "IAC" in self.text else self.text
         if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
             warnings.warn(f"Cadence type {self.text} not found. Setting to None")
