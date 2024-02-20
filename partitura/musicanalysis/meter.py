@@ -21,22 +21,12 @@ import numpy as np
 # from scipy.interpolate import interp1d
 
 from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
+from partitura.utils.globals import (
+    CHORD_SPREAD_TIME, MIN_INTERVAL, MAX_INTERVAL, CLUSTER_WIDTH, N_CLUSTERS,
+    INIT_DURATION, TIMEOUT, TOLERANCE_PRE, TOLERANCE_POST, TOLERANCE_INNER, CORRECTION_FACTOR, MAX_AGENTS
+)
 
 
-# Scaling factors
-MAX = 9999999999999
-MIN_INTERVAL = 0.01
-MAX_INTERVAL = 2  # in seconds
-CLUSTER_WIDTH = 1 / 12  # in seconds
-N_CLUSTERS = 100
-INIT_DURATION = 10  # in seconds
-TIMEOUT = 10  # in seconds
-TOLERANCE_POST = 0.4  # propotion of beat_interval
-TOLERANCE_PRE = 0.2  # proportion of beat_interval
-TOLERANCE_INNER = 1 / 12
-CORRECTION_FACTOR = 1 / 4  # higher => more correction (speed changes)
-MAX_AGENTS = 100  # delete low-scoring agents when there are more than MAX_AGENTS
-CHORD_SPREAD_TIME = 1 / 12  # for onset aggregation
 
 
 class MultipleAgents:

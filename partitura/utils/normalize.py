@@ -4,9 +4,8 @@
 This module contains normalization utilities
 """
 import numpy as np
+from partitura.utils.globals import EPSILON
 
-
-EPSILON = 0.0001
 
 
 def range_normalize(

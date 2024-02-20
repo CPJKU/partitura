@@ -22,43 +22,7 @@ from partitura.utils.music import (
     midi_pitch_to_frequency,
     performance_notearray_from_score_notearray,
 )
-
-TWO_PI = 2 * np.pi
-SAMPLE_RATE = 44100
-DTYPE = float
-
-NATURAL_INTERVAL_RATIOS = {
-    0: 1,
-    1: 16 / 15,  # 15/14, 11/10
-    2: 8 / 7,  # 9/8, 10/9, 12/11, 13/14
-    3: 6 / 5,  # 7/6,
-    4: 5 / 4,
-    5: 4 / 3,
-    6: 7 / 5,  # 13/9,
-    7: 3 / 2,
-    8: 8 / 5,
-    9: 5 / 3,
-    10: 7 / 4,  # 13/7
-    11: 15 / 8,
-    12: 2,
-}
-
-# symmetric five limit temperament with supertonic = 10:9
-FIVE_LIMIT_INTERVAL_RATIOS = {
-    0: 1,
-    1: 16 / 15,
-    2: 10 / 9,
-    3: 6 / 5,
-    4: 5 / 4,
-    5: 4 / 3,
-    6: 7 / 5,
-    7: 3 / 2,
-    8: 8 / 5,
-    9: 5 / 3,
-    10: 9 / 5,
-    11: 15 / 8,
-    12: 2,
-}
+from partitura.utils.globals import DTYPE, SAMPLE_RATE, TWO_PI, FIVE_LIMIT_INTERVAL_RATIOS, A4, NATURAL_INTERVAL_RATIOS
 
 
 def midi_pitch_to_natural_frequency(
