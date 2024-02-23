@@ -2696,6 +2696,29 @@ class OctaveShiftDirection(TimedObject):
         return f'{super().__str__()} "{self.shift_type}"'
 
 
+class Cadence(TimedObject):
+    """A cadence element in the score usually for Cadences."""
+    def __init__(self, text, local_key=None):
+        super().__init__()
+        self.text = text
+        self._filter_cadence_type()
+        self.local_key = local_key
+
+    def _filter_cadence_type(self):
+        """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
+        # capitalize text
+        self.text = self.text.upper()
+        # Filter alphabet characters only.
+        self.text = re.findall(r'[A-Z]+', self.text)[0]
+        self.text = "IAC" if "IAC" in self.text else self.text
+        if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
+            warnings.warn(f"Cadence type {self.text} not found. Setting to None")
+            self.text = None
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
 class Harmony(TimedObject):
     """A harmony element in the score not currently used.
 
