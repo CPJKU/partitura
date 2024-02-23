@@ -376,6 +376,18 @@ class MEIExporter:
             # text is a child element of harmony but not a xml element
             harm_el.text = harmony.text
 
+        for harmony in self.part.iter_all(spt.Cadence, start=start, end=end):
+            harm_el = etree.SubElement(measure_el, "harm")
+            harm_el.set(XMLNS_ID, "harm-" + self.elc_id())
+            harm_el.set("staff", str(self.part.number_of_staves))
+            harm_el.set(
+                "tstamp",
+                str(np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1),
+            )
+            harm_el.set("place", "below")
+            # text is a child element of harmony but not a xml element
+            harm_el.text = "|" + harmony.text
+
 
 @deprecated_alias(parts="score_data")
 def save_mei(
