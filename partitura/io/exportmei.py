@@ -18,7 +18,7 @@ from partitura.utils import (
 )
 import numpy as np
 from partitura.utils.misc import deprecated_alias, PathLike
-from partitura.utils.music import MEI_DURS_TO_SYMBOLIC
+from partitura.utils.music import MEI_DURS_TO_SYMBOLIC, estimate_symbolic_duration
 
 
 __all__ = ["save_mei"]
@@ -41,6 +41,7 @@ DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng
 class MEIExporter:
     def __init__(self, part):
         self.part = part
+        self.qdivs = part._quarter_durations[0]
         self.element_counter = 0
 
     def elc_id(self):
@@ -204,8 +205,12 @@ class MEIExporter:
 
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, "rest")
+        if "type" not in rest.symbolic_duration:
+            rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
+        if "dots" in rest.symbolic_duration:
+            rest_el.set("dots", str(rest.symbolic_duration["dots"]))
         rest_el.set(XMLNS_ID, "rest-" + self.elc_id())
         return duration
 
@@ -218,6 +223,8 @@ class MEIExporter:
             if note.id is None
             else note_el.set(XMLNS_ID, note.id)
         )
+        if "dots" in note.symbolic_duration:
+            note_el.set("dots", str(note.symbolic_duration["dots"]))
         note_el.set("oct", str(note.octave))
         note_el.set("pname", note.step.lower())
         if note.tie_next is not None and note.tie_prev is not None:
