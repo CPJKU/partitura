@@ -1582,9 +1582,10 @@ class GenericNote(TimedObject):
         articulations=None,
         ornaments=None,
         doc_order=None,
+        **kwargs
     ):
         self._sym_dur = None
-        super().__init__()
+        super().__init__(**kwargs)
         self.voice = voice
         self.id = id
         self.staff = staff
@@ -1871,13 +1872,15 @@ class Note(GenericNote):
 
     """
 
-    def __init__(self, step, octave, alter=None, beam=None, **kwargs):
+    def __init__(self, step, octave, alter=None, **kwargs):
         super().__init__(**kwargs)
         self.step = step.upper()
         self.octave = octave
         self.alter = alter
-        self.beam = beam
+        self.beam = None
 
+    def assign_beam(self, beam):
+        self.beam = beam
         if self.beam is not None:
             self.beam.append(self)
 
