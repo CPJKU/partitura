@@ -43,6 +43,9 @@ class MEIExporter:
         self.part = part
         self.qdivs = part._quarter_durations[0]
         self.element_counter = 0
+        self.current_key_signature = []
+        self.flats = ["bf", "ef", "af", "df", "gf", "cf", "ff"]
+        self.sharps = ["fs", "cs", "gs", "ds", "as", "es", "bs"]
 
     def elc_id(self):
         # transforms an integer number to 8-digit string
@@ -125,8 +128,10 @@ class MEIExporter:
                     ks_def.set("sig", "0")
                 elif keys_sig.fifths > 0:
                     ks_def.set("sig", str(keys_sig.fifths) + "s")
+                    self.current_key_signature = self.sharps[: keys_sig.fifths]
                 else:
                     ks_def.set("sig", str(abs(keys_sig.fifths)) + "f")
+                    self.current_key_signature = self.flats[: abs(keys_sig.fifths)]
                 # Find the pname from the number of sharps or flats and the mode
                 ks_def.set(
                     "pname",
@@ -235,9 +240,12 @@ class MEIExporter:
             note_el.set("tie", "t")
 
         if note.alter is not None:
-            accidental = etree.SubElement(note_el, "accid")
-            accidental.set(XMLNS_ID, "accid-" + self.elc_id())
-            accidental.set("accid", ALTER_TO_MEI[note.alter])
+            if note.step.lower() + ALTER_TO_MEI[note.alter] in self.current_key_signature:
+                note_el.set("accid.ges", ALTER_TO_MEI[note.alter])
+            else:
+                accidental = etree.SubElement(note_el, "accid")
+                accidental.set(XMLNS_ID, "accid-" + self.elc_id())
+                accidental.set("accid", ALTER_TO_MEI[note.alter])
 
         if isinstance(note, spt.GraceNote):
             note_el.set("grace", "acc")
@@ -332,8 +340,10 @@ class MEIExporter:
                 score_def_el.set("sig", "0")
             elif key_sig.fifths > 0:
                 score_def_el.set("sig", str(key_sig.fifths) + "s")
+                self.current_key_signature = self.sharps[: key_sig.fifths]
             else:
                 score_def_el.set("sig", str(abs(key_sig.fifths)) + "f")
+                self.current_key_signature = self.flats[: abs(key_sig.fifths)]
             # Find the pname from the number of sharps or flats and the mode
             score_def_el.set(
                 "pname", fifths_mode_to_key_name(key_sig.fifths, key_sig.mode).lower()
