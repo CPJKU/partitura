@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-from typing import Union, Callable, Optional, TYPE_CHECKING
+from typing import Union, Callable, Optional, TYPE_CHECKING, List, Tuple, Dict
 from partitura.utils.generic import find_nearest, search, iter_current_next
 import partitura
 from tempfile import TemporaryDirectory
@@ -320,7 +320,11 @@ MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 A4 = 440.0
 
 
-def ensure_notearray(notearray_or_part, *args, **kwargs):
+def ensure_notearray(
+    notearray_or_part: Union[ScoreLike, PerformanceLike, np.ndarray],
+    *args,
+    **kwargs,
+) -> np.ndarray:
     """
     Ensures to get a structured note array from the input.
 
@@ -376,7 +380,11 @@ def ensure_notearray(notearray_or_part, *args, **kwargs):
         )
 
 
-def ensure_rest_array(restarray_or_part, *args, **kwargs):
+def ensure_rest_array(
+    restarray_or_part: Union[ScoreLike, PerformanceLike, np.ndarray],
+    *args,
+    **kwargs,
+) -> np.ndarray:
     """
     Ensures to get a structured note array from the input.
 
@@ -506,7 +514,7 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
     return new_score
 
 
-def get_time_units_from_note_array(note_array):
+def get_time_units_from_note_array(note_array: np.ndarray) -> (str, str):
     fields = set(note_array.dtype.fields)
 
     if fields is None:
@@ -532,18 +540,22 @@ def get_time_units_from_note_array(note_array):
         raise ValueError("Input array does not contain the expected " "time-units")
 
 
-def pitch_spelling_to_midi_pitch(step, alter, octave):
+# Alias for type of pitch spelling
+PitchSpellingType = Tuple[str, int, int]
+
+
+def pitch_spelling_to_midi_pitch(step: str, alter: int, octave: int) -> int:
     midi_pitch = (octave + 1) * 12 + MIDI_BASE_CLASS[step.lower()] + (alter or 0)
     return midi_pitch
 
 
-def midi_pitch_to_pitch_spelling(midi_pitch):
+def midi_pitch_to_pitch_spelling(midi_pitch: int) -> PitchSpellingType:
     octave = midi_pitch // 12 - 1
     step, alter = DUMMY_PS_BASE_CLASS[np.mod(midi_pitch, 12)]
     return ensure_pitch_spelling_format(step, alter, octave)
 
 
-def note_name_to_pitch_spelling(note_name):
+def note_name_to_pitch_spelling(note_name: str) -> PitchSpellingType:
     note_info = NOTE_NAME_PATT.search(note_name)
 
     if note_info is None:
@@ -560,12 +572,12 @@ def note_name_to_pitch_spelling(note_name):
     return step, alter, octave
 
 
-def note_name_to_midi_pitch(note_name):
+def note_name_to_midi_pitch(note_name: str) -> int:
     step, alter, octave = note_name_to_pitch_spelling(note_name)
     return pitch_spelling_to_midi_pitch(step, alter, octave)
 
 
-def pitch_spelling_to_note_name(step, alter, octave):
+def pitch_spelling_to_note_name(step: str, alter: int, octave: int) -> str:
     f_alter = ""
     if alter > 0:
         if alter == 2:
@@ -580,7 +592,8 @@ def pitch_spelling_to_note_name(step, alter, octave):
 
 
 def midi_pitch_to_frequency(
-    midi_pitch: Union[int, float, np.ndarray], a4: Union[int, float] = A4
+    midi_pitch: Union[int, float, np.ndarray],
+    a4: Union[int, float] = A4,
 ) -> Union[float, np.ndarray]:
     """
     Convert MIDI pitch to frequency in Hz. This method assumes equal temperament.
@@ -631,8 +644,8 @@ def frequency_to_midi_pitch(
 @deprecated_alias(t="time_in_seconds")
 def seconds_to_midi_ticks(
     time_in_seconds: Union[int, float, np.ndarray],
-    mpq=500000,
-    ppq=480,
+    mpq: int = 500000,
+    ppq: int = 480,
 ) -> Union[int, np.ndarray]:
     """
     Convert time in seconds to MIDI ticks
@@ -663,8 +676,8 @@ def seconds_to_midi_ticks(
 
 def midi_ticks_to_seconds(
     midi_ticks: Union[int, float, np.ndarray],
-    mpq=500000,
-    ppq=480,
+    mpq: int = 500000,
+    ppq: int = 480,
 ) -> Union[float, np.ndarray]:
     """
     Convert MIDI ticks to time in seconds
@@ -710,7 +723,11 @@ SIGN_TO_ALTER = {
 }
 
 
-def ensure_pitch_spelling_format(step, alter, octave):
+def ensure_pitch_spelling_format(
+    step: str,
+    alter: Union[int, str],
+    octave: Union[int, str],
+) -> PitchSpellingType:
     if step.lower() not in MIDI_BASE_CLASS:
         if step.lower() != "r":
             raise ValueError("Invalid `step`")
@@ -745,7 +762,10 @@ def ensure_pitch_spelling_format(step, alter, octave):
     return step.upper(), alter, octave
 
 
-def fifths_mode_to_key_name(fifths, mode=None):
+def fifths_mode_to_key_name(
+    fifths: int,
+    mode: Optional[Union[str, int]] = None,
+) -> str:
     """Return the key signature name corresponding to a number of sharps
     or flats and a mode. A negative value for `fifths` denotes the
     number of flats (i.e. -3 means three flats), and a positive
@@ -795,7 +815,7 @@ def fifths_mode_to_key_name(fifths, mode=None):
     return name + suffix
 
 
-def key_name_to_fifths_mode(key_name):
+def key_name_to_fifths_mode(key_name: str) -> (int, str):
     """Return the number of sharps or flats and the mode of a key
     signature name. A negative number denotes the number of flats
     (i.e. -3 means three flats), and a positive number the number of
@@ -849,7 +869,7 @@ def key_name_to_fifths_mode(key_name):
     return fifths, mode
 
 
-def key_mode_to_int(mode):
+def key_mode_to_int(mode: Optional[Union[int, str]]) -> int:
     """Return the mode of a key as an integer (1 for major and -1 for
     minor).
 
@@ -872,7 +892,7 @@ def key_mode_to_int(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def key_int_to_mode(mode):
+def key_int_to_mode(mode: Optional[Union[int, str]]) -> str:
     """Return the mode of a key as a string ('major' or 'minor')
 
     Parameters
@@ -882,8 +902,8 @@ def key_int_to_mode(mode):
 
     Returns
     -------
-    int
-        Integer representation of the mode.
+    str
+        String representation of the mode.
 
     """
     if mode in ("minor", -1):
@@ -894,7 +914,9 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3):
+def estimate_symbolic_duration(
+    dur: Union[float, int], div: Union[float, int], eps: float = 10**-3
+) -> Optional[Dict[str, Union[str, int]]]:
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
@@ -918,7 +940,8 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
 
     Returns
     -------
-
+    symbolic_duration : dict
+        A dictionary containing the symbolic duration information.
 
     Examples
     --------
@@ -942,7 +965,7 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
         return None
 
 
-def to_quarter_tempo(unit, tempo):
+def to_quarter_tempo(unit: str, tempo: Union[int, float]) -> float:
     """Given a string `unit` (e.g. 'q', 'q.' or 'h') and a number
     `tempo`, return the corresponding tempo in quarter notes. This is
     useful to convert textual tempo directions like h=100.
@@ -976,7 +999,7 @@ def to_quarter_tempo(unit, tempo):
     return float(tempo * DOT_MULTIPLIERS[dots] * LABEL_DURS[unit])
 
 
-def format_symbolic_duration(symbolic_dur):
+def format_symbolic_duration(symbolic_dur: Dict[str, Union[str, int]]) -> str:
     """Create a string representation of the symbolic duration encoded
     in the dictionary `symbolic_dur`.
 
