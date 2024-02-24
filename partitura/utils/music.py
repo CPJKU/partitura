@@ -3265,10 +3265,12 @@ def slice_ppart_by_time(
 
     # get ppq if PerformedPart contains it,
     # else skip time_tick info when e.g. created with 'load_performance_midi'
-    try:
-        ppq = ppart.ppq
-    except AttributeError:
-        ppq = None
+    # try:
+    #     ppq = ppart.ppq
+    # except AttributeError:
+    #     ppq = None
+    ppq = getattr(ppart, "ppq", None)
+    mpq = getattr(ppart, "mpq", None)
 
     controls_slice = []
     if ppart.controls:
@@ -3276,8 +3278,12 @@ def slice_ppart_by_time(
             if cc["time"] >= start_time and cc["time"] <= end_time:
                 new_cc = cc.copy()
                 new_cc["time"] -= start_time
-                if ppq:
-                    new_cc["time_tick"] = int(2 * ppq * cc["time"])
+                if ppq is not None and mpq is not None:
+                    new_cc["time_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_cc["time"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
                 controls_slice.append(new_cc)
 
     programs_slice = []
@@ -3286,9 +3292,17 @@ def slice_ppart_by_time(
             if pr["time"] >= start_time and pr["time"] <= end_time:
                 new_pr = pr.copy()
                 new_pr["time"] -= start_time
-                if ppq:
-                    new_pr["time_tick"] = int(2 * ppq * pr["time"])
+                if ppq is not None and mpq is not None:
+                    new_pr["time_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_pr["time"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
                 programs_slice.append(new_pr)
+
+    time_signatures = []
+    key_signatures = []
+    meta_other = []
 
     notes_slice = []
     note_id = 0
@@ -3303,9 +3317,13 @@ def slice_ppart_by_time(
                 )
             else:
                 new_note["note_off"] = note["note_off"] - start_time
-            if ppq:
+            if ppq is not None and mpq is not None:
                 new_note["note_on_tick"] = 0
-                new_note["note_off_tick"] = int(2 * ppq * new_note["note_off"])
+                new_note["note_off_tick"] = seconds_to_midi_ticks(
+                    time_in_seconds=new_note["note_off"],
+                    mpq=mpq,
+                    ppq=ppq,
+                )
             if reindex_notes:
                 new_note["id"] = f"n{note_id}"
                 note_id += 1
@@ -3321,11 +3339,19 @@ def slice_ppart_by_time(
                     )
                 else:
                     new_note["note_off"] = note["note_off"] - start_time
-                if ppq:
-                    new_note["note_on_tick"] = int(2 * ppq * new_note["note_on"])
-                    new_note["note_off_tick"] = int(2 * ppq * new_note["note_off"])
+                if ppq is not None and mpq is not None:
+                    new_note["note_on_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_note["note_on"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
+                    new_note["note_off_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_note["note_off"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
                 if reindex_notes:
-                    new_note["id"] = "n" + str(note_id)
+                    new_note["id"] = f"n{note_id}"
                     note_id += 1
                 notes_slice.append(new_note)
             # assumes notes in list are sorted by onset time
@@ -3334,14 +3360,21 @@ def slice_ppart_by_time(
 
     # Create slice PerformedPart
     ppart_slice = PerformedPart(
-        notes=notes_slice, programs=programs_slice, controls=controls_slice, ppq=ppq
+        notes=notes_slice,
+        programs=programs_slice,
+        controls=controls_slice,
+        ppq=ppq,
+        mpq=mpq,
+        key_signatures=key_signatures,
+        time_signatures=time_signatures,
+        meta_other=meta_other,
     )
 
     # set threshold property after creating notes list to update 'sound_offset' values
     ppart_slice.sustain_pedal_threshold = ppart.sustain_pedal_threshold
 
     if ppart.id:
-        ppart_slice.id = ppart.id + "_slice_{}s_to_{}s".format(start_time, end_time)
+        ppart_slice.id = f"{ppart.id}_slice_{start_time}s_to_{end_time}s"
     if ppart.part_name:
         ppart_slice.part_name = ppart.part_name
 
