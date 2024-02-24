@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-from typing import Union, Callable, Optional, TYPE_CHECKING
+from typing import Union, Callable, Optional, TYPE_CHECKING, List
 from partitura.utils.generic import find_nearest, search, iter_current_next
 import partitura
 from tempfile import TemporaryDirectory
@@ -3256,7 +3256,7 @@ def slice_ppart_by_time(
         raise ValueError("Input is not an instance of PerformedPart!")
 
     if start_time > end_time:
-        raise ValueError("Start time not less than end time!")
+        raise ValueError("Start time must be smaller than end time!")
 
     # create a new (empty) instance of a PerformedPart
     # single dummy note added to be able to set sustain_pedal_threshold in __init__
@@ -3272,8 +3272,24 @@ def slice_ppart_by_time(
     ppq = getattr(ppart, "ppq", None)
     mpq = getattr(ppart, "mpq", None)
 
+    def add_info_to_list(input_list: List[dict], output_list: List[dict]) -> None:
+
+        for elem in input_list:
+            if elem["time"] >= start_time and elem["time"] <= end_time:
+                new_elem = elem.copy()
+                new_elem["time"] -= start_time
+                if ppq is not None and mpq is not None:
+                    new_elem["time_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_elem["time"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
+                output_list.append(new_elem)
+
     controls_slice = []
     if ppart.controls:
+        # TODO
+        # * Keep previous pedal value
         for cc in ppart.controls:
             if cc["time"] >= start_time and cc["time"] <= end_time:
                 new_cc = cc.copy()
@@ -3288,6 +3304,8 @@ def slice_ppart_by_time(
 
     programs_slice = []
     if ppart.programs:
+        # TODO
+        # * Keep previous programs
         for pr in ppart.programs:
             if pr["time"] >= start_time and pr["time"] <= end_time:
                 new_pr = pr.copy()
@@ -3301,6 +3319,11 @@ def slice_ppart_by_time(
                 programs_slice.append(new_pr)
 
     time_signatures = []
+    if ppart.time_signatures:
+        for ts in ppart.time_signatures:
+            if ts["time"] >= start_time and ts["time"] <= end_time:
+                new_ts = ts.copy()
+                new_ts["time"] -= start_time
     key_signatures = []
     meta_other = []
 
