@@ -70,6 +70,10 @@ class MEIExporter:
         # Create child elements
         mei_head = etree.SubElement(mei, "meiHead")
         file_desc = etree.SubElement(mei_head, "fileDesc")
+        # write the title
+        title_stmt = etree.SubElement(file_desc, "titleStmt")
+        title = etree.SubElement(title_stmt, "title")
+        title.text = self.part.id if self.part.id is not None else "Untitled"
         music = etree.SubElement(mei, "music")
         body = etree.SubElement(music, "body")
         mdiv = etree.SubElement(body, "mdiv")
@@ -135,7 +139,7 @@ class MEIExporter:
                 # Find the pname from the number of sharps or flats and the mode
                 ks_def.set(
                     "pname",
-                    fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower(),
+                    fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower()[0], # only the first letter
                 )
 
             if time_sig is not None:
@@ -290,6 +294,12 @@ class MEIExporter:
                 parent_el = layer_el.getparent()
                 insert_index = parent_el.index(layer_el)
                 layer_el = parent_el
+            # If the parent is a chord, the beam element should be added as parent of the chord element
+            if layer_el.tag == "chord":
+                parent_el = layer_el.getparent()
+                insert_index = parent_el.index(layer_el)
+                layer_el = parent_el
+
             # Create the beam element
             beam_el = etree.Element("beam")
             layer_el.insert(insert_index, beam_el)
@@ -299,7 +309,16 @@ class MEIExporter:
                 note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")
                 if len(note_el) > 0:
                     note_el = note_el[0]
-                    beam_el.append(note_el)
+                    # Add the note element to the beam element but if the parent is a tuplet, the note element should be added as child of the tuplet element
+                    if note_el.getparent().tag == "tuplet":
+                        beam_el.append(note_el.getparent())
+                    elif note_el.getparent().tag == "chord":
+                        beam_el.append(note_el.getparent())
+                    else:
+                        # verify that the note element is not already a child of the beam element
+                        if note_el.getparent() != beam_el:
+                            beam_el.append(note_el)
+
 
     def _handle_clef_changes(self, measure_el, start, end):
         for clef in self.part.iter_all(spt.Clef, start=start, end=end):
