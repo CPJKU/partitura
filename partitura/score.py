@@ -5117,9 +5117,11 @@ def infer_beaming(part: ScoreLike):
             # get the beat ends of the notes
             beat_end = beat_ends[mask]
             # get notes
-            beam_start_mask = (na_vocstaff["is_downbeat"] == 1) & (na_vocstaff["duration_beat"] <= 0.5)
             mus_beats = na_vocstaff["ts_mus_beats"] * (na_vocstaff["ts_beat_type"] < 4)
             mus_beats = np.where(mus_beats == 0, 1, mus_beats)
+            max_mus_beat = mus_beats.max()
+            beam_start_mask = np.isclose(np.mod(na_vocstaff["onset_beat"], mus_beats), 0.0) & (na_vocstaff[
+                "duration_beat"] <= 0.5)
             beam_end_mask = np.isclose(np.mod(beat_end, mus_beats), 0.0) & (na_vocstaff[
                 "duration_beat"] <= 0.5)
             beam_between = (na_vocstaff["duration_beat"] <= 0.5) & ~beam_start_mask & ~beam_end_mask
@@ -5129,22 +5131,40 @@ def infer_beaming(part: ScoreLike):
             start_time = na_vocstaff["onset_div"].min()
             end_time = na_vocstaff["onset_div"].max() + 1
             prev_beam = None
-            for note in part.iter_all(Note, start_time, end_time):
+            notes_in_beam = []
+            notes_in_vs = list(part.iter_all(Note, start_time, end_time))
+            notes_in_vs.sort(key=lambda x: x.start.t)
+            prev_start = 0
+            for note in notes_in_vs:
+                if note.voice != v or note.staff != s:
+                    continue
                 if note.beam is not None:
                     continue
+
+                if part.beat_map(note.start.t) - part.beat_map(prev_start) > max_mus_beat:
+                    prev_beam = None
+                    notes_in_beam = []
+                    prev_start = note.start.t
                 if note.id in id_beam_start:
-                    beam = Beam()
-                    note.assign_beam(beam)
-                    prev_beam = beam
+                    notes_in_beam = []
+                    prev_beam = Beam()
+                    prev_start = note.start.t
+                    notes_in_beam.append(note)
                 elif note.id in id_beam_end:
                     if prev_beam is not None:
-                        note.assign_beam(prev_beam)
-                        part.add(prev_beam, prev_beam.start.t, prev_beam.end.t)
+                        notes_in_beam.append(note)
+                        if len(notes_in_beam) > 1:
+                            for n in notes_in_beam:
+                                n.assign_beam(prev_beam)
+                            part.add(prev_beam, prev_beam.start.t, prev_beam.end.t)
+                    notes_in_beam = []
                     prev_beam = None
                 elif note.id in id_beam_between:
                     if prev_beam is None:
+                        prev_start = note.start.t
+                        notes_in_beam = []
                         prev_beam = Beam()
-                    note.assign_beam(prev_beam)
+                    notes_in_beam.append(note)
 
 
 def is_a_within_b(a, b, wholly=False):
