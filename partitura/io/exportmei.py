@@ -285,6 +285,9 @@ class MEIExporter:
     def _handle_beams(self, measure_el, start, end):
         for beam in self.part.iter_all(spt.Beam, start=start, end=end):
             start_note = beam.notes[np.argmin([n.start.t for n in beam.notes])]
+            # If the beam has only one note, skip it
+            if len(beam.notes) < 2:
+                continue
             # Beam element is parent of the note element
             note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
             layer_el = note_el.getparent()
