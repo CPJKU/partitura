@@ -4980,6 +4980,66 @@ def merge_parts(parts, reassign="voice"):
     return new_part
 
 
+def infer_beaming(part: ScoreLike):
+    """
+    Infer beaming from the metrical position of notes in a part.
+
+    This function infers the beaming based on the time signature for all notes.
+    It separates the notes into groups based on their staff and voice.
+
+    Parameters
+    ----------
+    part: ScoreLike
+        The part to infer beaming for. This can be a part or a score.
+        If a score is given, the function will infer beaming for all parts in the score.
+
+    """
+
+    if isinstance(part, Score):
+        for p in part.parts:
+            infer_beaming(p)
+    else:
+        note_array = part.note_array(include_metrical_position=True, include_staff=True, include_time_signature=True)
+        beat_ends = note_array["onset_beat"] + note_array["duration_beat"]
+        # split note_array into groups based on staff and voice
+        unique_vocstaff = np.unique(note_array[['voice', 'staff']], axis=0)
+        for v, s in unique_vocstaff:
+            mask = (note_array['voice'] == v) & (note_array['staff'] == s)
+            # get the metrical position of the notes
+            na_vocstaff = note_array[mask]
+            # get the beat ends of the notes
+            beat_end = beat_ends[mask]
+            # get notes
+            beam_start_mask = (na_vocstaff["is_downbeat"] == 1) & (na_vocstaff["duration_beat"] <= 0.5)
+            mus_beats = na_vocstaff["ts_mus_beats"] * (na_vocstaff["ts_beat_type"] < 4)
+            mus_beats = np.where(mus_beats == 0, 1, mus_beats)
+            beam_end_mask = np.isclose(np.mod(beat_end, mus_beats), 0.0) & (na_vocstaff[
+                "duration_beat"] <= 0.5)
+            beam_between = (na_vocstaff["duration_beat"] <= 0.5) & ~beam_start_mask & ~beam_end_mask
+            id_beam_start = na_vocstaff["id"][beam_start_mask]
+            id_beam_end = na_vocstaff["id"][beam_end_mask]
+            id_beam_between = na_vocstaff["id"][beam_between]
+            start_time = na_vocstaff["onset_div"].min()
+            end_time = na_vocstaff["onset_div"].max() + 1
+            prev_beam = None
+            for note in part.iter_all(Note, start_time, end_time):
+                if note.beam is not None:
+                    continue
+                if note.id in id_beam_start:
+                    beam = Beam()
+                    note.assign_beam(beam)
+                    prev_beam = beam
+                elif note.id in id_beam_end:
+                    if prev_beam is not None:
+                        note.assign_beam(prev_beam)
+                        part.add(prev_beam, prev_beam.start.t, prev_beam.end.t)
+                    prev_beam = None
+                elif note.id in id_beam_between:
+                    if prev_beam is None:
+                        prev_beam = Beam()
+                    note.assign_beam(prev_beam)
+
+
 def is_a_within_b(a, b, wholly=False):
     """
     Returns a boolean indicating whether a is (wholly) within b.
