@@ -171,7 +171,7 @@ class MEIExporter:
         voices = np.vectorize(lambda x: x.voice)(note_or_rest_elements)
         unique_staffs, staff_inverse_map = np.unique(staffs, return_inverse=True)
         unique_voices_par = np.unique(voices)
-        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=len(self.num_staves)).argmax()} for v in unique_voices_par}
+        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=self.num_staves).argmax()} for v in unique_voices_par}
         for i in range(self.num_staves):
             staff = i + 1
             staff_el = etree.SubElement(measure_el, "staff")
@@ -227,7 +227,7 @@ class MEIExporter:
 
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, "rest")
-        if "type" not in rest.symbolic_duration:
+        if rest.symbolic_duration is None:
             rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
