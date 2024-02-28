@@ -5111,9 +5111,12 @@ def infer_beaming(part: ScoreLike):
         note_array = part.note_array(include_metrical_position=True, include_staff=True, include_time_signature=True)
         beat_ends = note_array["onset_beat"] + note_array["duration_beat"]
         # split note_array into groups based on staff and voice
-        unique_vocstaff = np.unique(note_array[['voice', 'staff']], axis=0)
-        for v, s in unique_vocstaff:
-            mask = (note_array['voice'] == v) & (note_array['staff'] == s)
+        # unique_vocstaff = np.unique(note_array[['voice', 'staff']], axis=0)
+        # for v, s in unique_vocstaff:
+        #     mask = (note_array['voice'] == v) & (note_array['staff'] == s)
+        unique_vocstaff = np.unique(note_array["voice"])
+        for v in unique_vocstaff:
+            mask = note_array["voice"] == v
             # get the metrical position of the notes
             na_vocstaff = note_array[mask]
             # get the beat ends of the notes
@@ -5138,7 +5141,8 @@ def infer_beaming(part: ScoreLike):
             notes_in_vs.sort(key=lambda x: x.start.t)
             prev_start = 0
             for note in notes_in_vs:
-                if note.voice != v or note.staff != s:
+                # if note.voice != v or note.staff != s:
+                if note.voice != v:
                     continue
                 if note.beam is not None:
                     continue
