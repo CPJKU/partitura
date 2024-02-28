@@ -164,7 +164,10 @@ class MEIExporter:
         )
         # Separate by staff
         staffs = np.vectorize(lambda x: x.staff)(note_or_rest_elements)
+        voices = np.vectorize(lambda x: x.voice)(note_or_rest_elements)
         unique_staffs, staff_inverse_map = np.unique(staffs, return_inverse=True)
+        unique_voices_par = np.unique(voices)
+        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=len(unique_staffs)).argmax()} for v in unique_voices_par}
         for i, staff in enumerate(unique_staffs):
             staff_el = etree.SubElement(measure_el, "staff")
             # Add staff number
@@ -178,7 +181,10 @@ class MEIExporter:
                 voice_el = etree.SubElement(staff_el, "layer")
                 voice_el.set("n", str(voice))
                 voice_el.set(XMLNS_ID, "voice-" + self.elc_id())
-                voice_notes = staff_notes[voice_inverse_map == j]
+                # try to handle cross-staff beaming
+                if voice_staff_map[voice]["staff"] != staff:
+                    continue
+                voice_notes = note_or_rest_elements[voice_staff_map[voice]["mask"]]
                 # Sort by onset
                 note_start_times = np.vectorize(lambda x: x.start.t)(voice_notes)
                 unique_onsets = np.unique(note_start_times)
@@ -216,6 +222,9 @@ class MEIExporter:
         rest_el = etree.SubElement(xml_voice_el, "rest")
         if "type" not in rest.symbolic_duration:
             rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
+        if rest.symbolic_duration["type"] not in SYMBOLIC_TYPES_TO_MEI_DURS.keys():
+            # TODO: handle other types of rests
+            rest.symbolic_duration["type"] = "quarter"
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
         if "dots" in rest.symbolic_duration:
@@ -236,6 +245,7 @@ class MEIExporter:
             note_el.set("dots", str(note.symbolic_duration["dots"]))
         note_el.set("oct", str(note.octave))
         note_el.set("pname", note.step.lower())
+        note_el.set("staff", str(note.staff))
         if note.tie_next is not None and note.tie_prev is not None:
             note_el.set("tie", "m")
         elif note.tie_next is not None:
@@ -284,10 +294,10 @@ class MEIExporter:
 
     def _handle_beams(self, measure_el, start, end):
         for beam in self.part.iter_all(spt.Beam, start=start, end=end):
-            start_note = beam.notes[np.argmin([n.start.t for n in beam.notes])]
             # If the beam has only one note, skip it
             if len(beam.notes) < 2:
                 continue
+            start_note = beam.notes[np.argmin([n.start.t for n in beam.notes])]
             # Beam element is parent of the note element
             note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
             layer_el = note_el.getparent()
