@@ -4986,7 +4986,9 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
     start_time = measure.start.t
     end_time = measure.end.t
     notes = np.array(list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True)))
-    voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    # voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    # voc_staff is now transformed to only voice
+    voc_staff = np.array([n.voice for n in notes])
     un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
     for i in range(len(un_voc_staff)):
         note_mask = inverse_map == i
