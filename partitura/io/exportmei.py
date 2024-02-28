@@ -424,7 +424,7 @@ class MEIExporter:
 
         for harmony in self.part.iter_all(spt.Cadence, start=start, end=end):
             # if there is already a harmony at the same position, add the cadence to the text of the harmony
-            harm_els = measure_el.xpath(f".//harm[@tstamp='{harmony.start.t}']")
+            harm_els = measure_el.xpath(f".//harm[@tstamp='{np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1}']")
             if len(harm_els) > 0:
                 harm_el = harm_els[0]
                 harm_el.text += " |" + harmony.text
