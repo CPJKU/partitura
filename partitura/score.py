@@ -5130,14 +5130,15 @@ def infer_beaming(part: ScoreLike):
             # get the beat ends of the notes
             beat_end = beat_ends[mask]
             # get notes
-            mus_beats = na_vocstaff["ts_mus_beats"] * (na_vocstaff["ts_beat_type"] < 4)
+            beat_multiplier = 4 / na_vocstaff["ts_beat_type"]
+            mus_beats = na_vocstaff["ts_beats"] / na_vocstaff["ts_mus_beats"] * (na_vocstaff["ts_beat_type"] > 4)
             mus_beats = np.where(mus_beats == 0, 1, mus_beats)
             max_mus_beat = mus_beats.max()
             beam_start_mask = np.isclose(np.mod(na_vocstaff["onset_beat"], mus_beats), 0.0) & (na_vocstaff[
-                "duration_beat"] <= 0.5)
+                "duration_beat"] * beat_multiplier <= 0.5)
             beam_end_mask = np.isclose(np.mod(beat_end, mus_beats), 0.0) & (na_vocstaff[
-                "duration_beat"] <= 0.5)
-            beam_between = (na_vocstaff["duration_beat"] <= 0.5) & ~beam_start_mask & ~beam_end_mask
+                "duration_beat"] * beat_multiplier <= 0.5)
+            beam_between = (na_vocstaff["duration_beat"] * beat_multiplier <= 0.5) & ~beam_start_mask & ~beam_end_mask
             id_beam_start = na_vocstaff["id"][beam_start_mask]
             id_beam_end = na_vocstaff["id"][beam_end_mask]
             id_beam_between = na_vocstaff["id"][beam_between]
