@@ -227,7 +227,7 @@ class MEIExporter:
 
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, "rest")
-        if rest.symbolic_duration is None:
+        if "type" not in rest.symbolic_duration.keys():
             rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
