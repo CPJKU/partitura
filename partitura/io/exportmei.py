@@ -233,7 +233,9 @@ class MEIExporter:
         rest_el.set("dur", duration)
         if "dots" in rest.symbolic_duration:
             rest_el.set("dots", str(rest.symbolic_duration["dots"]))
-        rest_el.set(XMLNS_ID, "rest-" + self.elc_id())
+        if rest.id is None:
+            rest.id = "rest-" + self.elc_id()
+        rest_el.set(XMLNS_ID, rest.id)
         return duration
 
     def _handle_note(self, note, xml_voice_el):
@@ -277,6 +279,9 @@ class MEIExporter:
             start_note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
             # Find the note element corresponding to the end note i.e. has the same id value
             end_note_el = measure_el.xpath(f".//*[@xml:id='{end_note.id}']")[0]
+            # if start or note element parents are chords, tuplet element should be added as parent of the chord element
+            start_note_el = start_note_el.getparent() if start_note_el.getparent().tag == "chord" else start_note_el
+            end_note_el = end_note_el.getparent() if end_note_el.getparent().tag == "chord" else end_note_el
             # Create the tuplet element as parent of the start and end note elements
             # Make it start at the same index as the start note element
             tuplet_el = etree.Element("tuplet")
