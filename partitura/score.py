@@ -4980,28 +4980,36 @@ def merge_parts(parts, reassign="voice"):
     return new_part
 
 
-
-
 def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
     start_time = measure.start.t
     end_time = measure.end.t
     notes = np.array(list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True)))
-    # voc_staff = np.array([[n.voice, n.staff] for n in notes])
+
     # voc_staff is now transformed to only voice
-    voc_staff = np.array([n.voice for n in notes])
-    un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
-    for i in range(len(un_voc_staff)):
+    voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    un_voice, inverse_map = np.unique(voc_staff[:, 0], axis=0, return_inverse=True)
+    # Check if a staff is empty and fill it with rests
+    unique_staff = np.unique(voc_staff[:, 1])
+    if len(unique_staff) < part.number_of_staves:
+        for staff in range(1, part.number_of_staves + 1):
+            if staff not in unique_staff:
+                sym_dur = estimate_symbolic_duration(end_time - start_time, part._quarter_durations[0])
+                rest = Rest(symbolic_duration=sym_dur, staff=staff, voice=1)
+                part.add(rest, start_time, end_time)
+    # Now we fill the rests for each voice
+    for i in range(len(un_voice)):
         note_mask = inverse_map == i
         notes_per_vocstaff = notes[note_mask]
         sort_note_start = np.argsort(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))
         sort_note_end = np.argsort(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
-        # get note with min start.t
+        # get note with min start.t and fill the rest before it if needed
         min_start_note = notes_per_vocstaff[sort_note_start[0]]
         if min_start_note.start.t > start_time:
             sym_dur = estimate_symbolic_duration(min_start_note.start.t - start_time, part._quarter_durations[0])
             rest = Rest(symbolic_duration=sym_dur, staff=min_start_note.staff, voice=min_start_note.voice)
             part.add(rest, start_time, min_start_note.start.t)
 
+        # get note with max end.t and fill the rest after it if needed
         min_end_note = notes_per_vocstaff[sort_note_end[-1]]
         if min_end_note.end.t < end_time:
             sym_dur = estimate_symbolic_duration(end_time - min_end_note.end.t, part._quarter_durations[0])
@@ -5010,7 +5018,7 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
 
         if len(sort_note_start) <= 1:
             continue
-
+        # fill the rests between notes if needed (i.e. if there is a gap between notes)
         for i in range(1, len(sort_note_start)):
             if notes_per_vocstaff[sort_note_start[i]].start.t > notes_per_vocstaff[sort_note_end[i-1]].end.t:
                 sym_dur = estimate_symbolic_duration(notes_per_vocstaff[sort_note_start[i]].start.t - notes_per_vocstaff[sort_note_end[i-1]].end.t, part._quarter_durations[0])
