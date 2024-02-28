@@ -34,6 +34,9 @@ ALTER_TO_MEI = {
 }
 
 SYMBOLIC_TYPES_TO_MEI_DURS = {v: k for k, v in MEI_DURS_TO_SYMBOLIC.items()}
+SYMBOLIC_TYPES_TO_MEI_DURS["h"] = "2"
+SYMBOLIC_TYPES_TO_MEI_DURS["e"] = "8"
+SYMBOLIC_TYPES_TO_MEI_DURS["q"] = "4"
 
 DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
 
@@ -42,6 +45,7 @@ class MEIExporter:
     def __init__(self, part):
         self.part = part
         self.qdivs = part._quarter_durations[0]
+        self.num_staves = part.number_of_staves
         self.element_counter = 0
         self.current_key_signature = []
         self.flats = ["bf", "ef", "af", "df", "gf", "cf", "ff"]
@@ -167,12 +171,15 @@ class MEIExporter:
         voices = np.vectorize(lambda x: x.voice)(note_or_rest_elements)
         unique_staffs, staff_inverse_map = np.unique(staffs, return_inverse=True)
         unique_voices_par = np.unique(voices)
-        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=len(unique_staffs)).argmax()} for v in unique_voices_par}
-        for i, staff in enumerate(unique_staffs):
+        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=len(self.num_staves)).argmax()} for v in unique_voices_par}
+        for i in range(self.num_staves):
+            staff = i + 1
             staff_el = etree.SubElement(measure_el, "staff")
             # Add staff number
             staff_el.set("n", str(staff))
             staff_el.set(XMLNS_ID, "staff-" + self.elc_id())
+            if staff not in unique_staffs:
+                continue
             staff_notes = note_or_rest_elements[staff_inverse_map == i]
             # Separate by voice
             voices = np.vectorize(lambda x: x.voice)(staff_notes)
@@ -222,9 +229,6 @@ class MEIExporter:
         rest_el = etree.SubElement(xml_voice_el, "rest")
         if "type" not in rest.symbolic_duration:
             rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
-        if rest.symbolic_duration["type"] not in SYMBOLIC_TYPES_TO_MEI_DURS.keys():
-            # TODO: handle other types of rests
-            rest.symbolic_duration["type"] = "quarter"
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
         if "dots" in rest.symbolic_duration:
