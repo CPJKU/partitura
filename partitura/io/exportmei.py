@@ -462,7 +462,7 @@ class MEIExporter:
                 fermata_el.set("staff", "1")
 
     def _handle_barline(self, measure_el, start, end):
-        for end_barline in self.part.iter_all(spt.Ending, start=end, end=end+1):
+        for end_barline in self.part.iter_all(spt.Ending, start=end, end=end+1, mode="ending"):
             measure_el.set("right", "end")
         for end_repeat in self.part.iter_all(spt.Repeat, start=end, end=end+1, mode="ending"):
             measure_el.set("right", "rptend")
