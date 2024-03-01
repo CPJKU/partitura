@@ -42,10 +42,11 @@ DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng
 
 
 class MEIExporter:
-    def __init__(self, part):
+    def __init__(self, part, title=None):
         self.part = part
         self.qdivs = part._quarter_durations[0]
         self.num_staves = part.number_of_staves
+        self.title = title
         self.element_counter = 0
         self.current_key_signature = []
         self.flats = ["bf", "ef", "af", "df", "gf", "cf", "ff"]
@@ -77,7 +78,10 @@ class MEIExporter:
         # write the title
         title_stmt = etree.SubElement(file_desc, "titleStmt")
         title = etree.SubElement(title_stmt, "title")
-        title.text = self.part.id if self.part.id is not None else "Untitled"
+        if self.title is not None:
+            title.text = self.title
+        else:
+            title.text = self.part.id if self.part.id is not None else "Untitled"
         music = etree.SubElement(mei, "music")
         body = etree.SubElement(music, "body")
         mdiv = etree.SubElement(body, "mdiv")
@@ -468,12 +472,16 @@ class MEIExporter:
             measure_el.set("right", "rptend")
         for start_repeat in self.part.iter_all(spt.Repeat, start=start, end=start+1, mode="starting"):
             measure_el.set("left", "rptstart")
+        for end_barline in self.part.iter_all(spt.Barline, start=end, end=end+1, mode="starting"):
+            if end_barline.style == "double":
+                measure_el.set("right", "end")
 
 
 @deprecated_alias(parts="score_data")
 def save_mei(
     score_data: spt.ScoreLike,
     out: Optional[PathLike] = None,
+    title: Optional[str] = None,
 ) -> Optional[str]:
     """
     Save a one or more Part or PartGroup instances in MEI format.
@@ -506,7 +514,7 @@ def save_mei(
 
     score_data = parts[0]
 
-    exporter = MEIExporter(score_data)
+    exporter = MEIExporter(score_data, title=title)
     root = exporter.export_to_mei()
 
     if out:
