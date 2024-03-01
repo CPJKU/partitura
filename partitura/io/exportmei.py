@@ -93,10 +93,8 @@ class MEIExporter:
         staff_grp.set(XMLNS_ID, "staffgrp-" + self.elc_id())
         staff_grp.set("bar.thru", "true")
         self._handle_staffs(staff_grp)
-
         section = etree.SubElement(score, "section")
         section.set(XMLNS_ID, "section-" + self.elc_id())
-
         # Iterate over part's timeline
         for measure in self.part.measures:
             # Create measure element
