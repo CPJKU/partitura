@@ -87,6 +87,7 @@ class MEIExporter:
         score_def.set(XMLNS_ID, "scoredef-" + self.elc_id())
         staff_grp = etree.SubElement(score_def, "staffGrp")
         staff_grp.set(XMLNS_ID, "staffgrp-" + self.elc_id())
+        staff_grp.set("bar.thru", "true")
         self._handle_staffs(staff_grp)
 
         section = etree.SubElement(score, "section")
@@ -209,6 +210,8 @@ class MEIExporter:
         self._handle_ks_changes(measure_el, start=measure.start.t, end=measure.end.t)
         self._handle_ts_changes(measure_el, start=measure.start.t, end=measure.end.t)
         self._handle_harmony(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_fermata(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_barline(measure_el, start=measure.start.t, end=measure.end.t)
         return measure_el
 
     def _handle_chord(self, chord, xml_voice_el):
@@ -341,7 +344,6 @@ class MEIExporter:
                         if note_el.getparent() != beam_el:
                             beam_el.append(note_el)
 
-
     def _handle_clef_changes(self, measure_el, start, end):
         for clef in self.part.iter_all(spt.Clef, start=start, end=end):
             # Clef element is parent of the note element
@@ -445,6 +447,27 @@ class MEIExporter:
                 harm_el.set("place", "below")
                 # text is a child element of harmony but not a xml element
                 harm_el.text = "|" + harmony.text
+
+    def _handle_fermata(self, measure_el, start, end):
+        for fermata in self.part.iter_all(spt.Fermata, start=start, end=end):
+            if fermata.ref is not None:
+                note = fermata.ref
+                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")[0]
+                note_el.set("fermata", "above")
+            else:
+                fermata_el = etree.SubElement(measure_el, "fermata")
+                fermata_el.set(XMLNS_ID, "fermata-" + self.elc_id())
+                fermata_el.set("tstamp", str(np.diff(self.part.quarter_map([start, fermata.start.t]))[0] + 1))
+                # Set the fermata to be above the staff (the highest staff)
+                fermata_el.set("staff", "1")
+
+    def _handle_barline(self, measure_el, start, end):
+        for end_barline in self.part.iter_all(spt.Ending, start=end, end=end+1):
+            measure_el.set("right", "end")
+        for end_repeat in self.part.iter_all(spt.Repeat, start=end, end=end+1, mode="ending"):
+            measure_el.set("right", "rptend")
+        for start_repeat in self.part.iter_all(spt.Repeat, start=start, end=start+1, mode="starting"):
+            measure_el.set("left", "rptstart")
 
 
 @deprecated_alias(parts="score_data")
