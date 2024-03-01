@@ -473,7 +473,7 @@ class MEIExporter:
         for start_repeat in self.part.iter_all(spt.Repeat, start=start, end=start+1, mode="starting"):
             measure_el.set("left", "rptstart")
         for end_barline in self.part.iter_all(spt.Barline, start=end, end=end+1, mode="starting"):
-            if end_barline.style == "double":
+            if end_barline.style == "light-heavy":
                 measure_el.set("right", "end")
 
 
