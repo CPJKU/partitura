@@ -78,6 +78,13 @@ TEMPO_DIRECTIONS = {
 
 OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
+ACCIDENTAL_MAP = {
+    "sharp": 1,
+    "natural": 0,
+    "flat": -1,
+    "double-sharp": 2,
+    "double-flat": -2,
+}
 
 def validate_musicxml(xml, debug=False):
     """
@@ -1236,6 +1243,11 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
         step = get_value_from_tag(pitch, "step", str)
         alter = get_value_from_tag(pitch, "alter", int)
         octave = get_value_from_tag(pitch, "octave", int)
+        # When step is none check for accidental attribute
+        if alter is None:
+            alter = get_value_from_tag(e, "accidental", str)
+            if alter is not None:
+                alter = ACCIDENTAL_MAP[alter]
 
         grace = e.find("grace")
 
