@@ -13,7 +13,7 @@ from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
-
+import re
 # import copy
 from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings, sys
@@ -566,6 +566,18 @@ class Part(object):
 
         """
         return [e for e in self.iter_all(Rest, include_subclasses=False)]
+
+    @property
+    def cadences(self):
+        """Return a list of all cadence objects in the part
+
+        Returns
+        -------
+        list
+            List of Cadence objects
+
+        """
+        return [e for e in self.iter_all(Cadence)]
 
     @property
     def repeats(self):
