@@ -86,6 +86,7 @@ ACCIDENTAL_MAP = {
     "double-flat": -2,
 }
 
+
 def validate_musicxml(xml, debug=False):
     """
     Validate an XML file against an XSD.

@@ -14,6 +14,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
 import re
+
 # import copy
 from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings, sys
@@ -1594,7 +1595,7 @@ class GenericNote(TimedObject):
         articulations=None,
         ornaments=None,
         doc_order=None,
-        **kwargs
+        **kwargs,
     ):
         self._sym_dur = None
         super().__init__(**kwargs)
@@ -2713,6 +2714,7 @@ class OctaveShiftDirection(TimedObject):
 
 class Cadence(TimedObject):
     """A cadence element in the score usually for Cadences."""
+
     def __init__(self, text, local_key=None):
         super().__init__()
         self.text = text
@@ -2724,7 +2726,7 @@ class Cadence(TimedObject):
         # capitalize text
         self.text = self.text.upper()
         # Filter alphabet characters only.
-        self.text = re.findall(r'[A-Z]+', self.text)[0]
+        self.text = re.findall(r"[A-Z]+", self.text)[0]
         self.text = "IAC" if "IAC" in self.text else self.text
         if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
             warnings.warn(f"Cadence type {self.text} not found. Setting to None")
@@ -4995,7 +4997,9 @@ def merge_parts(parts, reassign="voice"):
 def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
     start_time = measure.start.t
     end_time = measure.end.t
-    notes = np.array(list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True)))
+    notes = np.array(
+        list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True))
+    )
 
     # voc_staff is now transformed to only voice
     voc_staff = np.array([[n.voice, n.staff] for n in notes])
@@ -5005,61 +5009,114 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
     if len(unique_staff) < part.number_of_staves:
         for staff in range(1, part.number_of_staves + 1):
             if staff not in unique_staff:
-                sym_dur = estimate_symbolic_duration(end_time - start_time, part._quarter_durations[0])
-                rest = Rest(symbolic_duration=sym_dur, staff=staff, voice=un_voice.max() + 1)
+                sym_dur = estimate_symbolic_duration(
+                    end_time - start_time, part._quarter_durations[0]
+                )
+                rest = Rest(
+                    symbolic_duration=sym_dur, staff=staff, voice=un_voice.max() + 1
+                )
                 part.add(rest, start_time, end_time)
     # Now we fill the rests for each voice
     for i in range(len(un_voice)):
         note_mask = inverse_map == i
         notes_per_vocstaff = notes[note_mask]
-        sort_note_start = np.argsort(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))
+        sort_note_start = np.argsort(
+            np.vectorize(lambda x: x.start.t)(notes_per_vocstaff)
+        )
         sort_note_end = np.argsort(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
         # get note with min start.t and fill the rest before it if needed
         min_start_note = notes_per_vocstaff[sort_note_start[0]]
         if min_start_note.start.t > start_time:
-            sym_dur = estimate_symbolic_duration(min_start_note.start.t - start_time, part._quarter_durations[0])
-            rest = Rest(symbolic_duration=sym_dur, staff=min_start_note.staff, voice=min_start_note.voice)
+            sym_dur = estimate_symbolic_duration(
+                min_start_note.start.t - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_start_note.staff,
+                voice=min_start_note.voice,
+            )
             part.add(rest, start_time, min_start_note.start.t)
 
         # get note with max end.t and fill the rest after it if needed
         min_end_note = notes_per_vocstaff[sort_note_end[-1]]
         if min_end_note.end.t < end_time:
-            sym_dur = estimate_symbolic_duration(end_time - min_end_note.end.t, part._quarter_durations[0])
-            rest = Rest(symbolic_duration=sym_dur, staff=min_end_note.staff, voice=min_end_note.voice)
+            sym_dur = estimate_symbolic_duration(
+                end_time - min_end_note.end.t, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_end_note.staff,
+                voice=min_end_note.voice,
+            )
             part.add(rest, min_end_note.end.t, end_time)
 
         if len(sort_note_start) <= 1:
             continue
         # fill the rests between notes if needed (i.e. if there is a gap between notes)
         for i in range(1, len(sort_note_start)):
-            if notes_per_vocstaff[sort_note_start[i]].start.t > notes_per_vocstaff[sort_note_end[i-1]].end.t:
-                sym_dur = estimate_symbolic_duration(notes_per_vocstaff[sort_note_start[i]].start.t - notes_per_vocstaff[sort_note_end[i-1]].end.t, part._quarter_durations[0])
-                rest = Rest(symbolic_duration=sym_dur, staff=notes_per_vocstaff[sort_note_end[i-1]].staff, voice=notes_per_vocstaff[sort_note_end[i-1]].voice)
-                part.add(rest, notes_per_vocstaff[sort_note_end[i-1]].end.t, notes_per_vocstaff[sort_note_start[i]].start.t)
+            if (
+                notes_per_vocstaff[sort_note_start[i]].start.t
+                > notes_per_vocstaff[sort_note_end[i - 1]].end.t
+            ):
+                sym_dur = estimate_symbolic_duration(
+                    notes_per_vocstaff[sort_note_start[i]].start.t
+                    - notes_per_vocstaff[sort_note_end[i - 1]].end.t,
+                    part._quarter_durations[0],
+                )
+                rest = Rest(
+                    symbolic_duration=sym_dur,
+                    staff=notes_per_vocstaff[sort_note_end[i - 1]].staff,
+                    voice=notes_per_vocstaff[sort_note_end[i - 1]].voice,
+                )
+                part.add(
+                    rest,
+                    notes_per_vocstaff[sort_note_end[i - 1]].end.t,
+                    notes_per_vocstaff[sort_note_start[i]].start.t,
+                )
 
 
-def _fill_rests_global(measure: Measure, part: Part, unique_voc_staff: np.ndarray) -> None:
+def _fill_rests_global(
+    measure: Measure, part: Part, unique_voc_staff: np.ndarray
+) -> None:
     start_time = measure.start.t
     end_time = measure.end.t
     if end_time - start_time == 0:
         return
-    notes = np.array(list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True)))
+    notes = np.array(
+        list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True))
+    )
     voc_staff = np.array([[n.voice, n.staff] for n in notes])
     un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
     for i in range(un_voc_staff.shape[0]):
         note_mask = inverse_map == i
         notes_per_vocstaff = notes[note_mask]
         # get note with min start.t
-        min_start_note = notes_per_vocstaff[np.argmin(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))]
+        min_start_note = notes_per_vocstaff[
+            np.argmin(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))
+        ]
         if min_start_note.start.t > start_time:
-            sym_dur = estimate_symbolic_duration(min_start_note.start.t - start_time, part._quarter_durations[0])
-            rest = Rest(symbolic_duration=sym_dur, staff=min_start_note.staff, voice=min_start_note.voice)
+            sym_dur = estimate_symbolic_duration(
+                min_start_note.start.t - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_start_note.staff,
+                voice=min_start_note.voice,
+            )
             part.add(rest, start_time, min_start_note.start.t)
 
-        min_end_note = notes_per_vocstaff[np.argmax(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))]
+        min_end_note = notes_per_vocstaff[
+            np.argmax(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
+        ]
         if min_end_note.end.t < end_time:
-            sym_dur = estimate_symbolic_duration(end_time - min_end_note.end.t, part._quarter_durations[0])
-            rest = Rest(symbolic_duration=sym_dur, staff=min_end_note.staff, voice=min_end_note.voice)
+            sym_dur = estimate_symbolic_duration(
+                end_time - min_end_note.end.t, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_end_note.staff,
+                voice=min_end_note.voice,
+            )
             part.add(rest, min_end_note.end.t, end_time)
 
     if un_voc_staff.shape[0] != unique_voc_staff.shape[0]:
@@ -5067,12 +5124,16 @@ def _fill_rests_global(measure: Measure, part: Part, unique_voc_staff: np.ndarra
             diff = unique_voc_staff
         else:
             # View `un_voc_staff` and `unique_voc_staff` as 1-D structured arrays
-            x_sa = un_voc_staff.view([('', un_voc_staff.dtype)] * un_voc_staff.shape[1])
-            y_sa = unique_voc_staff.view([('', unique_voc_staff.dtype)] * unique_voc_staff.shape[1])
+            x_sa = un_voc_staff.view([("", un_voc_staff.dtype)] * un_voc_staff.shape[1])
+            y_sa = unique_voc_staff.view(
+                [("", unique_voc_staff.dtype)] * unique_voc_staff.shape[1]
+            )
             # Find rows in `unique_voc_staff` that are not in `un_voc_staff`
             diff = np.setdiff1d(y_sa, x_sa)
         for voice, staff in diff:
-            sym_dur = estimate_symbolic_duration(end_time - start_time, part._quarter_durations[0])
+            sym_dur = estimate_symbolic_duration(
+                end_time - start_time, part._quarter_durations[0]
+            )
             rest = Rest(symbolic_duration=sym_dur, staff=staff, voice=voice)
             part.add(rest, start_time, end_time)
 
@@ -5103,7 +5164,8 @@ def fill_rests(score_data: ScoreLike, measurewise=True) -> None:
         else:
             note_array = part.note_array(include_staff=True)
             unique_vocstaff = np.unique(
-                np.array([note_array["voice"], note_array["staff"]], dtype=np.int64), axis=1
+                np.array([note_array["voice"], note_array["staff"]], dtype=np.int64),
+                axis=1,
             )
             for measure in measures:
                 _fill_rests_global(measure, part, unique_vocstaff.T)
@@ -5128,7 +5190,11 @@ def infer_beaming(part: ScoreLike):
         for p in part.parts:
             infer_beaming(p)
     else:
-        note_array = part.note_array(include_metrical_position=True, include_staff=True, include_time_signature=True)
+        note_array = part.note_array(
+            include_metrical_position=True,
+            include_staff=True,
+            include_time_signature=True,
+        )
         beat_ends = note_array["onset_beat"] + note_array["duration_beat"]
         # split note_array into groups based on staff and voice
         # unique_vocstaff = np.unique(note_array[['voice', 'staff']], axis=0)
@@ -5143,14 +5209,24 @@ def infer_beaming(part: ScoreLike):
             beat_end = beat_ends[mask]
             # get notes
             beat_multiplier = 4 / na_vocstaff["ts_beat_type"]
-            mus_beats = na_vocstaff["ts_beats"] / na_vocstaff["ts_mus_beats"] * (na_vocstaff["ts_beat_type"] > 4)
+            mus_beats = (
+                na_vocstaff["ts_beats"]
+                / na_vocstaff["ts_mus_beats"]
+                * (na_vocstaff["ts_beat_type"] > 4)
+            )
             mus_beats = np.where(mus_beats == 0, 1, mus_beats)
             max_mus_beat = mus_beats.max()
-            beam_start_mask = np.isclose(np.mod(na_vocstaff["onset_beat"], mus_beats), 0.0) & (na_vocstaff[
-                "duration_beat"] * beat_multiplier <= 0.5)
-            beam_end_mask = np.isclose(np.mod(beat_end, mus_beats), 0.0) & (na_vocstaff[
-                "duration_beat"] * beat_multiplier <= 0.5)
-            beam_between = (na_vocstaff["duration_beat"] * beat_multiplier <= 0.5) & ~beam_start_mask & ~beam_end_mask
+            beam_start_mask = np.isclose(
+                np.mod(na_vocstaff["onset_beat"], mus_beats), 0.0
+            ) & (na_vocstaff["duration_beat"] * beat_multiplier <= 0.5)
+            beam_end_mask = np.isclose(np.mod(beat_end, mus_beats), 0.0) & (
+                na_vocstaff["duration_beat"] * beat_multiplier <= 0.5
+            )
+            beam_between = (
+                (na_vocstaff["duration_beat"] * beat_multiplier <= 0.5)
+                & ~beam_start_mask
+                & ~beam_end_mask
+            )
             id_beam_start = na_vocstaff["id"][beam_start_mask]
             id_beam_end = na_vocstaff["id"][beam_end_mask]
             id_beam_between = na_vocstaff["id"][beam_between]
@@ -5168,7 +5244,10 @@ def infer_beaming(part: ScoreLike):
                 if note.beam is not None:
                     continue
 
-                if part.beat_map(note.start.t) - part.beat_map(prev_start) > max_mus_beat:
+                if (
+                    part.beat_map(note.start.t) - part.beat_map(prev_start)
+                    > max_mus_beat
+                ):
                     prev_beam = None
                     notes_in_beam = []
                     prev_start = note.start.t

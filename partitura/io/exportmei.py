@@ -146,7 +146,9 @@ class MEIExporter:
                 # Find the pname from the number of sharps or flats and the mode
                 ks_def.set(
                     "pname",
-                    fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower()[0], # only the first letter
+                    fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower()[
+                        0
+                    ],  # only the first letter
                 )
 
             if time_sig is not None:
@@ -174,7 +176,15 @@ class MEIExporter:
         voices = np.vectorize(lambda x: x.voice)(note_or_rest_elements)
         unique_staffs, staff_inverse_map = np.unique(staffs, return_inverse=True)
         unique_voices_par = np.unique(voices)
-        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=self.num_staves).argmax()} for v in unique_voices_par}
+        voice_staff_map = {
+            v: {
+                "mask": voices == v,
+                "staff": np.bincount(
+                    staffs[voices == v], minlength=self.num_staves
+                ).argmax(),
+            }
+            for v in unique_voices_par
+        }
         for i in range(self.num_staves):
             staff = i + 1
             staff_el = etree.SubElement(measure_el, "staff")
@@ -233,7 +243,9 @@ class MEIExporter:
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, "rest")
         if "type" not in rest.symbolic_duration.keys():
-            rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
+            rest.symbolic_duration = estimate_symbolic_duration(
+                rest.end.t - rest.start.t, div=self.qdivs
+            )
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
         if "dots" in rest.symbolic_duration:
@@ -265,7 +277,10 @@ class MEIExporter:
             note_el.set("tie", "t")
 
         if note.alter is not None:
-            if note.step.lower() + ALTER_TO_MEI[note.alter] in self.current_key_signature:
+            if (
+                note.step.lower() + ALTER_TO_MEI[note.alter]
+                in self.current_key_signature
+            ):
                 note_el.set("accid.ges", ALTER_TO_MEI[note.alter])
             else:
                 accidental = etree.SubElement(note_el, "accid")
@@ -285,8 +300,16 @@ class MEIExporter:
             # Find the note element corresponding to the end note i.e. has the same id value
             end_note_el = measure_el.xpath(f".//*[@xml:id='{end_note.id}']")[0]
             # if start or note element parents are chords, tuplet element should be added as parent of the chord element
-            start_note_el = start_note_el.getparent() if start_note_el.getparent().tag == "chord" else start_note_el
-            end_note_el = end_note_el.getparent() if end_note_el.getparent().tag == "chord" else end_note_el
+            start_note_el = (
+                start_note_el.getparent()
+                if start_note_el.getparent().tag == "chord"
+                else start_note_el
+            )
+            end_note_el = (
+                end_note_el.getparent()
+                if end_note_el.getparent().tag == "chord"
+                else end_note_el
+            )
             # Create the tuplet element as parent of the start and end note elements
             # Make it start at the same index as the start note element
             tuplet_el = etree.Element("tuplet")
@@ -433,7 +456,9 @@ class MEIExporter:
 
         for harmony in self.part.iter_all(spt.Cadence, start=start, end=end):
             # if there is already a harmony at the same position, add the cadence to the text of the harmony
-            harm_els = measure_el.xpath(f".//harm[@tstamp='{np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1}']")
+            harm_els = measure_el.xpath(
+                f".//harm[@tstamp='{np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1}']"
+            )
             if len(harm_els) > 0:
                 harm_el = harm_els[0]
                 harm_el.text += " |" + harmony.text
@@ -444,7 +469,9 @@ class MEIExporter:
                 harm_el.set("staff", str(self.part.number_of_staves))
                 harm_el.set(
                     "tstamp",
-                    str(np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1),
+                    str(
+                        np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1
+                    ),
                 )
                 harm_el.set("place", "below")
                 # text is a child element of harmony but not a xml element
@@ -459,19 +486,32 @@ class MEIExporter:
             else:
                 fermata_el = etree.SubElement(measure_el, "fermata")
                 fermata_el.set(XMLNS_ID, "fermata-" + self.elc_id())
-                fermata_el.set("tstamp", str(np.diff(self.part.quarter_map([start, fermata.start.t]))[0] + 1))
+                fermata_el.set(
+                    "tstamp",
+                    str(
+                        np.diff(self.part.quarter_map([start, fermata.start.t]))[0] + 1
+                    ),
+                )
                 # Set the fermata to be above the staff (the highest staff)
                 fermata_el.set("staff", "1")
 
     def _handle_barline(self, measure_el, start, end):
-        for end_barline in self.part.iter_all(spt.Ending, start=end, end=end+1, mode="ending"):
+        for end_barline in self.part.iter_all(
+            spt.Ending, start=end, end=end + 1, mode="ending"
+        ):
             measure_el.set("right", "end")
-        for end_barline in self.part.iter_all(spt.Barline, start=end, end=end+1, mode="starting"):
+        for end_barline in self.part.iter_all(
+            spt.Barline, start=end, end=end + 1, mode="starting"
+        ):
             if end_barline.style == "light-heavy":
                 measure_el.set("right", "end")
-        for end_repeat in self.part.iter_all(spt.Repeat, start=end, end=end+1, mode="ending"):
+        for end_repeat in self.part.iter_all(
+            spt.Repeat, start=end, end=end + 1, mode="ending"
+        ):
             measure_el.set("right", "rptend")
-        for start_repeat in self.part.iter_all(spt.Repeat, start=start, end=start+1, mode="starting"):
+        for start_repeat in self.part.iter_all(
+            spt.Repeat, start=start, end=start + 1, mode="starting"
+        ):
             measure_el.set("left", "rptstart")
 
 
