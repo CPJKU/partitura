@@ -18,7 +18,7 @@ from partitura.utils import (
 )
 import numpy as np
 from partitura.utils.misc import deprecated_alias, PathLike
-from partitura.utils.music import MEI_DURS_TO_SYMBOLIC
+from partitura.utils.music import MEI_DURS_TO_SYMBOLIC, estimate_symbolic_duration
 
 
 __all__ = ["save_mei"]
@@ -34,14 +34,23 @@ ALTER_TO_MEI = {
 }
 
 SYMBOLIC_TYPES_TO_MEI_DURS = {v: k for k, v in MEI_DURS_TO_SYMBOLIC.items()}
+SYMBOLIC_TYPES_TO_MEI_DURS["h"] = "2"
+SYMBOLIC_TYPES_TO_MEI_DURS["e"] = "8"
+SYMBOLIC_TYPES_TO_MEI_DURS["q"] = "4"
 
 DOCTYPE = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
 
 
 class MEIExporter:
-    def __init__(self, part):
+    def __init__(self, part, title=None):
         self.part = part
+        self.qdivs = part._quarter_durations[0]
+        self.num_staves = part.number_of_staves
+        self.title = title
         self.element_counter = 0
+        self.current_key_signature = []
+        self.flats = ["bf", "ef", "af", "df", "gf", "cf", "ff"]
+        self.sharps = ["fs", "cs", "gs", "ds", "as", "es", "bs"]
 
     def elc_id(self):
         # transforms an integer number to 8-digit string
@@ -66,6 +75,13 @@ class MEIExporter:
         # Create child elements
         mei_head = etree.SubElement(mei, "meiHead")
         file_desc = etree.SubElement(mei_head, "fileDesc")
+        # write the title
+        title_stmt = etree.SubElement(file_desc, "titleStmt")
+        title = etree.SubElement(title_stmt, "title")
+        if self.title is not None:
+            title.text = self.title
+        else:
+            title.text = self.part.id if self.part.id is not None else "Untitled"
         music = etree.SubElement(mei, "music")
         body = etree.SubElement(music, "body")
         mdiv = etree.SubElement(body, "mdiv")
@@ -75,11 +91,10 @@ class MEIExporter:
         score_def.set(XMLNS_ID, "scoredef-" + self.elc_id())
         staff_grp = etree.SubElement(score_def, "staffGrp")
         staff_grp.set(XMLNS_ID, "staffgrp-" + self.elc_id())
+        staff_grp.set("bar.thru", "true")
         self._handle_staffs(staff_grp)
-
         section = etree.SubElement(score, "section")
         section.set(XMLNS_ID, "section-" + self.elc_id())
-
         # Iterate over part's timeline
         for measure in self.part.measures:
             # Create measure element
@@ -124,12 +139,14 @@ class MEIExporter:
                     ks_def.set("sig", "0")
                 elif keys_sig.fifths > 0:
                     ks_def.set("sig", str(keys_sig.fifths) + "s")
+                    self.current_key_signature = self.sharps[: keys_sig.fifths]
                 else:
                     ks_def.set("sig", str(abs(keys_sig.fifths)) + "f")
+                    self.current_key_signature = self.flats[: abs(keys_sig.fifths)]
                 # Find the pname from the number of sharps or flats and the mode
                 ks_def.set(
                     "pname",
-                    fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower(),
+                    fifths_mode_to_key_name(keys_sig.fifths, keys_sig.mode).lower()[0], # only the first letter
                 )
 
             if time_sig is not None:
@@ -154,12 +171,18 @@ class MEIExporter:
         )
         # Separate by staff
         staffs = np.vectorize(lambda x: x.staff)(note_or_rest_elements)
+        voices = np.vectorize(lambda x: x.voice)(note_or_rest_elements)
         unique_staffs, staff_inverse_map = np.unique(staffs, return_inverse=True)
-        for i, staff in enumerate(unique_staffs):
+        unique_voices_par = np.unique(voices)
+        voice_staff_map = {v : {"mask": voices == v, "staff": np.bincount(staffs[voices == v], minlength=self.num_staves).argmax()} for v in unique_voices_par}
+        for i in range(self.num_staves):
+            staff = i + 1
             staff_el = etree.SubElement(measure_el, "staff")
             # Add staff number
             staff_el.set("n", str(staff))
             staff_el.set(XMLNS_ID, "staff-" + self.elc_id())
+            if staff not in unique_staffs:
+                continue
             staff_notes = note_or_rest_elements[staff_inverse_map == i]
             # Separate by voice
             voices = np.vectorize(lambda x: x.voice)(staff_notes)
@@ -168,7 +191,10 @@ class MEIExporter:
                 voice_el = etree.SubElement(staff_el, "layer")
                 voice_el.set("n", str(voice))
                 voice_el.set(XMLNS_ID, "voice-" + self.elc_id())
-                voice_notes = staff_notes[voice_inverse_map == j]
+                # try to handle cross-staff beaming
+                if voice_staff_map[voice]["staff"] != staff:
+                    continue
+                voice_notes = note_or_rest_elements[voice_staff_map[voice]["mask"]]
                 # Sort by onset
                 note_start_times = np.vectorize(lambda x: x.start.t)(voice_notes)
                 unique_onsets = np.unique(note_start_times)
@@ -186,6 +212,8 @@ class MEIExporter:
         self._handle_ks_changes(measure_el, start=measure.start.t, end=measure.end.t)
         self._handle_ts_changes(measure_el, start=measure.start.t, end=measure.end.t)
         self._handle_harmony(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_fermata(measure_el, start=measure.start.t, end=measure.end.t)
+        self._handle_barline(measure_el, start=measure.start.t, end=measure.end.t)
         return measure_el
 
     def _handle_chord(self, chord, xml_voice_el):
@@ -204,9 +232,15 @@ class MEIExporter:
 
     def _handle_rest(self, rest, xml_voice_el):
         rest_el = etree.SubElement(xml_voice_el, "rest")
+        if "type" not in rest.symbolic_duration.keys():
+            rest.symbolic_duration = estimate_symbolic_duration(rest.end.t - rest.start.t, div=self.qdivs)
         duration = SYMBOLIC_TYPES_TO_MEI_DURS[rest.symbolic_duration["type"]]
         rest_el.set("dur", duration)
-        rest_el.set(XMLNS_ID, "rest-" + self.elc_id())
+        if "dots" in rest.symbolic_duration:
+            rest_el.set("dots", str(rest.symbolic_duration["dots"]))
+        if rest.id is None:
+            rest.id = "rest-" + self.elc_id()
+        rest_el.set(XMLNS_ID, rest.id)
         return duration
 
     def _handle_note(self, note, xml_voice_el):
@@ -218,8 +252,11 @@ class MEIExporter:
             if note.id is None
             else note_el.set(XMLNS_ID, note.id)
         )
+        if "dots" in note.symbolic_duration:
+            note_el.set("dots", str(note.symbolic_duration["dots"]))
         note_el.set("oct", str(note.octave))
         note_el.set("pname", note.step.lower())
+        note_el.set("staff", str(note.staff))
         if note.tie_next is not None and note.tie_prev is not None:
             note_el.set("tie", "m")
         elif note.tie_next is not None:
@@ -228,9 +265,12 @@ class MEIExporter:
             note_el.set("tie", "t")
 
         if note.alter is not None:
-            accidental = etree.SubElement(note_el, "accid")
-            accidental.set(XMLNS_ID, "accid-" + self.elc_id())
-            accidental.set("accid", ALTER_TO_MEI[note.alter])
+            if note.step.lower() + ALTER_TO_MEI[note.alter] in self.current_key_signature:
+                note_el.set("accid.ges", ALTER_TO_MEI[note.alter])
+            else:
+                accidental = etree.SubElement(note_el, "accid")
+                accidental.set(XMLNS_ID, "accid-" + self.elc_id())
+                accidental.set("accid", ALTER_TO_MEI[note.alter])
 
         if isinstance(note, spt.GraceNote):
             note_el.set("grace", "acc")
@@ -244,6 +284,9 @@ class MEIExporter:
             start_note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
             # Find the note element corresponding to the end note i.e. has the same id value
             end_note_el = measure_el.xpath(f".//*[@xml:id='{end_note.id}']")[0]
+            # if start or note element parents are chords, tuplet element should be added as parent of the chord element
+            start_note_el = start_note_el.getparent() if start_note_el.getparent().tag == "chord" else start_note_el
+            end_note_el = end_note_el.getparent() if end_note_el.getparent().tag == "chord" else end_note_el
             # Create the tuplet element as parent of the start and end note elements
             # Make it start at the same index as the start note element
             tuplet_el = etree.Element("tuplet")
@@ -265,6 +308,9 @@ class MEIExporter:
 
     def _handle_beams(self, measure_el, start, end):
         for beam in self.part.iter_all(spt.Beam, start=start, end=end):
+            # If the beam has only one note, skip it
+            if len(beam.notes) < 2:
+                continue
             start_note = beam.notes[np.argmin([n.start.t for n in beam.notes])]
             # Beam element is parent of the note element
             note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
@@ -275,6 +321,12 @@ class MEIExporter:
                 parent_el = layer_el.getparent()
                 insert_index = parent_el.index(layer_el)
                 layer_el = parent_el
+            # If the parent is a chord, the beam element should be added as parent of the chord element
+            if layer_el.tag == "chord":
+                parent_el = layer_el.getparent()
+                insert_index = parent_el.index(layer_el)
+                layer_el = parent_el
+
             # Create the beam element
             beam_el = etree.Element("beam")
             layer_el.insert(insert_index, beam_el)
@@ -284,7 +336,15 @@ class MEIExporter:
                 note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")
                 if len(note_el) > 0:
                     note_el = note_el[0]
-                    beam_el.append(note_el)
+                    # Add the note element to the beam element but if the parent is a tuplet, the note element should be added as child of the tuplet element
+                    if note_el.getparent().tag == "tuplet":
+                        beam_el.append(note_el.getparent())
+                    elif note_el.getparent().tag == "chord":
+                        beam_el.append(note_el.getparent())
+                    else:
+                        # verify that the note element is not already a child of the beam element
+                        if note_el.getparent() != beam_el:
+                            beam_el.append(note_el)
 
     def _handle_clef_changes(self, measure_el, start, end):
         for clef in self.part.iter_all(spt.Clef, start=start, end=end):
@@ -325,8 +385,10 @@ class MEIExporter:
                 score_def_el.set("sig", "0")
             elif key_sig.fifths > 0:
                 score_def_el.set("sig", str(key_sig.fifths) + "s")
+                self.current_key_signature = self.sharps[: key_sig.fifths]
             else:
                 score_def_el.set("sig", str(abs(key_sig.fifths)) + "f")
+                self.current_key_signature = self.flats[: abs(key_sig.fifths)]
             # Find the pname from the number of sharps or flats and the mode
             score_def_el.set(
                 "pname", fifths_mode_to_key_name(key_sig.fifths, key_sig.mode).lower()
@@ -369,11 +431,55 @@ class MEIExporter:
             # text is a child element of harmony but not a xml element
             harm_el.text = harmony.text
 
+        for harmony in self.part.iter_all(spt.Cadence, start=start, end=end):
+            # if there is already a harmony at the same position, add the cadence to the text of the harmony
+            harm_els = measure_el.xpath(f".//harm[@tstamp='{np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1}']")
+            if len(harm_els) > 0:
+                harm_el = harm_els[0]
+                harm_el.text += " |" + harmony.text
+            else:
+
+                harm_el = etree.SubElement(measure_el, "harm")
+                harm_el.set(XMLNS_ID, "harm-" + self.elc_id())
+                harm_el.set("staff", str(self.part.number_of_staves))
+                harm_el.set(
+                    "tstamp",
+                    str(np.diff(self.part.quarter_map([start, harmony.start.t]))[0] + 1),
+                )
+                harm_el.set("place", "below")
+                # text is a child element of harmony but not a xml element
+                harm_el.text = "|" + harmony.text
+
+    def _handle_fermata(self, measure_el, start, end):
+        for fermata in self.part.iter_all(spt.Fermata, start=start, end=end):
+            if fermata.ref is not None:
+                note = fermata.ref
+                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")[0]
+                note_el.set("fermata", "above")
+            else:
+                fermata_el = etree.SubElement(measure_el, "fermata")
+                fermata_el.set(XMLNS_ID, "fermata-" + self.elc_id())
+                fermata_el.set("tstamp", str(np.diff(self.part.quarter_map([start, fermata.start.t]))[0] + 1))
+                # Set the fermata to be above the staff (the highest staff)
+                fermata_el.set("staff", "1")
+
+    def _handle_barline(self, measure_el, start, end):
+        for end_barline in self.part.iter_all(spt.Ending, start=end, end=end+1, mode="ending"):
+            measure_el.set("right", "end")
+        for end_barline in self.part.iter_all(spt.Barline, start=end, end=end+1, mode="starting"):
+            if end_barline.style == "light-heavy":
+                measure_el.set("right", "end")
+        for end_repeat in self.part.iter_all(spt.Repeat, start=end, end=end+1, mode="ending"):
+            measure_el.set("right", "rptend")
+        for start_repeat in self.part.iter_all(spt.Repeat, start=start, end=start+1, mode="starting"):
+            measure_el.set("left", "rptstart")
+
 
 @deprecated_alias(parts="score_data")
 def save_mei(
     score_data: spt.ScoreLike,
     out: Optional[PathLike] = None,
+    title: Optional[str] = None,
 ) -> Optional[str]:
     """
     Save a one or more Part or PartGroup instances in MEI format.
@@ -406,7 +512,7 @@ def save_mei(
 
     score_data = parts[0]
 
-    exporter = MEIExporter(score_data)
+    exporter = MEIExporter(score_data, title=title)
     root = exporter.export_to_mei()
 
     if out:
