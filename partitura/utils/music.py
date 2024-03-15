@@ -906,7 +906,7 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3) -> Union[Union[Dict[str, Any], Tuple[Dict[str, Any]]], None]:
+def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False) -> Union[Union[Dict[str, Any], Tuple[Dict[str, Any]]], None]:
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
@@ -927,6 +927,8 @@ def estimate_symbolic_duration(dur, div, eps=10**-3) -> Union[Union[Dict[str, An
         Number of units per quarter note
     eps : float, optional (default: 10**-3)
         Tolerance in case of imprecise matches
+    return_com_durations : bool, optional (default: False)
+        If True, return composite durations as well.
 
     Returns
     -------
@@ -961,7 +963,7 @@ def estimate_symbolic_duration(dur, div, eps=10**-3) -> Union[Union[Dict[str, An
         # 2. The duration is a composite duration
         # For composite duration. We can use the following approach:
         i = find_nearest(COMPOSITE_DURS, qdur)
-        if np.abs(qdur - COMPOSITE_DURS[i]) < eps:
+        if np.abs(qdur - COMPOSITE_DURS[i]) < eps and return_com_durations:
             return SYM_DURS[i].copy()
         else:
             # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
