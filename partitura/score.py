@@ -5009,13 +5009,23 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
     if len(unique_staff) < part.number_of_staves:
         for staff in range(1, part.number_of_staves + 1):
             if staff not in unique_staff:
+                # solution when estimation returns composite durations.
                 sym_dur = estimate_symbolic_duration(
-                    end_time - start_time, part._quarter_durations[0]
+                    end_time - start_time, part._quarter_durations[0], return_com_durations=True
                 )
-                rest = Rest(
-                    symbolic_duration=sym_dur, staff=staff, voice=un_voice.max() + 1
-                )
-                part.add(rest, start_time, end_time)
+                if isinstance(sym_dur, tuple):
+                    for i, sd in enumerate(sym_dur):
+                        end_time = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                        rest = Rest(
+                            symbolic_duration=sd, staff=staff, voice=un_voice.max() + 1
+                        )
+                        part.add(rest, start_time, end_time)
+                        start_time = end_time
+                else:
+                    rest = Rest(
+                        symbolic_duration=sym_dur, staff=staff, voice=un_voice.max() + 1
+                    )
+                    part.add(rest, start_time, end_time)
     # Now we fill the rests for each voice
     for i in range(len(un_voice)):
         note_mask = inverse_map == i
