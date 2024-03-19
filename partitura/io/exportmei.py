@@ -295,6 +295,8 @@ class MEIExporter:
         for tuplet in self.part.iter_all(spt.Tuplet, start=start, end=end):
             start_note = tuplet.start_note
             end_note = tuplet.end_note
+            if start_note.start.t < start or end_note.end.t > end:
+                continue
             # Find the note element corresponding to the start note i.e. has the same id value
             start_note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
             # Find the note element corresponding to the end note i.e. has the same id value
@@ -322,6 +324,9 @@ class MEIExporter:
             # Find them from the xml tree
             start_note_index = start_note_el.getparent().index(start_note_el)
             end_note_index = end_note_el.getparent().index(end_note_el)
+            # If the start and end note elements are not in order skip (it a weird bug that happens sometimes)
+            if start_note_index > end_note_index:
+                continue
             xml_el_within_tuplet = [
                 start_note_el.getparent()[i]
                 for i in range(start_note_index, end_note_index + 1)
@@ -481,8 +486,9 @@ class MEIExporter:
         for fermata in self.part.iter_all(spt.Fermata, start=start, end=end):
             if fermata.ref is not None:
                 note = fermata.ref
-                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")[0]
-                note_el.set("fermata", "above")
+                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")
+                if len(note_el) > 0:
+                    note_el[0].set("fermata", "above")
             else:
                 fermata_el = etree.SubElement(measure_el, "fermata")
                 fermata_el.set(XMLNS_ID, "fermata-" + self.elc_id())
