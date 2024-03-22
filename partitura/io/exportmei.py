@@ -17,6 +17,7 @@ from partitura.utils import (
     fifths_mode_to_key_name,
 )
 import numpy as np
+import warnings
 from partitura.utils.misc import deprecated_alias, PathLike
 from partitura.utils.music import MEI_DURS_TO_SYMBOLIC, estimate_symbolic_duration
 
@@ -296,6 +297,20 @@ class MEIExporter:
             start_note = tuplet.start_note
             end_note = tuplet.end_note
             if start_note.start.t < start or end_note.end.t > end:
+                warnings.warn(
+                    "Tuplet start or end note is outside of the measure. Skipping tuplet element."
+                )
+                continue
+            if start_note.start.t > end_note.start.t:
+                warnings.warn(
+                    "Tuplet start note is after end note. Skipping tuplet element."
+                )
+                continue
+            # Skip if start and end notes are in different voices or staves
+            if start_note.voice != end_note.voice or start_note.staff != end_note.staff:
+                warnings.warn(
+                    "Tuplet start and end notes are in different voices or staves. Skipping tuplet element."
+                )
                 continue
             # Find the note element corresponding to the start note i.e. has the same id value
             start_note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
@@ -352,8 +367,13 @@ class MEIExporter:
             # If the parent is a chord, the beam element should be added as parent of the chord element
             if layer_el.tag == "chord":
                 parent_el = layer_el.getparent()
-                insert_index = parent_el.index(layer_el)
-                layer_el = parent_el
+                if parent_el.tag == "tuplet":
+                    parent_el = parent_el.getparent()
+                    insert_index = parent_el.index(layer_el.getparent())
+                    layer_el = parent_el
+                else:
+                    insert_index = parent_el.index(layer_el)
+                    layer_el = parent_el
 
             # Create the beam element
             beam_el = etree.Element("beam")
@@ -368,7 +388,10 @@ class MEIExporter:
                     if note_el.getparent().tag == "tuplet":
                         beam_el.append(note_el.getparent())
                     elif note_el.getparent().tag == "chord":
-                        beam_el.append(note_el.getparent())
+                        if note_el.getparent().getparent().tag == "tuplet":
+                            beam_el.append(note_el.getparent().getparent())
+                        else:
+                            beam_el.append(note_el.getparent())
                     else:
                         # verify that the note element is not already a child of the beam element
                         if note_el.getparent() != beam_el:
