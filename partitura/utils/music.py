@@ -322,13 +322,15 @@ MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 A4 = 440.0
 
 COMPOSITE_DURS = np.array(
-    [1 + 4/32, 2+1/16, 2+1/32]
+    [1 + 4/16, 1 + 4/32, 2+4/8, 2+4/16, 2+4/32]
 )
 
 SYM_COMPOSITE_DURS = [
-    ({"type": "quarter", "dots": 0}, {"type": "32nd", "dots": 1}),
-    ({"type": "half", "dots": 1}, {"type": "16th", "dots": 0}),
-    ({"type": "half", "dots": 1}, {"type": "32nd", "dots": 0})
+    ({"type": "quarter", "dots": 0}, {"type": "16nd", "dots": 0}),
+    ({"type": "quarter", "dots": 0}, {"type": "32nd", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "eighth", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "16th", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "32nd", "dots": 0})
     ]
 
 
@@ -962,9 +964,9 @@ def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False)
         # 1. The duration is a tuplet
         # 2. The duration is a composite duration
         # For composite duration. We can use the following approach:
-        i = find_nearest(COMPOSITE_DURS, qdur)
-        if np.abs(qdur - COMPOSITE_DURS[i]) < eps and return_com_durations:
-            return SYM_DURS[i].copy()
+        j = find_nearest(COMPOSITE_DURS, qdur)
+        if np.abs(qdur - COMPOSITE_DURS[j]) < eps and return_com_durations:
+            return copy.copy(SYM_COMPOSITE_DURS[j])
         else:
             # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
             type = SYM_DURS[i + 3]["type"]
