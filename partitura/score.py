@@ -5015,13 +5015,14 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
                     end_time - start_time, part._quarter_durations[0], return_com_durations=True
                 )
                 if isinstance(sym_dur, tuple):
+                    st = start_time
                     for i, sd in enumerate(sym_dur):
-                        end_time = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                        et = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
                         rest = Rest(
                             symbolic_duration=sd, staff=staff, voice=un_voice.max() + 1
                         )
-                        part.add(rest, start_time, end_time)
-                        start_time = end_time
+                        part.add(rest, st, et)
+                        st = et
                 else:
                     rest = Rest(
                         symbolic_duration=sym_dur, staff=staff, voice=un_voice.max() + 1
@@ -5043,13 +5044,14 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
             )
             # solution when estimation returns composite durations.
             if isinstance(sym_dur, tuple):
+                st = start_time
                 for i, sd in enumerate(sym_dur):
-                    end_time = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                    et = st + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
                     rest = Rest(
                         symbolic_duration=sd, staff=min_start_note.staff, voice=min_start_note.voice
                     )
-                    part.add(rest, start_time, end_time)
-                    start_time = end_time
+                    part.add(rest, st, et)
+                    st = et
             else:
                 rest = Rest(
                     symbolic_duration=sym_dur,
@@ -5066,14 +5068,14 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
             )
             # solution when estimation returns composite durations.
             if isinstance(sym_dur, tuple):
-                start_time = min_end_note.end.t
+                st = min_end_note.end.t
                 for i, sd in enumerate(sym_dur):
-                    end_time = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                    et = st + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
                     rest = Rest(
                         symbolic_duration=sd, staff=min_end_note.staff, voice=min_end_note.voice
                     )
-                    part.add(rest, start_time, end_time)
-                    start_time = end_time
+                    part.add(rest, st, et)
+                    st = et
             else:
                 rest = Rest(
                     symbolic_duration=sym_dur,
@@ -5096,15 +5098,15 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
                     part._quarter_durations[0], return_com_durations=True
                 )
                 if isinstance(sym_dur, tuple):
-                    start_time = notes_per_vocstaff[sort_note_end[i - 1]].end.t
+                    st = notes_per_vocstaff[sort_note_end[i - 1]].end.t
                     for i, sd in enumerate(sym_dur):
-                        end_time = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                        et = st + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
                         rest = Rest(
                             symbolic_duration=sd, staff=notes_per_vocstaff[sort_note_end[i - 1]].staff,
                             voice=notes_per_vocstaff[sort_note_end[i - 1]].voice
                         )
-                        part.add(rest, start_time, end_time)
-                        start_time = end_time
+                        part.add(rest, st, et)
+                        st = et
                 else:
                     rest = Rest(
                         symbolic_duration=sym_dur,
