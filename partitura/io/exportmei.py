@@ -17,6 +17,7 @@ from partitura.utils import (
     fifths_mode_to_key_name,
 )
 import numpy as np
+import warnings
 from partitura.utils.misc import deprecated_alias, PathLike
 from partitura.utils.music import MEI_DURS_TO_SYMBOLIC, estimate_symbolic_duration
 
@@ -295,6 +296,22 @@ class MEIExporter:
         for tuplet in self.part.iter_all(spt.Tuplet, start=start, end=end):
             start_note = tuplet.start_note
             end_note = tuplet.end_note
+            if start_note.start.t < start or end_note.end.t > end:
+                warnings.warn(
+                    "Tuplet start or end note is outside of the measure. Skipping tuplet element."
+                )
+                continue
+            if start_note.start.t > end_note.start.t:
+                warnings.warn(
+                    "Tuplet start note is after end note. Skipping tuplet element."
+                )
+                continue
+            # Skip if start and end notes are in different voices or staves
+            if start_note.voice != end_note.voice or start_note.staff != end_note.staff:
+                warnings.warn(
+                    "Tuplet start and end notes are in different voices or staves. Skipping tuplet element."
+                )
+                continue
             # Find the note element corresponding to the start note i.e. has the same id value
             start_note_el = measure_el.xpath(f".//*[@xml:id='{start_note.id}']")[0]
             # Find the note element corresponding to the end note i.e. has the same id value
@@ -322,6 +339,9 @@ class MEIExporter:
             # Find them from the xml tree
             start_note_index = start_note_el.getparent().index(start_note_el)
             end_note_index = end_note_el.getparent().index(end_note_el)
+            # If the start and end note elements are not in order skip (it a weird bug that happens sometimes)
+            if start_note_index > end_note_index:
+                continue
             xml_el_within_tuplet = [
                 start_note_el.getparent()[i]
                 for i in range(start_note_index, end_note_index + 1)
@@ -347,8 +367,13 @@ class MEIExporter:
             # If the parent is a chord, the beam element should be added as parent of the chord element
             if layer_el.tag == "chord":
                 parent_el = layer_el.getparent()
-                insert_index = parent_el.index(layer_el)
-                layer_el = parent_el
+                if parent_el.tag == "tuplet":
+                    parent_el = parent_el.getparent()
+                    insert_index = parent_el.index(layer_el.getparent())
+                    layer_el = parent_el
+                else:
+                    insert_index = parent_el.index(layer_el)
+                    layer_el = parent_el
 
             # Create the beam element
             beam_el = etree.Element("beam")
@@ -363,7 +388,10 @@ class MEIExporter:
                     if note_el.getparent().tag == "tuplet":
                         beam_el.append(note_el.getparent())
                     elif note_el.getparent().tag == "chord":
-                        beam_el.append(note_el.getparent())
+                        if note_el.getparent().getparent().tag == "tuplet":
+                            beam_el.append(note_el.getparent().getparent())
+                        else:
+                            beam_el.append(note_el.getparent())
                     else:
                         # verify that the note element is not already a child of the beam element
                         if note_el.getparent() != beam_el:
@@ -481,8 +509,9 @@ class MEIExporter:
         for fermata in self.part.iter_all(spt.Fermata, start=start, end=end):
             if fermata.ref is not None:
                 note = fermata.ref
-                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")[0]
-                note_el.set("fermata", "above")
+                note_el = measure_el.xpath(f".//*[@xml:id='{note.id}']")
+                if len(note_el) > 0:
+                    note_el[0].set("fermata", "above")
             else:
                 fermata_el = etree.SubElement(measure_el, "fermata")
                 fermata_el.set(XMLNS_ID, "fermata-" + self.elc_id())
