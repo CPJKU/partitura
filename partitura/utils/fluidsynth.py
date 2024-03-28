@@ -3,7 +3,6 @@
 """
 This module contains methods for synthesizing score- or performance-like
 objects using fluidsynth. Fluidsynth is an optional dependency.
-
 """
 
 import os
@@ -35,10 +34,10 @@ from scipy.io import wavfile
 # MuseScore's soundfont distributed under the License.
 DEFAULT_SOUNDFONT_URL = "ftp://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2"
 
-DEFAULT_SOUNDFONT = os.path.join(pt.__path__, "assets", "MuseScore_General.sf2")
+DEFAULT_SOUNDFONT = os.path.join(pt.__path__[0], "assets", "MuseScore_General.sf2")
 
 if not os.path.exists(DEFAULT_SOUNDFONT) and HAS_FLUIDSYNTH:
-
+    print(f"Downloading soundfont from {DEFAULT_SOUNDFONT_URL}...")
     download_file(
         url=DEFAULT_SOUNDFONT_URL,
         out=DEFAULT_SOUNDFONT,
@@ -48,9 +47,31 @@ if not os.path.exists(DEFAULT_SOUNDFONT) and HAS_FLUIDSYNTH:
 def synthesize_fluidsynth(
     note_info: Union[ScoreLike, PerformanceLike, np.ndarray],
     samplerate: int = SAMPLE_RATE,
-    soundfont: str = DEFAULT_SOUNDFONT,
+    soundfont: PathLike = DEFAULT_SOUNDFONT,
     bpm: Union[float, np.ndarray, Callable] = 60,
 ) -> np.ndarray:
+    """
+    Synthesize partitura object with note information using
+    fluidsynth.
+
+    Parameters
+    ----------
+    note_info : ScoreLike, PerformanceLike or np.ndarray
+        A partitura object with note information.
+    samplerate: int
+        The sample rate of the audio file in Hz.
+    soundfont: PathLike
+        The path to the soundfont (in SF2 format).
+    bpm : float, np.ndarray or callable
+        The bpm to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
+
+    Returns
+    -------
+    output_audio_signal : np.ndarray
+       Audio signal as a 1D array.
+    """
 
     if not HAS_FLUIDSYNTH:
         raise ImportError("Fluidsynth is not installed!")
@@ -83,7 +104,6 @@ def synthesize_fluidsynth(
     else:
         onsets = note_array["onset_sec"]
         offsets = note_array["onset_sec"] + note_array["duration_sec"]
-        # duration = note_array["duration_sec"]
 
         if "velocity" in note_array.dtype.names:
             velocity = note_array["velocity"]
