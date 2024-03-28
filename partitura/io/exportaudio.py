@@ -133,7 +133,7 @@ def save_wav_fluidsynth(
     samplerate: int
         The sample rate of the audio file in Hz. The default is 44100Hz.
     soundfont : PathLike
-        Path to the soundfont in SF2 format for fluidsynth.
+        Path to the soundfont in SF2/SF3 format for fluidsynth.
     bpm : float, np.ndarray, callable
         The bpm to render the output (if the input is a score-like object).
         See `partitura.utils.music.performance_notearray_from_score_notearray`

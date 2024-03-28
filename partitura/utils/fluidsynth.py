@@ -67,7 +67,7 @@ def synthesize_fluidsynth(
         The sample rate of the audio file in Hz.
 
     soundfont: PathLike
-        The path to the soundfont (in SF2 format).
+        The path to the soundfont (in SF2/SF3 format).
 
     bpm : float, np.ndarray or callable
         The bpm to render the output (if the input is a score-like object).
@@ -223,6 +223,41 @@ def synth_note_info(
     channel: int,
     samplerate: int = SAMPLE_RATE,
 ) -> np.ndarray:
+    """
+    Synthesize note information with Fluidsynth.
+    This method is designed to synthesize the notes in a 
+    single track and channel.
+
+    Parameters
+    ----------
+    pitch : np.ndarray
+        An array with pitch information for each note.
+    onsets : np.ndarray
+        An array with onset time in seconds for each note.
+    offsets : np.ndarray
+        An array with offset times in seconds for each note.
+    velocities : np.ndarray
+        An array with MIDI velocities for each note.
+    controls : Optional[list]
+        A list of MIDI controls (e.g., pedals).
+        (as the `controls` attribute in `PerformedPart` objects)
+    program : Optional[int]
+        A list of MIDI programs as dictionaries 
+        (as the `program` attribute in `PerformedPart` objects).
+    synthesizer : Synth
+        An instance of a fluidsynth Synth object.
+    sf_id : int
+        The id of the synthesizer object
+    channel : int
+        Channel for the the notes.
+    samplerate : int, optional
+        Sample rate, by default SAMPLE_RATE
+
+    Returns
+    -------
+    audio_signal : np.ndarray
+        A 1D array with the synthesized audio signal.
+    """
 
     # set program
     synthesizer.program_select(channel, sf_id, 0, program or 0)
