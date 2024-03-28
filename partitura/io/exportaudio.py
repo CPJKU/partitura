@@ -97,8 +97,16 @@ def save_wav(
     )
 
     if out is not None:
-        # Write audio signal
-        wavfile.write(out, samplerate, audio_signal)
+        # convert to 16bit integers (save as PCM 16 bit)
+        # (some DAWs cannot load audio files that are float64,
+        # e.g., Logic)
+        amplitude = np.iinfo(np.int16).max
+        if abs(audio_signal).max() <= 1:
+            # convert to 16bit integers (save as PCM 16 bit)
+            amplitude = np.iinfo(np.int16).max
+            audio_signal *= amplitude
+        wavfile.write(out, samplerate, audio_signal.astype(np.int16))
+
     else:
         return audio_signal
 
@@ -147,6 +155,8 @@ def save_wav_fluidsynth(
         # Write audio signal
 
         # convert to 16bit integers (save as PCM 16 bit)
+        # (some DAWs cannot load audio files that are float64,
+        # e.g., Logic)
         amplitude = np.iinfo(np.int16).max
         if abs(audio_signal).max() <= 1:
             # convert to 16bit integers (save as PCM 16 bit)

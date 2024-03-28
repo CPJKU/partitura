@@ -16,11 +16,11 @@ try:
     from fluidsynth import Synth
 
     HAS_FLUIDSYNTH = True
-except ImportError:
-    Synth = None
-    HAS_FLUIDSYNTH = False
+except ImportError:  # pragma: no cover
+    Synth = None  # pragma: no cover
+    HAS_FLUIDSYNTH = False  # pragma: no cover
 
-from partitura.io.exportaudio import SAMPLE_RATE
+from partitura.utils.synth import SAMPLE_RATE
 from partitura.performance import PerformanceLike
 from partitura.score import ScoreLike
 from partitura.utils.misc import PathLike, download_file
@@ -29,19 +29,22 @@ from partitura.utils.music import (
     get_time_units_from_note_array,
     performance_notearray_from_score_notearray,
 )
-from scipy.io import wavfile
 
 # MuseScore's soundfont distributed under the License.
 DEFAULT_SOUNDFONT_URL = "ftp://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2"
 
-DEFAULT_SOUNDFONT = os.path.join(pt.__path__[0], "assets", "MuseScore_General.sf2")
+DEFAULT_SOUNDFONT = os.path.join(
+    pt.__path__[0],
+    "assets",
+    "MuseScore_General.sf2",
+)
 
-if not os.path.exists(DEFAULT_SOUNDFONT) and HAS_FLUIDSYNTH:
-    print(f"Downloading soundfont from {DEFAULT_SOUNDFONT_URL}...")
+if not os.path.exists(DEFAULT_SOUNDFONT) and HAS_FLUIDSYNTH:  # pragma: no cover
+    print(f"Downloading soundfont from {DEFAULT_SOUNDFONT_URL}...")  # pragma: no cover
     download_file(
         url=DEFAULT_SOUNDFONT_URL,
         out=DEFAULT_SOUNDFONT,
-    )
+    )  # pragma: no cover
 
 
 def synthesize_fluidsynth(
@@ -58,10 +61,13 @@ def synthesize_fluidsynth(
     ----------
     note_info : ScoreLike, PerformanceLike or np.ndarray
         A partitura object with note information.
+
     samplerate: int
         The sample rate of the audio file in Hz.
+
     soundfont: PathLike
         The path to the soundfont (in SF2 format).
+
     bpm : float, np.ndarray or callable
         The bpm to render the output (if the input is a score-like object).
         See `partitura.utils.music.performance_notearray_from_score_notearray`
@@ -74,7 +80,7 @@ def synthesize_fluidsynth(
     """
 
     if not HAS_FLUIDSYNTH:
-        raise ImportError("Fluidsynth is not installed!")
+        raise ImportError("Fluidsynth is not installed!")  # pragma: no cover
 
     if isinstance(note_info, pt.performance.Performance):
         for ppart in note_info:
@@ -220,7 +226,6 @@ def synth_note_info(
     # set program
     synthesizer.program_select(channel, sf_id, 0, program or 0)
 
-    # TODO: extend piece duration to account for pedal info.
     if len(controls) > 0 and len(offsets) > 0:
         piece_duration = max(offsets.max(), np.max([c["time"] for c in controls]))
     elif len(controls) > 0 and len(offsets) == 0:
