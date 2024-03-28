@@ -30,13 +30,14 @@ from partitura.utils.music import (
     performance_notearray_from_score_notearray,
 )
 
-# MuseScore's soundfont distributed under the License.
-DEFAULT_SOUNDFONT_URL = "ftp://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf2"
+# MuseScore's soundfont distributed under the MIT License.
+# https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General_License.md
+DEFAULT_SOUNDFONT_URL = "ftp://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3"
 
 DEFAULT_SOUNDFONT = os.path.join(
     pt.__path__[0],
     "assets",
-    "MuseScore_General.sf2",
+    "MuseScore_General.sf3",
 )
 
 if not os.path.exists(DEFAULT_SOUNDFONT) and HAS_FLUIDSYNTH:  # pragma: no cover

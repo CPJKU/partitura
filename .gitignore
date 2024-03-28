@@ -154,4 +154,4 @@ static
 phdocs.txt
 
 # fluidsynth default soundfont
-partitura/assets/MuseScore_General.sf2
+partitura/assets/MuseScore_General.sf*
