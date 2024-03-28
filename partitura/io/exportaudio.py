@@ -144,6 +144,10 @@ def save_wav_fluidsynth(
     audio_signal : np.ndarray
        Audio signal as a 1D array. Only returned if `out` is None.
     """
+
+    if not HAS_FLUIDSYNTH:
+        raise ImportError("Fluidsynth is not installed!")
+
     audio_signal = synthesize_fluidsynth(
         note_info=input_data,
         samplerate=samplerate,
