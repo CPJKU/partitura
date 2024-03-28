@@ -394,7 +394,7 @@ def performed_part_from_match(
                 sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
                 velocity=note.Velocity,
                 track=getattr(note, "Track", 0),
-                channel=getattr(note, "Channel", 1),
+                channel=getattr(note, "Channel", 0),
             )
         )
     # Set first note_on to zero in ticks and seconds if first_note_at_zero

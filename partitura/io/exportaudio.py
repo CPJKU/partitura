@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-This module contains methods to synthesize Partitura object to wav using
-additive synthesis
+This module contains methods to synthesize Partitura object to wav.
 """
 from typing import Union, Optional, Callable, Dict, Any
 import numpy as np
@@ -13,10 +12,18 @@ from partitura.score import ScoreLike
 from partitura.performance import PerformanceLike
 
 from partitura.utils.synth import synthesize, SAMPLE_RATE, A4
+from partitura.utils.fluidsynth import (
+    synthesize_fluidsynth,
+    DEFAULT_SOUNDFONT,
+    HAS_FLUIDSYNTH,
+)
 
 from partitura.utils.misc import PathLike
 
-__all__ = ["save_wav"]
+__all__ = [
+    "save_wav",
+    "save_wav_fluidsynth",
+]
 
 
 def save_wav(
@@ -90,7 +97,75 @@ def save_wav(
     )
 
     if out is not None:
+        # convert to 16bit integers (save as PCM 16 bit)
+        # (some DAWs cannot load audio files that are float64,
+        # e.g., Logic)
+        amplitude = np.iinfo(np.int16).max
+        if abs(audio_signal).max() <= 1:
+            # convert to 16bit integers (save as PCM 16 bit)
+            amplitude = np.iinfo(np.int16).max
+            audio_signal *= amplitude
+        wavfile.write(out, samplerate, audio_signal.astype(np.int16))
+
+    else:
+        return audio_signal
+
+
+def save_wav_fluidsynth(
+    input_data: Union[ScoreLike, PerformanceLike, np.ndarray],
+    out: Optional[PathLike] = None,
+    samplerate: int = SAMPLE_RATE,
+    soundfont: PathLike = DEFAULT_SOUNDFONT,
+    bpm: Union[float, np.ndarray, Callable] = 60,
+) -> Optional[np.ndarray]:
+    """
+    Export a score (a `Score`, `Part`, `PartGroup` or list of `Part` instances),
+    a performance (`Performance`, `PerformedPart` or list of `PerformedPart` instances)
+    as a WAV file using fluidsynth
+
+    Parameters
+    ----------
+    input_data : ScoreLike, PerformanceLike or np.ndarray
+        A partitura object with note information.
+    out : PathLike or None
+        Path of the output Wave file. If None, the method outputs
+        the audio signal as an array (see `audio_signal` below).
+    samplerate: int
+        The sample rate of the audio file in Hz. The default is 44100Hz.
+    soundfont : PathLike
+        Path to the soundfont in SF2/SF3 format for fluidsynth.
+    bpm : float, np.ndarray, callable
+        The bpm to render the output (if the input is a score-like object).
+        See `partitura.utils.music.performance_notearray_from_score_notearray`
+        for more information on this parameter.
+
+    Returns
+    -------
+    audio_signal : np.ndarray
+       Audio signal as a 1D array. Only returned if `out` is None.
+    """
+
+    if not HAS_FLUIDSYNTH:
+        raise ImportError("Fluidsynth is not installed!")
+
+    audio_signal = synthesize_fluidsynth(
+        note_info=input_data,
+        samplerate=samplerate,
+        soundfont=soundfont,
+        bpm=bpm,
+    )
+
+    if out is not None:
         # Write audio signal
-        wavfile.write(out, samplerate, audio_signal)
+
+        # convert to 16bit integers (save as PCM 16 bit)
+        # (some DAWs cannot load audio files that are float64,
+        # e.g., Logic)
+        amplitude = np.iinfo(np.int16).max
+        if abs(audio_signal).max() <= 1:
+            # convert to 16bit integers (save as PCM 16 bit)
+            amplitude = np.iinfo(np.int16).max
+            audio_signal *= amplitude
+        wavfile.write(out, samplerate, audio_signal.astype(np.int16))
     else:
         return audio_signal

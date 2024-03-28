@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This module contains tests for the synthesis methods.
+This module contains tests for the additive synthesis methods.
 """
 import unittest
 
