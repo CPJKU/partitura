@@ -20,7 +20,7 @@ from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
 import warnings, sys
 import numpy as np
 from scipy.interpolate import PPoly
-from typing import Union, List, Optional, Iterator, Iterable as Itertype
+from typing import Union, List, Optional, Iterator, Iterable as Itertype, Any
 
 from partitura.utils import (
     ComparableMixin,
@@ -1583,6 +1583,8 @@ class GenericNote(TimedObject):
         appearance of this note (with respect to other notes) in the
         document in case the Note belongs to a part that was imported
         from MusicXML. Defaults to None.
+    technical: list, optional
+        Technical notation elements.
 
     """
 
@@ -1595,6 +1597,7 @@ class GenericNote(TimedObject):
         articulations=None,
         ornaments=None,
         doc_order=None,
+        technical=None,
         **kwargs,
     ):
         self._sym_dur = None
@@ -1605,6 +1608,7 @@ class GenericNote(TimedObject):
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
         self.ornaments = ornaments
+        self.technical = technical
         self.doc_order = doc_order
 
         # these attributes are set after the instance is constructed
@@ -2937,6 +2941,27 @@ class ResetTempoDirection(ConstantTempoDirection):
         for d in self.start.iter_prev(ConstantTempoDirection):
             direction = d
         return direction
+
+
+class NoteTechnicalNotation(object):
+    """
+    This object represents technical notations that
+    are part of a GenericNote object (e.g., fingering,)
+    These elements depend on a note, but can have their own properties
+    """
+
+    def __init__(self, type: str, info: Optional[Any] = None) -> None:
+        self.type = type
+        self.info = info
+
+
+class Fingering(NoteTechnicalNotation):
+    def __init__(self, fingering: int) -> None:
+        super().__init__(
+            type="fingering",
+            info=fingering,
+        )
+        self.fingering = fingering
 
 
 class PartGroup(object):

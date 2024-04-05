@@ -8,7 +8,7 @@ import os
 import warnings
 import zipfile
 
-from typing import Union, Optional
+from typing import Union, Optional, List
 import numpy as np
 from lxml import etree
 
@@ -1238,6 +1238,12 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
     else:
         ornaments = {}
 
+    technical_e = e.find("notations/technical")
+    if technical_e is not None:
+        technical_notations = get_technical_notations(technical_e)
+    else:
+        technical_notations = {}
+
     pitch = e.find("pitch")
     unpitch = e.find("unpitched")
     if pitch is not None:
@@ -1265,6 +1271,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
                 ornaments=ornaments,
+                technical=technical_notations,
                 steal_proportion=steal_proportion,
                 doc_order=doc_order,
             )
@@ -1302,6 +1309,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
                 symbolic_duration=symbolic_duration,
                 articulations=articulations,
                 ornaments=ornaments,
+                technical=technical_notations,
                 doc_order=doc_order,
             )
 
@@ -1330,6 +1338,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
             notehead=notehead,
             noteheadstyle=noteheadstylebool,
             articulations=articulations,
+            technical=technical_notations,
             symbolic_duration=symbolic_duration,
             doc_order=doc_order,
         )
@@ -1342,6 +1351,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
             staff=staff,
             symbolic_duration=symbolic_duration,
             articulations=articulations,
+            technical=technical_notations,
             doc_order=doc_order,
         )
 
@@ -1632,6 +1642,30 @@ def get_ornaments(e):
         "other-ornament",
     )
     return [a for a in ornaments if e.find(a) is not None]
+
+
+def get_technical_notations(e: etree._Element) -> List[score.NoteTechnicalNotation]:
+    # For a full list of technical notations
+    # https://usermanuals.musicxml.com/MusicXML/Content/EL-MusicXML-technical.htm
+    # for now we only support fingering
+    technical_notation_parsers = {
+        "fingering": parse_fingering,
+    }
+
+    technical_notations = [
+        parser(e.find(a))
+        for a, parser in technical_notation_parsers.items()
+        if e.find(a) is not None
+    ]
+
+    return technical_notations
+
+
+def parse_fingering(e: etree._Element) -> score.Fingering:
+
+    fingering = score.Fingering(fingering=int(e.text))
+
+    return fingering
 
 
 @deprecated_alias(fn="filename")

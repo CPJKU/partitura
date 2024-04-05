@@ -150,6 +150,19 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
             articulations_e.extend(articulations)
             notations.append(articulations_e)
 
+    if note.technical:
+        technical = []
+        for technical_notation in note.technical:
+            if isinstance(technical_notation, score.Fingering):
+                tech_el = etree.Element("fingering")
+                tech_el.text = str(technical_notation.fingering)
+                technical.append(tech_el)
+
+        if technical:
+            technical_e = etree.Element("technical")
+            technical_e.extend(technical)
+            notations.append(technical_e)
+
     sym_dur = note.symbolic_duration or {}
 
     if sym_dur.get("type") is not None:

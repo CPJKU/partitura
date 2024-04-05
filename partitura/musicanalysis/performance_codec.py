@@ -767,7 +767,7 @@ def get_time_maps_from_alignment(
     # representing the "performeance time" of the position of the score
     # onsets
     eq_perf_onsets = np.array(
-        [np.mean(perf_onsets[u]) for u in score_unique_onset_idxs]
+        [np.mean(perf_onsets[u.astype(int)]) for u in score_unique_onset_idxs]
     )
 
     # Get maps
