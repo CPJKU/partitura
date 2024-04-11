@@ -11,6 +11,28 @@ except ImportError:
     pd = None
 
 
+
+LOCAL_KEY_TRASPOSITIONS_DCML = {
+    "minor": {
+        "i": spt.Interval(1, "P"),
+        "ii": spt.Interval(2, "M"),
+        "iii": spt.Interval(3, "m"),
+        "iv": spt.Interval(4, "P"),
+        "v": spt.Interval(5, "P"),
+        "vi": spt.Interval(6, "m"),
+        "vii": spt.Interval(7, "m"),
+    },
+    "major": {
+        "i": spt.Interval(1, "P"),
+        "ii": spt.Interval(2, "M"),
+        "iii": spt.Interval(3, "M"),
+        "iv": spt.Interval(4, "P"),
+        "v": spt.Interval(5, "P"),
+        "vi": spt.Interval(6, "M"),
+        "vii": spt.Interval(7, "M"),
+    },
+}
+
 def read_note_tsv(note_tsv_path, metadata=None):
     # data = np.genfromtxt(note_tsv_path, delimiter="\t", dtype=None, names=True, invalid_raise=False)
     # unique_durations = np.unique(data["duration"])
@@ -192,17 +214,20 @@ def read_harmony_tsv(beat_tsv_path, part):
         # and datasets. For example, a minor chord is encoded as "m" instead of "min" or "minor"
         # Therefore we do not add the quality to the RomanNumeral object. Then it is extracted from the text.
         # Local key is in relation to the global key.
-        if row["globalkey"].islower():
-            transposition_interval = spt.Roman2Interval_Min[row["localkey"]]
-        else:
-            transposition_interval = spt.Roman2Interval_Maj[row["localkey"]]
-
+        local_key_sharps = row["localkey"].count("#")
+        local_key_flats = row["localkey"].count("b")
+        local_key = row["localkey"].replace("#", "").replace("b", "")
+        local_key_is_minor = local_key.islower()
+        local_key = local_key.lower()
+        global_key = "minor" if row["globalkey"].islower() else "major"
+        transposition_interval = LOCAL_KEY_TRASPOSITIONS_DCML[global_key][local_key]
+        transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
         key_step = re.search(r"[a-gA-G]", row["globalkey"]).group(0)
         key_alter = re.search(r"[#b]", row["globalkey"]).group(0) if re.search(r"[#b]", row["globalkey"]) else ""
         key_alter = key_alter.replace("b", "-")
         key_alter = ALT_TO_INT[key_alter]
         key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
-        local_key = key_step + INT_TO_ALT[key_alter]
+        local_key = (key_step.lower() if local_key_is_minor else key_step.upper())  + INT_TO_ALT[key_alter]
         part.add(
             spt.RomanNumeral(text=row["chord"],
                              local_key=local_key,

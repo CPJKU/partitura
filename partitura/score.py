@@ -3021,6 +3021,22 @@ class Interval(object):
     def semitones(self):
         return INTERVAL_TO_SEMITONES[self.quality + str(self.number)]
 
+    def change_quality(self, num):
+        change_direction_c = ["AA", "A", "P", "d", "dd"]
+        change_direction_d = ["AA", "A", "m", "M", "d", "dd"]
+
+        prev_quality = self.quality
+        if num == 0:
+            pass
+        else:
+            change_dir = change_direction_c if self.number in [1, 4, 5, 8] else change_direction_d
+            cur_index = change_dir.index(prev_quality)
+            new_index = cur_index + num
+            if new_index >= len(change_dir) or new_index < 0:
+                raise ValueError("Interval quality cannot be changed to that extent")
+            self.quality = change_dir[new_index]
+        return self
+
     def __str__(self):
         return f'{super().__str__()} "{self.number}{self.quality}"'
 
@@ -5268,8 +5284,6 @@ Roman2Interval_Min = {
     "Fr7": Interval(4, "A"),
     "It": Interval(4, "A"),
 }
-
-
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
