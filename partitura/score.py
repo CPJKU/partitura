@@ -3022,8 +3022,8 @@ class Interval(object):
         return INTERVAL_TO_SEMITONES[self.quality + str(self.number)]
 
     def change_quality(self, num):
-        change_direction_c = ["AA", "A", "P", "d", "dd"]
-        change_direction_d = ["AA", "A", "m", "M", "d", "dd"]
+        change_direction_c = ["dd", "d", "P", "A", "AA"]
+        change_direction_d = ["dd", "d", "m", "M", "A", "AA"]
 
         prev_quality = self.quality
         if num == 0:
