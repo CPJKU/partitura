@@ -14,22 +14,22 @@ except ImportError:
 
 LOCAL_KEY_TRASPOSITIONS_DCML = {
     "minor": {
-        "i": spt.Interval(1, "P"),
-        "ii": spt.Interval(2, "M"),
-        "iii": spt.Interval(3, "m"),
-        "iv": spt.Interval(4, "P"),
-        "v": spt.Interval(5, "P"),
-        "vi": spt.Interval(6, "m"),
-        "vii": spt.Interval(7, "m"),
+        "i": (1, "P"),
+        "ii": (2, "M"),
+        "iii": (3, "m"),
+        "iv": (4, "P"),
+        "v": (5, "P"),
+        "vi": (6, "m"),
+        "vii": (7, "m"),
     },
     "major": {
-        "i": spt.Interval(1, "P"),
-        "ii": spt.Interval(2, "M"),
-        "iii": spt.Interval(3, "M"),
-        "iv": spt.Interval(4, "P"),
-        "v": spt.Interval(5, "P"),
-        "vi": spt.Interval(6, "M"),
-        "vii": spt.Interval(7, "M"),
+        "i": (1, "P"),
+        "ii": (2, "M"),
+        "iii": (3, "M"),
+        "iv": (4, "P"),
+        "v": (5, "P"),
+        "vi": (6, "M"),
+        "vii": (7, "M"),
     },
 }
 
@@ -194,6 +194,27 @@ def read_measure_tsv(measure_tsv_path, part):
     part.add(spt.Fine(), start=part.last_point.t)
     return
 
+def process_local_key(loc_k, glob_k):
+    local_key_sharps = loc_k.count("#")
+    local_key_flats = loc_k.count("b")
+    local_key = loc_k.replace("#", "").replace("b", "")
+    local_key_is_minor = local_key.islower()
+    local_key = local_key.lower()
+    global_key_is_minor = glob_k.islower()
+    if local_key_is_minor == global_key_is_minor and local_key == "i":
+        return glob_k
+    g_key = "minor" if glob_k.islower() else "major"
+    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
+    transposition_interval = spt.Interval(num, qual)
+    transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
+    key_step = re.search(r"[a-gA-G]", glob_k).group(0)
+    key_alter = re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    key_alter = key_alter.replace("b", "-")
+    key_alter = ALT_TO_INT[key_alter]
+    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    local_key = (key_step.lower() if local_key_is_minor else key_step.upper()) + INT_TO_ALT[key_alter]
+    return local_key
+
 
 def read_harmony_tsv(beat_tsv_path, part):
     qdivs = part._quarter_durations[0]
@@ -214,34 +235,32 @@ def read_harmony_tsv(beat_tsv_path, part):
         # and datasets. For example, a minor chord is encoded as "m" instead of "min" or "minor"
         # Therefore we do not add the quality to the RomanNumeral object. Then it is extracted from the text.
         # Local key is in relation to the global key.
-        local_key_sharps = row["localkey"].count("#")
-        local_key_flats = row["localkey"].count("b")
-        local_key = row["localkey"].replace("#", "").replace("b", "")
-        local_key_is_minor = local_key.islower()
-        local_key = local_key.lower()
-        global_key = "minor" if row["globalkey"].islower() else "major"
-        transposition_interval = LOCAL_KEY_TRASPOSITIONS_DCML[global_key][local_key]
-        transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
-        key_step = re.search(r"[a-gA-G]", row["globalkey"]).group(0)
-        key_alter = re.search(r"[#b]", row["globalkey"]).group(0) if re.search(r"[#b]", row["globalkey"]) else ""
-        key_alter = key_alter.replace("b", "-")
-        key_alter = ALT_TO_INT[key_alter]
-        key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
-        local_key = (key_step.lower() if local_key_is_minor else key_step.upper())  + INT_TO_ALT[key_alter]
+        if "/" in row["localkey"]:
+            # if the local key has a secondary degree (e.g. "V/IV") we need to process it differently
+            inter_key = process_local_key(row["localkey"].split("/")[-1], row["globalkey"])
+            local_key = process_local_key(row["localkey"].split("/")[0], inter_key)
+        else:
+            local_key = process_local_key(row["localkey"], row["globalkey"])
+
         part.add(
             spt.RomanNumeral(text=row["chord"],
                              local_key=local_key,
-
                              # quality=row["chord_type"],
                              ), start=row["onset_div"], end=row["onset_div"]+row["duration_div"])
 
     for idx, row in data[~is_na_cad].iterrows():
-        key_step = re.search(r"[a-gA-G]", row["globalkey"]).group(0)
-        key_alter = re.search(r"[#b]", row["globalkey"]).group(0) if re.search(r"[#b]", row["globalkey"]) else ""
-        key_alter = key_alter.replace("b", "-")
-        key_alter = ALT_TO_INT[key_alter]
-        key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
-        local_key = key_step + INT_TO_ALT[key_alter]
+        if "/" in row["localkey"]:
+            # if the local key has a secondary degree (e.g. "V/IV") we need to process it differently
+            inter_key = process_local_key(row["localkey"].split("/")[-1], row["globalkey"])
+            local_key = process_local_key(row["localkey"].split("/")[0], inter_key)
+        else:
+            local_key = process_local_key(row["localkey"], row["globalkey"])
+        # key_step = re.search(r"[a-gA-G]", row["globalkey"]).group(0)
+        # key_alter = re.search(r"[#b]", row["globalkey"]).group(0) if re.search(r"[#b]", row["globalkey"]) else ""
+        # key_alter = key_alter.replace("b", "-")
+        # key_alter = ALT_TO_INT[key_alter]
+        # key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+        # local_key = key_step + INT_TO_ALT[key_alter]
         part.add(
             spt.Cadence(text=row["cadence"],
                         local_key=local_key,
