@@ -3,35 +3,13 @@ import re
 import numpy as np
 from math import ceil
 import partitura.score as spt
-from partitura.utils.music import estimate_symbolic_duration, transpose_note
-from partitura.utils.globals import ALT_TO_INT, INT_TO_ALT
+from partitura.score import process_local_key
+from partitura.utils.music import estimate_symbolic_duration
 try:
     import pandas as pd
 except ImportError:
     pd = None
 
-
-
-LOCAL_KEY_TRASPOSITIONS_DCML = {
-    "minor": {
-        "i": (1, "P"),
-        "ii": (2, "M"),
-        "iii": (3, "m"),
-        "iv": (4, "P"),
-        "v": (5, "P"),
-        "vi": (6, "m"),
-        "vii": (7, "m"),
-    },
-    "major": {
-        "i": (1, "P"),
-        "ii": (2, "M"),
-        "iii": (3, "M"),
-        "iv": (4, "P"),
-        "v": (5, "P"),
-        "vi": (6, "M"),
-        "vii": (7, "M"),
-    },
-}
 
 def read_note_tsv(note_tsv_path, metadata=None):
     # data = np.genfromtxt(note_tsv_path, delimiter="\t", dtype=None, names=True, invalid_raise=False)
@@ -193,27 +171,6 @@ def read_measure_tsv(measure_tsv_path, part):
 
     part.add(spt.Fine(), start=part.last_point.t)
     return
-
-def process_local_key(loc_k, glob_k):
-    local_key_sharps = loc_k.count("#")
-    local_key_flats = loc_k.count("b")
-    local_key = loc_k.replace("#", "").replace("b", "")
-    local_key_is_minor = local_key.islower()
-    local_key = local_key.lower()
-    global_key_is_minor = glob_k.islower()
-    if local_key_is_minor == global_key_is_minor and local_key == "i":
-        return glob_k
-    g_key = "minor" if glob_k.islower() else "major"
-    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
-    transposition_interval = spt.Interval(num, qual)
-    transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
-    key_step = re.search(r"[a-gA-G]", glob_k).group(0)
-    key_alter = re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
-    key_alter = key_alter.replace("b", "-")
-    key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
-    local_key = (key_step.lower() if local_key_is_minor else key_step.upper()) + INT_TO_ALT[key_alter]
-    return local_key
 
 
 def read_harmony_tsv(beat_tsv_path, part):
