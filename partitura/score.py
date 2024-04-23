@@ -47,7 +47,7 @@ from partitura.utils import (
 )
 from partitura.utils.generic import interp1d
 from partitura.utils.music import transpose_note, step2pc
-from partitura.utils.globals import (INT_TO_ALT, ALT_TO_INT, ACCEPTED_ROMANS)
+from partitura.utils.globals import (INT_TO_ALT, ALT_TO_INT, ACCEPTED_ROMANS, LOCAL_KEY_TRASPOSITIONS_DCML)
 
 
 class Part(object):
@@ -2909,16 +2909,28 @@ class RomanNumeral(Harmony):
             The number of the chord.
         """
         # Corrected step after degree2
-        interval = Roman2Interval_Min[self.secondary_degree] if self.local_key.islower() else Roman2Interval_Maj[self.secondary_degree]
         key_step = re.search(r"[a-gA-G]", self.local_key).group(0)
         key_alter = re.search(r"[#b]", self.local_key).group(0) if re.search(r"[#b]", self.local_key) else ""
         key_alter = ALT_TO_INT[key_alter]
-        step, alter = transpose_note(key_step, key_alter, interval)
+        try:
+            interval = Roman2Interval_Min[self.secondary_degree] if self.local_key.islower() else Roman2Interval_Maj[self.secondary_degree]
+            step, alter = transpose_note(key_step, key_alter, interval)
+        except KeyError:
+            loc_k = self.secondary_degree
+            glob_k = self.local_key
+            step, alter = process_local_key(loc_k, glob_k, return_step_alter=True)
         # Corrected step after degree1
         # TODO add support for diminished and augmented chords
-        interval = Roman2Interval_Min[self.primary_degree] if key_step.islower() else Roman2Interval_Maj[self.primary_degree]
-        step, alter = transpose_note(step, alter, interval)
-        root = step + INT_TO_ALT[alter]
+        try:
+            interval = Roman2Interval_Min[self.primary_degree] if self.secondary_degree.islower() else Roman2Interval_Maj[self.primary_degree]
+            step, alter = transpose_note(step, alter, interval)
+            root = step + INT_TO_ALT[alter]
+        except KeyError:
+            loc_k = self.primary_degree
+            glob_k = step.lower() if self.secondary_degree.islower() else step.upper()
+            root = step + INT_TO_ALT[alter]
+            root = process_local_key(loc_k, glob_k)
+
         return root
 
     def find_bass_note(self):
@@ -5239,6 +5251,30 @@ def is_a_within_b(a, b, wholly=False):
     return contained
 
 
+def process_local_key(loc_k, glob_k, return_step_alter=False):
+    local_key_sharps = loc_k.count("#")
+    local_key_flats = loc_k.count("b")
+    local_key = loc_k.replace("#", "").replace("b", "")
+    local_key_is_minor = local_key.islower()
+    local_key = local_key.lower()
+    global_key_is_minor = glob_k.islower()
+    if local_key_is_minor == global_key_is_minor and local_key == "i" and local_key_sharps - local_key_flats == 0 and (not return_step_alter):
+        return glob_k
+    g_key = "minor" if glob_k.islower() else "major"
+    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
+    transposition_interval = Interval(num, qual)
+    transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
+    key_step = re.search(r"[a-gA-G]", glob_k).group(0)
+    key_alter = re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    key_alter = key_alter.replace("b", "-")
+    key_alter = ALT_TO_INT[key_alter]
+    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    if return_step_alter:
+        return key_step, key_alter
+    local_key = (key_step.lower() if local_key_is_minor else key_step.upper()) + INT_TO_ALT[key_alter]
+    return local_key
+
+
 Roman2Interval_Maj = {
     "I": Interval(1, "P"),
     "II": Interval(2, "M"),
@@ -5286,6 +5322,33 @@ Roman2Interval_Min = {
     "Fr7": Interval(4, "A"),
     "It": Interval(4, "A"),
 }
+
+
+def process_local_key(loc_k, glob_k, return_step_alter=False):
+    local_key_sharps = loc_k.count("#")
+    local_key_flats = loc_k.count("b")
+    local_key = loc_k.replace("#", "").replace("b", "")
+    local_key_is_minor = local_key.islower()
+    local_key = local_key.lower()
+    global_key_is_minor = glob_k.islower()
+    if local_key_is_minor == global_key_is_minor and local_key == "i" and local_key_sharps - local_key_flats == 0 and (not return_step_alter):
+        return glob_k
+    g_key = "minor" if glob_k.islower() else "major"
+    # keep only letters in local_key
+    local_key = re.sub(r"[^a-zA-Z]", "", local_key)
+    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
+    transposition_interval = Interval(num, qual)
+    transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
+    key_step = re.search(r"[a-gA-G]", glob_k).group(0)
+    key_alter = re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    key_alter = key_alter.replace("b", "-")
+    key_alter = ALT_TO_INT[key_alter]
+    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    if return_step_alter:
+        return key_step, key_alter
+    local_key = (key_step.lower() if local_key_is_minor else key_step.upper()) + INT_TO_ALT[key_alter]
+    return local_key
+
 
 class InvalidTimePointException(Exception):
     """Raised when a time point is instantiated with an invalid number."""
