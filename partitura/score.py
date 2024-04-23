@@ -2835,7 +2835,9 @@ class RomanNumeral(Harmony):
             if prim_d in ACCEPTED_ROMANS:
                 return prim_d
             else:
-                return difflib.get_close_matches(prim_d, ACCEPTED_ROMANS, n=1, cutoff=0.5)[0]
+                matches = difflib.get_close_matches(prim_d, ACCEPTED_ROMANS, n=1, cutoff=0.5)
+                if matches:
+                    return matches[0]
         return None
 
     def _process_secondary_degree(self):
