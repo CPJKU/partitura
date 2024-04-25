@@ -866,7 +866,7 @@ def key_mode_to_int(mode):
     """
     if mode in ("minor", -1):
         return -1
-    elif mode in ("major", None, 1):
+    elif mode in ("major", None, "none", 1):
         return 1
     else:
         raise ValueError("Unknown mode {}".format(mode))
@@ -888,7 +888,7 @@ def key_int_to_mode(mode):
     """
     if mode in ("minor", -1):
         return "minor"
-    elif mode in ("major", None, 1):
+    elif mode in ("major", None, "none", 1):
         return "major"
     else:
         raise ValueError("Unknown mode {}".format(mode))
