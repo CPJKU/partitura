@@ -5,6 +5,7 @@ This module contains music related utilities
 """
 from __future__ import annotations
 import copy
+import math
 from collections import defaultdict
 import re
 import warnings
@@ -13,9 +14,11 @@ from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING
 from partitura.utils.generic import find_nearest, search, iter_current_next
+from partitura.utils.globals import *
 import partitura
 from tempfile import TemporaryDirectory
 import os
+
 
 try:
     import miditok
@@ -38,286 +41,6 @@ if TYPE_CHECKING:
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
     from partitura.score import ScoreLike, Interval
     from partitura.performance import PerformanceLike, Performance, PerformedPart
-
-
-MIDI_BASE_CLASS = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
-# _MORPHETIC_BASE_CLASS = {'c': 0, 'd': 1, 'e': 2, 'f': 3, 'g': 4, 'a': 5, 'b': 6}
-# _MORPHETIC_OCTAVE = {0: 32, 1: 39, 2: 46, 3: 53, 4: 60, 5: 67, 6: 74, 7: 81, 8: 89}
-ALTER_SIGNS = {None: "", 0: "", 1: "#", 2: "x", -1: "b", -2: "bb"}
-
-DUMMY_PS_BASE_CLASS = {
-    0: ("c", 0),
-    1: ("c", 1),
-    2: ("d", 0),
-    3: ("d", 1),
-    4: ("e", 0),
-    5: ("f", 0),
-    6: ("f", 1),
-    7: ("g", 0),
-    8: ("g", 1),
-    9: ("a", 0),
-    10: ("a", 1),
-    11: ("b", 0),
-}
-
-MEI_DURS_TO_SYMBOLIC = {
-    "long": "long",
-    "0": "breve",
-    "breve": "breve",
-    "1": "whole",
-    "2": "half",
-    "4": "quarter",
-    "8": "eighth",
-    "16": "16th",
-    "32": "32nd",
-    "64": "64th",
-    "128": "128th",
-    "256": "256th",
-}
-
-SYMBOLIC_TO_INT_DURS = {
-    "long": 0.25,
-    "breve": 0.5,
-    "whole": 1,
-    "half": 2,
-    "quarter": 4,
-    "eighth": 8,
-    "16th": 16,
-    "32nd": 32,
-    "64th": 64,
-    "128th": 128,
-    "256th": 256,
-}
-
-LABEL_DURS = {
-    "long": 16,
-    "breve": 8,
-    "whole": 4,
-    "half": 2,
-    "h": 2,
-    "quarter": 1,
-    "q": 1,
-    "eighth": 1 / 2,
-    "e": 1 / 2,
-    "16th": 1 / 4,
-    "32nd": 1 / 8.0,
-    "64th": 1 / 16,
-    "128th": 1 / 32,
-    "256th": 1 / 64,
-}
-DOT_MULTIPLIERS = (1, 1 + 1 / 2, 1 + 3 / 4, 1 + 7 / 8)
-# DURS and SYM_DURS encode the same information as _LABEL_DURS and
-# _DOT_MULTIPLIERS, but they allow for faster estimation of symbolic duration
-# (estimate_symbolic duration). At some point we will probably do away with
-# _LABEL_DURS and _DOT_MULTIPLIERS.
-DURS = np.array(
-    [
-        1.5625000e-02,
-        2.3437500e-02,
-        2.7343750e-02,
-        2.9296875e-02,
-        3.1250000e-02,
-        4.6875000e-02,
-        5.4687500e-02,
-        5.8593750e-02,
-        6.2500000e-02,
-        9.3750000e-02,
-        1.0937500e-01,
-        1.1718750e-01,
-        1.2500000e-01,
-        1.8750000e-01,
-        2.1875000e-01,
-        2.3437500e-01,
-        2.5000000e-01,
-        3.7500000e-01,
-        4.3750000e-01,
-        4.6875000e-01,
-        5.0000000e-01,
-        5.0000000e-01,
-        7.5000000e-01,
-        7.5000000e-01,
-        8.7500000e-01,
-        8.7500000e-01,
-        9.3750000e-01,
-        9.3750000e-01,
-        1.0000000e00,
-        1.0000000e00,
-        1.5000000e00,
-        1.5000000e00,
-        1.7500000e00,
-        1.7500000e00,
-        1.8750000e00,
-        1.8750000e00,
-        2.0000000e00,
-        2.0000000e00,
-        3.0000000e00,
-        3.0000000e00,
-        3.5000000e00,
-        3.5000000e00,
-        3.7500000e00,
-        3.7500000e00,
-        4.0000000e00,
-        6.0000000e00,
-        7.0000000e00,
-        7.5000000e00,
-        8.0000000e00,
-        1.2000000e01,
-        1.4000000e01,
-        1.5000000e01,
-        1.6000000e01,
-        2.4000000e01,
-        2.8000000e01,
-        3.0000000e01,
-    ]
-)
-
-SYM_DURS = [
-    {"type": "256th", "dots": 0},
-    {"type": "256th", "dots": 1},
-    {"type": "256th", "dots": 2},
-    {"type": "256th", "dots": 3},
-    {"type": "128th", "dots": 0},
-    {"type": "128th", "dots": 1},
-    {"type": "128th", "dots": 2},
-    {"type": "128th", "dots": 3},
-    {"type": "64th", "dots": 0},
-    {"type": "64th", "dots": 1},
-    {"type": "64th", "dots": 2},
-    {"type": "64th", "dots": 3},
-    {"type": "32nd", "dots": 0},
-    {"type": "32nd", "dots": 1},
-    {"type": "32nd", "dots": 2},
-    {"type": "32nd", "dots": 3},
-    {"type": "16th", "dots": 0},
-    {"type": "16th", "dots": 1},
-    {"type": "16th", "dots": 2},
-    {"type": "16th", "dots": 3},
-    {"type": "eighth", "dots": 0},
-    {"type": "e", "dots": 0},
-    {"type": "eighth", "dots": 1},
-    {"type": "e", "dots": 1},
-    {"type": "eighth", "dots": 2},
-    {"type": "e", "dots": 2},
-    {"type": "eighth", "dots": 3},
-    {"type": "e", "dots": 3},
-    {"type": "quarter", "dots": 0},
-    {"type": "q", "dots": 0},
-    {"type": "quarter", "dots": 1},
-    {"type": "q", "dots": 1},
-    {"type": "quarter", "dots": 2},
-    {"type": "q", "dots": 2},
-    {"type": "quarter", "dots": 3},
-    {"type": "q", "dots": 3},
-    {"type": "half", "dots": 0},
-    {"type": "h", "dots": 0},
-    {"type": "half", "dots": 1},
-    {"type": "h", "dots": 1},
-    {"type": "half", "dots": 2},
-    {"type": "h", "dots": 2},
-    {"type": "half", "dots": 3},
-    {"type": "h", "dots": 3},
-    {"type": "whole", "dots": 0},
-    {"type": "whole", "dots": 1},
-    {"type": "whole", "dots": 2},
-    {"type": "whole", "dots": 3},
-    {"type": "breve", "dots": 0},
-    {"type": "breve", "dots": 1},
-    {"type": "breve", "dots": 2},
-    {"type": "breve", "dots": 3},
-    {"type": "long", "dots": 0},
-    {"type": "long", "dots": 1},
-    {"type": "long", "dots": 2},
-    {"type": "long", "dots": 3},
-]
-
-MAJOR_KEYS = [
-    "Cb",
-    "Gb",
-    "Db",
-    "Ab",
-    "Eb",
-    "Bb",
-    "F",
-    "C",
-    "G",
-    "D",
-    "A",
-    "E",
-    "B",
-    "F#",
-    "C#",
-]
-MINOR_KEYS = [
-    "Ab",
-    "Eb",
-    "Bb",
-    "F",
-    "C",
-    "G",
-    "D",
-    "A",
-    "E",
-    "B",
-    "F#",
-    "C#",
-    "G#",
-    "D#",
-    "A#",
-]
-
-TIME_UNITS = ["beat", "quarter", "sec", "div"]
-
-NOTE_NAME_PATT = re.compile(r"([A-G]{1})([xb\#]*)(\d+)")
-
-INTERVALCLASSES = [
-    f"{specific}{generic}"
-    for generic in [2, 3, 6, 7]
-    for specific in ["dd", "d", "m", "M", "A", "AA"]
-] + [
-    f"{specific}{generic}"
-    for generic in [1, 4, 5]
-    for specific in ["dd", "d", "P", "A", "AA"]
-]
-
-INTERVAL_TO_SEMITONES = dict(
-    zip(
-        INTERVALCLASSES,
-        [
-            generic + specific
-            for generic in [1, 3, 8, 10]
-            for specific in [-2, -1, 0, 1, 2, 3]
-        ]
-        + [
-            generic + specific
-            for generic in [0, 5, 7]
-            for specific in [-2, -1, 0, 1, 2]
-        ],
-    )
-)
-
-
-STEPS = {
-    "C": 0,
-    "D": 1,
-    "E": 2,
-    "F": 3,
-    "G": 4,
-    "A": 5,
-    "B": 6,
-    0: "C",
-    1: "D",
-    2: "E",
-    3: "F",
-    4: "G",
-    5: "A",
-    6: "B",
-}
-
-
-MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
-
-# Standard tuning frequency of A4 in Hz
-A4 = 440.0
 
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
@@ -421,7 +144,7 @@ def ensure_rest_array(restarray_or_part, *args, **kwargs):
         )
 
 
-def transpose_step(step, interval, direction):
+def _transpose_step(step, interval, direction):
     """
     Transpose a note by a given interval.
     Parameters
@@ -438,7 +161,7 @@ def transpose_step(step, interval, direction):
     return step
 
 
-def _transpose_note(note, interval):
+def _transpose_note_inplace(note, interval):
     """
     Transpose a note by a given interval.
     Parameters
@@ -452,7 +175,7 @@ def _transpose_note(note, interval):
     else:
         # TODO work for arbitrary octave.
         prev_step = note.step.capitalize()
-        note.step = transpose_step(prev_step, interval.number, interval.direction)
+        note.step = _transpose_step(prev_step, interval.number, interval.direction)
         if STEPS[note.step] - STEPS[prev_step] < 0 and interval.direction == "up":
             note.octave += 1
         elif STEPS[note.step] - STEPS[prev_step] > 0 and interval.direction == "down":
@@ -469,6 +192,82 @@ def _transpose_note(note, interval):
         note.alter = (
             INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
         )
+
+
+def transpose_note_old(step, alter, interval):
+    """
+    Transpose a note by a given interval without changing the octave or creating a Note Object.
+
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    interval: Interval
+        The interval to transpose by.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the pitch, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    """
+    if interval.quality + str(interval.number) == "P1":
+        new_step = step
+        new_alter = alter
+    else:
+        prev_step = step.capitalize()
+        new_step = _transpose_step(prev_step, interval.number, interval.direction)
+        prev_alter = alter if alter is not None else 0
+        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
+        tmp_pc = MIDI_BASE_CLASS[new_step.lower()]
+        if interval.direction == "up":
+            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
+        else:
+            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
+        new_alter = (
+                INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+        )
+    return new_step, new_alter
+
+
+def transpose_note(step, alter, interval):
+    """
+    Transpose a note by a given interval without changing the octave or creating a Note Object.
+
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    interval: Interval
+        The interval to transpose by. Only interval direction "up" is supported.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the pitch, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    """
+    prev_step = step.capitalize()
+    assert interval.direction == "up", "Only interval direction 'up' is supported."
+    assert -3 < alter < 3, f"Input Alteration {alter} is not in the range -2 to 2."
+    assert interval.number < 8, f"Input Interval {interval.number} is not in the range 1 to 7."
+    assert prev_step in BASE_PC.keys(), f"Input Step {prev_step} is must be one of: {BASE_PC.keys()}."
+    new_step = STEPS[(STEPS[prev_step] + interval.number - 1) % 7]
+    prev_alter = alter if alter is not None else 0
+    pc_prev = step2pc(prev_step, prev_alter)
+    pc_new = step2pc(new_step, prev_alter)
+    new_alter = interval.semitones - (pc_new - pc_prev) % 12 + prev_alter
+    # add test to check if the new alteration is correct (i.e. accept maximum of 2 flats or sharps)
+    assert -3 < new_alter < 3, f"New alteration {new_alter} is not in the range -2 to 2."
+    return new_step, new_alter
 
 
 def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
@@ -502,7 +301,7 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
             transpose(part, interval)
     elif isinstance(score, s.Part):
         for note in score.notes_tied:
-            _transpose_note(note, interval)
+            _transpose_note_inplace(note, interval)
     return new_score
 
 
@@ -941,13 +740,12 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
-        return None
         # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
-        type = SYM_DURS[i + 3]["type"]
+        type = SYM_DURS[i+3]["type"]
         normal_notes = 2
         return {
             "type": type,
-            "actual_notes": math.ceil(normal_notes / qdur),
+            "actual_notes": math.ceil(normal_notes/qdur),
             "normal_notes": normal_notes,
         }
 
@@ -3400,6 +3198,27 @@ def tokenize(
         midi = miditoolkit.MidiFile(temp_midi_path)
         tokens = tokenizer(midi)
     return tokens
+
+
+def step2pc(step, alter):
+    """
+    Convert a step to a pitch class.
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+
+    Returns
+    -------
+    pc: int
+        The pitch class of the step.
+    """
+    base_pc = BASE_PC[step]
+    pc = (base_pc + alter) % 12
+    return pc
 
 
 if __name__ == "__main__":
