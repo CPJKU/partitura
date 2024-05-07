@@ -71,6 +71,7 @@ class RntxtParser:
         for key in ref_keys:
             self.part.add(key, key.start.t)
         self.measures = {m.number: m for m in self.part.measures}
+        self.part.add(spt.Staff(number=1, lines=1), 0)
         self.current_measure = None
         self.current_position = 0
         self.measure_beat_position = 1
@@ -103,7 +104,7 @@ class RntxtParser:
         for i, rn_idx in enumerate(argsort_start[:-1]):
             rn = romans[rn_idx]
             if rn.end is None:
-                rn.end = romans[argsort_start[i+1]].start
+                rn.end = romans[argsort_start[i+1]].start if rn.start.t < romans[argsort_start[i+1]].start.t else rn.start.t + 1
 
     def _handle_measure(self, line):
         if not self._validate_measure_line(line):
@@ -172,7 +173,7 @@ class RntxtParser:
 
     def _handle_roman_numeral(self, element):
         element = element.strip()
-        # change RN6/5 to RN65
+        # change RN6/5 to RN65 but keep RN65/RN
         if "/" in element:
             if element.split("/")[1][0].isnumeric():
                 # replace only the first occurrence of "/" with ""
