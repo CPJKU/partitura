@@ -1,3 +1,5 @@
+import re
+
 import partitura.score as spt
 import os.path as osp
 import numpy as np
@@ -151,7 +153,7 @@ class RntxtParser:
                 self.current_position = self.part.inv_beat_map(self.part.beat_map(self.current_measure.start.t) + self.measure_beat_position - 1).item()
 
         # if element starts with [A-G] and it includes : it is a key
-        elif element[0] in "ABCDEFG" and ":" in element:
+        elif len(re.findall(r"[A-Ga-g#b:]", element)) == len(element) and element[-1] == ":":
             self._handle_key(element)
         # if element only contains "|" or ":" (and combinations) it is a barline
         elif all(c in "|:" for c in element):
@@ -167,9 +169,10 @@ class RntxtParser:
         mode = "major" if name.isupper() else "minor"
         step = name.upper()
         # handle alterations
-        alter = element.count("#") - element.count("b")
+        alter = element[1:].strip(":")
+        key_name = f"{step}{alter}{('m' if mode == 'minor' else '')}"
         # step and alter to fifths
-        fifths, mode = key_name_to_fifths_mode(element.strip(":"))
+        fifths, mode = key_name_to_fifths_mode(key_name)
         ks = spt.KeySignature(fifths=fifths, mode=mode)
         self.key = element.strip(":")
         self.part.add(ks, int(self.current_position))
@@ -190,9 +193,14 @@ class RntxtParser:
         element = element.strip()
         # change strings such as RN6/5 to RN65 but keep RN65/RN for the secondary degree
         if "/" in element:
-            if element.split("/")[1][0].isnumeric():
-                # replace only the first occurrence of "/" with ""
-                element = element.replace("/", "", 1)
+            # if all elements between "/" are either digits or one of [o, +] then remove "/" else leave it in place
+            el_list = element.split("/")
+            element = el_list[0]
+            for el in el_list[1:]:
+                if len(re.findall(r"[1-9\+o]", el)) == len(el):
+                    element += el
+                else:
+                    element += "/" + el
         # Validity checks happen inside the Roman Numeral object
         # The checks include 1 & 2 Degree, Root, Bass, Inversion, and Quality extraction.
         rn = spt.RomanNumeral(text=element, local_key=self.key)
