@@ -14,6 +14,7 @@ from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
 from .io.importmei import load_mei
 from .io.importkern import load_kern
+from .io.importrntxt import load_rntxt
 from .io.importmusic21 import load_music21
 from .io.importdcml import load_dcml
 from .io.importmidi import load_score_midi, load_performance_midi, midi_to_notearray

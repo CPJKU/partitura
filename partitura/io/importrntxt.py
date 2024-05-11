@@ -48,6 +48,12 @@ def is_url(input):
 
 
 class RntxtParser:
+    """
+    A parser for RNtxt format to a partitura Part.
+
+    For full specification of the format visit:
+    https://github.com/MarkGotham/When-in-Rome/blob/master/syntax.md
+    """
     def __init__(self, score=None):
         if score is not None:
             self.ref_part = score.parts[0]
@@ -172,12 +178,23 @@ class RntxtParser:
         pass
 
     def _handle_roman_numeral(self, element):
+        """
+        The handling or roman numeral aims to translate rntxt notation to internal partitura notation.
+
+        Parameters
+        ----------
+        element: txt
+            The element is a rntxt notation string
+        """
+        # Remove line endings and spaces
         element = element.strip()
-        # change RN6/5 to RN65 but keep RN65/RN
+        # change strings such as RN6/5 to RN65 but keep RN65/RN for the secondary degree
         if "/" in element:
             if element.split("/")[1][0].isnumeric():
                 # replace only the first occurrence of "/" with ""
                 element = element.replace("/", "", 1)
+        # Validity checks happen inside the Roman Numeral object
+        # The checks include 1 & 2 Degree, Root, Bass, Inversion, and Quality extraction.
         rn = spt.RomanNumeral(text=element, local_key=self.key)
 
         try:
