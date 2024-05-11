@@ -2821,7 +2821,7 @@ class RomanNumeral(Harmony):
         self.secondary_degree = secondary_degree if secondary_degree is not None else self._process_secondary_degree()
         self.quality = quality if quality is not None and quality in self.accepted_qualities else self._process_quality()
         # only process the root note if the roman numeral is valid
-        if self.local_key and self.primary_degree and self.secondary_degree and self.quality and self.inversion:
+        if self.local_key and self.primary_degree and self.secondary_degree and self.quality and self.inversion is not None:
             self.root = self.find_root_note()
             self.bass_note = self.find_bass_note()
 
@@ -5632,8 +5632,8 @@ Roman2Interval_Min = {
     "iii": Interval(3, "m"),
     "iv": Interval(4, "P"),
     "v": Interval(5, "P"),
-    "vi": Interval(6, "m"),
-    "vii": Interval(7, "m"),
+    "vi": Interval(6, "M"),
+    "vii": Interval(7, "M"),
     "viio": Interval(7, "M"),
     "N": Interval(2, "m"),
     "iio": Interval(2, "M"),
