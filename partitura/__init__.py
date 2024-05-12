@@ -13,7 +13,7 @@ from .io.musescore import load_via_musescore
 from .io.importmusicxml import load_musicxml, musicxml_to_notearray
 from .io.exportmusicxml import save_musicxml
 from .io.importmei import load_mei
-from .io.importkern_v2 import load_kern
+from .io.importkern import load_kern
 from .io.importmusic21 import load_music21
 from .io.importmidi import load_score_midi, load_performance_midi, midi_to_notearray
 from .io.exportmidi import save_score_midi, save_performance_midi
