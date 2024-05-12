@@ -74,7 +74,10 @@ def add_durations(a, b):
     return a*b / (a + b)
 
 
-def dot_function(duration, dots):
+def dot_function(
+        duration: int,
+        dots: int
+    ):
     if dots == 0:
         return duration
     elif duration == 0:
@@ -82,7 +85,10 @@ def dot_function(duration, dots):
     else:
         return add_durations((2**dots)*duration, dot_function(duration, dots - 1))
 
-def parse_by_voice(file, dtype=np.object_):
+def parse_by_voice(
+        file: list,
+        dtype=np.object_
+    ):
     indices_to_remove = []
     voices = 1
     for i, line in enumerate(file):
@@ -113,7 +119,24 @@ def parse_by_voice(file, dtype=np.object_):
     return data, voice_indices, num_voices
 
 
-def _handle_kern_with_spine_splitting(kern_path):
+def _handle_kern_with_spine_splitting(kern_path: PathLike):
+    """
+    Parse a kern file with spine splitting.
+
+    A special case of kern files is when the file contains multiple spines that are split by voice. In this case, this
+    function will restructure the data in a way that it can be parsed by the kern parser.
+
+    Parameters
+    ----------
+    kern_path: str
+
+    Returns
+    -------
+    data: np.array
+        The data to be parsed.
+    parsing_idxs: np.array
+        The indices of the data that are being parsed indicating the assignment of voices.
+    """
     # org_file = np.loadtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
     org_file = np.genfromtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
     # Get Main Number of parts and Spline Types
@@ -139,36 +162,14 @@ def _handle_kern_with_spine_splitting(kern_path):
     data = np.vstack(data).T
     parsing_idxs = np.hstack(parsing_idxs).T
     return data, parsing_idxs
-    #
-    #
-    # # Find all expansions points
-    # expansion_indices = np.where(np.char.find(file, "*^") != -1)[0]
-    # # For all expansion points find which stream is being expanded
-    # expansion_streams_per_index = [np.argwhere(np.array(line.split("\t")) == "*^")[0] for line in
-    #                                file[expansion_indices]]
-    #
-    # # Find all Spline Reduction points
-    # reduction_indices = np.where(np.char.find(file, "*v\t*v") != -1)[0]
-    # # For all reduction points find which stream is being reduced
-    # reduction_streams_per_index = [
-    #     np.argwhere(np.char.add(np.array(line.split("\t")[:-1]), np.array(line.split("\t")[1:])) == "*v*v")[0] for line
-    #     in file[reduction_indices]]
-    #
-    # # Find all pairs of expansion and reduction points
-    # expansion_reduction_pairs = []
-    # last_exhaustive_reduction = 0
-    # for expansion_index in expansion_indices:
-    #     for expansion_stream in expansion_index:
-    #         # Find the first reduction index that is after the expansion index and has the same index.
-    #         for i, reduction_index in enumerate(reduction_indices[last_exhaustive_reduction:]):
-    #             for reduction_stream in reduction_streams_per_index[i]:
-    #                 if expansion_stream == reduction_stream:
-    #                     expansion_reduction_pairs.append((expansion_index, reduction_index))
-    #                     last_exhaustive_reduction = i if i == last_exhaustive_reduction + 1 else last_exhaustive_reduction
-    #                     break
 
 
-def element_parsing(part, elements, total_duration_values, same_part):
+def element_parsing(
+        part: spt.Part,
+        elements:np.array,
+        total_duration_values: np.array,
+        same_part: bool
+    ):
     divs_pq = part._quarter_durations[0]
     current_tl_pos = 0
     measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
@@ -360,7 +361,20 @@ class SplineParser(object):
         self.slurs_start = []
         self.slurs_end = []
 
-    def parse(self, spline):
+    def parse(self, spline: np.array):
+        """
+        Parse a spline line and return the elements.
+
+        Parameters
+        ----------
+        spline: np.array
+            The spline line to parse. It is a numpy array of strings.
+
+        Returns
+        -------
+        elements: np.array
+            The parsed elements of the spline line.
+        """
         # Remove "-" lines
         spline = spline[spline != '-']
         # Remove "." lines
@@ -427,7 +441,7 @@ class SplineParser(object):
 
         return elements
 
-    def meta_tandem_line(self, line):
+    def meta_tandem_line(self, line: str):
         """
         Find all tandem lines
         """
@@ -469,43 +483,43 @@ class SplineParser(object):
         elif line.startswith("*-"):
             return self.process_fine()
 
-    def process_tempo_line(self, line):
+    def process_tempo_line(self, line: str):
         return spt.Tempo(float(line))
 
     def process_fine(self):
         return spt.Fine()
 
-    def process_istrument_line(self, line):
+    def process_istrument_line(self, line: str):
         #TODO: add support for instrument lines
         return
 
-    def process_istrument_class_line(self, line):
+    def process_istrument_class_line(self, line: str):
         # TODO: add support for instrument class lines
         return
 
-    def process_istrument_group_line(self, line):
+    def process_istrument_group_line(self, line: str):
         # TODO: add support for instrument group lines
         return
 
-    def process_timebase_line(self, line):
+    def process_timebase_line(self, line: str):
         # TODO: add support for timebase lines
         return
 
-    def process_istrument_transpose_line(self, line):
+    def process_istrument_transpose_line(self, line: str):
         # TODO: add support for instrument transpose lines
         return
 
-    def process_key_line(self, line):
+    def process_key_line(self, line: str):
         find = re.search(r"([a-gA-G])", line).group(0)
         # check if the key is major or minor by checking if the key is in lower or upper case.
         self.mode = "minor" if find.islower() else "major"
         return
 
-    def process_staff_line(self, line):
+    def process_staff_line(self, line: str):
         self.staff = int(line)
         return spt.Staff(self.staff)
 
-    def process_clef_line(self, line):
+    def process_clef_line(self, line: str):
         # if the cleff line does not contain any of the following characters, ["G", "F", "C"], raise a ValueError.
         if not any(c in line for c in ["G", "F", "C"]):
             raise ValueError("Unrecognized clef: {}".format(line))
@@ -535,7 +549,7 @@ class SplineParser(object):
 
         return spt.Clef(sign=clef, staff=self.staff, line=int(clef_line), octave_change=octave)
 
-    def process_key_signature_line(self, line):
+    def process_key_signature_line(self, line: str):
         fifths = line.count("#") - line.count("-")
         alters = re.findall(r"([a-gA-G#\-]+)", line)
         alters = "".join(alters)
@@ -545,7 +559,7 @@ class SplineParser(object):
         mode = "major"
         return spt.KeySignature(fifths, mode)
 
-    def process_meter_line(self, line):
+    def process_meter_line(self, line: str):
         if " " in line:
             line = line.split(" ")[0]
         numerator, denominator = line.split("/")
@@ -554,7 +568,7 @@ class SplineParser(object):
         denominator = int(re.search(r"([0-9]+)", denominator).group(0))
         return spt.TimeSignature(numerator, denominator)
 
-    def _process_kern_pitch(self, pitch):
+    def _process_kern_pitch(self, pitch: str):
         # find accidentals
         alter = re.search(r"([n#-]+)", pitch)
         # remove alter from pitch
@@ -568,7 +582,21 @@ class SplineParser(object):
         alter = SIGN_TO_ACC[alter.group(0)] if alter is not None else None
         return step, octave, alter
 
-    def _process_kern_duration(self, duration, is_grace=False):
+    def _process_kern_duration(self, duration: str, is_grace=False):
+        """
+        Process the duration of a note.
+
+        Parameters
+        ----------
+        duration: str
+            The duration of the note.
+        is_grace: bool(default=False)
+            If the note is a grace note.
+        Returns
+        -------
+        symbolic_duration: dict
+            A dictionary containing the symbolic duration of the note.
+        """
         dots = duration.count(".")
         dur = duration.replace(".", "")
         if dur in KERN_DURS.keys():
@@ -593,18 +621,16 @@ class SplineParser(object):
         self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), dots) if not is_grace else inf
         return symbolic_duration
 
-    def process_symbol(self, note, symbols):
+    def process_symbol(self, note: spt.Note, symbols: list):
         """
         Process the symbols of a note.
 
         Parameters
         ----------
-        note
-        symbol
-
-        Returns
-        -------
-
+        note: spt.Note
+            The note to add the symbols to.
+        symbols: list
+            List of symbols to process.
         """
         if "[" in symbols:
             self.tie_prev[self.total_parsed_elements] = True
@@ -623,7 +649,7 @@ class SplineParser(object):
             self.process_symbol(note, symbols)
         return
 
-    def meta_note_line(self, line, voice=None, add=True):
+    def meta_note_line(self, line: str, voice=None, add=True):
         """
         Grammar Defining a note line.
 
@@ -632,11 +658,16 @@ class SplineParser(object):
 
         Parameters
         ----------
-        line
+        line: str
+            The line to parse containing a note element.
+        voice: int
+            The voice of the note.
+        add: bool
+            If True, the element is added to the number of parsed elements.
 
         Returns
         -------
-
+        spt.Note object
         """
         self.total_parsed_elements += 1 if add else 0
         voice = self.voice if voice is None else voice
@@ -667,7 +698,7 @@ class SplineParser(object):
             self.process_symbol(note, symbols)
         return note
 
-    def meta_barline_line(self, line):
+    def meta_barline_line(self, line: str):
         """
         Grammar Defining a barline line.
 
@@ -676,11 +707,12 @@ class SplineParser(object):
 
         Parameters
         ----------
-        line
+        line: str
+            The line to parse containing a barline.
 
         Returns
         -------
-
+        spt.Measure object
         """
         # find number and keep its index.
         self.total_parsed_elements += 1
@@ -690,7 +722,7 @@ class SplineParser(object):
         opening_repeat = re.findall(r"[|:]", line[number_index:])
         return spt.Measure(number=int(number[0]) if number else None)
 
-    def meta_chord_line(self, line):
+    def meta_chord_line(self, line: str):
         """
         Grammar Defining a chord line.
 
