@@ -281,9 +281,3 @@ def save_kern(
                    comments="!!!", encoding="utf-8")
     else:
         return out_data
-
-
-if __name__ == "__main__":
-    import partitura as pt
-    score = pt.load_score("/home/manos/Desktop/JKU/data/mozart_piano_sonatas/K279-1.musicxml")
-    save_kern(score, "/home/manos/Desktop/test.krn")
