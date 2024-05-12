@@ -27,6 +27,7 @@ ACC_TO_SIGN = {
     2: "##",
 }
 
+# Kern notes encoding has a dedicated octave for each note.
 KERN_NOTES = {
     ('C', 3): 'C',
     ('D', 3): 'D',
@@ -181,9 +182,12 @@ class KernExporter(object):
             return self.sym_dur_to_kern(element.symbolic_duration)
 
     def pitch_to_kern(self, element: spt.GenericNote) -> str:
+        # To encode pitch correctly in kern we need to take into account the octave
+        # duplication of the step in kern can either move the note up or down an octave
         if isinstance(element, spt.Rest):
             return "r"
         step, alter, octave = element.step, element.alter, element.octave
+        # Check if we need to have duplication of the step character
         if octave > 4:
             multiply_character = octave - 3
             octave = 4
@@ -192,6 +196,7 @@ class KernExporter(object):
             octave = 3
         else:
             multiply_character = 1
+        # Fetch the correct string for the step and multiply it if needed
         kern_step = KERN_NOTES[(step, octave)] * multiply_character
         kern_alter = ACC_TO_SIGN[alter] if alter is not None else ""
         return kern_step + kern_alter
