@@ -339,13 +339,6 @@ def load_kern(
     return score
 
 
-def rec_divisible_by_two(number):
-    if number % 2 == 0:
-        return rec_divisible_by_two(number // 2)
-    else:
-        return number
-
-
 class SplineParser(object):
     def __init__(self, id="P1", staff=1, voice=1, size=1, name=""):
         self.id = id
