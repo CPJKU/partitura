@@ -38,6 +38,16 @@ class TestImportKERN(unittest.TestCase):
             score = load_kern(fn)
             self.assertTrue(True)
 
+    def test_chorale_import(self):
+        file_path = os.path.join(KERN_PATH, "chor228.krn")
+        score = load_kern(file_path)
+        num_measures = 8
+        num_parts = 4
+        num_notes = 102
+        self.assertTrue(len(score.parts) == num_parts)
+        self.assertTrue(all([len(part.measures) == num_measures for part in score.parts]))
+        self.assertTrue(len(score.note_array()) == num_notes)
+
     def test_tie_mismatch(self):
 
         fn = KERN_TIES[0]
