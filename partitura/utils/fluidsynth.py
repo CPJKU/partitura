@@ -225,7 +225,7 @@ def synth_note_info(
 ) -> np.ndarray:
     """
     Synthesize note information with Fluidsynth.
-    This method is designed to synthesize the notes in a 
+    This method is designed to synthesize the notes in a
     single track and channel.
 
     Parameters
@@ -242,7 +242,7 @@ def synth_note_info(
         A list of MIDI controls (e.g., pedals).
         (as the `controls` attribute in `PerformedPart` objects)
     program : Optional[int]
-        A list of MIDI programs as dictionaries 
+        A list of MIDI programs as dictionaries
         (as the `program` attribute in `PerformedPart` objects).
     synthesizer : Synth
         An instance of a fluidsynth Synth object.

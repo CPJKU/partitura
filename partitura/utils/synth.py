@@ -71,8 +71,6 @@ FIVE_LIMIT_INTERVAL_RATIOS = {
 }
 
 
-
-
 def midi_pitch_to_natural_frequency(
     midi_pitch: Union[int, float, np.ndarray],
     a4: Union[int, float] = A4,
