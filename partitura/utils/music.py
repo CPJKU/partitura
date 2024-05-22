@@ -15,7 +15,7 @@ from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, L
 from partitura.utils.generic import find_nearest, search, iter_current_next
 import partitura
 from tempfile import TemporaryDirectory
-import os
+import os, math
 
 try:
     import miditok
@@ -955,7 +955,7 @@ def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False)
     global DURS, SYM_DURS
     qdur = dur / div
     if qdur == 0:
-        return
+        return {}
     i = find_nearest(DURS, qdur)
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
