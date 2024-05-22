@@ -71,24 +71,19 @@ KERN_DURS = {
 
 
 def add_durations(a, b):
-    return a*b / (a + b)
+    return a * b / (a + b)
 
 
-def dot_function(
-        duration: int,
-        dots: int
-    ):
+def dot_function(duration: int, dots: int):
     if dots == 0:
         return duration
     elif duration == 0:
         return 0
     else:
-        return add_durations((2**dots)*duration, dot_function(duration, dots - 1))
+        return add_durations((2**dots) * duration, dot_function(duration, dots - 1))
 
-def parse_by_voice(
-        file: list,
-        dtype=np.object_
-    ):
+
+def parse_by_voice(file: list, dtype=np.object_):
     indices_to_remove = []
     voices = 1
     for i, line in enumerate(file):
@@ -99,7 +94,6 @@ def parse_by_voice(
         elif sum([(line[v] == "*v") for v in range(voices)]):
             sum_vred = sum([line[v] == "*v" for v in range(voices)]) // 2
             voices = voices - sum_vred
-
 
     voice_indices = np.array(indices_to_remove)
     num_voices = voice_indices[:, 1].max() + 1
@@ -138,7 +132,9 @@ def _handle_kern_with_spine_splitting(kern_path: PathLike):
         The indices of the data that are being parsed indicating the assignment of voices.
     """
     # org_file = np.loadtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
-    org_file = np.genfromtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
+    org_file = np.genfromtxt(
+        kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437"
+    )
     # Get Main Number of parts and Spline Types
     spline_types = org_file[0].split("\t")
     parsing_idxs = []
@@ -153,23 +149,26 @@ def _handle_kern_with_spine_splitting(kern_path: PathLike):
         data.append(d)
         parsing_idxs.append([i for _ in range(num_voices)])
         # Remove all parsed cells from the file
-        voice_indices = voice_indices[np.lexsort((voice_indices[:, 1]*-1, voice_indices[:, 0]))]
+        voice_indices = voice_indices[
+            np.lexsort((voice_indices[:, 1] * -1, voice_indices[:, 0]))
+        ]
         for line, voice in voice_indices:
             if voice < len(file[line]):
                 file[line].pop(voice)
             else:
-                print("Line {} does not have a voice {} from original line {}".format(line, voice, org_file[line]))
+                print(
+                    "Line {} does not have a voice {} from original line {}".format(
+                        line, voice, org_file[line]
+                    )
+                )
     data = np.vstack(data).T
     parsing_idxs = np.hstack(parsing_idxs).T
     return data, parsing_idxs
 
 
 def element_parsing(
-        part: spt.Part,
-        elements:np.array,
-        total_duration_values: np.array,
-        same_part: bool
-    ):
+    part: spt.Part, elements: np.array, total_duration_values: np.array, same_part: bool
+):
     divs_pq = part._quarter_durations[0]
     current_tl_pos = 0
     measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
@@ -179,7 +178,9 @@ def element_parsing(
             continue
         if isinstance(element, spt.GenericNote):
             if total_duration_values[i] == 0:
-                duration_divs = symbolic_to_numeric_duration(element.symbolic_duration, divs_pq)
+                duration_divs = symbolic_to_numeric_duration(
+                    element.symbolic_duration, divs_pq
+                )
             else:
                 quarter_duration = 4 / total_duration_values[i]
                 duration_divs = ceil(quarter_duration * divs_pq)
@@ -229,22 +230,24 @@ def load_kern(
     """
     try:
         # This version of the parser is faster but does not support spine splitting.
-        file = np.loadtxt(filename, dtype="U", delimiter="\t", comments="!!", encoding="cp437")
+        file = np.loadtxt(
+            filename, dtype="U", delimiter="\t", comments="!!", encoding="cp437"
+        )
         parsing_idxs = np.arange(file.shape[0])
         # Decide Parts
-
 
     except ValueError:
         # This version of the parser supports spine splitting but is slower.
         file, parsing_idxs = _handle_kern_with_spine_splitting(filename)
-
 
     partlist = []
     # Get Main Number of parts and Spline Types
     spline_types = file[0]
 
     # Find parsable parts if they start with "**kern" or "**notes"
-    note_parts = np.char.startswith(spline_types, "**kern") | np.char.startswith(spline_types, "**notes")
+    note_parts = np.char.startswith(spline_types, "**kern") | np.char.startswith(
+        spline_types, "**notes"
+    )
     # Get Splines
     splines = file[1:].T[note_parts]
     # Inverse Order
@@ -253,17 +256,27 @@ def load_kern(
     prev_staff = 1
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
-    p_same_part = np.all(splines[has_instrument] == splines[has_instrument][0], axis=0) if np.any(has_instrument) else False
+    p_same_part = (
+        np.all(splines[has_instrument] == splines[has_instrument][0], axis=0)
+        if np.any(has_instrument)
+        else False
+    )
     total_durations_list = list()
     elements_list = list()
     part_assignments = list()
     copy_partlist = list()
     for j, spline in enumerate(splines):
-        parser = SplineParser(size=spline.shape[-1], id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j), staff=prev_staff)
+        parser = SplineParser(
+            size=spline.shape[-1],
+            id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j),
+            staff=prev_staff,
+        )
         same_part = False
         if parser.id in [p.id for p in copy_partlist]:
             same_part = True
-            warnings.warn("Part {} already exists. Adding to previous Part.".format(parser.id))
+            warnings.warn(
+                "Part {} already exists. Adding to previous Part.".format(parser.id)
+            )
             part = [p for p in copy_partlist if p.id == parser.id][0]
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
@@ -299,7 +312,9 @@ def load_kern(
             divs_pq = np.lcm.reduce(unique_durs)
             divs_pq = divs_pq if divs_pq > 4 else 4
             # Initialize Part
-            part = spt.Part(id=parser.id, quarter_duration=divs_pq, part_name=parser.name)
+            part = spt.Part(
+                id=parser.id, quarter_duration=divs_pq, part_name=parser.name
+            )
 
         part_assignments.append(same_part)
         total_durations_list.append(parser.total_duration_values)
@@ -311,7 +326,9 @@ def load_kern(
     for part in copy_partlist:
         part.set_quarter_duration(0, divs_pq)
 
-    for (part, elements, total_duration_values, same_part) in zip(copy_partlist, elements_list, total_durations_list, part_assignments):
+    for part, elements, total_duration_values, same_part in zip(
+        copy_partlist, elements_list, total_durations_list, part_assignments
+    ):
         element_parsing(part, elements, total_duration_values, same_part)
 
     for i, part in enumerate(copy_partlist):
@@ -328,7 +345,6 @@ def load_kern(
 
         if parser.id not in [p.id for p in partlist]:
             partlist.append(part)
-
 
     spt.assign_note_ids(
         partlist, keep=(force_note_ids is True or force_note_ids == "keep")
@@ -369,11 +385,11 @@ class SplineParser(object):
             The parsed elements of the spline line.
         """
         # Remove "-" lines
-        spline = spline[spline != '-']
+        spline = spline[spline != "-"]
         # Remove "." lines
-        spline = spline[spline != '.']
+        spline = spline[spline != "."]
         # Remove Empty lines
-        spline = spline[spline != '']
+        spline = spline[spline != ""]
         # Remove None lines
         spline = spline[spline != None]
         # Remove lines that start with "!"
@@ -383,10 +399,14 @@ class SplineParser(object):
         self.total_duration_values = np.ones(len(spline))
         # Find Global indices, i.e. where spline cells start with "*" and process
         tandem_mask = np.char.find(spline, "*") != -1
-        elements[tandem_mask] = np.vectorize(self.meta_tandem_line, otypes=[object])(spline[tandem_mask])
+        elements[tandem_mask] = np.vectorize(self.meta_tandem_line, otypes=[object])(
+            spline[tandem_mask]
+        )
         # Find Barline indices, i.e. where spline cells start with "="
         bar_mask = np.char.find(spline, "=") != -1
-        elements[bar_mask] = np.vectorize(self.meta_barline_line, otypes=[object])(spline[bar_mask])
+        elements[bar_mask] = np.vectorize(self.meta_barline_line, otypes=[object])(
+            spline[bar_mask]
+        )
         # Find Chord indices, i.e. where spline cells contain " "
         chord_mask = np.char.find(spline, " ") != -1
         chord_mask = np.logical_and(chord_mask, np.logical_and(~tandem_mask, ~bar_mask))
@@ -395,7 +415,9 @@ class SplineParser(object):
         chord_num = np.count_nonzero(chord_mask)
         self.tie_next = np.zeros(chord_num, dtype=bool)
         self.tie_prev = np.zeros(chord_num, dtype=bool)
-        elements[chord_mask] = np.vectorize(self.meta_chord_line, otypes=[object])(spline[chord_mask])
+        elements[chord_mask] = np.vectorize(self.meta_chord_line, otypes=[object])(
+            spline[chord_mask]
+        )
         self.total_duration_values[chord_mask] = self.note_duration_values
         # TODO: figure out slurs for chords
 
@@ -409,10 +431,14 @@ class SplineParser(object):
         notes = np.vectorize(self.meta_note_line, otypes=[object])(spline[note_mask])
         self.total_duration_values[note_mask] = self.note_duration_values
         # shift tie_next by one to the right
-        for note, to_tie in np.c_[notes[self.tie_next], notes[np.roll(self.tie_next, -1)]]:
+        for note, to_tie in np.c_[
+            notes[self.tie_next], notes[np.roll(self.tie_next, -1)]
+        ]:
             to_tie.tie_next = note
             # note.tie_prev = to_tie
-        for note, to_tie in np.c_[notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]]:
+        for note, to_tie in np.c_[
+            notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]
+        ]:
             note.tie_prev = to_tie
             # to_tie.tie_next = note
         elements[note_mask] = notes
@@ -430,7 +456,11 @@ class SplineParser(object):
             # Add slurs to elements
             elements = np.append(elements, slurs)
         else:
-            warnings.warn("Slurs openings and closings do not match. Skipping parsing slurs for this part {}.".format(self.id))
+            warnings.warn(
+                "Slurs openings and closings do not match. Skipping parsing slurs for this part {}.".format(
+                    self.id
+                )
+            )
 
         return elements
 
@@ -483,7 +513,7 @@ class SplineParser(object):
         return spt.Fine()
 
     def process_istrument_line(self, line: str):
-        #TODO: add support for instrument lines
+        # TODO: add support for instrument lines
         return
 
     def process_istrument_class_line(self, line: str):
@@ -540,14 +570,16 @@ class SplineParser(object):
         else:
             octave = 0
 
-        return spt.Clef(sign=clef, staff=self.staff, line=int(clef_line), octave_change=octave)
+        return spt.Clef(
+            sign=clef, staff=self.staff, line=int(clef_line), octave_change=octave
+        )
 
     def process_key_signature_line(self, line: str):
         fifths = line.count("#") - line.count("-")
         alters = re.findall(r"([a-gA-G#\-]+)", line)
         alters = "".join(alters)
         # split alters by two characters
-        self.alters = [alters[i:i + 2] for i in range(0, len(alters), 2)]
+        self.alters = [alters[i : i + 2] for i in range(0, len(alters), 2)]
         # TODO retrieve the key mode
         mode = "major"
         return spt.KeySignature(fifths, mode)
@@ -596,7 +628,7 @@ class SplineParser(object):
             symbolic_duration = copy.deepcopy(KERN_DURS[dur])
         else:
             dur = float(dur)
-            key_loolup = [2 ** i for i in range(0, 9)]
+            key_loolup = [2**i for i in range(0, 9)]
             diff = dict(
                 (
                     map(
@@ -611,7 +643,11 @@ class SplineParser(object):
             symbolic_duration["normal_notes"] = int(diff[min(list(diff.keys()))]) // 4
         if dots:
             symbolic_duration["dots"] = dots
-        self.note_duration_values[self.total_parsed_elements] = dot_function((float(dur) if isinstance(dur, str) else dur), dots) if not is_grace else inf
+        self.note_duration_values[self.total_parsed_elements] = (
+            dot_function((float(dur) if isinstance(dur, str) else dur), dots)
+            if not is_grace
+            else inf
+        )
         return symbolic_duration
 
     def process_symbol(self, note: spt.Note, symbols: list):
@@ -667,7 +703,9 @@ class SplineParser(object):
         # extract first occurence of one of the following: a-g A-G r # - n
         find_pitch = re.search(r"([a-gA-Gr\-n#]+)", line)
         if find_pitch is None:
-            warnings.warn("No pitch found in line: {}, transforming to a rest".format(line))
+            warnings.warn(
+                "No pitch found in line: {}, transforming to a rest".format(line)
+            )
             pitch = "r"
         else:
             pitch = find_pitch.group(0)
@@ -678,15 +716,39 @@ class SplineParser(object):
         # extract symbol can be any of the following: _()[]{}<>|:
         symbols = re.findall(r"([_()\[\]{}<>|:])", line)
         symbolic_duration = self._process_kern_duration(duration, is_grace="q" in line)
-        el_id = "{}-s{}-v{}-el{}".format(self.id, self.staff, voice, self.total_parsed_elements)
+        el_id = "{}-s{}-v{}-el{}".format(
+            self.id, self.staff, voice, self.total_parsed_elements
+        )
         if pitch.startswith("r"):
-            return spt.Rest(symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
+            return spt.Rest(
+                symbolic_duration=symbolic_duration,
+                staff=self.staff,
+                voice=voice,
+                id=el_id,
+            )
         step, octave, alter = self._process_kern_pitch(pitch)
         # check if the note is a grace note
         if "q" in line:
-            note = spt.GraceNote(grace_type="grace", step=step, octave=octave, alter=alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
+            note = spt.GraceNote(
+                grace_type="grace",
+                step=step,
+                octave=octave,
+                alter=alter,
+                symbolic_duration=symbolic_duration,
+                staff=self.staff,
+                voice=voice,
+                id=el_id,
+            )
         else:
-            note = spt.Note(step, octave, alter, symbolic_duration=symbolic_duration, staff=self.staff, voice=voice, id=el_id)
+            note = spt.Note(
+                step,
+                octave,
+                alter,
+                symbolic_duration=symbolic_duration,
+                staff=self.staff,
+                voice=voice,
+                id=el_id,
+            )
         if symbols:
             self.process_symbol(note, symbols)
         return note

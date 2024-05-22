@@ -942,11 +942,11 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
         return SYM_DURS[i].copy()
     else:
         # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
-        type = SYM_DURS[i+3]["type"]
+        type = SYM_DURS[i + 3]["type"]
         normal_notes = 2
         return {
             "type": type,
-            "actual_notes": math.ceil(normal_notes/qdur),
+            "actual_notes": math.ceil(normal_notes / qdur),
             "normal_notes": normal_notes,
         }
 
