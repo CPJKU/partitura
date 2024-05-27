@@ -6,6 +6,8 @@ This module contains miscellaneous utilities.
 import functools
 import os
 import warnings
+from urllib.request import urlopen
+from shutil import copyfileobj
 
 from typing import Union, Callable, Dict, Any, Iterable, Optional
 
@@ -254,3 +256,27 @@ def concatenate_images(
 
     else:
         return new_image
+
+
+def download_file(
+    url: str,
+    out: str,
+) -> None:
+    """
+    Download a file from a specified URL and save it to a local file path.
+
+    Parameters
+    ----------
+    url : str
+        The URL of the file to download.
+    out : str
+        The local file path where the downloaded file should be saved.
+
+    Notes
+    -----
+    This method was adapted from a Stack Overflow answer
+    (https://stackoverflow.com/a/15035466), and is distributed under the
+    CC BY-SA 4.0 license (https://creativecommons.org/licenses/by-sa/4.0/).
+    """
+    with urlopen(url) as in_stream, open(out, "wb") as out_file:
+        copyfileobj(in_stream, out_file)

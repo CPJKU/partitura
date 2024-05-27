@@ -395,7 +395,7 @@ def matchfile_from_alignment(
             onset=onset,
             offset=offset,
             velocity=pnote["velocity"],
-            channel=pnote.get("channel", 1),
+            channel=pnote.get("channel", 0),
             track=pnote.get("track", 0),
         )
         pnote_sort_info[pnote["id"]] = (

@@ -23,7 +23,7 @@ from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
 from .io.importparangonada import load_parangonada_csv
 from .io.exportparangonada import save_parangonada_csv, save_csv_for_parangonada
-from .io.exportaudio import save_wav
+from .io.exportaudio import save_wav, save_wav_fluidsynth
 from .io.exportmei import save_mei
 from .display import render
 from . import musicanalysis
@@ -63,5 +63,7 @@ __all__ = [
     "load_nakamuracorresp",
     "load_parangonada_csv",
     "save_parangonada_csv",
+    "save_wav",
+    "save_wav_fluidsynth",
     "render",
 ]

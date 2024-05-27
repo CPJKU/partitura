@@ -8,7 +8,8 @@ TODO
 ----
 * Add other tuning systems?
 """
-from typing import Union, Tuple, Dict, Optional, Any, Callable
+from __future__ import annotations
+from typing import Union, Tuple, Dict, Optional, Any, Callable, TYPE_CHECKING
 
 import numpy as np
 
@@ -23,6 +24,14 @@ from partitura.utils.music import (
     performance_notearray_from_score_notearray,
 )
 from partitura.utils.globals import DTYPE, SAMPLE_RATE, TWO_PI, FIVE_LIMIT_INTERVAL_RATIOS, A4, NATURAL_INTERVAL_RATIOS
+
+if TYPE_CHECKING:
+    # Import typing info for typing annotations.
+    # For this to work we need to import annotations from __future__
+    # Solution from
+    # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
+    from partitura.score import ScoreLike, Interval
+    from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 
 def midi_pitch_to_natural_frequency(
@@ -338,7 +347,7 @@ class ShepardTones(object):
 
 
 def synthesize(
-    note_info,
+    note_info: Union[ScoreLike, PerformanceLike, np.ndarray],
     samplerate: int = SAMPLE_RATE,
     envelope_fun: str = "linear",
     tuning: Union[str, Callable] = "equal_temperament",
