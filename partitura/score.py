@@ -3846,7 +3846,9 @@ def find_tuplets(part):
                             start_note = note_tuplet[0]
                             stop_note = note_tuplet[-1]
                             tuplet = Tuplet(start_note, stop_note)
-                            assert start_note.start.t <= stop_note.start.t, "The start note of a Tuplet should be before the stop note"
+                            assert (
+                                start_note.start.t <= stop_note.start.t
+                            ), "The start note of a Tuplet should be before the stop note"
                             part.add(tuplet, start_note.start.t, stop_note.end.t)
                             tup_start += actual_notes
 
@@ -5145,12 +5147,16 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
             if staff not in unique_staff:
                 # solution when estimation returns composite durations.
                 sym_dur = estimate_symbolic_duration(
-                    end_time - start_time, part._quarter_durations[0], return_com_durations=True
+                    end_time - start_time,
+                    part._quarter_durations[0],
+                    return_com_durations=True,
                 )
                 if isinstance(sym_dur, tuple):
                     st = start_time
                     for i, sd in enumerate(sym_dur):
-                        et = start_time + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                        et = start_time + symbolic_to_numeric_duration(
+                            sd, part._quarter_durations[0]
+                        )
                         rest = Rest(
                             symbolic_duration=sd, staff=staff, voice=un_voice.max() + 1
                         )
@@ -5173,15 +5179,21 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
         min_start_note = notes_per_vocstaff[sort_note_start[0]]
         if min_start_note.start.t > start_time:
             sym_dur = estimate_symbolic_duration(
-                min_start_note.start.t - start_time, part._quarter_durations[0], return_com_durations=True
+                min_start_note.start.t - start_time,
+                part._quarter_durations[0],
+                return_com_durations=True,
             )
             # solution when estimation returns composite durations.
             if isinstance(sym_dur, tuple):
                 st = start_time
                 for i, sd in enumerate(sym_dur):
-                    et = st + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                    et = st + symbolic_to_numeric_duration(
+                        sd, part._quarter_durations[0]
+                    )
                     rest = Rest(
-                        symbolic_duration=sd, staff=min_start_note.staff, voice=min_start_note.voice
+                        symbolic_duration=sd,
+                        staff=min_start_note.staff,
+                        voice=min_start_note.voice,
                     )
                     part.add(rest, st, et)
                     st = et
@@ -5197,15 +5209,21 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
         min_end_note = notes_per_vocstaff[sort_note_end[-1]]
         if min_end_note.end.t < end_time:
             sym_dur = estimate_symbolic_duration(
-                end_time - min_end_note.end.t, part._quarter_durations[0], return_com_durations=True
+                end_time - min_end_note.end.t,
+                part._quarter_durations[0],
+                return_com_durations=True,
             )
             # solution when estimation returns composite durations.
             if isinstance(sym_dur, tuple):
                 st = min_end_note.end.t
                 for i, sd in enumerate(sym_dur):
-                    et = st + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                    et = st + symbolic_to_numeric_duration(
+                        sd, part._quarter_durations[0]
+                    )
                     rest = Rest(
-                        symbolic_duration=sd, staff=min_end_note.staff, voice=min_end_note.voice
+                        symbolic_duration=sd,
+                        staff=min_end_note.staff,
+                        voice=min_end_note.voice,
                     )
                     part.add(rest, st, et)
                     st = et
@@ -5228,15 +5246,19 @@ def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
                 sym_dur = estimate_symbolic_duration(
                     notes_per_vocstaff[sort_note_start[i]].start.t
                     - notes_per_vocstaff[sort_note_end[i - 1]].end.t,
-                    part._quarter_durations[0], return_com_durations=True
+                    part._quarter_durations[0],
+                    return_com_durations=True,
                 )
                 if isinstance(sym_dur, tuple):
                     st = notes_per_vocstaff[sort_note_end[i - 1]].end.t
                     for i, sd in enumerate(sym_dur):
-                        et = st + symbolic_to_numeric_duration(sd, part._quarter_durations[0])
+                        et = st + symbolic_to_numeric_duration(
+                            sd, part._quarter_durations[0]
+                        )
                         rest = Rest(
-                            symbolic_duration=sd, staff=notes_per_vocstaff[sort_note_end[i - 1]].staff,
-                            voice=notes_per_vocstaff[sort_note_end[i - 1]].voice
+                            symbolic_duration=sd,
+                            staff=notes_per_vocstaff[sort_note_end[i - 1]].staff,
+                            voice=notes_per_vocstaff[sort_note_end[i - 1]].voice,
                         )
                         part.add(rest, st, et)
                         st = et

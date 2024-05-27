@@ -172,7 +172,6 @@ DURS = np.array(
 )
 
 
-
 SYM_DURS = [
     {"type": "256th", "dots": 0},
     {"type": "256th", "dots": 1},
@@ -321,9 +320,7 @@ MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 # Standard tuning frequency of A4 in Hz
 A4 = 440.0
 
-COMPOSITE_DURS = np.array(
-    [1 + 4/32, 1 + 4/16, 2+4/32, 2+4/16, 2+4/8]
-)
+COMPOSITE_DURS = np.array([1 + 4 / 32, 1 + 4 / 16, 2 + 4 / 32, 2 + 4 / 16, 2 + 4 / 8])
 
 SYM_COMPOSITE_DURS = [
     ({"type": "quarter", "dots": 0}, {"type": "32nd", "dots": 0}),
@@ -331,7 +328,7 @@ SYM_COMPOSITE_DURS = [
     ({"type": "half", "dots": 0}, {"type": "32nd", "dots": 0}),
     ({"type": "half", "dots": 0}, {"type": "16th", "dots": 0}),
     ({"type": "half", "dots": 0}, {"type": "eighth", "dots": 0}),
-    ]
+]
 
 
 def ensure_notearray(notearray_or_part, *args, **kwargs):
@@ -908,7 +905,9 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False) -> Union[Dict[str, Any], Tuple[Dict[str, Any]]]:
+def estimate_symbolic_duration(
+    dur, div, eps=10**-3, return_com_durations=False
+) -> Union[Dict[str, Any], Tuple[Dict[str, Any]]]:
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
