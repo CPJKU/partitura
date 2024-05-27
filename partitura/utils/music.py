@@ -5,14 +5,13 @@ This module contains music related utilities
 """
 from __future__ import annotations
 import copy
-import math
 from collections import defaultdict
 import re
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-from typing import Union, Callable, Optional, TYPE_CHECKING, List
+from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
 from partitura.utils.generic import find_nearest, search, iter_current_next
 from partitura.utils.globals import *
 import partitura
@@ -693,15 +692,16 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3):
+def estimate_symbolic_duration(
+    dur, div, eps=10**-3, return_com_durations=False
+) -> Union[Dict[str, Any], Tuple[Dict[str, Any]]]:
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
     duration. If a matching symbolic duration is found, it is returned
     as a tuple (type, dots), where type is a string such as 'quarter',
     or '16th', and dots is an integer specifying the number of dots.
-    If no matching symbolic duration is found the function returns
-    None.
+
 
     NOTE : this function does not estimate composite durations, nor
     time-modifications such as triplets.
@@ -714,10 +714,14 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
         Number of units per quarter note
     eps : float, optional (default: 10**-3)
         Tolerance in case of imprecise matches
+    return_com_durations : bool, optional (default: False)
+        If True, return composite durations as well.
 
     Returns
     -------
-
+    out: Union[Dict[str, Any], Tuple[Dict[str, Any]]]
+        Symbolic duration as a dictionary. When a composite duration is found, then it returns a tuple of symbolic durations.
+        The returned tuple should be tied notes.
 
     Examples
     --------
@@ -727,10 +731,15 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     >>> estimate_symbolic_duration(15, 10)
     {'type': 'quarter', 'dots': 1}
 
-    The following example returns None:
+    >>> estimate_symbolic_duration(15, 16)
+    {'type': 'eighth', 'dots': 3}
 
-    >>> estimate_symbolic_duration(23, 16)
+    >>> estimate_symbolic_duration(4, 6)
+    {'type': 'eighth', 'actual_notes': 3, 'normal_notes': 2}
 
+    It can also return composite durations:
+    >>> estimate_symbolic_duration(34, 16, return_com_durations=True)
+    ({'type': 'half', 'dots': 0}, {'type': '32nd', 'dots': 0})
     """
     global DURS, SYM_DURS
     qdur = dur / div
@@ -740,14 +749,22 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
-        # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
-        type = SYM_DURS[i+3]["type"]
-        normal_notes = 2
-        return {
-            "type": type,
-            "actual_notes": math.ceil(normal_notes/qdur),
-            "normal_notes": normal_notes,
-        }
+        # Note when the duration is not found, the we are left with two solutions:
+        # 1. The duration is a tuplet
+        # 2. The duration is a composite duration
+        # For composite duration. We can use the following approach:
+        j = find_nearest(COMPOSITE_DURS, qdur)
+        if np.abs(qdur - COMPOSITE_DURS[j]) < eps and return_com_durations:
+            return copy.copy(SYM_COMPOSITE_DURS[j])
+        else:
+            # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
+            type = SYM_DURS[i + 3]["type"]
+            normal_notes = 2
+            return {
+                "type": type,
+                "actual_notes": math.ceil(normal_notes / qdur),
+                "normal_notes": normal_notes,
+            }
 
 
 def to_quarter_tempo(unit, tempo):

@@ -1450,6 +1450,11 @@ def handle_tuplets(notations, ongoing, note):
 
             stopping_tuplets.append(tuplet)
 
+    # assert that starting tuplet times are before stopping tuplet times
+    for start_tuplet, stop_tuplet in zip(starting_tuplets, stopping_tuplets):
+        assert (
+            start_tuplet.start_note.start.t < stop_tuplet.end_note.start.t
+        ), "Tuplet start time is after tuplet stop time"
     return starting_tuplets, stopping_tuplets
 
 
