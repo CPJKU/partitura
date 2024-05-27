@@ -322,15 +322,15 @@ MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 A4 = 440.0
 
 COMPOSITE_DURS = np.array(
-    [1 + 4/16, 1 + 4/32, 2+4/8, 2+4/16, 2+4/32]
+    [1 + 4/32, 1 + 4/16, 2+4/32, 2+4/16, 2+4/8]
 )
 
 SYM_COMPOSITE_DURS = [
-    ({"type": "quarter", "dots": 0}, {"type": "16nd", "dots": 0}),
     ({"type": "quarter", "dots": 0}, {"type": "32nd", "dots": 0}),
-    ({"type": "half", "dots": 0}, {"type": "eighth", "dots": 0}),
+    ({"type": "quarter", "dots": 0}, {"type": "16nd", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "32nd", "dots": 0}),
     ({"type": "half", "dots": 0}, {"type": "16th", "dots": 0}),
-    ({"type": "half", "dots": 0}, {"type": "32nd", "dots": 0})
+    ({"type": "half", "dots": 0}, {"type": "eighth", "dots": 0}),
     ]
 
 
@@ -908,15 +908,14 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False) -> Union[Union[Dict[str, Any], Tuple[Dict[str, Any]]], None]:
+def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False) -> Union[Dict[str, Any], Tuple[Dict[str, Any]]]:
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
     duration. If a matching symbolic duration is found, it is returned
     as a tuple (type, dots), where type is a string such as 'quarter',
     or '16th', and dots is an integer specifying the number of dots.
-    If no matching symbolic duration is found the function returns
-    None.
+
 
     NOTE : this function does not estimate composite durations, nor
     time-modifications such as triplets.
@@ -934,9 +933,8 @@ def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False)
 
     Returns
     -------
-    out: Union[Union[Dict[str, Any], Tuple[Dict[str, Any]]], None]
-        Symbolic duration as a dictionary, or None if no matching
-        duration is found. When a composite duration is found, then it returns a tuple of symbolic durations.
+    out: Union[Dict[str, Any], Tuple[Dict[str, Any]]]
+        Symbolic duration as a dictionary. When a composite duration is found, then it returns a tuple of symbolic durations.
         The returned tuple should be tied notes.
 
     Examples
@@ -947,10 +945,15 @@ def estimate_symbolic_duration(dur, div, eps=10**-3, return_com_durations=False)
     >>> estimate_symbolic_duration(15, 10)
     {'type': 'quarter', 'dots': 1}
 
-    The following example returns None:
+    >>> estimate_symbolic_duration(15, 16)
+    {'type': 'eighth', 'dots': 3}
 
-    >>> estimate_symbolic_duration(23, 16)
+    >>> estimate_symbolic_duration(4, 6)
+    {'type': 'eighth', 'actual_notes': 3, 'normal_notes': 2}
 
+    It can also return composite durations:
+    >>> estimate_symbolic_duration(34, 16, return_com_durations=True)
+    ({'type': 'half', 'dots': 0}, {'type': '32nd', 'dots': 0})
     """
     global DURS, SYM_DURS
     qdur = dur / div
