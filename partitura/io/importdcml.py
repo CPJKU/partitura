@@ -28,19 +28,19 @@ def read_note_tsv(note_tsv_path, metadata=None):
     quarter_durations = data["duration_qb"]
     duration_div = np.array([ceil(qd * qdivs) for qd in quarter_durations])
     onset_div = np.array([ceil(qd * qdivs) for qd in data["quarterbeats"]])
-    flats = data["name"].str.contains("b")
-    sharps = data["name"].str.contains("#")
-    double_sharps = data["name"].str.contains("##")
-    double_flats = data["name"].str.contains("bb")
-    alter = np.zeros(len(data), dtype=np.int32)
-    alter[flats] = -1
-    alter[sharps] = 1
-    alter[double_sharps] = 2
-    alter[double_flats] = -2
+    data["alter"] = data["name"].str.count("#") - data["name"].str.count("b")
+    # flats = data["name"].str.contains("b")
+    # sharps = data["name"].str.contains("#")
+    # double_sharps = data["name"].str.contains("##")
+    # double_flats = data["name"].str.contains("bb")
+    # alter = np.zeros(len(data), dtype=np.int32)
+    # alter[flats] = -1
+    # alter[sharps] = 1
+    # alter[double_sharps] = 2
+    # alter[double_flats] = -2
     data["step"] = data["name"].apply(lambda x: x[0])
     data["onset_div"] = onset_div
     data["duration_div"] = duration_div
-    data["alter"] = alter
     data["pitch"] = data["midi"]
     grace_mask = ~data["gracenote"].isna().to_numpy() if "gracenote" in data.columns else np.zeros(len(data), dtype=bool)
     data["id"] = np.arange(len(data))
