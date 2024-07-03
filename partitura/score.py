@@ -2814,6 +2814,8 @@ class RomanNumeral(Harmony):
         super().__init__(text)
         self.text = text
         self.accepted_qualities = ('7', 'aug', 'aug6', 'aug7', 'dim', 'dim7', 'hdim7', 'maj', 'maj7', 'min', 'min7')
+        # The key of an inversion is text from RN string, and the value is a tuple (has_seven,inversion)
+        self.accepted_inversions = {"2": (3, True), "43": (2, True), "64": (2, False), "6": (1, False), "65": (1, True), "7": (0, True)}
         self.has_seven = "7" in text
         self.inversion = inversion if inversion is not None else self._process_inversion()
         self.local_key = local_key if local_key is not None else self._process_local_key()
@@ -2831,22 +2833,9 @@ class RomanNumeral(Harmony):
         # If there is no inversion, return 0
         numeric_indications_in_text = re.findall(r'\d+', self.text)
         if len(numeric_indications_in_text) > 0:
-            inversion_state = int(numeric_indications_in_text[0])
-            if inversion_state == 2:
-                self.has_seven = True
-                return 3
-            elif inversion_state == 43:
-                self.has_seven = True
-                return 2
-            elif inversion_state == 64:
-                self.has_seven = False
-                return 2
-            elif inversion_state == 6:
-                self.has_seven = False
-                return 1
-            elif inversion_state == 65:
-                self.has_seven = True
-                return 1
+            inversion, has_seven = self.accepted_inversions.get(numeric_indications_in_text[0], (0, False))
+            self.has_seven = has_seven
+            return inversion
         return 0
 
     def _process_local_key(self):
