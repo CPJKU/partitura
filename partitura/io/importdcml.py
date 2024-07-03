@@ -29,15 +29,6 @@ def read_note_tsv(note_tsv_path, metadata=None):
     duration_div = np.array([ceil(qd * qdivs) for qd in quarter_durations])
     onset_div = np.array([ceil(qd * qdivs) for qd in data["quarterbeats"]])
     data["alter"] = data["name"].str.count("#") - data["name"].str.count("b")
-    # flats = data["name"].str.contains("b")
-    # sharps = data["name"].str.contains("#")
-    # double_sharps = data["name"].str.contains("##")
-    # double_flats = data["name"].str.contains("bb")
-    # alter = np.zeros(len(data), dtype=np.int32)
-    # alter[flats] = -1
-    # alter[sharps] = 1
-    # alter[double_sharps] = 2
-    # alter[double_flats] = -2
     data["step"] = data["name"].apply(lambda x: x[0])
     data["onset_div"] = onset_div
     data["duration_div"] = duration_div
@@ -104,6 +95,9 @@ def read_note_tsv(note_tsv_path, metadata=None):
             while note["staff"] != next_note["staff"] or note["voice"] != next_note["voice"]:
                 i += 1
                 next_note = note_array[grace_idx+i]
+                if i > 10:
+                    warnings.warn("Grace note ignored, no matching main note found within 10 notes.")
+                    break
             assert note["staff"] == next_note["staff"], "Grace note and main note must be in the same staff"
             assert note["voice"] == next_note["voice"], "Grace note and main note must be in the same voice"
             assert note["onset_div"] == next_note[
