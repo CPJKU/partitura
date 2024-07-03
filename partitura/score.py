@@ -3065,6 +3065,26 @@ class Interval(object):
         return INTERVAL_TO_SEMITONES[self.quality + str(self.number)]
 
     def change_quality(self, num):
+        """
+        Change the quality of the interval by a given number of semitones.
+
+        The Interval Number is not changed, only the quality.
+
+        Examples:
+        - M3 -> m3, num=-1
+        - M3 -> A3, num=1
+        - A4 -> d4, num=-2
+
+        Parameters
+        ----------
+        num: int
+            The number of semitones to change the quality by.
+
+        Returns
+        -------
+        Interval
+            The interval with the new quality, but the same number and direction.
+        """
         change_direction_c = ["dd", "d", "P", "A", "AA"]
         change_direction_d = ["dd", "d", "m", "M", "A", "AA"]
 
