@@ -120,7 +120,7 @@ def read_note_tsv(note_tsv_path, metadata=None):
     part.add(spt.Clef(staff=1, sign="G", line=2, octave_change=0), start=0)
     part.add(spt.Clef(staff=2, sign="F", line=4, octave_change=0), start=0)
 
-    # TODO: Find Ties
+    # Add Ties
     tied_note_mask = data["tied"] == 1
     for tied_note in note_array[tied_note_mask]:
         for note in part.iter_all(spt.Note, tied_note["onset_div"], tied_note["onset_div"]+1):
