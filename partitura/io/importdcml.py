@@ -45,6 +45,7 @@ def read_note_tsv(note_tsv_path, metadata=None):
     grace_mask = ~data["gracenote"].isna().to_numpy() if "gracenote" in data.columns else np.zeros(len(data), dtype=bool)
     data["id"] = np.arange(len(data))
     # Rewrite Voices for correct export
+    # taking the maximum voice number for the entire staff, and having the second staff starting from that number.
     staffs = data["staff"].unique()
     re_index_voice_value = 0
     for staff in staffs:
