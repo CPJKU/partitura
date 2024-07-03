@@ -5770,21 +5770,21 @@ def is_a_within_b(a, b, wholly=False):
     return contained
 
 
-def process_local_key(loc_k, glob_k, return_step_alter=False):
-    local_key_sharps = loc_k.count("#")
-    local_key_flats = loc_k.count("b")
-    local_key = loc_k.replace("#", "").replace("b", "")
+def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
+    local_key_sharps = loc_k_text.count("#")
+    local_key_flats = loc_k_text.count("b")
+    local_key = loc_k_text.replace("#", "").replace("b", "")
     local_key_is_minor = local_key.islower()
     local_key = local_key.lower()
-    global_key_is_minor = glob_k.islower()
+    global_key_is_minor = glob_k_text.islower()
     if local_key_is_minor == global_key_is_minor and local_key == "i" and local_key_sharps - local_key_flats == 0 and (not return_step_alter):
-        return glob_k
-    g_key = "minor" if glob_k.islower() else "major"
+        return glob_k_text
+    g_key = "minor" if glob_k_text.islower() else "major"
     num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
     transposition_interval = Interval(num, qual)
     transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
-    key_step = re.search(r"[a-gA-G]", glob_k).group(0)
-    key_alter = re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    key_step = re.search(r"[a-gA-G]", glob_k_text).group(0)
+    key_alter = re.search(r"[#b]", glob_k_text).group(0) if re.search(r"[#b]", glob_k_text) else ""
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
     key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
