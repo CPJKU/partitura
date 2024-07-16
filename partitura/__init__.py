@@ -15,6 +15,7 @@ from .io.exportmusicxml import save_musicxml
 from .io.importmei import load_mei
 from .io.importkern import load_kern
 from .io.importmusic21 import load_music21
+from .io.importdcml import load_dcml
 from .io.importmidi import load_score_midi, load_performance_midi, midi_to_notearray
 from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
@@ -57,6 +58,7 @@ __all__ = [
     "save_performance_midi",
     "load_match",
     "save_match",
+    "load_dcml",
     "load_nakamuramatch",
     "load_nakamuracorresp",
     "load_parangonada_csv",

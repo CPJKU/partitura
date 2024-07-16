@@ -19,6 +19,7 @@ MIDI_PATH = os.path.join(DATA_PATH, "midi")
 PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
 WAV_PATH = os.path.join(DATA_PATH, "wav")
 PNG_PATH = os.path.join(DATA_PATH, "png")
+TSV_PATH = os.path.join(DATA_PATH, "tsv")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
