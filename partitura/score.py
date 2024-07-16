@@ -16,7 +16,11 @@ from numbers import Number
 import re
 
 # import copy
-from partitura.utils.globals import MUSICAL_BEATS, INTERVALCLASSES, INTERVAL_TO_SEMITONES
+from partitura.utils.globals import (
+    MUSICAL_BEATS,
+    INTERVALCLASSES,
+    INTERVAL_TO_SEMITONES,
+)
 import warnings, sys
 import numpy as np
 import re
@@ -48,7 +52,12 @@ from partitura.utils import (
 )
 from partitura.utils.generic import interp1d
 from partitura.utils.music import transpose_note, step2pc
-from partitura.utils.globals import (INT_TO_ALT, ALT_TO_INT, ACCEPTED_ROMANS, LOCAL_KEY_TRASPOSITIONS_DCML)
+from partitura.utils.globals import (
+    INT_TO_ALT,
+    ALT_TO_INT,
+    ACCEPTED_ROMANS,
+    LOCAL_KEY_TRASPOSITIONS_DCML,
+)
 
 
 class Part(object):
@@ -2810,20 +2819,69 @@ class RomanNumeral(Harmony):
         See parameters
     """
 
-    def __init__(self, text, inversion=None, local_key=None, primary_degree=None, secondary_degree=None, quality=None):
+    def __init__(
+        self,
+        text,
+        inversion=None,
+        local_key=None,
+        primary_degree=None,
+        secondary_degree=None,
+        quality=None,
+    ):
         super().__init__(text)
         self.text = text
-        self.accepted_qualities = ('7', 'aug', 'aug6', 'aug7', 'dim', 'dim7', 'hdim7', 'maj', 'maj7', 'min', 'min7')
+        self.accepted_qualities = (
+            "7",
+            "aug",
+            "aug6",
+            "aug7",
+            "dim",
+            "dim7",
+            "hdim7",
+            "maj",
+            "maj7",
+            "min",
+            "min7",
+        )
         # The key of an inversion is text from RN string, and the value is a tuple (has_seven,inversion)
-        self.accepted_inversions = {"2": (3, True), "43": (2, True), "64": (2, False), "6": (1, False), "65": (1, True), "7": (0, True)}
+        self.accepted_inversions = {
+            "2": (3, True),
+            "43": (2, True),
+            "64": (2, False),
+            "6": (1, False),
+            "65": (1, True),
+            "7": (0, True),
+        }
         self.has_seven = "7" in text
-        self.inversion = inversion if inversion is not None else self._process_inversion()
-        self.local_key = local_key if local_key is not None else self._process_local_key()
-        self.primary_degree = primary_degree if primary_degree is not None else self._process_primary_degree()
-        self.secondary_degree = secondary_degree if secondary_degree is not None else self._process_secondary_degree()
-        self.quality = quality if quality is not None and quality in self.accepted_qualities else self._process_quality()
+        self.inversion = (
+            inversion if inversion is not None else self._process_inversion()
+        )
+        self.local_key = (
+            local_key if local_key is not None else self._process_local_key()
+        )
+        self.primary_degree = (
+            primary_degree
+            if primary_degree is not None
+            else self._process_primary_degree()
+        )
+        self.secondary_degree = (
+            secondary_degree
+            if secondary_degree is not None
+            else self._process_secondary_degree()
+        )
+        self.quality = (
+            quality
+            if quality is not None and quality in self.accepted_qualities
+            else self._process_quality()
+        )
         # only process the root note if the roman numeral is valid
-        if self.local_key and self.primary_degree and self.secondary_degree and self.quality and self.inversion:
+        if (
+            self.local_key
+            and self.primary_degree
+            and self.secondary_degree
+            and self.quality
+            and self.inversion
+        ):
             self.root = self.find_root_note()
             self.bass_note = self.find_bass_note()
 
@@ -2831,9 +2889,11 @@ class RomanNumeral(Harmony):
         """Find the inversion of the roman numeral from the text"""
         # The inversion should be right after the roman numeral.
         # If there is no inversion, return 0
-        numeric_indications_in_text = re.findall(r'\d+', self.text)
+        numeric_indications_in_text = re.findall(r"\d+", self.text)
         if len(numeric_indications_in_text) > 0:
-            inversion, has_seven = self.accepted_inversions.get(numeric_indications_in_text[0], (0, False))
+            inversion, has_seven = self.accepted_inversions.get(
+                numeric_indications_in_text[0], (0, False)
+            )
             self.has_seven = has_seven
             return inversion
         return 0
@@ -2857,14 +2917,16 @@ class RomanNumeral(Harmony):
         # Remove any key information
         roman_text = self.text.split(":")[-1]
         roman_text = roman_text.split(".")[-1] if "." in roman_text else roman_text
-        primary_degree = re.search(r'[a-zA-Z+]+', roman_text)
+        primary_degree = re.search(r"[a-zA-Z+]+", roman_text)
         if primary_degree:
             prim_d = primary_degree.group(0)
             # if the primary degree is not in accepted values, return the closest one
             if prim_d in ACCEPTED_ROMANS:
                 return prim_d
             else:
-                matches = difflib.get_close_matches(prim_d, ACCEPTED_ROMANS, n=1, cutoff=0.5)
+                matches = difflib.get_close_matches(
+                    prim_d, ACCEPTED_ROMANS, n=1, cutoff=0.5
+                )
                 if matches:
                     return matches[0]
         return None
@@ -2880,7 +2942,7 @@ class RomanNumeral(Harmony):
         roman_text = self.text.split(":")[-1]
         split_pr_sec = roman_text.split("/")
         if len(split_pr_sec) > 1:
-            secondary_degree = re.search(r'[a-zA-Z+]+', split_pr_sec[-1])
+            secondary_degree = re.search(r"[a-zA-Z+]+", split_pr_sec[-1])
             return secondary_degree.group(0)
         elif self.primary_degree is not None and self.local_key is not None:
             secondary_degree = "I" if self.local_key.isupper() else "i"
@@ -2896,10 +2958,18 @@ class RomanNumeral(Harmony):
         """
         # The quality should be M, m, +, o, or None.
         aug_cond = "aug" in self.text.lower() or "+" in self.text.lower()
-        minor_cond = self.primary_degree.islower() if self.primary_degree is not None else False
-        major_cond = self.primary_degree.isupper() if self.primary_degree is not None else False
+        minor_cond = (
+            self.primary_degree.islower() if self.primary_degree is not None else False
+        )
+        major_cond = (
+            self.primary_degree.isupper() if self.primary_degree is not None else False
+        )
         dim_cond = "dim" in self.text or "o" in self.text
-        aug6_cond = "ger" in self.text.lower() or "it" in self.text.lower() or "fr" in self.text.lower()
+        aug6_cond = (
+            "ger" in self.text.lower()
+            or "it" in self.text.lower()
+            or "fr" in self.text.lower()
+        )
         hdim_cond = "0" in self.text or "%" in self.text or "ø" in self.text
         if aug6_cond:
             quality = "aug6"
@@ -2924,7 +2994,9 @@ class RomanNumeral(Harmony):
         elif major_cond:
             quality = "maj"
         else:
-            warnings.warn(f"Quality for {self.text} was not found, could be a special case. Setting to None.")
+            warnings.warn(
+                f"Quality for {self.text} was not found, could be a special case. Setting to None."
+            )
             quality = None
         return quality
 
@@ -2939,10 +3011,18 @@ class RomanNumeral(Harmony):
         """
         # Corrected step after degree2
         key_step = re.search(r"[a-gA-G]", self.local_key).group(0)
-        key_alter = re.search(r"[#b]", self.local_key).group(0) if re.search(r"[#b]", self.local_key) else ""
+        key_alter = (
+            re.search(r"[#b]", self.local_key).group(0)
+            if re.search(r"[#b]", self.local_key)
+            else ""
+        )
         key_alter = ALT_TO_INT[key_alter]
         try:
-            interval = Roman2Interval_Min[self.secondary_degree] if self.local_key.islower() else Roman2Interval_Maj[self.secondary_degree]
+            interval = (
+                Roman2Interval_Min[self.secondary_degree]
+                if self.local_key.islower()
+                else Roman2Interval_Maj[self.secondary_degree]
+            )
             step, alter = transpose_note(key_step, key_alter, interval)
         except KeyError:
             loc_k = self.secondary_degree
@@ -2951,7 +3031,11 @@ class RomanNumeral(Harmony):
         # Corrected step after degree1
         # TODO add support for diminished and augmented chords
         try:
-            interval = Roman2Interval_Min[self.primary_degree] if self.secondary_degree.islower() else Roman2Interval_Maj[self.primary_degree]
+            interval = (
+                Roman2Interval_Min[self.primary_degree]
+                if self.secondary_degree.islower()
+                else Roman2Interval_Maj[self.primary_degree]
+            )
             step, alter = transpose_note(step, alter, interval)
             root = step + INT_TO_ALT[alter]
         except KeyError:
@@ -2987,6 +3071,7 @@ class RomanNumeral(Harmony):
 
 class Cadence(TimedObject):
     """A cadence element in the score usually for Cadences."""
+
     def __init__(self, text, local_key=None):
         super().__init__()
         self.text = text
@@ -2998,7 +3083,7 @@ class Cadence(TimedObject):
         # capitalize text
         self.text = self.text.upper()
         # Filter alphabet characters only.
-        self.text = re.findall(r'[A-Z]+', self.text)[0]
+        self.text = re.findall(r"[A-Z]+", self.text)[0]
         self.text = "IAC" if "IAC" in self.text else self.text
         if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
             warnings.warn(f"Cadence type {self.text} not found. Setting to None")
@@ -3013,7 +3098,7 @@ class Phrase(TimedObject):
         super().__init__()
 
     def __str__(self):
-        return f'{super().__str__()}'
+        return f"{super().__str__()}"
 
 
 class ChordSymbol(Harmony):
@@ -3092,7 +3177,11 @@ class Interval(object):
         if num == 0:
             pass
         else:
-            change_dir = change_direction_c if self.number in [1, 4, 5, 8] else change_direction_d
+            change_dir = (
+                change_direction_c
+                if self.number in [1, 4, 5, 8]
+                else change_direction_d
+            )
             cur_index = change_dir.index(prev_quality)
             new_index = cur_index + num
             if new_index >= len(change_dir) or new_index < 0:
@@ -5786,20 +5875,33 @@ def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
     local_key_is_minor = local_key.islower()
     local_key = local_key.lower()
     global_key_is_minor = glob_k_text.islower()
-    if local_key_is_minor == global_key_is_minor and local_key == "i" and local_key_sharps - local_key_flats == 0 and (not return_step_alter):
+    if (
+        local_key_is_minor == global_key_is_minor
+        and local_key == "i"
+        and local_key_sharps - local_key_flats == 0
+        and (not return_step_alter)
+    ):
         return glob_k_text
     g_key = "minor" if glob_k_text.islower() else "major"
     num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
     transposition_interval = Interval(num, qual)
-    transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
+    transposition_interval = transposition_interval.change_quality(
+        local_key_sharps - local_key_flats
+    )
     key_step = re.search(r"[a-gA-G]", glob_k_text).group(0)
-    key_alter = re.search(r"[#b]", glob_k_text).group(0) if re.search(r"[#b]", glob_k_text) else ""
+    key_alter = (
+        re.search(r"[#b]", glob_k_text).group(0)
+        if re.search(r"[#b]", glob_k_text)
+        else ""
+    )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
     key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
     if return_step_alter:
         return key_step, key_alter
-    local_key = (key_step.lower() if local_key_is_minor else key_step.upper()) + INT_TO_ALT[key_alter]
+    local_key = (
+        key_step.lower() if local_key_is_minor else key_step.upper()
+    ) + INT_TO_ALT[key_alter]
     return local_key
 
 
@@ -5859,22 +5961,33 @@ def process_local_key(loc_k, glob_k, return_step_alter=False):
     local_key_is_minor = local_key.islower()
     local_key = local_key.lower()
     global_key_is_minor = glob_k.islower()
-    if local_key_is_minor == global_key_is_minor and local_key == "i" and local_key_sharps - local_key_flats == 0 and (not return_step_alter):
+    if (
+        local_key_is_minor == global_key_is_minor
+        and local_key == "i"
+        and local_key_sharps - local_key_flats == 0
+        and (not return_step_alter)
+    ):
         return glob_k
     g_key = "minor" if glob_k.islower() else "major"
     # keep only letters in local_key
     local_key = re.sub(r"[^a-zA-Z]", "", local_key)
     num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
     transposition_interval = Interval(num, qual)
-    transposition_interval = transposition_interval.change_quality(local_key_sharps - local_key_flats)
+    transposition_interval = transposition_interval.change_quality(
+        local_key_sharps - local_key_flats
+    )
     key_step = re.search(r"[a-gA-G]", glob_k).group(0)
-    key_alter = re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    key_alter = (
+        re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
     key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
     if return_step_alter:
         return key_step, key_alter
-    local_key = (key_step.lower() if local_key_is_minor else key_step.upper()) + INT_TO_ALT[key_alter]
+    local_key = (
+        key_step.lower() if local_key_is_minor else key_step.upper()
+    ) + INT_TO_ALT[key_alter]
     return local_key
 
 

@@ -7,7 +7,6 @@ import numpy as np
 from partitura.utils.globals import EPSILON
 
 
-
 def range_normalize(
     array,
     min_value=None,

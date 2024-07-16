@@ -315,7 +315,6 @@ UNABBREVS = [
 ]
 
 
-
 TWO_PI = 2 * np.pi
 SAMPLE_RATE = 44100
 DTYPE = float
@@ -441,17 +440,35 @@ MAX_AGENTS = 100  # delete low-scoring agents when there are more than MAX_AGENT
 CHORD_SPREAD_TIME = 1 / 12  # for onset aggregation
 
 
-
-Voc_majmin = [
-    "Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7", "v"
-]
+Voc_majmin = ["Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7", "v"]
 
 Voc_maj_only = [
-    "I", "ii", "iii", "IV", "vi", "I7", "ii7", "iii7", "IV7", "vi7", "viio7", "V+"
+    "I",
+    "ii",
+    "iii",
+    "IV",
+    "vi",
+    "I7",
+    "ii7",
+    "iii7",
+    "IV7",
+    "vi7",
+    "viio7",
+    "V+",
 ]
 
 Voc_min_only = [
-    "i", "iio", "III+", "iv", "VI", "i7", "iio7", "III+7", "iv7", "VI7", "viio7"
+    "i",
+    "iio",
+    "III+",
+    "iv",
+    "VI",
+    "i7",
+    "iio7",
+    "III+7",
+    "iv7",
+    "VI7",
+    "viio7",
 ]
 
 Voc_maj = Voc_majmin + Voc_maj_only
@@ -460,8 +477,20 @@ Voc_min = Voc_majmin + Voc_min_only
 ACCEPTED_ROMANS = list(set(Voc_maj + Voc_min))
 
 Voc_T_degree = [
-    "I", "II", "III", "IV", "V", "VI", "VII",
-    "i", "ii", "iii", "iv", "v", "vi", "vii",
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "VII",
+    "i",
+    "ii",
+    "iii",
+    "iv",
+    "v",
+    "vi",
+    "vii",
 ]
 
 

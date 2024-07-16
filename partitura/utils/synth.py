@@ -23,7 +23,14 @@ from partitura.utils.music import (
     midi_pitch_to_frequency,
     performance_notearray_from_score_notearray,
 )
-from partitura.utils.globals import DTYPE, SAMPLE_RATE, TWO_PI, FIVE_LIMIT_INTERVAL_RATIOS, A4, NATURAL_INTERVAL_RATIOS
+from partitura.utils.globals import (
+    DTYPE,
+    SAMPLE_RATE,
+    TWO_PI,
+    FIVE_LIMIT_INTERVAL_RATIOS,
+    A4,
+    NATURAL_INTERVAL_RATIOS,
+)
 
 if TYPE_CHECKING:
     # Import typing info for typing annotations.

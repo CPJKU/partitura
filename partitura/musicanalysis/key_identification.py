@@ -12,8 +12,14 @@ import numpy as np
 from scipy.linalg import circulant
 from partitura.utils.music import ensure_notearray
 from partitura.utils.globals import (
-    KEYS, key_prof_maj_kk, key_prof_min_kk, key_prof_maj_cbms, key_prof_min_cbms,
-    key_prof_maj_kp, key_prof_min_kp, VALID_KEY_PROFILES
+    KEYS,
+    key_prof_maj_kk,
+    key_prof_min_kk,
+    key_prof_maj_cbms,
+    key_prof_min_cbms,
+    key_prof_maj_kp,
+    key_prof_min_kp,
+    VALID_KEY_PROFILES,
 )
 
 __all__ = ["estimate_key"]
@@ -22,7 +28,6 @@ __all__ = ["estimate_key"]
 # Each tuple is (key root name, mode, fifths)
 # The key root name is equal to that with the smallest fifths in
 # the circle of fifths.
-
 
 
 def build_key_profile_matrix(key_prof_maj, key_prof_min):
