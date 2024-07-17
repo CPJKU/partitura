@@ -13,9 +13,6 @@ from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
-import re
-
-# import copy
 from partitura.utils.globals import (
     MUSICAL_BEATS,
     INTERVALCLASSES,
