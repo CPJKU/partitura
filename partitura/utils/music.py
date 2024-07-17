@@ -3281,7 +3281,7 @@ def tokenize(
 
 def step2pc(step, alter):
     """
-    Convert a step to a pitch class.
+    Convert a tonal pitch class (i.e. step + alter) to a pitch class (i.e. integer in [0, 11]).
 
     Parameters
     ----------
