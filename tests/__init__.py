@@ -19,6 +19,7 @@ MIDI_PATH = os.path.join(DATA_PATH, "midi")
 PARANGONADA_PATH = os.path.join(DATA_PATH, "parangonada")
 WAV_PATH = os.path.join(DATA_PATH, "wav")
 PNG_PATH = os.path.join(DATA_PATH, "png")
+TSV_PATH = os.path.join(DATA_PATH, "tsv")
 
 # this is a list of files for which importing and subsequent exporting should
 # yield identical MusicXML
@@ -183,7 +184,7 @@ KERN_TESTFILES = [
         "double_repeat_example.krn",
         "fine_with_repeat.krn",
         "tuple_durations.krn",
-        "voice_dublifications.krn",
+        "voice_duplication.krn",
         "variable_length_pr_bug.krn",
         "chor228.krn",
     ]

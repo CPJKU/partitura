@@ -15,6 +15,7 @@ from .io.exportmusicxml import save_musicxml
 from .io.importmei import load_mei
 from .io.importkern import load_kern
 from .io.importmusic21 import load_music21
+from .io.importdcml import load_dcml
 from .io.importmidi import load_score_midi, load_performance_midi, midi_to_notearray
 from .io.exportmidi import save_score_midi, save_performance_midi
 from .io.importmatch import load_match
@@ -22,7 +23,8 @@ from .io.exportmatch import save_match
 from .io.importnakamura import load_nakamuramatch, load_nakamuracorresp
 from .io.importparangonada import load_parangonada_csv
 from .io.exportparangonada import save_parangonada_csv, save_csv_for_parangonada
-from .io.exportaudio import save_wav
+from .io.exportaudio import save_wav, save_wav_fluidsynth
+from .io.exportmei import save_mei
 from .display import render
 from . import musicanalysis
 from .musicanalysis import make_note_features, compute_note_array, full_note_array
@@ -56,9 +58,12 @@ __all__ = [
     "save_performance_midi",
     "load_match",
     "save_match",
+    "load_dcml",
     "load_nakamuramatch",
     "load_nakamuracorresp",
     "load_parangonada_csv",
     "save_parangonada_csv",
+    "save_wav",
+    "save_wav_fluidsynth",
     "render",
 ]

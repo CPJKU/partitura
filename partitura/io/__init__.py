@@ -12,10 +12,12 @@ from .musescore import load_via_musescore
 from .importmatch import load_match
 from .importmei import load_mei
 from .importkern import load_kern
+from .exportkern import save_kern
 from .importparangonada import load_parangonada_csv
 from .exportparangonada import save_parangonada_csv
 from .importmusic21 import load_music21
-
+from .exportmei import save_mei
+from .importdcml import load_dcml
 from partitura.utils.misc import (
     deprecated_alias,
     deprecated_parameter,

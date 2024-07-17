@@ -13,6 +13,7 @@ The functionality is provided by the function `parse_words`
 
 import re
 import warnings
+from partitura.utils.globals import UNABBREVS
 
 try:
     from lark import Lark
@@ -49,29 +50,6 @@ def join_items(items):
         "{}i".format(item) if item.startswith("/") else '"{}"i'.format(item)
         for item in items
     )
-
-
-UNABBREVS = [
-    (re.compile(r"(crescendo|cresc\.?)"), "crescendo"),
-    (re.compile(r"(smorzando|smorz\.?)"), "smorzando"),
-    (re.compile(r"(decrescendo|(decresc|decr|dimin|dim)\.?)"), "diminuendo"),
-    (re.compile(r"((acceler|accel|acc)\.?)"), "accelerando"),
-    (re.compile(r"(ritenente|riten\.?)"), "ritenuto"),
-    (re.compile(r"((ritard|rit)\.?)"), "ritardando"),
-    (re.compile(r"((rallent|rall)\.?)"), "rallentando"),
-    (re.compile(r"(dolciss\.?)"), "dolcissimo"),
-    (re.compile(r"((sosten|sost)\.?)"), "sostenuto"),
-    (re.compile(r"(delicatiss\.?)"), "delicatissimo"),
-    (re.compile(r"(leggieramente|leggiermente|leggiero|legg\.?)"), "leggiero"),
-    (re.compile(r"(leggierissimo|(leggieriss\.?))"), "leggierissimo"),
-    (re.compile(r"(scherz\.?)"), "scherzando"),
-    (re.compile(r"(tenute|ten\.?)"), "tenuto"),
-    (re.compile(r"(allegretto)"), "allegro"),
-    (re.compile(r"(espress\.?)"), "espressivo"),
-    (re.compile(r"(ligato)"), "legato"),
-    (re.compile(r"(ligatissimo)"), "legatissimo"),
-    (re.compile(r"((rinforz|rinf|rfz|rf)\.?)"), "rinforzando"),
-]
 
 
 def unabbreviate(s):

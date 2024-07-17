@@ -6,7 +6,7 @@ This module contains methods for importing MIDI files.
 import warnings
 
 from collections import defaultdict
-from typing import Union, Optional
+from typing import Union, Optional, List, Tuple, Dict
 import numpy as np
 
 
@@ -127,6 +127,15 @@ def load_performance_midi(
         notes = []
         controls = []
         programs = []
+        # This information is just for completeness,
+        # but loading a MIDI file as a performance
+        # assumes that key and time signature information
+        # is not reliable (e.g., a performance recorded with
+        # a MIDI keyboard, without metronome)
+        key_signatures = []
+        time_signatures = []
+        # other MetaMessages (not including key and time_signature)
+        meta_other = []
 
         t = 0
         ttick = 0
@@ -138,9 +147,59 @@ def load_performance_midi(
             t = t + msg.time * time_conversion_factor
             ttick = ttick + msg.time
 
-            if msg.type == "set_tempo":
-                mpq = msg.tempo
-                time_conversion_factor = mpq / (ppq * 10**6)
+            if isinstance(msg, mido.MetaMessage):
+                # Meta Messages apply to all channels in the track
+
+                # The tempo is set globally in PerformedParts,
+                # i.e., the tempo_conversion_factor is adjusted
+                # with every tempo change, rather than creating new
+                # tempo events.
+                if msg.type == "set_tempo":
+                    mpq = msg.tempo
+                    time_conversion_factor = mpq / (ppq * 10**6)
+
+                elif msg.type == "time_signature":
+                    time_signatures.append(
+                        dict(
+                            time=t,
+                            time_tick=ttick,
+                            beats=int(msg.numerator),
+                            beat_type=int(msg.denominator),
+                            track=i,
+                        )
+                    )
+                elif msg.type == "key_signature":
+                    key_name = str(msg.key)
+                    fifths, mode = key_name_to_fifths_mode(key_name)
+                    key_signatures.append(
+                        dict(
+                            time=t,
+                            time_tick=ttick,
+                            key_name=str(msg.key),
+                            fifths=fifths,
+                            mode=mode,
+                            track=i,
+                        )
+                    )
+
+                else:
+                    # Other MetaMessages
+                    # For more info, see
+                    # https://mido.readthedocs.io/en/latest/meta_message_types.html
+                    msg_dict = dict(
+                        [
+                            ("time", t),
+                            ("time_tick", ttick),
+                            ("track", i),
+                        ]
+                        + [
+                            (key, val)
+                            for key, val in msg.__dict__.items()
+                            if key not in ("time", "track", "time_tick")
+                        ]
+                    )
+
+                    meta_other.append(msg_dict)
 
             elif msg.type == "control_change":
                 controls.append(
@@ -221,7 +280,15 @@ def load_performance_midi(
 
         if len(notes) > 0 or len(controls) > 0 or len(programs) > 0:
             pp = performance.PerformedPart(
-                notes, controls=controls, programs=programs, ppq=ppq, mpq=mpq, track=i
+                notes,
+                controls=controls,
+                programs=programs,
+                key_signatures=key_signatures,
+                time_signatures=time_signatures,
+                meta_other=meta_other,
+                ppq=ppq,
+                mpq=mpq,
+                track=i,
             )
 
             pps.append(pp)
@@ -342,7 +409,13 @@ or a list of these
     track_names_by_track = {}
     # notes are indexed by (track, channel) tuples
     notes_by_track_ch = {}
-    relevant = {"time_signature", "key_signature", "set_tempo", "note_on", "note_off"}
+    relevant = {
+        "time_signature",
+        "key_signature",
+        "set_tempo",
+        "note_on",
+        "note_off",
+    }
     for track_nr, track in enumerate(mid.tracks):
         time_sigs = []
         key_sigs = []
@@ -582,7 +655,11 @@ def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
     return track_to_part_keys
 
 
-def assign_group_part_voice(mode, track_ch_combis, track_names):
+def assign_group_part_voice(
+    mode: int,
+    track_ch_combis: Dict[Tuple[int, int], List],
+    track_names: Dict[int, str],
+) -> Tuple[List[Tuple], Dict, Dict]:
     """
     0: return one Part per track, with voices assigned by channel
     1. return one PartGroup per track, with Parts assigned by channel (no voices)
@@ -647,16 +724,39 @@ def assign_group_part_voice(mode, track_ch_combis, track_names):
 
 
 def create_part(
-    ticks,
-    notes,
-    spellings,
-    voices,
-    note_ids,
-    time_sigs,
-    key_sigs,
-    part_id=None,
-    part_name=None,
+    ticks: int,
+    notes: List[Tuple[int, int, int]],
+    spellings: List[Tuple[str, str, int]],
+    voices: List[int],
+    note_ids: List[str],
+    time_sigs: List[Tuple[int, int, int]],
+    key_sigs: List[Tuple[int, str]],
+    part_id: Optional[str] = None,
+    part_name: Optional[str] = None,
 ) -> score.Part:
+    """
+    Create score part object
+
+    Parameters
+    ----------
+    ticks: int
+        Integer unit to represent onset and duration information
+        in the score in a lossless way.
+    notes: List[Tuple[int, int, int]]
+        Note information (onset, pitch, duration)
+    spellings: List[Tuple[str, str, int]]
+    voices: List[str]
+    note_ids: List[str]
+    time_sigs: List[Tuple[int, int, int]]
+    key_sigs:
+    part_id
+    part_name
+
+    Returns
+    -------
+    part: partitura.score.Part
+        An object representing a Part in the score
+    """
     warnings.warn("create_part", stacklevel=2)
 
     part = score.Part(part_id, part_name=part_name)
@@ -747,7 +847,10 @@ def create_part(
     return part
 
 
-def quantize(v, unit):
+def quantize(
+    v: Union[np.ndarray, float, int],
+    unit: Union[float, int],
+) -> Union[np.ndarray, float, int]:
     """Quantize value `v` to a multiple of `unit`. When `unit` is an integer,
     the return value will be integer as well, otherwise the function will
     return a float.

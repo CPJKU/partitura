@@ -78,6 +78,14 @@ TEMPO_DIRECTIONS = {
 
 OCTAVE_SHIFTS = {8: 1, 15: 2, 22: 3}
 
+ACCIDENTAL_MAP = {
+    "sharp": 1,
+    "natural": 0,
+    "flat": -1,
+    "double-sharp": 2,
+    "double-flat": -2,
+}
+
 
 def validate_musicxml(xml, debug=False):
     """
@@ -517,6 +525,8 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_coun
     # add the start of the measure to the time line
     part.add(measure, position)
 
+    # Initialize Beams in Measure
+    prev_beam = None
     # keep track of the position within the measure
     # measure_pos = 0
     measure_start = position
@@ -575,8 +585,8 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_coun
             _handle_sound(e, position, part)
 
         elif e.tag == "note":
-            (position, prev_note) = _handle_note(
-                e, position, part, ongoing, prev_note, doc_order
+            (position, prev_note, prev_beam) = _handle_note(
+                e, position, part, ongoing, prev_note, doc_order, prev_beam
             )
             doc_order += 1
             measure_maxtime = max(measure_maxtime, position)
@@ -645,6 +655,9 @@ def _handle_harmony(e, position, part):
     if e.find("function") is not None:
         text = e.find("function").text
         if text is not None:
+            if "|" in text:
+                text, cadence_annotation = text.split("|")
+                part.add(score.Cadence(cadence_annotation), position)
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
         # TODO: handle kind text which is other kind of annotation also root
@@ -1175,13 +1188,15 @@ def _handle_sound(e, position, part):
         (position, part, tempo)
 
 
-def _handle_note(e, position, part, ongoing, prev_note, doc_order):
+def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=None):
     # get some common features of element if available
     duration = get_value_from_tag(e, "duration", int) or 0
     # elements may have an explicit temporal offset
     # offset = get_value_from_tag(e, 'offset', int) or 0
     staff = get_value_from_tag(e, "staff", int) or 1
     voice = get_value_from_tag(e, "voice", int) or 1
+    # initialize beam to None
+    beam = None
 
     # add support of uppercase "ID" tags
     note_id = (
@@ -1232,6 +1247,11 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
         step = get_value_from_tag(pitch, "step", str)
         alter = get_value_from_tag(pitch, "alter", int)
         octave = get_value_from_tag(pitch, "octave", int)
+        # When step is none check for accidental attribute
+        if alter is None:
+            alter = get_value_from_tag(e, "accidental", str)
+            if alter is not None:
+                alter = ACCIDENTAL_MAP[alter]
 
         grace = e.find("grace")
 
@@ -1254,6 +1274,27 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
             if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
                 note.grace_prev = prev_note
         else:
+            beam = e.find("beam")
+            if beam is not None:
+                if "number" in beam.attrib.keys():
+                    beam_num = beam.attrib["number"]
+                    beam = beam.text if beam_num == "1" else None
+                else:
+                    beam = beam.text
+
+            if beam == "begin":
+                prev_beam = score.Beam()
+                part.add(prev_beam, position)
+                beam = prev_beam
+            elif beam == "continue":
+                beam = prev_beam
+            elif beam == "end":
+                beam = prev_beam
+                prev_beam = None
+            else:
+                beam = None
+                prev_beam = None
+
             note = score.Note(
                 step=step,
                 octave=octave,
@@ -1309,6 +1350,10 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
     part.add(note, position, position + duration)
 
+    # After note is assigned to part we can assign the beam to the note if it exists
+    if isinstance(beam, score.Beam):
+        note.assign_beam(beam)
+
     ties = e.findall("tie")
     if len(ties) > 0:
         tie_key = ("tie", getattr(note, "midi_pitch", "rest"))
@@ -1353,7 +1398,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order):
 
     new_position = position + duration
 
-    return new_position, note
+    return new_position, note, prev_beam
 
 
 def handle_tuplets(notations, ongoing, note):
@@ -1405,6 +1450,11 @@ def handle_tuplets(notations, ongoing, note):
 
             stopping_tuplets.append(tuplet)
 
+    # assert that starting tuplet times are before stopping tuplet times
+    for start_tuplet, stop_tuplet in zip(starting_tuplets, stopping_tuplets):
+        assert (
+            start_tuplet.start_note.start.t < stop_tuplet.end_note.start.t
+        ), "Tuplet start time is after tuplet stop time"
     return starting_tuplets, stopping_tuplets
 
 

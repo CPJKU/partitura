@@ -1,6 +1,31 @@
 Release Notes
 =============
 
+Version 1.5.0 (Released on 2024-07-17)
+--------------------------------------
+
+## New Features    
+
+- Dcml annotation parser
+- New kern import for faster and more robust
+- Barebones Kern export 
+- MEI export
+- Mei export Updates 
+- Estimate symbolic durations 
+- New harmony classes and checks for Roman numerals, Chord Symbols, Cadences and Phrases in 
+- Intervals as partitura classes
+- transposition of parts
+- Export wav with fluidsynth 
+
+## Other Changes
+
+- improved documentation
+- improved typing
+- New tests
+- optional dependency of pandas
+
+
+
 Version 1.4.1 (Released on 2023-10-25)
 --------------------------------------
 

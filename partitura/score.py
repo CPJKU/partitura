@@ -13,14 +13,17 @@ from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
 from numbers import Number
-
-# import copy
-from partitura.utils.music import MUSICAL_BEATS, INTERVALCLASSES
+from partitura.utils.globals import (
+    MUSICAL_BEATS,
+    INTERVALCLASSES,
+    INTERVAL_TO_SEMITONES,
+)
 import warnings, sys
 import numpy as np
+import re
 from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
-
+import difflib
 from partitura.utils import (
     ComparableMixin,
     ReplaceRefMixin,
@@ -44,8 +47,14 @@ from partitura.utils import (
     _OrderedSet,
     update_note_ids_after_unfolding,
 )
-
 from partitura.utils.generic import interp1d
+from partitura.utils.music import transpose_note, step2pc
+from partitura.utils.globals import (
+    INT_TO_ALT,
+    ALT_TO_INT,
+    ACCEPTED_ROMANS,
+    LOCAL_KEY_TRASPOSITIONS_DCML,
+)
 
 
 class Part(object):
@@ -568,6 +577,18 @@ class Part(object):
         return [e for e in self.iter_all(Rest, include_subclasses=False)]
 
     @property
+    def cadences(self):
+        """Return a list of all cadence objects in the part
+
+        Returns
+        -------
+        list
+            List of Cadence objects
+
+        """
+        return [e for e in self.iter_all(Cadence)]
+
+    @property
     def repeats(self):
         """Return a list of all Repeat objects in the part
 
@@ -626,6 +647,41 @@ class Part(object):
 
         """
         return [e for e in self.iter_all(TempoDirection, include_subclasses=True)]
+
+    @property
+    def cadences(self):
+        """Return a list of all cadences in the part
+
+        Returns
+        -------
+        list
+            List of Cadence objects
+
+        """
+        return [e for e in self.iter_all(Cadence, include_subclasses=False)]
+
+    @property
+    def harmony(self):
+        """Return a list of all harmony in the part
+
+        Returns
+        -------
+        list
+            List of Harmony objects
+
+        """
+        return [e for e in self.iter_all(Harmony, include_subclasses=True)]
+
+    @property
+    def phrases(self):
+        """Return a list of all phrases in the part
+
+        Returns
+        -------
+        list
+            List of Phrase objects
+        """
+        return [e for e in self.iter_all(Phrase, include_subclasses=False)]
 
     @property
     def articulations(self):
@@ -1227,7 +1283,6 @@ class Part(object):
 
 
 class TimePoint(ComparableMixin):
-
     """A TimePoint represents a temporal position within a
     :class:`Part`.
 
@@ -1583,9 +1638,10 @@ class GenericNote(TimedObject):
         articulations=None,
         ornaments=None,
         doc_order=None,
+        **kwargs,
     ):
         self._sym_dur = None
-        super().__init__()
+        super().__init__(**kwargs)
         self.voice = voice
         self.id = id
         self.staff = staff
@@ -1872,13 +1928,15 @@ class Note(GenericNote):
 
     """
 
-    def __init__(self, step, octave, alter=None, beam=None, **kwargs):
+    def __init__(self, step, octave, alter=None, **kwargs):
         super().__init__(**kwargs)
         self.step = step.upper()
         self.octave = octave
         self.alter = alter
-        self.beam = beam
+        self.beam = None
 
+    def assign_beam(self, beam):
+        self.beam = beam
         if self.beam is not None:
             self.beam.append(self)
 
@@ -2697,6 +2755,30 @@ class OctaveShiftDirection(TimedObject):
         return f'{super().__str__()} "{self.shift_type}"'
 
 
+class Cadence(TimedObject):
+    """A cadence element in the score usually for Cadences."""
+
+    def __init__(self, text, local_key=None):
+        super().__init__()
+        self.text = text
+        self._filter_cadence_type()
+        self.local_key = local_key
+
+    def _filter_cadence_type(self):
+        """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
+        # capitalize text
+        self.text = self.text.upper()
+        # Filter alphabet characters only.
+        self.text = re.findall(r"[A-Z]+", self.text)[0]
+        self.text = "IAC" if "IAC" in self.text else self.text
+        if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
+            warnings.warn(f"Cadence type {self.text} not found. Setting to None")
+            self.text = None
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
 class Harmony(TimedObject):
     """A harmony element in the score not currently used.
 
@@ -2720,7 +2802,7 @@ class Harmony(TimedObject):
         return f'{super().__str__()} "{self.text}"'
 
 
-class RomanNumeral(TimedObject):
+class RomanNumeral(Harmony):
     """A harmony element in the score usually for Roman Numerals.
 
     Parameters
@@ -2734,20 +2816,293 @@ class RomanNumeral(TimedObject):
         See parameters
     """
 
-    def __init__(self, text):
-        super().__init__()
+    def __init__(
+        self,
+        text,
+        inversion=None,
+        local_key=None,
+        primary_degree=None,
+        secondary_degree=None,
+        quality=None,
+    ):
+        super().__init__(text)
         self.text = text
-        # assert issubclass(note, GenericNote)
+        self.accepted_qualities = (
+            "7",
+            "aug",
+            "aug6",
+            "aug7",
+            "dim",
+            "dim7",
+            "hdim7",
+            "maj",
+            "maj7",
+            "min",
+            "min7",
+        )
+        # The key of an inversion is text from RN string, and the value is a tuple (has_seven,inversion)
+        self.accepted_inversions = {
+            "2": (3, True),
+            "43": (2, True),
+            "64": (2, False),
+            "6": (1, False),
+            "65": (1, True),
+            "7": (0, True),
+        }
+        self.has_seven = "7" in text
+        self.inversion = (
+            inversion if inversion is not None else self._process_inversion()
+        )
+        self.local_key = (
+            local_key if local_key is not None else self._process_local_key()
+        )
+        self.primary_degree = (
+            primary_degree
+            if primary_degree is not None
+            else self._process_primary_degree()
+        )
+        self.secondary_degree = (
+            secondary_degree
+            if secondary_degree is not None
+            else self._process_secondary_degree()
+        )
+        self.quality = (
+            quality
+            if quality is not None and quality in self.accepted_qualities
+            else self._process_quality()
+        )
+        # only process the root note if the roman numeral is valid
+        if (
+            self.local_key
+            and self.primary_degree
+            and self.secondary_degree
+            and self.quality
+            and self.inversion
+        ):
+            self.root = self.find_root_note()
+            self.bass_note = self.find_bass_note()
+
+    def _process_inversion(self):
+        """Find the inversion of the roman numeral from the text"""
+        # The inversion should be right after the roman numeral.
+        # If there is no inversion, return 0
+        numeric_indications_in_text = re.findall(r"\d+", self.text)
+        if len(numeric_indications_in_text) > 0:
+            inversion, has_seven = self.accepted_inversions.get(
+                numeric_indications_in_text[0], (0, False)
+            )
+            self.has_seven = has_seven
+            return inversion
+        return 0
+
+    def _process_local_key(self):
+        """Find the local key of the roman numeral from the text"""
+        # The local key should be before the roman numeral.
+        # If there is no local key, return None
+        local_key = self.text.split(":")
+        if len(local_key) > 1:
+            return local_key[0]
+        return None
+
+    def _process_primary_degree(self):
+        """Find the primary degree of the roman numeral from the text
+
+        The primary degree should be a roman numeral between 1 and 7.
+        """
+        # The primary degree should be a roman numeral between 1 and 7.
+        # If there is no primary degree, return None
+        # Remove any key information
+        roman_text = self.text.split(":")[-1]
+        roman_text = roman_text.split(".")[-1] if "." in roman_text else roman_text
+        primary_degree = re.search(r"[a-zA-Z+]+", roman_text)
+        if primary_degree:
+            prim_d = primary_degree.group(0)
+            # if the primary degree is not in accepted values, return the closest one
+            if prim_d in ACCEPTED_ROMANS:
+                return prim_d
+            else:
+                matches = difflib.get_close_matches(
+                    prim_d, ACCEPTED_ROMANS, n=1, cutoff=0.5
+                )
+                if matches:
+                    return matches[0]
+        return None
+
+    def _process_secondary_degree(self):
+        """Find the secondary degree of the roman numeral from the text
+
+        The secondary degree should be a roman numeral between 1 and 7.
+        If it is not specified in the text, return I (the tonic) when the primary degree is not none.
+        """
+        # The secondary degree should be a roman numeral between 1 and 7.
+        # If it is not specified in the text, return I (the tonic) when the primary degree is not none.
+        roman_text = self.text.split(":")[-1]
+        split_pr_sec = roman_text.split("/")
+        if len(split_pr_sec) > 1:
+            secondary_degree = re.search(r"[a-zA-Z+]+", split_pr_sec[-1])
+            return secondary_degree.group(0)
+        elif self.primary_degree is not None and self.local_key is not None:
+            secondary_degree = "I" if self.local_key.isupper() else "i"
+            return secondary_degree
+        return None
+
+    def _process_quality(self):
+        """Find the quality of the roman numeral from the text
+
+        Accepted quality values are 7, aug, aug6, aug7, dim, dim7, hdim7, maj, maj7, min, min7.
+        This format follows the standards from the latest version of the AugmentedNet model.
+        Found out more here: github.com/napulen/AugmentedNet
+        """
+        # The quality should be M, m, +, o, or None.
+        aug_cond = "aug" in self.text.lower() or "+" in self.text.lower()
+        minor_cond = (
+            self.primary_degree.islower() if self.primary_degree is not None else False
+        )
+        major_cond = (
+            self.primary_degree.isupper() if self.primary_degree is not None else False
+        )
+        dim_cond = "dim" in self.text or "o" in self.text
+        aug6_cond = (
+            "ger" in self.text.lower()
+            or "it" in self.text.lower()
+            or "fr" in self.text.lower()
+        )
+        hdim_cond = "0" in self.text or "%" in self.text or "ø" in self.text
+        if aug6_cond:
+            quality = "aug6"
+        elif "maj7" in self.text.lower():
+            quality = "maj7"
+        elif dim_cond and self.has_seven:
+            quality = "dim7"
+        elif dim_cond:
+            quality = "dim"
+        elif aug_cond and self.has_seven:
+            quality = "aug7"
+        elif aug_cond:
+            quality = "aug"
+        elif hdim_cond:
+            quality = "hdim7"
+        elif minor_cond and self.has_seven:
+            quality = "min7"
+        elif minor_cond:
+            quality = "min"
+        elif major_cond and self.has_seven:
+            quality = "7"
+        elif major_cond:
+            quality = "maj"
+        else:
+            warnings.warn(
+                f"Quality for {self.text} was not found, could be a special case. Setting to None."
+            )
+            quality = None
+        return quality
+
+    def find_root_note(self):
+        """
+        Find the root note of a chord.
+
+        Returns
+        -------
+        number: int
+            The number of the chord.
+        """
+        # Corrected step after degree2
+        key_step = re.search(r"[a-gA-G]", self.local_key).group(0)
+        key_alter = (
+            re.search(r"[#b]", self.local_key).group(0)
+            if re.search(r"[#b]", self.local_key)
+            else ""
+        )
+        key_alter = ALT_TO_INT[key_alter]
+        try:
+            interval = (
+                Roman2Interval_Min[self.secondary_degree]
+                if self.local_key.islower()
+                else Roman2Interval_Maj[self.secondary_degree]
+            )
+            step, alter = transpose_note(key_step, key_alter, interval)
+        except KeyError:
+            loc_k = self.secondary_degree
+            glob_k = self.local_key
+            step, alter = process_local_key(loc_k, glob_k, return_step_alter=True)
+        # Corrected step after degree1
+        # TODO add support for diminished and augmented chords
+        try:
+            interval = (
+                Roman2Interval_Min[self.primary_degree]
+                if self.secondary_degree.islower()
+                else Roman2Interval_Maj[self.primary_degree]
+            )
+            step, alter = transpose_note(step, alter, interval)
+            root = step + INT_TO_ALT[alter]
+        except KeyError:
+            loc_k = self.primary_degree
+            glob_k = step.lower() if self.secondary_degree.islower() else step.upper()
+            root = step + INT_TO_ALT[alter]
+            root = process_local_key(loc_k, glob_k)
+
+        return root
+
+    def find_bass_note(self):
+        # TODO add support for diminished and augmented chords
+        step = re.search(r"[a-gA-G]", self.root).group(0)
+        alter = re.search(r"[#b]", self.root)
+        alter = ALT_TO_INT[alter.group(0)] if alter else 0
+
+        if self.inversion == 1:
+            if self.primary_degree.islower():
+                step, alter = transpose_note(step, alter, Interval(3, "m"))
+            else:
+                step, alter = transpose_note(step, alter, Interval(3, "M"))
+        elif self.inversion == 2:
+            step, alter = transpose_note(step, alter, Interval(5, "P"))
+        elif self.inversion == 3:
+            step, alter = transpose_note(step, alter, Interval(7, "m"))
+
+        bass_note_name = step + INT_TO_ALT[alter]
+        return bass_note_name
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
 
 
-class ChordSymbol(TimedObject):
+class Cadence(TimedObject):
+    """A cadence element in the score usually for Cadences."""
+
+    def __init__(self, text, local_key=None):
+        super().__init__()
+        self.text = text
+        self._filter_cadence_type()
+        self.local_key = local_key
+
+    def _filter_cadence_type(self):
+        """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
+        # capitalize text
+        self.text = self.text.upper()
+        # Filter alphabet characters only.
+        self.text = re.findall(r"[A-Z]+", self.text)[0]
+        self.text = "IAC" if "IAC" in self.text else self.text
+        if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
+            warnings.warn(f"Cadence type {self.text} not found. Setting to None")
+            self.text = None
+
+    def __str__(self):
+        return f'{super().__str__()} "{self.text}"'
+
+
+class Phrase(TimedObject):
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self):
+        return f"{super().__str__()}"
+
+
+class ChordSymbol(Harmony):
     """A harmony element in the score usually for Chord Symbols."""
 
     def __init__(self, root, kind, bass=None):
-        super().__init__()
+        super().__init__(text=root + kind + (f"/{bass}" if bass else ""))
         self.kind = kind
         self.root = root
         self.bass = bass
@@ -2786,6 +3141,50 @@ class Interval(object):
             "up",
             "down",
         ], f"Interval direction {self.direction} not found"
+
+    @property
+    def semitones(self):
+        return INTERVAL_TO_SEMITONES[self.quality + str(self.number)]
+
+    def change_quality(self, num):
+        """
+        Change the quality of the interval by a given number of semitones.
+
+        The Interval Number is not changed, only the quality.
+
+        Examples:
+        - M3 -> m3, num=-1
+        - M3 -> A3, num=1
+        - A4 -> d4, num=-2
+
+        Parameters
+        ----------
+        num: int
+            The number of semitones to change the quality by.
+
+        Returns
+        -------
+        Interval
+            The interval with the new quality, but the same number and direction.
+        """
+        change_direction_c = ["dd", "d", "P", "A", "AA"]
+        change_direction_d = ["dd", "d", "m", "M", "A", "AA"]
+
+        prev_quality = self.quality
+        if num == 0:
+            pass
+        else:
+            change_dir = (
+                change_direction_c
+                if self.number in [1, 4, 5, 8]
+                else change_direction_d
+            )
+            cur_index = change_dir.index(prev_quality)
+            new_index = cur_index + num
+            if new_index >= len(change_dir) or new_index < 0:
+                raise ValueError("Interval quality cannot be changed to that extent")
+            self.quality = change_dir[new_index]
+        return self
 
     def __str__(self):
         return f'{super().__str__()} "{self.number}{self.quality}"'
@@ -3807,6 +4206,9 @@ def find_tuplets(part):
                             start_note = note_tuplet[0]
                             stop_note = note_tuplet[-1]
                             tuplet = Tuplet(start_note, stop_note)
+                            assert (
+                                start_note.start.t <= stop_note.start.t
+                            ), "The start note of a Tuplet should be before the stop note"
                             part.add(tuplet, start_note.start.t, stop_note.end.t)
                             tup_start += actual_notes
 
@@ -4802,6 +5204,139 @@ def make_score_variants(part):
     return svs
 
 
+def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
+    start_time = measure.start.t
+    end_time = measure.end.t
+    notes = np.array(list(part.iter_all(GenericNote, start_time, end_time)))
+    voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
+    for i in range(un_voc_staff):
+        note_mask = inverse_map == i
+        notes_per_vocstaff = notes[note_mask]
+        # get note with min start.t
+        min_start_note = notes_per_vocstaff[np.argmin(notes_per_vocstaff.start.t)]
+        if min_start_note.start.t > start_time:
+            sym_dur = estimate_symbolic_duration(
+                min_start_note.start.t - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_start_note.staff,
+                voice=min_start_note.voice,
+            )
+            part.add(rest, start_time, min_start_note.start.t)
+
+        min_end_note = notes_per_vocstaff[
+            np.argmin(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
+        ]
+        if min_end_note.end.t < end_time:
+            sym_dur = estimate_symbolic_duration(
+                end_time - min_end_note.end.t, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_end_note.staff,
+                voice=min_end_note.voice,
+            )
+            part.add(rest, min_end_note.end.t, end_time)
+
+
+def _fill_rests_global(
+    measure: Measure, part: Part, unique_voc_staff: np.ndarray
+) -> None:
+    start_time = measure.start.t
+    end_time = measure.end.t
+    if end_time - start_time == 0:
+        return
+    notes = np.array(
+        list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True))
+    )
+    voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
+    for i in range(un_voc_staff.shape[0]):
+        note_mask = inverse_map == i
+        notes_per_vocstaff = notes[note_mask]
+        # get note with min start.t
+        min_start_note = notes_per_vocstaff[
+            np.argmin(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))
+        ]
+        if min_start_note.start.t > start_time:
+            sym_dur = estimate_symbolic_duration(
+                min_start_note.start.t - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_start_note.staff,
+                voice=min_start_note.voice,
+            )
+            part.add(rest, start_time, min_start_note.start.t)
+
+        min_end_note = notes_per_vocstaff[
+            np.argmax(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
+        ]
+        if min_end_note.end.t < end_time:
+            sym_dur = estimate_symbolic_duration(
+                end_time - min_end_note.end.t, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_end_note.staff,
+                voice=min_end_note.voice,
+            )
+            part.add(rest, min_end_note.end.t, end_time)
+
+    if un_voc_staff.shape[0] != unique_voc_staff.shape[0]:
+        if un_voc_staff.shape[0] == 0:
+            diff = unique_voc_staff
+        else:
+            # View `un_voc_staff` and `unique_voc_staff` as 1-D structured arrays
+            x_sa = un_voc_staff.view([("", un_voc_staff.dtype)] * un_voc_staff.shape[1])
+            y_sa = unique_voc_staff.view(
+                [("", unique_voc_staff.dtype)] * unique_voc_staff.shape[1]
+            )
+            # Find rows in `unique_voc_staff` that are not in `un_voc_staff`
+            diff = np.setdiff1d(y_sa, x_sa)
+        for voice, staff in diff:
+            sym_dur = estimate_symbolic_duration(
+                end_time - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(symbolic_duration=sym_dur, staff=staff, voice=voice)
+            part.add(rest, start_time, end_time)
+
+
+def fill_rests(score_data: ScoreLike, measurewise=True) -> None:
+    """
+    Fill rests in a score when a voice starts in a middle of a measure and no rest precedes.
+
+    When measurewise is True, the voices are searched within a measure.
+    When measurewise is False, the rests are filled globally in the score for all voices and staffs.
+
+    Parameters
+    ----------
+    score_data: ScoreLike
+        The score to fill rests
+    measurewise: bool
+        If True, fill rests within a measure. If False, fill rests globally in the score.
+    """
+    if isinstance(score_data, Score):
+        partlist = score_data.parts
+    else:
+        partlist = [score_data]
+    for part in partlist:
+        measures = part.measures
+        if measurewise:
+            for measure in measures:
+                _fill_rests_within_measure(measure, part)
+        else:
+            note_array = part.note_array(include_staff=True)
+            unique_vocstaff = np.unique(
+                np.array([note_array["voice"], note_array["staff"]], dtype=np.int64),
+                axis=1,
+            )
+            for measure in measures:
+                _fill_rests_global(measure, part, unique_vocstaff.T)
+
+
 def merge_parts(parts, reassign="voice"):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
@@ -4872,16 +5407,20 @@ def merge_parts(parts, reassign="voice"):
     note_arrays = [part.note_array(include_staff=True) for part in parts]
     # find the maximum number of voices for each part (voice number start from 1)
     maximum_voices = [
-        max(note_array["voice"], default=0)
-        if max(note_array["voice"], default=0) != 0
-        else 1
+        (
+            max(note_array["voice"], default=0)
+            if max(note_array["voice"], default=0) != 0
+            else 1
+        )
         for note_array in note_arrays
     ]
     # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
     maximum_staves = [
-        max(note_array["staff"], default=0)
-        if max(note_array["staff"], default=0) != 0
-        else 1
+        (
+            max(note_array["staff"], default=0)
+            if max(note_array["staff"], default=0) != 0
+            else 1
+        )
         for note_array in note_arrays
     ]
 
@@ -4951,6 +5490,349 @@ def merge_parts(parts, reassign="voice"):
     return new_part
 
 
+def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
+    start_time = measure.start.t
+    end_time = measure.end.t
+    notes = np.array(
+        list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True))
+    )
+
+    # voc_staff is now transformed to only voice
+    voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    un_voice, inverse_map = np.unique(voc_staff[:, 0], axis=0, return_inverse=True)
+    # Check if a staff is empty and fill it with rests
+    unique_staff = np.unique(voc_staff[:, 1])
+    if len(unique_staff) < part.number_of_staves:
+        for staff in range(1, part.number_of_staves + 1):
+            if staff not in unique_staff:
+                # solution when estimation returns composite durations.
+                sym_dur = estimate_symbolic_duration(
+                    end_time - start_time,
+                    part._quarter_durations[0],
+                    return_com_durations=True,
+                )
+                if isinstance(sym_dur, tuple):
+                    st = start_time
+                    for i, sd in enumerate(sym_dur):
+                        et = start_time + symbolic_to_numeric_duration(
+                            sd, part._quarter_durations[0]
+                        )
+                        rest = Rest(
+                            symbolic_duration=sd, staff=staff, voice=un_voice.max() + 1
+                        )
+                        part.add(rest, st, et)
+                        st = et
+                else:
+                    rest = Rest(
+                        symbolic_duration=sym_dur, staff=staff, voice=un_voice.max() + 1
+                    )
+                    part.add(rest, start_time, end_time)
+    # Now we fill the rests for each voice
+    for i in range(len(un_voice)):
+        note_mask = inverse_map == i
+        notes_per_vocstaff = notes[note_mask]
+        sort_note_start = np.argsort(
+            np.vectorize(lambda x: x.start.t)(notes_per_vocstaff)
+        )
+        sort_note_end = np.argsort(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
+        # get note with min start.t and fill the rest before it if needed
+        min_start_note = notes_per_vocstaff[sort_note_start[0]]
+        if min_start_note.start.t > start_time:
+            sym_dur = estimate_symbolic_duration(
+                min_start_note.start.t - start_time,
+                part._quarter_durations[0],
+                return_com_durations=True,
+            )
+            # solution when estimation returns composite durations.
+            if isinstance(sym_dur, tuple):
+                st = start_time
+                for i, sd in enumerate(sym_dur):
+                    et = st + symbolic_to_numeric_duration(
+                        sd, part._quarter_durations[0]
+                    )
+                    rest = Rest(
+                        symbolic_duration=sd,
+                        staff=min_start_note.staff,
+                        voice=min_start_note.voice,
+                    )
+                    part.add(rest, st, et)
+                    st = et
+            else:
+                rest = Rest(
+                    symbolic_duration=sym_dur,
+                    staff=min_start_note.staff,
+                    voice=min_start_note.voice,
+                )
+                part.add(rest, start_time, min_start_note.start.t)
+
+        # get note with max end.t and fill the rest after it if needed
+        min_end_note = notes_per_vocstaff[sort_note_end[-1]]
+        if min_end_note.end.t < end_time:
+            sym_dur = estimate_symbolic_duration(
+                end_time - min_end_note.end.t,
+                part._quarter_durations[0],
+                return_com_durations=True,
+            )
+            # solution when estimation returns composite durations.
+            if isinstance(sym_dur, tuple):
+                st = min_end_note.end.t
+                for i, sd in enumerate(sym_dur):
+                    et = st + symbolic_to_numeric_duration(
+                        sd, part._quarter_durations[0]
+                    )
+                    rest = Rest(
+                        symbolic_duration=sd,
+                        staff=min_end_note.staff,
+                        voice=min_end_note.voice,
+                    )
+                    part.add(rest, st, et)
+                    st = et
+            else:
+                rest = Rest(
+                    symbolic_duration=sym_dur,
+                    staff=min_end_note.staff,
+                    voice=min_end_note.voice,
+                )
+                part.add(rest, min_end_note.end.t, end_time)
+
+        if len(sort_note_start) <= 1:
+            continue
+        # fill the rests between notes if needed (i.e. if there is a gap between notes)
+        for i in range(1, len(sort_note_start)):
+            if (
+                notes_per_vocstaff[sort_note_start[i]].start.t
+                > notes_per_vocstaff[sort_note_end[i - 1]].end.t
+            ):
+                sym_dur = estimate_symbolic_duration(
+                    notes_per_vocstaff[sort_note_start[i]].start.t
+                    - notes_per_vocstaff[sort_note_end[i - 1]].end.t,
+                    part._quarter_durations[0],
+                    return_com_durations=True,
+                )
+                if isinstance(sym_dur, tuple):
+                    st = notes_per_vocstaff[sort_note_end[i - 1]].end.t
+                    for i, sd in enumerate(sym_dur):
+                        et = st + symbolic_to_numeric_duration(
+                            sd, part._quarter_durations[0]
+                        )
+                        rest = Rest(
+                            symbolic_duration=sd,
+                            staff=notes_per_vocstaff[sort_note_end[i - 1]].staff,
+                            voice=notes_per_vocstaff[sort_note_end[i - 1]].voice,
+                        )
+                        part.add(rest, st, et)
+                        st = et
+                else:
+                    rest = Rest(
+                        symbolic_duration=sym_dur,
+                        staff=notes_per_vocstaff[sort_note_end[i - 1]].staff,
+                        voice=notes_per_vocstaff[sort_note_end[i - 1]].voice,
+                    )
+                    part.add(
+                        rest,
+                        notes_per_vocstaff[sort_note_end[i - 1]].end.t,
+                        notes_per_vocstaff[sort_note_start[i]].start.t,
+                    )
+
+
+def _fill_rests_global(
+    measure: Measure, part: Part, unique_voc_staff: np.ndarray
+) -> None:
+    start_time = measure.start.t
+    end_time = measure.end.t
+    if end_time - start_time == 0:
+        return
+    notes = np.array(
+        list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True))
+    )
+    voc_staff = np.array([[n.voice, n.staff] for n in notes])
+    un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
+    for i in range(un_voc_staff.shape[0]):
+        note_mask = inverse_map == i
+        notes_per_vocstaff = notes[note_mask]
+        # get note with min start.t
+        min_start_note = notes_per_vocstaff[
+            np.argmin(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))
+        ]
+        if min_start_note.start.t > start_time:
+            sym_dur = estimate_symbolic_duration(
+                min_start_note.start.t - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_start_note.staff,
+                voice=min_start_note.voice,
+            )
+            part.add(rest, start_time, min_start_note.start.t)
+
+        min_end_note = notes_per_vocstaff[
+            np.argmax(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
+        ]
+        if min_end_note.end.t < end_time:
+            sym_dur = estimate_symbolic_duration(
+                end_time - min_end_note.end.t, part._quarter_durations[0]
+            )
+            rest = Rest(
+                symbolic_duration=sym_dur,
+                staff=min_end_note.staff,
+                voice=min_end_note.voice,
+            )
+            part.add(rest, min_end_note.end.t, end_time)
+
+    if un_voc_staff.shape[0] != unique_voc_staff.shape[0]:
+        if un_voc_staff.shape[0] == 0:
+            diff = unique_voc_staff
+        else:
+            # View `un_voc_staff` and `unique_voc_staff` as 1-D structured arrays
+            x_sa = un_voc_staff.view([("", un_voc_staff.dtype)] * un_voc_staff.shape[1])
+            y_sa = unique_voc_staff.view(
+                [("", unique_voc_staff.dtype)] * unique_voc_staff.shape[1]
+            )
+            # Find rows in `unique_voc_staff` that are not in `un_voc_staff`
+            diff = np.setdiff1d(y_sa, x_sa)
+        for voice, staff in diff:
+            sym_dur = estimate_symbolic_duration(
+                end_time - start_time, part._quarter_durations[0]
+            )
+            rest = Rest(symbolic_duration=sym_dur, staff=staff, voice=voice)
+            part.add(rest, start_time, end_time)
+
+
+def fill_rests(score_data: ScoreLike, measurewise=True) -> None:
+    """
+    Fill rests in a score when a voice starts in a middle of a measure and no rest precedes.
+
+    When measurewise is True, the voices are searched within a measure.
+    When measurewise is False, the rests are filled globally in the score for all voices and staffs.
+
+    Parameters
+    ----------
+    score_data: ScoreLike
+        The score to fill rests
+    measurewise: bool
+        If True, fill rests within a measure. If False, fill rests globally in the score.
+    """
+    if isinstance(score_data, Score):
+        partlist = score_data.parts
+    else:
+        partlist = [score_data]
+    for part in partlist:
+        measures = part.measures
+        if measurewise:
+            for measure in measures:
+                _fill_rests_within_measure(measure, part)
+        else:
+            note_array = part.note_array(include_staff=True)
+            unique_vocstaff = np.unique(
+                np.array([note_array["voice"], note_array["staff"]], dtype=np.int64),
+                axis=1,
+            )
+            for measure in measures:
+                _fill_rests_global(measure, part, unique_vocstaff.T)
+
+
+def infer_beaming(part: ScoreLike):
+    """
+    Infer beaming from the metrical position of notes in a part.
+
+    This function infers the beaming based on the time signature for all notes.
+    It separates the notes into groups based on their staff and voice.
+
+    Parameters
+    ----------
+    part: ScoreLike
+        The part to infer beaming for. This can be a part or a score.
+        If a score is given, the function will infer beaming for all parts in the score.
+
+    """
+
+    if isinstance(part, Score):
+        for p in part.parts:
+            infer_beaming(p)
+    else:
+        note_array = part.note_array(
+            include_metrical_position=True,
+            include_staff=True,
+            include_time_signature=True,
+        )
+        beat_ends = note_array["onset_beat"] + note_array["duration_beat"]
+        # split note_array into groups based on staff and voice
+        # unique_vocstaff = np.unique(note_array[['voice', 'staff']], axis=0)
+        # for v, s in unique_vocstaff:
+        #     mask = (note_array['voice'] == v) & (note_array['staff'] == s)
+        unique_vocstaff = np.unique(note_array["voice"])
+        for v in unique_vocstaff:
+            mask = note_array["voice"] == v
+            # get the metrical position of the notes
+            na_vocstaff = note_array[mask]
+            # get the beat ends of the notes
+            beat_end = beat_ends[mask]
+            # get notes
+            beat_multiplier = 4 / na_vocstaff["ts_beat_type"]
+            mus_beats = (
+                na_vocstaff["ts_beats"]
+                / na_vocstaff["ts_mus_beats"]
+                * (na_vocstaff["ts_beat_type"] > 4)
+            )
+            mus_beats = np.where(mus_beats == 0, 1, mus_beats)
+            max_mus_beat = mus_beats.max()
+            beam_start_mask = np.isclose(
+                np.mod(na_vocstaff["onset_beat"], mus_beats), 0.0
+            ) & (na_vocstaff["duration_beat"] * beat_multiplier <= 0.5)
+            beam_end_mask = np.isclose(np.mod(beat_end, mus_beats), 0.0) & (
+                na_vocstaff["duration_beat"] * beat_multiplier <= 0.5
+            )
+            beam_between = (
+                (na_vocstaff["duration_beat"] * beat_multiplier <= 0.5)
+                & ~beam_start_mask
+                & ~beam_end_mask
+            )
+            id_beam_start = na_vocstaff["id"][beam_start_mask]
+            id_beam_end = na_vocstaff["id"][beam_end_mask]
+            id_beam_between = na_vocstaff["id"][beam_between]
+            start_time = na_vocstaff["onset_div"].min()
+            end_time = na_vocstaff["onset_div"].max() + 1
+            prev_beam = None
+            notes_in_beam = []
+            notes_in_vs = list(part.iter_all(Note, start_time, end_time))
+            notes_in_vs.sort(key=lambda x: x.start.t)
+            prev_start = 0
+            for note in notes_in_vs:
+                # if note.voice != v or note.staff != s:
+                if note.voice != v:
+                    continue
+                if note.beam is not None:
+                    continue
+
+                if (
+                    part.beat_map(note.start.t) - part.beat_map(prev_start)
+                    > max_mus_beat
+                ):
+                    prev_beam = None
+                    notes_in_beam = []
+                    prev_start = note.start.t
+                if note.id in id_beam_start:
+                    notes_in_beam = []
+                    prev_beam = Beam()
+                    prev_start = note.start.t
+                    notes_in_beam.append(note)
+                elif note.id in id_beam_end:
+                    if prev_beam is not None:
+                        notes_in_beam.append(note)
+                        if len(notes_in_beam) > 1:
+                            for n in notes_in_beam:
+                                n.assign_beam(prev_beam)
+                            part.add(prev_beam, prev_beam.start.t, prev_beam.end.t)
+                    notes_in_beam = []
+                    prev_beam = None
+                elif note.id in id_beam_between:
+                    if prev_beam is None:
+                        prev_start = note.start.t
+                        notes_in_beam = []
+                        prev_beam = Beam()
+                    notes_in_beam.append(note)
+
+
 def is_a_within_b(a, b, wholly=False):
     """
     Returns a boolean indicating whether a is (wholly) within b.
@@ -4981,6 +5863,129 @@ def is_a_within_b(a, b, wholly=False):
     else:
         warnings.warn("a needs to be TimePoint, TimedObject, or int.")
     return contained
+
+
+def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
+    local_key_sharps = loc_k_text.count("#")
+    local_key_flats = loc_k_text.count("b")
+    local_key = loc_k_text.replace("#", "").replace("b", "")
+    local_key_is_minor = local_key.islower()
+    local_key = local_key.lower()
+    global_key_is_minor = glob_k_text.islower()
+    if (
+        local_key_is_minor == global_key_is_minor
+        and local_key == "i"
+        and local_key_sharps - local_key_flats == 0
+        and (not return_step_alter)
+    ):
+        return glob_k_text
+    g_key = "minor" if glob_k_text.islower() else "major"
+    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
+    transposition_interval = Interval(num, qual)
+    transposition_interval = transposition_interval.change_quality(
+        local_key_sharps - local_key_flats
+    )
+    key_step = re.search(r"[a-gA-G]", glob_k_text).group(0)
+    key_alter = (
+        re.search(r"[#b]", glob_k_text).group(0)
+        if re.search(r"[#b]", glob_k_text)
+        else ""
+    )
+    key_alter = key_alter.replace("b", "-")
+    key_alter = ALT_TO_INT[key_alter]
+    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    if return_step_alter:
+        return key_step, key_alter
+    local_key = (
+        key_step.lower() if local_key_is_minor else key_step.upper()
+    ) + INT_TO_ALT[key_alter]
+    return local_key
+
+
+Roman2Interval_Maj = {
+    "I": Interval(1, "P"),
+    "II": Interval(2, "M"),
+    "III": Interval(3, "M"),
+    "III+": Interval(3, "M"),
+    "IV": Interval(4, "P"),
+    "V": Interval(5, "P"),
+    "VI": Interval(6, "M"),
+    "VII": Interval(7, "M"),
+    "i": Interval(1, "P"),
+    "ii": Interval(2, "M"),
+    "iii": Interval(3, "m"),
+    "iv": Interval(4, "P"),
+    "v": Interval(5, "P"),
+    "vi": Interval(6, "M"),
+    "vii": Interval(7, "M"),
+    "viio": Interval(7, "M"),
+    "N": Interval(2, "m"),
+    "iio": Interval(2, "M"),
+    "Ger7": Interval(4, "A"),
+    "Fr7": Interval(4, "A"),
+    "It": Interval(4, "A"),
+}
+
+Roman2Interval_Min = {
+    "I": Interval(1, "P"),
+    "II": Interval(2, "M"),
+    "III": Interval(3, "m"),
+    "III+": Interval(3, "m"),
+    "IV": Interval(4, "P"),
+    "V": Interval(5, "P"),
+    "VI": Interval(6, "m"),
+    "VII": Interval(7, "m"),
+    "i": Interval(1, "P"),
+    "ii": Interval(2, "M"),
+    "iii": Interval(3, "m"),
+    "iv": Interval(4, "P"),
+    "v": Interval(5, "P"),
+    "vi": Interval(6, "m"),
+    "vii": Interval(7, "m"),
+    "viio": Interval(7, "M"),
+    "N": Interval(2, "m"),
+    "iio": Interval(2, "M"),
+    "Ger7": Interval(4, "A"),
+    "Fr7": Interval(4, "A"),
+    "It": Interval(4, "A"),
+}
+
+
+def process_local_key(loc_k, glob_k, return_step_alter=False):
+    local_key_sharps = loc_k.count("#")
+    local_key_flats = loc_k.count("b")
+    local_key = loc_k.replace("#", "").replace("b", "")
+    local_key_is_minor = local_key.islower()
+    local_key = local_key.lower()
+    global_key_is_minor = glob_k.islower()
+    if (
+        local_key_is_minor == global_key_is_minor
+        and local_key == "i"
+        and local_key_sharps - local_key_flats == 0
+        and (not return_step_alter)
+    ):
+        return glob_k
+    g_key = "minor" if glob_k.islower() else "major"
+    # keep only letters in local_key
+    local_key = re.sub(r"[^a-zA-Z]", "", local_key)
+    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
+    transposition_interval = Interval(num, qual)
+    transposition_interval = transposition_interval.change_quality(
+        local_key_sharps - local_key_flats
+    )
+    key_step = re.search(r"[a-gA-G]", glob_k).group(0)
+    key_alter = (
+        re.search(r"[#b]", glob_k).group(0) if re.search(r"[#b]", glob_k) else ""
+    )
+    key_alter = key_alter.replace("b", "-")
+    key_alter = ALT_TO_INT[key_alter]
+    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    if return_step_alter:
+        return key_step, key_alter
+    local_key = (
+        key_step.lower() if local_key_is_minor else key_step.upper()
+    ) + INT_TO_ALT[key_alter]
+    return local_key
 
 
 class InvalidTimePointException(Exception):

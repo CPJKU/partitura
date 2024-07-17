@@ -6,16 +6,16 @@ This file contains test functions for MEI import
 
 import unittest
 
-from tests import MEI_TESTFILES
-from partitura import load_musicxml, load_mei, EXAMPLE_MEI
+from tests import MEI_TESTFILES, MUSICXML_PATH
+from partitura import load_musicxml, load_mei, EXAMPLE_MEI, save_mei
 import partitura.score as score
 from partitura.io.importmei import MeiParser
 from partitura.utils import compute_pianoroll
 from lxml import etree
+from tempfile import TemporaryDirectory
 from xmlschema.names import XML_NAMESPACE
-
+import os
 import numpy as np
-from pathlib import Path
 
 
 # class TestSaveMEI(unittest.TestCase):
@@ -29,6 +29,40 @@ from pathlib import Path
 #         msg = "Export of MEI of file {} does not yield identical result".format(EXAMPLE_MEI)
 
 #         self.assertTrue(mei.decode('utf-8') == target_mei, msg)
+
+class TestExportMEI(unittest.TestCase):
+    def test_export_mei_simple(self):
+        import_score = load_mei(EXAMPLE_MEI)
+        ina = import_score.note_array()
+        with TemporaryDirectory() as tmpdir:
+            tmp_mei = os.path.join(tmpdir, "test.mei")
+            save_mei(import_score, tmp_mei)
+            export_score = load_mei(tmp_mei)
+            ena = export_score.note_array()
+            self.assertTrue(np.all(ina["onset_beat"] == ena["onset_beat"]))
+            self.assertTrue(np.all(ina["duration_beat"] == ena["duration_beat"]))
+            self.assertTrue(np.all(ina["pitch"] == ena["pitch"]))
+            self.assertTrue(np.all(ina["voice"] == ena["voice"]))
+            self.assertTrue(np.all(ina["id"] == ena["id"]))
+
+    def test_export_mei(self):
+        import_score = load_musicxml(os.path.join(MUSICXML_PATH, "test_chew_vosa_example.xml"), force_note_ids=True)
+        ina = import_score.note_array()
+        with TemporaryDirectory() as tmpdir:
+            tmp_mei = os.path.join(tmpdir, "test.mei")
+            save_mei(import_score, tmp_mei)
+            export_score = load_mei(tmp_mei)
+            ena = export_score.note_array()
+            self.assertTrue(np.all(ina["onset_beat"] == ena["onset_beat"]))
+            self.assertTrue(np.all(ina["duration_beat"] == ena["duration_beat"]))
+            self.assertTrue(np.all(ina["pitch"] == ena["pitch"]))
+
+    def test_export_with_harmony(self):
+        score_fn = os.path.join(MUSICXML_PATH, "test_harmony.musicxml")
+        import_score = load_musicxml(score_fn)
+        with TemporaryDirectory() as tmpdir:
+            tmp_mei = os.path.join(tmpdir, "test.mei")
+            save_mei(import_score, tmp_mei)
 
 
 class TestImportMEI(unittest.TestCase):
