@@ -219,8 +219,13 @@ class KernExporter(object):
             return self.sym_dur_to_kern(element.symbolic_duration)
 
     def pitch_to_kern(self, element: spt.GenericNote) -> str:
-        # To encode pitch correctly in kern we need to take into account the octave
-        # duplication of the step in kern can either move the note up or down an octave
+        """
+        Transform a Partitura Note object to a kern note string (only pitch).
+
+        To encode pitch correctly in kern we need to take into account that the octave
+        duplication of the step in kern can either move the note up or down an octave
+
+        """
         if isinstance(element, spt.Rest):
             return "r"
         step, alter, octave = element.step, element.alter, element.octave
