@@ -285,7 +285,7 @@ COMPOSITE_DURS = np.array([1 + 4 / 32, 1 + 4 / 16, 2 + 4 / 32, 2 + 4 / 16, 2 + 4
 
 SYM_COMPOSITE_DURS = [
     ({"type": "quarter", "dots": 0}, {"type": "32nd", "dots": 0}),
-    ({"type": "quarter", "dots": 0}, {"type": "16nd", "dots": 0}),
+    ({"type": "quarter", "dots": 0}, {"type": "16th", "dots": 0}),
     ({"type": "half", "dots": 0}, {"type": "32nd", "dots": 0}),
     ({"type": "half", "dots": 0}, {"type": "16th", "dots": 0}),
     ({"type": "half", "dots": 0}, {"type": "eighth", "dots": 0}),
