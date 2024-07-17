@@ -104,6 +104,18 @@ class KernExporter(object):
         self.prev_note_row_idx = None
 
     def parse(self):
+        """
+        Parse the partitura score to Kern format.
+
+        This method iterates over all elements in the partitura score and converts them to Kern format.
+        To better process the elements, the method first groups them by start time and then processes them in order.
+        It first finds notes and then processes structural elements (clefs, time signatures, etc.) and finally measures.
+
+        Returns
+        -------
+        self.out_data: np.ndarray
+            Kern file as a numpy array of strings.
+        """
         row_idx = 2
         for start_time in self.unique_times:
             end_time = start_time + 1
