@@ -13,8 +13,6 @@ except ImportError:
 
 
 def read_note_tsv(note_tsv_path, metadata=None):
-    # data = np.genfromtxt(note_tsv_path, delimiter="\t", dtype=None, names=True, invalid_raise=False)
-    # unique_durations = np.unique(data["duration"])
     data = pd.read_csv(note_tsv_path, sep="\t")
     # Hack for empty values in quarterbeats, to investigate.
     # (It happens with voltas when the second volta has a different number of measures)
