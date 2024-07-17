@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-This module contains methods to synthesize Partitura object to wav.
+This module contains methods to synthesize a Partitura ScoreLike object to wav.
 """
 from typing import Union, Optional, Callable, Dict, Any
 import numpy as np
