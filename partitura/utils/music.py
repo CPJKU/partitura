@@ -235,7 +235,9 @@ def transpose_note_old(step, alter, interval):
 
 def transpose_note(step, alter, interval):
     """
-    Transpose a note by a given interval without changing the octave or creating a Note Object.
+    Transpose a note by a given interval without considering the octave.
+
+    This function does not create a new Note object, but returns the new step and alteration of the note.
 
 
     Parameters
