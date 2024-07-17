@@ -1,5 +1,4 @@
 import warnings
-import re
 import numpy as np
 from math import ceil
 import partitura.score as spt
