@@ -1182,6 +1182,9 @@ def _make_pianoroll(
     onset = note_info[:, 1]
     duration = note_info[:, 2]
 
+    if len(note_info) == 0:
+        raise ValueError("Note array is empty")
+
     if np.any(duration < 0):
         raise ValueError("Note durations should be >= 0!")
 
