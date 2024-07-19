@@ -152,8 +152,8 @@ class PerformedPart(object):
 
     def note_array(self, *args, **kwargs) -> np.ndarray:
         """Structured array containing performance information.
-        The fields are 'id', 'pitch', 'onset_div', 'duration_div',
-        'onset_sec', 'duration_sec' and 'velocity'.
+        The fields are 'id', 'pitch', 'onset_tick', 'duration_tick',
+        'onset_sec', 'duration_sec', 'track', 'channel', and 'velocity'.
         """
 
         fields = [
@@ -206,9 +206,19 @@ class PerformedPart(object):
         id: str = None,
         part_name: str = None,
     ):
-        """Create an instance of PerformedPart from a note_array.
+        """
+        Create an instance of PerformedPart from a note_array.
         Note that this property does not include non-note information (i.e.
-        controls such as sustain pedal).
+        controls such as sustain pedal, program changes, tempo changes, etc.).
+
+        The following fields are mandatory:
+        'pitch', 'onset_sec', 'duration_sec',  and 'velocity'.
+
+        The following fields are used if available:
+        'id',  'track', 'channel'.
+
+        The following fields are ignored:
+        'onset_tick', 'duration_tick', all others
         """
         if "id" not in note_array.dtype.names:
             n_ids = ["n{0}".format(i) for i in range(len(note_array))]
