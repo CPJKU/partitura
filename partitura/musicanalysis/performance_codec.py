@@ -750,12 +750,14 @@ def get_time_maps_from_alignment(
         # check that all onsets have a duration
         # ornaments (grace notes) do not have a duration
         score_unique_onset_idxs = [
-                np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
-                for u in score_unique_onsets
-            ]
+            np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
+            for u in score_unique_onsets
+        ]
 
     else:
-        score_unique_onset_idxs = [np.where(score_onsets == u)[0] for u in score_unique_onsets] 
+        score_unique_onset_idxs = [
+            np.where(score_onsets == u)[0] for u in score_unique_onsets
+        ]
 
     # For chords, we use the average performed onset as a proxy for
     # representing the "performeance time" of the position of the score
