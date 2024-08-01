@@ -435,12 +435,12 @@ class SplineParser(object):
             notes[self.tie_next], notes[np.roll(self.tie_next, -1)]
         ]:
             to_tie.tie_next = note
-            # note.tie_prev = to_tie
-        for note, to_tie in np.c_[
-            notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]
-        ]:
             note.tie_prev = to_tie
-            # to_tie.tie_next = note
+        # for note, to_tie in np.c_[
+        #     notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]
+        # ]:
+        #     note.tie_prev = to_tie
+        #     # to_tie.tie_next = note
         elements[note_mask] = notes
 
         # Find Slur indices, i.e. where spline cells contain "(" or ")"
