@@ -561,7 +561,7 @@ class SplineParser(object):
             else:
                 raise ValueError("Unrecognized clef line: {}".format(line))
         else:
-            clef_line = has_line.group(0)
+            clef_line = int(has_line.group(0))
         if octave_change and clef_line == 2 and clef == "G":
             octave = -1
         elif octave_change:
