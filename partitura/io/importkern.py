@@ -430,17 +430,15 @@ class SplineParser(object):
         self.tie_prev = np.zeros(note_num, dtype=bool)
         notes = np.vectorize(self.meta_note_line, otypes=[object])(spline[note_mask])
         self.total_duration_values[note_mask] = self.note_duration_values
-        # shift tie_next by one to the right
+        # Notes should appear in order within stream so shift tie_next by one to the right
+        # and tie next and inversingly tie_prev also
+        # Case of note to chord tie or chord to note tie is not handled yet
         for note, to_tie in np.c_[
             notes[self.tie_next], notes[np.roll(self.tie_next, -1)]
         ]:
             to_tie.tie_next = note
-            # note.tie_prev = to_tie
-        for note, to_tie in np.c_[
-            notes[self.tie_prev], notes[np.roll(self.tie_prev, 1)]
-        ]:
             note.tie_prev = to_tie
-            # to_tie.tie_next = note
+
         elements[note_mask] = notes
 
         # Find Slur indices, i.e. where spline cells contain "(" or ")"
@@ -561,7 +559,7 @@ class SplineParser(object):
             else:
                 raise ValueError("Unrecognized clef line: {}".format(line))
         else:
-            clef_line = has_line.group(0)
+            clef_line = int(has_line.group(0))
         if octave_change and clef_line == 2 and clef == "G":
             octave = -1
         elif octave_change:
