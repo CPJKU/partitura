@@ -1053,7 +1053,7 @@ def metrical_strength_feature(na, part, **kwargs):
     'beat_phase' encodes the position in the measure as value between 0.0 and 1.0
     'metrical_strength_downbeat' is 1.0 on downbeats, 0.0 elsewhere
     'metrical_strength_secondary' is 1.0 on measure midpoint, 0.0 elsewhere,
-        not valid for triple meters 
+        not valid for triple meters
     'metrical_strength_weak' is 1.0 where both others are 0.0, 0.0 elsewhere
     """
     names = [
