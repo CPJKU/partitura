@@ -1049,6 +1049,12 @@ def metrical_strength_feature(na, part, **kwargs):
 
     This feature encodes the beat phase (relative position of a note within
     the measure), as well as metrical strength of common time signatures.
+
+    'beat_phase' encodes the position in the measure as value between 0.0 and 1.0
+    'metrical_strength_downbeat' is 1.0 on downbeats, 0.0 elsewhere
+    'metrical_strength_secondary' is 1.0 on measure midpoint, 0.0 elsewhere,
+        not valid for triple meters
+    'metrical_strength_weak' is 1.0 where both others are 0.0, 0.0 elsewhere
     """
     names = [
         "beat_phase",
@@ -1063,7 +1069,7 @@ def metrical_strength_feature(na, part, **kwargs):
     W[:, 0] = np.divide(relod, totmd)  # Onset Phase
     W[:, 1] = na["is_downbeat"].astype(float)
     W[:, 2][W[:, 0] == 0.5] = 1.00
-    W[:, 3][np.nonzero(np.add(W[:, 1], W[:, 0]) == 1.00)] = 1.00
+    W[:, 3][W[:, 1] == W[:, 2]] = 1.00
 
     return W, names
 

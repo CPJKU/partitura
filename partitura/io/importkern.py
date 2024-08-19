@@ -3,624 +3,793 @@
 """
 This module contains methods for importing Humdrum Kern files.
 """
-import re
+import copy
+import re, sys
 import warnings
-
 from typing import Union, Optional
-
 import numpy as np
-
-import partitura.score as score
-from partitura.utils import PathLike, get_document_name
-from partitura.utils.misc import deprecated_alias, deprecated_parameter
-
-
-__all__ = ["load_kern"]
+from math import inf, ceil
+import partitura.score as spt
+from partitura.utils import PathLike, get_document_name, symbolic_to_numeric_duration
 
 
-class KernGlobalPart(object):
-    def __init__(self, doc_name, part_id, qdivs):
-        qdivs = int(1) if int(qdivs) == 0 else int(qdivs)
-        # super(KernGlobalPart, self).__init__()
-        self.part = score.Part(doc_name, part_id, quarter_duration=qdivs)
-        self.default_clef_lines = {"G": 2, "F": 4, "C": 3}
-        self.SIGN_TO_ACC = {
-            "n": 0,
-            "#": 1,
-            "s": 1,
-            "ss": 2,
-            "x": 2,
-            "##": 2,
-            "###": 3,
-            "b": -1,
-            "f": -1,
-            "bb": -2,
-            "ff": -2,
-            "bbb": -3,
-            "-": None,
-        }
+SIGN_TO_ACC = {
+    "nn": 0,
+    "n": 0,
+    "#": 1,
+    "s": 1,
+    "ss": 2,
+    "x": 2,
+    "n#": 1,
+    "#n": 1,
+    "##": 2,
+    "###": 3,
+    "b": -1,
+    "f": -1,
+    "bb": -2,
+    "ff": -2,
+    "bbb": -3,
+    "-": -1,
+    "n-": -1,
+    "-n": -1,
+    "--": -2,
+}
 
-        self.KERN_NOTES = {
-            "C": ("C", 3),
-            "D": ("D", 3),
-            "E": ("E", 3),
-            "F": ("F", 3),
-            "G": ("G", 3),
-            "A": ("A", 3),
-            "B": ("B", 3),
-            "c": ("C", 4),
-            "d": ("D", 4),
-            "e": ("E", 4),
-            "f": ("F", 4),
-            "g": ("G", 4),
-            "a": ("A", 4),
-            "b": ("B", 4),
-        }
+KERN_NOTES = {
+    "C": ("C", 3),
+    "D": ("D", 3),
+    "E": ("E", 3),
+    "F": ("F", 3),
+    "G": ("G", 3),
+    "A": ("A", 3),
+    "B": ("B", 3),
+    "c": ("C", 4),
+    "d": ("D", 4),
+    "e": ("E", 4),
+    "f": ("F", 4),
+    "g": ("G", 4),
+    "a": ("A", 4),
+    "b": ("B", 4),
+}
 
-        self.KERN_DURS = {
-            # "long": "long",
-            # "breve": "breve",
-            0: "breve",
-            1: "whole",
-            2: "half",
-            4: "quarter",
-            8: "eighth",
-            16: "16th",
-            32: "32nd",
-            64: "64th",
-            128: "128th",
-            256: "256th",
-        }
-
-
-class KernParserPart(KernGlobalPart):
-    """
-    Class for parsing kern file syntax.
-    """
-
-    def __init__(self, stream, init_pos, doc_name, part_id, qdivs, barline_dict=None):
-        super(KernParserPart, self).__init__(doc_name, part_id, qdivs)
-        self.position = int(init_pos)
-        self.parsing = "full"
-        self.stream = stream
-        self.prev_measure_pos = init_pos
-        # Check if part has pickup measure.
-        self.measure_count = (
-            0 if np.all(np.char.startswith(stream, "=1-") == False) else 1
-        )
-        self.last_repeat_pos = None
-        self.mode = None
-        self.barline_dict = dict() if not barline_dict else barline_dict
-        self.slur_dict = {"open": [], "close": []}
-        self.tie_dict = {"open": [], "close": []}
-        self.process()
-
-    def process(self):
-        self.staff = None
-        for index, el in enumerate(self.stream):
-            self.current_index = index
-            if el.startswith("*staff"):
-                self.staff = eval(el[len("*staff") :])
-            # elif el.startswith("!!!"):
-            #     self._handle_fileinfo(el)
-            elif el.startswith("*"):
-                if self.staff == None:
-                    self.staff = 1
-                self._handle_glob_attr(el)
-            elif el.startswith("="):
-                self.select_parsing(el)
-                self._handle_barline(el)
-            elif " " in el:
-                self._handle_chord(el, index)
-            elif "r" in el:
-                self._handle_rest(el, "r-" + str(index))
-            else:
-                self._handle_note(el, "n-" + str(index))
-        self.nid_dict = dict(
-            [(n.id, n) for n in self.part.iter_all(cls=score.Note)]
-            + [(n.id, n) for n in self.part.iter_all(cls=score.GraceNote)]
-        )
-        self._handle_slurs()
-        self._handle_ties()
-
-    # Account for parsing priorities.
-    def select_parsing(self, el):
-        if self.parsing == "full":
-            return el
-        elif self.parsing == "right":
-            return el.split()[-1]
-        else:
-            return el.split()[0]
-
-    # TODO handle !!!info
-    def _handle_fileinfo(self, el):
-        pass
-
-    def _handle_ties(self):
-        try:
-            if len(self.tie_dict["open"]) < len(self.tie_dict["close"]):
-                for index, oid in enumerate(self.tie_dict["open"]):
-                    if (
-                        self.nid_dict[oid].midi_pitch
-                        != self.nid_dict[self.tie_dict["close"][index]].midi_pitch
-                    ):
-                        dnote = self.nid_dict[self.tie_dict["close"][index]]
-                        m_num = [
-                            m
-                            for m in self.part.iter_all(score.Measure)
-                            if m.start.t == self.part.measure_map(dnote.start.t)[0]
-                        ][0].number
-                        warnings.warn(
-                            "Dropping Closing Tie of note {} at position {} measure {}".format(
-                                dnote.midi_pitch, dnote.start.t, m_num
-                            )
-                        )
-                        self.tie_dict["close"].pop(index)
-                        self._handle_ties()
-            elif len(self.tie_dict["open"]) > len(self.tie_dict["close"]):
-                for index, cid in enumerate(self.tie_dict["close"]):
-                    if (
-                        self.nid_dict[cid].midi_pitch
-                        != self.nid_dict[self.tie_dict["open"][index]].midi_pitch
-                    ):
-                        dnote = self.nid_dict[self.tie_dict["open"][index]]
-                        m_num = [
-                            m
-                            for m in self.part.iter_all(score.Measure)
-                            if m.start.t == self.part.measure_map(dnote.start.t)[0]
-                        ][0].number
-                        warnings.warn(
-                            "Dropping Opening Tie of note {} at position {} measure {}".format(
-                                dnote.midi_pitch, dnote.start.t, m_num
-                            )
-                        )
-                        self.tie_dict["open"].pop(index)
-                        self._handle_ties()
-            else:
-                for oid, cid in list(
-                    zip(self.tie_dict["open"], self.tie_dict["close"])
-                ):
-                    self.nid_dict[oid].tie_next = self.nid_dict[cid]
-                    self.nid_dict[cid].tie_prev = self.nid_dict[oid]
-        except Exception:
-            raise ValueError(
-                "Tie Mismatch! Uneven amount of closing to open tie brackets."
-            )
-
-    def _handle_slurs(self):
-        if len(self.slur_dict["open"]) != len(self.slur_dict["close"]):
-            warnings.warn(
-                "Slur Mismatch! Uneven amount of closing to open slur brackets. Skipping slur parsing.",
-                ImportWarning,
-            )
-            # raise ValueError(
-            #     "Slur Mismatch! Uneven amount of closing to open slur brackets."
-            # )
-        else:
-            for oid, cid in list(zip(self.slur_dict["open"], self.slur_dict["close"])):
-                self.part.add(score.Slur(self.nid_dict[oid], self.nid_dict[cid]))
-
-    def _handle_metersig(self, metersig):
-        m = metersig[2:]
-        numerator, denominator = map(eval, m.split("/"))
-        new_time_signature = score.TimeSignature(numerator, denominator)
-        self.part.add(new_time_signature, self.position)
-
-    def _handle_barline(self, element):
-        if self.position > self.prev_measure_pos:
-            indicated_measure = re.findall("=([0-9]+)", element)
-            if indicated_measure != []:
-                m = eval(indicated_measure[0]) - 1
-                barline = score.Barline(style="normal")
-                self.part.add(barline, self.position)
-                self.measure_count = m
-                self.barline_dict[m] = self.position
-            else:
-                m = self.measure_count - 1
-            self.part.add(score.Measure(m), self.prev_measure_pos, self.position)
-            self.prev_measure_pos = self.position
-            self.measure_count += 1
-        if len(element.split()) > 1:
-            element = element.split()[0]
-        if element.endswith("!") or element == "==":
-            barline = score.Fine()
-            self.part.add(barline, self.position)
-        if ":|" in element:
-            barline = score.Repeat()
-            self.part.add(
-                barline,
-                self.position,
-                self.last_repeat_pos if self.last_repeat_pos else None,
-            )
-        # update position for backward repeat signs
-        if "|:" in element:
-            self.last_repeat_pos = self.position
-
-    # TODO maybe also append position for verification.
-    def _handle_mode(self, element):
-        if element[1].isupper():
-            self.mode = "major"
-        else:
-            self.mode = "minor"
-
-    def _handle_keysig(self, element):
-        keysig_el = element[2:]
-        fifths = 0
-        for c in keysig_el:
-            if c == "#":
-                fifths += 1
-            if c == "b":
-                fifths -= 1
-        # TODO retrieve the key mode
-        mode = self.mode if self.mode else "major"
-        new_key_signature = score.KeySignature(fifths, mode)
-        self.part.add(new_key_signature, self.position)
-
-    def _compute_clef_octave(self, dis, dis_place):
-        if dis is not None:
-            sign = -1 if dis_place == "below" else 1
-            octave = sign * int(int(dis) / 8)
-        else:
-            octave = 0
-        return octave
-
-    def _handle_clef(self, element):
-        # handle the case where we have clef information
-        # TODO Compute Clef Octave
-        if element[5] not in ["G", "F", "C"]:
-            raise ValueError("Unknown Clef", element[5])
-        if len(element) < 7:
-            line = self.default_clef_lines[element[5]]
-        else:
-            line = int(element[6]) if element[6] != "v" else int(element[7])
-        new_clef = score.Clef(
-            staff=self.staff, sign=element[5], line=line, octave_change=0
-        )
-        self.part.add(new_clef, self.position)
-
-    def _handle_rest(self, el, rest_id):
-        # find duration info
-        duration, symbolic_duration, rtype = self._handle_duration(el)
-        # create rest
-        rest = score.Rest(
-            id=rest_id,
-            voice=1,
-            staff=1,
-            symbolic_duration=symbolic_duration,
-            articulations=None,
-        )
-        # add rest to the part
-        self.part.add(rest, self.position, self.position + duration)
-        # return duration to update the position in the layer
-        self.position += duration
-
-    def _handle_fermata(self, note_instance):
-        self.part.add(note_instance, self.position)
-
-    def _search_slurs_and_ties(self, note, note_id):
-        if ")" in note:
-            x = note.count(")")
-            if len(self.slur_dict["open"]) == len(self.slur_dict["close"]) + x:
-                # for _ in range(x):
-                self.slur_dict["close"].append(note_id)
-        if note.startswith("("):
-            # acount for multiple opening brackets
-            n = note.count("(")
-            # for _ in range(n):
-            self.slur_dict["open"].append(note_id)
-            # Re-order for correct parsing
-            if len(self.slur_dict["open"]) > len(self.slur_dict["close"]) + 1:
-                warnings.warn(
-                    "Cannot deal with nested slurs. Dropping Opening slur for note id {}".format(
-                        self.slur_dict["open"][len(self.slur_dict["open"]) - 2]
-                    )
-                )
-                self.slur_dict["open"].pop(len(self.slur_dict["open"]) - 2)
-                # x = note_id
-                # lenc = len(self.slur_dict["open"]) - len(self.slur_dict["close"])
-                # self.slur_dict["open"][:lenc - 1] = self.slur_dict["open"][1:lenc]
-                # self.slur_dict["open"][lenc] = x
-            note = note[n:]
-        if "]" in note:
-            self.tie_dict["close"].append(note_id)
-        elif "_" in note:
-            self.tie_dict["open"].append(note_id)
-            self.tie_dict["close"].append(note_id)
-        if note.startswith("["):
-            self.tie_dict["open"].append(note_id)
-            note = note[1:]
-        return note
-
-    def _handle_duration(self, note, isgrace=False):
-        if isgrace:
-            _, dur, ntype = re.split("(\d+)", note)
-            ntype = _ + ntype
-        else:
-            _, dur, ntype = re.split("(\d+)", note)
-        dur = eval(dur)
-        if dur in self.KERN_DURS.keys():
-            symbolic_duration = {"type": self.KERN_DURS[dur]}
-        else:
-            diff = dict(
-                (
-                    map(
-                        lambda x: (dur - x, x) if dur > x else (dur + x, x),
-                        self.KERN_DURS.keys(),
-                    )
-                )
-            )
-            symbolic_duration = {
-                "type": self.KERN_DURS[diff[min(list(diff.keys()))]],
-                "actual_notes": dur / 4,
-                "normal_notes": diff[min(list(diff.keys()))] / 4,
-            }
-
-        # calculate duration to divs.
-        qdivs = self.part._quarter_durations[0]
-        duration = qdivs * 4 / dur if dur != 0 else qdivs * 8
-        if "." in note:
-            symbolic_duration["dots"] = note.count(".")
-            ntype = ntype[note.count(".") :]
-            d = duration
-            for i in range(symbolic_duration["dots"]):
-                d = d / 2
-                duration += d
-        else:
-            symbolic_duration["dots"] = 0
-        if isinstance(duration, float):
-            if not duration.is_integer():
-                raise ValueError("Duration divs is not an integer, {}".format(duration))
-        # Check that duration is same as int
-        assert int(duration) == duration
-        return int(duration), symbolic_duration, ntype
-
-    # TODO Handle beams and tuplets.
-
-    def _handle_note(self, note, note_id, voice=1):
-        if note == ".":
-            return
-        has_fermata = ";" in note
-        note = self._search_slurs_and_ties(note, note_id)
-        grace_attr = "q" in note  # or "p" in note # for appoggiatura not sure yet.
-        duration, symbolic_duration, ntype = self._handle_duration(note, grace_attr)
-        # Remove editorial symbols from string, i.e. "x"
-        ntype = ntype.replace("x", "")
-        step, octave = self.KERN_NOTES[ntype[0]]
-        if octave == 4:
-            octave = octave + ntype.count(ntype[0]) - 1
-        elif octave == 3:
-            octave = octave - ntype.count(ntype[0]) + 1
-        alter = ntype.count("#") - ntype.count("-")
-        # find if it's grace
-        if not grace_attr:
-            # create normal note
-            note = score.Note(
-                step=step,
-                octave=octave,
-                alter=alter,
-                id=note_id,
-                voice=int(voice),
-                staff=self.staff,
-                symbolic_duration=symbolic_duration,
-                articulations=None,  # TODO : add articulation
-            )
-            if has_fermata:
-                self._handle_fermata(note)
-        else:
-            # create grace note
-            if "p" in ntype:
-                grace_type = "acciaccatura"
-            elif "q" in ntype:
-                grace_type = "appoggiatura"
-            note = score.GraceNote(
-                grace_type=grace_type,
-                step=step,
-                octave=octave,
-                alter=alter,
-                id=note_id,
-                voice=1,
-                staff=self.staff,
-                symbolic_duration=symbolic_duration,
-                articulations=None,  # TODO : add articulation
-            )
-            duration = 0
-
-        self.part.add(note, self.position, self.position + duration)
-        self.position += duration
-
-    def _handle_chord(self, chord, id):
-        notes = chord.split()
-        position_history = list()
-        pos = self.position
-        for i, note_el in enumerate(notes):
-            id_new = "c-" + str(i) + "-" + str(id)
-            self.position = pos
-            if "r" in note_el:
-                self._handle_rest(note_el, id_new)
-            else:
-                self._handle_note(note_el, id_new, voice=int(i))
-            if note_el != ".":
-                position_history.append(self.position)
-        # To account for Voice changes and alternate voice order.
-        self.position = min(position_history) if position_history else self.position
-
-    def _handle_glob_attr(self, el):
-        if el.startswith("*clef"):
-            self._handle_clef(el)
-        elif el.startswith("*k"):
-            self._handle_keysig(el)
-        elif el.startswith("*MM"):
-            pass
-        elif el.startswith("*M"):
-            self._handle_metersig(el)
-        elif el.endswith(":"):
-            self._handle_mode(el)
-        elif el.startswith("*S/sic"):
-            self.parsing = "left"
-        elif el.startswith("*S/ossia"):
-            self.parsing = "right"
-        elif el.startswith("Xstrophe"):
-            self.parsing = "full"
+KERN_DURS = {
+    "3%2": {"type": "whole", "dots": 0, "actual_notes": 3, "normal_notes": 2},
+    "2%3": {"type": "whole", "dots": 1},
+    "000": {"type": "maxima"},
+    "00": {"type": "long"},
+    "0": {"type": "breve"},
+    "1": {"type": "whole"},
+    "2": {"type": "half"},
+    "4": {"type": "quarter"},
+    "8": {"type": "eighth"},
+    "16": {"type": "16th"},
+    "32": {"type": "32nd"},
+    "64": {"type": "64th"},
+    "128": {"type": "128th"},
+    "256": {"type": "256th"},
+}
 
 
-class KernParser:
-    def __init__(self, document, doc_name):
-        self.document = document
-        self.doc_name = doc_name
-        # TODO review this code
-        self.DIVS2Q = {
-            1: 0.25,
-            2: 0.5,
-            4: 1,
-            6: 1.5,
-            8: 2,
-            16: 4,
-            24: 6,
-            32: 8,
-            48: 12,
-            64: 16,
-            128: 32,
-            256: 64,
-        }
-        # self.qdivs =
-        self.parts = self.process()
+def add_durations(a, b):
+    return a * b / (a + b)
 
-    def __getitem__(self, item):
-        return self.parts[item]
 
-    def process(self):
-        # TODO handle pickup
-        # has_pickup = not np.all(np.char.startswith(self.document, "=1-") == False)
-        # if not has_pickup:
-        #     position = 0
-        # else:
-        #     position = self._handle_pickup_position()
-        position = 0
-        # Add for parallel processing
-        parts = [
-            self.collect(self.document[i], position, str(i), self.doc_name)
-            for i in reversed(range(self.document.shape[0]))
-        ]
-        return [p for p in parts if p]
-
-    def add2part(self, part, unprocessed):
-        flatten = [item for sublist in unprocessed for item in sublist]
-        if unprocessed:
-            new_part = KernParserPart(
-                flatten, 0, self.doc_name, "x", self.qdivs, part.barline_dict
-            )
-            self.parts.append(new_part)
-
-    def collect(self, doc, pos, id, doc_name):
-        if doc[0] == "**kern":
-            qdivs = self.find_lcm(doc)
-            x = KernParserPart(doc, pos, id, doc_name, qdivs).part
-            return x
-
-    # TODO handle position of pick-up measure?
-    def _handle_pickup_position(self):
+def dot_function(duration: int, dots: int):
+    if dots == 0:
+        return duration
+    elif duration == 0:
         return 0
-
-    def find_lcm(self, doc):
-        kern_string = "-".join([row for row in doc])
-        match = re.findall(r"([0-9]+)([a-g]|[A-G]|r|\.)", kern_string)
-        durs, _ = zip(*match)
-        x = np.array(list(map(lambda x: int(x), durs)))
-        divs = np.lcm.reduce(np.unique(x[x != 0]))
-        return float(divs) / 4.00
+    else:
+        return add_durations((2**dots) * duration, dot_function(duration, dots - 1))
 
 
-# functions to initialize the kern parser
-def parse_kern(kern_path: PathLike) -> np.ndarray:
+def parse_by_voice(file: list, dtype=np.object_):
+    indices_to_remove = []
+    voices = 1
+    for i, line in enumerate(file):
+        for v in range(voices):
+            indices_to_remove.append([i, v])
+        if any([line[v] == "*^" for v in range(voices)]):
+            voices += 1
+        elif sum([(line[v] == "*v") for v in range(voices)]):
+            sum_vred = sum([line[v] == "*v" for v in range(voices)]) // 2
+            voices = voices - sum_vred
+
+    voice_indices = np.array(indices_to_remove)
+    num_voices = voice_indices[:, 1].max() + 1
+    data = np.empty((len(file), num_voices), dtype=dtype)
+    for line, voice in voice_indices:
+        data[line, voice] = file[line][voice]
+    data = data.T
+    if num_voices > 1:
+        # Copy global lines from the first voice to all other voices
+        cp_idx = np.char.startswith(data[0], "*")
+        for i in range(1, num_voices):
+            data[i][cp_idx] = data[0][cp_idx]
+        # Copy Measure Lines from the first voice to all other voices
+        cp_idx = np.char.startswith(data[0], "=")
+        for i in range(1, num_voices):
+            data[i][cp_idx] = data[0][cp_idx]
+    return data, voice_indices, num_voices
+
+
+def _handle_kern_with_spine_splitting(kern_path: PathLike):
     """
-    Parses an KERN file from path to an regular expression.
+    Parse a kern file with spine splitting.
+
+    A special case of kern files is when the file contains multiple spines that are split by voice. In this case, this
+    function will restructure the data in a way that it can be parsed by the kern parser.
 
     Parameters
     ----------
-    kern_path : PathLike
-        The path of the KERN document.
+    kern_path: str
+
     Returns
     -------
-    continuous_parts : numpy character array
-    non_continuous_parts : list
+    data: np.array
+        The data to be parsed.
+    parsing_idxs: np.array
+        The indices of the data that are being parsed indicating the assignment of voices.
     """
-    with open(kern_path, encoding="cp437") as file:
-        lines = file.read().splitlines()
-    d = [line.split("\t") for line in lines if not line.startswith("!")]
-    striped_parts = list()
-    merge_index = []
-    for x in d:
-        if merge_index:
-            for midx in merge_index:
-                x[midx] = x[midx] + " " + x[midx + 1]
-            y = [el for i, el in enumerate(x) if i - 1 not in merge_index]
-            striped_parts.append(y)
+    # org_file = np.loadtxt(kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437")
+    org_file = np.genfromtxt(
+        kern_path, dtype="U", delimiter="\n", comments="!!!", encoding="cp437"
+    )
+    # Get Main Number of parts and Spline Types
+    spline_types = org_file[0].split("\t")
+    parsing_idxs = []
+    dtype = org_file.dtype
+    data = []
+    file = org_file.tolist()
+    file = [line.split("\t") for line in file if not line.startswith("!")]
+    continue_parsing = True
+    for i in range(len(spline_types)):
+        # Parse by voice
+        d, voice_indices, num_voices = parse_by_voice(file, dtype=dtype)
+        data.append(d)
+        parsing_idxs.append([i for _ in range(num_voices)])
+        # Remove all parsed cells from the file
+        voice_indices = voice_indices[
+            np.lexsort((voice_indices[:, 1] * -1, voice_indices[:, 0]))
+        ]
+        for line, voice in voice_indices:
+            if voice < len(file[line]):
+                file[line].pop(voice)
+            else:
+                print(
+                    "Line {} does not have a voice {} from original line {}".format(
+                        line, voice, org_file[line]
+                    )
+                )
+    data = np.vstack(data).T
+    parsing_idxs = np.hstack(parsing_idxs).T
+    return data, parsing_idxs
+
+
+def element_parsing(
+    part: spt.Part, elements: np.array, total_duration_values: np.array, same_part: bool
+):
+    divs_pq = part._quarter_durations[0]
+    current_tl_pos = 0
+    measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
+    for i in range(elements.shape[0]):
+        element = elements[i]
+        if element is None:
+            continue
+        if isinstance(element, spt.GenericNote):
+            if total_duration_values[i] == 0:
+                duration_divs = symbolic_to_numeric_duration(
+                    element.symbolic_duration, divs_pq
+                )
+            else:
+                quarter_duration = 4 / total_duration_values[i]
+                duration_divs = ceil(quarter_duration * divs_pq)
+            el_end = current_tl_pos + duration_divs
+            part.add(element, start=current_tl_pos, end=el_end)
+            current_tl_pos = el_end
+        elif isinstance(element, tuple):
+            # Chord
+            quarter_duration = 4 / total_duration_values[i]
+            duration_divs = ceil(quarter_duration * divs_pq)
+            el_end = current_tl_pos + duration_divs
+            for note in element[1]:
+                part.add(note, start=current_tl_pos, end=el_end)
+            current_tl_pos = el_end
+        elif isinstance(element, spt.Slur):
+            start_sl = element.start_note.start.t
+            end_sl = element.end_note.start.t
+            part.add(element, start=start_sl, end=end_sl)
+
         else:
-            striped_parts.append(x)
-        if "*^" in x or "*+":
-            # Accounting for multiple voice ups at the same time.
-            for i, el in enumerate(x):
-                # Some faulty kerns create an extra part half way through the score.
-                # We choose for the moment to add it to the closest column part.
-                if el == "*^" or el == "*+":
-                    k = i
-                    if merge_index:
-                        if k < min(merge_index):
-                            merge_index = [midx + 1 for midx in merge_index]
-                    merge_index.append(k)
-        if "*v *v" in x:
-            k = x.index("*v *v")
-            temp = list()
-            for i in merge_index:
-                if i > k:
-                    temp.append(i - 1)
-                elif i < k:
-                    temp.append(i)
-            merge_index = temp
-    # Final filter for mistabs and inconsistent tabs that would create
-    # extra empty voice and would mess the parsing.
-    striped_parts = [[el for el in part if el != ""] for part in striped_parts]
-    numpy_parts = np.array(list(zip(striped_parts))).squeeze(1).T
-    return numpy_parts
+            # Do not repeat structural elements if they are being added to the same part.
+            if not same_part:
+                part.add(element, start=current_tl_pos)
+            else:
+                if isinstance(element, spt.Measure):
+                    current_tl_pos = measure_mapping[element.number]
 
 
-@deprecated_alias(kern_path="filename")
-@deprecated_parameter("ensure_list")
+# functions to initialize the kern parser
 def load_kern(
     filename: PathLike,
     force_note_ids: Optional[Union[bool, str]] = None,
-    parallel: bool = False,
-) -> score.Score:
-    """Parse a Kern file and build a composite score ontology
-    structure from it (see also scoreontology.py).
+) -> spt.Score:
+    """
+    Parses an KERN file from path to Part.
 
     Parameters
     ----------
     filename : PathLike
-        Path to the Kern file to be parsed
-    force_note_ids : (bool, 'keep') optional.
-        When True each Note in the returned Part(s) will have a newly
-        assigned unique id attribute. Existing note id attributes in
-        the Kern will be discarded. If 'keep', only notes without
-        a note id will be assigned one.
-
+        The path of the KERN document.
+    force_note_ids : (None, bool or "keep")
+        When True each Note in the returned Part(s) will have a newly assigned unique id attribute.
     Returns
     -------
-    scr: :class:`partitura.score.Score`
-        A `Score` object
+    score : partitura.score.Score
+        The score object containing the parts.
     """
-    # parse kern file
-    numpy_parts = parse_kern(filename)
-    # doc_name = os.path.basename(filename[:-4])
-    doc_name = get_document_name(filename)
-    parser = KernParser(numpy_parts, doc_name)
-    partlist = parser.parts
+    try:
+        # This version of the parser is faster but does not support spine splitting.
+        file = np.loadtxt(
+            filename, dtype="U", delimiter="\t", comments="!!", encoding="cp437"
+        )
+        parsing_idxs = np.arange(file.shape[0])
+        # Decide Parts
 
-    score.assign_note_ids(
+    except ValueError:
+        # This version of the parser supports spine splitting but is slower.
+        file, parsing_idxs = _handle_kern_with_spine_splitting(filename)
+
+    partlist = []
+    # Get Main Number of parts and Spline Types
+    spline_types = file[0]
+
+    # Find parsable parts if they start with "**kern" or "**notes"
+    note_parts = np.char.startswith(spline_types, "**kern") | np.char.startswith(
+        spline_types, "**notes"
+    )
+    # Get Splines
+    splines = file[1:].T[note_parts]
+    # Inverse Order
+    splines = splines[::-1]
+    parsing_idxs = parsing_idxs[::-1]
+    prev_staff = 1
+    has_instrument = np.char.startswith(splines, "*I")
+    # if all parts have the same instrument, then they are the same part.
+    p_same_part = (
+        np.all(splines[has_instrument] == splines[has_instrument][0], axis=0)
+        if np.any(has_instrument)
+        else False
+    )
+    total_durations_list = list()
+    elements_list = list()
+    part_assignments = list()
+    copy_partlist = list()
+    for j, spline in enumerate(splines):
+        parser = SplineParser(
+            size=spline.shape[-1],
+            id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j),
+            staff=prev_staff,
+        )
+        same_part = False
+        if parser.id in [p.id for p in copy_partlist]:
+            same_part = True
+            warnings.warn(
+                "Part {} already exists. Adding to previous Part.".format(parser.id)
+            )
+            part = [p for p in copy_partlist if p.id == parser.id][0]
+            has_staff = np.char.startswith(spline, "*staff")
+            staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
+            if parser.staff != staff:
+                parser.staff = staff
+            else:
+                parser.voice += 1
+            elements = parser.parse(spline)
+            unique_durs = np.unique(parser.total_duration_values).astype(int)
+            divs_pq = np.lcm.reduce(unique_durs)
+            divs_pq = divs_pq if divs_pq > 4 else 4
+            # compare divs_pq to the divs_pq of the part
+            divs_pq = np.lcm.reduce([divs_pq, part._quarter_durations[0]])
+            part.set_quarter_duration(0, divs_pq)
+        else:
+            has_staff = np.char.startswith(spline, "*staff")
+            staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
+            # Correction for currating multiple staffs.
+            if parser.staff != staff:
+                parser.staff = staff
+                prev_staff = staff
+            elements = parser.parse(spline)
+            # Routine to filter out non integer durations
+            unique_durs = np.unique(parser.total_duration_values)
+            # Remove all infinite values
+            unique_durs = unique_durs[np.isfinite(unique_durs)]
+            d_mul = 2
+            while not np.all(np.isclose(unique_durs % 1, 0.0)):
+                unique_durs = unique_durs * d_mul
+                d_mul += 1
+            unique_durs = unique_durs.astype(int)
+
+            divs_pq = np.lcm.reduce(unique_durs)
+            divs_pq = divs_pq if divs_pq > 4 else 4
+            # Initialize Part
+            part = spt.Part(
+                id=parser.id, quarter_duration=divs_pq, part_name=parser.name
+            )
+
+        part_assignments.append(same_part)
+        total_durations_list.append(parser.total_duration_values)
+        elements_list.append(elements)
+        copy_partlist.append(part)
+
+    # Currate parts to the same divs per quarter
+    divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in copy_partlist])
+    for part in copy_partlist:
+        part.set_quarter_duration(0, divs_pq)
+
+    for part, elements, total_duration_values, same_part in zip(
+        copy_partlist, elements_list, total_durations_list, part_assignments
+    ):
+        element_parsing(part, elements, total_duration_values, same_part)
+
+    for i, part in enumerate(copy_partlist):
+        if part_assignments[i]:
+            continue
+        # For all measures add end time as beginning time of next measure
+        measures = part.measures
+        for i in range(len(measures) - 1):
+            measures[i].end = measures[i + 1].start
+        measures[-1].end = part.last_point
+        # find and add pickup measure
+        if part.measures[0].start.t != 0:
+            part.add(spt.Measure(number=0), start=0, end=part.measures[0].start.t)
+
+        if parser.id not in [p.id for p in partlist]:
+            partlist.append(part)
+
+    spt.assign_note_ids(
         partlist, keep=(force_note_ids is True or force_note_ids == "keep")
     )
 
-    # TODO: Parse score info (composer, lyricist, etc.)
-    scr = score.Score(id=doc_name, partlist=partlist)
+    doc_name = get_document_name(filename)
+    score = spt.Score(partlist=partlist, id=doc_name)
+    return score
 
-    return scr
+
+class SplineParser(object):
+    def __init__(self, id="P1", staff=1, voice=1, size=1, name=""):
+        self.id = id
+        self.name = name
+        self.staff = staff
+        self.voice = voice
+        self.total_duration_values = []
+        self.alters = []
+        self.size = size
+        self.total_parsed_elements = 0
+        self.tie_prev = None
+        self.tie_next = None
+        self.slurs_start = []
+        self.slurs_end = []
+
+    def parse(self, spline: np.array):
+        """
+        Parse a spline line and return the elements.
+
+        Parameters
+        ----------
+        spline: np.array
+            The spline line to parse. It is a numpy array of strings.
+
+        Returns
+        -------
+        elements: np.array
+            The parsed elements of the spline line.
+        """
+        # Remove "-" lines
+        spline = spline[spline != "-"]
+        # Remove "." lines
+        spline = spline[spline != "."]
+        # Remove Empty lines
+        spline = spline[spline != ""]
+        # Remove None lines
+        spline = spline[spline != None]
+        # Remove lines that start with "!"
+        spline = spline[np.char.startswith(spline, "!") == False]
+        # Empty Numpy array with objects
+        elements = np.empty(len(spline), dtype=object)
+        self.total_duration_values = np.ones(len(spline))
+        # Find Global indices, i.e. where spline cells start with "*" and process
+        tandem_mask = np.char.find(spline, "*") != -1
+        elements[tandem_mask] = np.vectorize(self.meta_tandem_line, otypes=[object])(
+            spline[tandem_mask]
+        )
+        # Find Barline indices, i.e. where spline cells start with "="
+        bar_mask = np.char.find(spline, "=") != -1
+        elements[bar_mask] = np.vectorize(self.meta_barline_line, otypes=[object])(
+            spline[bar_mask]
+        )
+        # Find Chord indices, i.e. where spline cells contain " "
+        chord_mask = np.char.find(spline, " ") != -1
+        chord_mask = np.logical_and(chord_mask, np.logical_and(~tandem_mask, ~bar_mask))
+        self.total_parsed_elements = -1
+        self.note_duration_values = np.ones(len(spline[chord_mask]))
+        chord_num = np.count_nonzero(chord_mask)
+        self.tie_next = np.zeros(chord_num, dtype=bool)
+        self.tie_prev = np.zeros(chord_num, dtype=bool)
+        elements[chord_mask] = np.vectorize(self.meta_chord_line, otypes=[object])(
+            spline[chord_mask]
+        )
+        self.total_duration_values[chord_mask] = self.note_duration_values
+        # TODO: figure out slurs for chords
+
+        # All the rest are note indices
+        note_mask = np.logical_and(~tandem_mask, np.logical_and(~bar_mask, ~chord_mask))
+        self.total_parsed_elements = -1
+        self.note_duration_values = np.ones(len(spline[note_mask]))
+        note_num = np.count_nonzero(note_mask)
+        self.tie_next = np.zeros(note_num, dtype=bool)
+        self.tie_prev = np.zeros(note_num, dtype=bool)
+        notes = np.vectorize(self.meta_note_line, otypes=[object])(spline[note_mask])
+        self.total_duration_values[note_mask] = self.note_duration_values
+        # Notes should appear in order within stream so shift tie_next by one to the right
+        # and tie next and inversingly tie_prev also
+        # Case of note to chord tie or chord to note tie is not handled yet
+        for note, to_tie in np.c_[
+            notes[self.tie_next], notes[np.roll(self.tie_next, -1)]
+        ]:
+            to_tie.tie_next = note
+            note.tie_prev = to_tie
+
+        elements[note_mask] = notes
+
+        # Find Slur indices, i.e. where spline cells contain "(" or ")"
+        open_slur_mask = np.char.find(spline[note_mask], "(") != -1
+        close_slur_mask = np.char.find(spline[note_mask], ")") != -1
+        self.slurs_start = np.where(open_slur_mask)[0]
+        self.slurs_end = np.where(close_slur_mask)[0]
+        # Only add slur if there is a start and end
+        if len(self.slurs_start) == len(self.slurs_end):
+            slurs = np.empty(len(self.slurs_start), dtype=object)
+            for i, (start, end) in enumerate(zip(self.slurs_start, self.slurs_end)):
+                slurs[i] = spt.Slur(notes[start], notes[end])
+            # Add slurs to elements
+            elements = np.append(elements, slurs)
+        else:
+            warnings.warn(
+                "Slurs openings and closings do not match. Skipping parsing slurs for this part {}.".format(
+                    self.id
+                )
+            )
+
+        return elements
+
+    def meta_tandem_line(self, line: str):
+        """
+        Find all tandem lines
+        """
+        # find number and keep its index.
+        self.total_parsed_elements += 1
+        if line.startswith("*MM"):
+            rest = line[3:]
+            return self.process_tempo_line(rest)
+        elif line.startswith("*I"):
+            rest = line[2:]
+            return self.process_istrument_line(rest)
+        elif line.startswith("*clef"):
+            rest = line[5:]
+            return self.process_clef_line(rest)
+        elif line.startswith("*M"):
+            rest = line[2:]
+            return self.process_meter_line(rest)
+        elif line.startswith("*k"):
+            rest = line[2:]
+            return self.process_key_signature_line(rest)
+        elif line.startswith("*IC"):
+            rest = line[3:]
+            return self.process_istrument_class_line(rest)
+        elif line.startswith("*IG"):
+            rest = line[3:]
+            return self.process_istrument_group_line(rest)
+        elif line.startswith("*tb"):
+            rest = line[3:]
+            return self.process_timebase_line(rest)
+        elif line.startswith("*ITr"):
+            rest = line[4:]
+            return self.process_istrument_transpose_line(rest)
+        elif line.startswith("*staff"):
+            rest = line[6:]
+            return self.process_staff_line(rest)
+        elif line.endswith(":"):
+            rest = line[1:]
+            return self.process_key_line(rest)
+        elif line.startswith("*-"):
+            return self.process_fine()
+
+    def process_tempo_line(self, line: str):
+        return spt.Tempo(float(line))
+
+    def process_fine(self):
+        return spt.Fine()
+
+    def process_istrument_line(self, line: str):
+        # TODO: add support for instrument lines
+        return
+
+    def process_istrument_class_line(self, line: str):
+        # TODO: add support for instrument class lines
+        return
+
+    def process_istrument_group_line(self, line: str):
+        # TODO: add support for instrument group lines
+        return
+
+    def process_timebase_line(self, line: str):
+        # TODO: add support for timebase lines
+        return
+
+    def process_istrument_transpose_line(self, line: str):
+        # TODO: add support for instrument transpose lines
+        return
+
+    def process_key_line(self, line: str):
+        find = re.search(r"([a-gA-G])", line).group(0)
+        # check if the key is major or minor by checking if the key is in lower or upper case.
+        self.mode = "minor" if find.islower() else "major"
+        return
+
+    def process_staff_line(self, line: str):
+        self.staff = int(line)
+        return spt.Staff(self.staff)
+
+    def process_clef_line(self, line: str):
+        # if the cleff line does not contain any of the following characters, ["G", "F", "C"], raise a ValueError.
+        if not any(c in line for c in ["G", "F", "C"]):
+            raise ValueError("Unrecognized clef: {}".format(line))
+        # find the clef
+        clef = re.search(r"([GFC])", line).group(0)
+        # find the octave
+        has_line = re.search(r"([0-9])", line)
+        octave_change = "v" in line
+        if has_line is None:
+            if clef == "G":
+                clef_line = 2
+            elif clef == "F":
+                clef_line = 4
+            elif clef == "C":
+                clef_line = 3
+            else:
+                raise ValueError("Unrecognized clef line: {}".format(line))
+        else:
+            clef_line = int(has_line.group(0))
+        if octave_change and clef_line == 2 and clef == "G":
+            octave = -1
+        elif octave_change:
+            warnings.warn("Octave change not supported for clef: {}".format(line))
+            octave = 0
+        else:
+            octave = 0
+
+        return spt.Clef(
+            sign=clef, staff=self.staff, line=int(clef_line), octave_change=octave
+        )
+
+    def process_key_signature_line(self, line: str):
+        fifths = line.count("#") - line.count("-")
+        alters = re.findall(r"([a-gA-G#\-]+)", line)
+        alters = "".join(alters)
+        # split alters by two characters
+        self.alters = [alters[i : i + 2] for i in range(0, len(alters), 2)]
+        # TODO retrieve the key mode
+        mode = "major"
+        return spt.KeySignature(fifths, mode)
+
+    def process_meter_line(self, line: str):
+        if " " in line:
+            line = line.split(" ")[0]
+        numerator, denominator = line.split("/")
+        # Find digits in numerator and denominator and convert to int
+        numerator = int(re.search(r"([0-9]+)", numerator).group(0))
+        denominator = int(re.search(r"([0-9]+)", denominator).group(0))
+        return spt.TimeSignature(numerator, denominator)
+
+    def _process_kern_pitch(self, pitch: str):
+        # find accidentals
+        alter = re.search(r"([n#-]+)", pitch)
+        # remove alter from pitch
+        pitch = pitch.replace(alter.group(0), "") if alter else pitch
+        step, octave = KERN_NOTES[pitch[0]]
+        # do_alt = (step + alter.group(0)).lower() not in self.alters if alter else False
+        if octave == 4:
+            octave = octave + pitch.count(pitch[0]) - 1
+        elif octave == 3:
+            octave = octave - pitch.count(pitch[0]) + 1
+        alter = SIGN_TO_ACC[alter.group(0)] if alter is not None else None
+        return step, octave, alter
+
+    def _process_kern_duration(self, duration: str, is_grace=False):
+        """
+        Process the duration of a note.
+
+        Parameters
+        ----------
+        duration: str
+            The duration of the note.
+        is_grace: bool(default=False)
+            If the note is a grace note.
+        Returns
+        -------
+        symbolic_duration: dict
+            A dictionary containing the symbolic duration of the note.
+        """
+        dots = duration.count(".")
+        dur = duration.replace(".", "")
+        if dur in KERN_DURS.keys():
+            symbolic_duration = copy.deepcopy(KERN_DURS[dur])
+        else:
+            dur = float(dur)
+            key_loolup = [2**i for i in range(0, 9)]
+            diff = dict(
+                (
+                    map(
+                        lambda x: (dur - x, str(x)) if dur > x else (dur + x, str(x)),
+                        key_loolup,
+                    )
+                )
+            )
+
+            symbolic_duration = copy.deepcopy(KERN_DURS[diff[min(list(diff.keys()))]])
+            symbolic_duration["actual_notes"] = int(dur // 4)
+            symbolic_duration["normal_notes"] = int(diff[min(list(diff.keys()))]) // 4
+        if dots:
+            symbolic_duration["dots"] = dots
+        self.note_duration_values[self.total_parsed_elements] = (
+            dot_function((float(dur) if isinstance(dur, str) else dur), dots)
+            if not is_grace
+            else inf
+        )
+        return symbolic_duration
+
+    def process_symbol(self, note: spt.Note, symbols: list):
+        """
+        Process the symbols of a note.
+
+        Parameters
+        ----------
+        note: spt.Note
+            The note to add the symbols to.
+        symbols: list
+            List of symbols to process.
+        """
+        if "[" in symbols:
+            self.tie_prev[self.total_parsed_elements] = True
+            # pop symbol and call again
+            symbols.pop(symbols.index("["))
+            self.process_symbol(note, symbols)
+        if "]" in symbols:
+            self.tie_next[self.total_parsed_elements] = True
+            symbols.pop(symbols.index("]"))
+            self.process_symbol(note, symbols)
+        if "_" in symbols:
+            # continuing tie
+            self.tie_prev[self.total_parsed_elements] = True
+            self.tie_next[self.total_parsed_elements] = True
+            symbols.pop(symbols.index("_"))
+            self.process_symbol(note, symbols)
+        return
+
+    def meta_note_line(self, line: str, voice=None, add=True):
+        """
+        Grammar Defining a note line.
+
+        A note line is specified by the following grammar:
+        note_line = symbol | duration | pitch | symbol
+
+        Parameters
+        ----------
+        line: str
+            The line to parse containing a note element.
+        voice: int
+            The voice of the note.
+        add: bool
+            If True, the element is added to the number of parsed elements.
+
+        Returns
+        -------
+        spt.Note object
+        """
+        self.total_parsed_elements += 1 if add else 0
+        voice = self.voice if voice is None else voice
+        # extract first occurence of one of the following: a-g A-G r # - n
+        find_pitch = re.search(r"([a-gA-Gr\-n#]+)", line)
+        if find_pitch is None:
+            warnings.warn(
+                "No pitch found in line: {}, transforming to a rest".format(line)
+            )
+            pitch = "r"
+        else:
+            pitch = find_pitch.group(0)
+        # extract duration can be any of the following: 0-9 .
+        dur_search = re.search(r"([0-9.%]+)", line)
+        # if no duration is found, then the duration is 8 by default (for grace notes with no duration)
+        duration = dur_search.group(0) if dur_search else "8"
+        # extract symbol can be any of the following: _()[]{}<>|:
+        symbols = re.findall(r"([_()\[\]{}<>|:])", line)
+        symbolic_duration = self._process_kern_duration(duration, is_grace="q" in line)
+        el_id = "{}-s{}-v{}-el{}".format(
+            self.id, self.staff, voice, self.total_parsed_elements
+        )
+        if pitch.startswith("r"):
+            return spt.Rest(
+                symbolic_duration=symbolic_duration,
+                staff=self.staff,
+                voice=voice,
+                id=el_id,
+            )
+        step, octave, alter = self._process_kern_pitch(pitch)
+        # check if the note is a grace note
+        if "q" in line:
+            note = spt.GraceNote(
+                grace_type="grace",
+                step=step,
+                octave=octave,
+                alter=alter,
+                symbolic_duration=symbolic_duration,
+                staff=self.staff,
+                voice=voice,
+                id=el_id,
+            )
+        else:
+            note = spt.Note(
+                step,
+                octave,
+                alter,
+                symbolic_duration=symbolic_duration,
+                staff=self.staff,
+                voice=voice,
+                id=el_id,
+            )
+        if symbols:
+            self.process_symbol(note, symbols)
+        return note
+
+    def meta_barline_line(self, line: str):
+        """
+        Grammar Defining a barline line.
+
+        A barline line is specified by the following grammar:
+        barline_line = repeat | barline | number | repeat
+
+        Parameters
+        ----------
+        line: str
+            The line to parse containing a barline.
+
+        Returns
+        -------
+        spt.Measure object
+        """
+        # find number and keep its index.
+        self.total_parsed_elements += 1
+        number = re.findall(r"([0-9]+)", line)
+        number_index = line.index(number[0]) if number else line.index("=")
+        closing_repeat = re.findall(r"[:|]", line[:number_index])
+        opening_repeat = re.findall(r"[|:]", line[number_index:])
+        return spt.Measure(number=int(number[0]) if number else None)
+
+    def meta_chord_line(self, line: str):
+        """
+        Grammar Defining a chord line.
+
+        A chord line is specified by the following grammar:
+        chord_line = note | chord
+
+        Parameters
+        ----------
+        line
+
+        Returns
+        -------
+
+        """
+        self.total_parsed_elements += 1
+        chord = ("c", [self.meta_note_line(n, add=False) for n in line.split(" ")])
+        return chord

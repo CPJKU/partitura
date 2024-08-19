@@ -281,6 +281,16 @@ MUSICAL_BEATS = {6: 2, 9: 3, 12: 4}
 # Standard tuning frequency of A4 in Hz
 A4 = 440.0
 
+COMPOSITE_DURS = np.array([1 + 4 / 32, 1 + 4 / 16, 2 + 4 / 32, 2 + 4 / 16, 2 + 4 / 8])
+
+SYM_COMPOSITE_DURS = [
+    ({"type": "quarter", "dots": 0}, {"type": "32nd", "dots": 0}),
+    ({"type": "quarter", "dots": 0}, {"type": "16th", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "32nd", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "16th", "dots": 0}),
+    ({"type": "half", "dots": 0}, {"type": "eighth", "dots": 0}),
+]
+
 
 UNABBREVS = [
     (re.compile(r"(crescendo|cresc\.?)"), "crescendo"),
@@ -303,7 +313,6 @@ UNABBREVS = [
     (re.compile(r"(ligatissimo)"), "legatissimo"),
     (re.compile(r"((rinforz|rinf|rfz|rf)\.?)"), "rinforzando"),
 ]
-
 
 
 TWO_PI = 2 * np.pi
@@ -431,17 +440,35 @@ MAX_AGENTS = 100  # delete low-scoring agents when there are more than MAX_AGENT
 CHORD_SPREAD_TIME = 1 / 12  # for onset aggregation
 
 
-
-Voc_majmin = [
-    "Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7", "v"
-]
+Voc_majmin = ["Cad64", "V", "viio", "V7", "N", "It", "Fr7", "Ger7", "v"]
 
 Voc_maj_only = [
-    "I", "ii", "iii", "IV", "vi", "I7", "ii7", "iii7", "IV7", "vi7", "viio7", "V+"
+    "I",
+    "ii",
+    "iii",
+    "IV",
+    "vi",
+    "I7",
+    "ii7",
+    "iii7",
+    "IV7",
+    "vi7",
+    "viio7",
+    "V+",
 ]
 
 Voc_min_only = [
-    "i", "iio", "III+", "iv", "VI", "i7", "iio7", "III+7", "iv7", "VI7", "viio7"
+    "i",
+    "iio",
+    "III+",
+    "iv",
+    "VI",
+    "i7",
+    "iio7",
+    "III+7",
+    "iv7",
+    "VI7",
+    "viio7",
 ]
 
 Voc_maj = Voc_majmin + Voc_maj_only
@@ -450,8 +477,20 @@ Voc_min = Voc_majmin + Voc_min_only
 ACCEPTED_ROMANS = list(set(Voc_maj + Voc_min))
 
 Voc_T_degree = [
-    "I", "II", "III", "IV", "V", "VI", "VII",
-    "i", "ii", "iii", "iv", "v", "vi", "vii",
+    "I",
+    "II",
+    "III",
+    "IV",
+    "V",
+    "VI",
+    "VII",
+    "i",
+    "ii",
+    "iii",
+    "iv",
+    "v",
+    "vi",
+    "vii",
 ]
 
 

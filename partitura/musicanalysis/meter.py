@@ -22,11 +22,19 @@ import numpy as np
 
 from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
 from partitura.utils.globals import (
-    CHORD_SPREAD_TIME, MIN_INTERVAL, MAX_INTERVAL, CLUSTER_WIDTH, N_CLUSTERS,
-    INIT_DURATION, TIMEOUT, TOLERANCE_PRE, TOLERANCE_POST, TOLERANCE_INNER, CORRECTION_FACTOR, MAX_AGENTS
+    CHORD_SPREAD_TIME,
+    MIN_INTERVAL,
+    MAX_INTERVAL,
+    CLUSTER_WIDTH,
+    N_CLUSTERS,
+    INIT_DURATION,
+    TIMEOUT,
+    TOLERANCE_PRE,
+    TOLERANCE_POST,
+    TOLERANCE_INNER,
+    CORRECTION_FACTOR,
+    MAX_AGENTS,
 )
-
-
 
 
 class MultipleAgents:

@@ -52,9 +52,6 @@ def join_items(items):
     )
 
 
-
-
-
 def unabbreviate(s):
     for p, v in UNABBREVS:
         if p.match(s):

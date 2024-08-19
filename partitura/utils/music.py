@@ -5,19 +5,18 @@ This module contains music related utilities
 """
 from __future__ import annotations
 import copy
-import math
 from collections import defaultdict
 import re
 import warnings
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
-from typing import Union, Callable, Optional, TYPE_CHECKING
+from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
 from partitura.utils.generic import find_nearest, search, iter_current_next
 from partitura.utils.globals import *
 import partitura
 from tempfile import TemporaryDirectory
-import os
+import os, math
 
 
 try:
@@ -229,14 +228,16 @@ def transpose_note_old(step, alter, interval):
         else:
             diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
         new_alter = (
-                INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+            INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
         )
     return new_step, new_alter
 
 
 def transpose_note(step, alter, interval):
     """
-    Transpose a note by a given interval without changing the octave or creating a Note Object.
+    Transpose a note by a given interval without considering the octave.
+
+    This function does not create a new Note object, but returns the new step and alteration of the note.
 
 
     Parameters
@@ -258,15 +259,21 @@ def transpose_note(step, alter, interval):
     prev_step = step.capitalize()
     assert interval.direction == "up", "Only interval direction 'up' is supported."
     assert -3 < alter < 3, f"Input Alteration {alter} is not in the range -2 to 2."
-    assert interval.number < 8, f"Input Interval {interval.number} is not in the range 1 to 7."
-    assert prev_step in BASE_PC.keys(), f"Input Step {prev_step} is must be one of: {BASE_PC.keys()}."
+    assert (
+        interval.number < 8
+    ), f"Input Interval {interval.number} is not in the range 1 to 7."
+    assert (
+        prev_step in BASE_PC.keys()
+    ), f"Input Step {prev_step} is must be one of: {BASE_PC.keys()}."
     new_step = STEPS[(STEPS[prev_step] + interval.number - 1) % 7]
     prev_alter = alter if alter is not None else 0
     pc_prev = step2pc(prev_step, prev_alter)
     pc_new = step2pc(new_step, prev_alter)
     new_alter = interval.semitones - (pc_new - pc_prev) % 12 + prev_alter
     # add test to check if the new alteration is correct (i.e. accept maximum of 2 flats or sharps)
-    assert -3 < new_alter < 3, f"New alteration {new_alter} is not in the range -2 to 2."
+    assert (
+        -3 < new_alter < 3
+    ), f"New alteration {new_alter} is not in the range -2 to 2."
     return new_step, new_alter
 
 
@@ -693,15 +700,16 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
-def estimate_symbolic_duration(dur, div, eps=10**-3):
+def estimate_symbolic_duration(
+    dur, div, eps=10**-3, return_com_durations=False
+) -> Union[Dict[str, Any], Tuple[Dict[str, Any]]]:
     """Given a numeric duration, a divisions value (specifiying the
     number of units per quarter note) and optionally a tolerance `eps`
     for numerical imprecisions, estimate corresponding the symbolic
     duration. If a matching symbolic duration is found, it is returned
     as a tuple (type, dots), where type is a string such as 'quarter',
     or '16th', and dots is an integer specifying the number of dots.
-    If no matching symbolic duration is found the function returns
-    None.
+
 
     NOTE : this function does not estimate composite durations, nor
     time-modifications such as triplets.
@@ -714,10 +722,14 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
         Number of units per quarter note
     eps : float, optional (default: 10**-3)
         Tolerance in case of imprecise matches
+    return_com_durations : bool, optional (default: False)
+        If True, return composite durations as well.
 
     Returns
     -------
-
+    out: Union[Dict[str, Any], Tuple[Dict[str, Any]]]
+        Symbolic duration as a dictionary. When a composite duration is found, then it returns a tuple of symbolic durations.
+        The returned tuple should be tied notes.
 
     Examples
     --------
@@ -727,27 +739,40 @@ def estimate_symbolic_duration(dur, div, eps=10**-3):
     >>> estimate_symbolic_duration(15, 10)
     {'type': 'quarter', 'dots': 1}
 
-    The following example returns None:
+    >>> estimate_symbolic_duration(15, 16)
+    {'type': 'eighth', 'dots': 3}
 
-    >>> estimate_symbolic_duration(23, 16)
+    >>> estimate_symbolic_duration(4, 6)
+    {'type': 'eighth', 'actual_notes': 3, 'normal_notes': 2}
 
+    It can also return composite durations:
+    >>> estimate_symbolic_duration(34, 16, return_com_durations=True)
+    ({'type': 'half', 'dots': 0}, {'type': '32nd', 'dots': 0})
     """
     global DURS, SYM_DURS
     qdur = dur / div
     if qdur == 0:
-        return
+        return {}
     i = find_nearest(DURS, qdur)
     if np.abs(qdur - DURS[i]) < eps:
         return SYM_DURS[i].copy()
     else:
-        # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
-        type = SYM_DURS[i+3]["type"]
-        normal_notes = 2
-        return {
-            "type": type,
-            "actual_notes": math.ceil(normal_notes/qdur),
-            "normal_notes": normal_notes,
-        }
+        # Note when the duration is not found, the we are left with two solutions:
+        # 1. The duration is a tuplet
+        # 2. The duration is a composite duration
+        # For composite duration. We can use the following approach:
+        j = find_nearest(COMPOSITE_DURS, qdur)
+        if np.abs(qdur - COMPOSITE_DURS[j]) < eps and return_com_durations:
+            return copy.copy(SYM_COMPOSITE_DURS[j])
+        else:
+            # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
+            type = SYM_DURS[i + 3]["type"]
+            normal_notes = 2
+            return {
+                "type": type,
+                "actual_notes": math.ceil(normal_notes / qdur),
+                "normal_notes": normal_notes,
+            }
 
 
 def to_quarter_tempo(unit, tempo):
@@ -1156,6 +1181,9 @@ def _make_pianoroll(
     pr_pitch = note_info[:, 0]
     onset = note_info[:, 1]
     duration = note_info[:, 2]
+
+    if len(note_info) == 0:
+        raise ValueError("Note array is empty")
 
     if np.any(duration < 0):
         raise ValueError("Note durations should be >= 0!")
@@ -3064,7 +3092,7 @@ def slice_ppart_by_time(
         raise ValueError("Input is not an instance of PerformedPart!")
 
     if start_time > end_time:
-        raise ValueError("Start time not less than end time!")
+        raise ValueError("Start time must be smaller than end time!")
 
     # create a new (empty) instance of a PerformedPart
     # single dummy note added to be able to set sustain_pedal_threshold in __init__
@@ -3073,30 +3101,67 @@ def slice_ppart_by_time(
 
     # get ppq if PerformedPart contains it,
     # else skip time_tick info when e.g. created with 'load_performance_midi'
-    try:
-        ppq = ppart.ppq
-    except AttributeError:
-        ppq = None
+    # try:
+    #     ppq = ppart.ppq
+    # except AttributeError:
+    #     ppq = None
+    ppq = getattr(ppart, "ppq", None)
+    mpq = getattr(ppart, "mpq", None)
+
+    def add_info_to_list(input_list: List[dict], output_list: List[dict]) -> None:
+
+        for elem in input_list:
+            if elem["time"] >= start_time and elem["time"] <= end_time:
+                new_elem = elem.copy()
+                new_elem["time"] -= start_time
+                if ppq is not None and mpq is not None:
+                    new_elem["time_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_elem["time"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
+                output_list.append(new_elem)
 
     controls_slice = []
     if ppart.controls:
+        # TODO
+        # * Keep previous pedal value
         for cc in ppart.controls:
             if cc["time"] >= start_time and cc["time"] <= end_time:
                 new_cc = cc.copy()
                 new_cc["time"] -= start_time
-                if ppq:
-                    new_cc["time_tick"] = int(2 * ppq * cc["time"])
+                if ppq is not None and mpq is not None:
+                    new_cc["time_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_cc["time"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
                 controls_slice.append(new_cc)
 
     programs_slice = []
     if ppart.programs:
+        # TODO
+        # * Keep previous programs
         for pr in ppart.programs:
             if pr["time"] >= start_time and pr["time"] <= end_time:
                 new_pr = pr.copy()
                 new_pr["time"] -= start_time
-                if ppq:
-                    new_pr["time_tick"] = int(2 * ppq * pr["time"])
+                if ppq is not None and mpq is not None:
+                    new_pr["time_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_pr["time"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
                 programs_slice.append(new_pr)
+
+    time_signatures = []
+    if ppart.time_signatures:
+        for ts in ppart.time_signatures:
+            if ts["time"] >= start_time and ts["time"] <= end_time:
+                new_ts = ts.copy()
+                new_ts["time"] -= start_time
+    key_signatures = []
+    meta_other = []
 
     notes_slice = []
     note_id = 0
@@ -3111,9 +3176,13 @@ def slice_ppart_by_time(
                 )
             else:
                 new_note["note_off"] = note["note_off"] - start_time
-            if ppq:
+            if ppq is not None and mpq is not None:
                 new_note["note_on_tick"] = 0
-                new_note["note_off_tick"] = int(2 * ppq * new_note["note_off"])
+                new_note["note_off_tick"] = seconds_to_midi_ticks(
+                    time_in_seconds=new_note["note_off"],
+                    mpq=mpq,
+                    ppq=ppq,
+                )
             if reindex_notes:
                 new_note["id"] = f"n{note_id}"
                 note_id += 1
@@ -3129,11 +3198,19 @@ def slice_ppart_by_time(
                     )
                 else:
                     new_note["note_off"] = note["note_off"] - start_time
-                if ppq:
-                    new_note["note_on_tick"] = int(2 * ppq * new_note["note_on"])
-                    new_note["note_off_tick"] = int(2 * ppq * new_note["note_off"])
+                if ppq is not None and mpq is not None:
+                    new_note["note_on_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_note["note_on"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
+                    new_note["note_off_tick"] = seconds_to_midi_ticks(
+                        time_in_seconds=new_note["note_off"],
+                        mpq=mpq,
+                        ppq=ppq,
+                    )
                 if reindex_notes:
-                    new_note["id"] = "n" + str(note_id)
+                    new_note["id"] = f"n{note_id}"
                     note_id += 1
                 notes_slice.append(new_note)
             # assumes notes in list are sorted by onset time
@@ -3142,14 +3219,21 @@ def slice_ppart_by_time(
 
     # Create slice PerformedPart
     ppart_slice = PerformedPart(
-        notes=notes_slice, programs=programs_slice, controls=controls_slice, ppq=ppq
+        notes=notes_slice,
+        programs=programs_slice,
+        controls=controls_slice,
+        ppq=ppq,
+        mpq=mpq,
+        key_signatures=key_signatures,
+        time_signatures=time_signatures,
+        meta_other=meta_other,
     )
 
     # set threshold property after creating notes list to update 'sound_offset' values
     ppart_slice.sustain_pedal_threshold = ppart.sustain_pedal_threshold
 
     if ppart.id:
-        ppart_slice.id = ppart.id + "_slice_{}s_to_{}s".format(start_time, end_time)
+        ppart_slice.id = f"{ppart.id}_slice_{start_time}s_to_{end_time}s"
     if ppart.part_name:
         ppart_slice.part_name = ppart.part_name
 
@@ -3202,7 +3286,7 @@ def tokenize(
 
 def step2pc(step, alter):
     """
-    Convert a step to a pitch class.
+    Convert a tonal pitch class (i.e. step + alter) to a pitch class (i.e. integer in [0, 11]).
 
     Parameters
     ----------
