@@ -527,9 +527,6 @@ class SplineParser(object):
     def process_tempo_line(self, line: str):
         return spt.Tempo(float(line))
 
-    def process_ossia_line(self):
-        return
-
     def process_fine(self):
         return spt.Fine()
 
