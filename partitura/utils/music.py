@@ -762,8 +762,18 @@ def estimate_symbolic_duration(
         # 2. The duration is a composite duration
         # For composite duration. We can use the following approach:
         j = find_nearest(COMPOSITE_DURS, qdur)
-        if np.abs(qdur - COMPOSITE_DURS[j]) < eps and return_com_durations:
-            return copy.copy(SYM_COMPOSITE_DURS[j])
+        if np.abs(qdur - COMPOSITE_DURS[j]) < eps:
+            if return_com_durations:
+                return copy.copy(SYM_COMPOSITE_DURS[j])
+            else:
+                warnings.warn(f"Quarter duration {qdur} from {dur}/{div} is a composite"
+                              f"duration but composite durations are not allowed. Returning empty symbolic duration.")
+                return {}
+        # Naive condition to only apply tuplet estimation if the quarter duration is less than a bar (4)
+        elif qdur > 4:
+            warnings.warn(f"Quarter duration {qdur} from {dur}/{div} is not a tuplet or composite duration."
+                          f"Returning empty symbolic duration.")
+            return {}
         else:
             # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
             type = SYM_DURS[i + 3]["type"]
