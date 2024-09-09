@@ -775,12 +775,15 @@ def estimate_symbolic_duration(
                           f"Returning empty symbolic duration.")
             return {}
         else:
+            i = find_nearest(STRAIGHT_DURS, qdur)
             # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
-            type = SYM_DURS[i + 3]["type"]
+            type = SYM_STRAIGHT_DURS[i+1]["type"]
             normal_notes = 2
+            while (normal_notes * STRAIGHT_DURS[i + 1] / qdur) % 1 > eps:
+                normal_notes += 1
             return {
                 "type": type,
-                "actual_notes": math.ceil(normal_notes / qdur),
+                "actual_notes": math.ceil(normal_notes * STRAIGHT_DURS[i+1]  / qdur),
                 "normal_notes": normal_notes,
             }
 
