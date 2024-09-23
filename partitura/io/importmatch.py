@@ -511,6 +511,7 @@ def part_from_matchfile(
     t = t * 4 / beat_type_map(min_time)
     offset = t
     bar_times = {}
+    bar_times_original = {}
 
     if t > 0:
         # if we have an incomplete first measure that isn't an anacrusis
@@ -529,6 +530,9 @@ def part_from_matchfile(
         a_note_in_this_bar = notes_in_this_bar[0][1]
         a_note_id_in_this_bar = notes_in_this_bar[0][0]
         bar_offset = (a_note_in_this_bar.Beat - 1) * 4 / beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
+        on_off_scale = 1
+        if not match_offset_duration_in_whole:
+            on_off_scale = beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
         beat_offset = (
             4
             / on_off_scale
@@ -537,18 +541,21 @@ def part_from_matchfile(
         )
 
         barline_in_quarters = onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
+        bar_times[b_name] = barline_in_quarters
 
+    for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
+        bar_times_original.setdefault(b0, t)
+        if t < 0:
+            t = 0
 
-    # for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
-    #     bar_times.setdefault(b0, t)
-    #     if t < 0:
-    #         t = 0
+        else:
+            # multiply by diff between consecutive bar numbers
+            n_bars = b1 - b0
+            if t <= max_time_q:
+                t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
-    #     else:
-    #         # multiply by diff between consecutive bar numbers
-    #         n_bars = b1 - b0
-    #         if t <= max_time_q:
-    #             t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
+    for key in bar_times_original.keys():
+        print(bar_times_original[key], bar_times[key])
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
