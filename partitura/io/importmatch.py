@@ -16,37 +16,13 @@ from partitura.musicanalysis import estimate_voices, estimate_key
 
 from partitura.io.matchlines_v0 import (
     FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV0,
-    parse_matchline as parse_matchlinev0,
     MatchInfo as MatchInfoV0,
-    MatchMeta as MatchMetaV0,
-    MatchSnote as MatchSnoteV0,
-    MatchNote as MatchNoteV0,
-    MatchSnoteNote as MatchSnoteNoteV0,
-    MatchSnoteDeletion as MatchSnoteDeletionV0,
-    MatchSnoteTrailingScore as MatchSnoteTrailingScoreV0,
-    MatchInsertionNote as MatchInsertionNoteV0,
-    MatchHammerBounceNote as MatchHammerBounceNoteV0,
-    MatchTrailingPlayedNote as MatchTrailingPlayedNoteV0,
-    MatchSustainPedal as MatchSustainPedalV0,
-    MatchSoftPedal as MatchSoftPedalV0,
     MatchTrillNote as MatchTrillNoteV0,
 )
 
 from partitura.io.matchlines_v1 import (
     FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV1,
     MatchInfo as MatchInfoV1,
-    MatchScoreProp as MatchScorePropV1,
-    MatchSection as MatchSectionV1,
-    MatchStime as MatchStimeV1,
-    MatchPtime as MatchPtimeV1,
-    MatchStimePtime as MatchStimePtimeV1,
-    MatchSnote as MatchSnoteV1,
-    MatchNote as MatchNoteV1,
-    MatchSnoteNote as MatchSnoteNoteV1,
-    MatchSnoteDeletion as MatchSnoteDeletionV1,
-    MatchInsertionNote as MatchInsertionNoteV1,
-    MatchSustainPedal as MatchSustainPedalV1,
-    MatchSoftPedal as MatchSoftPedalV1,
     MatchOrnamentNote as MatchOrnamentNoteV1,
 )
 
