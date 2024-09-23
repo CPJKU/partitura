@@ -484,7 +484,6 @@ def part_from_matchfile(
 
     onset_in_beats = np.array([note.OnsetInBeats for note in snotes])
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
-    # unique_onset_idxs = [np.where(onset_in_beats == u) for u in unique_onsets]
 
     iois_in_beats = np.diff(unique_onsets)
     beat_to_quarter = 4 / beat_type_map(onset_in_beats)
@@ -501,23 +500,16 @@ def part_from_matchfile(
     onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
-    # duration_in_beats = np.array([note.DurationInBeats for note in snotes])
-    # duration_in_quarters = duration_in_beats * beat_to_quarter
-    # duration_in_divs = duration_in_quarters * divs
-
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Measure for n in snotes])
     t = min_time
     t = t * 4 / beat_type_map(min_time)
     offset = t
     bar_times = {}
-    # bar_times_original = {}
 
     if t > 0:
         # if we have an incomplete first measure that isn't an anacrusis
         # measure, add a rest (dummy)
-        # t = t-t%beats_map(min_time)
-
         # if starting beat is above zero, add padding
         rest = score.Rest()
         part.add(rest, start=0, end=t * divs)
@@ -543,19 +535,6 @@ def part_from_matchfile(
         barline_in_quarters = onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
         bar_times[b_name] = barline_in_quarters
 
-    # for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
-    #     bar_times_original.setdefault(b0, t)
-    #     if t < 0:
-    #         t = 0
-
-    #     else:
-    #         # multiply by diff between consecutive bar numbers
-    #         n_bars = b1 - b0
-    #         if t <= max_time_q:
-    #             t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
-
-    # for key in bar_times_original.keys():
-    #     print(key, bar_times_original[key], bar_times[key])
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
@@ -579,15 +558,6 @@ def part_from_matchfile(
             * note.Offset.numerator
             / (note.Offset.denominator * (note.Offset.tuple_div or 1))
         )
-
-        # check anacrusis measure beat counting type for the first note
-        if bar_start < 0 and (bar_offset != 0 or beat_offset != 0) and ni == 0:
-            # in case of fully counted anacrusis we set the bar_start
-            # to -bar_duration (in quarters) so that the below calculation is correct
-            # not active for shortened anacrusis measures
-            bar_start = -beats_map(bar_start) * 4 / beat_type_map(bar_start)
-            # reset the bar_start for other notes in the anacrusis measure
-            bar_times[note.Bar] = bar_start
 
         # convert the onset time in quarters (0 at first barline) to onset
         # time in divs (0 at first note)
@@ -762,12 +732,9 @@ def part_from_matchfile(
     last_closing_barline = barline_in_divs + int(round(divs * beats_map(barline_in_quarters) * 4 / beat_type_map(barline_in_quarters)))
     part.add(prev_measure, None, last_closing_barline)
 
-    # add incomplete measure if necessary
-    # if offset < 0:
-    #     part.add(score.Measure(number=0), 0, int(-offset * divs))
 
-    # # add the rest of the measures automatically
-    # score.add_measures(part)
+    # add the rest of the measures automatically
+    score.add_measures(part)
     score.tie_notes(part)
     score.find_tuplets(part)
 
