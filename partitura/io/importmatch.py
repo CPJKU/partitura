@@ -727,7 +727,7 @@ def part_from_matchfile(
             barline_in_divs = 0
         if prev_measure is not None:
             part.add(prev_measure, None, barline_in_divs)
-        prev_measure = score.Measure(number=measure_counter, name = str(measure_name))
+        prev_measure = score.Measure(number=measure_counter + 1, name = str(measure_name))
         part.add(prev_measure, barline_in_divs)
     last_closing_barline = barline_in_divs + int(round(divs * beats_map(barline_in_quarters) * 4 / beat_type_map(barline_in_quarters)))
     part.add(prev_measure, None, last_closing_barline)
