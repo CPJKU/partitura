@@ -511,7 +511,7 @@ def part_from_matchfile(
     t = t * 4 / beat_type_map(min_time)
     offset = t
     bar_times = {}
-    bar_times_original = {}
+    # bar_times_original = {}
 
     if t > 0:
         # if we have an incomplete first measure that isn't an anacrusis
@@ -543,19 +543,19 @@ def part_from_matchfile(
         barline_in_quarters = onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
         bar_times[b_name] = barline_in_quarters
 
-    for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
-        bar_times_original.setdefault(b0, t)
-        if t < 0:
-            t = 0
+    # for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
+    #     bar_times_original.setdefault(b0, t)
+    #     if t < 0:
+    #         t = 0
 
-        else:
-            # multiply by diff between consecutive bar numbers
-            n_bars = b1 - b0
-            if t <= max_time_q:
-                t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
+    #     else:
+    #         # multiply by diff between consecutive bar numbers
+    #         n_bars = b1 - b0
+    #         if t <= max_time_q:
+    #             t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
-    for key in bar_times_original.keys():
-        print(bar_times_original[key], bar_times[key])
+    # for key in bar_times_original.keys():
+    #     print(key, bar_times_original[key], bar_times[key])
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
@@ -749,12 +749,25 @@ def part_from_matchfile(
     add_staffs(part)
     # add_clefs(part)
 
-    # add incomplete measure if necessary
-    if offset < 0:
-        part.add(score.Measure(number=0), 0, int(-offset * divs))
+    prev_measure = None
+    for measure_counter, measure_name in enumerate(bar_times.keys()):
+        barline_in_quarters = bar_times[measure_name]
+        barline_in_divs = int(round(divs * (barline_in_quarters - offset)))
+        if barline_in_divs < 0:
+            barline_in_divs = 0
+        if prev_measure is not None:
+            part.add(prev_measure, None, barline_in_divs)
+        prev_measure = score.Measure(number=measure_counter, name = str(measure_name))
+        part.add(prev_measure, barline_in_divs)
+    last_closing_barline = barline_in_divs + int(round(divs * beats_map(barline_in_quarters) * 4 / beat_type_map(barline_in_quarters)))
+    part.add(prev_measure, None, last_closing_barline)
 
-    # add the rest of the measures automatically
-    score.add_measures(part)
+    # add incomplete measure if necessary
+    # if offset < 0:
+    #     part.add(score.Measure(number=0), 0, int(-offset * divs))
+
+    # # add the rest of the measures automatically
+    # score.add_measures(part)
     score.tie_notes(part)
     score.find_tuplets(part)
 
