@@ -658,7 +658,7 @@ def merge_measure_contents(notes, other, measure_start):
             elif gap > 0:
                 e = etree.Element("forward")
                 ee = etree.SubElement(e, "duration")
-                ee.text = "{:d}".format(gap)
+                ee.text = "{:d}".format(int(gap))
                 result.append(e)
 
         result.extend([e for _, _, e in elements])
