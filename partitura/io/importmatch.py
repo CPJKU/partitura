@@ -12,7 +12,6 @@ import numpy as np
 from partitura import score
 from partitura.score import Part, Score
 from partitura.performance import PerformedPart, Performance
-from partitura.musicanalysis import estimate_voices, estimate_key
 
 from partitura.io.matchlines_v0 import (
     FROM_MATCHLINE_METHODS as FROM_MATCHLINE_METHODSV0,
@@ -32,12 +31,9 @@ from partitura.io.matchfile_base import (
     MatchLine,
     BaseSnoteLine,
     BaseSnoteNoteLine,
-    BaseStimePtimeLine,
     BaseDeletionLine,
     BaseInsertionLine,
     BaseOrnamentLine,
-    BaseSustainPedalLine,
-    BaseSoftPedalLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -45,29 +41,24 @@ from partitura.io.matchfile_utils import (
     number_pattern,
     vnumber_pattern,
     MatchTimeSignature,
-    MatchKeySignature,
     format_pnote_id,
 )
 
 from partitura.utils.music import (
-    midi_ticks_to_seconds,
-    pitch_spelling_to_midi_pitch,
-    ensure_pitch_spelling_format,
-    key_name_to_fifths_mode,
-    estimate_clef_properties,
-    note_array_from_note_list,
+    midi_ticks_to_seconds
 )
 
 
 from partitura.utils.misc import (
     deprecated_alias,
-    deprecated_parameter,
     PathLike,
-    get_document_name,
+    get_document_name
 )
 
-from partitura.utils.generic import interp1d, partition, iter_current_next
-
+from partitura.utils.generic import (
+    interp1d, 
+    iter_current_next
+)
 __all__ = ["load_match"]
 
 
