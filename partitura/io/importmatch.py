@@ -524,16 +524,16 @@ def part_from_matchfile(
         offset = 0
         t = t - t % beats_map(min_time)
 
-    for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
-        bar_times.setdefault(b0, t)
-        if t < 0:
-            t = 0
+    # for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
+    #     bar_times.setdefault(b0, t)
+    #     if t < 0:
+    #         t = 0
 
-        else:
-            # multiply by diff between consecutive bar numbers
-            n_bars = b1 - b0
-            if t <= max_time_q:
-                t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
+    #     else:
+    #         # multiply by diff between consecutive bar numbers
+    #         n_bars = b1 - b0
+    #         if t <= max_time_q:
+    #             t += (n_bars * 4 * beats_map(t)) / beat_type_map(t)
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
