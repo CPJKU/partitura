@@ -525,7 +525,9 @@ def part_from_matchfile(
         t = t - t % beats_map(min_time)
 
     for b_name in bars:
-        a_note_in_this_bar = [n for n in snotes if n.Measure == b_name][0]
+        notes_in_this_bar = [(ni, n) for ni, n in enumerate(snotes) if n.Measure == b_name]
+        a_note_in_this_bar = notes_in_this_bar[0][1]
+        a_note_id_in_this_bar = notes_in_this_bar[0][0]
         bar_offset = (a_note_in_this_bar.Beat - 1) * 4 / beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
         beat_offset = (
             4
@@ -533,6 +535,9 @@ def part_from_matchfile(
             * a_note_in_this_bar.Offset.numerator
             / (a_note_in_this_bar.Offset.denominator * (a_note_in_this_bar.Offset.tuple_div or 1))
         )
+
+        barline_in_quarters = onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
+
 
     # for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
     #     bar_times.setdefault(b0, t)
