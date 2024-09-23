@@ -753,7 +753,7 @@ def part_from_matchfile(
 def make_timesig_maps(
     ts_orig: List[Tuple[float, int, MatchTimeSignature]],
     max_time: float,
-) -> (Callable, Callable, Callable, Callable, float, float):
+) -> tuple[Callable, Callable, Callable, Callable, float, float]:
     """
     Create time signature (interpolation) maps
 
@@ -833,7 +833,7 @@ def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
             MIDI pitch to split staff into upper and lower. Default is 55
         only_missing: bool
             If True, only add staff to those notes that do not have staff info already.
-    x"""
+    """
     # assign staffs using a hard limit
     notes = part.notes_tied
     for n in notes:
