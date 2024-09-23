@@ -463,7 +463,7 @@ def part_from_matchfile(
     ts = mf.time_signatures
     min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
     max_time = max(n.OffsetInBeats for n in snotes)
-    _, beats_map, _, beat_type_map, min_time_q, max_time_q = make_timesig_maps(
+    beats_map_from_beats, beats_map, beat_type_map_from_beats, beat_type_map, min_time_q, max_time_q = make_timesig_maps(
         ts, max_time
     )
 
@@ -523,6 +523,16 @@ def part_from_matchfile(
         onset_in_divs += t * divs
         offset = 0
         t = t - t % beats_map(min_time)
+
+    for b_name in bars:
+        a_note_in_this_bar = [n for n in snotes if n.Measure == b_name][0]
+        bar_offset = (a_note_in_this_bar.Beat - 1) * 4 / beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
+        beat_offset = (
+            4
+            / on_off_scale
+            * a_note_in_this_bar.Offset.numerator
+            / (a_note_in_this_bar.Offset.denominator * (a_note_in_this_bar.Offset.tuple_div or 1))
+        )
 
     # for b0, b1 in iter_current_next(bars, end=bars[-1] + 1):
     #     bar_times.setdefault(b0, t)
