@@ -244,6 +244,12 @@ def load_match(
     first_note_at_zero : bool, optional
         When True the note_on and note_off times in the performance
         are shifted to make the first note_on time equal zero.
+        Defaults to False.
+    offset_duration_whole: Boolean, optional
+        A flag for the type of offset and duration given in the matchfile.
+        When true, the function expects the values to be given in whole
+        notes (e.g. 1/4 for a quarter note) independet of time signature.
+        Defaults to True.
 
     Returns
     -------
