@@ -1053,8 +1053,8 @@ def save_musicxml(
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             attrib = {}
 
-            if measure.number is not None:
-                attrib["number"] = str(measure.number)
+            if measure.name is not None:
+                attrib["number"] = str(measure.name)
 
             measure_e = etree.SubElement(part_e, "measure", **attrib)
             contents = linearize_measure_contents(
