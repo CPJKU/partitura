@@ -708,3 +708,4 @@ if HAS_MIDITOK:
                     k, divs, return_com_durations=True)
                 predicted.append(a)
             self.assertTrue(all([expected[i] == predicted[i] for i in range(len(expected))]))
+            
