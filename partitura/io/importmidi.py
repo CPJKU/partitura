@@ -522,8 +522,6 @@ or a list of these
     warnings.warn("pitch spelling")
     spelling_global = analysis.estimate_spelling(note_array)
 
-
-
     if estimate_voice_info:
         warnings.warn("voice estimation", stacklevel=2)
         # TODO: deal with zero duration notes in note_array.
