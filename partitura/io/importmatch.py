@@ -755,7 +755,7 @@ def part_from_matchfile(
 def make_timesig_maps(
     ts_orig: List[Tuple[float, int, MatchTimeSignature]],
     max_time: float,
-) -> tuple[Callable, Callable, Callable, Callable, float, float]:
+) -> Tuple[Callable, Callable, Callable, Callable, float, float]:
     """
     Create time signature (interpolation) maps
 
