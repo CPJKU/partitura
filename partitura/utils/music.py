@@ -775,7 +775,7 @@ def estimate_symbolic_duration(
                           f"Returning empty symbolic duration.")
             return {}
         else:
-            i = find_nearest(STRAIGHT_DURS, qdur)
+            i = np.searchsorted(STRAIGHT_DURS, qdur, side="left") - 1
             # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
             type = SYM_STRAIGHT_DURS[i+1]["type"]
             normal_notes = 2
