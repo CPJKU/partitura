@@ -1083,9 +1083,14 @@ def measure_feature(na, part, **kwargs):
     bm = part.beat_map
     eps = 10**-6
 
+    measures = np.array([(m.start.t, m.end.t) for m in part.iter_all(score.Measure)])
+    if len(measures) == 0:
+        start = bm(part.first_point.t)
+        end = bm(part.last_point.t)
+        number = 1
+
     names = [
         "measure_number",
-        "measure_name",
         "measure_start_beats",
         "measure_end_beats",
     ]
