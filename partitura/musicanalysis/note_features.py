@@ -1081,8 +1081,6 @@ def measure_feature(na, part, **kwargs):
     """
     notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
     bm = part.beat_map
-    eps = 10**-6
-
     
     global_start = bm(part.first_point.t)
     global_end = bm(part.last_point.t)
@@ -1093,6 +1091,7 @@ def measure_feature(na, part, **kwargs):
         "measure_start_beats",
         "measure_end_beats",
     ]
+    W = np.zeros((len(notes), 3))
 
     for i, n in enumerate(notes):
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
@@ -1105,9 +1104,10 @@ def measure_feature(na, part, **kwargs):
             start = bm(measure.start.t)
             end = bm(measure.end.t)
             number = measure.number
-            
 
-    W = np.zeros((len(notes), 4))
+        W[i, 0] = number
+        W[i, 1] = start
+        W[i, 2] = end
 
     return W, names
 
