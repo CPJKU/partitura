@@ -1088,8 +1088,8 @@ def measure_feature(na, part, **kwargs):
 
     names = [
         "measure_number",
-        "measure_start_beats",
-        "measure_end_beats",
+        "measure_start_beat",
+        "measure_end_beat",
     ]
     W = np.zeros((len(notes), 3))
 
@@ -1101,9 +1101,9 @@ def measure_feature(na, part, **kwargs):
             end = bm(measure.end.t)
             number = measure.number
         else:
-            start = bm(measure.start.t)
-            end = bm(measure.end.t)
-            number = measure.number
+            start = global_start
+            end = global_end
+            number = global_number
 
         W[i, 0] = number
         W[i, 1] = start
