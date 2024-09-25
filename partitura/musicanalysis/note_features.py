@@ -1083,11 +1083,10 @@ def measure_feature(na, part, **kwargs):
     bm = part.beat_map
     eps = 10**-6
 
-    measures = np.array([(m.start.t, m.end.t) for m in part.iter_all(score.Measure)])
-    if len(measures) == 0:
-        start = bm(part.first_point.t)
-        end = bm(part.last_point.t)
-        number = 1
+    
+    global_start = bm(part.first_point.t)
+    global_end = bm(part.last_point.t)
+    global_number = 0 # default global measure number
 
     names = [
         "measure_number",
@@ -1099,9 +1098,14 @@ def measure_feature(na, part, **kwargs):
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 
         if measure:
-            measure_start = measure.start.t
+            start = bm(measure.start.t)
+            end = bm(measure.end.t)
+            number = measure.number
         else:
-            pass
+            start = bm(measure.start.t)
+            end = bm(measure.end.t)
+            number = measure.number
+            
 
     W = np.zeros((len(notes), 4))
 
