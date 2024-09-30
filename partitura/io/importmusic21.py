@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing scores from music21.
+"""
 import partitura as pt
 import numpy as np
 from fractions import Fraction
