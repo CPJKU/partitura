@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods for importing DCML tsv files.
+
+https://github.com/DCMLab/dcml_corpora
+"""
+
 import warnings
 import numpy as np
 from math import ceil
