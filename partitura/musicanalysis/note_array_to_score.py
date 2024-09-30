@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+This module contains methods to create parts from note arrays.
+"""
 from partitura.score import ScoreLike, Part
 from partitura.utils import (
     estimate_symbolic_duration,
