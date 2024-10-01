@@ -735,6 +735,7 @@ def get_time_maps_from_alignment(
     # Get indices of the matched notes (notes in the score
     # for which there is a performance note
     match_idx = get_matched_notes(score_note_array, perf_note_array, alignment)
+    print(match_idx)
 
     # Get onsets and durations
     score_onsets = score_note_array[match_idx[:, 0]]["onset_beat"]
@@ -823,6 +824,11 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
                 s_idx = int(s_idx)
                 p_idx = int(p_idx)
                 matched_idxs.append((s_idx, p_idx))
+
+    if len(matched_idxs) == 0:
+        warnings.warn(
+            "No matched note IDs found."
+        )
 
     return np.array(matched_idxs)
 
