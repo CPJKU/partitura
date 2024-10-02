@@ -266,9 +266,6 @@ def load_kern(
     )
     # Get Splines
     splines = file[1:].T[note_parts]
-    # Inverse Order
-    # splines = splines[::-1]
-    # parsing_idxs = parsing_idxs[::-1]
     prev_staff = 1
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
