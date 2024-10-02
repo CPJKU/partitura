@@ -563,7 +563,8 @@ def clef_feature(na, part, **kwargs):
             clef_indices = np.arange(len(start_times))
             interpolator = interp1d(start_times, clef_indices, 
                                     kind = "previous", 
-                                    bounds_error=False, fill_value=0)
+                                    bounds_error=False, 
+                                    fill_value="extrapolate")
             clef_dict[interpolator_key].append(interpolator)
 
         W = np.zeros((len(notes), 3))
