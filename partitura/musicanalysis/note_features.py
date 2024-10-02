@@ -526,23 +526,27 @@ def grace_feature(na, part, **kwargs):
         )
     return W, feature_names
 
+
 def clef_feature(na, part, **kwargs):
     """Clef feature
 
     This feature encodes the current clef of the staff of each note.
+    Note that this feature does not return the staff number per note,
+    see staff_feature for this information.
     """
     notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
-
-    numerical_clef_dict ={'G':0, 'F':1, 'C':2, 'percussion':3, 'TAB':4, 'jianpu':5,  'none':6}
-
+    numerical_clef_dict ={
+        'G':0, 'F':1, 'C':2, 
+        'percussion':3, 'TAB':4, 
+        'jianpu':5,  'none':6}
     names = [
         "clef_sign",
         "clef_line",
         "clef_octave_change"
     ]
     clef_dict = defaultdict(list)
-
     staff_numbers = set()
+
     for clef in part.iter_all(score.Clef):
         staff = clef.staff or 1
         staff_numbers.add(staff)
@@ -576,7 +580,6 @@ def clef_feature(na, part, **kwargs):
         W[i,2] = clef.octave_change or 0
 
     return W, names
-
 
 
 def loudness_direction_feature(na, part, **kwargs):
