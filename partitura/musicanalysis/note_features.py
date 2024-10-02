@@ -525,6 +525,10 @@ def grace_feature(na, part, **kwargs):
         )
     return W, feature_names
 
+def measure_feature(na, part, **kwargs):
+    """Clef feature
+    This feature encodes the current clef of the staff of each note.
+    """
 
 def loudness_direction_feature(na, part, **kwargs):
     """The loudness directions in part.
