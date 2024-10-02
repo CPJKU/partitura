@@ -69,6 +69,14 @@ KERN_DURS = {
     "256": {"type": "256th"},
 }
 
+class KernElement(object):
+    def __init__(self, element):
+        self.editorial_start = True if "ossia" in element else False
+        self.editorial_end = True if "Xstrophe" in element else False
+        self.voice_end = True if "*v" in element else False
+        self.voice_start = True if "*^" in element else False
+        self.element = element.replace("*", "")
+
 
 def add_durations(a, b):
     return a * b / (a + b)
@@ -102,8 +110,10 @@ def parse_by_voice(file: list, dtype=np.object_):
         data[line, voice] = file[line][voice]
     data = data.T
     if num_voices > 1:
-        # Copy global lines from the first voice to all other voices
+        # Copy global lines from the first voice to all other voices unless they are the string "*S/ossia"
         cp_idx = np.char.startswith(data[0], "*")
+        un_idx = np.char.startswith(data[0], "*S/ossia")
+        cp_idx = np.logical_and(cp_idx, ~un_idx)
         for i in range(1, num_voices):
             data[i][cp_idx] = data[0][cp_idx]
         # Copy Measure Lines from the first voice to all other voices
@@ -171,10 +181,16 @@ def element_parsing(
 ):
     divs_pq = part._quarter_durations[0]
     current_tl_pos = 0
+    editorial = False
     measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
     for i in range(elements.shape[0]):
         element = elements[i]
-        if element is None:
+        if isinstance(element, KernElement):
+            if element.editorial_start:
+                editorial = True
+            if element.editorial_end:
+                editorial = False
+        if element is None or editorial:
             continue
         if isinstance(element, spt.GenericNote):
             if total_duration_values[i] == 0:
@@ -250,9 +266,6 @@ def load_kern(
     )
     # Get Splines
     splines = file[1:].T[note_parts]
-    # Inverse Order
-    splines = splines[::-1]
-    parsing_idxs = parsing_idxs[::-1]
     prev_staff = 1
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
@@ -326,6 +339,7 @@ def load_kern(
     for part in copy_partlist:
         part.set_quarter_duration(0, divs_pq)
 
+
     for part, elements, total_duration_values, same_part in zip(
         copy_partlist, elements_list, total_durations_list, part_assignments
     ):
@@ -351,7 +365,8 @@ def load_kern(
     )
 
     doc_name = get_document_name(filename)
-    score = spt.Score(partlist=partlist, id=doc_name)
+    # inversing the partlist results to correct part order and visualization for exporting musicxml files
+    score = spt.Score(partlist=partlist[::-1], id=doc_name)
     return score
 
 
@@ -503,6 +518,9 @@ class SplineParser(object):
             return self.process_key_line(rest)
         elif line.startswith("*-"):
             return self.process_fine()
+        else:
+            return KernElement(element=line)
+
 
     def process_tempo_line(self, line: str):
         return spt.Tempo(float(line))
