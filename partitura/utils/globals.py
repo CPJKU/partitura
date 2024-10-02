@@ -192,6 +192,7 @@ SYM_DURS = [
     {"type": "long", "dots": 3},
 ]
 
+# Straight durs do not include copies for naming or dots, when searching they work better for base triplet types in `estimate_symbolic_duration`.
 STRAIGHT_DURS = np.array(
     [ 4 / 256, 4 / 128, 4 / 64, 4 / 32, 4 / 16, 4 / 8, 4 / 4, 4 / 2, 4 / 1, 4 / 0.5, 4 / 0.25]
 )
