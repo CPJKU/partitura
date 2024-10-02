@@ -525,10 +525,24 @@ def grace_feature(na, part, **kwargs):
         )
     return W, feature_names
 
-def measure_feature(na, part, **kwargs):
+def clef_feature(na, part, **kwargs):
     """Clef feature
+
     This feature encodes the current clef of the staff of each note.
     """
+    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    staff_dict = {n.id: n.staff for n in part.notes_tied}
+
+    names = [
+        "clef_sign",
+        "clef_line",
+        "clef_number"
+    ]
+
+    W = np.zeros((len(notes), 3))
+
+    for i, n in enumerate(notes):
+        pass
 
 def loudness_direction_feature(na, part, **kwargs):
     """The loudness directions in part.
