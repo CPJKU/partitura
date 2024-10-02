@@ -13,6 +13,7 @@ import types
 from typing import List, Union, Tuple
 from partitura.utils import ensure_notearray, ensure_rest_array
 from partitura.score import ScoreLike
+from collections import defaultdict
 
 __all__ = [
     "list_note_feats_functions",
@@ -538,6 +539,14 @@ def clef_feature(na, part, **kwargs):
         "clef_line",
         "clef_number"
     ]
+    clef_start_dict = defaultdict(list)
+
+    for clef in part.iter_all(score.Clef):
+        staff = clef.staff
+        time_key = "time_"+str(staff)
+        clef_key = "clef_"+str(staff)
+        clef_start_dict[time_key].append(clef.start.t)
+        clef_start_dict[clef_key].append(clef)
 
     W = np.zeros((len(notes), 3))
 
