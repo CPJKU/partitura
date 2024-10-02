@@ -69,6 +69,7 @@ KERN_DURS = {
     "256": {"type": "256th"},
 }
 
+
 class KernElement(object):
     def __init__(self, element):
         self.editorial_start = True if "ossia" in element else False
@@ -339,7 +340,6 @@ def load_kern(
     for part in copy_partlist:
         part.set_quarter_duration(0, divs_pq)
 
-
     for part, elements, total_duration_values, same_part in zip(
         copy_partlist, elements_list, total_durations_list, part_assignments
     ):
@@ -520,7 +520,6 @@ class SplineParser(object):
             return self.process_fine()
         else:
             return KernElement(element=line)
-
 
     def process_tempo_line(self, line: str):
         return spt.Tempo(float(line))
