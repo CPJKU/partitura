@@ -824,6 +824,14 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
                 p_idx = int(p_idx)
                 matched_idxs.append((s_idx, p_idx))
 
+    if len(matched_idxs) == 0:
+        warnings.warn(
+            "No matched note IDs found. "
+            "Either the alignment contains no matches "
+            "or the IDs in score of performance do not correspond to the alignment "
+            "(maybe due to repeat unfolding)."
+        )
+
     return np.array(matched_idxs)
 
 
