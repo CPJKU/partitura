@@ -546,38 +546,46 @@ def clef_feature(na, part, **kwargs):
     ]
     clef_dict = defaultdict(list)
     staff_numbers = set()
+    clef_list = [clef for clef in part.iter_all(score.Clef)]
+    if len(clef_list) > 0:
+        for clef in clef_list:
+            staff = clef.staff or 1
+            staff_numbers.add(staff)
+            time_key = "time_"+str(staff)
+            clef_key = "clef_"+str(staff)
+            clef_dict[time_key].append(clef.start.t)
+            clef_dict[clef_key].append(clef)
 
-    for clef in part.iter_all(score.Clef):
-        staff = clef.staff or 1
-        staff_numbers.add(staff)
-        time_key = "time_"+str(staff)
-        clef_key = "clef_"+str(staff)
-        clef_dict[time_key].append(clef.start.t)
-        clef_dict[clef_key].append(clef)
+        for staff in staff_numbers:
+            time_key = "time_"+str(staff)
+            interpolator_key = "interp_"+str(staff)
+            start_times = np.array(clef_dict[time_key])
+            clef_indices = np.arange(len(start_times))
+            interpolator = interp1d(start_times, clef_indices, 
+                                    kind = "previous", 
+                                    bounds_error=False, fill_value=0)
+            clef_dict[interpolator_key].append(interpolator)
 
-    for staff in staff_numbers:
-        time_key = "time_"+str(staff)
-        interpolator_key = "interp_"+str(staff)
-        start_times = np.array(clef_dict[time_key])
-        clef_indices = np.arange(len(start_times))
-        interpolator = interp1d(start_times, clef_indices, 
-                                kind = "previous", 
-                                bounds_error=False, fill_value=0)
-        clef_dict[interpolator_key].append(interpolator)
+        W = np.zeros((len(notes), 3))
 
-    W = np.zeros((len(notes), 3))
+        for i, n in enumerate(notes):
+            staff = n.staff or 1
+            time = n.start.t
+            clef_key = "clef_"+str(staff)
+            interpolator_key = "interp_"+str(staff)
+            clef_idx = clef_dict[interpolator_key][0](time)
+            clef = clef_dict[clef_key][int(clef_idx)]
+            sign = clef.sign or "none"
+            W[i,0] = numerical_clef_dict[sign]
+            W[i,1] = clef.line or 0
+            W[i,2] = clef.octave_change or 0
 
-    for i, n in enumerate(notes):
-        staff = n.staff or 1
-        time = n.start.t
-        clef_key = "clef_"+str(staff)
-        interpolator_key = "interp_"+str(staff)
-        clef_idx = clef_dict[interpolator_key][0](time)
-        clef = clef_dict[clef_key][int(clef_idx)]
-        sign = clef.sign or "G"
-        W[i,0] = numerical_clef_dict[sign]
-        W[i,1] = clef.line or 2
-        W[i,2] = clef.octave_change or 0
+    else:
+        # add dummy clef
+        W = np.zeros((len(notes), 3))
+        W[:,0] = 6 # "none"
+        W[:,1] = 0
+        W[:,2] = 0
 
     return W, names
 
