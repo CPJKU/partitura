@@ -538,7 +538,7 @@ def clef_feature(na, part, **kwargs):
     names = [
         "clef_sign",
         "clef_line",
-        "clef_number"
+        "clef_octave_change"
     ]
     clef_dict = defaultdict(list)
 
@@ -568,11 +568,14 @@ def clef_feature(na, part, **kwargs):
         time = n.start.t
         clef_key = "clef_"+str(staff)
         interpolator_key = "interp_"+str(staff)
-        clef_idx = clef_dict[interpolator_key](time)
-        clef = clef_dict[clef_key][clef_idx]
-        W[i,0]
-        W[i,1] = clef.line
-        W[i,2] = clef.number
+        clef_idx = clef_dict[interpolator_key][0](time)
+        clef = clef_dict[clef_key][int(clef_idx)]
+        sign = clef.sign or "G"
+        W[i,0] = numerical_clef_dict[sign]
+        W[i,1] = clef.line or 2
+        W[i,2] = clef.octave_change or 0
+
+    return W, names
 
 
 
