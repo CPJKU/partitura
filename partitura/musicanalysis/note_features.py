@@ -533,6 +533,8 @@ def clef_feature(na, part, **kwargs):
     """
     notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
 
+    numerical_clef_dict ={'G':0, 'F':1, 'C':2, 'percussion':3, 'TAB':4, 'jianpu':5,  'none':6}
+
     names = [
         "clef_sign",
         "clef_line",
@@ -542,7 +544,7 @@ def clef_feature(na, part, **kwargs):
 
     staff_numbers = set()
     for clef in part.iter_all(score.Clef):
-        staff = clef.staff
+        staff = clef.staff or 1
         staff_numbers.add(staff)
         time_key = "time_"+str(staff)
         clef_key = "clef_"+str(staff)
@@ -562,7 +564,7 @@ def clef_feature(na, part, **kwargs):
     W = np.zeros((len(notes), 3))
 
     for i, n in enumerate(notes):
-        staff = n.staff
+        staff = n.staff or 1
         time = n.start.t
         clef_key = "clef_"+str(staff)
         interpolator_key = "interp_"+str(staff)
