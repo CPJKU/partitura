@@ -532,26 +532,40 @@ def clef_feature(na, part, **kwargs):
     This feature encodes the current clef of the staff of each note.
     """
     notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
-    staff_dict = {n.id: n.staff for n in part.notes_tied}
 
     names = [
         "clef_sign",
         "clef_line",
         "clef_number"
     ]
-    clef_start_dict = defaultdict(list)
+    clef_dict = defaultdict(list)
 
+    staff_numbers = set()
     for clef in part.iter_all(score.Clef):
         staff = clef.staff
+        staff_numbers.add(staff)
         time_key = "time_"+str(staff)
         clef_key = "clef_"+str(staff)
-        clef_start_dict[time_key].append(clef.start.t)
-        clef_start_dict[clef_key].append(clef)
+        clef_dict[time_key].append(clef.start.t)
+        clef_dict[clef_key].append(clef)
+
+    for staff in staff_numbers:
+        time_key = "time_"+str(staff)
+        interpolator_key = "interp_"+str(staff)
+        start_times = np.array(clef_dict[time_key])
+        clef_indices = np.arange(len(start_times))
+        interpolator = interp1d(start_times, clef_indices, 
+                                kind = "previous", 
+                                bounds_error=False, fill_value=0)
+        clef_dict[interpolator_key].append(interpolator)
 
     W = np.zeros((len(notes), 3))
 
     for i, n in enumerate(notes):
-        pass
+        note_staff = n.staff
+        time_key = "time_"+str(staff)
+        clef_key = "clef_"+str(staff)
+
 
 def loudness_direction_feature(na, part, **kwargs):
     """The loudness directions in part.
