@@ -368,6 +368,7 @@ def load_kern(
     )
 
     doc_name = get_document_name(filename)
+    # inversing the partlist results to correct part order and visualization for exporting musicxml files
     score = spt.Score(partlist=partlist[::-1], id=doc_name)
     return score
 
