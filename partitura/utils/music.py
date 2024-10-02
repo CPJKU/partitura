@@ -766,24 +766,28 @@ def estimate_symbolic_duration(
             if return_com_durations:
                 return copy.copy(SYM_COMPOSITE_DURS[j])
             else:
-                warnings.warn(f"Quarter duration {qdur} from {dur}/{div} is a composite"
-                              f"duration but composite durations are not allowed. Returning empty symbolic duration.")
+                warnings.warn(
+                    f"Quarter duration {qdur} from {dur}/{div} is a composite"
+                    f"duration but composite durations are not allowed. Returning empty symbolic duration."
+                )
                 return {}
         # Naive condition to only apply tuplet estimation if the quarter duration is less than a bar (4)
         elif qdur > 4:
-            warnings.warn(f"Quarter duration {qdur} from {dur}/{div} is not a tuplet or composite duration."
-                          f"Returning empty symbolic duration.")
+            warnings.warn(
+                f"Quarter duration {qdur} from {dur}/{div} is not a tuplet or composite duration."
+                f"Returning empty symbolic duration."
+            )
             return {}
         else:
             i = np.searchsorted(STRAIGHT_DURS, qdur, side="left") - 1
             # NOTE: Guess tuplets (Naive) it doesn't cover composite durations from tied notes.
-            type = SYM_STRAIGHT_DURS[i+1]["type"]
+            type = SYM_STRAIGHT_DURS[i + 1]["type"]
             normal_notes = 2
             while (normal_notes * STRAIGHT_DURS[i + 1] / qdur) % 1 > eps:
                 normal_notes += 1
             return {
                 "type": type,
-                "actual_notes": math.ceil(normal_notes * STRAIGHT_DURS[i+1]  / qdur),
+                "actual_notes": math.ceil(normal_notes * STRAIGHT_DURS[i + 1] / qdur),
                 "normal_notes": normal_notes,
             }
 
