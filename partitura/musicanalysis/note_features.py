@@ -562,9 +562,16 @@ def clef_feature(na, part, **kwargs):
     W = np.zeros((len(notes), 3))
 
     for i, n in enumerate(notes):
-        note_staff = n.staff
-        time_key = "time_"+str(staff)
+        staff = n.staff
+        time = n.start.t
         clef_key = "clef_"+str(staff)
+        interpolator_key = "interp_"+str(staff)
+        clef_idx = clef_dict[interpolator_key](time)
+        clef = clef_dict[clef_key][clef_idx]
+        W[i,0]
+        W[i,1] = clef.line
+        W[i,2] = clef.number
+
 
 
 def loudness_direction_feature(na, part, **kwargs):
