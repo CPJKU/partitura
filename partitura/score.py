@@ -231,7 +231,7 @@ class Part(object):
         )
 
     @property
-    def clef_map(self) -> Callable[int, np.ndarray]:
+    def clef_map(self) -> Callable[[int], np.ndarray]:
         """A function mapping timeline times to the clef in each
         staff at that time. The function can take scalar
         values or lists/arrays of values
