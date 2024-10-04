@@ -16,7 +16,7 @@ class TestingClefFeatureExtraction(unittest.TestCase):
         for fn in CLEF_TESTFILES:
             score = load_musicxml(fn)
             sna1 = compute_note_array(score.parts[0],
-                               feature_functions="clef_feature")
+                               feature_functions=["clef_feature"])
             sna2 = compute_note_array(score.parts[1],
-                               feature_functions="clef_feature")
+                               feature_functions=["clef_feature"])
 
