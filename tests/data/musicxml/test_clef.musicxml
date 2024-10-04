@@ -242,14 +242,6 @@
           <beat-type>4</beat-type>
           </time>
         <staves>2</staves>
-        <clef number="1">
-          <sign>G</sign>
-          <line>2</line>
-          </clef>
-        <clef number="2">
-          <sign>G</sign>
-          <line>2</line>
-          </clef>
         </attributes>
       <note>
         <rest measure="yes"/>
