@@ -44,21 +44,13 @@ from partitura.io.matchfile_utils import (
     format_pnote_id,
 )
 
-from partitura.utils.music import (
-    midi_ticks_to_seconds
-)
+from partitura.utils.music import midi_ticks_to_seconds
 
 
-from partitura.utils.misc import (
-    deprecated_alias,
-    PathLike,
-    get_document_name
-)
+from partitura.utils.misc import deprecated_alias, PathLike, get_document_name
 
-from partitura.utils.generic import (
-    interp1d, 
-    iter_current_next
-)
+from partitura.utils.generic import interp1d, iter_current_next
+
 __all__ = ["load_match"]
 
 
@@ -463,9 +455,14 @@ def part_from_matchfile(
     ts = mf.time_signatures
     min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
     max_time = max(n.OffsetInBeats for n in snotes)
-    beats_map_from_beats, beats_map, beat_type_map_from_beats, beat_type_map, min_time_q, max_time_q = make_timesig_maps(
-        ts, max_time
-    )
+    (
+        beats_map_from_beats,
+        beats_map,
+        beat_type_map_from_beats,
+        beat_type_map,
+        min_time_q,
+        max_time_q,
+    ) = make_timesig_maps(ts, max_time)
 
     # compute necessary divs based on the types of notes in the
     # match snotes (only integers)
@@ -518,10 +515,16 @@ def part_from_matchfile(
         t = t - t % beats_map(min_time)
 
     for b_name in bars:
-        notes_in_this_bar = [(ni, n) for ni, n in enumerate(snotes) if n.Measure == b_name]
+        notes_in_this_bar = [
+            (ni, n) for ni, n in enumerate(snotes) if n.Measure == b_name
+        ]
         a_note_in_this_bar = notes_in_this_bar[0][1]
         a_note_id_in_this_bar = notes_in_this_bar[0][0]
-        bar_offset = (a_note_in_this_bar.Beat - 1) * 4 / beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
+        bar_offset = (
+            (a_note_in_this_bar.Beat - 1)
+            * 4
+            / beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
+        )
         on_off_scale = 1
         if not match_offset_duration_in_whole:
             on_off_scale = beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
@@ -529,12 +532,16 @@ def part_from_matchfile(
             4
             / on_off_scale
             * a_note_in_this_bar.Offset.numerator
-            / (a_note_in_this_bar.Offset.denominator * (a_note_in_this_bar.Offset.tuple_div or 1))
+            / (
+                a_note_in_this_bar.Offset.denominator
+                * (a_note_in_this_bar.Offset.tuple_div or 1)
+            )
         )
 
-        barline_in_quarters = onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
+        barline_in_quarters = (
+            onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
+        )
         bar_times[b_name] = barline_in_quarters
-
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
@@ -727,11 +734,17 @@ def part_from_matchfile(
             barline_in_divs = 0
         if prev_measure is not None:
             part.add(prev_measure, None, barline_in_divs)
-        prev_measure = score.Measure(number=measure_counter + 1, name = str(measure_name))
+        prev_measure = score.Measure(number=measure_counter + 1, name=str(measure_name))
         part.add(prev_measure, barline_in_divs)
-    last_closing_barline = barline_in_divs + int(round(divs * beats_map(barline_in_quarters) * 4 / beat_type_map(barline_in_quarters)))
+    last_closing_barline = barline_in_divs + int(
+        round(
+            divs
+            * beats_map(barline_in_quarters)
+            * 4
+            / beat_type_map(barline_in_quarters)
+        )
+    )
     part.add(prev_measure, None, last_closing_barline)
-
 
     # add the rest of the measures automatically
     score.add_measures(part)
@@ -825,16 +838,16 @@ def make_timesig_maps(
 
 def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:
     """
-        Method to add staff information to a part
+    Method to add staff information to a part
 
-        Parameters
-        ----------
-        part: Part
-            Part to add staff information to.
-        split: int
-            MIDI pitch to split staff into upper and lower. Default is 55
-        only_missing: bool
-            If True, only add staff to those notes that do not have staff info already.
+    Parameters
+    ----------
+    part: Part
+        Part to add staff information to.
+    split: int
+        MIDI pitch to split staff into upper and lower. Default is 55
+    only_missing: bool
+        If True, only add staff to those notes that do not have staff info already.
     """
     # assign staffs using a hard limit
     notes = part.notes_tied
