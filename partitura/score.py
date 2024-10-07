@@ -3769,11 +3769,8 @@ def add_measures(part):
                 if existing_measure.start.t == measure_start:
                     assert existing_measure.end.t > pos
                     pos = existing_measure.end.t
-                    if existing_measure.number != 0:
-                        # if existing_measure is a match anacrusis measure,
-                        # keep number 0
-                        existing_measure.number = mcounter
-                        mcounter += 1
+                    existing_measure.number = mcounter
+                    mcounter += 1
                     continue
 
                 else:

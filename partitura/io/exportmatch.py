@@ -21,7 +21,6 @@ from partitura.performance import Performance, PerformedPart, PerformanceLike
 from partitura.io.matchlines_v1 import (
     make_info,
     make_scoreprop,
-    make_section,
     MatchSnote,
     MatchNote,
     MatchSnoteNote,
