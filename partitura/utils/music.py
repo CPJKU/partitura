@@ -700,6 +700,12 @@ def key_int_to_mode(mode):
         raise ValueError("Unknown mode {}".format(mode))
 
 
+def clef_sign_to_int(clef_sign: str) -> int:
+    return CLEF_TO_INT[clef_sign]
+
+def clef_int_to_sign(clef_int: int) -> str:
+    return INT_TO_CLEF[clef_int]
+
 def estimate_symbolic_duration(
     dur, div, eps=10**-3, return_com_durations=False
 ) -> Union[Dict[str, Any], Tuple[Dict[str, Any]]]:

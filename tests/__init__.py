@@ -112,6 +112,11 @@ TIME_SIGNATURE_MAP_EDGECASES_TESTFILES = [
     for fn in ["test_ts_map_ts_starts_not_at_zero.xml"]
 ]
 
+CLEF_MAP_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn)
+    for fn in ["test_clef_map.musicxml"]
+]
+
 REST_ARRAY_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
     for fn in ["test_unfold_complex.xml", "test_rest.musicxml"]

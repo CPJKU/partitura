@@ -729,3 +729,15 @@ LOCAL_KEY_TRASPOSITIONS_DCML = {
         "vii": (7, "M"),
     },
 }
+
+#["G", "F", "C", "percussion", "TAB", "jianpu", "none"]
+CLEF_TO_INT = {
+    "G": 0,
+    "F": 1,
+    "C": 2,
+    "percussion": 3,
+    "TAB": 4,
+    "jianpu": 5,
+    "none": 6,
+}
+INT_TO_CLEF = {v: k for k, v in CLEF_TO_INT.items()}
