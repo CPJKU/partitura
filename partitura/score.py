@@ -3102,7 +3102,7 @@ class ChordSymbol(Harmony):
     """A harmony element in the score usually for Chord Symbols."""
 
     def __init__(self, root, kind, bass=None):
-        super().__init__(text=root + kind + (f"/{bass}" if bass else ""))
+        super().__init__(text=root + (f"/{kind}" if kind else "") + (f"/{bass}" if bass else ""))
         self.kind = kind
         self.root = root
         self.bass = bass
