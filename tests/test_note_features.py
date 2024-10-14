@@ -18,7 +18,7 @@ import numpy as np
 class TestingNoteFeatureExtraction(unittest.TestCase):
     def test_metrical_basis(self):
         for fn in METRICAL_POSITION_TESTFILES:
-            score = load_musicxml(fn)
+            score = load_musicxml(fn, , force_note_ids = "keep")
             make_note_feats(score[0], ["metrical_feature"])
 
     def test_grace_basis(self):
