@@ -1076,13 +1076,15 @@ def metrical_feature(na, part, **kwargs):
     non-zero value in the 'metrical_4_4_weak' descriptor.
 
     """
-    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes_list = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes = {n.id:n for n in notes_list}
     ts_map = part.time_signature_map
     bm = part.beat_map
     feature_by_name = {}
     eps = 10**-6
 
-    for i, n in enumerate(notes):
+    for i, na_n in enumerate(na):
+        n = notes[na_n["id"]]
         beats, beat_type, mus_beats = ts_map(n.start.t).astype(int)
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 
