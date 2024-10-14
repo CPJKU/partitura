@@ -938,9 +938,10 @@ def articulation_feature(na, part, **kwargs):
         force_size = False
 
     feature_by_name = {}
-    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes = {n.id:n for n in part.notes_tied}
     N = len(notes)
-    for i, n in enumerate(notes):
+    for i, na_n in enumerate(na):
+        n = notes[na_n["id"]]
         if n.articulations:
             for art in n.articulations:
                 if art in names:
