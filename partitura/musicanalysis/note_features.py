@@ -996,9 +996,10 @@ def ornament_feature(na, part, **kwargs):
         "other-ornament",
     ]
     feature_by_name = {}
-    notes = part.notes_tied
+    notes = {n.id:n for n in part.notes_tied}
     N = len(notes)
-    for i, n in enumerate(notes):
+    for i, na_n in enumerate(na):
+        n = notes[na_n["id"]]
         if n.ornaments:
             for art in n.ornaments:
                 if art in names:
