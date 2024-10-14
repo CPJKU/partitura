@@ -534,11 +534,12 @@ def clef_feature(na, part, **kwargs):
     Note that this feature does not return the staff number per note,
     see staff_feature for this information.
     """
-    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
-    numerical_clef_dict ={
+    notes = {n.id:n for n in part.notes_tied}
+    numerical_clef_dict = {
         'G':0, 'F':1, 'C':2, 
         'percussion':3, 'TAB':4, 
-        'jianpu':5,  'none':6}
+        'jianpu':5,  'none':6
+        }
     names = [
         "clef_sign",
         "clef_line",
@@ -568,8 +569,8 @@ def clef_feature(na, part, **kwargs):
             clef_dict[interpolator_key].append(interpolator)
 
         W = np.zeros((len(notes), 3))
-
-        for i, n in enumerate(notes):
+        for i, na_n in enumerate(na):
+            n = notes[na_n["id"]]
             staff = n.staff or 1
             time = n.start.t
             clef_key = "clef_"+str(staff)
