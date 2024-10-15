@@ -1079,7 +1079,8 @@ def measure_feature(na, part, **kwargs):
     This feature encodes the measure each note is in.
 
     """
-    notes = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes_list = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes = {n.id:n for n in notes_list}
     bm = part.beat_map
     
     global_start = bm(part.first_point.t)
@@ -1093,7 +1094,8 @@ def measure_feature(na, part, **kwargs):
     ]
     W = np.zeros((len(notes), 3))
 
-    for i, n in enumerate(notes):
+    for i, na_n in enumerate(na):
+        n = notes[na_n["id"]]
         measure = next(n.start.iter_prev(score.Measure, eq=True), None)
 
         if measure:
