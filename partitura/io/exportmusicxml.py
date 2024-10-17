@@ -635,11 +635,11 @@ def merge_measure_contents(notes, other, measure_start):
         cost[0] = 0
 
     # get the voice for which merging notes and other has lowest cost
-    merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
+    # merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
     result = []
     pos = measure_start
     for i, voice in enumerate(sorted(notes.keys())):
-        if voice == merge_voice:
+        if i == 0: #voice == merge_voice:
             elements = merged[voice]
 
         else:
