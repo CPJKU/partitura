@@ -23,6 +23,10 @@ class TestingClefFeatureExtraction(unittest.TestCase):
             
 
             sna1test1 = sna1["clef_feature.clef_sign"] == np.array([1., 0., 2., 0., 0., 2., 0., 0., 1., 0.])
+            sna1test2 = sna1["clef_feature.clef_line"] == np.array([4., 2., 3., 2., 2., 4., 2., 2., 4., 2.])
+            sna1test3 = sna1["clef_feature.clef_octave_change"] == np.array([0.,  0.,  0.,  1.,  1.,  0., -1.,  0.,  0.,  0.])
             self.assertTrue(np.all(sna1test1), "clef sign does not match")
-            print(sna1["clef_feature.clef_sign"], sna1["clef_feature.clef_line"], sna1["clef_feature.clef_octave_change"])
+            self.assertTrue(np.all(sna1test1), "clef line does not match")
+            self.assertTrue(np.all(sna1test1), "clef octave does not match")
+            print(sna2["clef_feature.clef_sign"], sna2["clef_feature.clef_line"], sna2["clef_feature.clef_octave_change"])
 
