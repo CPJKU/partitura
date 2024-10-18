@@ -137,6 +137,10 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
     if voice not in (None, 0):
         etree.SubElement(note_e, "voice").text = "{}".format(voice)
 
+    if note.stem_direction is not None:
+        stem_e = etree.SubElement(note_e, "stem")
+        stem_e.text = note.stem_direction
+
     if note.fermata is not None:
         notations.append(etree.Element("fermata"))
 
