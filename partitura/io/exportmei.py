@@ -277,6 +277,9 @@ class MEIExporter:
         elif note.tie_prev is not None:
             note_el.set("tie", "t")
 
+        if note.stem_direction is not None:
+            note_el.set("stem.dir", note.stem_direction)
+
         if note.alter is not None:
             if (
                 note.step.lower() + ALTER_TO_MEI[note.alter]
