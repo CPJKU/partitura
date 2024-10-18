@@ -29,6 +29,7 @@
         <voice>1</voice>
         <type>quarter</type>
         <dot/>
+        <stem>up</stem>
         <notations>
           <tied type="start"/>
         </notations>
