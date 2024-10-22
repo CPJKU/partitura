@@ -647,7 +647,7 @@ def merge_measure_contents(notes, other, measure_start):
     result = []
     pos = measure_start
     for i, voice in enumerate(sorted(notes.keys())):
-        if i == 0: # voice == merge_voice:
+        if i == 0:  # voice == merge_voice:
             elements = merged[voice]
 
         else:
