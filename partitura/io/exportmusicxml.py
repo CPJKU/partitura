@@ -634,12 +634,20 @@ def merge_measure_contents(notes, other, measure_start):
         merged[0] = []
         cost[0] = 0
 
+    # CHANGE: disabled cost-based merging of non-note elements into stream
+    # because this led to attributes not being in the beginning of the measure,
+    # which in turn led to problems with musescore
+    # fix: add atributes first, then the notes.
+    # problem: unclear whether this cost-based merging will break anything or
+    # was just cosmetic to avoid too many forwards and backwards.
+    # related issue: https://github.com/CPJKU/partitura/issues/390
+
     # get the voice for which merging notes and other has lowest cost
-    merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
+    # merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
     result = []
     pos = measure_start
     for i, voice in enumerate(sorted(notes.keys())):
-        if voice == merge_voice:
+        if i == 0: # voice == merge_voice:
             elements = merged[voice]
 
         else:
