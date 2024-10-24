@@ -265,6 +265,14 @@ def make_rest_features(
     )
     if na.size == 0:
         return np.array([])
+    
+    if len(set(na["id"])) != len(na):
+        warnings.warn(
+                    "Length of rest array {0} "
+                    "does not correspond to number of unique IDs {1}. "
+                    "Some feature functions may return spurious values.".format(len(na),
+                                                                                len(set(na["id"])))
+                      )
 
     acc = []
     if isinstance(feature_functions, str) and feature_functions == "all":
