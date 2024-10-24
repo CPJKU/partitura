@@ -132,6 +132,15 @@ def make_note_features(
         include_grace_notes=True,
         include_time_signature=True,
     )
+
+    if len(set(na["id"])) != len(na):
+        warnings.warn(
+                    "Length of note array {0} "
+                    "does not correspond to number of unique IDs {1}. "
+                    "Some feature functions may return spurious values.".format(len(na),
+                                                                                len(set(na["id"])))
+                      )
+
     acc = []
     if isinstance(feature_functions, str) and feature_functions == "all":
         feature_functions = list_note_feats_functions()
