@@ -135,11 +135,12 @@ def make_note_features(
 
     if len(set(na["id"])) != len(na):
         warnings.warn(
-                    "Length of note array {0} "
-                    "does not correspond to number of unique IDs {1}. "
-                    "Some feature functions may return spurious values.".format(len(na),
-                                                                                len(set(na["id"])))
-                      )
+            "Length of note array {0} "
+            "does not correspond to number of unique IDs {1}. "
+            "Some feature functions may return spurious values.".format(
+                len(na), len(set(na["id"]))
+            )
+        )
 
     acc = []
     if isinstance(feature_functions, str) and feature_functions == "all":
@@ -265,14 +266,15 @@ def make_rest_features(
     )
     if na.size == 0:
         return np.array([])
-    
+
     if len(set(na["id"])) != len(na):
         warnings.warn(
-                    "Length of rest array {0} "
-                    "does not correspond to number of unique IDs {1}. "
-                    "Some feature functions may return spurious values.".format(len(na),
-                                                                                len(set(na["id"])))
-                      )
+            "Length of rest array {0} "
+            "does not correspond to number of unique IDs {1}. "
+            "Some feature functions may return spurious values.".format(
+                len(na), len(set(na["id"]))
+            )
+        )
 
     acc = []
     if isinstance(feature_functions, str) and feature_functions == "all":
@@ -551,17 +553,17 @@ def clef_feature(na, part, **kwargs):
     Note that this feature does not return the staff number per note,
     see staff_feature for this information.
     """
-    notes = {n.id:n for n in part.notes_tied}
+    notes = {n.id: n for n in part.notes_tied}
     numerical_clef_dict = {
-        'G':0, 'F':1, 'C':2, 
-        'percussion':3, 'TAB':4, 
-        'jianpu':5,  'none':6
-        }
-    names = [
-        "clef_sign",
-        "clef_line",
-        "clef_octave_change"
-    ]
+        "G": 0,
+        "F": 1,
+        "C": 2,
+        "percussion": 3,
+        "TAB": 4,
+        "jianpu": 5,
+        "none": 6,
+    }
+    names = ["clef_sign", "clef_line", "clef_octave_change"]
     clef_dict = defaultdict(list)
     staff_numbers = set()
     clef_list = [clef for clef in part.iter_all(score.Clef)]
@@ -569,20 +571,23 @@ def clef_feature(na, part, **kwargs):
         for clef in clef_list:
             staff = clef.staff or 1
             staff_numbers.add(staff)
-            time_key = "time_"+str(staff)
-            clef_key = "clef_"+str(staff)
+            time_key = "time_" + str(staff)
+            clef_key = "clef_" + str(staff)
             clef_dict[time_key].append(clef.start.t)
             clef_dict[clef_key].append(clef)
 
         for staff in staff_numbers:
-            time_key = "time_"+str(staff)
-            interpolator_key = "interp_"+str(staff)
+            time_key = "time_" + str(staff)
+            interpolator_key = "interp_" + str(staff)
             start_times = np.array(clef_dict[time_key])
             clef_indices = np.arange(len(start_times))
-            interpolator = interp1d(start_times, clef_indices, 
-                                    kind = "previous", 
-                                    bounds_error=False, 
-                                    fill_value="extrapolate")
+            interpolator = interp1d(
+                start_times,
+                clef_indices,
+                kind="previous",
+                bounds_error=False,
+                fill_value="extrapolate",
+            )
             clef_dict[interpolator_key].append(interpolator)
 
         W = np.zeros((len(notes), 3))
@@ -590,21 +595,21 @@ def clef_feature(na, part, **kwargs):
             n = notes[na_n["id"]]
             staff = n.staff or 1
             time = n.start.t
-            clef_key = "clef_"+str(staff)
-            interpolator_key = "interp_"+str(staff)
+            clef_key = "clef_" + str(staff)
+            interpolator_key = "interp_" + str(staff)
             clef_idx = clef_dict[interpolator_key][0](time)
             clef = clef_dict[clef_key][int(clef_idx)]
             sign = clef.sign or "none"
-            W[i,0] = numerical_clef_dict[sign]
-            W[i,1] = clef.line or 0
-            W[i,2] = clef.octave_change or 0
+            W[i, 0] = numerical_clef_dict[sign]
+            W[i, 1] = clef.line or 0
+            W[i, 2] = clef.octave_change or 0
 
     else:
         # add dummy clef
         W = np.zeros((len(notes), 3))
-        W[:,0] = 6 # "none"
-        W[:,1] = 0
-        W[:,2] = 0
+        W[:, 0] = 6  # "none"
+        W[:, 1] = 0
+        W[:, 2] = 0
 
     return W, names
 
@@ -955,7 +960,7 @@ def articulation_feature(na, part, **kwargs):
         force_size = False
 
     feature_by_name = {}
-    notes = {n.id:n for n in part.notes_tied}
+    notes = {n.id: n for n in part.notes_tied}
     N = len(notes)
     for i, na_n in enumerate(na):
         n = notes[na_n["id"]]
@@ -1013,7 +1018,7 @@ def ornament_feature(na, part, **kwargs):
         "other-ornament",
     ]
     feature_by_name = {}
-    notes = {n.id:n for n in part.notes_tied}
+    notes = {n.id: n for n in part.notes_tied}
     N = len(notes)
     for i, na_n in enumerate(na):
         n = notes[na_n["id"]]
@@ -1094,7 +1099,7 @@ def metrical_feature(na, part, **kwargs):
 
     """
     notes_list = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
-    notes = {n.id:n for n in notes_list}
+    notes = {n.id: n for n in notes_list}
     ts_map = part.time_signature_map
     bm = part.beat_map
     feature_by_name = {}
