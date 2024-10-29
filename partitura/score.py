@@ -8,7 +8,6 @@ loudness directions. A score is defined at the highest level by a
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
-
 from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
@@ -46,6 +45,7 @@ from partitura.utils import (
     key_mode_to_int,
     _OrderedSet,
     update_note_ids_after_unfolding,
+    clef_sign_to_int,
 )
 from partitura.utils.generic import interp1d
 from partitura.utils.music import transpose_note, step2pc
@@ -228,6 +228,76 @@ class Part(object):
             bounds_error=False,
             fill_value="extrapolate",
         )
+
+    @property
+    def clef_map(self):
+        """A function mapping timeline times to the clef in each
+        staff at that time. The function can take scalar
+        values or lists/arrays of values
+
+        Returns
+        -------
+        function
+            The mapping function
+        """
+        clefs = np.array(
+            [
+                (
+                    c.start.t,
+                    c.staff,
+                    clef_sign_to_int(c.sign),
+                    c.line,
+                    c.octave_change if c.octave_change is not None else 0
+                )
+                for c in self.iter_all(Clef)
+            ]
+        )
+
+        interpolators = []
+        for s in range(1, self.number_of_staves + 1):
+            staff_clefs = clefs[clefs[:, 1] == s]
+            if len(staff_clefs) == 0:
+                # default treble clef
+                staff, clef, line, octave_change = s, clef_sign_to_int("none"), 0, 0
+
+                warnings.warn(
+                    "No clefs found on staff {}, assuming {} clef.".format(s, clef)
+                )
+                if self.first_point is None:
+                    t0, tN = 0, 0
+                else:
+                    t0 = self.first_point.t
+                    tN = self.last_point.t
+                staff_clefs = np.array(
+                    [
+                        (t0, staff, clef, line, octave_change),
+                        (tN, staff, clef, line, octave_change),
+                    ]
+                )
+            elif len(staff_clefs) == 1:
+                # If there is only a single clef
+                staff_clefs = np.array([staff_clefs[0, :], staff_clefs[0, :]])
+            
+            if staff_clefs[0, 0] > self.first_point.t:
+                staff_clefs = np.vstack(
+                    ((self.first_point.t, *staff_clefs[0, 1:]), staff_clefs)
+                )
+
+            interpolators.append(
+                interp1d(
+                    staff_clefs[:, 0],
+                    staff_clefs[:, 1:],
+                    axis=0,
+                    kind="previous",
+                    bounds_error=False,
+                    fill_value="extrapolate",
+                )
+            )
+
+        def collator(time: Union[int, np.ndarray]) -> np.ndarray:
+            return np.array([interpolator(time) for interpolator in interpolators], dtype=int)
+
+        return collator
 
     @property
     def measure_map(self):
