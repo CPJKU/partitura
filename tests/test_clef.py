@@ -79,3 +79,27 @@ class TestClefMap(unittest.TestCase):
             self.assertTrue(
                 np.all(map_fn(part.last_point.t) == np.array([[1, 2, 4, 0], [2, 1, 3, 0]]))  # ut4 / bass3
             )
+
+
+    def test_clef_map_multipart(self):
+        score = load_musicxml(CLEF_TESTFILES[0])
+        p1 = score.parts[0]
+        p2 = score.parts[1]
+        
+        t = np.arange(16)
+        target_p1_octave_change = np.array([ 0,  0,  0,  0,  1,  1,  1,  1, -1, -1,  0,  0,  0,  0,  0,  0])
+        target_p1_line = np.array([4, 4, 4, 4, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4])
+        map_fn = p1.clef_map
+        self.assertTrue(np.all(map_fn(t)[0,:,3] == target_p1_octave_change)) 
+        self.assertTrue(np.all(map_fn(t)[1,:,2] == target_p1_line)) 
+
+        target_p2_sign = np.zeros(16) # 16 stepgs G clef, imputed missing clef in the beginning
+        map_fn = p2.clef_map
+        self.assertTrue(np.all(map_fn(t)[1,:,1] == target_p2_sign)) 
+
+
+        p3 = merge_parts(score.parts, reassign="staff")
+        map_fn = p3.clef_map
+        self.assertTrue(np.all(map_fn(t)[0,:,3] == target_p1_octave_change)) 
+        self.assertTrue(np.all(map_fn(t)[1,:,2] == target_p1_line)) 
+        self.assertTrue(np.all(map_fn(t)[3,:,1] == target_p2_sign)) 
