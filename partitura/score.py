@@ -259,7 +259,7 @@ class Part(object):
             staff_clefs = clefs[clefs[:, 1] == s]
             if len(staff_clefs) == 0:
                 # default treble clef
-                staff, clef, line, octave_change = s, clef_sign_to_int("G"), 2, 0
+                staff, clef, line, octave_change = s, clef_sign_to_int("none"), 0, 0
 
                 warnings.warn(
                     "No clefs found on staff {}, assuming {} clef.".format(s, clef)
