@@ -5,7 +5,8 @@ This module contains tests for clef related methods.
 """
 import unittest
 from tests import (
-    CLEF_TESTFILES
+    CLEF_TESTFILES,
+    CLEF_MAP_TESTFILES
 )
 import numpy as np
 from partitura import load_musicxml
@@ -47,3 +48,34 @@ class TestingClefFeatureExtraction(unittest.TestCase):
             self.assertTrue(np.all(sna3test1), "clef sign does not match")
             self.assertTrue(np.all(sna3test2), "clef line does not match")
             self.assertTrue(np.all(sna3test3), "clef octave does not match")
+
+
+
+
+class TestClefMap(unittest.TestCase):
+    def test_clef_map(self):
+        score = load_musicxml(CLEF_MAP_TESTFILES[0])
+        for part in score:
+            # clef = (staff_no, sign_shape, line, octave_shift)
+            map_fn = part.clef_map
+            self.assertTrue(
+                np.all(map_fn(part.first_point.t) == np.array([[1, 0, 2, 0], [2, 1, 4, 0]]))  # treble / bass
+            )
+            self.assertTrue(
+                np.all(map_fn(7) == np.array([[1, 0, 2, -2], [2, 0, 2, 0]]))  # treble15vb / treble
+            )
+            self.assertTrue(
+                np.all(map_fn(8) == np.array([[1, 0, 2, 1], [2, 1, 4, 0]]))  # treble8va / bass
+            )
+            self.assertTrue(
+                np.all(map_fn(11) == np.array([[1, 2, 3, 0], [2, 1, 4, 0]]))  # ut3 / bass
+            )
+            self.assertTrue(
+                np.all(map_fn(12) == np.array([[1, 2, 3, 0], [2, 1, 3, 0]]))  # ut3 / bass3
+            )
+            self.assertTrue(
+                np.all(map_fn(13) == np.array([[1, 2, 4, 0], [2, 1, 3, 0]]))  # ut4 / bass3
+            )
+            self.assertTrue(
+                np.all(map_fn(part.last_point.t) == np.array([[1, 2, 4, 0], [2, 1, 3, 0]]))  # ut4 / bass3
+            )

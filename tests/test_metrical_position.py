@@ -14,7 +14,6 @@ import numpy as np
 from tests import (
     METRICAL_POSITION_TESTFILES,
     TIME_SIGNATURE_MAP_EDGECASES_TESTFILES,
-    CLEF_MAP_TESTFILES,
 )
 
 
@@ -134,33 +133,6 @@ class TestTimeSignatureMap(unittest.TestCase):
                 )
 
 
-class TestClefMap(unittest.TestCase):
-    def test_clef_map(self):
-        score = load_musicxml(CLEF_MAP_TESTFILES[0])
-        for part in score:
-            # clef = (staff_no, sign_shape, line, octave_shift)
-            map_fn = part.clef_map
-            self.assertTrue(
-                np.all(map_fn(part.first_point.t) == np.array([[1, 0, 2, 0], [2, 1, 4, 0]]))  # treble / bass
-            )
-            self.assertTrue(
-                np.all(map_fn(7) == np.array([[1, 0, 2, -2], [2, 0, 2, 0]]))  # treble15vb / treble
-            )
-            self.assertTrue(
-                np.all(map_fn(8) == np.array([[1, 0, 2, 1], [2, 1, 4, 0]]))  # treble8va / bass
-            )
-            self.assertTrue(
-                np.all(map_fn(11) == np.array([[1, 2, 3, 0], [2, 1, 4, 0]]))  # ut3 / bass
-            )
-            self.assertTrue(
-                np.all(map_fn(12) == np.array([[1, 2, 3, 0], [2, 1, 3, 0]]))  # ut3 / bass3
-            )
-            self.assertTrue(
-                np.all(map_fn(13) == np.array([[1, 2, 4, 0], [2, 1, 3, 0]]))  # ut4 / bass3
-            )
-            self.assertTrue(
-                np.all(map_fn(part.last_point.t) == np.array([[1, 2, 4, 0], [2, 1, 3, 0]]))  # ut4 / bass3
-            )
 
 
 if __name__ == "__main__":
