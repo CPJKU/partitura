@@ -10,7 +10,7 @@ are registered in terms of their start and end times.
 """
 from copy import copy, deepcopy
 from collections import defaultdict
-from collections.abc import Iterable, Callable
+from collections.abc import Iterable
 from numbers import Number
 from partitura.utils.globals import (
     MUSICAL_BEATS,
@@ -230,7 +230,7 @@ class Part(object):
         )
 
     @property
-    def clef_map(self) -> Callable[int, np.ndarray]:
+    def clef_map(self):
         """A function mapping timeline times to the clef in each
         staff at that time. The function can take scalar
         values or lists/arrays of values
