@@ -11,7 +11,11 @@ import partitura.score as score
 
 import types
 from typing import List, Union, Tuple
-from partitura.utils import ensure_notearray, ensure_rest_array
+from partitura.utils import (
+    ensure_notearray, 
+    ensure_rest_array,
+    clef_sign_to_int
+)
 from partitura.score import ScoreLike
 from collections import defaultdict
 
@@ -554,15 +558,6 @@ def clef_feature(na, part, **kwargs):
     see staff_feature for this information.
     """
     notes = {n.id: n for n in part.notes_tied}
-    numerical_clef_dict = {
-        "G": 0,
-        "F": 1,
-        "C": 2,
-        "percussion": 3,
-        "TAB": 4,
-        "jianpu": 5,
-        "none": 6,
-    }
     names = ["clef_sign", "clef_line", "clef_octave_change"]
     clef_dict = defaultdict(list)
     staff_numbers = set()
@@ -600,7 +595,7 @@ def clef_feature(na, part, **kwargs):
             clef_idx = clef_dict[interpolator_key][0](time)
             clef = clef_dict[clef_key][int(clef_idx)]
             sign = clef.sign or "none"
-            W[i, 0] = numerical_clef_dict[sign]
+            W[i, 0] = clef_sign_to_int(sign)
             W[i, 1] = clef.line or 0
             W[i, 2] = clef.octave_change or 0
 
