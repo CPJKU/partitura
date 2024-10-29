@@ -8,10 +8,9 @@ loudness directions. A score is defined at the highest level by a
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
-from collections.abc import Callable
 from copy import copy, deepcopy
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Callable
 from numbers import Number
 from partitura.utils.globals import (
     MUSICAL_BEATS,
@@ -231,7 +230,7 @@ class Part(object):
         )
 
     @property
-    def clef_map(self) -> Callable[[int], np.ndarray]:
+    def clef_map(self) -> Callable[Union[int, np.ndarray], np.ndarray]:
         """A function mapping timeline times to the clef in each
         staff at that time. The function can take scalar
         values or lists/arrays of values
@@ -295,7 +294,7 @@ class Part(object):
                 )
             )
 
-        def collator(time: int) -> np.ndarray:
+        def collator(time: Union[int, np.ndarray]) -> np.ndarray:
             return np.array([interpolator(time) for interpolator in interpolators], dtype=int)
 
         return collator
