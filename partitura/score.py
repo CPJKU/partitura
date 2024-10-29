@@ -257,7 +257,7 @@ class Part(object):
         for s in range(1, self.number_of_staves + 1):
             staff_clefs = clefs[clefs[:, 1] == s]
             if len(staff_clefs) == 0:
-                # default treble clef
+                # default "none" clef
                 staff, clef, line, octave_change = s, clef_sign_to_int("none"), 0, 0
 
                 warnings.warn(
