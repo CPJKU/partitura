@@ -278,7 +278,8 @@ class Part(object):
             elif len(staff_clefs) == 1:
                 # If there is only a single clef
                 staff_clefs = np.array([staff_clefs[0, :], staff_clefs[0, :]])
-            elif staff_clefs[0, 0] > self.first_point.t:
+            
+            if staff_clefs[0, 0] > self.first_point.t:
                 staff_clefs = np.vstack(
                     ((self.first_point.t, *staff_clefs[0, 1:]), staff_clefs)
                 )
