@@ -730,7 +730,7 @@ LOCAL_KEY_TRASPOSITIONS_DCML = {
     },
 }
 
-#["G", "F", "C", "percussion", "TAB", "jianpu", "none"]
+# ["G", "F", "C", "percussion", "TAB", "jianpu", "none"]
 CLEF_TO_INT = {
     "G": 0,
     "F": 1,

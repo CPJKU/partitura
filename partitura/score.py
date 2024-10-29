@@ -247,7 +247,7 @@ class Part(object):
                     c.staff,
                     clef_sign_to_int(c.sign),
                     c.line,
-                    c.octave_change if c.octave_change is not None else 0
+                    c.octave_change if c.octave_change is not None else 0,
                 )
                 for c in self.iter_all(Clef)
             ]
@@ -277,7 +277,7 @@ class Part(object):
             elif len(staff_clefs) == 1:
                 # If there is only a single clef
                 staff_clefs = np.array([staff_clefs[0, :], staff_clefs[0, :]])
-            
+
             if staff_clefs[0, 0] > self.first_point.t:
                 staff_clefs = np.vstack(
                     ((self.first_point.t, *staff_clefs[0, 1:]), staff_clefs)
@@ -295,7 +295,9 @@ class Part(object):
             )
 
         def collator(time: Union[int, np.ndarray]) -> np.ndarray:
-            return np.array([interpolator(time) for interpolator in interpolators], dtype=int)
+            return np.array(
+                [interpolator(time) for interpolator in interpolators], dtype=int
+            )
 
         return collator
 

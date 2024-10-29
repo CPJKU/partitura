@@ -11,11 +11,7 @@ import partitura.score as score
 
 import types
 from typing import List, Union, Tuple
-from partitura.utils import (
-    ensure_notearray, 
-    ensure_rest_array,
-    clef_sign_to_int
-)
+from partitura.utils import ensure_notearray, ensure_rest_array, clef_sign_to_int
 from partitura.score import ScoreLike
 from collections import defaultdict
 
