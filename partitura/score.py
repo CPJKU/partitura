@@ -5358,6 +5358,10 @@ def merge_parts(parts, reassign="voice"):
         If "voice", the new part have only one staff, and as manually
         voices as the sum of the voices in parts; the voice number
         get reassigned.
+        If "both", we reassign all the staves and voices to have unique staff
+        and voice numbers. According to musicxml standards, we consider 4 voices
+        per staff. So for example staff 1 will have voices 1,2,3,4, staff 2 will
+        have voices 5,6,7,8, and so on.
 
     Returns
     -------
@@ -5366,7 +5370,7 @@ def merge_parts(parts, reassign="voice"):
 
     """
     # check if reassign has valid values
-    if reassign not in ["staff", "voice"]:
+    if reassign not in ["staff", "voice","auto"]:
         raise ValueError(
             "Only 'staff' and 'voice' are supported ressign values. Found", reassign
         )
@@ -5404,26 +5408,20 @@ def merge_parts(parts, reassign="voice"):
     new_part._quarter_durations = [lcm]
 
     note_arrays = [part.note_array(include_staff=True) for part in parts]
-    # find the maximum number of voices for each part (voice number start from 1)
-    maximum_voices = [
-        (
-            max(note_array["voice"], default=0)
-            if max(note_array["voice"], default=0) != 0
-            else 1
-        )
-        for note_array in note_arrays
+    # find the unique number of voices for each part (voice numbers start from 1)
+    unique_voices = [
+        np.unique(note_array["voice"]) for note_array in note_arrays
     ]
-    # find the maximum number of staves for each part (staff number start from 0 but we force them to 1)
-    maximum_staves = [
-        (
-            max(note_array["staff"], default=0)
-            if max(note_array["staff"], default=0) != 0
-            else 1
-        )
-        for note_array in note_arrays
+    # find the unique number of staves for each part
+    unique_staves = [
+        np.unique(note_array["staff"]) for note_array in note_arrays
     ]
+    # find the maximum number of voices for each part (voice numbers start from 1)
+    maximum_voices = [max(unique_voice, default=1) for unique_voice in unique_voices]
+    # find the maximum number of staves for each part 
+    maximum_staves = [max(unique_staff, default=1) for unique_staff in unique_staves]                                                                           
 
-    if reassign == "staff":
+    if reassign in ["staff","auto"]:
         el_to_discard = (
             Barline,
             Page,
@@ -5454,6 +5452,20 @@ def merge_parts(parts, reassign="voice"):
         )
 
     for p_ind, p in enumerate(parts):
+        if reassign == "auto":
+            # find how many staves this part has
+            n_staves = len(unique_staves[p_ind])
+            # find total number of staves in previous parts
+            if p_ind == 0:
+                n_previous_staves = 0
+            else:
+                n_previous_staves = sum([len(unique_staff) for unique_staff in unique_staves[:p_ind]])
+            # build a mapping between the old staff numbers and the new staff numbers
+            staff_mapping = dict(zip(unique_staves[p_ind], n_previous_staves+ np.arange(1, n_staves + 1)))
+            # find how many voices this part has
+            n_voices = len(unique_voices[p_ind])
+            # build a mapping between the old and new voices
+            voice_mapping = dict(zip(unique_voices[p_ind], n_previous_staves*4 + np.arange(1, n_voices + 1)))
         for e in p.iter_all():
             # full copy the first part and partially copy the others
             # we don't copy elements like duplicate barlines, clefs or
@@ -5473,16 +5485,17 @@ def merge_parts(parts, reassign="voice"):
                     if isinstance(e, GenericNote):
                         e.voice = e.voice + sum(maximum_voices[:p_ind])
                 elif reassign == "staff":
-                    if isinstance(e, (GenericNote, Words, Direction)):
+                    if isinstance(e, (GenericNote, Words, Direction, Clef)):
                         e.staff = (e.staff if e.staff is not None else 1) + sum(
                             maximum_staves[:p_ind]
                         )
-                    elif isinstance(
-                        e, Clef
-                    ):  # TODO: to update if "number" get changed in "staff"
-                        e.staff = (e.staff if e.staff is not None else 1) + sum(
-                            maximum_staves[:p_ind]
-                        )
+                elif reassign == "auto":
+                    # assign based on the voice and staff mappings
+                    if isinstance(e, GenericNote):
+                        # new voice is computed as the sum of voices in staves in previous parts, plus the current
+                        e.voice = voice_mapping[e.voice] 
+                    if isinstance(e, (GenericNote, Words, Direction,Clef)):
+                        e.staff = staff_mapping[e.staff]
                 new_part.add(e, start=new_start, end=new_end)
 
                 # new_part.add(copy.deepcopy(e), start=new_start, end=new_end)
