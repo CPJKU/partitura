@@ -1645,9 +1645,7 @@ class GenericNote(TimedObject):
         **kwargs,
     ):
         self._sym_dur = None
-
         super().__init__(**kwargs)
-
         self.voice = voice
         self.id = id
         self.staff = staff
