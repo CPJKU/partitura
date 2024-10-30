@@ -1725,7 +1725,9 @@ class GenericNote(TimedObject):
         self.articulations = articulations
         self.ornaments = ornaments
         self.doc_order = doc_order
-        self.stem_direction = stem_direction if stem_direction in ("up", "down") else None
+        self.stem_direction = (
+            stem_direction if stem_direction in ("up", "down") else None
+        )
         # these attributes are set after the instance is constructed
         self.fermata = None
         self.tie_prev = None
