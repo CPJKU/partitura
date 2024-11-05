@@ -1010,7 +1010,11 @@ class MeiParser(object):
         for i_layer, layer_el in enumerate(layers_el):
             end_positions.append(
                 self._handle_layer_in_staff_in_measure(
-                    layer_el, int(layer_el.attrib.get("n", i_layer+1)), staff_ind, position, part
+                    layer_el,
+                    int(layer_el.attrib.get("n", i_layer + 1)),
+                    staff_ind,
+                    position,
+                    part,
                 )
             )
         # check if layers have equal duration (bad encoding, but it often happens)
@@ -1091,7 +1095,11 @@ class MeiParser(object):
                 for i_s, (part, staff_el) in enumerate(zip(parts, staves_el)):
                     end_positions.append(
                         self._handle_staff_in_measure(
-                            staff_el, int(staff_el.attrib.get("n", i_s + 1)), position, part, measure_number
+                            staff_el,
+                            int(staff_el.attrib.get("n", i_s + 1)),
+                            position,
+                            part,
+                            measure_number,
                         )
                     )
                 # handle directives (dir elements)
