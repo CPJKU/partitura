@@ -59,6 +59,22 @@ class TestingNoteFeatureExtraction(unittest.TestCase):
             self.assertTrue(np.all(dyntest), "forte feature does not match")
             self.assertTrue(np.all(slurtest), "slur feature does not match")
 
+    def test_measure_feature(self):
+        for fn in MUSICXML_NOTE_FEATURES:
+            score = load_musicxml(fn, force_note_ids=True)
+            feats = [
+                "measure_feature"
+            ]
+            na = compute_note_array(score[0], feature_functions=feats)
+
+            numtest = na["measure_feature.measure_number"] == np.array([1, 1, 1, 2, 2, 2])
+            starttest = na["measure_feature.measure_start_beat"] == np.array([0, 0, 0, 4, 4, 4])
+            endtest = na["measure_feature.measure_end_beat"] == np.array([4, 4, 4, 8, 8, 8])
+            self.assertTrue(np.all(numtest), "measure number feature does not match")
+            self.assertTrue(np.all(starttest), "measure start feature does not match")
+            self.assertTrue(np.all(endtest), "measure end feature does not match")
+
+
 
 if __name__ == "__main__":
     unittest.main()

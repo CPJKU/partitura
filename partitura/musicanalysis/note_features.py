@@ -1156,6 +1156,46 @@ def metrical_strength_feature(na, part, **kwargs):
 
     return W, names
 
+def measure_feature(na, part, **kwargs):
+    """Measure feature
+
+    This feature encodes the measure each note is in.
+
+    """
+    notes_list = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
+    notes = {n.id:n for n in notes_list}
+    bm = part.beat_map
+    
+    global_start = bm(part.first_point.t)
+    global_end = bm(part.last_point.t)
+    global_number = 0 # default global measure number
+
+    names = [
+        "measure_number",
+        "measure_start_beat",
+        "measure_end_beat",
+    ]
+    W = np.zeros((len(notes), 3))
+
+    for i, na_n in enumerate(na):
+        n = notes[na_n["id"]]
+        measure = next(n.start.iter_prev(score.Measure, eq=True), None)
+
+        if measure:
+            start = bm(measure.start.t)
+            end = bm(measure.end.t)
+            number = measure.number
+        else:
+            start = global_start
+            end = global_end
+            number = global_number
+
+        W[i, 0] = number
+        W[i, 1] = start
+        W[i, 2] = end
+
+    return W, names
+
 
 def time_signature_feature(na, part, **kwargs):
     """TIme Signature feature
