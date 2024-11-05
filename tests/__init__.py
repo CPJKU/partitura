@@ -137,8 +137,11 @@ MERGE_PARTS_TESTFILES = [
         "test_single_part_change_divs.xml",
         "test_merge_voices1.xml",
         "test_merge_voices2.xml",
-    ]
-]
+    ]] + [
+    os.path.join(MEI_PATH, fn)
+    for fn in [
+        "test_merge_voices2.mei",
+    ]]
 
 PIANOROLL_TESTFILES = [
     os.path.join(MUSICXML_PATH, fn)
@@ -255,4 +258,10 @@ MIDIINPORT_TESTFILES = [
 
 CLEF_TESTFILES = [
     os.path.join(DATA_PATH, "musicxml", "test_clef.musicxml")
+]
+
+CROSS_STAFF_TESTFILES = [
+    os.path.join(DATA_PATH, "musicxml", "test_cross_staff_beaming.musicxml"),
+    os.path.join(DATA_PATH, MUSICXML_PATH, "test_cross_staff_voices.musicxml"),
+    os.path.join(DATA_PATH, MEI_PATH, "test_cross_staff_voices.mei"),
 ]
