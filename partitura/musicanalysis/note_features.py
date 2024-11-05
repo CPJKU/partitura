@@ -1156,6 +1156,7 @@ def metrical_strength_feature(na, part, **kwargs):
 
     return W, names
 
+
 def measure_feature(na, part, **kwargs):
     """Measure feature
 
@@ -1163,12 +1164,12 @@ def measure_feature(na, part, **kwargs):
 
     """
     notes_list = part.notes_tied if not np.all(na["pitch"] == 0) else part.rests
-    notes = {n.id:n for n in notes_list}
+    notes = {n.id: n for n in notes_list}
     bm = part.beat_map
-    
+
     global_start = bm(part.first_point.t)
     global_end = bm(part.last_point.t)
-    global_number = 0 # default global measure number
+    global_number = 0  # default global measure number
 
     names = [
         "measure_number",
