@@ -190,6 +190,7 @@ def load_musicxml(
     filename: PathLike,
     validate: bool = False,
     force_note_ids: Optional[Union[bool, str]] = None,
+    ignore_invisible_objects: bool = False,
 ) -> score.Score:
     """Parse a MusicXML file and build a composite score ontology
     structure from it (see also scoreontology.py).
@@ -208,6 +209,9 @@ def load_musicxml(
         assigned unique id attribute. Existing note id attributes in
         the MusicXML will be discarded. If 'keep', only notes without
         a note id will be assigned one.
+    ignore_invisible_objects : bool, optional
+        When True, objects that with the attribute `print-object="no"`
+        will be ignored. Defaults to False.
 
     Returns
     -------
@@ -252,7 +256,7 @@ def load_musicxml(
         partlist, part_dict = _parse_partlist(partlist_el)
         # Go through each <part> to obtain the content of the parts.
         # The Part instances will be modified in place
-        _parse_parts(document, part_dict)
+        _parse_parts(document, part_dict, ignore_invisible_objects=ignore_invisible_objects)
     else:
         partlist = []
 
@@ -341,7 +345,7 @@ def load_musicxml(
     return scr
 
 
-def _parse_parts(document, part_dict):
+def _parse_parts(document, part_dict, ignore_invisible_objects=False):
     """
     Populate the Part instances that are the values of `part_dict` with the
     musical content in document.
@@ -353,6 +357,8 @@ def _parse_parts(document, part_dict):
     part_dict : dict
         A dictionary with key--value pairs (part_id, Part instance), as returned
         by the _parse_partlist() function.
+    ignore_invisible_objects : bool, optional
+        When True, objects that with the attribute `print-object="no"` will be ignored.
     """
 
     for part_el in document.findall("part"):
@@ -368,7 +374,7 @@ def _parse_parts(document, part_dict):
 
         for mc, measure_el in enumerate(part_el.xpath("measure")):
             position, doc_order = _handle_measure(
-                measure_el, position, part, ongoing, doc_order, mc + 1
+                measure_el, position, part, ongoing, doc_order, mc + 1, ignore_invisible_objects
             )
 
         # complete unfinished endings
@@ -492,7 +498,15 @@ def _parse_parts(document, part_dict):
         #     shift.applied = True
 
 
-def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_counter):
+def _handle_measure(
+        measure_el,
+        position,
+        part,
+        ongoing,
+        doc_order,
+        measure_counter,
+        ignore_invisible_objects=False,
+):
     """Parse a <measure>...</measure> element, adding it and its contents to the part.
 
     Parameters
@@ -509,6 +523,8 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_coun
         The index of the first note element in the current measure in the xml file.
     measure_counter : int
         The index of the <measure> tag in the xml file, starting from 1
+    ignore_invisible_objects : bool, optional
+        When True, objects that with the attribute `print-object="no"` will be ignored.
 
     Returns
     -------
@@ -536,6 +552,15 @@ def _handle_measure(measure_el, position, part, ongoing, doc_order, measure_coun
     measure_maxtime = measure_start
     trailing_children = []
     for i, e in enumerate(measure_el):
+        # If the object is invisible and the user wants it, skip the object
+        if ignore_invisible_objects and get_value_from_attribute(e, "print-object", str) == "no":
+            # Still update position for invisible notes (to avoid problems with backups)
+            if e.tag == "note":
+                duration = get_value_from_tag(e, "duration", int) or 0
+                position += duration
+            # Skip the object
+            continue
+
         if e.tag == "backup":
             # <xs:documentation>The backup and forward elements are required
             # to coordinate multiple voices in one part, including music on
@@ -1347,6 +1372,11 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
             articulations=articulations,
             doc_order=doc_order,
         )
+
+    # Deal with invisible notes
+    print_object = get_value_from_attribute(e, "print-object", str)
+    if print_object == "no":
+        note.print_object = False
 
     part.add(note, position, position + duration)
 
