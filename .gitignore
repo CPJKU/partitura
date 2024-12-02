@@ -152,3 +152,6 @@ static
 
 # phdocs
 phdocs.txt
+
+# fluidsynth default soundfont
+partitura/assets/MuseScore_General.sf*

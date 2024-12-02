@@ -137,6 +137,10 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
     if voice not in (None, 0):
         etree.SubElement(note_e, "voice").text = "{}".format(voice)
 
+    if note.stem_direction is not None:
+        stem_e = etree.SubElement(note_e, "stem")
+        stem_e.text = note.stem_direction
+
     if note.fermata is not None:
         notations.append(etree.Element("fermata"))
 
@@ -647,12 +651,20 @@ def merge_measure_contents(notes, other, measure_start):
         merged[0] = []
         cost[0] = 0
 
+    # CHANGE: disabled cost-based merging of non-note elements into stream
+    # because this led to attributes not being in the beginning of the measure,
+    # which in turn led to problems with musescore
+    # fix: add atributes first, then the notes.
+    # problem: unclear whether this cost-based merging will break anything or
+    # was just cosmetic to avoid too many forwards and backwards.
+    # related issue: https://github.com/CPJKU/partitura/issues/390
+
     # get the voice for which merging notes and other has lowest cost
-    merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
+    # merge_voice = sorted(cost.items(), key=itemgetter(1))[0][0]
     result = []
     pos = measure_start
     for i, voice in enumerate(sorted(notes.keys())):
-        if voice == merge_voice:
+        if i == 0:  # voice == merge_voice:
             elements = merged[voice]
 
         else:
@@ -671,7 +683,7 @@ def merge_measure_contents(notes, other, measure_start):
             elif gap > 0:
                 e = etree.Element("forward")
                 ee = etree.SubElement(e, "duration")
-                ee.text = "{:d}".format(gap)
+                ee.text = "{:d}".format(int(gap))
                 result.append(e)
 
         result.extend([e for _, _, e in elements])
@@ -846,6 +858,17 @@ def do_harmony(part, start, end):
             bass_e = etree.SubElement(harmony_e, "bass")
             bass_step_e = etree.SubElement(bass_e, "bass-step")
             bass_step_e.text = h.bass
+        result.append((h.start.t, None, harmony_e))
+
+    # Does harmony annotation for cadences
+    # TODO: Merge with existing Roman Numeral and ChordSymbol annotations if they exist.
+    harmony = part.iter_all(score.Cadence, start, end)
+    for h in harmony:
+        harmony_e = etree.Element("harmony", print_frame="no")
+        function = etree.SubElement(harmony_e, "function")
+        function.text = "|" + h.text
+        kind_e = etree.SubElement(harmony_e, "kind", text="")
+        kind_e.text = "none"
         result.append((h.start.t, None, harmony_e))
     return result
 
@@ -1055,8 +1078,8 @@ def save_musicxml(
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
             attrib = {}
 
-            if measure.number is not None:
-                attrib["number"] = str(measure.number)
+            if measure.name is not None:
+                attrib["number"] = str(measure.name)
 
             measure_e = etree.SubElement(part_e, "measure", **attrib)
             contents = linearize_measure_contents(

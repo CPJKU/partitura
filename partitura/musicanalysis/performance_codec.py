@@ -757,21 +757,17 @@ def get_time_maps_from_alignment(
 
     # Remove grace notes
     if remove_ornaments:
-        # TODO: check that all onsets have a duration?
+        # check that all onsets have a duration
         # ornaments (grace notes) do not have a duration
-        score_unique_onset_idxs = np.array(
-            [
-                np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
-                for u in score_unique_onsets
-            ],
-            dtype=object,
-        )
+        score_unique_onset_idxs = [
+            np.where(np.logical_and(score_onsets == u, score_durations > 0))[0]
+            for u in score_unique_onsets
+        ]
 
     else:
-        score_unique_onset_idxs = np.array(
-            [np.where(score_onsets == u)[0] for u in score_unique_onsets],
-            dtype=object,
-        )
+        score_unique_onset_idxs = [
+            np.where(score_onsets == u)[0] for u in score_unique_onsets
+        ]
 
     # For chords, we use the average performed onset as a proxy for
     # representing the "performeance time" of the position of the score
@@ -829,13 +825,22 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
             else:
                 p_id = al["performance_id"]
 
-            p_idx = int(np.where(ppart_note_array["id"] == p_id)[0])
+            p_idx = np.where(ppart_note_array["id"] == p_id)[0]
 
             s_idx = np.where(spart_note_array["id"] == al["score_id"])[0]
 
-            if len(s_idx) > 0:
+            if len(s_idx) > 0 and len(p_idx) > 0:
                 s_idx = int(s_idx)
+                p_idx = int(p_idx)
                 matched_idxs.append((s_idx, p_idx))
+
+    if len(matched_idxs) == 0:
+        warnings.warn(
+            "No matched note IDs found. "
+            "Either the alignment contains no matches "
+            "or the IDs in score of performance do not correspond to the alignment "
+            "(maybe due to repeat unfolding)."
+        )
 
     return np.array(matched_idxs)
 
