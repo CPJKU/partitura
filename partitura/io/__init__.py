@@ -5,7 +5,9 @@ This module contains methods for importing and exporting symbolic music formats.
 """
 from typing import Union
 import os
-
+import urllib.request
+from urllib.parse import urlparse
+import tempfile
 from .importmusicxml import load_musicxml
 from .importmidi import load_score_midi, load_performance_midi
 from .musescore import load_via_musescore
@@ -33,6 +35,32 @@ class NotSupportedFormatError(Exception):
     pass
 
 
+def is_url(input):
+    try:
+        result = urlparse(input)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+
+def download_file(url):
+    # Send a GET request to the URL
+    with urllib.request.urlopen(url) as response:
+        data = response.read()
+
+    # Extract the file extension from the URL
+    extension = os.path.splitext(url)[-1]
+
+    # Create a temporary file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=extension)
+
+    # Write the content to the temporary file
+    with open(temp_file.name, 'wb') as f:
+        f.write(data)
+
+    return temp_file.name
+
+
 @deprecated_alias(score_fn="filename")
 @deprecated_parameter("ensure_list")
 def load_score(filename: PathLike, force_note_ids="keep") -> Score:
@@ -58,6 +86,8 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
     scr: :class:`partitura.score.Score`
         A score instance.
     """
+    if is_url(filename):
+        filename = download_file(filename)
 
     extension = os.path.splitext(filename)[-1].lower()
     if extension in (".mxl", ".xml", ".musicxml"):

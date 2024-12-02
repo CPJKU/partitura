@@ -1,6 +1,6 @@
 import re
-
 import partitura.score as spt
+import partitura.io as sptio
 import os.path as osp
 import numpy as np
 from urllib.parse import urlparse
@@ -9,8 +9,7 @@ from partitura.utils.music import key_name_to_fifths_mode
 
 
 def load_rntxt(path: spt.Path, part=None, return_part=False):
-
-    if is_url(path):
+    if sptio.is_url(path):
         data = load_data_from_url(path)
         lines = data.split("\n")
     else:
@@ -39,14 +38,6 @@ def load_data_from_url(url: str):
     with urllib.request.urlopen(url) as response:
         data = response.read().decode()
     return data
-
-
-def is_url(input):
-    try:
-        result = urlparse(input)
-        return all([result.scheme, result.netloc])
-    except ValueError:
-        return False
 
 
 class RntxtParser:
