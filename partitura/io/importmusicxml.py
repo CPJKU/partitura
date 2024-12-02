@@ -1198,6 +1198,9 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
     # initialize beam to None
     beam = None
 
+    # get the stem direction of the note if any
+    stem_dir = get_value_from_tag(e, "stem", str) or None
+
     # add support of uppercase "ID" tags
     note_id = (
         get_value_from_attribute(e, "id", str)
@@ -1270,6 +1273,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
                 ornaments=ornaments,
                 steal_proportion=steal_proportion,
                 doc_order=doc_order,
+                stem_direction=stem_dir,
             )
             if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
                 note.grace_prev = prev_note
@@ -1306,6 +1310,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
                 articulations=articulations,
                 ornaments=ornaments,
                 doc_order=doc_order,
+                stem_direction=stem_dir,
             )
 
         if isinstance(prev_note, score.GraceNote) and prev_note.voice == voice:
@@ -1335,6 +1340,7 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
             articulations=articulations,
             symbolic_duration=symbolic_duration,
             doc_order=doc_order,
+            stem_direction=stem_dir,
         )
 
     else:
@@ -1453,7 +1459,7 @@ def handle_tuplets(notations, ongoing, note):
     # assert that starting tuplet times are before stopping tuplet times
     for start_tuplet, stop_tuplet in zip(starting_tuplets, stopping_tuplets):
         assert (
-            start_tuplet.start_note.start.t < stop_tuplet.end_note.start.t
+            start_tuplet.start_note.start.t <= stop_tuplet.end_note.start.t
         ), "Tuplet start time is after tuplet stop time"
     return starting_tuplets, stopping_tuplets
 
