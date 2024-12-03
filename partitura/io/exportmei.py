@@ -6,6 +6,7 @@ This module contains methods for exporting MEI files.
 import math
 from collections import defaultdict
 from lxml import etree
+import lxml
 import partitura.score as spt
 from operator import itemgetter
 from itertools import groupby
@@ -553,15 +554,16 @@ class MEIExporter:
         The position doesn't really matter since the startid attribute will place it correctly
         """
         for note in self.part.iter_all(spt.Note, start=start, end=end):
-            for technical_notation in note.technical:
-                if isinstance(technical_notation, score.Fingering) and note.id is not None:
-                    fing_el = etree.SubElement(measure_el, "fing")
-                    fing_el.set(XMLNS_ID, "fing-" + self.elc_id())
-                    fing_el.set("startid", note.id)
-                    # Naive way to place the fingering notation
-                    fing_el.set("place", ("above" if note.staff == 1 else "below"))
-                    # text is a child element of fingering but not a xml element
-                    fing_el.text = technical_notation.fingering
+            if note.technical is not None:
+                for technical_notation in note.technical:
+                    if isinstance(technical_notation, score.Fingering) and note.id is not None:
+                        fing_el = etree.SubElement(measure_el, "fing")
+                        fing_el.set(XMLNS_ID, "fing-" + self.elc_id())
+                        fing_el.set("startid", note.id)
+                        # Naive way to place the fingering notation
+                        fing_el.set("place", ("above" if note.staff == 1 else "below"))
+                        # text is a child element of fingering but not a xml element
+                        fing_el.text = technical_notation.fingering
 
 
 @deprecated_alias(parts="score_data")

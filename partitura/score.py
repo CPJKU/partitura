@@ -21,7 +21,7 @@ import warnings, sys
 import numpy as np
 import re
 from scipy.interpolate import PPoly
-from typing import Union, List, Optional, Iterator, Iterable as Itertype
+from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype
 import difflib
 from partitura.utils import (
     ComparableMixin,
