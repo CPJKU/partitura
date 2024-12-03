@@ -14,7 +14,6 @@ from .musescore import load_via_musescore
 from .importmatch import load_match
 from .importmei import load_mei
 from .importkern import load_kern
-from .importrntxt import load_rntxt
 from .exportkern import save_kern
 from .importparangonada import load_parangonada_csv
 from .exportparangonada import save_parangonada_csv
