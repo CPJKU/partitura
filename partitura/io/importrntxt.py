@@ -2,8 +2,6 @@ import re
 import partitura.score as spt
 import partitura.io as sptio
 import os.path as osp
-import numpy as np
-from urllib.parse import urlparse
 import urllib.request
 from partitura.utils.music import key_name_to_fifths_mode
 
