@@ -553,13 +553,17 @@ def _handle_measure(
     trailing_children = []
     for i, e in enumerate(measure_el):
         # If the object is invisible and the user wants it, skip the object
-        if ignore_invisible_objects and get_value_from_attribute(e, "print-object", str) == "no":
-            # Still update position for invisible notes (to avoid problems with backups)
-            if e.tag == "note":
-                duration = get_value_from_tag(e, "duration", int) or 0
-                position += duration
-            # Skip the object
-            continue
+        # Will probably not skip everything, but works at least for notes and rests
+        if ignore_invisible_objects:
+            print_obj = get_value_from_attribute(e, "print-object", str)
+            notehead = e.find("notehead")  # Musescore mask notes with notehead="none"
+            if print_obj == "no" or (notehead is not None and notehead.text == "none"):
+                # Still update position for invisible notes (to avoid problems with backups)
+                if e.tag == "note":
+                    duration = get_value_from_tag(e, "duration", int) or 0
+                    position += duration
+                # Skip the object
+                continue
 
         if e.tag == "backup":
             # <xs:documentation>The backup and forward elements are required
@@ -1372,12 +1376,6 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
             articulations=articulations,
             doc_order=doc_order,
         )
-
-    # Deal with invisible notes
-    print_object = get_value_from_attribute(e, "print-object", str)
-    if print_object == "no":
-        note.print_object = False
-
     part.add(note, position, position + duration)
 
     # After note is assigned to part we can assign the beam to the note if it exists
