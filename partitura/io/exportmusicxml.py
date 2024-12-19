@@ -419,7 +419,9 @@ def linearize_segment_contents(part, start, end, state):
         voice_notes = notes_by_voice[voice]
         # sort by pitch (then step in case of enharmonic notes)
         voice_notes.sort(
-            key=lambda n: (n.midi_pitch, n.step) if hasattr(n, "midi_pitch") else (-1, ""),
+            key=lambda n: (
+                (n.midi_pitch, n.step) if hasattr(n, "midi_pitch") else (-1, "")
+            ),
             reverse=True,
         )
         # grace notes should precede other notes at the same onset
