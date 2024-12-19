@@ -402,7 +402,9 @@ class MEIExporter:
                         if note_el.getparent() != beam_el:
                             beam_el.append(note_el)
 
-    def _handle_clef_changes(self, measure_el: lxml.etree._Element, start: int, end: int):
+    def _handle_clef_changes(
+        self, measure_el: lxml.etree._Element, start: int, end: int
+    ):
         for clef in self.part.iter_all(spt.Clef, start=start, end=end):
             # Clef element is parent of the note element
             if clef.start.t == 0:
@@ -556,7 +558,10 @@ class MEIExporter:
         for note in self.part.iter_all(spt.Note, start=start, end=end):
             if note.technical is not None:
                 for technical_notation in note.technical:
-                    if isinstance(technical_notation, score.Fingering) and note.id is not None:
+                    if (
+                        isinstance(technical_notation, score.Fingering)
+                        and note.id is not None
+                    ):
                         fing_el = etree.SubElement(measure_el, "fing")
                         fing_el.set(XMLNS_ID, "fing-" + self.elc_id())
                         fing_el.set("startid", note.id)
