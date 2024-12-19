@@ -40,6 +40,7 @@ from partitura.io.matchfile_utils import (
     Version,
     number_pattern,
     vnumber_pattern,
+    fingering_pattern,
     MatchTimeSignature,
     format_pnote_id,
 )
@@ -594,6 +595,7 @@ def part_from_matchfile(
             alter=note.Modifier,
             id=note.Anchor,
             articulations=articulations,
+            technical=[],
         )
 
         staff_nr = next(
@@ -620,6 +622,18 @@ def part_from_matchfile(
             note_attributes["voice"] = next(
                 (int(a) for a in note.ScoreAttributesList if number_pattern.match(a)),
                 None,
+            )
+
+        if any(a.startswith("fingering") for a in note.ScoreAttributesList):
+            note_attributes["technical"].append(
+                next(
+                    (
+                        score.Fingering(int(a[9:]))
+                        for a in note.ScoreAttributesList
+                        if fingering_pattern.match(a)
+                    ),
+                    None,
+                )
             )
 
         # get rid of this if as soon as we have a way to iterate over the
