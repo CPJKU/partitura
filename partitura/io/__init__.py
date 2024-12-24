@@ -51,7 +51,7 @@ def download_file(url):
     extension = os.path.splitext(url)[-1]
 
     # Create a temporary file
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=extension)
+    temp_file = tempfile.NamedTemporaryFile(delete=True, suffix=extension)
 
     # Write the content to the temporary file
     with open(temp_file.name, 'wb') as f:
