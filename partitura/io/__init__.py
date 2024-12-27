@@ -42,24 +42,6 @@ def is_url(input):
         return False
 
 
-def download_file(url):
-    # Send a GET request to the URL
-    with urllib.request.urlopen(url) as response:
-        data = response.read()
-
-    # Extract the file extension from the URL
-    extension = os.path.splitext(url)[-1]
-
-    # Create a temporary file
-    temp_file = tempfile.NamedTemporaryFile(suffix=extension, delete_on_close=False, delete=True)
-
-    # Write the content to the temporary file
-    with open(temp_file.name, 'wb') as f:
-        f.write(data)
-
-    return temp_file.name
-
-
 @deprecated_alias(score_fn="filename")
 @deprecated_parameter("ensure_list")
 def load_score(filename: PathLike, force_note_ids="keep") -> Score:
@@ -86,12 +68,28 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         A score instance.
     """
     if is_url(filename):
-        filename = download_file(filename)
+        url = filename
+        # Send a GET request to the URL
+        with urllib.request.urlopen(url) as response:
+            data = response.read()
 
-    extension = os.path.splitext(filename)[-1].lower()
+        # Extract the file extension from the URL
+        extension = os.path.splitext(url)[-1]
+
+        # Create a temporary file
+        temp_file = tempfile.NamedTemporaryFile(suffix=extension, delete=True)
+
+        # Write the content to the temporary file
+        with open(temp_file.name, 'wb') as f:
+            f.write(data)
+
+        filename = temp_file.name
+    else:
+        extension = os.path.splitext(filename)[-1].lower()
+
     if extension in (".mxl", ".xml", ".musicxml"):
         # Load MusicXML
-        return load_musicxml(
+        score = load_musicxml(
             filename=filename,
             force_note_ids=force_note_ids,
         )
@@ -101,15 +99,15 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             assign_note_ids = False
         else:
             assign_note_ids = True
-        return load_score_midi(
+        score = load_score_midi(
             filename=filename,
             assign_note_ids=assign_note_ids,
         )
     elif extension in [".mei"]:
         # Load MEI
-        return load_mei(filename=filename)
+        score = load_mei(filename=filename)
     elif extension in [".kern", ".krn"]:
-        return load_kern(
+        score = load_kern(
             filename=filename,
             force_note_ids=force_note_ids,
         )
@@ -137,7 +135,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         ".gp",
     ]:
         # Load MuseScore
-        return load_via_musescore(
+        score = load_via_musescore(
             filename=filename,
             force_note_ids=force_note_ids,
         )
@@ -147,11 +145,11 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
             filename=filename,
             create_score=True,
         )
-        return score
     else:
         raise NotSupportedFormatError(
             f"{extension} file extension is not supported. If this should be supported, consider editing partitura/io/__init__.py file"
         )
+    return score
 
 
 def load_score_as_part(filename: PathLike) -> Part:
