@@ -21,7 +21,7 @@ import warnings, sys
 import numpy as np
 import re
 from scipy.interpolate import PPoly
-from typing import Union, List, Optional, Iterator, Iterable as Itertype
+from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype
 import difflib
 from partitura.utils import (
     ComparableMixin,
@@ -1701,6 +1701,8 @@ class GenericNote(TimedObject):
     stem_direction : str, optional
         The stem direction of the note. Can be 'up', 'down', or None.
         Defaults to None.
+    technical: list, optional
+        Technical notation elements.
 
     """
 
@@ -1714,6 +1716,7 @@ class GenericNote(TimedObject):
         ornaments=None,
         doc_order=None,
         stem_direction=None,
+        technical=None,
         **kwargs,
     ):
         self._sym_dur = None
@@ -1724,6 +1727,7 @@ class GenericNote(TimedObject):
         self.symbolic_duration = symbolic_duration
         self.articulations = articulations
         self.ornaments = ornaments
+        self.technical = technical
         self.doc_order = doc_order
         self.stem_direction = (
             stem_direction if stem_direction in ("up", "down") else None
@@ -3377,6 +3381,27 @@ class ResetTempoDirection(ConstantTempoDirection):
         for d in self.start.iter_prev(ConstantTempoDirection):
             direction = d
         return direction
+
+
+class NoteTechnicalNotation(object):
+    """
+    This object represents technical notations that
+    are part of a GenericNote object (e.g., fingering,)
+    These elements depend on a note, but can have their own properties
+    """
+
+    def __init__(self, type: str, info: Optional[Any] = None) -> None:
+        self.type = type
+        self.info = info
+
+
+class Fingering(NoteTechnicalNotation):
+    def __init__(self, fingering: int) -> None:
+        super().__init__(
+            type="fingering",
+            info=fingering,
+        )
+        self.fingering = fingering
 
 
 class PartGroup(object):
