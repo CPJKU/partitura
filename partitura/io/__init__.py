@@ -80,7 +80,7 @@ def load_score(filename: PathLike, force_note_ids="keep") -> Score:
         temp_file = tempfile.NamedTemporaryFile(suffix=extension, delete=True)
 
         # Write the content to the temporary file
-        with open(temp_file.name, 'wb') as f:
+        with open(temp_file.name, "wb") as f:
             f.write(data)
 
         filename = temp_file.name
