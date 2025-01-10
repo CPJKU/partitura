@@ -15,6 +15,7 @@ from tests import (
     MUSICXML_UNFOLD_COMPLEX,
     MUSICXML_UNFOLD_VOLTA,
     MUSICXML_UNFOLD_DACAPO,
+    MUSICXML_CHORD_FEATURES,
 )
 
 from partitura import load_musicxml, save_musicxml
@@ -255,7 +256,16 @@ class TestMusicXML(unittest.TestCase):
 
         self.assertTrue(score.work_title == test_work_title)
         self.assertTrue(score.work_number == test_work_number)
-
+        
+    def test_chord_duration(self):
+        part = load_musicxml(MUSICXML_CHORD_FEATURES[0]).parts[0]
+        score.assign_note_ids(part)
+        sna = part.note_array()
+        
+        self.assertEqual(sna[sna['id'] == 'n1']['duration_beat'], 2)
+        self.assertEqual(sna[sna['id'] == 'n2']['duration_beat'], 2)
+        self.assertEqual(sna[sna['id'] == 'n1']['duration_quarter'], 2)
+        self.assertEqual(sna[sna['id'] == 'n2']['duration_quarter'], 2)
 
 def make_part_slur():
     # create a part
