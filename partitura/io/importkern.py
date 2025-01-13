@@ -238,6 +238,7 @@ def element_parsing(
 def load_kern(
     filename: PathLike,
     force_note_ids: Optional[Union[bool, str]] = None,
+    force_same_part: Optional[bool] = False,
 ) -> spt.Score:
     """
     Parses an KERN file from path to Part.
@@ -291,7 +292,7 @@ def load_kern(
         else p_same_part
     )
     # if all splines have the same part then they should be assigned to the same part.
-    if p_same_part:
+    if p_same_part or force_same_part:
         parsing_idxs[:] = 0
 
     total_durations_list = list()
