@@ -153,7 +153,6 @@ def _handle_kern_with_spine_splitting(kern_path: PathLike):
     data = []
     file = org_file.tolist()
     file = [line.split("\t") for line in file if not line.startswith("!")]
-    continue_parsing = True
     for i in range(len(spline_types)):
         # Parse by voice
         d, voice_indices, num_voices = parse_by_voice(file, dtype=dtype)
@@ -178,14 +177,18 @@ def _handle_kern_with_spine_splitting(kern_path: PathLike):
 
 
 def element_parsing(
-    part: spt.Part, elements: np.array, total_duration_values: np.array, same_part: bool
+    part: spt.Part, elements: np.array, total_duration_values: np.array, same_part: bool,
+    doc_lines: np.array, line2pos: dict
 ):
     divs_pq = part._quarter_durations[0]
+    line2pos = line2pos if same_part else {}
     current_tl_pos = 0
     editorial = False
     measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
     for i in range(elements.shape[0]):
         element = elements[i]
+        if i < len(doc_lines):
+            current_tl_pos = line2pos.get(doc_lines[i], current_tl_pos)
         if isinstance(element, KernElement):
             if element.editorial_start:
                 editorial = True
@@ -203,6 +206,7 @@ def element_parsing(
                 duration_divs = ceil(quarter_duration * divs_pq)
             el_end = current_tl_pos + duration_divs
             part.add(element, start=current_tl_pos, end=el_end)
+            line2pos[doc_lines[i]] = current_tl_pos
             current_tl_pos = el_end
         elif isinstance(element, tuple):
             # Chord
@@ -211,6 +215,7 @@ def element_parsing(
             el_end = current_tl_pos + duration_divs
             for note in element[1]:
                 part.add(note, start=current_tl_pos, end=el_end)
+            line2pos[doc_lines[i]] = current_tl_pos
             current_tl_pos = el_end
         elif isinstance(element, spt.Slur):
             start_sl = element.start_note.start.t
@@ -221,9 +226,12 @@ def element_parsing(
             # Do not repeat structural elements if they are being added to the same part.
             if not same_part:
                 part.add(element, start=current_tl_pos)
+                line2pos[doc_lines[i]] = current_tl_pos
             else:
                 if isinstance(element, spt.Measure):
                     current_tl_pos = measure_mapping[element.number]
+
+    return line2pos
 
 
 # functions to initialize the kern parser
@@ -275,16 +283,30 @@ def load_kern(
         if np.any(has_instrument)
         else False
     )
+    # if all parts have the same *part then they are the same part.
+    has_part_global = np.char.startswith(splines, "*part")
+    p_same_part = (
+        np.all(splines[has_part_global] == splines[has_part_global][0], axis=0)
+        if np.any(has_part_global)
+        else p_same_part
+    )
+    # if all splines have the same part then they should be assigned to the same part.
+    if p_same_part:
+        parsing_idxs[:] = 0
+
     total_durations_list = list()
     elements_list = list()
     part_assignments = list()
     copy_partlist = list()
+    doc_lines_per_spline = list()
+
     for j, spline in enumerate(splines):
         parser = SplineParser(
             size=spline.shape[-1],
-            id="P{}".format(parsing_idxs[j]) if not p_same_part else "P{}".format(j),
+            id="P{}".format(parsing_idxs[j]),
             staff=prev_staff,
         )
+        # The variable same_part is only used for copying later.
         same_part = False
         if parser.id in [p.id for p in copy_partlist]:
             same_part = True
@@ -293,12 +315,13 @@ def load_kern(
             )
             part = [p for p in copy_partlist if p.id == parser.id][0]
             has_staff = np.char.startswith(spline, "*staff")
-            staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
+            staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else prev_staff
+            prev_staff = staff
             if parser.staff != staff:
                 parser.staff = staff
             else:
                 parser.voice += 1
-            elements = parser.parse(spline)
+            elements, lines = parser.parse(spline)
             unique_durs = np.unique(parser.total_duration_values).astype(int)
             divs_pq = np.lcm.reduce(unique_durs)
             divs_pq = divs_pq if divs_pq > 4 else 4
@@ -312,7 +335,7 @@ def load_kern(
             if parser.staff != staff:
                 parser.staff = staff
                 prev_staff = staff
-            elements = parser.parse(spline)
+            elements, lines = parser.parse(spline)
             # Routine to filter out non integer durations
             unique_durs = np.unique(parser.total_duration_values)
             # Remove all infinite values
@@ -331,6 +354,7 @@ def load_kern(
             )
 
         part_assignments.append(same_part)
+        doc_lines_per_spline.append(lines)
         total_durations_list.append(parser.total_duration_values)
         elements_list.append(elements)
         copy_partlist.append(part)
@@ -340,10 +364,11 @@ def load_kern(
     for part in copy_partlist:
         part.set_quarter_duration(0, divs_pq)
 
-    for part, elements, total_duration_values, same_part in zip(
-        copy_partlist, elements_list, total_durations_list, part_assignments
+    line2pos = {}
+    for part, elements, total_duration_values, same_part, doc_lines in zip(
+        copy_partlist, elements_list, total_durations_list, part_assignments, doc_lines_per_spline
     ):
-        element_parsing(part, elements, total_duration_values, same_part)
+        line2pos = element_parsing(part, elements, total_duration_values, same_part, doc_lines, line2pos)
 
     for i, part in enumerate(copy_partlist):
         if part_assignments[i]:
@@ -399,16 +424,12 @@ class SplineParser(object):
         elements: np.array
             The parsed elements of the spline line.
         """
+        lines = np.arange(len(spline))
         # Remove "-" lines
-        spline = spline[spline != "-"]
-        # Remove "." lines
-        spline = spline[spline != "."]
-        # Remove Empty lines
-        spline = spline[spline != ""]
-        # Remove None lines
-        spline = spline[spline != None]
-        # Remove lines that start with "!"
-        spline = spline[np.char.startswith(spline, "!") == False]
+        mask = (spline == "-") | (spline == ".") | (spline == "") | (spline is None) | (np.char.startswith(spline, "!") == True)
+        mask = ~mask
+        spline = spline[mask]
+        lines = lines[mask]
         # Empty Numpy array with objects
         elements = np.empty(len(spline), dtype=object)
         self.total_duration_values = np.ones(len(spline))
@@ -475,7 +496,7 @@ class SplineParser(object):
                 )
             )
 
-        return elements
+        return elements, lines
 
     def meta_tandem_line(self, line: str):
         """
