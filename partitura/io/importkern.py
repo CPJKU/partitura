@@ -347,14 +347,13 @@ def load_kern(
             voice=pvoice,
         )
         # Flag to indicate if the part is the same as a previous one
-        same_part = False
-        if parser.id in [p.id for p in copy_partlist]:
+        same_part = parser.id in [p.id for p in copy_partlist]
+        if same_part:
             # If the part already exists, add to the previous part
-            same_part = True
             warnings.warn(
                 "Part {} already exists. Adding to previous Part.".format(parser.id)
             )
-            part = [p for p in copy_partlist if p.id == parser.id][0]
+            part = next(p for p in copy_partlist if p.id == parser.id)
             # Check for staff information in the spline
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else prev_staff
@@ -363,42 +362,33 @@ def load_kern(
                 parser.staff = staff
             # Update the voice number
             parser.voice = pvoice + 1
-            # Parse the spline into musical elements
-            elements, lines = parser.parse(spline)
-            # Calculate unique durations and ensure they are integers
-            unique_durs = np.unique(parser.total_duration_values).astype(int)
-            divs_pq = np.lcm.reduce(unique_durs)
-            divs_pq = divs_pq if divs_pq > 4 else 4
-            # Ensure the part's divs_pq is consistent
-            divs_pq = np.lcm.reduce([divs_pq, part._quarter_durations[0]])
-            part.set_quarter_duration(0, divs_pq)
-            pvoice = parser.voice
         else:
             # If the part does not exist, create a new part
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
-            # Update staff information if necessary
-            if parser.staff != staff:
-                parser.staff = staff
-                prev_staff = staff
-            if parser.voice != 1:
-                parser.voice = 1
-                pvoice = 1
-            # Parse the spline into musical elements
-            elements, lines = parser.parse(spline)
-            # Filter out non-integer durations
-            unique_durs = np.unique(parser.total_duration_values)
-            # Remove all infinite values
-            unique_durs = unique_durs[np.isfinite(unique_durs)]
-            d_mul = 2
-            while not np.all(np.isclose(unique_durs % 1, 0.0)):
-                unique_durs = unique_durs * d_mul
-                d_mul += 1
-            unique_durs = unique_durs.astype(int)
+            parser.staff = staff
+            prev_staff = staff
+            parser.voice = 1
+            pvoice = 1
 
-            divs_pq = np.lcm.reduce(unique_durs)
-            divs_pq = divs_pq if divs_pq > 4 else 4
-            # Initialize a new Part with the calculated divs_pq
+        # Parse the spline into musical elements
+        elements, lines = parser.parse(spline)
+        # Calculate unique durations and ensure they are integers
+        unique_durs = np.unique(parser.total_duration_values)
+        unique_durs = unique_durs[np.isfinite(unique_durs)]
+        d_mul = 2
+        while not np.all(np.isclose(unique_durs % 1, 0.0)):
+            unique_durs *= d_mul
+            d_mul += 1
+        unique_durs = unique_durs.astype(int)
+        divs_pq = np.lcm.reduce(unique_durs)
+        divs_pq = max(divs_pq, 4)
+
+        if same_part:
+            divs_pq = np.lcm.reduce([divs_pq, part._quarter_durations[0]])
+            part.set_quarter_duration(0, divs_pq)
+            pvoice = parser.voice
+        else:
             part = spt.Part(
                 id=parser.id, quarter_duration=divs_pq, part_name=parser.name
             )
@@ -416,7 +406,7 @@ def load_kern(
 
     line2pos = {}
     for part, elements, total_duration_values, same_part, doc_lines in zip(
-        copy_partlist, elements_list, total_durations_list, part_assignments, doc_lines_per_spline
+            copy_partlist, elements_list, total_durations_list, part_assignments, doc_lines_per_spline
     ):
         line2pos = element_parsing(part, elements, total_duration_values, same_part, doc_lines, line2pos)
 
