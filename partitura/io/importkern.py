@@ -277,6 +277,7 @@ def load_kern(
     # Get Splines
     splines = file[1:].T[note_parts]
     prev_staff = 1
+    pvoice = 1
     has_instrument = np.char.startswith(splines, "*I")
     # if all parts have the same instrument, then they are the same part.
     p_same_part = (
@@ -306,6 +307,7 @@ def load_kern(
             size=spline.shape[-1],
             id="P{}".format(parsing_idxs[j]),
             staff=prev_staff,
+            voice=pvoice,
         )
         # The variable same_part is only used for copying later.
         same_part = False
@@ -320,8 +322,7 @@ def load_kern(
             prev_staff = staff
             if parser.staff != staff:
                 parser.staff = staff
-            else:
-                parser.voice += 1
+            parser.voice = pvoice + 1
             elements, lines = parser.parse(spline)
             unique_durs = np.unique(parser.total_duration_values).astype(int)
             divs_pq = np.lcm.reduce(unique_durs)
@@ -329,6 +330,7 @@ def load_kern(
             # compare divs_pq to the divs_pq of the part
             divs_pq = np.lcm.reduce([divs_pq, part._quarter_durations[0]])
             part.set_quarter_duration(0, divs_pq)
+            pvoice = parser.voice
         else:
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
@@ -336,6 +338,9 @@ def load_kern(
             if parser.staff != staff:
                 parser.staff = staff
                 prev_staff = staff
+            if parser.voice != 1:
+                parser.voice = 1
+                pvoice = 1
             elements, lines = parser.parse(spline)
             # Routine to filter out non integer durations
             unique_durs = np.unique(parser.total_duration_values)
@@ -406,6 +411,7 @@ class SplineParser(object):
         self.alters = []
         self.size = size
         self.total_parsed_elements = 0
+        self.measure_enum = 1
         self.tie_prev = None
         self.tie_next = None
         self.slurs_start = []
@@ -698,6 +704,9 @@ class SplineParser(object):
         symbols: list
             List of symbols to process.
         """
+        # return if list is empty
+        if symbols == []:
+            return
         if "[" in symbols:
             self.tie_prev[self.total_parsed_elements] = True
             # pop symbol and call again
@@ -812,7 +821,9 @@ class SplineParser(object):
         number_index = line.index(number[0]) if number else line.index("=")
         closing_repeat = re.findall(r"[:|]", line[:number_index])
         opening_repeat = re.findall(r"[|:]", line[number_index:])
-        return spt.Measure(number=int(number[0]) if number else None)
+        m = spt.Measure(number=self.measure_enum, name=int(number[0]) if number else None)
+        self.measure_enum += 1
+        return m
 
     def meta_chord_line(self, line: str):
         """
