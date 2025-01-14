@@ -180,22 +180,52 @@ def element_parsing(
     part: spt.Part, elements: np.array, total_duration_values: np.array, same_part: bool,
     doc_lines: np.array, line2pos: dict
 ):
+    """
+    Parse and add musical elements to a part.
+
+    Parameters
+    ----------
+    part : spt.Part
+        The partitura part to which elements will be added.
+    elements : np.array
+        Array of musical elements to be parsed and added.
+    total_duration_values : np.array
+        Array of total duration values for each element.
+    same_part : bool
+        Flag indicating if elements are being added to the same part.
+    doc_lines : np.array
+        Array of document lines corresponding to the elements.
+    line2pos : dict
+        Dictionary mapping document lines to their part start positions.
+
+    Returns
+    -------
+    line2pos : dict
+        Updated dictionary mapping document lines to their positions.
+        This is used to handle cases with split spines.
+    """
     divs_pq = part._quarter_durations[0]
     line2pos = line2pos if same_part else {}
     current_tl_pos = 0
     editorial = False
     measure_mapping = {m.number: m.start.t for m in part.iter_all(spt.Measure)}
+
     for i in range(elements.shape[0]):
         element = elements[i]
         if i < len(doc_lines):
             current_tl_pos = line2pos.get(doc_lines[i], current_tl_pos)
+
+        # Handle editorial elements
         if isinstance(element, KernElement):
             if element.editorial_start:
                 editorial = True
             if element.editorial_end:
                 editorial = False
+
         if element is None or editorial:
             continue
+
+        # Handle generic notes
         if isinstance(element, spt.GenericNote):
             if total_duration_values[i] == 0:
                 duration_divs = symbolic_to_numeric_duration(
@@ -208,8 +238,9 @@ def element_parsing(
             part.add(element, start=current_tl_pos, end=el_end)
             line2pos[doc_lines[i]] = current_tl_pos
             current_tl_pos = el_end
+
+        # Handle chords
         elif isinstance(element, tuple):
-            # Chord
             quarter_duration = 4 / total_duration_values[i]
             duration_divs = ceil(quarter_duration * divs_pq)
             el_end = current_tl_pos + duration_divs
@@ -217,11 +248,14 @@ def element_parsing(
                 part.add(note, start=current_tl_pos, end=el_end)
             line2pos[doc_lines[i]] = current_tl_pos
             current_tl_pos = el_end
+
+        # Handle slurs
         elif isinstance(element, spt.Slur):
             start_sl = element.start_note.start.t
             end_sl = element.end_note.start.t
             part.add(element, start=start_sl, end=end_sl)
 
+        # Handle other elements
         else:
             # Do not repeat structural elements if they are being added to the same part.
             if not same_part:
@@ -255,94 +289,104 @@ def load_kern(
         The score object containing the parts.
     """
     try:
-        # This version of the parser is faster but does not support spine splitting.
+        # Attempt to load the file using a faster parser that does not support spine splitting
         file = np.loadtxt(
             filename, dtype="U", delimiter="\t", comments="!!", encoding="cp437"
         )
         parsing_idxs = np.arange(file.shape[0])
-        # Decide Parts
-
     except ValueError:
-        # This version of the parser supports spine splitting but is slower.
+        # Fallback to a slower parser that supports spine splitting
         file, parsing_idxs = _handle_kern_with_spine_splitting(filename)
 
     partlist = []
-    # Get Main Number of parts and Spline Types
+    # Get the main number of parts and spline types
     spline_types = file[0]
 
-    # Find parsable parts if they start with "**kern" or "**notes"
+    # Identify parsable parts that start with "**kern" or "**notes"
     note_parts = np.char.startswith(spline_types, "**kern") | np.char.startswith(
         spline_types, "**notes"
     )
-    # Get Splines
+    # Extract splines for the identified parts
     splines = file[1:].T[note_parts]
-    prev_staff = 1
-    pvoice = 1
+
     has_instrument = np.char.startswith(splines, "*I")
-    # if all parts have the same instrument, then they are the same part.
+    # Determine if all parts have the same instrument
     p_same_part = (
         np.all(splines[has_instrument] == splines[has_instrument][0], axis=0)
         if np.any(has_instrument)
         else False
     )
-    # if all parts have the same *part then they are the same part.
+    # Determine if all parts have the same *part
     has_part_global = np.char.startswith(splines, "*part")
     p_same_part = (
         np.all(splines[has_part_global] == splines[has_part_global][0], axis=0)
         if np.any(has_part_global)
         else p_same_part
     )
-    # if all splines have the same part then they should be assigned to the same part.
+    # Assign all splines to the same part if necessary
     if p_same_part or force_same_part:
         parsing_idxs[:] = 0
 
-    total_durations_list = list()
-    elements_list = list()
-    part_assignments = list()
-    copy_partlist = list()
-    doc_lines_per_spline = list()
+    # Initialize lists to store parsed data
+    total_durations_list = []
+    elements_list = []
+    part_assignments = []
+    copy_partlist = []
+    doc_lines_per_spline = []
+    # Initialize staff and voice numbers
+    prev_staff = 1
+    pvoice = 1
 
+    # Iterate over each spline (musical data stream)
     for j, spline in enumerate(splines):
+        # Create a new SplineParser for the current spline
         parser = SplineParser(
             size=spline.shape[-1],
             id="P{}".format(parsing_idxs[j]),
             staff=prev_staff,
             voice=pvoice,
         )
-        # The variable same_part is only used for copying later.
+        # Flag to indicate if the part is the same as a previous one
         same_part = False
         if parser.id in [p.id for p in copy_partlist]:
+            # If the part already exists, add to the previous part
             same_part = True
             warnings.warn(
                 "Part {} already exists. Adding to previous Part.".format(parser.id)
             )
             part = [p for p in copy_partlist if p.id == parser.id][0]
+            # Check for staff information in the spline
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else prev_staff
             prev_staff = staff
             if parser.staff != staff:
                 parser.staff = staff
+            # Update the voice number
             parser.voice = pvoice + 1
+            # Parse the spline into musical elements
             elements, lines = parser.parse(spline)
+            # Calculate unique durations and ensure they are integers
             unique_durs = np.unique(parser.total_duration_values).astype(int)
             divs_pq = np.lcm.reduce(unique_durs)
             divs_pq = divs_pq if divs_pq > 4 else 4
-            # compare divs_pq to the divs_pq of the part
+            # Ensure the part's divs_pq is consistent
             divs_pq = np.lcm.reduce([divs_pq, part._quarter_durations[0]])
             part.set_quarter_duration(0, divs_pq)
             pvoice = parser.voice
         else:
+            # If the part does not exist, create a new part
             has_staff = np.char.startswith(spline, "*staff")
             staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else 1
-            # Correction for currating multiple staffs.
+            # Update staff information if necessary
             if parser.staff != staff:
                 parser.staff = staff
                 prev_staff = staff
             if parser.voice != 1:
                 parser.voice = 1
                 pvoice = 1
+            # Parse the spline into musical elements
             elements, lines = parser.parse(spline)
-            # Routine to filter out non integer durations
+            # Filter out non-integer durations
             unique_durs = np.unique(parser.total_duration_values)
             # Remove all infinite values
             unique_durs = unique_durs[np.isfinite(unique_durs)]
@@ -354,7 +398,7 @@ def load_kern(
 
             divs_pq = np.lcm.reduce(unique_durs)
             divs_pq = divs_pq if divs_pq > 4 else 4
-            # Initialize Part
+            # Initialize a new Part with the calculated divs_pq
             part = spt.Part(
                 id=parser.id, quarter_duration=divs_pq, part_name=parser.name
             )
@@ -365,7 +409,7 @@ def load_kern(
         elements_list.append(elements)
         copy_partlist.append(part)
 
-    # Currate parts to the same divs per quarter
+    # Ensure all parts have the same divs per quarter
     divs_pq = np.lcm.reduce([p._quarter_durations[0] for p in copy_partlist])
     for part in copy_partlist:
         part.set_quarter_duration(0, divs_pq)
@@ -396,7 +440,7 @@ def load_kern(
     )
 
     doc_name = get_document_name(filename)
-    # inversing the partlist results to correct part order and visualization for exporting musicxml files
+    # Reverse the partlist to correct part order and visualization for exporting musicxml files
     score = spt.Score(partlist=partlist[::-1], id=doc_name)
     return score
 
