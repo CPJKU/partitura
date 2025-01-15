@@ -53,14 +53,6 @@ KERN_NOTES = {
 }
 
 KERN_DURS = {
-    "3%2": {"type": "whole", "dots": 0, "actual_notes": 3, "normal_notes": 2},
-    "2%3": {"type": "whole", "dots": 1},
-    "4%3": {"type": "whole", "dots": 1},
-    "8%3": {"type": "quarter", "dots": 1},
-    "16%3": {"type": "eighth", "dots": 1},
-    "32%3": {"type": "16th", "dots": 1},
-    "64%3": {"type": "32nd", "dots": 1},
-    "128%3": {"type": "64th", "dots": 1},
     "000": {"type": "maxima"},
     "00": {"type": "long"},
     "0": {"type": "breve"},
@@ -712,6 +704,7 @@ class SplineParser(object):
         dur = duration.replace(".", "")
         if dur in KERN_DURS.keys():
             symbolic_duration = copy.deepcopy(KERN_DURS[dur])
+        # support for extended kern durations
         elif "%" in dur:
             dur = dur.split("%")
             nom, den = int(dur[0]), int(dur[1])
