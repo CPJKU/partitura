@@ -55,7 +55,7 @@ KERN_NOTES = {
 KERN_DURS = {
     "3%2": {"type": "whole", "dots": 0, "actual_notes": 3, "normal_notes": 2},
     "2%3": {"type": "whole", "dots": 1},
-    "4%3": {"type": "half", "dots": 1},
+    "4%3": {"type": "whole", "dots": 1},
     "8%3": {"type": "quarter", "dots": 1},
     "16%3": {"type": "eighth", "dots": 1},
     "32%3": {"type": "16th", "dots": 1},
@@ -712,6 +712,10 @@ class SplineParser(object):
         dur = duration.replace(".", "")
         if dur in KERN_DURS.keys():
             symbolic_duration = copy.deepcopy(KERN_DURS[dur])
+        elif "%" in dur:
+            dur = dur.split("%")
+            nom, den = int(dur[0]), int(dur[1])
+            symbolic_duration = {"type": "whole", "dots": 0, "actual_notes": nom, "normal_notes": den}
         else:
             dur = float(dur)
             key_loolup = [2**i for i in range(0, 9)]
