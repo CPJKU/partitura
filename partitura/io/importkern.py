@@ -709,6 +709,7 @@ class SplineParser(object):
             dur = dur.split("%")
             nom, den = int(dur[0]), int(dur[1])
             symbolic_duration = {"type": "whole", "dots": 0, "actual_notes": nom, "normal_notes": den}
+            dur = nom * den
         else:
             dur = float(dur)
             key_loolup = [2**i for i in range(0, 9)]
