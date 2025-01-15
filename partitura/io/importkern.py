@@ -641,6 +641,9 @@ class SplineParser(object):
                 clef_line = 4
             elif clef == "C":
                 clef_line = 3
+            elif clef == "X":
+                clef = "percussion"
+                clef_line = 1
             else:
                 raise ValueError("Unrecognized clef line: {}".format(line))
         else:
