@@ -1441,16 +1441,48 @@ def handle_tuplets(notations, ongoing, note):
         stop_tuplet_key = ("stop_tuplet", tuplet_number)
 
         if tuplet_type == "start":
+            # Get information about the tuplet if present in the XML
+            tuplet_actual = tuplet_e.find("tuplet-actual")
+            tuplet_normal = tuplet_e.find("tuplet-normal")
+            if tuplet_actual is not None and tuplet_normal is not None:
+                tuplet_actual_notes = int(tuplet_actual.find("tuplet-number").text)
+                tuplet_actual_type = tuplet_actual.find("tuplet-type").text
+                tuplet_normal_notes = int(tuplet_normal.find("tuplet-number").text)
+                tuplet_normal_type = tuplet_normal.find("tuplet-type").text
+                # Types should always be the same I think?
+                assert tuplet_actual_type == tuplet_normal_type, "Tuplet types are not the same"
+                tuplet_type = tuplet_actual_type
+
+            # If no information, try to infer it from the note
+            elif (
+                "actual_notes" in note.symbolic_duration
+                and "normal_notes" in note.symbolic_duration
+                and "type" in note.symbolic_duration
+                ):
+                    tuplet_actual_notes = note.symbolic_duration["actual_notes"]
+                    tuplet_normal_notes = note.symbolic_duration["normal_notes"]
+                    tuplet_type = note.symbolic_duration["type"]
+
+            # If no information is present in the XML or the note, then set to None
+            else:
+                tuplet_actual_notes = None
+                tuplet_normal_notes = None
+                tuplet_type = None
+
+
             # check if we have a stopped_tuplet in ongoing that corresponds to
             # this start
             tuplet = ongoing.pop(stop_tuplet_key, None)
 
             if tuplet is None:
-                tuplet = score.Tuplet(note)
+                tuplet = score.Tuplet(note, actual_notes=tuplet_actual_notes, normal_notes=tuplet_normal_notes, type=tuplet_type)
                 ongoing[start_tuplet_key] = tuplet
 
             else:
                 tuplet.start_note = note
+                tuplet.actual_notes = tuplet_actual_notes
+                tuplet.normal_notes = tuplet_normal_notes
+                tuplet.type = tuplet_type
 
             starting_tuplets.append(tuplet)
 
