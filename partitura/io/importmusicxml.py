@@ -21,7 +21,7 @@ from partitura.directions import parse_direction
 import partitura.score as score
 from partitura.score import assign_note_ids
 from partitura.utils import ensure_notearray
-from partitura.utils.misc import deprecated_alias, deprecated_parameter, PathLike
+from partitura.utils.misc import deprecated_alias, deprecated_parameter, PathLike, parse_ints
 
 __all__ = ["load_musicxml", "musicxml_to_notearray"]
 
@@ -1677,8 +1677,29 @@ def get_technical_notations(e: etree._Element) -> List[score.NoteTechnicalNotati
 
 def parse_fingering(e: etree._Element) -> score.Fingering:
 
-    fingering = score.Fingering(fingering=int(e.text))
+    try:
+        # There seems to be a few cases with fingerings encoded like 4_1.
+        # This is not standard in MusicXML according to the documentation, 
+        # but since it appears in files from the web, and can be displayed 
+        # with MuseScore, the solution for now is just to take the fist value.
+        finger_info = parse_ints(e.text)
+    except Exception as e:
+        # Do not raise an error if fingering info cannot be parsed, insted
+        # just set it as None.
+        warnings.warn(f"Cannot parse fingering info for {e.text}!")
+        finger_info = [None]
 
+    is_alternate = e.attrib.get("alternate", False)
+    is_substitution = e.attrib.get("substitution", False)
+    placement = e.attrib.get("placement", None)
+
+    # If there is more than one finger, only take the first one
+    fingering = score.Fingering(
+        fingering=finger_info[0],
+        is_substitution=is_alternate,
+        is_alternate=is_alternate,
+        placement=placement,
+    )
     return fingering
 
 
