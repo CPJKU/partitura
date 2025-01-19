@@ -3409,7 +3409,7 @@ class Fingering(NoteTechnicalNotation):
 
     is_substitution: bool
         Whether this fingering is a substitution in the middle of a note. Default is False
-    
+
     is_alternate: bool
         Whether this fingering is an alternative fingering. Default is False
 

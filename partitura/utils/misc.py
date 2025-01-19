@@ -298,6 +298,6 @@ def parse_ints(input_string: str) -> List[int]:
         A list of integers extracted from the input string.
     """
     # Regular expression to match numbers
-    pattern = r'\d+'
+    pattern = r"\d+"
     # Find all matches and convert them to integers
     return list(map(int, re.findall(pattern, input_string)))
