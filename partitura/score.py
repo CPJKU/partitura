@@ -2449,7 +2449,14 @@ class Tuplet(TimedObject):
         self._end_note = note
 
     @property
-    def duration_multipler(self) -> Fraction:
+    def duration_multiplier(self) -> Fraction:
+        """Ratio by which the durations are scaled with this tuplet, as a python Fraction object.
+        This property is similar to `.tupletMultiplier` in music21:
+        https://www.music21.org/music21docs/moduleReference/moduleDuration.html#music21.duration.Tuplet.tupletMultiplier
+
+        For example, in a triplet of eighth notes, each eighth note would have a duration of
+        duration_multiplier * normal_eighth_duration = 2/3 * normal_eighth_duration
+        """
         return Fraction(self.normal_notes, self.actual_notes)
 
     def __str__(self):
