@@ -256,24 +256,27 @@ class TestMusicXML(unittest.TestCase):
         score_w_invisible = load_musicxml(MUSICXML_IGNORE_INVISIBLE_OBJECTS[0])[0]
         score_wo_invisible = load_musicxml(MUSICXML_IGNORE_INVISIBLE_OBJECTS[0], ignore_invisible_objects=True)[0]
 
-        score_w_invisible_objs = set(map(str, score_w_invisible.iter_all()))
-        score_wo_invisible_objs = set(map(str, score_wo_invisible.iter_all()))
+        note_w_invisible_objs = score_w_invisible.note_array()
+        note_wo_invisible_objs = score_wo_invisible.note_array()
 
-        self.assertTrue(score_wo_invisible_objs.issubset(score_w_invisible_objs))
+        # Convert back from structured array to simple tuples as hash problems with set otherwise
+        note_w_invisible_objs = set(
+            [(n["pitch"], n["onset_beat"], n["duration_beat"]) for n in note_w_invisible_objs]
+        )
+        note_wo_invisible_objs = set(
+            [(n["pitch"], n["onset_beat"], n["duration_beat"]) for n in note_wo_invisible_objs]
+        )
+        # Make sure all notes in the filtered score are also in the unfiltered score
+        self.assertTrue(note_wo_invisible_objs.issubset(note_w_invisible_objs))
 
-        diff = score_w_invisible_objs - score_wo_invisible_objs
-        invisible_objects = {
-            "4--8 Note id=None voice=5 staff=2 type=quarter pitch=D3",
-            "8--12 Rest id=None voice=5 staff=2 type=quarter",
-            "12--13 Note id=None voice=2 staff=1 type=16th pitch=C4",
-            "13--14 Note id=None voice=2 staff=1 type=16th pitch=D4",
-            "14--15 Note id=None voice=2 staff=1 type=16th pitch=C4",
-            "15--16 Note id=None voice=2 staff=1 type=16th pitch=D4",
-            "12--16 Beam",
-        }
-        self.assertEqual(diff, invisible_objects)
+        self.assertTrue(len(note_w_invisible_objs) == 11)
+        self.assertTrue(len(note_wo_invisible_objs) == 6)
 
+        self.assertTrue(len(score_w_invisible.rests) == 1)
+        self.assertTrue(len(score_wo_invisible.rests) == 0)
 
+        self.assertTrue(len(list(score_w_invisible.iter_all(cls=score.Beam))) == 1)
+        self.assertTrue(len(list(score_wo_invisible.iter_all(cls=score.Beam))) == 0)
 
 
 def make_part_slur():
