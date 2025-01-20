@@ -1452,19 +1452,15 @@ def handle_tuplets(notations, ongoing, note):
                 # Types should always be the same I think?
                 assert tuplet_actual_type == tuplet_normal_type, "Tuplet types are not the same"
                 tuplet_type = tuplet_actual_type
-
             # If no information, try to infer it from the note
-            elif (
-                "actual_notes" in note.symbolic_duration
-                and "normal_notes" in note.symbolic_duration
-                and "type" in note.symbolic_duration
-                ):
-                    tuplet_actual_notes = note.symbolic_duration["actual_notes"]
-                    tuplet_normal_notes = note.symbolic_duration["normal_notes"]
-                    tuplet_type = note.symbolic_duration["type"]
-
-            # If no information is present in the XML or the note, then set to None
             else:
+                tuplet_actual_notes = note.symbolic_duration.get("actual_notes", None)
+                tuplet_normal_notes = note.symbolic_duration.get("normal_notes", None)
+                tuplet_type = note.symbolic_duration.get("type", None)
+
+            # If anyone of the attributes is not set, we set them all to None as we can't really
+            # do anything useful with only partial information about the tuplet
+            if None in (tuplet_actual_notes, tuplet_normal_notes, tuplet_type):
                 tuplet_actual_notes = None
                 tuplet_normal_notes = None
                 tuplet_type = None
