@@ -175,8 +175,12 @@ def _handle_kern_with_spine_splitting(kern_path: PathLike):
 
 
 def element_parsing(
-    part: spt.Part, elements: np.array, total_duration_values: np.array, same_part: bool,
-    doc_lines: np.array, line2pos: dict
+    part: spt.Part,
+    elements: np.array,
+    total_duration_values: np.array,
+    same_part: bool,
+    doc_lines: np.array,
+    line2pos: dict,
 ):
     """
     Parse and add musical elements to a part.
@@ -354,7 +358,11 @@ def load_kern(
             part = next(p for p in copy_partlist if p.id == parser.id)
             # Check for staff information in the spline
             has_staff = np.char.startswith(spline, "*staff")
-            staff = int(spline[has_staff][0][6:]) if np.count_nonzero(has_staff) else prev_staff
+            staff = (
+                int(spline[has_staff][0][6:])
+                if np.count_nonzero(has_staff)
+                else prev_staff
+            )
             prev_staff = staff
             if parser.staff != staff:
                 parser.staff = staff
@@ -404,9 +412,15 @@ def load_kern(
 
     line2pos = {}
     for part, elements, total_duration_values, same_part, doc_lines in zip(
-            copy_partlist, elements_list, total_durations_list, part_assignments, doc_lines_per_spline
+        copy_partlist,
+        elements_list,
+        total_durations_list,
+        part_assignments,
+        doc_lines_per_spline,
     ):
-        line2pos = element_parsing(part, elements, total_duration_values, same_part, doc_lines, line2pos)
+        line2pos = element_parsing(
+            part, elements, total_duration_values, same_part, doc_lines, line2pos
+        )
 
     for i, part in enumerate(copy_partlist):
         if part_assignments[i]:
@@ -465,7 +479,13 @@ class SplineParser(object):
         """
         lines = np.arange(len(spline))
         # Remove "-" lines
-        mask = (spline == "-") | (spline == ".") | (spline == "") | (spline is None) | (np.char.startswith(spline, "!") == True)
+        mask = (
+            (spline == "-")
+            | (spline == ".")
+            | (spline == "")
+            | (spline is None)
+            | (np.char.startswith(spline, "!") == True)
+        )
         mask = ~mask
         spline = spline[mask]
         lines = lines[mask]
@@ -708,7 +728,12 @@ class SplineParser(object):
         elif "%" in dur:
             dur = dur.split("%")
             nom, den = int(dur[0]), int(dur[1])
-            symbolic_duration = {"type": "whole", "dots": 0, "actual_notes": nom, "normal_notes": den}
+            symbolic_duration = {
+                "type": "whole",
+                "dots": 0,
+                "actual_notes": nom,
+                "normal_notes": den,
+            }
             dur = nom * den
         else:
             dur = float(dur)
@@ -862,7 +887,9 @@ class SplineParser(object):
         number_index = line.index(number[0]) if number else line.index("=")
         closing_repeat = re.findall(r"[:|]", line[:number_index])
         opening_repeat = re.findall(r"[|:]", line[number_index:])
-        m = spt.Measure(number=self.measure_enum, name=int(number[0]) if number else None)
+        m = spt.Measure(
+            number=self.measure_enum, name=int(number[0]) if number else None
+        )
         self.measure_enum += 1
         return m
 
