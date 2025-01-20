@@ -1445,10 +1445,10 @@ def handle_tuplets(notations, ongoing, note):
             tuplet_actual = tuplet_e.find("tuplet-actual")
             tuplet_normal = tuplet_e.find("tuplet-normal")
             if tuplet_actual is not None and tuplet_normal is not None:
-                tuplet_actual_notes = int(tuplet_actual.find("tuplet-number").text)
-                tuplet_actual_type = tuplet_actual.find("tuplet-type").text
-                tuplet_normal_notes = int(tuplet_normal.find("tuplet-number").text)
-                tuplet_normal_type = tuplet_normal.find("tuplet-type").text
+                tuplet_actual_notes = get_value_from_tag(tuplet_actual, "tuplet-number", int)
+                tuplet_actual_type = get_value_from_tag(tuplet_actual, "tuplet-type", str)
+                tuplet_normal_notes = get_value_from_tag(tuplet_normal, "tuplet-number", int)
+                tuplet_normal_type = get_value_from_tag(tuplet_normal, "tuplet-type", str)
                 # Types should always be the same I think?
                 assert tuplet_actual_type == tuplet_normal_type, "Tuplet types are not the same"
                 tuplet_type = tuplet_actual_type
