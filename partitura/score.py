@@ -2862,7 +2862,7 @@ class Cadence(TimedObject):
 
 
 class Harmony(TimedObject):
-    """A harmony element in the score not currently used.
+    """A general harmony element in the score.
 
     Parameters
     ----------
@@ -2878,7 +2878,6 @@ class Harmony(TimedObject):
     def __init__(self, text):
         super().__init__()
         self.text = text
-        # assert issubclass(note, GenericNote)
 
     def __str__(self):
         return f'{super().__str__()} "{self.text}"'
