@@ -261,7 +261,9 @@ def load_musicxml(
         partlist, part_dict = _parse_partlist(partlist_el)
         # Go through each <part> to obtain the content of the parts.
         # The Part instances will be modified in place
-        _parse_parts(document, part_dict, ignore_invisible_objects=ignore_invisible_objects)
+        _parse_parts(
+            document, part_dict, ignore_invisible_objects=ignore_invisible_objects
+        )
     else:
         partlist = []
 
@@ -379,7 +381,13 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
 
         for mc, measure_el in enumerate(part_el.xpath("measure")):
             position, doc_order = _handle_measure(
-                measure_el, position, part, ongoing, doc_order, mc + 1, ignore_invisible_objects
+                measure_el,
+                position,
+                part,
+                ongoing,
+                doc_order,
+                mc + 1,
+                ignore_invisible_objects,
             )
 
         # complete unfinished endings
@@ -504,13 +512,13 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
 
 
 def _handle_measure(
-        measure_el,
-        position,
-        part,
-        ongoing,
-        doc_order,
-        measure_counter,
-        ignore_invisible_objects=False,
+    measure_el,
+    position,
+    part,
+    ongoing,
+    doc_order,
+    measure_counter,
+    ignore_invisible_objects=False,
 ):
     """Parse a <measure>...</measure> element, adding it and its contents to the part.
 
