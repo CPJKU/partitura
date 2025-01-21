@@ -268,7 +268,7 @@ class TestMusicXML(unittest.TestCase):
         self.assertEqual(sna[sna['id'] == 'n1']['duration_quarter'], 2)
         self.assertEqual(sna[sna['id'] == 'n2']['duration_quarter'], 2)
     
-        def test_import_ignore_invisible_objects(self):
+    def test_import_ignore_invisible_objects(self):
         score_w_invisible = load_musicxml(MUSICXML_IGNORE_INVISIBLE_OBJECTS[0])[0]
         score_wo_invisible = load_musicxml(MUSICXML_IGNORE_INVISIBLE_OBJECTS[0], ignore_invisible_objects=True)[0]
 
