@@ -257,7 +257,7 @@ class TestMusicXML(unittest.TestCase):
 
         self.assertTrue(score.work_title == test_work_title)
         self.assertTrue(score.work_number == test_work_number)
-        
+
     def test_chord_duration(self):
         part = load_musicxml(MUSICXML_CHORD_FEATURES[0]).parts[0]
         score.assign_note_ids(part)
@@ -293,6 +293,7 @@ class TestMusicXML(unittest.TestCase):
 
         self.assertTrue(len(list(score_w_invisible.iter_all(cls=score.Beam))) == 1)
         self.assertTrue(len(list(score_wo_invisible.iter_all(cls=score.Beam))) == 0)
+
 
 def make_part_slur():
     # create a part
