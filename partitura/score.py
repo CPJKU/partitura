@@ -3414,12 +3414,43 @@ class NoteTechnicalNotation(object):
 
 
 class Fingering(NoteTechnicalNotation):
-    def __init__(self, fingering: int) -> None:
+    """
+    This object represents fingering. For now, it supports attributes
+    present in MusicXML:
+
+    https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/fingering/
+
+    Parameters
+    ----------
+    fingering : Optional[int]
+        Fingering information. Can be None (usually the result of incorrect parsing of fingering).
+
+    is_substitution: bool
+        Whether this fingering is a substitution in the middle of a note. Default is False
+
+    is_alternate: bool
+        Whether this fingering is an alternative fingering. Default is False
+
+    placement: str
+        Placement of the fingering (above or below a note)
+    """
+
+    def __init__(
+        self,
+        fingering: Optional[int],
+        is_substitution: bool = False,
+        placement: Optional[str] = None,
+        is_alternate: bool = False,
+    ) -> None:
         super().__init__(
             type="fingering",
             info=fingering,
         )
         self.fingering = fingering
+        self.is_alternate = is_alternate
+        self.alternative_fingering = []
+        self.is_substitution = is_substitution
+        self.placement = placement
 
 
 class PartGroup(object):
