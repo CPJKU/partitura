@@ -15,6 +15,7 @@ from tests import (
     MUSICXML_UNFOLD_COMPLEX,
     MUSICXML_UNFOLD_VOLTA,
     MUSICXML_UNFOLD_DACAPO,
+    MUSICXML_CHORD_FEATURES,
     MUSICXML_IGNORE_INVISIBLE_OBJECTS,
 )
 
@@ -257,6 +258,16 @@ class TestMusicXML(unittest.TestCase):
         self.assertTrue(score.work_title == test_work_title)
         self.assertTrue(score.work_number == test_work_number)
 
+    def test_chord_duration(self):
+        part = load_musicxml(MUSICXML_CHORD_FEATURES[0]).parts[0]
+        score.assign_note_ids(part)
+        sna = part.note_array()
+        
+        self.assertEqual(sna[sna['id'] == 'n1']['duration_beat'], 2)
+        self.assertEqual(sna[sna['id'] == 'n2']['duration_beat'], 2)
+        self.assertEqual(sna[sna['id'] == 'n1']['duration_quarter'], 2)
+        self.assertEqual(sna[sna['id'] == 'n2']['duration_quarter'], 2)
+    
     def test_import_ignore_invisible_objects(self):
         score_w_invisible = load_musicxml(MUSICXML_IGNORE_INVISIBLE_OBJECTS[0])[0]
         score_wo_invisible = load_musicxml(MUSICXML_IGNORE_INVISIBLE_OBJECTS[0], ignore_invisible_objects=True)[0]

@@ -1273,6 +1273,8 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
         # same duration
         assert prev_note is not None
         position = prev_note.start.t
+        duration = prev_note.duration
+        duration_from_symbolic = prev_note.duration_from_symbolic
 
     articulations_e = e.find("notations/articulations")
     if articulations_e is not None:

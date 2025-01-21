@@ -270,3 +270,7 @@ CROSS_STAFF_TESTFILES = [
     os.path.join(DATA_PATH, MUSICXML_PATH, "test_cross_staff_voices.musicxml"),
     os.path.join(DATA_PATH, MEI_PATH, "test_cross_staff_voices.mei"),
 ]
+
+MUSICXML_CHORD_FEATURES = [
+    os.path.join(MUSICXML_PATH, fn) for fn in ["test_chord_duration.musicxml"]
+]
