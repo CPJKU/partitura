@@ -17,6 +17,7 @@ from partitura.utils.globals import (
     MUSICAL_BEATS,
     INTERVALCLASSES,
     INTERVAL_TO_SEMITONES,
+    LABEL_DURS,
 )
 import warnings, sys
 import numpy as np
@@ -2402,7 +2403,15 @@ class Tuplet(TimedObject):
 
     """
 
-    def __init__(self, start_note=None, end_note=None, actual_notes=None, normal_notes=None, type=None):
+    def __init__(
+            self,
+            start_note=None,
+            end_note=None,
+            actual_notes=None,
+            normal_notes=None,
+            actual_type=None,
+            normal_type=None
+    ):
         super().__init__()
         self._start_note = None
         self._end_note = None
@@ -2410,7 +2419,8 @@ class Tuplet(TimedObject):
         self.end_note = end_note
         self.actual_notes = actual_notes
         self.normal_notes = normal_notes
-        self.type = type
+        self.actual_type = actual_type
+        self.normal_type = normal_type
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(["start_note", "end_note"])
 
@@ -2457,15 +2467,25 @@ class Tuplet(TimedObject):
         For example, in a triplet of eighth notes, each eighth note would have a duration of
         duration_multiplier * normal_eighth_duration = 2/3 * normal_eighth_duration
         """
-        return Fraction(self.normal_notes, self.actual_notes)
+        if self.actual_type == self.normal_type:
+            return Fraction(self.normal_notes, self.actual_notes)
+        else:
+            # In that case, we need to convert the normal_type into the actual_type, therefore
+            # adapting normal_notes
+            actual_dur = Fraction(LABEL_DURS[self.actual_type])
+            normal_dur = Fraction(LABEL_DURS[self.normal_type])
+            return Fraction(self.normal_notes, self.actual_notes) * normal_dur / actual_dur
+
+
 
     def __str__(self):
         n_actual = "" if self.actual_notes is None else "actual_notes={}".format(self.actual_notes)
         n_normal = "" if self.normal_notes is None else "normal_notes={}".format(self.normal_notes)
-        type_ = "" if self.type is None else "type={}".format(self.type)
+        t_actual = "" if self.actual_type is None else "actual_type={}".format(self.actual_type)
+        t_normal = "" if self.normal_type is None else "normal_type={}".format(self.normal_type)
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)
         end = "" if self.end_note is None else "end={}".format(self.end_note.id)
-        return " ".join((super().__str__(), start, end, n_actual, n_normal, type_)).strip()
+        return " ".join((super().__str__(), start, end, n_actual, n_normal, t_actual, t_normal)).strip()
 
 
 class Repeat(TimedObject):

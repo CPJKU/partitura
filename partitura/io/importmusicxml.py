@@ -1492,36 +1492,41 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet_actual_type = get_value_from_tag(tuplet_actual, "tuplet-type", str)
                 tuplet_normal_notes = get_value_from_tag(tuplet_normal, "tuplet-number", int)
                 tuplet_normal_type = get_value_from_tag(tuplet_normal, "tuplet-type", str)
-                # Types should always be the same I think?
-                assert tuplet_actual_type == tuplet_normal_type, "Tuplet types are not the same"
-                tuplet_type = tuplet_actual_type
             # If no information, try to infer it from the note
             else:
                 tuplet_actual_notes = note.symbolic_duration.get("actual_notes", None)
                 tuplet_normal_notes = note.symbolic_duration.get("normal_notes", None)
-                tuplet_type = note.symbolic_duration.get("type", None)
+                tuplet_actual_type = note.symbolic_duration.get("type", None)
+                tuplet_normal_type = tuplet_actual_type
 
             # If anyone of the attributes is not set, we set them all to None as we can't really
             # do anything useful with only partial information about the tuplet
-            if None in (tuplet_actual_notes, tuplet_normal_notes, tuplet_type):
+            if None in (tuplet_actual_notes, tuplet_normal_notes, tuplet_actual_type, tuplet_normal_type):
                 tuplet_actual_notes = None
                 tuplet_normal_notes = None
-                tuplet_type = None
-
+                tuplet_actual_type = None
+                tuplet_normal_type = None
 
             # check if we have a stopped_tuplet in ongoing that corresponds to
             # this start
             tuplet = ongoing.pop(stop_tuplet_key, None)
 
             if tuplet is None:
-                tuplet = score.Tuplet(note, actual_notes=tuplet_actual_notes, normal_notes=tuplet_normal_notes, type=tuplet_type)
+                tuplet = score.Tuplet(
+                    note,
+                    actual_notes=tuplet_actual_notes,
+                    normal_notes=tuplet_normal_notes,
+                    actual_type=tuplet_actual_type,
+                    normal_type=tuplet_normal_type,
+                )
                 ongoing[start_tuplet_key] = tuplet
 
             else:
                 tuplet.start_note = note
                 tuplet.actual_notes = tuplet_actual_notes
                 tuplet.normal_notes = tuplet_normal_notes
-                tuplet.type = tuplet_type
+                tuplet.actual_type = tuplet_actual_type
+                tuplet.normal_type = tuplet_normal_type
 
             starting_tuplets.append(tuplet)
 

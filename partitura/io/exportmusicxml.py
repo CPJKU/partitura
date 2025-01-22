@@ -228,19 +228,24 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
             del counter[tuplet_key]
 
         tuplet_e = etree.Element("tuplet", number="{}".format(number), type="start")
-        if tuplet.actual_notes is not None and tuplet.normal_notes is not None and tuplet.type is not None:
+        if (
+            tuplet.actual_notes is not None
+            and tuplet.normal_notes is not None
+            and tuplet.actual_type is not None
+            and tuplet.normal_type is not None
+        ):
             # tuplet-actual tag
             tuplet_actual_e = etree.SubElement(tuplet_e, "tuplet-actual")
             tuplet_actual_notes_e = etree.SubElement(tuplet_actual_e, "tuplet-number")
             tuplet_actual_notes_e.text = str(tuplet.actual_notes)
             tuplet_actual_type_e = etree.SubElement(tuplet_actual_e, "tuplet-type")
-            tuplet_actual_type_e.text = str(tuplet.type)
+            tuplet_actual_type_e.text = str(tuplet.actual_type)
             # tuplet-normal tag
             tuplet_normal_e = etree.SubElement(tuplet_e, "tuplet-normal")
             tuplet_normal_notes_e = etree.SubElement(tuplet_normal_e, "tuplet-number")
             tuplet_normal_notes_e.text = str(tuplet.normal_notes)
             tuplet_normal_type_e = etree.SubElement(tuplet_normal_e, "tuplet-type")
-            tuplet_normal_type_e.text = str(tuplet.type)
+            tuplet_normal_type_e.text = str(tuplet.normal_type)
         notations.append(tuplet_e)
 
     if notations:
