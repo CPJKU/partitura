@@ -698,7 +698,10 @@ def _handle_harmony(e, position, part):
         text = e.find("function").text
         if text is not None:
             if "|" in text:
-                text, cadence_annotation = text.split("|")
+                text = text.split("|")
+                if len(text) > 2:
+                    warnings.warn(f"Ignoring multiple cadence annotations {text[2:]}", stacklevel=2)
+                text, cadence_annotation = text[0], text[1]
                 part.add(score.Cadence(cadence_annotation), position)
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
@@ -1484,16 +1487,49 @@ def handle_tuplets(notations, ongoing, note):
         stop_tuplet_key = ("stop_tuplet", tuplet_number)
 
         if tuplet_type == "start":
+            # Get information about the tuplet if present in the XML
+            tuplet_actual = tuplet_e.find("tuplet-actual")
+            tuplet_normal = tuplet_e.find("tuplet-normal")
+            if tuplet_actual is not None and tuplet_normal is not None:
+                tuplet_actual_notes = get_value_from_tag(tuplet_actual, "tuplet-number", int)
+                tuplet_actual_type = get_value_from_tag(tuplet_actual, "tuplet-type", str)
+                tuplet_normal_notes = get_value_from_tag(tuplet_normal, "tuplet-number", int)
+                tuplet_normal_type = get_value_from_tag(tuplet_normal, "tuplet-type", str)
+            # If no information, try to infer it from the note
+            else:
+                tuplet_actual_notes = note.symbolic_duration.get("actual_notes", None)
+                tuplet_normal_notes = note.symbolic_duration.get("normal_notes", None)
+                tuplet_actual_type = note.symbolic_duration.get("type", None)
+                tuplet_normal_type = tuplet_actual_type
+
+            # If anyone of the attributes is not set, we set them all to None as we can't really
+            # do anything useful with only partial information about the tuplet
+            if None in (tuplet_actual_notes, tuplet_normal_notes, tuplet_actual_type, tuplet_normal_type):
+                tuplet_actual_notes = None
+                tuplet_normal_notes = None
+                tuplet_actual_type = None
+                tuplet_normal_type = None
+
             # check if we have a stopped_tuplet in ongoing that corresponds to
             # this start
             tuplet = ongoing.pop(stop_tuplet_key, None)
 
             if tuplet is None:
-                tuplet = score.Tuplet(note)
+                tuplet = score.Tuplet(
+                    note,
+                    actual_notes=tuplet_actual_notes,
+                    normal_notes=tuplet_normal_notes,
+                    actual_type=tuplet_actual_type,
+                    normal_type=tuplet_normal_type,
+                )
                 ongoing[start_tuplet_key] = tuplet
 
             else:
                 tuplet.start_note = note
+                tuplet.actual_notes = tuplet_actual_notes
+                tuplet.normal_notes = tuplet_normal_notes
+                tuplet.actual_type = tuplet_actual_type
+                tuplet.normal_type = tuplet_normal_type
 
             starting_tuplets.append(tuplet)
 
