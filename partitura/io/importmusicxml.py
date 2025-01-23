@@ -698,7 +698,10 @@ def _handle_harmony(e, position, part):
         text = e.find("function").text
         if text is not None:
             if "|" in text:
-                text, cadence_annotation = text.split("|")
+                text = text.split("|")
+                if len(text) > 2:
+                    warnings.warn(f"Ignoring multiple cadence annotations {text[2:]}", stacklevel=2)
+                text, cadence_annotation = text[0], text[1]
                 part.add(score.Cadence(cadence_annotation), position)
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
