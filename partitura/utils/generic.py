@@ -176,6 +176,9 @@ def first_order_derivative(func, x0, dx=0.5):
     Compute the first order derivative of a function at a point `x0` using
     a central difference scheme. This function is an adaptation of the scipy _derivative
     function, which is no longer available in the public API after version 1.15.
+    More information can be found at:
+    https://github.com/scipy/scipy/blob/v1.7.0/scipy/misc/common.py#L75-L145
+
     Parameters
     ----------
     func: callable
