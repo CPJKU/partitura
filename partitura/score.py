@@ -2404,13 +2404,13 @@ class Tuplet(TimedObject):
     """
 
     def __init__(
-            self,
-            start_note=None,
-            end_note=None,
-            actual_notes=None,
-            normal_notes=None,
-            actual_type=None,
-            normal_type=None
+        self,
+        start_note=None,
+        end_note=None,
+        actual_notes=None,
+        normal_notes=None,
+        actual_type=None,
+        normal_type=None,
     ):
         super().__init__()
         self._start_note = None
@@ -2474,18 +2474,36 @@ class Tuplet(TimedObject):
             # adapting normal_notes
             actual_dur = Fraction(LABEL_DURS[self.actual_type])
             normal_dur = Fraction(LABEL_DURS[self.normal_type])
-            return Fraction(self.normal_notes, self.actual_notes) * normal_dur / actual_dur
-
-
+            return (
+                Fraction(self.normal_notes, self.actual_notes) * normal_dur / actual_dur
+            )
 
     def __str__(self):
-        n_actual = "" if self.actual_notes is None else "actual_notes={}".format(self.actual_notes)
-        n_normal = "" if self.normal_notes is None else "normal_notes={}".format(self.normal_notes)
-        t_actual = "" if self.actual_type is None else "actual_type={}".format(self.actual_type)
-        t_normal = "" if self.normal_type is None else "normal_type={}".format(self.normal_type)
+        n_actual = (
+            ""
+            if self.actual_notes is None
+            else "actual_notes={}".format(self.actual_notes)
+        )
+        n_normal = (
+            ""
+            if self.normal_notes is None
+            else "normal_notes={}".format(self.normal_notes)
+        )
+        t_actual = (
+            ""
+            if self.actual_type is None
+            else "actual_type={}".format(self.actual_type)
+        )
+        t_normal = (
+            ""
+            if self.normal_type is None
+            else "normal_type={}".format(self.normal_type)
+        )
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)
         end = "" if self.end_note is None else "end={}".format(self.end_note.id)
-        return " ".join((super().__str__(), start, end, n_actual, n_normal, t_actual, t_normal)).strip()
+        return " ".join(
+            (super().__str__(), start, end, n_actual, n_normal, t_actual, t_normal)
+        ).strip()
 
 
 class Repeat(TimedObject):

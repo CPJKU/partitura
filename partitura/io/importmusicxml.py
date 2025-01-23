@@ -700,7 +700,10 @@ def _handle_harmony(e, position, part):
             if "|" in text:
                 text = text.split("|")
                 if len(text) > 2:
-                    warnings.warn(f"Ignoring multiple cadence annotations {text[2:]}", stacklevel=2)
+                    warnings.warn(
+                        f"Ignoring multiple cadence annotations {text[2:]}",
+                        stacklevel=2,
+                    )
                 text, cadence_annotation = text[0], text[1]
                 part.add(score.Cadence(cadence_annotation), position)
             part.add(score.RomanNumeral(text), position)
@@ -1491,10 +1494,18 @@ def handle_tuplets(notations, ongoing, note):
             tuplet_actual = tuplet_e.find("tuplet-actual")
             tuplet_normal = tuplet_e.find("tuplet-normal")
             if tuplet_actual is not None and tuplet_normal is not None:
-                tuplet_actual_notes = get_value_from_tag(tuplet_actual, "tuplet-number", int)
-                tuplet_actual_type = get_value_from_tag(tuplet_actual, "tuplet-type", str)
-                tuplet_normal_notes = get_value_from_tag(tuplet_normal, "tuplet-number", int)
-                tuplet_normal_type = get_value_from_tag(tuplet_normal, "tuplet-type", str)
+                tuplet_actual_notes = get_value_from_tag(
+                    tuplet_actual, "tuplet-number", int
+                )
+                tuplet_actual_type = get_value_from_tag(
+                    tuplet_actual, "tuplet-type", str
+                )
+                tuplet_normal_notes = get_value_from_tag(
+                    tuplet_normal, "tuplet-number", int
+                )
+                tuplet_normal_type = get_value_from_tag(
+                    tuplet_normal, "tuplet-type", str
+                )
             # If no information, try to infer it from the note
             else:
                 tuplet_actual_notes = note.symbolic_duration.get("actual_notes", None)
@@ -1504,7 +1515,12 @@ def handle_tuplets(notations, ongoing, note):
 
             # If anyone of the attributes is not set, we set them all to None as we can't really
             # do anything useful with only partial information about the tuplet
-            if None in (tuplet_actual_notes, tuplet_normal_notes, tuplet_actual_type, tuplet_normal_type):
+            if None in (
+                tuplet_actual_notes,
+                tuplet_normal_notes,
+                tuplet_actual_type,
+                tuplet_normal_type,
+            ):
                 tuplet_actual_notes = None
                 tuplet_normal_notes = None
                 tuplet_actual_type = None
