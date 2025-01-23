@@ -174,6 +174,8 @@ def iter_subclasses(cls, _seen=None):
 def first_order_derivative(func, x0, dx=0.5):
     """
     Compute the first order derivative of a function at a point `x0` using
+    a central difference scheme. This function is an adaptation of the scipy _derivative
+    function, which is no longer available in the public API after version 1.15.
     Parameters
     ----------
     func: callable
@@ -188,8 +190,6 @@ def first_order_derivative(func, x0, dx=0.5):
     np.ndarray
         First order derivative of `func` at `x0`
     """
-    # fixed order
-    n = 1
     # fixed number of points to use, must be odd.
     num_points = 3
     weights = np.array([-1, 0, 1]) / 2.0
@@ -197,7 +197,7 @@ def first_order_derivative(func, x0, dx=0.5):
     ho = num_points >> 1
     for k in range(num_points):
         val += weights[k] * func(x0 + (k - ho) * dx)
-    return val / np.prod((dx,) * n, axis=0)
+    return val / np.prod((dx,), axis=0)
 
 
 class ReplaceRefMixin(object):
