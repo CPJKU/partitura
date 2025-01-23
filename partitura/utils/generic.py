@@ -200,7 +200,7 @@ def first_order_derivative(func, x0, dx=0.5):
     ho = num_points >> 1
     for k in range(num_points):
         val += weights[k] * func(x0 + (k - ho) * dx)
-    return val / np.prod((dx,), axis=0)
+    return val / dx
 
 
 class ReplaceRefMixin(object):
