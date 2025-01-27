@@ -4539,7 +4539,7 @@ class Segment(TimedObject):
         self.info = info
 
 
-def add_segments(part, force_new = False):
+def add_segments(part, force_new=False):
     """
     Add segment objects to a part based on repetition and capo/fine/coda/segno directions.
 
@@ -4548,7 +4548,7 @@ def add_segments(part, force_new = False):
     part: part
         A score part
     force_new: all_repeats : bool, optional
-        Flag to delete and add segments from scratch, 
+        Flag to delete and add segments from scratch,
         used for creating new unfoldings after segment attributes have been changed.
         defaults to false.
     """
@@ -4559,19 +4559,15 @@ def add_segments(part, force_new = False):
                 part.remove(seg)
         else:
             return
-    
+
     boundaries = defaultdict(dict)
     destinations = defaultdict(list)
 
     valid_repeats = [
-        r
-        for r in part.iter_all(Repeat)
-        if r.start is not None and r.end is not None
+        r for r in part.iter_all(Repeat) if r.start is not None and r.end is not None
     ]
     valid_endings = [
-        r
-        for r in part.iter_all(Ending)
-        if r.start is not None and r.end is not None
+        r for r in part.iter_all(Ending) if r.start is not None and r.end is not None
     ]
 
     for r in valid_repeats:
@@ -4644,9 +4640,7 @@ def add_segments(part, force_new = False):
                     for volta_number in range(
                         10
                     ):  # maximal expected number of volta brackets 10
-                        if "volta_start" in list(
-                            boundaries[current_volta_end].keys()
-                        ):
+                        if "volta_start" in list(boundaries[current_volta_end].keys()):
                             # add the beginning to the jump destinations
                             numbers = boundaries[current_volta_end][
                                 "volta_start"
@@ -4662,9 +4656,7 @@ def add_segments(part, force_new = False):
                             segment_info[current_volta_end]["info"].append(
                                 "volta " + ",".join(numbers)
                             )
-                            segment_info[current_volta_end][
-                                "volta_numbers"
-                            ] += numbers
+                            segment_info[current_volta_end]["volta_numbers"] += numbers
                             # segment_info[bracket_end]["info"].append(str(len(numbers)))
                             # update the search time to the end of the ext bracket
                             current_volta_end = boundaries[current_volta_end][
@@ -4689,9 +4681,7 @@ def add_segments(part, force_new = False):
 
                 if str(current_volta_total_number) in current_volta_numbers:
                     # else just go to the segment after the last
-                    segment_info[ss]["to"].append(
-                        segment_info[current_volta_end]["ID"]
-                    )
+                    segment_info[ss]["to"].append(segment_info[current_volta_end]["ID"])
 
             # NAVIGATION SYMBOLS
 
@@ -4726,9 +4716,7 @@ def add_segments(part, force_new = False):
                 segment_info[ss]["to"].append(
                     "Navigation1_" + segment_info[segno_time]["ID"]
                 )
-                segment_info[ss]["to"].append(
-                    "Navigation2_" + segment_info[se]["ID"]
-                )
+                segment_info[ss]["to"].append("Navigation2_" + segment_info[se]["ID"])
                 segment_info[ss]["type"] = "leap_start"
                 segment_info[ss]["info"].append("dal segno")
 
@@ -4738,9 +4726,7 @@ def add_segments(part, force_new = False):
                 segment_info[ss]["to"].append(
                     "Navigation1_" + segment_info[part.first_point.t]["ID"]
                 )
-                segment_info[ss]["to"].append(
-                    "Navigation2_" + segment_info[se]["ID"]
-                )
+                segment_info[ss]["to"].append("Navigation2_" + segment_info[se]["ID"])
                 segment_info[ss]["type"] = "leap_start"
                 segment_info[ss]["info"].append("da capo")
 
