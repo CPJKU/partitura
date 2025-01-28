@@ -362,7 +362,7 @@ class PerformedNote:
         return f"PerformedNote: {self['id']}"
 
     def __eq__(self, other):
-        if not isinstance(PerformedNote):
+        if not isinstance(other, PerformedNote):
             return False
         if not self.keys() == other.keys():
             return False
