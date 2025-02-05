@@ -2410,6 +2410,7 @@ class Tuplet(TimedObject):
         actual_notes=None,
         normal_notes=None,
         actual_type=None,
+        actual_dots=None,
         normal_type=None,
         normal_dots=None,
     ):
@@ -2422,6 +2423,7 @@ class Tuplet(TimedObject):
         self.normal_notes = normal_notes
         self.actual_type = actual_type
         self.normal_type = normal_type
+        self.actual_dots = actual_dots
         self.normal_dots = normal_dots
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(["start_note", "end_note"])
@@ -2469,13 +2471,18 @@ class Tuplet(TimedObject):
         For example, in a triplet of eighth notes, each eighth note would have a duration of
         duration_multiplier * normal_eighth_duration = 2/3 * normal_eighth_duration
         """
-        if self.actual_type == self.normal_type and not self.normal_dots:
+        if (
+            self.actual_type == self.normal_type
+            and self.actual_notes == self.normal_notes
+        ):
             return Fraction(self.normal_notes, self.actual_notes)
         else:
             # In that case, we need to convert the normal_type into the actual_type, therefore
             # adapting normal_notes
             actual_dur = Fraction(LABEL_DURS[self.actual_type])
             normal_dur = Fraction(LABEL_DURS[self.normal_type])
+            for _ in range(self.actual_dots):
+                actual_dur += actual_dur / 2
             for _ in range(self.normal_dots):
                 normal_dur += normal_dur / 2
             return (
@@ -2503,6 +2510,8 @@ class Tuplet(TimedObject):
             if self.normal_type is None
             else "normal_type={}".format(self.normal_type)
         )
+        for _ in range(self.actual_dots):
+            t_actual += "."
         for _ in range(self.normal_dots):
             t_normal += "."
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)

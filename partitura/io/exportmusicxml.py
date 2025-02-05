@@ -242,6 +242,8 @@ def make_note_el(note, dur, voice, counter, n_of_staves):
             tuplet_actual_notes_e.text = str(tuplet.actual_notes)
             tuplet_actual_type_e = etree.SubElement(tuplet_actual_e, "tuplet-type")
             tuplet_actual_type_e.text = str(tuplet.actual_type)
+            for _ in range(tuplet.actual_dots):
+                etree.SubElement(tuplet_actual_e, "tuplet-dot")
             # tuplet-normal tag
             tuplet_normal_e = etree.SubElement(tuplet_e, "tuplet-normal")
             tuplet_normal_notes_e = etree.SubElement(tuplet_normal_e, "tuplet-number")

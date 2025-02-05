@@ -1280,6 +1280,9 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
     normal_dots = len(e.findall("time-modification/normal-dot"))
     if normal_dots:
         symbolic_duration["normal_dots"] = normal_dots
+    # Note: MusicXML does not have "<actual_dot>" elements in "<time-modification>" tags, but
+    # the actual type of a tuplet *can* have dots if specified in the <tuplet> tags (see related
+    # code in handle_tuplet function)
 
     chord = e.find("chord")
     if chord is not None:
@@ -1508,6 +1511,7 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet_actual_type = get_value_from_tag(
                     tuplet_actual, "tuplet-type", str
                 )
+                tuplet_actual_dots = len(tuplet_actual.findall("tuplet-dot"))
                 tuplet_normal_notes = get_value_from_tag(
                     tuplet_normal, "tuplet-number", int
                 )
@@ -1515,10 +1519,6 @@ def handle_tuplets(notations, ongoing, note):
                     tuplet_normal, "tuplet-type", str
                 )
                 tuplet_normal_dots = len(tuplet_normal.findall("tuplet-dot"))
-                # While MusicXML theoretically accept a <tuplet-dot> in <tuplet-actual>, I have not
-                # been able to find a single example online where this happens, so I don't think
-                # that we need to support it (until proven wrong). However, it can happen in
-                # <tuplet-normal> so we support it there.
 
             # If no information, try to infer it from the note
             else:
@@ -1530,6 +1530,7 @@ def handle_tuplets(notations, ongoing, note):
                     tuplet_normal_type = note.symbolic_duration.get("type", None)
                 tuplet_actual_type = tuplet_normal_type
                 tuplet_normal_dots = note.symbolic_duration.get("normal_dots", 0)
+                tuplet_actual_dots = 0  # see comment in _handle_note
 
             # If anyone of the attributes is not set, we set them all to None as we can't really
             # do anything useful with only partial information about the tuplet
@@ -1543,6 +1544,7 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet_normal_notes = None
                 tuplet_actual_type = None
                 tuplet_normal_type = None
+                tuplet_actual_dots = None
                 tuplet_normal_dots = None
 
             # check if we have a stopped_tuplet in ongoing that corresponds to
@@ -1555,6 +1557,7 @@ def handle_tuplets(notations, ongoing, note):
                     actual_notes=tuplet_actual_notes,
                     normal_notes=tuplet_normal_notes,
                     actual_type=tuplet_actual_type,
+                    actual_dots=tuplet_actual_dots,
                     normal_type=tuplet_normal_type,
                     normal_dots=tuplet_normal_dots,
                 )
@@ -1566,6 +1569,7 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet.normal_notes = tuplet_normal_notes
                 tuplet.actual_type = tuplet_actual_type
                 tuplet.normal_type = tuplet_normal_type
+                tuplet.actual_dots = tuplet_actual_dots
                 tuplet.normal_dots = tuplet_normal_dots
 
             starting_tuplets.append(tuplet)
