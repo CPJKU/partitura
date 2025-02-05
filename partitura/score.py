@@ -2473,7 +2473,7 @@ class Tuplet(TimedObject):
         """
         if (
             self.actual_type == self.normal_type
-            and self.actual_notes == self.normal_notes
+            and self.actual_dots == self.normal_dots
         ):
             return Fraction(self.normal_notes, self.actual_notes)
         else:
