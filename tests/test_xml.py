@@ -224,20 +224,26 @@ class TestMusicXML(unittest.TestCase):
     def test_tuplet_attributes(self):
         part = load_musicxml(MUSICXML_TUPLET_ATTRIBUTES_TESTFILES[0])[0]
         tuplets = list(part.iter_all(cls=score.Tuplet))
-        # Each tuple consists of (actual_notes, normal_notes, type, note_type, duration_multiplier)
+        # Each tuple consists of:
+        # (actual_notes, normal_notes, actual_type, normal_type, normal_dots, duration_multiplier)
+        # fmt: off
         real_values = [
-            (3, 2, "eighth", "eighth", Fraction(2, 3)),
-            (5, 4, "eighth", "eighth", Fraction(4, 5)),
-            (3, 2, "16th", "16th", Fraction(2, 3)),
-            (9, 2, "16th", "quarter", Fraction(8, 9)),
-            (2, 3, "eighth", "eighth", Fraction(3, 2)),
-            (5, 3, "eighth", "eighth", Fraction(3, 5)),
+            (3, 2, "eighth", "eighth", 0, Fraction(2, 3)),  # classic 3:2 eighth notes tuplet
+            (5, 4, "eighth", "eighth", 0, Fraction(4, 5)),  # 5:4 eighth notes tuplet
+            (3, 2, "16th", "16th", 0, Fraction(2, 3)),      # 3:2 16th notes tuplet
+            (9, 2, "16th", "quarter", 0, Fraction(8, 9)),   # 9 16th notes against 2 quarter notes
+            (2, 3, "eighth", "eighth", 0, Fraction(3, 2)),  # classic 2:3 duolet
+            (5, 2, "quarter", "quarter", 1, Fraction(3, 5)) # 5 quarter notes in the time of 2 dotted quarter notes
         ]
-        for tuplet, (n_actual, n_normal, t_actual, t_normal, dur_mult) in zip(tuplets, real_values):
+        # fmt: on
+        for tuplet, (n_actual, n_normal, t_actual, t_normal, d_normal, dur_mult) in zip(
+            tuplets, real_values
+        ):
             self.assertEqual(tuplet.actual_notes, n_actual)
             self.assertEqual(tuplet.normal_notes, n_normal)
             self.assertEqual(tuplet.actual_type, t_actual)
             self.assertEqual(tuplet.normal_type, t_normal)
+            self.assertEqual(tuplet.normal_dots, d_normal)
             self.assertEqual(tuplet.duration_multiplier, dur_mult)
 
     def _pretty_export_import_pretty_test(self, part1):
