@@ -225,25 +225,26 @@ class TestMusicXML(unittest.TestCase):
         part = load_musicxml(MUSICXML_TUPLET_ATTRIBUTES_TESTFILES[0])[0]
         tuplets = list(part.iter_all(cls=score.Tuplet))
         # Each tuple consists of:
-        # (actual_notes, normal_notes, actual_type, normal_type, normal_dots, duration_multiplier)
+        # (act_notes, norm_notes, act_type, norm_type, act_dots, norm_dots, dur_mult)
         # fmt: off
         real_values = [
-            (3, 2, "eighth", "eighth", 0, Fraction(2, 3)),   # classic 3:2 eighth notes tuplet
-            (5, 4, "eighth", "eighth", 0, Fraction(4, 5)),   # 5:4 eighth notes tuplet
-            (3, 2, "16th", "16th", 0, Fraction(2, 3)),       # 3:2 16th notes tuplet
-            (9, 2, "16th", "quarter", 0, Fraction(8, 9)),    # 9 16th notes against 2 quarter notes
-            (2, 3, "eighth", "eighth", 0, Fraction(3, 2)),   # classic 2:3 duolet
-            (5, 2, "quarter", "quarter", 1, Fraction(3, 5)), # 5 quarter notes in the time of 2 dotted quarter notes
+            (3, 2, "eighth", "eighth", 0, 0, Fraction(2, 3)),   # classic 3:2 eighth notes tuplet
+            (5, 4, "eighth", "eighth", 0, 0, Fraction(4, 5)),   # 5:4 eighth notes tuplet
+            (3, 2, "16th", "16th", 0, 0, Fraction(2, 3)),       # 3:2 16th notes tuplet
+            (9, 2, "16th", "quarter", 0, 0, Fraction(8, 9)),    # 9 16th notes against 2 quarter notes
+            (2, 3, "eighth", "eighth", 0, 0, Fraction(3, 2)),   # classic 2:3 duolet
+            (5, 2, "quarter", "quarter", 0, 1, Fraction(3, 5)), # 5 quarter notes in the time of 2 dotted quarter notes
         ]
         # fmt: on
-        for tuplet, (n_actual, n_normal, t_actual, t_normal, d_normal, dur_mult) in zip(
+        for tuplet, (n_act, n_norm, t_act, t_norm, d_act, d_norm, dur_mult) in zip(
             tuplets, real_values
         ):
-            self.assertEqual(tuplet.actual_notes, n_actual)
-            self.assertEqual(tuplet.normal_notes, n_normal)
-            self.assertEqual(tuplet.actual_type, t_actual)
-            self.assertEqual(tuplet.normal_type, t_normal)
-            self.assertEqual(tuplet.normal_dots, d_normal)
+            self.assertEqual(tuplet.actual_notes, n_act)
+            self.assertEqual(tuplet.normal_notes, n_norm)
+            self.assertEqual(tuplet.actual_type, t_act)
+            self.assertEqual(tuplet.normal_type, t_norm)
+            self.assertEqual(tuplet.actual_dots, d_act)
+            self.assertEqual(tuplet.normal_dots, d_norm)
             self.assertEqual(tuplet.duration_multiplier, dur_mult)
 
     def _pretty_export_import_pretty_test(self, part1):
