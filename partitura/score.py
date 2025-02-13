@@ -2510,10 +2510,12 @@ class Tuplet(TimedObject):
             if self.normal_type is None
             else "normal_type={}".format(self.normal_type)
         )
-        for _ in range(self.actual_dots):
-            t_actual += "."
-        for _ in range(self.normal_dots):
-            t_normal += "."
+        if self.actual_dots:
+            for _ in range(self.actual_dots):
+                t_actual += "."
+        if self.normal_dots:
+            for _ in range(self.normal_dots):
+                t_normal += "."
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)
         end = "" if self.end_note is None else "end={}".format(self.end_note.id)
         return " ".join(
