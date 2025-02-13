@@ -323,18 +323,26 @@ class TestScoreMidi(unittest.TestCase):
         
 class TestLoadPerformanceMIDI(unittest.TestCase):
     def setUp(self):
-        # create test MIDI file with tempo changes
+        # create test MIDI file with tempo changes, time signatures, and key signatures
         self.midi_file = mido.MidiFile()
         track = mido.MidiTrack()
         self.midi_file.tracks.append(track)
 
         # set initial tempo (120 BPM)
         track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(120), time=0))
+        # set initial time signature (4/4)
+        track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, time=0))
+        # set initial key signature (C major)
+        track.append(mido.MetaMessage('key_signature', key='C', time=0))
         # add note
         track.append(mido.Message('note_on', note=60, velocity=64, time=0))
         track.append(mido.Message('note_off', note=60, velocity=64, time=480))
         # change tempo to 60 BPM
         track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(60), time=0))
+        # change time signature to 3/4
+        track.append(mido.MetaMessage('time_signature', numerator=3, denominator=4, time=0))
+        # change key signature to G major
+        track.append(mido.MetaMessage('key_signature', key='G', time=0))
         # add another note
         track.append(mido.Message('note_on', note=62, velocity=64, time=0))
         track.append(mido.Message('note_off', note=62, velocity=64, time=480))
@@ -348,3 +356,24 @@ class TestLoadPerformanceMIDI(unittest.TestCase):
         self.assertAlmostEqual(notes[0]['note_off'], 0.5, places=6)  # 120 BPM -> 0.5 seconds
         self.assertAlmostEqual(notes[1]['note_on'], 0.5, places=6)
         self.assertAlmostEqual(notes[1]['note_off'], 1.5, places=6)  # 60 BPM -> 1 second
+
+    def test_time_signature_and_key_signature(self):
+        
+        performance = load_performance_midi(self.midi_file).performedparts[0]
+
+        time_signatures = performance.time_signatures
+        key_signatures = performance.key_signatures
+
+        self.assertEqual(time_signatures[0]['beats'], 4)
+        self.assertEqual(time_signatures[0]['beat_type'], 4)
+        self.assertAlmostEqual(time_signatures[0]['time'], 0.0, places=6)
+
+        self.assertEqual(time_signatures[1]['beats'], 3)
+        self.assertEqual(time_signatures[1]['beat_type'], 4)
+        self.assertAlmostEqual(time_signatures[1]['time'], 0.5, places=6)  # 120 BPM -> 0.5 seconds
+
+        self.assertEqual(key_signatures[0]['key_name'], 'C')
+        self.assertAlmostEqual(key_signatures[0]['time'], 0.0, places=6)
+
+        self.assertEqual(key_signatures[1]['key_name'], 'G')
+        self.assertAlmostEqual(key_signatures[1]['time'], 0.5, places=6)  # 120 BPM -> 0.5 seconds
