@@ -517,7 +517,7 @@ def interpret_as_fractional(value: str) -> FractionalSymbolicDuration:
 
 
 def format_fractional(
-    value: Union[List[FractionalSymbolicDuration], FractionalSymbolicDuration]
+    value: Union[List[FractionalSymbolicDuration], FractionalSymbolicDuration],
 ) -> str:
     """
     Format fractional symbolic duration as string

@@ -603,7 +603,7 @@ def interp1d(
         # will always return the same value for any input.
 
         def interp_fun(
-            input_var: Union[float, int, np.ndarray]
+            input_var: Union[float, int, np.ndarray],
         ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
             if y.ndim > 1:
                 result = np.broadcast_to(y, (len(np.atleast_1d(input_var)), y.shape[1]))
@@ -619,7 +619,7 @@ def interp1d(
     if dtype is not None:
 
         def typed_interp(
-            input_var: Union[float, int, np.ndarray]
+            input_var: Union[float, int, np.ndarray],
         ) -> Callable[[Union[float, int, np.ndarray]], np.ndarray]:
             return interp_fun(input_var).astype(dtype)
 
