@@ -224,6 +224,13 @@ def load_musicxml(
         A `Score` instance.
 
     """
+    #NOTE: raising warning for ignore_invisible_objects is not ideal and it should be changed in the future
+    if ignore_invisible_objects:
+        warnings.warn(
+            "Be advised that the 'ignore_invisible_objects' option might sometimes lead "
+            "to parsing errors for unusual musicxml files. \n"
+            "Note that when ignore_invisible_objects is False (the default), the parsing works as expected as before."
+        )
 
     xml = None
     if isinstance(filename, str):
