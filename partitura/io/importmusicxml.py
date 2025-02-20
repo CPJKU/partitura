@@ -224,7 +224,7 @@ def load_musicxml(
         A `Score` instance.
 
     """
-    #NOTE: raising warning for ignore_invisible_objects is not ideal and it should be changed in the future
+    # NOTE: raising warning for ignore_invisible_objects is not ideal and it should be changed in the future
     if ignore_invisible_objects:
         warnings.warn(
             "Be advised that the 'ignore_invisible_objects' option might sometimes lead "
