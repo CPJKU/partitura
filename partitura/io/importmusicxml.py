@@ -713,6 +713,10 @@ def _handle_harmony(e, position, part):
                     )
                 text, cadence_annotation = text[0], text[1]
                 part.add(score.Cadence(cadence_annotation), position)
+
+            if "}" in text:
+                part.add(score.Phrase(), start=position, end=position)
+
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
         # TODO: handle kind text which is other kind of annotation also root

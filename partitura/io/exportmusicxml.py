@@ -880,6 +880,14 @@ def do_harmony(part, start, end):
             bass_step_e.text = h.bass
         result.append((h.start.t, None, harmony_e))
 
+    # Does harmony annotation for phrases
+    harmony = part.iter_all(score.Phrase, start, end)
+    for h in harmony:
+        harmony_e = etree.Element("harmony", print_frame="no")
+        function = etree.SubElement(harmony_e, "function")
+        function.text = "} "
+        result.append((h.start.t, None, harmony_e))
+
     # Does harmony annotation for cadences
     # TODO: Merge with existing Roman Numeral and ChordSymbol annotations if they exist.
     harmony = part.iter_all(score.Cadence, start, end)
