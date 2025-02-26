@@ -717,6 +717,17 @@ def _handle_harmony(e, position, part):
             if "}" in text:
                 part.add(score.Phrase(), start=position, end=position)
 
+            # When bracket closing is found, search for the last OrganPoint and add the end time
+            if "]" in text:
+                for obj in part.iter_all(score.OrganPoint, mode="starting"):
+                    if obj.end is None and obj.start.t < position:
+                        part.add(obj, end=position)
+                        break
+
+            # When bracket openning is found, add an OrganPoint without the end time
+            if "[" in text:
+                part.add(score.OrganPoint(), start=position)
+
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
         # TODO: handle kind text which is other kind of annotation also root
