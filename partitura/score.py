@@ -3236,6 +3236,14 @@ class Phrase(TimedObject):
         return f"{super().__str__()}"
 
 
+class OrganPoint(TimedObject):
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self):
+        return f"{super().__str__()}"
+
+
 class ChordSymbol(Harmony):
     """A harmony element in the score usually for Chord Symbols."""
 
