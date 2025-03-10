@@ -258,10 +258,11 @@ def load_performance_midi(
                             channel=msg.channel,
                             velocity=sounding_notes[note][2],
                         )
-                    )
+                    ) 
+                    
                     # remove hash from dict
                     del sounding_notes[note]
-
+            
         # fix note ids so that it is sorted lexicographically
         # by onset, pitch, offset, channel and track
         notes.sort(
@@ -273,7 +274,26 @@ def load_performance_midi(
                 x["track"],
             )
         )
-
+        
+        # adjust timing of events based on tempo changes
+        for note in notes:
+            note["note_on"] = adjust_time(note["note_on_tick"], tempo_changes, ppq)
+            note["note_off"] = adjust_time(note["note_off_tick"], tempo_changes, ppq)
+        for control in controls:
+            control["time"] = adjust_time(control["time_tick"], tempo_changes, ppq)
+        for program in programs:
+            program["time"] = adjust_time(program["time_tick"], tempo_changes, ppq)
+        for time_signature in time_signatures:
+            time_signature["time"] = adjust_time(
+                time_signature["time_tick"], tempo_changes, ppq
+            )
+        for key_signature in key_signatures:
+            key_signature["time"] = adjust_time(
+                key_signature["time_tick"], tempo_changes, ppq
+            )
+        for meta in meta_other:
+            meta["time"] = adjust_time(meta["time_tick"], tempo_changes, ppq)
+        
         # add note id to every note
         for k, note in enumerate(notes):
             note["id"] = f"n{k}"
@@ -290,33 +310,13 @@ def load_performance_midi(
                 mpq=default_mpq,
                 track=i,
             )
-
             pps.append(pp)
-
-    # adjust timing of events based on tempo changes
-    for pp in pps:
-        for note in pp.notes:
-            note["note_on"] = adjust_time(note["note_on_tick"], tempo_changes, ppq)
-            note["note_off"] = adjust_time(note["note_off_tick"], tempo_changes, ppq)
-        for control in pp.controls:
-            control["time"] = adjust_time(control["time_tick"], tempo_changes, ppq)
-        for program in pp.programs:
-            program["time"] = adjust_time(program["time_tick"], tempo_changes, ppq)
-        for time_signature in pp.time_signatures:
-            time_signature["time"] = adjust_time(
-                time_signature["time_tick"], tempo_changes, ppq
-            )
-        for key_signature in pp.key_signatures:
-            key_signature["time"] = adjust_time(
-                key_signature["time_tick"], tempo_changes, ppq
-            )
-        for meta in pp.meta_other:
-            meta["time"] = adjust_time(meta["time_tick"], tempo_changes, ppq)
-
+            
     perf = performance.Performance(
         id=doc_name,
         performedparts=pps,
     )
+    
     return perf
 
 
