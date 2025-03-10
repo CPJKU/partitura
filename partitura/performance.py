@@ -135,7 +135,7 @@ class PerformedPart(object):
         """
         self._sustain_pedal_threshold = value
         if len(self.notes) > 0:
-            adjust_offsets_w_sustain(
+            adjust_note_offsets_with_sustain(
                 self.notes, self.controls, self._sustain_pedal_threshold
             )
 
@@ -151,6 +151,7 @@ class PerformedPart(object):
         )
 
     def note_array(self, *args, **kwargs) -> np.ndarray:
+        
         """Structured array containing performance information.
         The fields are 'id', 'pitch', 'onset_tick', 'duration_tick',
         'onset_sec', 'duration_sec', 'track', 'channel', and 'velocity'.
@@ -170,19 +171,28 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
+            note_off_sec = n.get("sound_off", n["note_off"])
+            duration_sec = note_off_sec - note_on_sec
+            
+            # tick on, off, duration:
+            # if tick_off is not provided, infer from default mpq and ppq, otherwise use provided)
             note_on_tick = n.get(
                 "note_on_tick",
                 seconds_to_midi_ticks(n["note_on"], mpq=self.mpq, ppq=self.ppq),
             )
-            offset = n.get("sound_off", n["note_off"])
-            duration_sec = offset - note_on_sec
-            duration_tick = (
-                n.get(
+            if n.get("note_off_tick", None) is None:
+                note_off_tick = n.get(
                     seconds_to_midi_ticks(n["sound_off"], mpq=self.mpq, ppq=self.ppq),
-                    seconds_to_midi_ticks(n["note_off"], mpq=self.mpq, ppq=self.ppq),
+                    seconds_to_midi_ticks(n["note_off"], mpq=self.mpq, ppq=self.ppq)
                 )
-                - note_on_tick
-            )
+                duration_tick = n.get(
+                    seconds_to_midi_ticks(n["sound_off"], mpq=self.mpq, ppq=self.ppq),
+                    seconds_to_midi_ticks(n["note_off"], mpq=self.mpq, ppq=self.ppq)
+                ) - note_on_tick
+            else:
+                note_off_tick = n["note_off_tick"]
+                duration_tick = note_off_tick - note_on_tick            
+            
             note_array.append(
                 (
                     note_on_sec,
@@ -196,7 +206,6 @@ class PerformedPart(object):
                     n["id"],
                 )
             )
-
         return np.array(note_array, dtype=fields)
 
     @classmethod
@@ -257,7 +266,7 @@ class PerformedPart(object):
         return cls(id=id, part_name=part_name, notes=notes, controls=None)
 
 
-def adjust_offsets_w_sustain(
+def adjust_note_offsets_with_sustain(
     notes: List[dict],
     controls: List[dict],
     threshold=64,
@@ -283,8 +292,7 @@ def adjust_offsets_w_sustain(
     # reduce the pedal info to just the times where there is a change in pedal state
     pedal = np.vstack(
         (
-            (min(pedal[0, 0] - 1, first_off - 1), 0),
-            pedal[0, :],
+            (min(pedal[0, 0] - 1, first_off - 1), 0), pedal[0, :],
             # if there is an onset before the first pedal info, assume pedal is off
             pedal[np.where(np.diff(pedal[:, 1]) != 0)[0] + 1, :],
             # if there is an offset after the last pedal info, assume pedal is off
