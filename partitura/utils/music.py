@@ -2424,7 +2424,7 @@ def note_array_from_note_list(
         fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
         ("onset_div", "i8"),
-        ("duration_div", "i4"),
+        ("duration_div", "i8"),
         ("pitch", "i4"),
         ("voice", "i4"),
         ("id", "U256"),
