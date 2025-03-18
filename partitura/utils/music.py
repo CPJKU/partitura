@@ -2423,7 +2423,7 @@ def note_array_from_note_list(
     if quarter_map is not None:
         fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
-        ("onset_div", "i4"),
+        ("onset_div", "i8"),
         ("duration_div", "i4"),
         ("pitch", "i4"),
         ("voice", "i4"),
