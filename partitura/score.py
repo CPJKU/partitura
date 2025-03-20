@@ -1134,22 +1134,12 @@ class Part(object):
         if cls is None:
             cls = object
             include_subclasses = True
-
-        # If single class passed, convert to list
-        if isinstance(cls, type):
-            cls = [cls]
-
-        if not isinstance(cls, Iterable):
-            raise TypeError("cls should be a class, an iterable of classes, or None")
-
         if mode == "ending":
             for tp in self._points[start_idx:end_idx]:
-                for c in cls:
-                    yield from tp.iter_ending(c, include_subclasses)
+                yield from tp.iter_ending(cls, include_subclasses)
         else:
             for tp in self._points[start_idx:end_idx]:
-                for c in cls:
-                    yield from tp.iter_starting(c, include_subclasses)
+                yield from tp.iter_starting(cls, include_subclasses)
 
     def apply(self):
         """Apply all changes to the timeline for objects like octave Shift."""
@@ -1474,8 +1464,8 @@ class TimePoint(ComparableMixin):
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or iterable of classes
+            The class (or classes) of objects to iterate over.
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1486,10 +1476,13 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.starting_objects[cls]
-        if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.starting_objects[subcls]
+        if isinstance(cls, type):
+            cls = [cls]
+        for c in cls:
+            yield from self.starting_objects[c]
+            if include_subclasses:
+                for subcls in iter_subclasses(c):
+                    yield from self.starting_objects[subcls]
 
     def iter_ending(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that end at this
@@ -1497,8 +1490,8 @@ class TimePoint(ComparableMixin):
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or iterable of classes
+            The class (or classes) of objects to iterate over.
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1509,10 +1502,13 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.ending_objects[cls]
-        if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.ending_objects[subcls]
+        if isinstance(cls, type):
+            cls = [cls]
+        for c in cls:
+            yield from self.ending_objects[c]
+            if include_subclasses:
+                for subcls in iter_subclasses(c):
+                    yield from self.ending_objects[subcls]
 
     def iter_prev(self, cls, eq=False, include_subclasses=False):
         """Iterate backwards in time from the current timepoint over
@@ -1520,8 +1516,8 @@ class TimePoint(ComparableMixin):
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or iterable of classes
+            The class (or classes) of objects to iterate over.
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its predecessor. Defaults to False.
@@ -1550,8 +1546,8 @@ class TimePoint(ComparableMixin):
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or iterable of classes
+            The class (or classes) of objects to iterate over.
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its successor. Defaults to False.
