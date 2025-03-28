@@ -3420,6 +3420,12 @@ def segment_ppart_by_start_end_times(
             if i+1 < len(end_times):
                 end_time = end_times[i+1]
                 i += 1 # to move the for loop iterator to the next segment
+                # remove the last appended segment in list_pparts
+                if len(list_pparts) != 0:
+                    list_pparts.pop()
+                # take the previous segment's start time while keeping the present segment's end time
+                start_time = start_times[i-1]
+                ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
 
             # if the small segment is the last segment in the performed part, add it to the previous segment
             else:
