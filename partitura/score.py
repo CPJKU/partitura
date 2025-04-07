@@ -961,7 +961,7 @@ class Part(object):
             elif i < len(self._points) - 1:
                 self._points[i - 1].prev = None
             # That last case only happen when there is a single point in the array,
-            # no prev/next update in that cas, simply delete
+            # no prev/next update in that case, simply delete
             else:
                 pass
             # Actually delete the point
