@@ -950,7 +950,7 @@ class Part(object):
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
-            # If not on bound, link prev and next points together
+            # If not on boundary, link prev and next points together
             if i > 0 and i < len(self._points) - 1:
                 self._points[i - 1].next = self._points[i + 1]
                 self._points[i + 1].prev = self._points[i - 1]
