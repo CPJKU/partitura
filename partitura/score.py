@@ -954,10 +954,10 @@ class Part(object):
             if i > 0 and i < len(self._points) - 1:
                 self._points[i - 1].next = self._points[i + 1]
                 self._points[i + 1].prev = self._points[i - 1]
-            # If last point, set previous point as last one
+            # If last point, remove reference to it
             elif i > 0:
                 self._points[i - 1].next = None
-            # If first point, set next point as first one
+            # If first point, remove reference to it
             elif i < len(self._points) - 1:
                 self._points[i - 1].prev = None
             # That last case only happen when there is a single point in the array,
