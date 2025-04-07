@@ -950,13 +950,22 @@ class Part(object):
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
         if self._points[i] == tp:
+            # If not on bound, link prev and next points together
+            if i > 0 and i < len(self._points) - 1:
+                self._points[i - 1].next = self._points[i + 1]
+                self._points[i + 1].prev = self._points[i - 1]
+            # If last point, set previous point as last one
+            elif i > 0:
+                self._points[i - 1].next = None
+            # If first point, set next point as first one
+            elif i < len(self._points) - 1:
+                self._points[i - 1].prev = None
+            # That last case only happen when there is a single point in the array,
+            # no prev/next update in that cas, simply delete
+            else:
+                pass
+            # Actually delete the point
             self._points = np.delete(self._points, i)
-            if i > 0:
-                self._points[i - 1].next = self._points[i]
-                self._points[i].prev = self._points[i - 1]
-            if i < len(self._points) - 1:
-                self._points[i].next = self._points[i + 1]
-                self._points[i + 1].prev = self._points[i]
 
     def get_point(self, t):
         """Return the `TimePoint` object with time `t`, or None if
