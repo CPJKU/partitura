@@ -258,11 +258,11 @@ def load_performance_midi(
                             channel=msg.channel,
                             velocity=sounding_notes[note][2],
                         )
-                    ) 
-                    
+                    )
+
                     # remove hash from dict
                     del sounding_notes[note]
-            
+
         # fix note ids so that it is sorted lexicographically
         # by onset, pitch, offset, channel and track
         notes.sort(
@@ -274,7 +274,7 @@ def load_performance_midi(
                 x["track"],
             )
         )
-        
+
         # adjust timing of events based on tempo changes
         for note in notes:
             note["note_on"] = adjust_time(note["note_on_tick"], tempo_changes, ppq)
@@ -293,7 +293,7 @@ def load_performance_midi(
             )
         for meta in meta_other:
             meta["time"] = adjust_time(meta["time_tick"], tempo_changes, ppq)
-        
+
         # add note id to every note
         for k, note in enumerate(notes):
             note["id"] = f"n{k}"
@@ -311,12 +311,12 @@ def load_performance_midi(
                 track=i,
             )
             pps.append(pp)
-            
+
     perf = performance.Performance(
         id=doc_name,
         performedparts=pps,
     )
-    
+
     return perf
 
 
