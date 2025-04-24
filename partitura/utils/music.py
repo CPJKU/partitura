@@ -304,10 +304,8 @@ def transpose(
         if transpose_key_signatures:
             for ks in score.iter_all(cls=s.KeySignature):
                 _transpose_ks_inplace(ks, interval)
-        # for note in score.notes_tied:
-        #     _transpose_note_inplace(note, interval, update_ties=True)
-        for note in score.notes:
-            _transpose_note_inplace(note, interval, update_ties=False)
+        for note in score.notes_tied:
+            _transpose_note_inplace(note, interval, update_ties=True)
     return score
 
 
