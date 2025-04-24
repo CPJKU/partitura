@@ -6179,7 +6179,7 @@ def process_local_key(loc_k, glob_k, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter, _ = transpose_note_attributes_attributes(
+    key_step, key_alter, _ = transpose_note_attributes(
         transposition_interval, key_step, key_alter
     )
     if return_step_alter:
