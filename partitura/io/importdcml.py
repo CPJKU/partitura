@@ -284,7 +284,7 @@ def read_harmony_tsv(beat_tsv_path, part):
         # key_alter = re.search(r"[#b]", row["globalkey"]).group(0) if re.search(r"[#b]", row["globalkey"]) else ""
         # key_alter = key_alter.replace("b", "-")
         # key_alter = ALT_TO_INT[key_alter]
-        # key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+        # key_step, key_alter, _ = transpose_note_attributes(transposition_interval, key_step, key_alter)
         # local_key = key_step + INT_TO_ALT[key_alter]
         part.add(
             spt.Cadence(
