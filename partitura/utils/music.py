@@ -288,6 +288,9 @@ def transpose(
 
     if not inplace:
         score = copy.deepcopy(score)
+        # In case score is a Score object, set inplace to True
+        # so that each part will not be deepcopied again
+        inplace = True
 
     # If Score, transpose all parts
     if isinstance(score, s.Score):
@@ -296,7 +299,7 @@ def transpose(
                 part,
                 interval,
                 transpose_key_signatures=transpose_key_signatures,
-                inplace=True,
+                inplace=inplace,
             )
 
     # If part, transpose it
