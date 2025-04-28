@@ -192,6 +192,12 @@ def _transpose_ks_inplace(ks: KeySignature, interval: Interval):
     alter = key.count("#") - key.count("b")
     new_step, new_alter, _ = transpose_note_attributes(interval, step=step, alter=alter)
     new_fifths, mode = key_name_to_fifths_mode(new_step + ALTER_SIGNS[new_alter])
+    if abs(new_fifths) > 7:
+        raise ValueError(
+            f"Key signature {ks.name} transposed by {interval} results in an invalid "
+            f"key signature with {new_fifths} fifths. The maximum number of fifths is "
+            f"+/- 7.",
+        )
     ks.fifths = new_fifths
 
 
