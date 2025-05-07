@@ -2,29 +2,8 @@ from fractions import Fraction
 from math import lcm, isqrt
 from collections import defaultdict
 import numpy as np
-import matplotlib.pyplot as plt
 
-from partitura.tokenizer.constants import REGULAR_NUM_DENOM, VALID_TIME_SIGNATURES, PROGRAM_INSTRUMENT_MAP
-from miditoolkit import MidiFile, Instrument, TempoChange, TimeSignature, Note, Marker
-import partitura as pt
-import muspy
-
-from midi2audio import FluidSynth
-
-
-def save_pianoroll_image_from_midi(midi_fn, file_name):
-    assert isinstance(midi_fn, str)
-    midi_obj_muspy = muspy.read_midi(midi_fn)
-    midi_obj_muspy.show_pianoroll(track_label='program', preset='frame')
-    plt.gcf().set_size_inches(20, 10)
-    plt.savefig(file_name)
-    plt.close()
-
-
-def save_wav_from_midi_fluidsynth(midi_fn, file_name, gain=3):
-    assert isinstance(midi_fn, str)
-    fs = FluidSynth(gain=gain)
-    fs.midi_to_audio(midi_fn, file_name)
+from ..utils.globals import REGULAR_NUM_DENOM, VALID_TIME_SIGNATURES, PROGRAM_INSTRUMENT_MAP
 
 
 class REMITokenizer:
@@ -413,84 +392,6 @@ class REMITokenizer:
                 raise KeyError(f"Token '{token_str}' not found in vocabulary.")
         return tune_in_index
 
-    def decode_to_midi(self, tune_in_index, output_path=None, ticks_per_beat=480, velocity=90, gain=1.0):
-        """
-        Decode token indices to a MIDI object (and optionally save to file).
-
-        Args:
-            tune_in_index (list): List of integer token indices.
-            output_path (str or Path, optional): Where to save the resulting MIDI.
-            ticks_per_beat (int): PPQ resolution for MIDI file.
-            velocity (int): Default note velocity.
-
-        Returns:
-            MidiFile: A midi object from miditoolkit.
-        """
-        idx2token = self.index_to_token_string
-        events = [idx2token[str(idx)] for idx in tune_in_index]
-
-        midi_obj = MidiFile(ticks_per_beat=ticks_per_beat)
-        cur_pos = 0
-        bar_pos = 0
-        cur_instr = 0
-        cur_bar_ticks = 0
-        instr_notes = defaultdict(list)
-
-        for i in range(len(events) - 2):
-            evt = events[i]
-            # TODO: Does value always be the last one?
-            value = evt.split('_')[-1]
-
-            if evt.startswith("Bar"):
-                bar_pos += cur_bar_ticks
-                if value != "None":
-                    num, denom = map(int, value.split('/'))
-                    cur_bar_ticks = int(ticks_per_beat * num * (4 / denom))
-                    midi_obj.time_signature_changes.append(TimeSignature(num, denom, time=bar_pos))
-
-            elif evt.startswith("Position"):
-                if '/' in value:
-                    frac = Fraction(value)
-                else:
-                    frac = Fraction(int(value), 1)
-                cur_pos = bar_pos + round(float(frac) * ticks_per_beat)
-
-            elif evt.startswith("Tempo"):
-                midi_obj.tempo_changes.append(TempoChange(tempo=int(value), time=cur_pos))
-
-            elif evt.startswith("Instrument"):
-                cur_instr = int(value)
-
-            elif evt.startswith("Chord"):
-                midi_obj.markers.append(Marker(text=value, time=cur_pos))
-
-            elif evt.startswith("Note_Pitch") and events[i+1].startswith("Note_Duration"):
-                pitch = int(value)
-                duration_token = events[i+1].split('_')[-1]
-                if '/' in duration_token:
-                    duration_frac = Fraction(duration_token)
-                else:
-                    duration_frac = Fraction(int(duration_token), 1)
-                duration_ticks = round(float(duration_frac) * ticks_per_beat)
-                end_tick = cur_pos + duration_ticks
-                instr_notes[cur_instr].append(Note(pitch=pitch, start=cur_pos, end=end_tick, velocity=velocity))
-
-        # Add notes to instruments
-        for program, notes in instr_notes.items():
-            is_drum = (program == 114)  # GM percussion
-            program_name = PROGRAM_INSTRUMENT_MAP.get(program, f"Program_{program}")
-            inst = Instrument(program, is_drum=is_drum, name=program_name)
-            inst.notes = notes
-            midi_obj.instruments.append(inst)
-
-        if output_path:
-            midi_obj.dump(str(output_path))
-            # Optionally add visualization and audio conversion
-            # save_pianoroll_image_from_midi(output_path, output_path.replace('.mid', '.png'))
-            # save_wav_from_midi_fluidsynth(output_path, output_path.replace('.mid', '.wav'), gain=gain)
-            
-        return midi_obj
-
 
     def train(self, midi_folder_path):
         """
@@ -507,31 +408,3 @@ class REMITokenizer:
         # Step 2: Extract events from all scores
         
         # Step 3: Build vocabulary (event -> index)
-
-
-# For debugging purposes
-if __name__ == "__main__":
-    config = {
-        "position_resolution": (4, 3),
-        "pitch_range": (21, 109),
-        "max_duration": 8,
-        "max_denominator": 16,
-        "use_velocity": False,
-        "use_chords": False,
-        "use_tempos": False,
-        "is_multi_instrument": False
-    }
-    
-    tokenizer = REMITokenizer(config)
-    
-    # check vocabulary
-    vocab = tokenizer.create_vocab_from_config(config)
-    
-    # check encoding
-    sample_score_path = "/Users/jiwooryu/Downloads/Pattern-Based-Encoding-main/dataset/musicxml_dataset/asap/Bach/Fugue/bwv_846/xml_score.musicxml"
-    part = pt.load_score(str(sample_score_path))
-    sample_tune_in_event = tokenizer.encode_to_event(part[0], config)
-
-    # check decoding
-    sample_tune_in_index = tokenizer.encode_to_index(sample_tune_in_event)
-    midi_obj = tokenizer.decode_to_midi(sample_tune_in_index, output_path="/Users/jiwooryu/Downloads/Pattern-Based-Encoding-main/decoding_checker/output.mid")
