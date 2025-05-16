@@ -4,7 +4,8 @@ from collections import defaultdict
 import numpy as np
 
 from ..utils.globals import REGULAR_NUM_DENOM, VALID_TIME_SIGNATURES, PROGRAM_INSTRUMENT_MAP
-
+from ..score import Part, Note, TimePoint
+from .utils import midi_to_step_octave_alter
 
 class REMITokenizer:
     """
@@ -391,6 +392,88 @@ class REMITokenizer:
             else:
                 raise KeyError(f"Token '{token_str}' not found in vocabulary.")
         return tune_in_index
+
+
+    def decode_from_event(self, events, config):
+        """
+        Decode a list of REMI-style events back into a partitura Part object.
+
+        Args:
+            events (List[Dict]): List of {"name": ..., "value": ...} events.
+            config (Dict): Tokenizer config with position_resolution etc.
+
+        Returns:
+            partitura.score.Part: A valid Part object reconstructed from REMI events.
+        """
+        part = Part(id="decoded_part")
+        tpq = 480  # ticks per quarter note
+        part.set_quarter_duration(0, tpq)
+        current_tick_offset = 0  # start of current measure
+        current_position_tick = 0
+        current_time_signature = (4, 4)
+
+        notes = []
+        i = 0
+
+        while i < len(events):
+            evt = events[i]
+            name, value = evt["name"], evt["value"]
+
+            if name == "Bar":
+                if value is not None: # e.g., "'time_signature_4/4'"
+                    current_time_signature = value.split("_")[-1].split("/")
+                # Advance offset for next bar
+                measure_quarters = int(current_time_signature[0]) * 4 / int(current_time_signature[1])
+                current_tick_offset += int(measure_quarters * tpq)
+                i += 1
+
+            elif name == "Position":
+                pos_str = str(value)
+                if "/" in pos_str:
+                    numerator, denominator = map(int, pos_str.split('/'))
+                    frac = Fraction(numerator, denominator)
+                else:
+                    frac = Fraction(int(pos_str), 1)
+                current_position_tick = current_tick_offset + round(frac * tpq)
+                i += 1
+
+            elif name == "Note_Pitch" and i + 1 < len(events) and events[i+1]["name"] == "Note_Duration":
+                pitch = int(value)
+                dur_str = str(events[i+1]["value"])
+                if "/" in dur_str:
+                    numerator, denominator = map(int, dur_str.split('/'))
+                    duration_frac = Fraction(numerator, denominator)
+                else:
+                    duration_frac = Fraction(int(dur_str), 1)
+                duration_ticks = round(duration_frac * tpq)
+
+                step, octave, alter = midi_to_step_octave_alter(pitch)
+
+                step, octave, alter = midi_to_step_octave_alter(pitch)
+
+                # Create a new Note (step/octave/alter already parsed)
+                note = Note(
+                    step=step,
+                    octave=octave,
+                    alter=alter,
+                    voice=0
+                )
+
+                # Link to timeline using get_or_add_point
+                start_tp = part.get_or_add_point(current_position_tick)
+                end_tp = part.get_or_add_point(current_position_tick + duration_ticks)
+
+                note.start = start_tp
+                note.end = end_tp
+
+                # Now add to the Part
+                part.add(note, start=start_tp.t, end=end_tp.t)
+                i += 2
+
+            else:
+                i += 1
+
+        return part
 
 
     def train(self, midi_folder_path):

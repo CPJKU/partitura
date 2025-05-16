@@ -1,10 +1,32 @@
 
-# constants
+def midi_to_step_octave_alter(midi_pitch):
+    """
+    Convert MIDI pitch to (step, octave, alter).
+    Assumes equal temperament and C major.
 
-REGULAR_NUM_DENOM = [(1, 1), (1, 2), (2, 2), (3, 2), (4, 2),
-                     (1, 4), (2, 4), (3, 4), (4, 4), (5, 4), (6, 4), (7, 4), (8, 4),
-                     (1, 8), (2, 8), (3, 8), (4, 8), (5, 8), (6, 8), (7, 8), (8, 8), (9, 8), (11, 8), (12, 8)]
-CORE_NUM_DENOM = [(1, 1), (1, 2), (2, 2), (4, 2),
-                  (1, 4), (2, 4), (3, 4), (4, 4), (5, 4),
-                  (1, 8), (2, 8), (3, 8), (6, 8), (9, 8), (12, 8)]
-VALID_TIME_SIGNATURES = ['time_signature_' + str(x[0]) + '/' + str(x[1]) for x in REGULAR_NUM_DENOM]
+    Returns:
+        step: str, one of {"C", "D", "E", "F", "G", "A", "B"}
+        octave: int
+        alter: int or None
+    """
+    step_names = ["C", "C#", "D", "D#", "E", "F",
+                  "F#", "G", "G#", "A", "A#", "B"]
+    natural_map = {
+        "C": ("C", 0),
+        "C#": ("C", 1),
+        "D": ("D", 0),
+        "D#": ("D", 1),
+        "E": ("E", 0),
+        "F": ("F", 0),
+        "F#": ("F", 1),
+        "G": ("G", 0),
+        "G#": ("G", 1),
+        "A": ("A", 0),
+        "A#": ("A", 1),
+        "B": ("B", 0),
+    }
+
+    step_name = step_names[midi_pitch % 12]
+    octave = (midi_pitch // 12) - 1
+    step, alter = natural_map[step_name]
+    return step, octave, alter
