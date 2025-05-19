@@ -1,6 +1,10 @@
 Release Notes
 =============
 
+
+### Other Changes
+- speedup Part.iter_all
+
 Version 1.6.0 (Released on 2025-02-27)
 --------------------------------------
 
