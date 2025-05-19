@@ -8,7 +8,6 @@ from partitura.utils.generic import (
     ComparableMixin,
     ReplaceRefMixin,
     partition,
-    iter_subclasses,
     iter_current_next,
     sorted_dict_items,
     PrettyPrintTree,
