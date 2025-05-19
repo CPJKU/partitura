@@ -28,7 +28,6 @@ import difflib
 from partitura.utils import (
     ComparableMixin,
     ReplaceRefMixin,
-    iter_subclasses,
     iter_current_next,
     sorted_dict_items,
     PrettyPrintTree,
@@ -1477,10 +1476,12 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.starting_objects[cls]
         if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.starting_objects[subcls]
+            for key, items in self.starting_objects.items():
+                if issubclass(key, cls):
+                    yield from items
+        elif cls in self.starting_objects:
+            yield from self.starting_objects[cls]
 
     def iter_ending(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that end at this
@@ -1500,10 +1501,12 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.ending_objects[cls]
         if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.ending_objects[subcls]
+            for key, items in self.ending_objects.items():
+                if issubclass(key, cls):
+                    yield from items
+        elif cls in self.ending_objects:
+            yield from self.ending_objects[cls]
 
     def iter_prev(self, cls, eq=False, include_subclasses=False):
         """Iterate backwards in time from the current timepoint over
