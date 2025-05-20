@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+
+### Other Changes
+- Speed up `Part.iter_all()` when called without `cls`.  Although the order in
+  which simultaneously starting/ending objects are returned is an implementation
+  detail, note that this update may change that order with respect to previous
+  versions.
+
 Version 1.6.0 (Released on 2025-02-27)
 --------------------------------------
 

@@ -13,7 +13,7 @@ import numpy as np
 from scipy.interpolate import interp1d as sc_interp1d
 
 
-__all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
+__all__ = ["find_nearest", "iter_current_next", "partition"]
 
 
 class _OrderedSet(dict):
@@ -125,50 +125,6 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     except StopIteration:
         if cur is not _sentinel and end is not _sentinel:
             yield (cur, end)
-
-
-def iter_subclasses(cls, _seen=None):
-    """
-    iter_subclasses(cls)
-
-    Generator over all subclasses of a given class, in depth first order.
-
-    Examples
-    --------
-
-    >>> class A(object): pass
-    >>> class B(A): pass
-    >>> class C(A): pass
-    >>> class D(B,C): pass
-    >>> class E(D): pass
-    >>>
-    >>> for cls in iter_subclasses(A):
-    ...     print(cls.__name__)
-    B
-    D
-    E
-    C
-    >>> # get ALL (new-style) classes currently defined
-    >>> [cls.__name__ for cls in iter_subclasses(object)] #doctest: +ELLIPSIS
-    ['type', ...'tuple', ...]
-    """
-
-    if not isinstance(cls, type):
-        raise TypeError(
-            "iter_subclasses must be called with " "new-style classes, not %.100r" % cls
-        )
-    if _seen is None:
-        _seen = set()
-    try:
-        subs = cls.__subclasses__()
-    except TypeError:  # fails only when cls is type
-        subs = cls.__subclasses__(cls)
-    for sub in subs:
-        if sub not in _seen:
-            _seen.add(sub)
-            yield sub
-            for sub in iter_subclasses(sub, _seen):
-                yield sub
 
 
 def first_order_derivative(func, x0, dx=0.5):
