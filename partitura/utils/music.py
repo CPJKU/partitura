@@ -164,11 +164,12 @@ def _transpose_step(step: str, num_steps: int, direction: str):
 def _transpose_note_inplace(note: Note, interval: Interval, update_ties: bool = True):
     """
     Transpose a note by a given interval.
+
     Parameters
     ----------
-    note
-    inverval
-
+    note: Note to transpose
+    interval: Interval to transpose by
+    update_ties: Whether to update tied notes
     """
     if interval.quality + str(interval.number) == "P1":
         pass
@@ -249,21 +250,23 @@ def transpose_note_attributes(
 
     Parameters
     ----------
-    step: str
-        The step of the pitch, e.g. C, D, E, etc.
-    alter: int
-        The alteration of the pitch, e.g. -2, -1, 0, 1, 2, etc.
-    octave: int
-        The octave of the note, e.g. 1, 2, 3, etc.
     interval: Interval
         The interval to transpose by.
+    step: str
+        The step of the note, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the note, e.g. -2, -1, 0, 1, 2, etc.
+    octave: int
+        The octave of the note, e.g. 1, 2, 3, etc.
 
     Returns
     -------
     new_step: str
-        The new step of the pitch, e.g. C, D, E, etc.
+        The new step of the note, e.g. C, D, E, etc.
     new_alter: int
-        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+        The new alteration of the note, e.g. -2, -1, 0, 1, 2 etc.
+    new_octave: int
+        The new octave of the note, e.g. 1, 2, 3, etc.
     """
     prev_step = step.capitalize()
     alter = alter or 0
@@ -314,6 +317,8 @@ def transpose(
         Score to be transposed.
     interval : int
         Interval to transpose by.
+    transpose_key_signatures : bool
+        Whether to transpose key signatures.
     inplace : bool
         Whether to transpose the score in place or return a new score.
         Note that you might need to increase the recursion limit if you want a copy.
