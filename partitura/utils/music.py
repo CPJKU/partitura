@@ -144,23 +144,6 @@ def ensure_rest_array(restarray_or_part, *args, **kwargs):
         )
 
 
-def _transpose_step(step: str, num_steps: int, direction: str):
-    """
-    Transpose a note by a given interval.
-    Parameters
-    ----------
-    step: Step to transpose
-    num_steps: Number of steps (not semitones) to transpose
-    direction: Direction of the transposition
-    """
-    op = lambda x, y: abs(x + y) % 7 if direction == "up" else abs(x - y) % 7
-    if num_steps == 1:
-        pass
-    else:
-        step = STEPS[op(STEPS[step.capitalize()], num_steps - 1)]
-    return step
-
-
 def _transpose_note_inplace(note: Note, interval: Interval, update_ties: bool = True):
     """
     Transpose a note by a given interval.
