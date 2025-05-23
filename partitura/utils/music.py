@@ -12,6 +12,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
+from typing_extensions import deprecated
 from partitura.utils.generic import find_nearest, search, iter_current_next
 from partitura.utils.globals import *
 import partitura
@@ -199,6 +200,38 @@ def _transpose_ks_inplace(ks: KeySignature, interval: Interval):
             f"+/- 7.",
         )
     ks.fifths = new_fifths
+
+
+@deprecated("Starting with version 1.8.0, see transpose_note_attributes instead")
+def transpose_note(step, alter, interval):
+    """
+    DEPRECATED: see function transpose_note_attributes instead.
+    Transpose a note by a given interval without considering the octave.
+    This function does not create a new Note object, but returns the new step and alteration of the note.
+
+    Parameters
+    ----------
+    step: str
+        The step of the pitch, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    interval: Interval
+        The interval to transpose by. Only interval direction "up" is supported.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the pitch, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
+    """
+    step, alter, _ = transpose_note_attributes(
+        step=step,
+        alter=alter,
+        interval=interval,
+        octave=0,
+    )
+    return step, alter
 
 
 def transpose_note_attributes(
