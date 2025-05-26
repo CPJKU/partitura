@@ -49,7 +49,7 @@ from partitura.utils import (
     clef_sign_to_int,
 )
 from partitura.utils.generic import interp1d
-from partitura.utils.music import transpose_note, step2pc
+from partitura.utils.music import transpose_note_attributes, step2pc
 from partitura.utils.globals import (
     INT_TO_ALT,
     ALT_TO_INT,
@@ -3178,7 +3178,7 @@ class RomanNumeral(Harmony):
                 if self.local_key.islower()
                 else Roman2Interval_Maj[self.secondary_degree]
             )
-            step, alter = transpose_note(key_step, key_alter, interval)
+            step, alter, _ = transpose_note_attributes(interval, key_step, key_alter)
         except KeyError:
             loc_k = self.secondary_degree
             glob_k = self.local_key
@@ -3191,7 +3191,7 @@ class RomanNumeral(Harmony):
                 if self.secondary_degree.islower()
                 else Roman2Interval_Maj[self.primary_degree]
             )
-            step, alter = transpose_note(step, alter, interval)
+            step, alter, _ = transpose_note_attributes(interval, step, alter)
             root = step + INT_TO_ALT[alter]
         except KeyError:
             loc_k = self.primary_degree
@@ -3209,13 +3209,17 @@ class RomanNumeral(Harmony):
 
         if self.inversion == 1:
             if self.primary_degree.islower():
-                step, alter = transpose_note(step, alter, Interval(3, "m"))
+                step, alter, _ = transpose_note_attributes(
+                    Interval(3, "m"), step, alter
+                )
             else:
-                step, alter = transpose_note(step, alter, Interval(3, "M"))
+                step, alter, _ = transpose_note_attributes(
+                    Interval(3, "M"), step, alter
+                )
         elif self.inversion == 2:
-            step, alter = transpose_note(step, alter, Interval(5, "P"))
+            step, alter, _ = transpose_note_attributes(Interval(5, "P"), step, alter)
         elif self.inversion == 3:
-            step, alter = transpose_note(step, alter, Interval(7, "m"))
+            step, alter, _ = transpose_note_attributes(Interval(7, "m"), step, alter)
 
         bass_note_name = step + INT_TO_ALT[alter]
         return bass_note_name
@@ -6107,7 +6111,9 @@ def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
     if return_step_alter:
         return key_step, key_alter
     local_key = (
@@ -6193,7 +6199,9 @@ def process_local_key(loc_k, glob_k, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
     if return_step_alter:
         return key_step, key_alter
     local_key = (
