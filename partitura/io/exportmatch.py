@@ -225,10 +225,11 @@ def matchfile_from_alignment(
         for tsig in time_signatures:
             time_divs = int(tsig.start.t)
             time_beats = float(beat_map(time_divs))
+            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
             dpq = int(spart.quarter_duration_map(time_divs))
             divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
-            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
+            
             moffset_divs = Fraction(
                 int(time_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
@@ -258,10 +259,11 @@ def matchfile_from_alignment(
         for ksig in key_signatures:
             time_divs = int(tsig.start.t)
             time_beats = float(beat_map(time_divs))
+            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
             dpq = int(spart.quarter_duration_map(time_divs))
             divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
-            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
+            
             moffset_divs = Fraction(
                 int(time_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
@@ -298,10 +300,10 @@ def matchfile_from_alignment(
             duration_beats = offset_beats - onset_beats
             beat = int((onset_beats - msb) // 1) # beat field of the snote
             # quarter, div, symbolic computation
+            ts_num, ts_den, _ = spart.time_signature_map(snote.start.t)
             dpq = int(spart.quarter_duration_map(onset_divs))
             duration_symb = Fraction(duration_divs, dpq * 4)  # compute duration from quarters/divs
             divs_per_beat = 4 / ts_den * dpq
-            ts_num, ts_den, _ = spart.time_signature_map(snote.start.t)
             moffset_divs = Fraction( 
                 int(onset_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
