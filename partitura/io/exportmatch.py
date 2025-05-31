@@ -257,9 +257,9 @@ def matchfile_from_alignment(
         key_signatures = spart.iter_all(score.KeySignature, m.start, m.end)
 
         for ksig in key_signatures:
-            time_divs = int(tsig.start.t)
+            time_divs = int(ksig.start.t)
             time_beats = float(beat_map(time_divs))
-            ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
+            ts_num, ts_den, _ = spart.time_signature_map(ksig.start.t)
             dpq = int(spart.quarter_duration_map(time_divs))
             divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
