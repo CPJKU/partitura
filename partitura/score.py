@@ -4598,11 +4598,11 @@ def add_segments(part, force_new=False):
     boundary_times.sort()
 
     # for every segment get an id, its jump destinations and properties
-    init_character = 65
+    character_map = { i: chr(65+i) for i in range(26)} | { i+26: chr(97+i) for i in range(26)}
     segment_info = dict()
     for i, (s, e) in enumerate(zip(boundary_times[:-1], boundary_times[1:])):
         segment_info[s] = {
-            "ID": chr(init_character + i),
+            "ID": character_map[i],
             "start": s,
             "end": e,
             "to": [],

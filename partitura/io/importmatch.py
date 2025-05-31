@@ -458,9 +458,9 @@ def part_from_matchfile(
     max_time = max(n.OffsetInBeats for n in snotes)
     (
         beats_map_from_beats,
-        beats_map,
+        beats_map_from_quarters,
         beat_type_map_from_beats,
-        beat_type_map,
+        beat_type_map_from_quarters,
         min_time_q,
         max_time_q,
     ) = make_timesig_maps(ts, max_time)
@@ -468,13 +468,13 @@ def part_from_matchfile(
     # compute necessary divs based on the types of notes in the
     # match snotes (only integers)
     divs_arg = [
-        max(int((beat_type_map(note.OnsetInBeats) / 4)), 1)
+        max(int((beat_type_map_from_beats(note.OnsetInBeats) / 4)), 1)
         * note.Offset.denominator
         * (note.Offset.tuple_div or 1)
         for note in snotes
     ]
     divs_arg += [
-        max(int((beat_type_map(note.OnsetInBeats) / 4)), 1)
+        max(int((beat_type_map_from_beats(note.OnsetInBeats) / 4)), 1)
         * note.Duration.denominator
         * (note.Duration.tuple_div or 1)
         for note in snotes
@@ -484,24 +484,24 @@ def part_from_matchfile(
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
 
     iois_in_beats = np.diff(unique_onsets)
-    beat_to_quarter = 4 / beat_type_map(onset_in_beats)
+    beat_to_quarter = 4 / beat_type_map_from_beats(onset_in_beats)
 
     iois_in_quarters_offset = np.r_[
         beat_to_quarter[0] * onset_in_beats[0],
-        (4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats,
+        (4 / beat_type_map_from_beats(unique_onsets[:-1])) * iois_in_beats,
     ]
     onset_in_quarters = np.cumsum(iois_in_quarters_offset)
     iois_in_quarters = np.diff(onset_in_quarters)
 
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
-    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters)][inv_idxs]
+    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters, dtype = int)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Measure for n in snotes])
     t = min_time
-    t = t * 4 / beat_type_map(min_time)
+    t = t * 4 / beat_type_map_from_beats(min_time)
     offset = t
     bar_times = {}
 
@@ -513,7 +513,7 @@ def part_from_matchfile(
         part.add(rest, start=0, end=t * divs)
         onset_in_divs += t * divs
         offset = 0
-        t = t - t % beats_map(min_time)
+        t = t - t % beats_map_from_beats(min_time)
 
     for b_name in bars:
         notes_in_this_bar = [
@@ -552,14 +552,14 @@ def part_from_matchfile(
         # on_off_scale = 1 means duration and beat offset are given in
         # whole notes, else they're given in beats (as in the KAIST data)
         if not match_offset_duration_in_whole:
-            on_off_scale = beat_type_map(bar_start)
+            on_off_scale = beat_type_map_from_quarters(bar_start)
 
         # offset within bar in quarter units adjusted for different
-        # time signatures -> 4 / beat_type_map(bar_start)
-        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
+        # time signatures -> 4 / beat_type_map_from_quarters(bar_start)
+        bar_offset = (note.Beat - 1) * 4 / beat_type_map_from_quarters(bar_start)
 
         # offset within beat in quarter units adjusted for different
-        # time signatures -> 4 / beat_type_map(bar_start)
+        # time signatures -> 4 / beat_type_map_from_quarters(bar_start)
         beat_offset = (
             4
             / on_off_scale
@@ -576,6 +576,7 @@ def part_from_matchfile(
                 "Calculated `onset_divs` does not match `OnsetInBeats` " "information!."
             )
             onset_divs = onset_in_divs[ni]
+            
         assert onset_divs >= 0
         assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
         is_tied = False
@@ -753,9 +754,9 @@ def part_from_matchfile(
     last_closing_barline = barline_in_divs + int(
         round(
             divs
-            * beats_map(barline_in_quarters)
+            * beats_map_from_quarters(barline_in_quarters)
             * 4
-            / beat_type_map(barline_in_quarters)
+            / beat_type_map_from_quarters(barline_in_quarters)
         )
     )
     part.add(prev_measure, None, last_closing_barline)

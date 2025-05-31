@@ -70,7 +70,7 @@ def matchfile_from_alignment(
     piece: Optional[str] = None,
     score_filename: Optional[PathLike] = None,
     performance_filename: Optional[PathLike] = None,
-    assume_part_unfolded: bool = False,
+    assume_part_unfolded: bool = True,
     tempo_indication: Optional[str] = None,
     diff_score_version_notes: Optional[list] = None,
     version: Version = LATEST_VERSION,
@@ -107,7 +107,7 @@ def matchfile_from_alignment(
         Whether to assume that the part has been unfolded according to the
         repetitions in the alignment. If False, the part will be automatically
         unfolded to have maximal coverage of the notes in the alignment.
-        See `partitura.score.unfold_part_alignment`.
+        See `partitura.score.unfold_part_alignment`, defaults to True.
     tempo_indication : str or None
         The tempo direction indicated in the beginning of the score
     diff_score_version_notes : list or None
@@ -210,18 +210,27 @@ def matchfile_from_alignment(
     # Info for sorting lines
     snote_sort_info = dict()
     for (mnum, msd, msb), m in zip(measure_starts, measures):
+        if mnum == 0:
+            # handle offsets in anacrusis measure
+            ts_num, ts_den, _ = spart.time_signature_map(0)
+            dpq = int(spart.quarter_duration_map(0))
+            measure_dur_in_divs = m.end.t - m.start.t
+            expected_measure_dur = ts_num * 4 / ts_den * dpq
+            if measure_dur_in_divs < expected_measure_dur:
+                msd -= (expected_measure_dur - measure_dur_in_divs)
+                msb -= (expected_measure_dur - measure_dur_in_divs) / dpq * ts_den / 4
+
         time_signatures = spart.iter_all(score.TimeSignature, m.start, m.end)
 
         for tsig in time_signatures:
             time_divs = int(tsig.start.t)
             time_beats = float(beat_map(time_divs))
             dpq = int(spart.quarter_duration_map(time_divs))
+            divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
-
             ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
-
             moffset_divs = Fraction(
-                int(time_divs - msd - beat * dpq), (int(ts_den) * dpq)
+                int(time_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
 
             scoreprop_lines["time_signatures"].append(
@@ -250,12 +259,11 @@ def matchfile_from_alignment(
             time_divs = int(tsig.start.t)
             time_beats = float(beat_map(time_divs))
             dpq = int(spart.quarter_duration_map(time_divs))
+            divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
-
             ts_num, ts_den, _ = spart.time_signature_map(tsig.start.t)
-
             moffset_divs = Fraction(
-                int(time_divs - msd - beat * dpq), (int(ts_den) * dpq)
+                int(time_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
 
             scoreprop_lines["key_signatures"].append(
@@ -282,27 +290,25 @@ def matchfile_from_alignment(
         snotes = spart.iter_all(score.Note, m.start, m.end, include_subclasses=True)
         # Beginning of each measure
         for snote in snotes:
-            onset_divs, offset_divs = snote.start.t, snote.start.t + snote.duration_tied
+            onset_divs = snote.start.t
+            offset_divs = snote.start.t + snote.duration_tied
             duration_divs = offset_divs - onset_divs
-
+            # beat computations
             onset_beats, offset_beats = beat_map([onset_divs, offset_divs])
-
+            duration_beats = offset_beats - onset_beats
+            beat = int((onset_beats - msb) // 1) # beat field of the snote
+            # quarter, div, symbolic computation
             dpq = int(spart.quarter_duration_map(onset_divs))
-
-            beat = int((onset_beats - msb) // 1)
-
+            duration_symb = Fraction(duration_divs, dpq * 4)  # compute duration from quarters/divs
+            divs_per_beat = 4 / ts_den * dpq
             ts_num, ts_den, _ = spart.time_signature_map(snote.start.t)
-
-            duration_symb = Fraction(duration_divs, dpq * 4)
-
-            beat = int((onset_divs - msd) // dpq)
-
-            moffset_divs = Fraction(int(onset_divs - msd - beat * dpq), (dpq * 4))
-
+            moffset_divs = Fraction( 
+                int(onset_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
+            )
+            
             if debug:
-                duration_beats = offset_beats - onset_beats
-                moffset_beat = (onset_beats - msb - beat) / ts_den
-                assert np.isclose(float(duration_symb), duration_beats)
+                moffset_beat = (onset_beats - msb - beat) / ts_den 
+                assert np.isclose(float(duration_symb), duration_beats / ts_den)
                 assert np.isclose(moffset_beat, float(moffset_divs))
 
             score_attributes_list = []
@@ -508,9 +514,7 @@ def matchfile_from_alignment(
 
     # Concatenate all lines
     all_match_lines += list(note_lines) + pedal_lines
-
     matchfile = MatchFile(lines=all_match_lines)
-
     return matchfile
 
 
