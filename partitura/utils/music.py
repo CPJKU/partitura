@@ -12,6 +12,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
+from typing_extensions import deprecated
 from partitura.utils.generic import find_nearest, search, iter_current_next
 from partitura.utils.globals import *
 import partitura
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     # For this to work we need to import annotations from __future__
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
-    from partitura.score import ScoreLike, Interval
+    from partitura.score import ScoreLike, Interval, Note, KeySignature
     from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 
@@ -143,102 +144,54 @@ def ensure_rest_array(restarray_or_part, *args, **kwargs):
         )
 
 
-def _transpose_step(step, interval, direction):
+def _transpose_note_inplace(note: Note, interval: Interval, update_ties: bool = True):
     """
     Transpose a note by a given interval.
+
     Parameters
     ----------
-    step
-    inverval
-
-    """
-    op = lambda x, y: abs(x + y) % 7 if direction == "up" else abs(x - y) % 7
-    if interval == "P1":
-        pass
-    else:
-        step = STEPS[op(STEPS[step.capitalize()], interval - 1)]
-    return step
-
-
-def _transpose_note_inplace(note, interval):
-    """
-    Transpose a note by a given interval.
-    Parameters
-    ----------
-    note
-    inverval
-
+    note: Note to transpose
+    interval: Interval to transpose by
+    update_ties: Whether to update tied notes
     """
     if interval.quality + str(interval.number) == "P1":
         pass
     else:
-        # TODO work for arbitrary octave.
-        prev_step = note.step.capitalize()
-        note.step = _transpose_step(prev_step, interval.number, interval.direction)
-        if STEPS[note.step] - STEPS[prev_step] < 0 and interval.direction == "up":
-            note.octave += 1
-        elif STEPS[note.step] - STEPS[prev_step] > 0 and interval.direction == "down":
-            note.octave -= 1
-        else:
-            note.octave = note.octave
-        prev_alter = note.alter if note.alter is not None else 0
-        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
-        tmp_pc = MIDI_BASE_CLASS[note.step.lower()]
-        if interval.direction == "up":
-            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
-        else:
-            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        note.alter = (
-            INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+        new_step, new_alter, new_octave = transpose_note_attributes(
+            interval=interval,
+            step=note.step,
+            alter=note.alter,
+            octave=note.octave,
         )
+        note.step = new_step
+        note.alter = new_alter
+        note.octave = new_octave
+        if update_ties:
+            for tied_note in note.tie_next_notes:
+                _transpose_note_inplace(tied_note, interval, update_ties=False)
 
 
-def transpose_note_old(step, alter, interval):
-    """
-    Transpose a note by a given interval without changing the octave or creating a Note Object.
-
-
-    Parameters
-    ----------
-    step: str
-        The step of the pitch, e.g. C, D, E, etc.
-    alter: int
-        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
-    interval: Interval
-        The interval to transpose by.
-
-    Returns
-    -------
-    new_step: str
-        The new step of the pitch, e.g. C, D, E, etc.
-    new_alter: int
-        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
-    """
-    if interval.quality + str(interval.number) == "P1":
-        new_step = step
-        new_alter = alter
-    else:
-        prev_step = step.capitalize()
-        new_step = _transpose_step(prev_step, interval.number, interval.direction)
-        prev_alter = alter if alter is not None else 0
-        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
-        tmp_pc = MIDI_BASE_CLASS[new_step.lower()]
-        if interval.direction == "up":
-            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
-        else:
-            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        new_alter = (
-            INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+def _transpose_ks_inplace(ks: KeySignature, interval: Interval):
+    key = ks.name
+    step = key[0]
+    alter = key.count("#") - key.count("b")
+    new_step, new_alter, _ = transpose_note_attributes(interval, step=step, alter=alter)
+    new_fifths, mode = key_name_to_fifths_mode(new_step + ALTER_SIGNS[new_alter])
+    if abs(new_fifths) > 7:
+        raise ValueError(
+            f"Key signature {ks.name} transposed by {interval} results in an invalid "
+            f"key signature with {new_fifths} fifths. The maximum number of fifths is "
+            f"+/- 7.",
         )
-    return new_step, new_alter
+    ks.fifths = new_fifths
 
 
+@deprecated("Starting with version 1.8.0, see transpose_note_attributes instead")
 def transpose_note(step, alter, interval):
     """
+    DEPRECATED: see function transpose_note_attributes instead.
     Transpose a note by a given interval without considering the octave.
-
     This function does not create a new Note object, but returns the new step and alteration of the note.
-
 
     Parameters
     ----------
@@ -256,8 +209,50 @@ def transpose_note(step, alter, interval):
     new_alter: int
         The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
     """
+    step, alter, _ = transpose_note_attributes(
+        step=step,
+        alter=alter,
+        interval=interval,
+        octave=0,
+    )
+    return step, alter
+
+
+def transpose_note_attributes(
+    interval: Interval,
+    step: str,
+    alter: int = 0,
+    octave: int = 0,
+):
+    """
+    Transpose a note by a given interval.
+    It can transpose a step, a step+alteration, and a step+alteration+octave.
+
+    This function does not create a new Note object, but returns the new attributes.
+
+
+    Parameters
+    ----------
+    interval: Interval
+        The interval to transpose by.
+    step: str
+        The step of the note, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the note, e.g. -2, -1, 0, 1, 2, etc.
+    octave: int
+        The octave of the note, e.g. 1, 2, 3, etc.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the note, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the note, e.g. -2, -1, 0, 1, 2 etc.
+    new_octave: int
+        The new octave of the note, e.g. 1, 2, 3, etc.
+    """
     prev_step = step.capitalize()
-    assert interval.direction == "up", "Only interval direction 'up' is supported."
+    alter = alter or 0
     assert -3 < alter < 3, f"Input Alteration {alter} is not in the range -2 to 2."
     assert (
         interval.number < 8
@@ -265,19 +260,37 @@ def transpose_note(step, alter, interval):
     assert (
         prev_step in BASE_PC.keys()
     ), f"Input Step {prev_step} is must be one of: {BASE_PC.keys()}."
-    new_step = STEPS[(STEPS[prev_step] + interval.number - 1) % 7]
+    # Compute new step
+    sign = 1 if interval.direction == "up" else -1
+    new_step = STEPS[(STEPS[prev_step] + sign * (interval.number - 1)) % 7]
+    # Compute new octave
+    diff_step = STEPS[new_step] - STEPS[prev_step]
+    new_octave = octave
+    if diff_step < 0 and interval.direction == "up":
+        new_octave += 1
+    elif diff_step > 0 and interval.direction == "down":
+        new_octave -= 1
+    # Compute new alteration
     prev_alter = alter if alter is not None else 0
     pc_prev = step2pc(prev_step, prev_alter)
     pc_new = step2pc(new_step, prev_alter)
-    new_alter = interval.semitones - (pc_new - pc_prev) % 12 + prev_alter
+    new_alter = (
+        sign * interval.semitones - (pc_new - pc_prev) % (sign * 12) + prev_alter
+    )
+
     # add test to check if the new alteration is correct (i.e. accept maximum of 2 flats or sharps)
     assert (
         -3 < new_alter < 3
     ), f"New alteration {new_alter} is not in the range -2 to 2."
-    return new_step, new_alter
+    return new_step, new_alter, new_octave
 
 
-def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
+def transpose(
+    score: ScoreLike,
+    interval: Interval,
+    transpose_key_signatures: bool = False,
+    inplace: bool = False,
+) -> ScoreLike:
     """
     Transpose a score by a given interval.
 
@@ -287,6 +300,11 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Score to be transposed.
     interval : int
         Interval to transpose by.
+    transpose_key_signatures : bool
+        Whether to transpose key signatures.
+    inplace : bool
+        Whether to transpose the score in place or return a new score.
+        Note that you might need to increase the recursion limit if you want a copy.
 
     Returns
     -------
@@ -294,22 +312,31 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Transposed score.
     """
     import partitura.score as s
-    import sys
 
-    # Copy needs to be deep, otherwise the recursion limit will be exceeded
-    old_recursion_depth = sys.getrecursionlimit()
-    sys.setrecursionlimit(10000)
-    # Deep copy of score
-    new_score = copy.deepcopy(score)
-    # Reset recursion limit to previous value to avoid side effects
-    sys.setrecursionlimit(old_recursion_depth)
+    if not inplace:
+        score = copy.deepcopy(score)
+        # In case score is a Score object, set inplace to True
+        # so that each part will not be deepcopied again
+        inplace = True
+
+    # If Score, transpose all parts
     if isinstance(score, s.Score):
-        for part in new_score.parts:
-            transpose(part, interval)
+        for part in score.parts:
+            transpose(
+                part,
+                interval,
+                transpose_key_signatures=transpose_key_signatures,
+                inplace=inplace,
+            )
+
+    # If part, transpose it
     elif isinstance(score, s.Part):
+        if transpose_key_signatures:
+            for ks in score.iter_all(cls=s.KeySignature):
+                _transpose_ks_inplace(ks, interval)
         for note in score.notes_tied:
-            _transpose_note_inplace(note, interval)
-    return new_score
+            _transpose_note_inplace(note, interval, update_ties=True)
+    return score
 
 
 def get_time_units_from_note_array(note_array):
@@ -2423,8 +2450,8 @@ def note_array_from_note_list(
     if quarter_map is not None:
         fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
-        ("onset_div", "i4"),
-        ("duration_div", "i4"),
+        ("onset_div", "i8"),
+        ("duration_div", "i8"),
         ("pitch", "i4"),
         ("voice", "i4"),
         ("id", "U256"),

@@ -224,6 +224,13 @@ def load_musicxml(
         A `Score` instance.
 
     """
+    # NOTE: raising warning for ignore_invisible_objects is not ideal and it should be changed in the future
+    if ignore_invisible_objects:
+        warnings.warn(
+            "Be advised that the 'ignore_invisible_objects' option might sometimes lead "
+            "to parsing errors for unusual musicxml files. \n"
+            "Note that when ignore_invisible_objects is False (the default), the parsing works as expected as before."
+        )
 
     xml = None
     if isinstance(filename, str):
@@ -1273,6 +1280,17 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
     if normal_notes:
         symbolic_duration["normal_notes"] = normal_notes
 
+    normal_type = get_value_from_tag(e, "time-modification/normal-type", str)
+    if normal_type:
+        symbolic_duration["normal_type"] = normal_type
+
+    normal_dots = len(e.findall("time-modification/normal-dot"))
+    if normal_dots:
+        symbolic_duration["normal_dots"] = normal_dots
+    # Note: MusicXML does not have "<actual_dot>" elements in "<time-modification>" tags, but
+    # the actual type of a tuplet *can* have dots if specified in the <tuplet> tags (see related
+    # code in handle_tuplet function)
+
     chord = e.find("chord")
     if chord is not None:
         # this note starts at the same position as the previous note, and has
@@ -1500,18 +1518,26 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet_actual_type = get_value_from_tag(
                     tuplet_actual, "tuplet-type", str
                 )
+                tuplet_actual_dots = len(tuplet_actual.findall("tuplet-dot"))
                 tuplet_normal_notes = get_value_from_tag(
                     tuplet_normal, "tuplet-number", int
                 )
                 tuplet_normal_type = get_value_from_tag(
                     tuplet_normal, "tuplet-type", str
                 )
+                tuplet_normal_dots = len(tuplet_normal.findall("tuplet-dot"))
+
             # If no information, try to infer it from the note
             else:
                 tuplet_actual_notes = note.symbolic_duration.get("actual_notes", None)
                 tuplet_normal_notes = note.symbolic_duration.get("normal_notes", None)
-                tuplet_actual_type = note.symbolic_duration.get("type", None)
-                tuplet_normal_type = tuplet_actual_type
+                tuplet_normal_type = note.symbolic_duration.get("normal_type", None)
+                # If normal_type is not available, it means that the note type is the tuplet type
+                if tuplet_normal_type is None:
+                    tuplet_normal_type = note.symbolic_duration.get("type", None)
+                tuplet_actual_type = tuplet_normal_type
+                tuplet_normal_dots = note.symbolic_duration.get("normal_dots", 0)
+                tuplet_actual_dots = 0  # see comment in _handle_note
 
             # If anyone of the attributes is not set, we set them all to None as we can't really
             # do anything useful with only partial information about the tuplet
@@ -1525,6 +1551,8 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet_normal_notes = None
                 tuplet_actual_type = None
                 tuplet_normal_type = None
+                tuplet_actual_dots = None
+                tuplet_normal_dots = None
 
             # check if we have a stopped_tuplet in ongoing that corresponds to
             # this start
@@ -1536,7 +1564,9 @@ def handle_tuplets(notations, ongoing, note):
                     actual_notes=tuplet_actual_notes,
                     normal_notes=tuplet_normal_notes,
                     actual_type=tuplet_actual_type,
+                    actual_dots=tuplet_actual_dots,
                     normal_type=tuplet_normal_type,
+                    normal_dots=tuplet_normal_dots,
                 )
                 ongoing[start_tuplet_key] = tuplet
 
@@ -1546,6 +1576,8 @@ def handle_tuplets(notations, ongoing, note):
                 tuplet.normal_notes = tuplet_normal_notes
                 tuplet.actual_type = tuplet_actual_type
                 tuplet.normal_type = tuplet_normal_type
+                tuplet.actual_dots = tuplet_actual_dots
+                tuplet.normal_dots = tuplet_normal_dots
 
             starting_tuplets.append(tuplet)
 
@@ -1566,6 +1598,19 @@ def handle_tuplets(notations, ongoing, note):
         assert (
             start_tuplet.start_note.start.t <= stop_tuplet.end_note.start.t
         ), "Tuplet start time is after tuplet stop time"
+
+    # check that tuplets start and end notes belong to the same voice
+    for tuplet in starting_tuplets + stopping_tuplets:
+        if (
+            tuplet.start_note is not None
+            and tuplet.end_note is not None
+            and (tuplet.start_note.voice != tuplet.end_note.voice)
+        ):
+            warnings.warn(
+                f"Tuplet start and end notes do not belong to the same voice "
+                f"({tuplet.start_note.voice} != {tuplet.end_note.voice}). This might "
+                f'indicate a missing <tuplet type="start"> or <tuplet type="stop">.'
+            )
     return starting_tuplets, stopping_tuplets
 
 

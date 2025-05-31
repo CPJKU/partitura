@@ -651,10 +651,7 @@ def to_matched_score(
             feature_functions=feature_functions,
         )
 
-    if isinstance(performance, np.ndarray):
-        p_na = performance
-    else:
-        p_na = performance.note_array()
+    p_na = ensure_notearray(performance)
     part_by_id = dict((n["id"], na[na["id"] == n["id"]]) for n in na)
     ppart_by_id = dict((n["id"], p_na[p_na["id"] == n["id"]]) for n in p_na)
 

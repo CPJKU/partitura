@@ -9,7 +9,6 @@ from collections import defaultdict
 from typing import Union, Optional, List, Tuple, Dict
 import numpy as np
 
-
 import mido
 
 import partitura.score as score
@@ -25,6 +24,7 @@ from partitura.utils import (
     get_document_name,
     ensure_notearray,
 )
+from partitura.utils.music import midi_ticks_to_seconds
 import partitura.musicanalysis as analysis
 
 __all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
@@ -111,10 +111,12 @@ def load_performance_midi(
     # parts per quarter
     ppq = mid.ticks_per_beat
     # microseconds per quarter
-    mpq = 60 * (10**6 / default_bpm)
+    default_mpq = int(60 * (10**6 / default_bpm))
+    # Initialize time conversion factor
+    time_conversion_factor = default_mpq / (ppq * 10**6)
 
-    # convert MIDI ticks in seconds
-    time_conversion_factor = mpq / (ppq * 10**6)
+    # Initialize list of tempos
+    tempo_changes = [(0, default_mpq)]
 
     pps = list()
 
@@ -123,6 +125,7 @@ def load_performance_midi(
         tracks = [(0, mid_merge)]
     else:
         tracks = [(i, u) for i, u in enumerate(mid.tracks)]
+
     for i, track in tracks:
         notes = []
         controls = []
@@ -143,21 +146,18 @@ def load_performance_midi(
         sounding_notes = {}
 
         for msg in track:
-            # update time deltas when they arrive
-            t = t + msg.time * time_conversion_factor
-            ttick = ttick + msg.time
+            # Update time deltas
+            t += msg.time * time_conversion_factor
+            ttick += msg.time
 
             if isinstance(msg, mido.MetaMessage):
-                # Meta Messages apply to all channels in the track
-
-                # The tempo is set globally in PerformedParts,
-                # i.e., the tempo_conversion_factor is adjusted
-                # with every tempo change, rather than creating new
-                # tempo events.
                 if msg.type == "set_tempo":
                     mpq = msg.tempo
+                    if (
+                        tempo_changes[-1][1] != mpq
+                    ):  # only add new tempo if it's different from the last one
+                        tempo_changes.append((ttick, mpq))
                     time_conversion_factor = mpq / (ppq * 10**6)
-
                 elif msg.type == "time_signature":
                     time_signatures.append(
                         dict(
@@ -259,6 +259,7 @@ def load_performance_midi(
                             velocity=sounding_notes[note][2],
                         )
                     )
+
                     # remove hash from dict
                     del sounding_notes[note]
 
@@ -274,6 +275,25 @@ def load_performance_midi(
             )
         )
 
+        # adjust timing of events based on tempo changes
+        for note in notes:
+            note["note_on"] = adjust_time(note["note_on_tick"], tempo_changes, ppq)
+            note["note_off"] = adjust_time(note["note_off_tick"], tempo_changes, ppq)
+        for control in controls:
+            control["time"] = adjust_time(control["time_tick"], tempo_changes, ppq)
+        for program in programs:
+            program["time"] = adjust_time(program["time_tick"], tempo_changes, ppq)
+        for time_signature in time_signatures:
+            time_signature["time"] = adjust_time(
+                time_signature["time_tick"], tempo_changes, ppq
+            )
+        for key_signature in key_signatures:
+            key_signature["time"] = adjust_time(
+                key_signature["time_tick"], tempo_changes, ppq
+            )
+        for meta in meta_other:
+            meta["time"] = adjust_time(meta["time_tick"], tempo_changes, ppq)
+
         # add note id to every note
         for k, note in enumerate(notes):
             note["id"] = f"n{k}"
@@ -287,17 +307,50 @@ def load_performance_midi(
                 time_signatures=time_signatures,
                 meta_other=meta_other,
                 ppq=ppq,
-                mpq=mpq,
+                mpq=default_mpq,
                 track=i,
             )
-
             pps.append(pp)
 
     perf = performance.Performance(
         id=doc_name,
         performedparts=pps,
     )
+
     return perf
+
+
+def adjust_time(tick: int, tempo_changes: List[Tuple[int, int]], ppq: int) -> float:
+    """
+    Adjust the time of an event based on tempo changes.
+
+    Parameters
+    ----------
+    tick : int
+        The tick position of the event.
+    tempo_changes : list of tuple[int, int]
+        A list of tuples where each tuple contains a tick position and the corresponding microseconds per quarter note (mpq).
+    ppq : int
+        Pulses (ticks) per quarter note.
+
+    Returns
+    ----------
+    float: The adjusted time of the event in seconds.
+    """
+
+    time = 0
+    last_tick = 0
+    last_mpq = tempo_changes[0][1]
+    for change_tick, mpq in tempo_changes:
+        if tick < change_tick:
+            break
+        time += midi_ticks_to_seconds(
+            midi_ticks=(change_tick - last_tick), mpq=last_mpq, ppq=ppq
+        )
+        last_tick = change_tick
+        last_mpq = mpq
+    time += (tick - last_tick) * (last_mpq / (ppq * 10**6))
+    return time
 
 
 @deprecated_parameter("ensure_list")

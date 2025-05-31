@@ -28,7 +28,6 @@ import difflib
 from partitura.utils import (
     ComparableMixin,
     ReplaceRefMixin,
-    iter_subclasses,
     iter_current_next,
     sorted_dict_items,
     PrettyPrintTree,
@@ -50,7 +49,7 @@ from partitura.utils import (
     clef_sign_to_int,
 )
 from partitura.utils.generic import interp1d
-from partitura.utils.music import transpose_note, step2pc
+from partitura.utils.music import transpose_note_attributes, step2pc
 from partitura.utils.globals import (
     INT_TO_ALT,
     ALT_TO_INT,
@@ -1477,10 +1476,12 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.starting_objects[cls]
         if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.starting_objects[subcls]
+            for key, items in self.starting_objects.items():
+                if issubclass(key, cls):
+                    yield from items
+        elif cls in self.starting_objects:
+            yield from self.starting_objects[cls]
 
     def iter_ending(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that end at this
@@ -1500,10 +1501,12 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.ending_objects[cls]
         if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.ending_objects[subcls]
+            for key, items in self.ending_objects.items():
+                if issubclass(key, cls):
+                    yield from items
+        elif cls in self.ending_objects:
+            yield from self.ending_objects[cls]
 
     def iter_prev(self, cls, eq=False, include_subclasses=False):
         """Iterate backwards in time from the current timepoint over
@@ -2410,7 +2413,9 @@ class Tuplet(TimedObject):
         actual_notes=None,
         normal_notes=None,
         actual_type=None,
+        actual_dots=None,
         normal_type=None,
+        normal_dots=None,
     ):
         super().__init__()
         self._start_note = None
@@ -2421,6 +2426,8 @@ class Tuplet(TimedObject):
         self.normal_notes = normal_notes
         self.actual_type = actual_type
         self.normal_type = normal_type
+        self.actual_dots = actual_dots
+        self.normal_dots = normal_dots
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(["start_note", "end_note"])
 
@@ -2467,13 +2474,20 @@ class Tuplet(TimedObject):
         For example, in a triplet of eighth notes, each eighth note would have a duration of
         duration_multiplier * normal_eighth_duration = 2/3 * normal_eighth_duration
         """
-        if self.actual_type == self.normal_type:
+        if (
+            self.actual_type == self.normal_type
+            and self.actual_dots == self.normal_dots
+        ):
             return Fraction(self.normal_notes, self.actual_notes)
         else:
             # In that case, we need to convert the normal_type into the actual_type, therefore
             # adapting normal_notes
             actual_dur = Fraction(LABEL_DURS[self.actual_type])
             normal_dur = Fraction(LABEL_DURS[self.normal_type])
+            for _ in range(self.actual_dots):
+                actual_dur += actual_dur / 2
+            for _ in range(self.normal_dots):
+                normal_dur += normal_dur / 2
             return (
                 Fraction(self.normal_notes, self.actual_notes) * normal_dur / actual_dur
             )
@@ -2499,6 +2513,12 @@ class Tuplet(TimedObject):
             if self.normal_type is None
             else "normal_type={}".format(self.normal_type)
         )
+        if self.actual_dots:
+            for _ in range(self.actual_dots):
+                t_actual += "."
+        if self.normal_dots:
+            for _ in range(self.normal_dots):
+                t_normal += "."
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)
         end = "" if self.end_note is None else "end={}".format(self.end_note.id)
         return " ".join(
@@ -3158,7 +3178,7 @@ class RomanNumeral(Harmony):
                 if self.local_key.islower()
                 else Roman2Interval_Maj[self.secondary_degree]
             )
-            step, alter = transpose_note(key_step, key_alter, interval)
+            step, alter, _ = transpose_note_attributes(interval, key_step, key_alter)
         except KeyError:
             loc_k = self.secondary_degree
             glob_k = self.local_key
@@ -3171,7 +3191,7 @@ class RomanNumeral(Harmony):
                 if self.secondary_degree.islower()
                 else Roman2Interval_Maj[self.primary_degree]
             )
-            step, alter = transpose_note(step, alter, interval)
+            step, alter, _ = transpose_note_attributes(interval, step, alter)
             root = step + INT_TO_ALT[alter]
         except KeyError:
             loc_k = self.primary_degree
@@ -3189,13 +3209,17 @@ class RomanNumeral(Harmony):
 
         if self.inversion == 1:
             if self.primary_degree.islower():
-                step, alter = transpose_note(step, alter, Interval(3, "m"))
+                step, alter, _ = transpose_note_attributes(
+                    Interval(3, "m"), step, alter
+                )
             else:
-                step, alter = transpose_note(step, alter, Interval(3, "M"))
+                step, alter, _ = transpose_note_attributes(
+                    Interval(3, "M"), step, alter
+                )
         elif self.inversion == 2:
-            step, alter = transpose_note(step, alter, Interval(5, "P"))
+            step, alter, _ = transpose_note_attributes(Interval(5, "P"), step, alter)
         elif self.inversion == 3:
-            step, alter = transpose_note(step, alter, Interval(7, "m"))
+            step, alter, _ = transpose_note_attributes(Interval(7, "m"), step, alter)
 
         bass_note_name = step + INT_TO_ALT[alter]
         return bass_note_name
@@ -6087,7 +6111,9 @@ def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
     if return_step_alter:
         return key_step, key_alter
     local_key = (
@@ -6173,7 +6199,9 @@ def process_local_key(loc_k, glob_k, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
     if return_step_alter:
         return key_step, key_alter
     local_key = (
