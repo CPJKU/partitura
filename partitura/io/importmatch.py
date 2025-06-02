@@ -495,7 +495,7 @@ def part_from_matchfile(
 
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
-    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters, dtype = int)][inv_idxs]
+    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters, dtype=int)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
     part.set_quarter_duration(0, divs)
@@ -576,7 +576,7 @@ def part_from_matchfile(
                 "Calculated `onset_divs` does not match `OnsetInBeats` " "information!."
             )
             onset_divs = onset_in_divs[ni]
-            
+
         assert onset_divs >= 0
         assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
         is_tied = False

@@ -217,7 +217,7 @@ def matchfile_from_alignment(
             measure_dur_in_divs = m.end.t - m.start.t
             expected_measure_dur = ts_num * 4 / ts_den * dpq
             if measure_dur_in_divs < expected_measure_dur:
-                msd -= (expected_measure_dur - measure_dur_in_divs)
+                msd -= expected_measure_dur - measure_dur_in_divs
                 msb -= (expected_measure_dur - measure_dur_in_divs) / dpq * ts_den / 4
 
         time_signatures = spart.iter_all(score.TimeSignature, m.start, m.end)
@@ -229,7 +229,7 @@ def matchfile_from_alignment(
             dpq = int(spart.quarter_duration_map(time_divs))
             divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
-            
+
             moffset_divs = Fraction(
                 int(time_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
@@ -263,7 +263,7 @@ def matchfile_from_alignment(
             dpq = int(spart.quarter_duration_map(time_divs))
             divs_per_beat = 4 / ts_den * dpq
             beat = int((time_beats - msb) // 1)
-            
+
             moffset_divs = Fraction(
                 int(time_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
             )
@@ -298,18 +298,21 @@ def matchfile_from_alignment(
             # beat computations
             onset_beats, offset_beats = beat_map([onset_divs, offset_divs])
             duration_beats = offset_beats - onset_beats
-            beat = int((onset_beats - msb) // 1) # beat field of the snote
+            beat = int((onset_beats - msb) // 1)  # beat field of the snote
             # quarter, div, symbolic computation
             ts_num, ts_den, _ = spart.time_signature_map(snote.start.t)
             dpq = int(spart.quarter_duration_map(onset_divs))
-            duration_symb = Fraction(duration_divs, dpq * 4)  # compute duration from quarters/divs
+            duration_symb = Fraction(
+                duration_divs, dpq * 4
+            )  # compute duration from quarters/divs
             divs_per_beat = 4 / ts_den * dpq
-            moffset_divs = Fraction( 
-                int(onset_divs - msd - beat * divs_per_beat), int(ts_den * divs_per_beat)
+            moffset_divs = Fraction(
+                int(onset_divs - msd - beat * divs_per_beat),
+                int(ts_den * divs_per_beat),
             )
-            
+
             if debug:
-                moffset_beat = (onset_beats - msb - beat) / ts_den 
+                moffset_beat = (onset_beats - msb - beat) / ts_den
                 assert np.isclose(float(duration_symb), duration_beats / ts_den)
                 assert np.isclose(moffset_beat, float(moffset_divs))
 
