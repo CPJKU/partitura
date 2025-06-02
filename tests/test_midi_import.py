@@ -3,6 +3,8 @@
 """
 This module contains tests for importing MIDI files.
 """
+
+import os
 import logging
 from collections import defaultdict, Counter
 from operator import itemgetter
@@ -141,8 +143,141 @@ def make_triplets_example_2():
     return mid, actual_notes, normal_notes
 
 
-class TestMIDITuplets(unittest.TestCase):
+class TestLoadScoreMIDIFiles(unittest.TestCase):
+    """
+    Test load_score_midi with various MIDI files.  The MIDI files are special in
+    that they have multiple instances of the same event type (key sig, time sig,
+    tempo, respectively) occurring at the same time point.
+    """
 
+    def _create_key_signature_test_file(self):
+        """Create a MIDI file with multiple key changes at the same time."""
+        key_mid = mido.MidiFile()
+        track = mido.MidiTrack()
+        key_mid.tracks.append(track)
+        self.keys = ["C", "G"]
+        track.append(mido.MetaMessage("key_signature", key=self.keys[0], time=0))
+        track.append(
+            mido.MetaMessage("key_signature", key=self.keys[1], time=0)
+        )  # Same time
+        track.append(mido.Message("note_on", note=60, velocity=64, time=480))
+        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
+        key_file = NamedTemporaryFile(suffix="_key.mid", delete=False).name
+        key_mid.save(key_file)
+        return key_file
+
+    def _create_time_signature_test_file(self):
+        """Create a MIDI file with multiple time signature changes at the same time."""
+        time_mid = mido.MidiFile()
+        track = mido.MidiTrack()
+        time_mid.tracks.append(track)
+        self.time_sigs = [(4, 4), (3, 4)]
+        for num, den in self.time_sigs:
+            track.append(
+                mido.MetaMessage(
+                    "time_signature", numerator=num, denominator=den, time=0
+                )
+            )
+        track.append(mido.Message("note_on", note=60, velocity=64, time=480))
+        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
+        time_file = NamedTemporaryFile(suffix="_time.mid", delete=False).name
+        time_mid.save(time_file)
+        return time_file
+
+    def _create_tempo_test_file(self):
+        """Create a MIDI file with multiple tempo changes at the same time."""
+        tempo_mid = mido.MidiFile()
+        track = mido.MidiTrack()
+        tempo_mid.tracks.append(track)
+        self.tempos = [120, 60]  # Store tempos as an instance attribute
+        track.append(
+            mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(self.tempos[0]), time=0)
+        )
+        track.append(
+            mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(self.tempos[1]), time=0)
+        )  # Same time
+        track.append(mido.Message("note_on", note=60, velocity=64, time=480))
+        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
+        tempo_file = NamedTemporaryFile(suffix="_tempo.mid", delete=False).name
+        tempo_mid.save(tempo_file)
+        return tempo_file
+
+    def setUp(self):
+        """Create temporary MIDI files for testing multiple event types."""
+        # Create temporary MIDI files for testing
+        self.test_files = {
+            "key": self._create_key_signature_test_file(),
+            "time": self._create_time_signature_test_file(),
+            "tempo": self._create_tempo_test_file(),
+        }
+        self.temp_files = self.test_files.copy()  # For cleanup
+
+    def test_load_multiple_files(self):
+        """Test loading multiple MIDI files using specific test methods"""
+        for key in self.test_files.keys():
+            # Dynamically call the test method for each file type
+            test_method = getattr(self, f"_test_{key}", None)
+            if test_method:
+                test_method()
+            else:
+                self.fail(f"No test method found for {key} file type")
+
+    def _test_key(self):
+        """Test key signature MIDI file"""
+        try:
+            song = load_score_midi(self.test_files["key"])
+            self.assertIsNotNone(song)
+            self.assertTrue(len(song.parts) > 0)
+            part = song.parts[0]
+            keys = [ks.name for ks in part.iter_all(score.KeySignature)]
+            assert keys == self.keys
+        except Exception as e:
+            self.fail(f"Failed to load key signature test file: {str(e)}")
+
+    def _test_time(self):
+        """Test time signature MIDI file"""
+        try:
+            song = load_score_midi(self.test_files["time"])
+            self.assertIsNotNone(song)
+            self.assertTrue(len(song.parts) > 0)
+            part = song.parts[0]
+            time_sigs = [
+                (ts.beats, ts.beat_type) for ts in part.iter_all(score.TimeSignature)
+            ]
+            assert time_sigs == self.time_sigs
+
+        except Exception as e:
+            self.fail(f"Failed to load time signature test file: {str(e)}")
+
+    def _test_tempo(self):
+        """Test tempo MIDI file"""
+        try:
+            song = load_score_midi(self.test_files["tempo"])
+            self.assertIsNotNone(song)
+            self.assertTrue(len(song.parts) > 0)
+
+            # Extract tempo values from the first part
+            part = song.parts[0]
+
+            # Collect tempo markings
+            tempos = [tempo.bpm for tempo in part.iter_all(score.Tempo)]
+
+            # Assert that the collected tempos match the original input
+            assert tempos == self.tempos
+
+        except Exception as e:
+            self.fail(f"Failed to load tempo test file: {str(e)}")
+
+    def tearDown(self):
+        # Clean up temporary files
+        for f in self.temp_files.values():
+            try:
+                os.unlink(f)
+            except:
+                pass
+
+
+class TestMIDITuplets(unittest.TestCase):
     example_gen_funcs = (make_triplets_example_1, make_triplets_example_2)
 
     def test_tuplets(self):
