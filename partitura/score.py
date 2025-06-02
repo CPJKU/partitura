@@ -1491,9 +1491,13 @@ class TimePoint(ComparableMixin):
         elif cls in self.starting_objects:
             yield from self.starting_objects[cls]
         elif isinstance(cls, tuple):
+            yielded = set()
             for c in cls:
                 if c in self.starting_objects:
-                    yield from self.starting_objects[c]
+                    for obj in self.starting_objects[c]:
+                        if obj not in yielded:
+                            yield obj
+                            yielded.add(obj)
 
     def iter_ending(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that end at this
@@ -1523,9 +1527,13 @@ class TimePoint(ComparableMixin):
         elif cls in self.ending_objects:
             yield from self.ending_objects[cls]
         elif isinstance(cls, tuple):
+            yielded = set()
             for c in cls:
                 if c in self.ending_objects:
-                    yield from self.ending_objects[c]
+                    for obj in self.ending_objects[c]:
+                        if obj not in yielded:
+                            yield obj
+                            yielded.add(obj)
 
     def iter_prev(self, cls, eq=False, include_subclasses=False):
         """Iterate backwards in time from the current timepoint over
