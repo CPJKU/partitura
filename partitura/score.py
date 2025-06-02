@@ -1089,9 +1089,11 @@ class Part(object):
 
         Parameters
         ----------
-        cls : class, optional
+        cls : class or list/tuple of classes, optional
             The class of objects to iterate over. If omitted, iterate
-            over all objects in the part.
+            over all objects in the part. When cls is list/tuple of
+            classes, instances of any class in the list/tuple will be
+            yielded.
         start : :class:`TimePoint`, optional
             The start of the interval to search. If omitted or None,
             the search starts at the start of the timeline. Defaults
@@ -1133,6 +1135,8 @@ class Part(object):
         if cls is None:
             cls = object
             include_subclasses = True
+        elif isinstance(cls, list):
+            cls = tuple(cls)
 
         if mode == "ending":
             for tp in self._points[start_idx:end_idx]:
@@ -1460,12 +1464,13 @@ class TimePoint(ComparableMixin):
 
     def iter_starting(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that start at this
-        time point.
+        time point. When `cls` is a list/tuple of classes, include objects
+        of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1476,21 +1481,29 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
+        if isinstance(cls, list):
+            cls = tuple(cls)
+
         if include_subclasses:
             for key, items in self.starting_objects.items():
                 if issubclass(key, cls):
                     yield from items
         elif cls in self.starting_objects:
             yield from self.starting_objects[cls]
+        elif isinstance(cls, tuple):
+            for c in cls:
+                if c in self.starting_objects:
+                    yield from self.starting_objects[c]
 
     def iter_ending(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that end at this
-        time point.
+        time point. When `cls` is a list/tuple of classes, include objects
+        of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1501,21 +1514,28 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
+        if isinstance(cls, list):
+            cls = tuple(cls)
         if include_subclasses:
             for key, items in self.ending_objects.items():
                 if issubclass(key, cls):
                     yield from items
         elif cls in self.ending_objects:
             yield from self.ending_objects[cls]
+        elif isinstance(cls, tuple):
+            for c in cls:
+                if c in self.ending_objects:
+                    yield from self.ending_objects[c]
 
     def iter_prev(self, cls, eq=False, include_subclasses=False):
         """Iterate backwards in time from the current timepoint over
-        starting object(s) of type `cls`.
+        starting object(s) of type `cls`. When `cls` is a list/tuple of
+        classes, include objects of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its predecessor. Defaults to False.
@@ -1540,12 +1560,13 @@ class TimePoint(ComparableMixin):
 
     def iter_next(self, cls, eq=False, include_subclasses=False):
         """Iterate forwards in time from the current timepoint over
-        starting object(s) of type `cls`.
+        starting object(s) of type `cls`. When `cls` is a list/tuple
+        of classes, include objects of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its successor. Defaults to False.
