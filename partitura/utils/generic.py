@@ -636,6 +636,53 @@ def monotonize_times(
     return s_mono, x_mono
 
 
+def warn_on_subclass(cls, include_subclasses):
+    """
+    Warn if any of the classes in `cls` is a subclass of any other class in
+    `cls`
+    """
+    if include_subclasses:
+        for i, cls1 in enumerate(cls):
+            for j, cls2 in enumerate(cls):
+                if i != j and issubclass(cls1, cls2):
+                    warnings.warn(
+                        (
+                            f"{cls1} is a subclass of {cls2}, any objects "
+                            "matching multiple classes will only be returned once"
+                        )
+                    )
+    else:
+        for i, cls1 in enumerate(cls):
+            for j, cls2 in enumerate(cls[:i]):
+                if cls1 == cls2:
+                    warnings.warn(
+                        (
+                            f"{cls1} occurs multiple times in list {cls}, any objects "
+                            "matching multiple classes will only be returned once"
+                        )
+                    )
+
+
+def _prepare_iter_cls(cls, include_subclasses):
+    """Prepare `cls` and `include_subclasses` arguments for iterating time
+    points (`Part.iter_all()`, `TimePoint.iter_starting()`, `TimePoint.iter_ending()`,
+    `TimePoint.iter_next()`, `TimePoint.iter_prev()`).  This includes setting
+    appropriate default values, and and issuing a warning if a list/tuple
+    repeated classes or classes that are subclasses of each other.
+    """
+    if cls is None:
+        # set default values
+        cls = object
+        include_subclasses = True
+    elif isinstance(cls, list):
+        # convert list to tuple (for usage in issubclass(..., cls))
+        cls = tuple(cls)
+    if isinstance(cls, tuple):
+        # for tuple, warn if classes are repeated or subclasses of each other
+        warn_on_subclass(cls, include_subclasses)
+    return cls, include_subclasses
+
+
 if __name__ == "__main__":
     import doctest
 

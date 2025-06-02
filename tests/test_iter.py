@@ -86,6 +86,25 @@ class TestingIterMethods(unittest.TestCase):
             # Verify that the number of items is consistent
             assert n4 == n1 + n2
 
+    def test_iter_warning(self):
+        """ """
+        for i, score in enumerate(self.scores):
+            part = score.parts[0]
+
+            include_subclasses = True
+            cls1 = [prt.score.Note, prt.score.GenericNote]
+
+            # assert we get a warning because Note is a GenericNote subclass
+            with self.assertWarns(UserWarning):
+                items1 = tuple(
+                    part.iter_all(cls1, include_subclasses=include_subclasses)
+                )
+
+            cls2 = prt.score.GenericNote
+            items2 = tuple(part.iter_all(cls2, include_subclasses=include_subclasses))
+
+            assert len(items1) == len(items2)
+
     def test_iter_methods(self):
         """
         Test the iter_all method with various parameter combinations.
