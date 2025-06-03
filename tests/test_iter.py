@@ -6,6 +6,7 @@ a list/tuple of classes.
 import unittest
 from tests import MUSICXML_SCORE_OBJECT_TESTFILES
 import partitura as prt
+from collections import defaultdict
 
 
 class TestingIterMethods(unittest.TestCase):
@@ -121,3 +122,43 @@ class TestingIterMethods(unittest.TestCase):
             for mode in ("starting", "ending"):
                 kwargs = {"include_subclasses": incl_subcl, "mode": mode}
                 self._test_iter_methods(kwargs)
+
+    def test_iter_order(self):
+        """Check that the order of objects follows the order of target classes"""
+
+        def classes_by_time(items):
+            result = defaultdict(list)
+            for item in items:
+                result[item.start.t].append(type(item))
+            return result
+
+        for i, score in enumerate(self.scores):
+            part = score.parts[0]
+
+            cls1 = [prt.score.Note, prt.score.Measure]
+            items1 = tuple(part.iter_all(cls1))
+
+            result = classes_by_time(items1)
+
+            for classes in result.values():
+                if prt.score.Note in classes and prt.score.Measure in classes:
+                    # check that Note goes before Measure
+                    assert classes.index(prt.score.Note) < classes.index(
+                        prt.score.Measure
+                    )
+
+            assert isinstance(items1[0], prt.score.Note)
+            assert isinstance(items1[1], prt.score.Measure)
+
+            cls2 = [prt.score.Measure, prt.score.Note]
+            items2 = tuple(part.iter_all(cls2))
+            assert len(items1) == len(items2)
+            assert items1 != items2
+
+            result = classes_by_time(items2)
+            for classes in result.values():
+                if prt.score.Note in classes and prt.score.Measure in classes:
+                    # check that Measure goes before Note
+                    assert classes.index(prt.score.Measure) < classes.index(
+                        prt.score.Note
+                    )
