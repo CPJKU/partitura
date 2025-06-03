@@ -8,6 +8,8 @@ loudness directions. A score is defined at the highest level by a
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
+
+from __future__ import annotations
 from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
@@ -24,7 +26,7 @@ import sys
 import numpy as np
 import re
 from scipy.interpolate import PPoly
-from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype
+from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype, Type
 import difflib
 from partitura.utils import (
     ComparableMixin,
@@ -1081,8 +1083,13 @@ class Part(object):
             self._remove_point(tp)
 
     def iter_all(
-        self, cls=None, start=None, end=None, include_subclasses=False, mode="starting"
-    ):
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        start: TimePoint | None = None,
+        end: TimePoint | None = None,
+        include_subclasses: bool = False,
+        mode: Literal["starting", "ending"] = "starting",
+    ) -> Generator[TimedObject, None, None]:
         """Iterate (in direction of increasing time) over all
         instances of `cls` that either start or end (depending on
         `mode`) in the interval `start` to `end`.  When `start` and
@@ -1458,7 +1465,11 @@ class TimePoint(ComparableMixin):
         obj.end = self
         self.ending_objects[type(obj)].add(obj)
 
-    def iter_starting(self, cls, include_subclasses=False):
+    def iter_starting(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate over all objects of type `cls` that start at this
         time point. When `cls` is a list/tuple of classes, include objects
         of any class in `cls`.
@@ -1479,7 +1490,11 @@ class TimePoint(ComparableMixin):
         """
         return self._iter_objects(cls, include_subclasses, mode="starting")
 
-    def iter_ending(self, cls, include_subclasses=False):
+    def iter_ending(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate over all objects of type `cls` that end at this
         time point. When `cls` is a list/tuple of classes, include objects
         of any class in `cls`.
@@ -1501,8 +1516,12 @@ class TimePoint(ComparableMixin):
         return self._iter_objects(cls, include_subclasses, mode="ending")
 
     def _iter_objects(
-        self, cls, include_subclasses=False, mode="starting", prepare_cls=True
-    ):
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]],
+        include_subclasses: bool = False,
+        mode: Literal["starting", "ending"] = "starting",
+        prepare_cls: bool = True,
+    ) -> Generator[TimedObject, None, None]:
         if mode == "starting":
             items = self.starting_objects
         elif mode == "ending":
@@ -1539,7 +1558,12 @@ class TimePoint(ComparableMixin):
                                 yield obj
                                 yielded.add(obj)
 
-    def iter_prev(self, cls, eq=False, include_subclasses=False):
+    def iter_prev(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        eq: bool = False,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate backwards in time from the current timepoint over
         starting object(s) of type `cls`. When `cls` is a list/tuple of
         classes, include objects of any class in `cls`.
@@ -1563,7 +1587,12 @@ class TimePoint(ComparableMixin):
         """
         return self._iter_next_prev(cls, eq, include_subclasses, mode="prev")
 
-    def iter_next(self, cls, eq=False, include_subclasses=False):
+    def iter_next(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        eq: bool = False,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate forwards in time from the current timepoint over
         starting object(s) of type `cls`. When `cls` is a list/tuple
         of classes, include objects of any class in `cls`.
@@ -1588,8 +1617,13 @@ class TimePoint(ComparableMixin):
         return self._iter_next_prev(cls, eq, include_subclasses, mode="next")
 
     def _iter_next_prev(
-        self, cls, eq=False, include_subclasses=False, mode="next", prepare_cls=True
-    ):
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]],
+        eq: bool = False,
+        include_subclasses: bool = False,
+        mode: Literal["next", "prev"] = "next",
+        prepare_cls: bool = True,
+    ) -> Generator[TimedObject, None, None]:
         if not mode in ("next", "prev"):
             raise ValueError(f'Invalid mode {mode} (must be one of "next", "prev")')
 
