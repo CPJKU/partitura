@@ -1539,7 +1539,7 @@ class TimePoint(ComparableMixin):
                                 yield obj
                                 yielded.add(obj)
 
-    def iter_prev(self, cls, eq=False, include_subclasses=False, _prepare_cls=True):
+    def iter_prev(self, cls, eq=False, include_subclasses=False):
         """Iterate backwards in time from the current timepoint over
         starting object(s) of type `cls`. When `cls` is a list/tuple of
         classes, include objects of any class in `cls`.
@@ -1561,22 +1561,9 @@ class TimePoint(ComparableMixin):
             Instances of `cls`
 
         """
-        if eq:
-            tp = self
-        else:
-            tp = self.prev
+        return self._iter_next_prev(cls, eq, include_subclasses, mode="prev")
 
-        if _prepare_cls:
-            # handle default value, warn on potential issues
-            cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
-
-        while tp:
-            yield from tp._iter_objects(
-                cls, include_subclasses, mode="starting", prepare_cls=False
-            )
-            tp = tp.prev
-
-    def iter_next(self, cls, eq=False, include_subclasses=False, _prepare_cls=True):
+    def iter_next(self, cls, eq=False, include_subclasses=False):
         """Iterate forwards in time from the current timepoint over
         starting object(s) of type `cls`. When `cls` is a list/tuple
         of classes, include objects of any class in `cls`.
@@ -1598,12 +1585,22 @@ class TimePoint(ComparableMixin):
             Instances of `cls`
 
         """
+        return self._iter_next_prev(cls, eq, include_subclasses, mode="next")
+
+    def _iter_next_prev(
+        self, cls, eq=False, include_subclasses=False, mode="next", prepare_cls=True
+    ):
+        if not mode in ("next", "prev"):
+            raise ValueError(f'Invalid mode {mode} (must be one of "next", "prev")')
+
         if eq:
             tp = self
-        else:
+        elif mode == "next":
             tp = self.next
+        else:
+            tp = self.prev
 
-        if _prepare_cls:
+        if prepare_cls:
             # handle default value, warn on potential issues
             cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
 
@@ -1611,7 +1608,7 @@ class TimePoint(ComparableMixin):
             yield from tp._iter_objects(
                 cls, include_subclasses, mode="starting", prepare_cls=False
             )
-            tp = tp.next
+            tp = tp.next if mode == "next" else tp.prev
 
     def _cmpkey(self):
         # This method returns the value to be compared (code for that is in
