@@ -672,14 +672,16 @@ def _prepare_iter_cls(cls, include_subclasses):
     """
     if cls is None:
         # set default values
-        cls = object
+        cls = object  # better: TimedObject
         include_subclasses = True
-    elif isinstance(cls, list):
-        # convert list to tuple (for usage in issubclass(..., cls))
+    elif not isinstance(cls, type):
+        # converti iterable to tuple (for usage in issubclass(..., cls))
         cls = tuple(cls)
+
     if isinstance(cls, tuple):
         # for tuple, warn if classes are repeated or subclasses of each other
         warn_on_subclass(cls, include_subclasses)
+
     return cls, include_subclasses
 
 

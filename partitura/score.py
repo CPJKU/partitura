@@ -19,7 +19,8 @@ from partitura.utils.globals import (
     INTERVAL_TO_SEMITONES,
     LABEL_DURS,
 )
-import warnings, sys
+import warnings
+import sys
 import numpy as np
 import re
 from scipy.interpolate import PPoly
@@ -48,8 +49,8 @@ from partitura.utils import (
     update_note_ids_after_unfolding,
     clef_sign_to_int,
 )
-from partitura.utils.generic import interp1d, warn_on_subclass, _prepare_iter_cls
-from partitura.utils.music import transpose_note_attributes, step2pc
+from partitura.utils.generic import interp1d, _prepare_iter_cls
+from partitura.utils.music import transpose_note_attributes
 from partitura.utils.globals import (
     INT_TO_ALT,
     ALT_TO_INT,
@@ -1135,12 +1136,10 @@ class Part(object):
         # handle default value, warn on potential issues
         cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
 
-        if mode == "ending":
-            for tp in self._points[start_idx:end_idx]:
-                yield from tp.iter_ending(cls, include_subclasses, _prepare_cls=False)
-        else:
-            for tp in self._points[start_idx:end_idx]:
-                yield from tp.iter_starting(cls, include_subclasses, _prepare_cls=False)
+        for tp in self._points[start_idx:end_idx]:
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode=mode, prepare_cls=False
+            )
 
     def apply(self):
         """Apply all changes to the timeline for objects like octave Shift."""
@@ -1459,7 +1458,7 @@ class TimePoint(ComparableMixin):
         obj.end = self
         self.ending_objects[type(obj)].add(obj)
 
-    def iter_starting(self, cls, include_subclasses=False, _prepare_cls=True):
+    def iter_starting(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that start at this
         time point. When `cls` is a list/tuple of classes, include objects
         of any class in `cls`.
@@ -1478,26 +1477,9 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        if _prepare_cls:
-            # handle default value, warn on potential issues
-            cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
+        return self._iter_objects(cls, include_subclasses, mode="starting")
 
-        if include_subclasses:
-            for key, items in self.starting_objects.items():
-                if issubclass(key, cls):
-                    yield from items
-        elif cls in self.starting_objects:
-            yield from self.starting_objects[cls]
-        elif isinstance(cls, tuple):
-            yielded = set()
-            for c in cls:
-                if c in self.starting_objects:
-                    for obj in self.starting_objects[c]:
-                        if obj not in yielded:
-                            yield obj
-                            yielded.add(obj)
-
-    def iter_ending(self, cls, include_subclasses=False, _prepare_cls=True):
+    def iter_ending(self, cls, include_subclasses=False):
         """Iterate over all objects of type `cls` that end at this
         time point. When `cls` is a list/tuple of classes, include objects
         of any class in `cls`.
@@ -1516,24 +1498,46 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        if _prepare_cls:
+        return self._iter_objects(cls, include_subclasses, mode="ending")
+
+    def _iter_objects(
+        self, cls, include_subclasses=False, mode="starting", prepare_cls=True
+    ):
+        if mode == "starting":
+            items = self.starting_objects
+        elif mode == "ending":
+            items = self.ending_objects
+        else:
+            raise ValueError(f"Invalid mode {mode} (must be 'starting' or 'ending')")
+        if prepare_cls:
             # handle default value, warn on potential issues
             cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
 
-        if include_subclasses:
-            for key, items in self.ending_objects.items():
-                if issubclass(key, cls):
-                    yield from items
-        elif cls in self.ending_objects:
-            yield from self.ending_objects[cls]
-        elif isinstance(cls, tuple):
+        if isinstance(cls, type):
+            # single target class
+            if include_subclasses:
+                for key in items.keys():
+                    if issubclass(key, cls):
+                        yield from items[key]
+            elif cls in items:
+                yield from items[cls]
+        else:
+            # multiple target classes
             yielded = set()
             for c in cls:
-                if c in self.ending_objects:
-                    for obj in self.ending_objects[c]:
-                        if obj not in yielded:
-                            yield obj
-                            yielded.add(obj)
+                if include_subclasses:
+                    for key, objects in items.items():
+                        if issubclass(key, c):
+                            for obj in objects:
+                                if obj not in yielded:
+                                    yield obj
+                                    yielded.add(obj)
+                else:
+                    if c in items:
+                        for obj in items[c]:
+                            if obj not in yielded:
+                                yield obj
+                                yielded.add(obj)
 
     def iter_prev(self, cls, eq=False, include_subclasses=False, _prepare_cls=True):
         """Iterate backwards in time from the current timepoint over
@@ -1567,7 +1571,9 @@ class TimePoint(ComparableMixin):
             cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
 
         while tp:
-            yield from tp.iter_starting(cls, include_subclasses, _prepare_cls=False)
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode="starting", prepare_cls=False
+            )
             tp = tp.prev
 
     def iter_next(self, cls, eq=False, include_subclasses=False, _prepare_cls=True):
@@ -1602,7 +1608,9 @@ class TimePoint(ComparableMixin):
             cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
 
         while tp:
-            yield from tp.iter_starting(cls, include_subclasses, _prepare_cls=False)
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode="starting", prepare_cls=False
+            )
             tp = tp.next
 
     def _cmpkey(self):
