@@ -51,7 +51,7 @@ from partitura.utils import (
     update_note_ids_after_unfolding,
     clef_sign_to_int,
 )
-from partitura.utils.generic import interp1d, _prepare_iter_cls
+from partitura.utils.generic import interp1d, prepare_iter_cls
 from partitura.utils.music import transpose_note_attributes
 from partitura.utils.globals import (
     INT_TO_ALT,
@@ -1141,7 +1141,7 @@ class Part(object):
             end_idx = np.searchsorted(self._points, end)
 
         # handle default value, warn on potential issues
-        cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
+        cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
         for tp in self._points[start_idx:end_idx]:
             yield from tp._iter_objects(
@@ -1522,6 +1522,15 @@ class TimePoint(ComparableMixin):
         mode: Literal["starting", "ending"] = "starting",
         prepare_cls: bool = True,
     ) -> Generator[TimedObject, None, None]:
+        """
+        Generic code to iterate over starting/ending objects.  The `prepare_cls`
+        flag can be used to indicate that there is no need to prepare the `cls`
+        argument.  This is for efficiency, since `_iter_objects` is typically
+        called for many timepoints with the same `cls` (e.g. from
+        `Part.iter_all`), so it makes sense to prepare `cls` only once in
+        advance, and then pass `prepare_cls=False`.
+        """
+
         if mode == "starting":
             items = self.starting_objects
         elif mode == "ending":
@@ -1530,7 +1539,7 @@ class TimePoint(ComparableMixin):
             raise ValueError(f"Invalid mode {mode} (must be 'starting' or 'ending')")
         if prepare_cls:
             # handle default value, warn on potential issues
-            cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
+            cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
         if isinstance(cls, type):
             # single target class
@@ -1636,7 +1645,7 @@ class TimePoint(ComparableMixin):
 
         if prepare_cls:
             # handle default value, warn on potential issues
-            cls, include_subclasses = _prepare_iter_cls(cls, include_subclasses)
+            cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
         while tp:
             yield from tp._iter_objects(

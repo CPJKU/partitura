@@ -663,7 +663,7 @@ def warn_on_subclass(cls, include_subclasses):
                     )
 
 
-def _prepare_iter_cls(cls, include_subclasses):
+def prepare_iter_cls(cls, include_subclasses):
     """Prepare `cls` and `include_subclasses` arguments for iterating time
     points (`Part.iter_all()`, `TimePoint.iter_starting()`, `TimePoint.iter_ending()`,
     `TimePoint.iter_next()`, `TimePoint.iter_prev()`).  This includes setting
@@ -675,7 +675,7 @@ def _prepare_iter_cls(cls, include_subclasses):
         cls = object  # better: TimedObject
         include_subclasses = True
     elif not isinstance(cls, type):
-        # converti iterable to tuple (for usage in issubclass(..., cls))
+        # convert iterable to tuple (for usage in issubclass(..., cls))
         cls = tuple(cls)
 
     if isinstance(cls, tuple):
