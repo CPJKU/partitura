@@ -1,25 +1,73 @@
+from typing import List, Dict, Optional, Tuple, Union
 from fractions import Fraction
 from math import lcm, isqrt
 from collections import defaultdict
 import numpy as np
 
-from ..utils.globals import REGULAR_NUM_DENOM, VALID_TIME_SIGNATURES, PROGRAM_INSTRUMENT_MAP
-from ..score import Part, Note, TimePoint
-from .utils import midi_to_step_octave_alter
+from partitura.utils.globals import REGULAR_NUM_DENOM, VALID_TIME_SIGNATURES
+from partitura.score import ScoreLike, Part, Note
+from partitura.tokenizer.utils import midi_to_step_octave_alter
 
 class REMITokenizer:
     """
     REMI-style Tokenizer for symbolic music encoding.
 
+    This tokenizer implements the REMI (REvamped MIDI-derived events) encoding scheme as proposed by Huang & Yang 
+    in "Pop Music Transformer: Beat-based Modeling and Generation of Expressive Pop Piano Compositions" 
+    (https://arxiv.org/abs/2002.00212). It discretizes a symbolic music score into a linear sequence of musically 
+    meaningful events such as bar markers, position tokens (relative to beat/grid), note pitch, and note duration.
+
+    The REMITokenizer supports:
+        - Encoding symbolic music into REMI-style event sequences
+        - Decoding event sequences back into `partitura.score.Part` objects
+        - Custom configuration of time resolution and vocabulary granularity
+
     Attributes:
-        config (dict): Configuration dictionary for tokenizer options.
-        vocabulary (dict): Mapping from event string to index.
+        config (dict): Configuration dictionary for tokenizer options (e.g., time resolution, allowed durations).
+        vocabulary (dict): Mapping from event string (e.g., "Note_Pitch_60") to integer index.
         inverse_vocabulary (dict): Mapping from index to event string.
-        events (list): List of tokenized events in string format.
-        tune_in_index (list): List of tokenized events in index format.
+        events (list[str]): List of tokenized events in string format.
+        tune_in_index (list[int]): List of tokenized events in index format (used for training or inference)
+
+    Example:
+        >>> import partitura as pt
+        >>> import numpy as np
+        >>> import scipy.io.wavfile
+        >>> from partitura.utils.synth import synthesize_fluidsynth
+        >>> from partitura.tokenizer import REMITokenizer
+        >>>
+        >>> config = {
+        ...     "position_resolution": (4, 3),
+        ...     "pitch_range": (21, 109),
+        ...     "max_duration": 8,
+        ...     "max_denominator": 16,
+        ...     "use_velocity": False,
+        ...     "use_chords": False,
+        ...     "use_tempos": False,
+        ...     "is_multi_instrument": False
+        ... }
+        >>>
+        >>> tokenizer = REMITokenizer(config)
+        >>> vocab = tokenizer.create_vocab_from_config(config)
+        >>>
+        >>> score_path = "/path/to/score.musicxml"
+        >>> part = pt.load_score(score_path)
+        >>> sample_tune_in_event = tokenizer.encode_to_event(part[0], config)
+        >>> sample_tune_in_index = tokenizer.encode_to_index(sample_tune_in_event)
+        >>>
+        >>> decoded_part = tokenizer.decode_from_event(sample_tune_in_event)
+        >>> output_audio_signal = synthesize_fluidsynth(decoded_part)
+        >>>
+        >>> output_path = "/path/to/decoded_output.wav"
+        >>> audio_int16 = np.int16(output_audio_signal / np.max(np.abs(output_audio_signal)) * 32767)
+        >>> scipy.io.wavfile.write(output_path, rate=44100, data=audio_int16)
+
+    Reference:
+        Huang, Y., & Yang, Y.-H. (2020). Pop Music Transformer: Beat-Based Modeling and Generation of Expressive Pop Piano Compositions.
+        https://arxiv.org/abs/2002.00212
     """
 
-    def __init__(self, config):
+    def __init__(self, config: Optional[Dict] = None) -> None:
         """
         Initialize REMITokenizer with user-defined config.
 
@@ -75,7 +123,9 @@ class REMITokenizer:
         self.token_string_to_index = {v: int(k) for k, v in self.index_to_token_string.items()}
 
 
-    def generate_position_tokens(self, position_resolution, max_measure_in_quarter=8):
+    def generate_position_tokens(
+            self, position_resolution: List[int], max_measure_in_quarter: int = 8
+        ) -> List[str]:
         """
         Generate position tokens using union of resolutions like (4,3)
         Position names like: Position_0, Position_1/4, Position_1/3, Position_5/4, etc.
@@ -113,7 +163,7 @@ class REMITokenizer:
         return tokens
 
 
-    def is_prime(self, n):
+    def is_prime(self, n: int) -> bool:
         """Return True if n is a prime number (simple check)."""
         if n < 2:
             return False
@@ -123,7 +173,13 @@ class REMITokenizer:
         return True
 
 
-    def generate_pruned_duration_bins(self, position_resolution, max_duration=8, min_unit=None, max_denominator=16):
+    def generate_pruned_duration_bins(
+            self,
+            position_resolution: List[int],
+            max_duration: int = 8,
+            min_unit: Optional[Fraction] = None,
+            max_denominator: int = 16
+        ) -> List[Fraction]:
         """
         Generate duration tokens using user-defined position resolution and prune
         based on musically meaningful duration values (exclude large primes, etc.).
@@ -160,7 +216,7 @@ class REMITokenizer:
         durations.update(common_fractions)
 
         # Step 4: Prune
-        def is_musically_valid(frac):
+        def is_musically_valid(frac: Fraction) -> bool:
             if frac > max_duration:
                 return False
             if frac.denominator > max_denominator:
@@ -182,7 +238,7 @@ class REMITokenizer:
         return tokens
 
 
-    def create_vocab_from_config(self, config):
+    def create_vocab_from_config(self, config: Dict) -> None:
         vocab = {}
         idx = 0
 
@@ -221,7 +277,9 @@ class REMITokenizer:
         return vocab
 
 
-    def get_position_grid_ticks(self, position_resolution, measure_quarters, tpq):
+    def get_position_grid_ticks(
+            self, position_resolution: List[int], measure_quarters: float, tpq: int
+        ) -> List[int]:
         """
         Create a sorted list of absolute tick positions for a measure
         based on given position resolution and TPQ (ticks per quarter note).
@@ -250,7 +308,7 @@ class REMITokenizer:
         return grid_map
 
 
-    def prune_notes_keep_best(self, notes):
+    def prune_notes_keep_best(self, notes: List[Note]) -> List[Note]:
         """
         From a list of notes quantized to the same position,
         retain only the best one based on:
@@ -270,7 +328,9 @@ class REMITokenizer:
         return [sorted_notes[0]]  # Keep only the best note
 
 
-    def encode_to_event(self, part, config):
+    def encode_to_event(
+            self, part: ScoreLike, config: Dict
+        ) -> List[Dict[str, Union[str, int]]]:
         """
         Encode a partitura Score object into REMI token sequence.
 
@@ -380,7 +440,7 @@ class REMITokenizer:
         return events
 
 
-    def encode_to_index(self, events):
+    def encode_to_index(self, events: List[Dict[str, Union[str, int]]]) -> List[int]:
         """
         Convert token strings to indices using the vocabulary.
         """
@@ -394,7 +454,9 @@ class REMITokenizer:
         return tune_in_index
 
 
-    def decode_from_event(self, events, config):
+    def decode_from_event(
+            self, events: List[Dict[str, Union[str, int]]]
+        ) -> Part:
         """
         Decode a list of REMI-style events back into a partitura Part object.
 
@@ -412,7 +474,6 @@ class REMITokenizer:
         current_position_tick = 0
         current_time_signature = (4, 4)
 
-        notes = []
         i = 0
 
         while i < len(events):
