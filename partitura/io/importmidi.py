@@ -6,6 +6,7 @@ This module contains methods for importing MIDI files.
 import warnings
 
 from collections import defaultdict
+from operator import itemgetter
 from typing import Union, Optional, List, Tuple, Dict
 import numpy as np
 
@@ -618,23 +619,25 @@ or a list of these
         # now clear all track_ts
         time_sigs_by_track.clear()
 
-    time_sigs_by_part = defaultdict(set)
+    # use a list to preserve all time sigs in order
+    time_sigs_by_part = defaultdict(list)
     for tr, ts_list in time_sigs_by_track.items():
         for ts in ts_list:
             for part in track_to_part_mapping[tr]:
-                time_sigs_by_part[part].add(ts)
+                time_sigs_by_part[part].append(ts)
     for ts in global_time_sigs:
         for part in set(part for _, part, _ in group_part_voice_keys):
-            time_sigs_by_part[part].add(ts)
+            time_sigs_by_part[part].append(ts)
 
-    key_sigs_by_part = defaultdict(set)
+    # use a list to preserve all key sigs in order
+    key_sigs_by_part = defaultdict(list)
     for tr, ks_list in key_sigs_by_track.items():
         for ks in ks_list:
             for part in track_to_part_mapping[tr]:
-                key_sigs_by_part[part].add(ks)
+                key_sigs_by_part[part].append(ks)
     for ks in global_key_sigs:
         for part in set(part for _, part, _ in group_part_voice_keys):
-            key_sigs_by_part[part].add(ks)
+            key_sigs_by_part[part].append(ks)
 
     # names_by_part = defaultdict(set)
     # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
@@ -661,13 +664,11 @@ or a list of these
             spellings,
             voices,
             note_ids,
-            sorted(time_sigs_by_part[part_nr]),
-            sorted(key_sigs_by_part[part_nr]),
+            sorted(time_sigs_by_part[part_nr], key=itemgetter(0)),
+            sorted(key_sigs_by_part[part_nr], key=itemgetter(0)),
             part_id="P{}".format(part_nr + 1),
             part_name=part_names.get(part_nr, None),
         )
-
-        # print(part.pretty())
         # if this part has an associated part_group number we create a PartGroup
         # if necessary, and add the part to that. The newly created PartGroup is
         # then added to the partlist.
