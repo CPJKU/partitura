@@ -8,6 +8,8 @@ loudness directions. A score is defined at the highest level by a
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
+
+from __future__ import annotations
 from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
@@ -19,11 +21,12 @@ from partitura.utils.globals import (
     INTERVAL_TO_SEMITONES,
     LABEL_DURS,
 )
-import warnings, sys
+import warnings
+import sys
 import numpy as np
 import re
 from scipy.interpolate import PPoly
-from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype
+from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype, Type
 import difflib
 from partitura.utils import (
     ComparableMixin,
@@ -48,8 +51,8 @@ from partitura.utils import (
     update_note_ids_after_unfolding,
     clef_sign_to_int,
 )
-from partitura.utils.generic import interp1d
-from partitura.utils.music import transpose_note_attributes, step2pc
+from partitura.utils.generic import interp1d, prepare_iter_cls
+from partitura.utils.music import transpose_note_attributes
 from partitura.utils.globals import (
     INT_TO_ALT,
     ALT_TO_INT,
@@ -1080,8 +1083,13 @@ class Part(object):
             self._remove_point(tp)
 
     def iter_all(
-        self, cls=None, start=None, end=None, include_subclasses=False, mode="starting"
-    ):
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        start: TimePoint | None = None,
+        end: TimePoint | None = None,
+        include_subclasses: bool = False,
+        mode: Literal["starting", "ending"] = "starting",
+    ) -> Generator[TimedObject, None, None]:
         """Iterate (in direction of increasing time) over all
         instances of `cls` that either start or end (depending on
         `mode`) in the interval `start` to `end`.  When `start` and
@@ -1089,9 +1097,11 @@ class Part(object):
 
         Parameters
         ----------
-        cls : class, optional
+        cls : class or list/tuple of classes, optional
             The class of objects to iterate over. If omitted, iterate
-            over all objects in the part.
+            over all objects in the part. When cls is list/tuple of
+            classes, instances of any class in the list/tuple will be
+            yielded.
         start : :class:`TimePoint`, optional
             The start of the interval to search. If omitted or None,
             the search starts at the start of the timeline. Defaults
@@ -1130,16 +1140,13 @@ class Part(object):
                 end = TimePoint(end)
             end_idx = np.searchsorted(self._points, end)
 
-        if cls is None:
-            cls = object
-            include_subclasses = True
+        # handle default value, warn on potential issues
+        cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
-        if mode == "ending":
-            for tp in self._points[start_idx:end_idx]:
-                yield from tp.iter_ending(cls, include_subclasses)
-        else:
-            for tp in self._points[start_idx:end_idx]:
-                yield from tp.iter_starting(cls, include_subclasses)
+        for tp in self._points[start_idx:end_idx]:
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode=mode, prepare_cls=False
+            )
 
     def apply(self):
         """Apply all changes to the timeline for objects like octave Shift."""
@@ -1458,14 +1465,19 @@ class TimePoint(ComparableMixin):
         obj.end = self
         self.ending_objects[type(obj)].add(obj)
 
-    def iter_starting(self, cls, include_subclasses=False):
+    def iter_starting(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate over all objects of type `cls` that start at this
-        time point.
+        time point. When `cls` is a list/tuple of classes, include objects
+        of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1476,21 +1488,21 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        if include_subclasses:
-            for key, items in self.starting_objects.items():
-                if issubclass(key, cls):
-                    yield from items
-        elif cls in self.starting_objects:
-            yield from self.starting_objects[cls]
+        return self._iter_objects(cls, include_subclasses, mode="starting")
 
-    def iter_ending(self, cls, include_subclasses=False):
+    def iter_ending(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate over all objects of type `cls` that end at this
-        time point.
+        time point. When `cls` is a list/tuple of classes, include objects
+        of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1501,21 +1513,74 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        if include_subclasses:
-            for key, items in self.ending_objects.items():
-                if issubclass(key, cls):
-                    yield from items
-        elif cls in self.ending_objects:
-            yield from self.ending_objects[cls]
+        return self._iter_objects(cls, include_subclasses, mode="ending")
 
-    def iter_prev(self, cls, eq=False, include_subclasses=False):
+    def _iter_objects(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]],
+        include_subclasses: bool = False,
+        mode: Literal["starting", "ending"] = "starting",
+        prepare_cls: bool = True,
+    ) -> Generator[TimedObject, None, None]:
+        """
+        Generic code to iterate over starting/ending objects.  The `prepare_cls`
+        flag can be used to indicate that there is no need to prepare the `cls`
+        argument.  This is for efficiency, since `_iter_objects` is typically
+        called for many timepoints with the same `cls` (e.g. from
+        `Part.iter_all`), so it makes sense to prepare `cls` only once in
+        advance, and then pass `prepare_cls=False`.
+        """
+
+        if mode == "starting":
+            items = self.starting_objects
+        elif mode == "ending":
+            items = self.ending_objects
+        else:
+            raise ValueError(f"Invalid mode {mode} (must be 'starting' or 'ending')")
+        if prepare_cls:
+            # handle default value, warn on potential issues
+            cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
+
+        if isinstance(cls, type):
+            # single target class
+            if include_subclasses:
+                for key in items.keys():
+                    if issubclass(key, cls):
+                        yield from items[key]
+            elif cls in items:
+                yield from items[cls]
+        else:
+            # multiple target classes
+            yielded = set()
+            for c in cls:
+                if include_subclasses:
+                    for key, objects in items.items():
+                        if issubclass(key, c):
+                            for obj in objects:
+                                if obj not in yielded:
+                                    yield obj
+                                    yielded.add(obj)
+                else:
+                    if c in items:
+                        for obj in items[c]:
+                            if obj not in yielded:
+                                yield obj
+                                yielded.add(obj)
+
+    def iter_prev(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        eq: bool = False,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate backwards in time from the current timepoint over
-        starting object(s) of type `cls`.
+        starting object(s) of type `cls`. When `cls` is a list/tuple of
+        classes, include objects of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its predecessor. Defaults to False.
@@ -1529,23 +1594,22 @@ class TimePoint(ComparableMixin):
             Instances of `cls`
 
         """
-        if eq:
-            tp = self
-        else:
-            tp = self.prev
+        return self._iter_next_prev(cls, eq, include_subclasses, mode="prev")
 
-        while tp:
-            yield from tp.iter_starting(cls, include_subclasses)
-            tp = tp.prev
-
-    def iter_next(self, cls, eq=False, include_subclasses=False):
+    def iter_next(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        eq: bool = False,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate forwards in time from the current timepoint over
-        starting object(s) of type `cls`.
+        starting object(s) of type `cls`. When `cls` is a list/tuple
+        of classes, include objects of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its successor. Defaults to False.
@@ -1559,14 +1623,35 @@ class TimePoint(ComparableMixin):
             Instances of `cls`
 
         """
+        return self._iter_next_prev(cls, eq, include_subclasses, mode="next")
+
+    def _iter_next_prev(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]],
+        eq: bool = False,
+        include_subclasses: bool = False,
+        mode: Literal["next", "prev"] = "next",
+        prepare_cls: bool = True,
+    ) -> Generator[TimedObject, None, None]:
+        if not mode in ("next", "prev"):
+            raise ValueError(f'Invalid mode {mode} (must be one of "next", "prev")')
+
         if eq:
             tp = self
-        else:
+        elif mode == "next":
             tp = self.next
+        else:
+            tp = self.prev
+
+        if prepare_cls:
+            # handle default value, warn on potential issues
+            cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
         while tp:
-            yield from tp.iter_starting(cls, include_subclasses)
-            tp = tp.next
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode="starting", prepare_cls=False
+            )
+            tp = tp.next if mode == "next" else tp.prev
 
     def _cmpkey(self):
         # This method returns the value to be compared (code for that is in
