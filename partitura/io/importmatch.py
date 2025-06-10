@@ -228,6 +228,7 @@ def load_match(
     performance = Performance(
         id=get_document_name(filename),
         performedparts=ppart,
+        ensure_unique_tracks=False
     )
     # Generate Part
     if create_score:
@@ -345,10 +346,13 @@ def performed_part_from_match(
     notes = list()
     note_onsets_in_secs = np.array(np.zeros(len(mf.notes)), dtype=float)
     note_onsets_in_tick = np.array(np.zeros(len(mf.notes)), dtype=int)
+    tracks = set()
     for i, note in enumerate(mf.notes):
         n_onset_sec = midi_ticks_to_seconds(note.Onset, mpq, ppq)
         note_onsets_in_secs[i] = n_onset_sec
         note_onsets_in_tick[i] = note.Onset
+        track = getattr(note, "Track", 0)
+        tracks.add(track)
         notes.append(
             dict(
                 id=format_pnote_id(note.Id),
@@ -359,7 +363,7 @@ def performed_part_from_match(
                 note_off_tick=note.Offset,
                 sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
                 velocity=note.Velocity,
-                track=getattr(note, "Track", 0),
+                track=track,
                 channel=getattr(note, "Channel", 0),
             )
         )
@@ -384,7 +388,7 @@ def performed_part_from_match(
         )
         for ped in mf.sustain_pedal
     ]
-
+    
     # SoftPedal instances for soft pedal lines
     soft_pedal = [
         dict(
@@ -395,6 +399,13 @@ def performed_part_from_match(
         for ped in mf.soft_pedal
     ]
 
+    # check if multiple tracks are in the match file
+    if len(tracks) > 1:
+        warnings.warn(
+                "multiple MIDI tracks in matchfile" "information!."
+            )
+    used_track = min(tracks)
+
     # Make performed part
     ppart = PerformedPart(
         id="P1",
@@ -402,6 +413,9 @@ def performed_part_from_match(
         notes=notes,
         controls=sustain_pedal + soft_pedal,
         sustain_pedal_threshold=pedal_threshold,
+        ppq = ppq,
+        mpq = mpq,
+        track = used_track
     )
     return ppart
 
