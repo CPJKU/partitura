@@ -395,7 +395,7 @@ def save_score_midi(
 
         def to_ppq(t):
             # convert div times to new ppq
-            return int(ppq * (qm(t) - ftp))
+            return round(ppq * (qm(t) - ftp))
 
         for tp in part.iter_all(score.Tempo):
             tempos[to_ppq(tp.start.t)] = MetaMessage(
