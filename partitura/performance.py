@@ -624,32 +624,34 @@ class Performance(object):
         self.performedparts is unique (i.e., that a track number does not appear
         in multiple `PerformedPart` instances)
         """
-        possible_track_numbers = [*range(16)]
-        for pp in self:
-            # find all used track numbers in this ppart
-            unique_track_ids = list(
-                set([n.get("track", 0) for n in pp.notes]
-                    + [c.get("track", 0) for c in pp.controls]
-                    + [p.get("track", 0) for p in pp.programs]
-                    + [pp.track])
+        unique_track_ids = list(
+            set(
+                [(i, n.get("track", -1)) for i, pp in enumerate(self) for n in pp.notes]
+                + [
+                    (i, c.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for c in pp.controls
+                ]
+                + [
+                    (i, p.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for p in pp.programs
+                ]
             )
-            # check if only one track number was used and if it's free to use
-            if len(unique_track_ids) == 1 and unique_track_ids[0] in possible_track_numbers:
-                assigned_track_number = unique_track_ids[0]
-                possible_track_numbers.remove(assigned_track_number)
+        )
 
-            # assign a free track number otherwise
-            else:
-                assigned_track_number = possible_track_numbers[0]
-                possible_track_numbers.remove(assigned_track_number)
-            # update all track numbers
-            pp.track = assigned_track_number
-            for note in pp.notes:
-                note["track"] = assigned_track_number
-            for control in pp.controls:
-                control["track"] = assigned_track_number
-            for program in pp.programs:
-                program["track"] = assigned_track_number
+        track_map = dict([(tid, ti) for ti, tid in enumerate(unique_track_ids)])
+
+        for i, ppart in enumerate(self):
+            for note in ppart.notes:
+                note["track"] = track_map[(i, note.get("track", -1))]
+
+            for control in ppart.controls:
+                control["track"] = track_map[(i, control.get("track", -1))]
+
+            for program in ppart.programs:
+                program["track"] = track_map[(i, program.get("track", -1))]
+
 
     def __getitem__(self, index: int) -> PerformedPart:
         """Get `Part in the score by index"""

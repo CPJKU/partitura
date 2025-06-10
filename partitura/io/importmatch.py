@@ -347,12 +347,15 @@ def performed_part_from_match(
     note_onsets_in_secs = np.array(np.zeros(len(mf.notes)), dtype=float)
     note_onsets_in_tick = np.array(np.zeros(len(mf.notes)), dtype=int)
     tracks = set()
+    channels = set()
     for i, note in enumerate(mf.notes):
         n_onset_sec = midi_ticks_to_seconds(note.Onset, mpq, ppq)
         note_onsets_in_secs[i] = n_onset_sec
         note_onsets_in_tick[i] = note.Onset
         track = getattr(note, "Track", 0)
         tracks.add(track)
+        channel=getattr(note, "Channel", 0)
+        channels.add(channel)
         notes.append(
             dict(
                 id=format_pnote_id(note.Id),
@@ -364,7 +367,7 @@ def performed_part_from_match(
                 sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
                 velocity=note.Velocity,
                 track=track,
-                channel=getattr(note, "Channel", 0),
+                channel=channel,
             )
         )
     # Set first note_on to zero in ticks and seconds if first_note_at_zero
@@ -379,12 +382,28 @@ def performed_part_from_match(
                 note["note_on_tick"] -= offset_tick
                 note["note_off_tick"] -= offset_tick
 
+    # check if multiple tracks are in the match file
+    if len(tracks) > 1:
+        warnings.warn(
+                "Notes on multiple MIDI tracks in matchfile" "information!."
+            )
+    used_track = min(tracks)
+    # check if multiple tracks are in the match file
+    if len(channels) > 1:
+        warnings.warn(
+                "Notes on multiple MIDI channels in matchfile" "information!."
+            )
+    used_channel = min(channels)
+
+
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = [
         dict(
             number=64,
             time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
+            track=used_track, 
+            channel=used_channel,
         )
         for ped in mf.sustain_pedal
     ]
@@ -395,16 +414,11 @@ def performed_part_from_match(
             number=67,
             time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
+            track=used_track,
+            channel=used_channel,
         )
         for ped in mf.soft_pedal
     ]
-
-    # check if multiple tracks are in the match file
-    if len(tracks) > 1:
-        warnings.warn(
-                "multiple MIDI tracks in matchfile" "information!."
-            )
-    used_track = min(tracks)
 
     # Make performed part
     ppart = PerformedPart(
