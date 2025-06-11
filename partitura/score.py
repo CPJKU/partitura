@@ -947,7 +947,7 @@ class Part(object):
         self._number_of_staves = max_staves
         return max_staves
 
-    def _remove_point(self, tp):
+    def _remove_point(self, tp: TimePoint):
         i = np.searchsorted(self._points, tp)
         if i < len(self._points) and self._points[i] == tp:
             # If not on boundary, link prev and next points together
