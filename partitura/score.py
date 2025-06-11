@@ -8,6 +8,7 @@ loudness directions. A score is defined at the highest level by a
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
+from __future__ import annotations
 from copy import copy, deepcopy
 from collections import defaultdict
 from collections.abc import Iterable
