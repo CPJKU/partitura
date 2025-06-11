@@ -75,6 +75,7 @@ class TestingPartProperties(unittest.TestCase):
         self.assertTrue(len(part._points) == num_points - 1)
         self.assertTrue(p0.next is p20)
         self.assertTrue(p20.prev is p0)
+        self.assertRaises(ValueError, lambda: part._remove_point(p10))  # Already gone
 
         # Removing n1 should remove the last point
         part.remove(n1)

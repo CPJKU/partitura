@@ -949,7 +949,7 @@ class Part(object):
 
     def _remove_point(self, tp):
         i = np.searchsorted(self._points, tp)
-        if self._points[i] == tp:
+        if i < len(self._points) and self._points[i] == tp:
             # If not on boundary, link prev and next points together
             if i > 0 and i < len(self._points) - 1:
                 self._points[i - 1].next = self._points[i + 1]
@@ -966,6 +966,8 @@ class Part(object):
                 pass
             # Actually delete the point
             self._points = np.delete(self._points, i)
+        else:
+            raise ValueError(f"Trying to remove a non-existing timepoint {tp}")
 
     def get_point(self, t):
         """Return the `TimePoint` object with time `t`, or None if
