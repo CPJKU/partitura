@@ -949,16 +949,27 @@ class Part(object):
         self._number_of_staves = max_staves
         return max_staves
 
-    def _remove_point(self, tp):
+    def _remove_point(self, tp: TimePoint):
         i = np.searchsorted(self._points, tp)
-        if self._points[i] == tp:
+        if i < len(self._points) and self._points[i] == tp:
+            # If not on boundary, link prev and next points together
+            if i > 0 and i < len(self._points) - 1:
+                self._points[i - 1].next = self._points[i + 1]
+                self._points[i + 1].prev = self._points[i - 1]
+            # If last point, remove reference to it
+            elif i > 0:
+                self._points[i - 1].next = None
+            # If first point, remove reference to it
+            elif i < len(self._points) - 1:
+                self._points[i - 1].prev = None
+            # That last case only happen when there is a single point in the array,
+            # no prev/next update in that case, simply delete
+            else:
+                pass
+            # Actually delete the point
             self._points = np.delete(self._points, i)
-            if i > 0:
-                self._points[i - 1].next = self._points[i]
-                self._points[i].prev = self._points[i - 1]
-            if i < len(self._points) - 1:
-                self._points[i].next = self._points[i + 1]
-                self._points[i + 1].prev = self._points[i]
+        else:
+            raise ValueError(f"Trying to remove a non-existing timepoint {tp}")
 
     def get_point(self, t):
         """Return the `TimePoint` object with time `t`, or None if
