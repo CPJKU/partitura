@@ -1,6 +1,18 @@
 Release Notes
 =============
 
+
+### Other Changes
+- Allow `cls` parameter of `iter_all` to take an iterable of classes rather
+  than a single class.
+- Speed up `Part.iter_all()` when called without `cls`.  Although the order in
+  which simultaneously starting/ending objects are returned is an implementation
+  detail, note that this update may change that order with respect to previous
+  versions.
+- In `load_score_midi`, keep all time/key sig events, also when they occur at a
+  single time point. In earlier versions, when e.g. a 4/4 and 3/4 event would
+  both occur at time t, only the 4/4 event would be maintained.
+
 Version 1.6.0 (Released on 2025-02-27)
 --------------------------------------
 

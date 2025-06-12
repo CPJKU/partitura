@@ -920,7 +920,7 @@ def get_unique_onset_idxs(
 
 
 def notewise_to_onsetwise(notewise_inputs, unique_onset_idxs):
-    """Agregate basis functions per onset"""
+    """Aggregate basis functions per onset"""
 
     if notewise_inputs.ndim == 1:
         shape = len(unique_onset_idxs)

@@ -8,6 +8,7 @@ loudness directions. A score is defined at the highest level by a
 object). This object serves as a timeline at which musical elements
 are registered in terms of their start and end times.
 """
+
 from __future__ import annotations
 from copy import copy, deepcopy
 from collections import defaultdict
@@ -20,16 +21,16 @@ from partitura.utils.globals import (
     INTERVAL_TO_SEMITONES,
     LABEL_DURS,
 )
-import warnings, sys
+import warnings
+import sys
 import numpy as np
 import re
 from scipy.interpolate import PPoly
-from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype
+from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype, Type
 import difflib
 from partitura.utils import (
     ComparableMixin,
     ReplaceRefMixin,
-    iter_subclasses,
     iter_current_next,
     sorted_dict_items,
     PrettyPrintTree,
@@ -50,8 +51,8 @@ from partitura.utils import (
     update_note_ids_after_unfolding,
     clef_sign_to_int,
 )
-from partitura.utils.generic import interp1d
-from partitura.utils.music import transpose_note, step2pc
+from partitura.utils.generic import interp1d, prepare_iter_cls
+from partitura.utils.music import transpose_note_attributes
 from partitura.utils.globals import (
     INT_TO_ALT,
     ALT_TO_INT,
@@ -1093,8 +1094,13 @@ class Part(object):
             self._remove_point(tp)
 
     def iter_all(
-        self, cls=None, start=None, end=None, include_subclasses=False, mode="starting"
-    ):
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        start: TimePoint | None = None,
+        end: TimePoint | None = None,
+        include_subclasses: bool = False,
+        mode: Literal["starting", "ending"] = "starting",
+    ) -> Generator[TimedObject, None, None]:
         """Iterate (in direction of increasing time) over all
         instances of `cls` that either start or end (depending on
         `mode`) in the interval `start` to `end`.  When `start` and
@@ -1102,9 +1108,11 @@ class Part(object):
 
         Parameters
         ----------
-        cls : class, optional
+        cls : class or list/tuple of classes, optional
             The class of objects to iterate over. If omitted, iterate
-            over all objects in the part.
+            over all objects in the part. When cls is list/tuple of
+            classes, instances of any class in the list/tuple will be
+            yielded.
         start : :class:`TimePoint`, optional
             The start of the interval to search. If omitted or None,
             the search starts at the start of the timeline. Defaults
@@ -1143,16 +1151,13 @@ class Part(object):
                 end = TimePoint(end)
             end_idx = np.searchsorted(self._points, end)
 
-        if cls is None:
-            cls = object
-            include_subclasses = True
+        # handle default value, warn on potential issues
+        cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
-        if mode == "ending":
-            for tp in self._points[start_idx:end_idx]:
-                yield from tp.iter_ending(cls, include_subclasses)
-        else:
-            for tp in self._points[start_idx:end_idx]:
-                yield from tp.iter_starting(cls, include_subclasses)
+        for tp in self._points[start_idx:end_idx]:
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode=mode, prepare_cls=False
+            )
 
     def apply(self):
         """Apply all changes to the timeline for objects like octave Shift."""
@@ -1471,14 +1476,19 @@ class TimePoint(ComparableMixin):
         obj.end = self
         self.ending_objects[type(obj)].add(obj)
 
-    def iter_starting(self, cls, include_subclasses=False):
+    def iter_starting(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate over all objects of type `cls` that start at this
-        time point.
+        time point. When `cls` is a list/tuple of classes, include objects
+        of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1489,19 +1499,21 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.starting_objects[cls]
-        if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.starting_objects[subcls]
+        return self._iter_objects(cls, include_subclasses, mode="starting")
 
-    def iter_ending(self, cls, include_subclasses=False):
+    def iter_ending(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate over all objects of type `cls` that end at this
-        time point.
+        time point. When `cls` is a list/tuple of classes, include objects
+        of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            The type of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         include_subclasses : bool, optional
             When True, include all objects of all subclasses of `cls`
             in the iteration. Defaults to False.
@@ -1512,19 +1524,74 @@ class TimePoint(ComparableMixin):
             Instance of type `cls`
 
         """
-        yield from self.ending_objects[cls]
-        if include_subclasses:
-            for subcls in iter_subclasses(cls):
-                yield from self.ending_objects[subcls]
+        return self._iter_objects(cls, include_subclasses, mode="ending")
 
-    def iter_prev(self, cls, eq=False, include_subclasses=False):
+    def _iter_objects(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]],
+        include_subclasses: bool = False,
+        mode: Literal["starting", "ending"] = "starting",
+        prepare_cls: bool = True,
+    ) -> Generator[TimedObject, None, None]:
+        """
+        Generic code to iterate over starting/ending objects.  The `prepare_cls`
+        flag can be used to indicate that there is no need to prepare the `cls`
+        argument.  This is for efficiency, since `_iter_objects` is typically
+        called for many timepoints with the same `cls` (e.g. from
+        `Part.iter_all`), so it makes sense to prepare `cls` only once in
+        advance, and then pass `prepare_cls=False`.
+        """
+
+        if mode == "starting":
+            items = self.starting_objects
+        elif mode == "ending":
+            items = self.ending_objects
+        else:
+            raise ValueError(f"Invalid mode {mode} (must be 'starting' or 'ending')")
+        if prepare_cls:
+            # handle default value, warn on potential issues
+            cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
+
+        if isinstance(cls, type):
+            # single target class
+            if include_subclasses:
+                for key in items.keys():
+                    if issubclass(key, cls):
+                        yield from items[key]
+            elif cls in items:
+                yield from items[cls]
+        else:
+            # multiple target classes
+            yielded = set()
+            for c in cls:
+                if include_subclasses:
+                    for key, objects in items.items():
+                        if issubclass(key, c):
+                            for obj in objects:
+                                if obj not in yielded:
+                                    yield obj
+                                    yielded.add(obj)
+                else:
+                    if c in items:
+                        for obj in items[c]:
+                            if obj not in yielded:
+                                yield obj
+                                yielded.add(obj)
+
+    def iter_prev(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        eq: bool = False,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate backwards in time from the current timepoint over
-        starting object(s) of type `cls`.
+        starting object(s) of type `cls`. When `cls` is a list/tuple of
+        classes, include objects of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its predecessor. Defaults to False.
@@ -1538,23 +1605,22 @@ class TimePoint(ComparableMixin):
             Instances of `cls`
 
         """
-        if eq:
-            tp = self
-        else:
-            tp = self.prev
+        return self._iter_next_prev(cls, eq, include_subclasses, mode="prev")
 
-        while tp:
-            yield from tp.iter_starting(cls, include_subclasses)
-            tp = tp.prev
-
-    def iter_next(self, cls, eq=False, include_subclasses=False):
+    def iter_next(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]] | None = None,
+        eq: bool = False,
+        include_subclasses: bool = False,
+    ) -> Generator[TimedObject, None, None]:
         """Iterate forwards in time from the current timepoint over
-        starting object(s) of type `cls`.
+        starting object(s) of type `cls`. When `cls` is a list/tuple
+        of classes, include objects of any class in `cls`.
 
         Parameters
         ----------
-        cls : class
-            Class of objects to iterate over
+        cls : class or list/tuple of classes
+            Class(es) of objects to iterate over
         eq : bool, optional
             If True start iterating at the current timepoint, rather
             than its successor. Defaults to False.
@@ -1568,14 +1634,35 @@ class TimePoint(ComparableMixin):
             Instances of `cls`
 
         """
+        return self._iter_next_prev(cls, eq, include_subclasses, mode="next")
+
+    def _iter_next_prev(
+        self,
+        cls: Type[TimedObject] | Iterable[Type[TimedObject]],
+        eq: bool = False,
+        include_subclasses: bool = False,
+        mode: Literal["next", "prev"] = "next",
+        prepare_cls: bool = True,
+    ) -> Generator[TimedObject, None, None]:
+        if not mode in ("next", "prev"):
+            raise ValueError(f'Invalid mode {mode} (must be one of "next", "prev")')
+
         if eq:
             tp = self
-        else:
+        elif mode == "next":
             tp = self.next
+        else:
+            tp = self.prev
+
+        if prepare_cls:
+            # handle default value, warn on potential issues
+            cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)
 
         while tp:
-            yield from tp.iter_starting(cls, include_subclasses)
-            tp = tp.next
+            yield from tp._iter_objects(
+                cls, include_subclasses, mode="starting", prepare_cls=False
+            )
+            tp = tp.next if mode == "next" else tp.prev
 
     def _cmpkey(self):
         # This method returns the value to be compared (code for that is in
@@ -2422,7 +2509,9 @@ class Tuplet(TimedObject):
         actual_notes=None,
         normal_notes=None,
         actual_type=None,
+        actual_dots=None,
         normal_type=None,
+        normal_dots=None,
     ):
         super().__init__()
         self._start_note = None
@@ -2433,6 +2522,8 @@ class Tuplet(TimedObject):
         self.normal_notes = normal_notes
         self.actual_type = actual_type
         self.normal_type = normal_type
+        self.actual_dots = actual_dots
+        self.normal_dots = normal_dots
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(["start_note", "end_note"])
 
@@ -2479,13 +2570,20 @@ class Tuplet(TimedObject):
         For example, in a triplet of eighth notes, each eighth note would have a duration of
         duration_multiplier * normal_eighth_duration = 2/3 * normal_eighth_duration
         """
-        if self.actual_type == self.normal_type:
+        if (
+            self.actual_type == self.normal_type
+            and self.actual_dots == self.normal_dots
+        ):
             return Fraction(self.normal_notes, self.actual_notes)
         else:
             # In that case, we need to convert the normal_type into the actual_type, therefore
             # adapting normal_notes
             actual_dur = Fraction(LABEL_DURS[self.actual_type])
             normal_dur = Fraction(LABEL_DURS[self.normal_type])
+            for _ in range(self.actual_dots):
+                actual_dur += actual_dur / 2
+            for _ in range(self.normal_dots):
+                normal_dur += normal_dur / 2
             return (
                 Fraction(self.normal_notes, self.actual_notes) * normal_dur / actual_dur
             )
@@ -2511,6 +2609,12 @@ class Tuplet(TimedObject):
             if self.normal_type is None
             else "normal_type={}".format(self.normal_type)
         )
+        if self.actual_dots:
+            for _ in range(self.actual_dots):
+                t_actual += "."
+        if self.normal_dots:
+            for _ in range(self.normal_dots):
+                t_normal += "."
         start = "" if self.start_note is None else "start={}".format(self.start_note.id)
         end = "" if self.end_note is None else "end={}".format(self.end_note.id)
         return " ".join(
@@ -3170,7 +3274,7 @@ class RomanNumeral(Harmony):
                 if self.local_key.islower()
                 else Roman2Interval_Maj[self.secondary_degree]
             )
-            step, alter = transpose_note(key_step, key_alter, interval)
+            step, alter, _ = transpose_note_attributes(interval, key_step, key_alter)
         except KeyError:
             loc_k = self.secondary_degree
             glob_k = self.local_key
@@ -3183,7 +3287,7 @@ class RomanNumeral(Harmony):
                 if self.secondary_degree.islower()
                 else Roman2Interval_Maj[self.primary_degree]
             )
-            step, alter = transpose_note(step, alter, interval)
+            step, alter, _ = transpose_note_attributes(interval, step, alter)
             root = step + INT_TO_ALT[alter]
         except KeyError:
             loc_k = self.primary_degree
@@ -3201,13 +3305,17 @@ class RomanNumeral(Harmony):
 
         if self.inversion == 1:
             if self.primary_degree.islower():
-                step, alter = transpose_note(step, alter, Interval(3, "m"))
+                step, alter, _ = transpose_note_attributes(
+                    Interval(3, "m"), step, alter
+                )
             else:
-                step, alter = transpose_note(step, alter, Interval(3, "M"))
+                step, alter, _ = transpose_note_attributes(
+                    Interval(3, "M"), step, alter
+                )
         elif self.inversion == 2:
-            step, alter = transpose_note(step, alter, Interval(5, "P"))
+            step, alter, _ = transpose_note_attributes(Interval(5, "P"), step, alter)
         elif self.inversion == 3:
-            step, alter = transpose_note(step, alter, Interval(7, "m"))
+            step, alter, _ = transpose_note_attributes(Interval(7, "m"), step, alter)
 
         bass_note_name = step + INT_TO_ALT[alter]
         return bass_note_name
@@ -4610,11 +4718,14 @@ def add_segments(part, force_new=False):
     boundary_times.sort()
 
     # for every segment get an id, its jump destinations and properties
-    init_character = 65
+    character_map = {
+        **{i: chr(65 + i) for i in range(26)},
+        **{i + 26: chr(97 + i) for i in range(26)},
+    }
     segment_info = dict()
     for i, (s, e) in enumerate(zip(boundary_times[:-1], boundary_times[1:])):
         segment_info[s] = {
-            "ID": chr(init_character + i),
+            "ID": character_map[i],
             "start": s,
             "end": e,
             "to": [],
@@ -6099,7 +6210,9 @@ def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
     if return_step_alter:
         return key_step, key_alter
     local_key = (
@@ -6185,7 +6298,9 @@ def process_local_key(loc_k, glob_k, return_step_alter=False):
     )
     key_alter = key_alter.replace("b", "-")
     key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter = transpose_note(key_step, key_alter, transposition_interval)
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
     if return_step_alter:
         return key_step, key_alter
     local_key = (

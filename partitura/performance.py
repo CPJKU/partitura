@@ -135,7 +135,7 @@ class PerformedPart(object):
         """
         self._sustain_pedal_threshold = value
         if len(self.notes) > 0:
-            adjust_offsets_w_sustain(
+            adjust_note_offsets_with_sustain(
                 self.notes, self.controls, self._sustain_pedal_threshold
             )
 
@@ -170,19 +170,35 @@ class PerformedPart(object):
         note_array = []
         for n in self.notes:
             note_on_sec = n["note_on"]
+            note_off_sec = n.get("sound_off", n["note_off"])
+            duration_sec = note_off_sec - note_on_sec
+
+            # tick on, off, duration:
+            # if tick_off is not provided, infer from default mpq and ppq, otherwise use provided)
             note_on_tick = n.get(
                 "note_on_tick",
                 seconds_to_midi_ticks(n["note_on"], mpq=self.mpq, ppq=self.ppq),
             )
-            offset = n.get("sound_off", n["note_off"])
-            duration_sec = offset - note_on_sec
-            duration_tick = (
-                n.get(
+            if n.get("note_off_tick", None) is None:
+                note_off_tick = n.get(
                     seconds_to_midi_ticks(n["sound_off"], mpq=self.mpq, ppq=self.ppq),
                     seconds_to_midi_ticks(n["note_off"], mpq=self.mpq, ppq=self.ppq),
                 )
-                - note_on_tick
-            )
+                duration_tick = (
+                    n.get(
+                        seconds_to_midi_ticks(
+                            n["sound_off"], mpq=self.mpq, ppq=self.ppq
+                        ),
+                        seconds_to_midi_ticks(
+                            n["note_off"], mpq=self.mpq, ppq=self.ppq
+                        ),
+                    )
+                    - note_on_tick
+                )
+            else:
+                note_off_tick = n["note_off_tick"]
+                duration_tick = note_off_tick - note_on_tick
+
             note_array.append(
                 (
                     note_on_sec,
@@ -196,7 +212,6 @@ class PerformedPart(object):
                     n["id"],
                 )
             )
-
         return np.array(note_array, dtype=fields)
 
     @classmethod
@@ -257,7 +272,7 @@ class PerformedPart(object):
         return cls(id=id, part_name=part_name, notes=notes, controls=None)
 
 
-def adjust_offsets_w_sustain(
+def adjust_note_offsets_with_sustain(
     notes: List[dict],
     controls: List[dict],
     threshold=64,
@@ -267,11 +282,12 @@ def adjust_offsets_w_sustain(
     first_off = np.min(offs)
     last_off = np.max(offs)
 
-    # Get pedal times
+    # get pedal times
     pedal = np.array(
         [(x["time"], x["value"] > threshold) for x in controls if x["number"] == 64]
     )
 
+    # if there is no pedal info, assume pedal is off
     if len(pedal) == 0:
         for note in notes:
             note["sound_off"] = note["note_off"]
@@ -291,13 +307,17 @@ def adjust_offsets_w_sustain(
             (max(pedal[-1, 0] + 1, last_off + 1), 0),
         )
     )
+    # find pedal state at note offsets
     last_pedal_change_before_off = np.searchsorted(pedal[:, 0], offs) - 1
-
     pedal_state_at_off = pedal[last_pedal_change_before_off, 1]
     pedal_down_at_off = pedal_state_at_off == 1
     next_pedal_time = pedal[last_pedal_change_before_off + 1, 0]
 
-    offs[pedal_down_at_off] = next_pedal_time[pedal_down_at_off]
+    # adjust the note offset
+    # for notes where the pedal is down at the note-off time, adjusts the note off time to the next pedal change time if it is later
+    offs[pedal_down_at_off] = np.maximum(
+        next_pedal_time[pedal_down_at_off], offs[pedal_down_at_off]
+    )
 
     # adjust offset times of notes that have a reonset while the sustain pedal is on
     pitches = np.array([n["midi_pitch"] for n in notes])
@@ -314,8 +334,9 @@ def adjust_offsets_w_sustain(
 
         offs[sorted_indices[:-1]] = adjusted_sound_offs
 
+    # adjust the sound off
     for offset, note in zip(offs, notes):
-        note["sound_off"] = offset
+        note["sound_off"] = max(offset, note["note_off"])
 
 
 class PerformedNote:
