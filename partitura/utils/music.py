@@ -3410,31 +3410,37 @@ def segment_ppart_by_start_end_times(
     # find all the unique 'number' values in perf.controls
     cc_nums_in_ppart = list(set([control['number'] for control in perf_controls]))
 
+    take_prev_start_time = False
+    segment_jump_back_counter = 0
+
     for i in range(len(start_times)):
-        start_time = start_times[i]
+        if take_prev_start_time:
+            # if the previous segment was merged with the next segment, take the previous start time
+            start_time = start_times[i-segment_jump_back_counter]
+            take_prev_start_time = False
+        else:
+            # take the current start time
+            start_time = start_times[i]
         end_time = end_times[i]
 
         # if the duration of the segment is less than the minimum segment duration,
         # merge the segment with the next segment
         if end_times[i] - start_times[i] < min_segment_duration:
+            segment_jump_back_counter += 1
             if i+1 < len(end_times):
-                end_time = end_times[i+1]
-                i += 1 # to move the for loop iterator to the next segment
-                # remove the last appended segment in list_pparts
-                if len(list_pparts) != 0:
-                    list_pparts.pop()
-                # take the previous segment's start time while keeping the present segment's end time
-                start_time = start_times[i-1]
-                ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
+                take_prev_start_time = True
+                continue
 
             # if the small segment is the last segment in the performed part, add it to the previous segment
             else:
                 # remove the last appended segment in list_pparts
-                list_pparts.pop()
-                start_time = start_times[i-1] # take the previous segment's start time while keeping the present segment's end time
+                temp_ppart = list_pparts.pop()
+                first_note_temp_ppart = temp_ppart.notes[0]
+                start_time = first_note_temp_ppart['note_on'] # take the previous segment's start time while keeping the present segment's end time
                 ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
         
         else:
+            segment_jump_back_counter = 0
             ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
 
         # from the second segment onwards, add the last control values from the previous segment to the current segment.
