@@ -226,9 +226,7 @@ def load_match(
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
 
     performance = Performance(
-        id=get_document_name(filename),
-        performedparts=ppart,
-        ensure_unique_tracks=False
+        id=get_document_name(filename), performedparts=ppart, ensure_unique_tracks=False
     )
     # Generate Part
     if create_score:
@@ -354,7 +352,7 @@ def performed_part_from_match(
         note_onsets_in_tick[i] = note.Onset
         track = getattr(note, "Track", 0)
         tracks.add(track)
-        channel=getattr(note, "Channel", 0)
+        channel = getattr(note, "Channel", 0)
         channels.add(channel)
         notes.append(
             dict(
@@ -384,17 +382,12 @@ def performed_part_from_match(
 
     # check if multiple tracks are in the match file
     if len(tracks) > 1:
-        warnings.warn(
-                "Notes on multiple MIDI tracks in matchfile" "information!."
-            )
+        warnings.warn("Notes on multiple MIDI tracks in matchfile" "information!.")
     used_track = min(tracks)
     # check if multiple tracks are in the match file
     if len(channels) > 1:
-        warnings.warn(
-                "Notes on multiple MIDI channels in matchfile" "information!."
-            )
+        warnings.warn("Notes on multiple MIDI channels in matchfile" "information!.")
     used_channel = min(channels)
-
 
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = [
@@ -402,12 +395,12 @@ def performed_part_from_match(
             number=64,
             time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
-            track=used_track, 
+            track=used_track,
             channel=used_channel,
         )
         for ped in mf.sustain_pedal
     ]
-    
+
     # SoftPedal instances for soft pedal lines
     soft_pedal = [
         dict(
@@ -427,9 +420,9 @@ def performed_part_from_match(
         notes=notes,
         controls=sustain_pedal + soft_pedal,
         sustain_pedal_threshold=pedal_threshold,
-        ppq = ppq,
-        mpq = mpq,
-        track = used_track
+        ppq=ppq,
+        mpq=mpq,
+        track=used_track,
     )
     return ppart
 

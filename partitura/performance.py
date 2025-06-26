@@ -652,7 +652,6 @@ class Performance(object):
             for program in ppart.programs:
                 program["track"] = track_map[(i, program.get("track", -1))]
 
-
     def __getitem__(self, index: int) -> PerformedPart:
         """Get `Part in the score by index"""
         return self.performedparts[index]
