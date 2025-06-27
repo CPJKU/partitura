@@ -2194,6 +2194,8 @@ class UnpitchedNote(GenericNote):
         if self.beam is not None:
             self.beam.append(self)
 
+        self._ref_attrs.append("beam")
+
     def __str__(self):
         return " ".join(
             (
