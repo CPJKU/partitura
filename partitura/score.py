@@ -5355,9 +5355,8 @@ def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
 
     """
     if isinstance(score, Score):
-        # Copy needs to be deep, which might trigger a RecursionError for complexes scores
+        # Copy needs to be deep, which might trigger a RecursionError for complex scores
         # The user is responsible for manually increasing the recursion limit if needed
-        # Deep copy of score
         new_score = deepcopy(score)
         new_partlist = list()
         for score in new_score.parts:
@@ -5400,9 +5399,8 @@ def unfold_part_minimal(score: ScoreLike):
 
     """
     if isinstance(score, Score):
-        # Copy needs to be deep, which might trigger a RecursionError for complexes scores
+        # Copy needs to be deep, which might trigger a RecursionError for complex scores
         # The user is responsible for manually increasing the recursion limit if needed
-        # Deep copy of score
         unfolded_score = deepcopy(score)
         new_partlist = list()
         for part in unfolded_score.parts:
