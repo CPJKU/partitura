@@ -1845,13 +1845,13 @@ class GenericNote(TimedObject):
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(
             [
+                "fermata",
                 "tie_prev",
                 "tie_next",
                 "slur_stops",
                 "slur_starts",
                 "tuplet_stops",
                 "tuplet_starts",
-                "fermata",
             ]
         )
 
