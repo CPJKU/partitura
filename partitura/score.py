@@ -5330,6 +5330,10 @@ def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
     part where all segments marked with repeat signs are included
     twice.
 
+    Note that for complex scores, this function might raise a RecursionError.
+    The recursion limit can be manually increased beforehand with the function
+    sys.setrecursionlimit.
+
     Parameters
     ----------
     score : ScoreLike
@@ -5351,13 +5355,9 @@ def unfold_part_maximal(score: ScoreLike, update_ids=True, ignore_leaps=True):
 
     """
     if isinstance(score, Score):
-        # Copy needs to be deep, otherwise the recursion limit will be exceeded
-        old_recursion_depth = sys.getrecursionlimit()
-        sys.setrecursionlimit(10000)
-        # Deep copy of score
+        # Copy needs to be deep, which might trigger a RecursionError for complex scores
+        # The user is responsible for manually increasing the recursion limit if needed
         new_score = deepcopy(score)
-        # Reset recursion limit to previous value to avoid side effects
-        sys.setrecursionlimit(old_recursion_depth)
         new_partlist = list()
         for score in new_score.parts:
             unfolded_part = unfold_part_maximal(
@@ -5383,6 +5383,10 @@ def unfold_part_minimal(score: ScoreLike):
     Warning: The unfolding of repeats is computed part-wise, inconsistent repeat markings of parts of a single result
     in inconsistent unfoldings.
 
+    Note that for complex scores, this function might raise a RecursionError.
+    The recursion limit can be manually increased beforehand with the function
+    sys.setrecursionlimit.
+
     Parameters
     ----------
     score: ScoreLike
@@ -5395,13 +5399,9 @@ def unfold_part_minimal(score: ScoreLike):
 
     """
     if isinstance(score, Score):
-        # Copy needs to be deep, otherwise the recursion limit will be exceeded
-        old_recursion_depth = sys.getrecursionlimit()
-        sys.setrecursionlimit(10000)
-        # Deep copy of score
+        # Copy needs to be deep, which might trigger a RecursionError for complex scores
+        # The user is responsible for manually increasing the recursion limit if needed
         unfolded_score = deepcopy(score)
-        # Reset recursion limit to previous value to avoid side effects
-        sys.setrecursionlimit(old_recursion_depth)
         new_partlist = list()
         for part in unfolded_score.parts:
             unfolded_part = unfold_part_minimal(part)
