@@ -63,6 +63,10 @@ MUSICXML_NOTE_FEATURES = [
     os.path.join(MUSICXML_PATH, fn) for fn in ["test_note_features.xml"]
 ]
 
+MUSICXML_TEMPO_TESTFILES = [
+    os.path.join(MUSICXML_PATH, fn) for fn in ["test_basic_midi.musicxml"]
+]
+
 MUSICXML_UNFOLD_VOLTA = [
     (
         os.path.join(MUSICXML_PATH, fn1),

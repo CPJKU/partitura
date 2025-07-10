@@ -12,6 +12,7 @@ from fractions import Fraction
 from tests import (
     MUSICXML_IMPORT_EXPORT_TESTFILES,
     MUSICXML_SCORE_OBJECT_TESTFILES,
+    MUSICXML_TEMPO_TESTFILES,
     MUSICXML_TUPLET_ATTRIBUTES_TESTFILES,
     MUSICXML_UNFOLD_TESTPAIRS,
     MUSICXML_UNFOLD_COMPLEX,
@@ -321,6 +322,14 @@ class TestMusicXML(unittest.TestCase):
 
         self.assertTrue(len(list(score_w_invisible.iter_all(cls=score.Beam))) == 1)
         self.assertTrue(len(list(score_wo_invisible.iter_all(cls=score.Beam))) == 0)
+
+    def test_tempo_import(self):
+        for fn in MUSICXML_TEMPO_TESTFILES:
+            with open(fn) as f:
+                score = load_musicxml(f, validate=False)
+            part = score.parts[0]
+            tempos = list(part.iter_all(score.Tempo))
+            assert len(tempos) > 0
 
 
 def make_part_slur():
