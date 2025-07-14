@@ -9,7 +9,7 @@ import warnings
 from urllib.request import urlopen
 from shutil import copyfileobj
 import re
-from pathlib import Path
+
 from typing import Union, Callable, Dict, Any, Iterable, Optional, List
 
 import numpy as np
@@ -25,7 +25,7 @@ except ImportError:
     PIL_EXISTS = False
 
 # Recommended by PEP 519
-PathLike = Union[str, bytes, os.PathLike, Path]
+PathLike = Union[str, bytes, os.PathLike]
 
 
 def get_document_name(filename: PathLike) -> str:
