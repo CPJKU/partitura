@@ -3374,10 +3374,10 @@ def get_last_cc_values(
     return last_cc_values
 
 def segment_ppart_by_start_end_times(
-        ppart, 
-        start_times, 
-        end_times, 
-        min_segment_duration=10.0,
+        ppart: PerformedPart, 
+        start_times: list, 
+        end_times: list, 
+        min_segment_duration: float = 10.0,
         ) -> Tuple[list, list]:
     """
     Segment a performed part by given start and end times and return a list of the segmented performed parts.
@@ -3467,7 +3467,8 @@ def segment_ppart_by_start_end_times(
 def segment_ppart_by_gap(
         ppart: PerformedPart,
         gap: float = 8.0,
-        min_segment_duration: float = 10.0
+        min_segment_duration: float = 10.0,
+        use_sound_off: bool = False,
         ) -> Tuple[list, list]:
     """
     Segment a performed part by a given gap (in seconds) between the 'note_on' values of 
@@ -3481,6 +3482,9 @@ def segment_ppart_by_gap(
         The minimum gap between notes to split the segment. The default is 8.0.
     min_segment_duration : float
         The minimum duration of a segment in seconds. The default is 10.0.
+    use_sound_off : bool
+        Whether to use the 'sound_off' values instead of 'note_off' values for segmentation.
+        The default is False.
 
     Returns
     -------
@@ -3498,10 +3502,15 @@ def segment_ppart_by_gap(
     # find the indices of the notes in perf_notes where the gap between 
     # consecutive notes' 'note_on' and 'note_off' values is greater than the threshold.
     note_ons = np.array([note['note_on'] for note in perf_notes])
-    sound_offs = np.array([note['sound_off'] for note in perf_notes]) # TODO: Consider changing to 'sound_off' instead of 'note_off'
+    if use_sound_off:
+        # Use 'sound_off' values if specified
+        note_offs = np.array([note['sound_off'] for note in perf_notes])
+    else:
+        # Use 'note_off' values otherwise
+        note_offs = np.array([note['note_off'] for note in perf_notes])
 
     # Calculate the differences between consecutive note_on and note_off values
-    note_gaps = note_ons[1:] - sound_offs[:-1]
+    note_gaps = note_ons[1:] - note_offs[:-1]
 
     # Find the indices where the gap is greater than the threshold
     split_indices = np.where(note_gaps > gap)[0] + 1
@@ -3512,7 +3521,7 @@ def segment_ppart_by_gap(
 
     # Find the start and end times for each segment
     start_times = np.insert(note_ons[split_indices], 0, 0)
-    end_times = np.append(sound_offs[split_indices - 1], sound_offs[-1])
+    end_times = np.append(note_offs[split_indices - 1], note_offs[-1])
 
     list_pparts, start_end_times = segment_ppart_by_start_end_times(ppart, start_times, end_times, min_segment_duration)
 
