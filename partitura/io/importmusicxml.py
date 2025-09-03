@@ -234,7 +234,7 @@ def load_musicxml(
         )
 
     xml = None
-    if isinstance(filename, str | Path):
+    if isinstance(filename, (str, Path)):
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
                 contained_xml_name = zipped_xml.namelist()[-1]
