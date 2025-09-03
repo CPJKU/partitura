@@ -237,8 +237,12 @@ def load_musicxml(
     if isinstance(filename, (str, Path)):
         if zipfile.is_zipfile(filename):
             with zipfile.ZipFile(filename) as zipped_xml:
-                contained_xml_name = zipped_xml.namelist()[-1]
-                xml = zipped_xml.open(contained_xml_name)
+                with zipped_xml.open("META-INF/container.xml") as container:
+                    container_tree = etree.parse(container)
+                    first_full_path = container_tree.find(".//rootfile").get(
+                        "full-path"
+                    )
+                xml = zipped_xml.open(first_full_path)
 
     if xml is None:
         xml = filename
