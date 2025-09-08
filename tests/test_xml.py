@@ -19,6 +19,7 @@ from tests import (
     MUSICXML_UNFOLD_DACAPO,
     MUSICXML_CHORD_FEATURES,
     MUSICXML_IGNORE_INVISIBLE_OBJECTS,
+    MXL_TESTFILES,
 )
 
 from partitura import load_musicxml, save_musicxml
@@ -322,6 +323,11 @@ class TestMusicXML(unittest.TestCase):
         self.assertTrue(len(list(score_w_invisible.iter_all(cls=score.Beam))) == 1)
         self.assertTrue(len(list(score_wo_invisible.iter_all(cls=score.Beam))) == 0)
 
+    def test_import_mxl(self):
+        for fn in MXL_TESTFILES:
+            scr = load_musicxml(fn, force_note_ids=True)
+            self.assertTrue(isinstance(scr, score.Score))
+            self.assertTrue(isinstance(scr[0], score.Part))
 
 def make_part_slur():
     # create a part

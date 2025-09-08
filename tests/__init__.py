@@ -11,6 +11,7 @@ import glob
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(BASE_PATH, "data")
 MUSICXML_PATH = os.path.join(DATA_PATH, "musicxml")
+MXL_PATH = os.path.join(DATA_PATH, "mxl")
 MEI_PATH = os.path.join(DATA_PATH, "mei")
 KERN_PATH = os.path.join(DATA_PATH, "kern")
 MATCH_PATH = os.path.join(DATA_PATH, "match")
@@ -277,4 +278,8 @@ CROSS_STAFF_TESTFILES = [
 
 MUSICXML_CHORD_FEATURES = [
     os.path.join(MUSICXML_PATH, fn) for fn in ["test_chord_duration.musicxml"]
+]
+
+MXL_TESTFILES = [
+    os.path.join(MXL_PATH, fn) for fn in ["mozart_k265_6.mxl"]
 ]
