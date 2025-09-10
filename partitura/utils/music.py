@@ -3357,10 +3357,7 @@ def step2pc(step, alter):
     return pc
 
 
-def get_last_cc_values(
-        perf_controls: list, 
-        control_numbers: list
-        ) -> dict:
+def get_last_cc_values(perf_controls: list, control_numbers: list) -> dict:
     """
     Get the last control change values from the cc messages in the performed part for each control number given in control_numbers.
 
@@ -3374,38 +3371,39 @@ def get_last_cc_values(
     Returns
     -------
     dict
-        A dictionary where the keys are the control change numbers and the values are dictionaries containing 
+        A dictionary where the keys are the control change numbers and the values are dictionaries containing
         the last control change value, track, and channel in the performed part for each control change number.
     """
 
     last_cc_values = {}
-    
+
     for i in range(len(perf_controls) - 1, -1, -1):
         # if we have found the last control change value for each control number, break the loop
         if len(last_cc_values) == len(control_numbers):
             break
-        
+
         control = perf_controls[i]
 
-        # if the control number is already in the last_cc_values dictionary 
-        # (i.e, the last value for this cc number in the performed part has been found), 
+        # if the control number is already in the last_cc_values dictionary
+        # (i.e, the last value for this cc number in the performed part has been found),
         # skip to the next control number
-        if control['number'] in last_cc_values:
+        if control["number"] in last_cc_values:
             continue
 
-        last_cc_values[control['number']] = {}
-        last_cc_values[control['number']]['value'] = control['value']
-        last_cc_values[control['number']]['track'] = control['track']
-        last_cc_values[control['number']]['channel'] = control['channel']
-        
+        last_cc_values[control["number"]] = {}
+        last_cc_values[control["number"]]["value"] = control["value"]
+        last_cc_values[control["number"]]["track"] = control["track"]
+        last_cc_values[control["number"]]["channel"] = control["channel"]
+
     return last_cc_values
 
+
 def segment_ppart_by_start_end_times(
-        ppart: PerformedPart, 
-        start_times: list, 
-        end_times: list, 
-        min_segment_duration: float = 10.0,
-        ) -> Tuple[list, list]:
+    ppart: PerformedPart,
+    start_times: list,
+    end_times: list,
+    min_segment_duration: float = 10.0,
+) -> Tuple[list, list]:
     """
     Segment a performed part by given start and end times and return a list of the segmented performed parts.
 
@@ -3430,12 +3428,12 @@ def segment_ppart_by_start_end_times(
             A list of tuples where each tuple contains the start and end times of each
             segment in the performed part. This is useful to later split the corresponding audio files.
     """
-    
+
     perf_controls = ppart.controls
     list_pparts = []
     start_end_times = []
     # find all the unique 'number' values in perf.controls
-    cc_nums_in_ppart = list(set([control['number'] for control in perf_controls]))
+    cc_nums_in_ppart = list(set([control["number"] for control in perf_controls]))
 
     take_prev_start_time = False
     segment_jump_back_counter = 0
@@ -3443,7 +3441,7 @@ def segment_ppart_by_start_end_times(
     for i in range(len(start_times)):
         if take_prev_start_time:
             # if the previous segment was merged with the next segment, take the previous start time
-            start_time = start_times[i-segment_jump_back_counter]
+            start_time = start_times[i - segment_jump_back_counter]
             take_prev_start_time = False
         else:
             # take the current start time
@@ -3454,40 +3452,44 @@ def segment_ppart_by_start_end_times(
         # merge the segment with the next segment
         if end_times[i] - start_times[i] < min_segment_duration:
             segment_jump_back_counter += 1
-            if i+1 < len(end_times):
+            if i + 1 < len(end_times):
                 take_prev_start_time = True
                 continue
 
             # if the small segment is the last segment in the performed part, add it to the previous segment
             else:
                 # remove the last appended segment in list_pparts
-                if len(list_pparts) != 0:   
+                if len(list_pparts) != 0:
                     temp_ppart = list_pparts.pop()
                     prev_start_end_time = start_end_times.pop()
                     first_note_temp_ppart = temp_ppart.notes[0]
-                    start_time = first_note_temp_ppart['note_on'] # take the previous segment's start time while keeping the present segment's end time
-                else: # if the first segment (and all subsequent segments till the last short segment) were also too short, just take the first start time
+                    start_time = first_note_temp_ppart[
+                        "note_on"
+                    ]  # take the previous segment's start time while keeping the present segment's end time
+                else:  # if the first segment (and all subsequent segments till the last short segment) were also too short, just take the first start time
                     start_time = start_times[0]
                 ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
-        
+
         else:
             segment_jump_back_counter = 0
             ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
 
         # from the second segment onwards, add the last control values from the previous segment to the current segment.
-        if len(list_pparts) != 0: 
+        if len(list_pparts) != 0:
             segment_first_note = ppart_segment.notes[0]
             for cc in last_control_values:
                 first_cc = {}
-                first_cc['number'] = cc
-                first_cc['value'] = last_control_values[cc]['value']
-                first_cc['track'] = last_control_values[cc]['track']
-                first_cc['channel'] = last_control_values[cc]['channel']
-                first_cc['time'] = segment_first_note['note_on']
-                first_cc['time_tick'] = segment_first_note['note_on_tick']
+                first_cc["number"] = cc
+                first_cc["value"] = last_control_values[cc]["value"]
+                first_cc["track"] = last_control_values[cc]["track"]
+                first_cc["channel"] = last_control_values[cc]["channel"]
+                first_cc["time"] = segment_first_note["note_on"]
+                first_cc["time_tick"] = segment_first_note["note_on_tick"]
                 ppart_segment.controls.insert(0, first_cc)
-        
-        last_control_values = get_last_cc_values(ppart_segment.controls, cc_nums_in_ppart)
+
+        last_control_values = get_last_cc_values(
+            ppart_segment.controls, cc_nums_in_ppart
+        )
         list_pparts.append(ppart_segment)
 
         start_end_times.append((start_time, end_time))
@@ -3496,13 +3498,13 @@ def segment_ppart_by_start_end_times(
 
 
 def segment_ppart_by_gap(
-        ppart: PerformedPart,
-        gap: float = 8.0,
-        min_segment_duration: float = 10.0,
-        use_sound_off: bool = False,
-        ) -> Tuple[list, list]:
+    ppart: PerformedPart,
+    gap: float = 8.0,
+    min_segment_duration: float = 10.0,
+    use_sound_off: bool = False,
+) -> Tuple[list, list]:
     """
-    Segment a performed part by a given gap (in seconds) between the 'note_on' values of 
+    Segment a performed part by a given gap (in seconds) between the 'note_on' values of
     consecutive notes and return a list of the segmented performed parts.
 
     Parameters
@@ -3520,7 +3522,7 @@ def segment_ppart_by_gap(
     Returns
     -------
     Tuple[list_pparts, start_end_times]:
-    
+
         list_pparts : list
             A list of PerformedPart objects representing the segmented performed parts.
         start_end_times : list
@@ -3530,15 +3532,15 @@ def segment_ppart_by_gap(
 
     perf_notes = ppart.notes
 
-    # find the indices of the notes in perf_notes where the gap between 
+    # find the indices of the notes in perf_notes where the gap between
     # consecutive notes' 'note_on' and 'note_off' values is greater than the threshold.
-    note_ons = np.array([note['note_on'] for note in perf_notes])
+    note_ons = np.array([note["note_on"] for note in perf_notes])
     if use_sound_off:
         # Use 'sound_off' values if specified
-        note_offs = np.array([note['sound_off'] for note in perf_notes])
+        note_offs = np.array([note["sound_off"] for note in perf_notes])
     else:
         # Use 'note_off' values otherwise
-        note_offs = np.array([note['note_off'] for note in perf_notes])
+        note_offs = np.array([note["note_off"] for note in perf_notes])
 
     # Calculate the differences between consecutive note_on and note_off values
     note_gaps = note_ons[1:] - note_offs[:-1]
@@ -3554,7 +3556,9 @@ def segment_ppart_by_gap(
     start_times = np.insert(note_ons[split_indices], 0, 0)
     end_times = np.append(note_offs[split_indices - 1], note_offs[-1])
 
-    list_pparts, start_end_times = segment_ppart_by_start_end_times(ppart, start_times, end_times, min_segment_duration)
+    list_pparts, start_end_times = segment_ppart_by_start_end_times(
+        ppart, start_times, end_times, min_segment_duration
+    )
 
     return list_pparts, start_end_times
 
