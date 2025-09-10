@@ -3434,9 +3434,13 @@ def segment_ppart_by_start_end_times(
             # if the small segment is the last segment in the performed part, add it to the previous segment
             else:
                 # remove the last appended segment in list_pparts
-                temp_ppart = list_pparts.pop()
-                first_note_temp_ppart = temp_ppart.notes[0]
-                start_time = first_note_temp_ppart['note_on'] # take the previous segment's start time while keeping the present segment's end time
+                if len(list_pparts) != 0:   
+                    temp_ppart = list_pparts.pop()
+                    prev_start_end_time = start_end_times.pop()
+                    first_note_temp_ppart = temp_ppart.notes[0]
+                    start_time = first_note_temp_ppart['note_on'] # take the previous segment's start time while keeping the present segment's end time
+                else: # if the first segment (and all subsequent segments till the last short segment) were also too short, just take the first start time
+                    start_time = start_times[0]
                 ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
         
         else:
