@@ -158,7 +158,7 @@ class TestPerformedNote(unittest.TestCase):
 
         # Test initialization to default values
         self.assertEqual(pnote["track"], 0)
-        self.assertEqual(pnote["channel"], 1)
+        self.assertEqual(pnote["channel"], 0)
         self.assertEqual(pnote["velocity"], 60)
         self.assertEqual(pnote["sound_off"], 20)
 
