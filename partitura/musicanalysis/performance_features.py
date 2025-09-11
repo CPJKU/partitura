@@ -40,7 +40,7 @@ def make_performance_features(
     alignment: list,
     feature_functions: Union[List, str],
     add_idx: bool = True,
-    include_score_markings: bool = True
+    include_score_markings: bool = True,
 ):
     """
     Compute the performance features. This function is defined in the same
@@ -144,7 +144,7 @@ def compute_matched_score(
     score: ScoreLike,
     performance: PerformanceLike,
     alignment: list,
-    include_score_markings = True
+    include_score_markings=True,
 ):
     """
     Compute the matched score and add the score features
