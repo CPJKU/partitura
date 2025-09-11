@@ -40,6 +40,7 @@ def make_performance_features(
     alignment: list,
     feature_functions: Union[List, str],
     add_idx: bool = True,
+    include_score_markings: bool = True
 ):
     """
     Compute the performance features. This function is defined in the same
@@ -61,13 +62,15 @@ def make_performance_features(
         asynchrony_feature, articulation_feature, dynamics_feature, pedal_feature
     add_idx: bool
         add score note idx column to feature array
+    include_score_markings (bool): include dynamcis and articulation
+        markings (Optional)
 
     Returns
     -------
     performance_features : structured array
     """
     m_score, unique_onset_idxs, snote_ids = compute_matched_score(
-        score, performance, alignment
+        score, performance, alignment, include_score_markings
     )
 
     acc = []
@@ -141,6 +144,7 @@ def compute_matched_score(
     score: ScoreLike,
     performance: PerformanceLike,
     alignment: list,
+    include_score_markings = True
 ):
     """
     Compute the matched score and add the score features
@@ -153,6 +157,8 @@ def compute_matched_score(
         Performance information, can be a ppart, performance
     alignment : list
         The score--performance alignment, a list of dictionaries
+    include_score_markings (bool): include dynamcis and articulation
+        markings (Optional)
 
     Returns
     -------
@@ -161,8 +167,9 @@ def compute_matched_score(
     """
 
     m_score, snote_ids = to_matched_score(
-        score, performance, alignment, include_score_markings=True
+        score, performance, alignment, include_score_markings=include_score_markings
     )
+
     (time_params, unique_onset_idxs) = encode_tempo(
         score_onsets=m_score["onset"],
         performed_onsets=m_score["p_onset"],

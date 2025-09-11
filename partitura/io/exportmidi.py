@@ -36,34 +36,34 @@ def map_to_track_channel(note_keys, mode):
         if mode == 0:
             trk = tr_helper.setdefault(p, len(tr_helper))
             ch1 = ch_helper.setdefault(p, {})
-            ch2 = ch1.setdefault(v, len(ch1) + 1)
+            ch2 = ch1.setdefault(v, len(ch1))
             track[(pg, p, v)] = trk
             channel[(pg, p, v)] = ch2
         elif mode == 1:
             trk = tr_helper.setdefault(pg, len(tr_helper))
             ch1 = ch_helper.setdefault(pg, {})
-            ch2 = ch1.setdefault(p, len(ch1) + 1)
+            ch2 = ch1.setdefault(p, len(ch1))
             track[(pg, p, v)] = trk
             channel[(pg, p, v)] = ch2
         elif mode == 2:
             track[(pg, p, v)] = 0
-            ch = ch_helper.setdefault(p, len(ch_helper) + 1)
+            ch = ch_helper.setdefault(p, len(ch_helper))
             channel[(pg, p, v)] = ch
         elif mode == 3:
             trk = tr_helper.setdefault(p, len(tr_helper))
             track[(pg, p, v)] = trk
-            channel[(pg, p, v)] = 1
+            channel[(pg, p, v)] = 0
         elif mode == 4:
             track[(pg, p, v)] = 0
-            channel[(pg, p, v)] = 1
+            channel[(pg, p, v)] = 0
         elif mode == 5:
             trk = tr_helper.setdefault((p, v), len(tr_helper))
             track[(pg, p, v)] = trk
-            channel[(pg, p, v)] = 1
+            channel[(pg, p, v)] = 0
         else:
             raise Exception("unsupported part/voice assign mode {}".format(mode))
 
-    result = dict((k, (track.get(k, 0), channel.get(k, 1))) for k in note_keys)
+    result = dict((k, (track.get(k, 0), channel.get(k, 0))) for k in note_keys)
     # for (pg, p, voice), v in result.items():
     #     pgn = pg.group_name if hasattr(pg, 'group_name') else pg.id
     #     print(pgn, p.id, voice)
@@ -177,7 +177,7 @@ def save_performance_midi(
 
         for c in performed_part.controls:
             track = c.get("track", 0)
-            ch = c.get("channel", 1)
+            ch = c.get("channel", 0)
             t = int(np.round(10**6 * ppq * c["time"] / mpq))
             track_events[track][t].append(
                 Message(
@@ -190,7 +190,7 @@ def save_performance_midi(
 
         for n in performed_part.notes:
             track = n.get("track", 0)
-            ch = n.get("channel", 1)
+            ch = n.get("channel", 0)
             t_on = int(np.round(10**6 * ppq * n["note_on"] / mpq))
             t_off = int(np.round(10**6 * ppq * n["note_off"] / mpq))
             vel = n.get("velocity", default_velocity)
@@ -203,7 +203,7 @@ def save_performance_midi(
 
         for p in performed_part.programs:
             track = p.get("track", 0)
-            ch = p.get("channel", 1)
+            ch = p.get("channel", 0)
             t = int(np.round(10**6 * ppq * p["time"] / mpq))
             track_events[track][t].append(
                 Message("program_change", program=int(p["program"]), channel=ch)
@@ -215,11 +215,11 @@ def save_performance_midi(
                 list(
                     set(
                         [
-                            (c.get("channel", 1), c.get("track", 0))
+                            (c.get("channel", 0), c.get("track", 0))
                             for c in performed_part.controls
                         ]
                         + [
-                            (n.get("channel", 1), n.get("track", 0))
+                            (n.get("channel", 0), n.get("track", 0))
                             for n in performed_part.notes
                         ]
                     )

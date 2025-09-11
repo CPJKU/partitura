@@ -209,7 +209,7 @@ class PerformedPart(object):
                     n["midi_pitch"],
                     n["velocity"],
                     n.get("track", 0),
-                    n.get("channel", 1),
+                    n.get("channel", 0),
                     n["id"],
                 )
             )
@@ -364,7 +364,7 @@ class PerformedNote:
             "sound_off", self["note_off"]
         )
         self.pnote_dict["track"] = self.pnote_dict.get("track", 0)
-        self.pnote_dict["channel"] = self.pnote_dict.get("channel", 1)
+        self.pnote_dict["channel"] = self.pnote_dict.get("channel", 0)
         self.pnote_dict["velocity"] = self.pnote_dict.get("velocity", 60)
         self._validate_values(pnote_dict)
         self._accepted_keys = [
