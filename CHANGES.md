@@ -6,7 +6,7 @@ This version introduces the following changes:
 
 ### New Features
 
-* Add support for tuplet-dot and normal dot when parsing tuplets in MusicXML #429  
+* Add support for tuplet-dot and normal dot when parsing tuplets in MusicXML #429
 * Add exporting for ornaments in MusicXML #435
 * Method for segmenting `PerformedPart` objects by time. #438
 * Allow cls parameter of `iter_all` to take an iterable of classes #457  
