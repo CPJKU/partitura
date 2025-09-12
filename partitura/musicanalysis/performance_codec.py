@@ -611,7 +611,8 @@ def to_matched_score(
     score: Union[ScoreLike, np.ndarray],
     performance: Union[PerformanceLike, np.ndarray],
     alignment: list,
-    include_score_markings=False,
+    include_score_markings: bool = False,
+    include_midi_idx: bool = False,
 ):
     """
     Returns a mixed score-performance note array
@@ -623,6 +624,8 @@ def to_matched_score(
         alignment (List(Dict)): an alignment
         include_score_markings (bool): include dynamcis and articulation
             markings (Optional)
+        include_midi_idx (bool): include MIDI note idx in the matched array
+            (Optional)
 
     Returns:
         np.ndarray: a minimal, aligned
@@ -681,6 +684,8 @@ def to_matched_score(
             n["velocity"],
             sn["voice"].item(),
         )
+        if include_midi_idx:
+            pair_info += (n["id"].item(),)
         if include_score_markings:
             pair_info += tuple(
                 [sn[field].item() for field in sn.dtype.names if "feature" in field]
@@ -697,6 +702,8 @@ def to_matched_score(
         ("velocity", "i4"),
         ("voice", "i4"),
     ]
+    if include_midi_idx:
+        fields += [("midi_id","U256")]
 
     if include_score_markings and not isinstance(score, np.ndarray):
         fields += [
