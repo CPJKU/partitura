@@ -703,7 +703,7 @@ def to_matched_score(
         ("voice", "i4"),
     ]
     if include_midi_idx:
-        fields += [("midi_id","U256")]
+        fields += [("midi_id", "U256")]
 
     if include_score_markings and not isinstance(score, np.ndarray):
         fields += [
