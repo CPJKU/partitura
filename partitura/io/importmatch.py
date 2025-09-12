@@ -532,7 +532,7 @@ def part_from_matchfile(
         # if starting beat is above zero, add padding
         rest = score.Rest()
         part.add(rest, start=0, end=t * divs)
-        onset_in_divs += int(t * divs)
+        onset_in_divs += round(t * divs)
         offset = 0
         t = t - t % beats_map_from_beats(min_time)
 
