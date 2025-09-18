@@ -12,6 +12,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
+from typing_extensions import deprecated
 from partitura.utils.generic import find_nearest, search, iter_current_next
 from partitura.utils.globals import *
 import partitura
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     # For this to work we need to import annotations from __future__
     # Solution from
     # https://medium.com/quick-code/python-type-hinting-eliminating-importerror-due-to-circular-imports-265dfb0580f8
-    from partitura.score import ScoreLike, Interval
+    from partitura.score import ScoreLike, Interval, Note, KeySignature
     from partitura.performance import PerformanceLike, Performance, PerformedPart
 
 
@@ -143,102 +144,54 @@ def ensure_rest_array(restarray_or_part, *args, **kwargs):
         )
 
 
-def _transpose_step(step, interval, direction):
+def _transpose_note_inplace(note: Note, interval: Interval, update_ties: bool = True):
     """
     Transpose a note by a given interval.
+
     Parameters
     ----------
-    step
-    inverval
-
-    """
-    op = lambda x, y: abs(x + y) % 7 if direction == "up" else abs(x - y) % 7
-    if interval == "P1":
-        pass
-    else:
-        step = STEPS[op(STEPS[step.capitalize()], interval - 1)]
-    return step
-
-
-def _transpose_note_inplace(note, interval):
-    """
-    Transpose a note by a given interval.
-    Parameters
-    ----------
-    note
-    inverval
-
+    note: Note to transpose
+    interval: Interval to transpose by
+    update_ties: Whether to update tied notes
     """
     if interval.quality + str(interval.number) == "P1":
         pass
     else:
-        # TODO work for arbitrary octave.
-        prev_step = note.step.capitalize()
-        note.step = _transpose_step(prev_step, interval.number, interval.direction)
-        if STEPS[note.step] - STEPS[prev_step] < 0 and interval.direction == "up":
-            note.octave += 1
-        elif STEPS[note.step] - STEPS[prev_step] > 0 and interval.direction == "down":
-            note.octave -= 1
-        else:
-            note.octave = note.octave
-        prev_alter = note.alter if note.alter is not None else 0
-        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
-        tmp_pc = MIDI_BASE_CLASS[note.step.lower()]
-        if interval.direction == "up":
-            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
-        else:
-            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        note.alter = (
-            INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+        new_step, new_alter, new_octave = transpose_note_attributes(
+            interval=interval,
+            step=note.step,
+            alter=note.alter,
+            octave=note.octave,
         )
+        note.step = new_step
+        note.alter = new_alter
+        note.octave = new_octave
+        if update_ties:
+            for tied_note in note.tie_next_notes:
+                _transpose_note_inplace(tied_note, interval, update_ties=False)
 
 
-def transpose_note_old(step, alter, interval):
-    """
-    Transpose a note by a given interval without changing the octave or creating a Note Object.
-
-
-    Parameters
-    ----------
-    step: str
-        The step of the pitch, e.g. C, D, E, etc.
-    alter: int
-        The alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
-    interval: Interval
-        The interval to transpose by.
-
-    Returns
-    -------
-    new_step: str
-        The new step of the pitch, e.g. C, D, E, etc.
-    new_alter: int
-        The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
-    """
-    if interval.quality + str(interval.number) == "P1":
-        new_step = step
-        new_alter = alter
-    else:
-        prev_step = step.capitalize()
-        new_step = _transpose_step(prev_step, interval.number, interval.direction)
-        prev_alter = alter if alter is not None else 0
-        prev_pc = MIDI_BASE_CLASS[prev_step.lower()] + prev_alter
-        tmp_pc = MIDI_BASE_CLASS[new_step.lower()]
-        if interval.direction == "up":
-            diff_sm = tmp_pc - prev_pc if tmp_pc >= prev_pc else tmp_pc + 12 - prev_pc
-        else:
-            diff_sm = prev_pc - tmp_pc if prev_pc >= tmp_pc else prev_pc + 12 - tmp_pc
-        new_alter = (
-            INTERVAL_TO_SEMITONES[interval.quality + str(interval.number)] - diff_sm
+def _transpose_ks_inplace(ks: KeySignature, interval: Interval):
+    key = ks.name
+    step = key[0]
+    alter = key.count("#") - key.count("b")
+    new_step, new_alter, _ = transpose_note_attributes(interval, step=step, alter=alter)
+    new_fifths, mode = key_name_to_fifths_mode(new_step + ALTER_SIGNS[new_alter])
+    if abs(new_fifths) > 7:
+        raise ValueError(
+            f"Key signature {ks.name} transposed by {interval} results in an invalid "
+            f"key signature with {new_fifths} fifths. The maximum number of fifths is "
+            f"+/- 7.",
         )
-    return new_step, new_alter
+    ks.fifths = new_fifths
 
 
+@deprecated("Starting with version 1.8.0, see transpose_note_attributes instead")
 def transpose_note(step, alter, interval):
     """
+    DEPRECATED: see function transpose_note_attributes instead.
     Transpose a note by a given interval without considering the octave.
-
     This function does not create a new Note object, but returns the new step and alteration of the note.
-
 
     Parameters
     ----------
@@ -256,8 +209,50 @@ def transpose_note(step, alter, interval):
     new_alter: int
         The new alteration of the pitch, e.g. -2, -1, 0, 1, 2 etc.
     """
+    step, alter, _ = transpose_note_attributes(
+        step=step,
+        alter=alter,
+        interval=interval,
+        octave=0,
+    )
+    return step, alter
+
+
+def transpose_note_attributes(
+    interval: Interval,
+    step: str,
+    alter: int = 0,
+    octave: int = 0,
+):
+    """
+    Transpose a note by a given interval.
+    It can transpose a step, a step+alteration, and a step+alteration+octave.
+
+    This function does not create a new Note object, but returns the new attributes.
+
+
+    Parameters
+    ----------
+    interval: Interval
+        The interval to transpose by.
+    step: str
+        The step of the note, e.g. C, D, E, etc.
+    alter: int
+        The alteration of the note, e.g. -2, -1, 0, 1, 2, etc.
+    octave: int
+        The octave of the note, e.g. 1, 2, 3, etc.
+
+    Returns
+    -------
+    new_step: str
+        The new step of the note, e.g. C, D, E, etc.
+    new_alter: int
+        The new alteration of the note, e.g. -2, -1, 0, 1, 2 etc.
+    new_octave: int
+        The new octave of the note, e.g. 1, 2, 3, etc.
+    """
     prev_step = step.capitalize()
-    assert interval.direction == "up", "Only interval direction 'up' is supported."
+    alter = alter or 0
     assert -3 < alter < 3, f"Input Alteration {alter} is not in the range -2 to 2."
     assert (
         interval.number < 8
@@ -265,19 +260,37 @@ def transpose_note(step, alter, interval):
     assert (
         prev_step in BASE_PC.keys()
     ), f"Input Step {prev_step} is must be one of: {BASE_PC.keys()}."
-    new_step = STEPS[(STEPS[prev_step] + interval.number - 1) % 7]
+    # Compute new step
+    sign = 1 if interval.direction == "up" else -1
+    new_step = STEPS[(STEPS[prev_step] + sign * (interval.number - 1)) % 7]
+    # Compute new octave
+    diff_step = STEPS[new_step] - STEPS[prev_step]
+    new_octave = octave
+    if diff_step < 0 and interval.direction == "up":
+        new_octave += 1
+    elif diff_step > 0 and interval.direction == "down":
+        new_octave -= 1
+    # Compute new alteration
     prev_alter = alter if alter is not None else 0
     pc_prev = step2pc(prev_step, prev_alter)
     pc_new = step2pc(new_step, prev_alter)
-    new_alter = interval.semitones - (pc_new - pc_prev) % 12 + prev_alter
+    new_alter = (
+        sign * interval.semitones - (pc_new - pc_prev) % (sign * 12) + prev_alter
+    )
+
     # add test to check if the new alteration is correct (i.e. accept maximum of 2 flats or sharps)
     assert (
         -3 < new_alter < 3
     ), f"New alteration {new_alter} is not in the range -2 to 2."
-    return new_step, new_alter
+    return new_step, new_alter, new_octave
 
 
-def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
+def transpose(
+    score: ScoreLike,
+    interval: Interval,
+    transpose_key_signatures: bool = False,
+    inplace: bool = False,
+) -> ScoreLike:
     """
     Transpose a score by a given interval.
 
@@ -287,6 +300,11 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Score to be transposed.
     interval : int
         Interval to transpose by.
+    transpose_key_signatures : bool
+        Whether to transpose key signatures.
+    inplace : bool
+        Whether to transpose the score in place or return a new score.
+        Note that you might need to increase the recursion limit if you want a copy.
 
     Returns
     -------
@@ -294,22 +312,31 @@ def transpose(score: ScoreLike, interval: Interval) -> ScoreLike:
         Transposed score.
     """
     import partitura.score as s
-    import sys
 
-    # Copy needs to be deep, otherwise the recursion limit will be exceeded
-    old_recursion_depth = sys.getrecursionlimit()
-    sys.setrecursionlimit(10000)
-    # Deep copy of score
-    new_score = copy.deepcopy(score)
-    # Reset recursion limit to previous value to avoid side effects
-    sys.setrecursionlimit(old_recursion_depth)
+    if not inplace:
+        score = copy.deepcopy(score)
+        # In case score is a Score object, set inplace to True
+        # so that each part will not be deepcopied again
+        inplace = True
+
+    # If Score, transpose all parts
     if isinstance(score, s.Score):
-        for part in new_score.parts:
-            transpose(part, interval)
+        for part in score.parts:
+            transpose(
+                part,
+                interval,
+                transpose_key_signatures=transpose_key_signatures,
+                inplace=inplace,
+            )
+
+    # If part, transpose it
     elif isinstance(score, s.Part):
+        if transpose_key_signatures:
+            for ks in score.iter_all(cls=s.KeySignature):
+                _transpose_ks_inplace(ks, interval)
         for note in score.notes_tied:
-            _transpose_note_inplace(note, interval)
-    return new_score
+            _transpose_note_inplace(note, interval, update_ties=True)
+    return score
 
 
 def get_time_units_from_note_array(note_array):
@@ -2423,8 +2450,8 @@ def note_array_from_note_list(
     if quarter_map is not None:
         fields += [("onset_quarter", "f4"), ("duration_quarter", "f4")]
     fields += [
-        ("onset_div", "i4"),
-        ("duration_div", "i4"),
+        ("onset_div", "i8"),
+        ("duration_div", "i8"),
         ("pitch", "i4"),
         ("voice", "i4"),
         ("id", "U256"),
@@ -3328,6 +3355,212 @@ def step2pc(step, alter):
     base_pc = BASE_PC[step]
     pc = (base_pc + alter) % 12
     return pc
+
+
+def get_last_cc_values(perf_controls: list, control_numbers: list) -> dict:
+    """
+    Get the last control change values from the cc messages in the performed part for each control number given in control_numbers.
+
+    Parameters
+    ----------
+    perf_controls : list
+        A list of dictionaries where each dictionary contains the control change data in the performed part.
+    control_numbers : list
+        A list of integers representing the control change numbers that exist in the performed part.
+
+    Returns
+    -------
+    dict
+        A dictionary where the keys are the control change numbers and the values are dictionaries containing
+        the last control change value, track, and channel in the performed part for each control change number.
+    """
+
+    last_cc_values = {}
+
+    for i in range(len(perf_controls) - 1, -1, -1):
+        # if we have found the last control change value for each control number, break the loop
+        if len(last_cc_values) == len(control_numbers):
+            break
+
+        control = perf_controls[i]
+
+        # if the control number is already in the last_cc_values dictionary
+        # (i.e, the last value for this cc number in the performed part has been found),
+        # skip to the next control number
+        if control["number"] in last_cc_values:
+            continue
+
+        last_cc_values[control["number"]] = {}
+        last_cc_values[control["number"]]["value"] = control["value"]
+        last_cc_values[control["number"]]["track"] = control["track"]
+        last_cc_values[control["number"]]["channel"] = control["channel"]
+
+    return last_cc_values
+
+
+def segment_ppart_by_start_end_times(
+    ppart: PerformedPart,
+    start_times: list,
+    end_times: list,
+    min_segment_duration: float = 10.0,
+) -> Tuple[list, list]:
+    """
+    Segment a performed part by given start and end times and return a list of the segmented performed parts.
+
+    Parameters
+    ----------
+    ppart : PerformedPart
+        A PerformedPart object representing the performed part.
+    start_times : list
+        A list of start times in seconds for each segment.
+    end_times : list
+        A list of end times in seconds for each segment.
+    min_segment_duration : float
+        The minimum duration of a segment in seconds. The default is 10.0.
+
+    Returns
+    -------
+    Tuple[list_pparts, start_end_times]:
+
+        list_pparts : list
+            A list of PerformedPart objects representing the segmented performed parts.
+        start_end_times : list
+            A list of tuples where each tuple contains the start and end times of each
+            segment in the performed part. This is useful to later split the corresponding audio files.
+    """
+
+    perf_controls = ppart.controls
+    list_pparts = []
+    start_end_times = []
+    # find all the unique 'number' values in perf.controls
+    cc_nums_in_ppart = list(set([control["number"] for control in perf_controls]))
+
+    take_prev_start_time = False
+    segment_jump_back_counter = 0
+
+    for i in range(len(start_times)):
+        if take_prev_start_time:
+            # if the previous segment was merged with the next segment, take the previous start time
+            start_time = start_times[i - segment_jump_back_counter]
+            take_prev_start_time = False
+        else:
+            # take the current start time
+            start_time = start_times[i]
+        end_time = end_times[i]
+
+        # if the duration of the segment is less than the minimum segment duration,
+        # merge the segment with the next segment
+        if end_times[i] - start_times[i] < min_segment_duration:
+            segment_jump_back_counter += 1
+            if i + 1 < len(end_times):
+                take_prev_start_time = True
+                continue
+
+            # if the small segment is the last segment in the performed part, add it to the previous segment
+            else:
+                # remove the last appended segment in list_pparts
+                if len(list_pparts) != 0:
+                    temp_ppart = list_pparts.pop()
+                    prev_start_end_time = start_end_times.pop()
+                    first_note_temp_ppart = temp_ppart.notes[0]
+                    start_time = first_note_temp_ppart[
+                        "note_on"
+                    ]  # take the previous segment's start time while keeping the present segment's end time
+                else:  # if the first segment (and all subsequent segments till the last short segment) were also too short, just take the first start time
+                    start_time = start_times[0]
+                ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
+
+        else:
+            segment_jump_back_counter = 0
+            ppart_segment = slice_ppart_by_time(ppart, start_time, end_time)
+
+        # from the second segment onwards, add the last control values from the previous segment to the current segment.
+        if len(list_pparts) != 0:
+            segment_first_note = ppart_segment.notes[0]
+            for cc in last_control_values:
+                first_cc = {}
+                first_cc["number"] = cc
+                first_cc["value"] = last_control_values[cc]["value"]
+                first_cc["track"] = last_control_values[cc]["track"]
+                first_cc["channel"] = last_control_values[cc]["channel"]
+                first_cc["time"] = segment_first_note["note_on"]
+                first_cc["time_tick"] = segment_first_note["note_on_tick"]
+                ppart_segment.controls.insert(0, first_cc)
+
+        last_control_values = get_last_cc_values(
+            ppart_segment.controls, cc_nums_in_ppart
+        )
+        list_pparts.append(ppart_segment)
+
+        start_end_times.append((start_time, end_time))
+
+    return list_pparts, start_end_times
+
+
+def segment_ppart_by_gap(
+    ppart: PerformedPart,
+    gap: float = 8.0,
+    min_segment_duration: float = 10.0,
+    use_sound_off: bool = False,
+) -> Tuple[list, list]:
+    """
+    Segment a performed part by a given gap (in seconds) between the 'note_on' values of
+    consecutive notes and return a list of the segmented performed parts.
+
+    Parameters
+    ----------
+    ppart : PerformedPart
+        A PerformedPart object representing the performed part.
+    gap : float
+        The minimum gap between notes to split the segment. The default is 8.0.
+    min_segment_duration : float
+        The minimum duration of a segment in seconds. The default is 10.0.
+    use_sound_off : bool
+        Whether to use the 'sound_off' values instead of 'note_off' values for segmentation.
+        The default is False.
+
+    Returns
+    -------
+    Tuple[list_pparts, start_end_times]:
+
+        list_pparts : list
+            A list of PerformedPart objects representing the segmented performed parts.
+        start_end_times : list
+            A list of tuples where each tuple contains the start and end times of each
+            segment in the performed part. This is useful to later split the corresponding audio files.
+    """
+
+    perf_notes = ppart.notes
+
+    # find the indices of the notes in perf_notes where the gap between
+    # consecutive notes' 'note_on' and 'note_off' values is greater than the threshold.
+    note_ons = np.array([note["note_on"] for note in perf_notes])
+    if use_sound_off:
+        # Use 'sound_off' values if specified
+        note_offs = np.array([note["sound_off"] for note in perf_notes])
+    else:
+        # Use 'note_off' values otherwise
+        note_offs = np.array([note["note_off"] for note in perf_notes])
+
+    # Calculate the differences between consecutive note_on and note_off values
+    note_gaps = note_ons[1:] - note_offs[:-1]
+
+    # Find the indices where the gap is greater than the threshold
+    split_indices = np.where(note_gaps > gap)[0] + 1
+
+    if len(split_indices) == 0:
+        # if there are no gaps greater than the threshold, return None
+        return None, None
+
+    # Find the start and end times for each segment
+    start_times = np.insert(note_ons[split_indices], 0, 0)
+    end_times = np.append(note_offs[split_indices - 1], note_offs[-1])
+
+    list_pparts, start_end_times = segment_ppart_by_start_end_times(
+        ppart, start_times, end_times, min_segment_duration
+    )
+
+    return list_pparts, start_end_times
 
 
 if __name__ == "__main__":

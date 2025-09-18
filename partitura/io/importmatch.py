@@ -226,8 +226,7 @@ def load_match(
     ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
 
     performance = Performance(
-        id=get_document_name(filename),
-        performedparts=ppart,
+        id=get_document_name(filename), performedparts=ppart, ensure_unique_tracks=False
     )
     # Generate Part
     if create_score:
@@ -345,10 +344,16 @@ def performed_part_from_match(
     notes = list()
     note_onsets_in_secs = np.array(np.zeros(len(mf.notes)), dtype=float)
     note_onsets_in_tick = np.array(np.zeros(len(mf.notes)), dtype=int)
+    tracks = set()
+    channels = set()
     for i, note in enumerate(mf.notes):
         n_onset_sec = midi_ticks_to_seconds(note.Onset, mpq, ppq)
         note_onsets_in_secs[i] = n_onset_sec
         note_onsets_in_tick[i] = note.Onset
+        track = getattr(note, "Track", 0)
+        tracks.add(track)
+        channel = getattr(note, "Channel", 0)
+        channels.add(channel)
         notes.append(
             dict(
                 id=format_pnote_id(note.Id),
@@ -359,8 +364,8 @@ def performed_part_from_match(
                 note_off_tick=note.Offset,
                 sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
                 velocity=note.Velocity,
-                track=getattr(note, "Track", 0),
-                channel=getattr(note, "Channel", 0),
+                track=track,
+                channel=channel,
             )
         )
     # Set first note_on to zero in ticks and seconds if first_note_at_zero
@@ -375,12 +380,23 @@ def performed_part_from_match(
                 note["note_on_tick"] -= offset_tick
                 note["note_off_tick"] -= offset_tick
 
+    # check if multiple tracks are in the match file
+    if len(tracks) > 1:
+        warnings.warn("Notes on multiple MIDI tracks in matchfile" "information!.")
+    used_track = min(tracks)
+    # check if multiple tracks are in the match file
+    if len(channels) > 1:
+        warnings.warn("Notes on multiple MIDI channels in matchfile" "information!.")
+    used_channel = min(channels)
+
     # SustainPedal instances for sustain pedal lines
     sustain_pedal = [
         dict(
             number=64,
             time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
+            track=used_track,
+            channel=used_channel,
         )
         for ped in mf.sustain_pedal
     ]
@@ -391,6 +407,8 @@ def performed_part_from_match(
             number=67,
             time=midi_ticks_to_seconds(ped.Time, mpq, ppq),
             value=ped.Value,
+            track=used_track,
+            channel=used_channel,
         )
         for ped in mf.soft_pedal
     ]
@@ -402,6 +420,9 @@ def performed_part_from_match(
         notes=notes,
         controls=sustain_pedal + soft_pedal,
         sustain_pedal_threshold=pedal_threshold,
+        ppq=ppq,
+        mpq=mpq,
+        track=used_track,
     )
     return ppart
 
@@ -458,9 +479,9 @@ def part_from_matchfile(
     max_time = max(n.OffsetInBeats for n in snotes)
     (
         beats_map_from_beats,
-        beats_map,
+        beats_map_from_quarters,
         beat_type_map_from_beats,
-        beat_type_map,
+        beat_type_map_from_quarters,
         min_time_q,
         max_time_q,
     ) = make_timesig_maps(ts, max_time)
@@ -468,13 +489,13 @@ def part_from_matchfile(
     # compute necessary divs based on the types of notes in the
     # match snotes (only integers)
     divs_arg = [
-        max(int((beat_type_map(note.OnsetInBeats) / 4)), 1)
+        max(int((beat_type_map_from_beats(note.OnsetInBeats) / 4)), 1)
         * note.Offset.denominator
         * (note.Offset.tuple_div or 1)
         for note in snotes
     ]
     divs_arg += [
-        max(int((beat_type_map(note.OnsetInBeats) / 4)), 1)
+        max(int((beat_type_map_from_beats(note.OnsetInBeats) / 4)), 1)
         * note.Duration.denominator
         * (note.Duration.tuple_div or 1)
         for note in snotes
@@ -484,24 +505,24 @@ def part_from_matchfile(
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
 
     iois_in_beats = np.diff(unique_onsets)
-    beat_to_quarter = 4 / beat_type_map(onset_in_beats)
+    beat_to_quarter = 4 / beat_type_map_from_beats(onset_in_beats)
 
     iois_in_quarters_offset = np.r_[
         beat_to_quarter[0] * onset_in_beats[0],
-        (4 / beat_type_map(unique_onsets[:-1])) * iois_in_beats,
+        (4 / beat_type_map_from_beats(unique_onsets[:-1])) * iois_in_beats,
     ]
     onset_in_quarters = np.cumsum(iois_in_quarters_offset)
     iois_in_quarters = np.diff(onset_in_quarters)
 
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
-    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters)][inv_idxs]
+    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters, dtype=int)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
     part.set_quarter_duration(0, divs)
     bars = np.unique([n.Measure for n in snotes])
     t = min_time
-    t = t * 4 / beat_type_map(min_time)
+    t = t * 4 / beat_type_map_from_beats(min_time)
     offset = t
     bar_times = {}
 
@@ -511,9 +532,9 @@ def part_from_matchfile(
         # if starting beat is above zero, add padding
         rest = score.Rest()
         part.add(rest, start=0, end=t * divs)
-        onset_in_divs += t * divs
+        onset_in_divs += round(t * divs)
         offset = 0
-        t = t - t % beats_map(min_time)
+        t = t - t % beats_map_from_beats(min_time)
 
     for b_name in bars:
         notes_in_this_bar = [
@@ -552,14 +573,14 @@ def part_from_matchfile(
         # on_off_scale = 1 means duration and beat offset are given in
         # whole notes, else they're given in beats (as in the KAIST data)
         if not match_offset_duration_in_whole:
-            on_off_scale = beat_type_map(bar_start)
+            on_off_scale = beat_type_map_from_quarters(bar_start)
 
         # offset within bar in quarter units adjusted for different
-        # time signatures -> 4 / beat_type_map(bar_start)
-        bar_offset = (note.Beat - 1) * 4 / beat_type_map(bar_start)
+        # time signatures -> 4 / beat_type_map_from_quarters(bar_start)
+        bar_offset = (note.Beat - 1) * 4 / beat_type_map_from_quarters(bar_start)
 
         # offset within beat in quarter units adjusted for different
-        # time signatures -> 4 / beat_type_map(bar_start)
+        # time signatures -> 4 / beat_type_map_from_quarters(bar_start)
         beat_offset = (
             4
             / on_off_scale
@@ -576,6 +597,7 @@ def part_from_matchfile(
                 "Calculated `onset_divs` does not match `OnsetInBeats` " "information!."
             )
             onset_divs = onset_in_divs[ni]
+
         assert onset_divs >= 0
         assert np.isclose(onset_divs, onset_in_divs[ni], atol=divs * 0.01)
         is_tied = False
@@ -753,9 +775,9 @@ def part_from_matchfile(
     last_closing_barline = barline_in_divs + int(
         round(
             divs
-            * beats_map(barline_in_quarters)
+            * beats_map_from_quarters(barline_in_quarters)
             * 4
-            / beat_type_map(barline_in_quarters)
+            / beat_type_map_from_quarters(barline_in_quarters)
         )
     )
     part.add(prev_measure, None, last_closing_barline)

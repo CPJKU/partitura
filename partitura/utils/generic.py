@@ -13,7 +13,7 @@ import numpy as np
 from scipy.interpolate import interp1d as sc_interp1d
 
 
-__all__ = ["find_nearest", "iter_current_next", "partition", "iter_subclasses"]
+__all__ = ["find_nearest", "iter_current_next", "partition"]
 
 
 class _OrderedSet(dict):
@@ -125,50 +125,6 @@ def iter_current_next(iterable, start=_sentinel, end=_sentinel):
     except StopIteration:
         if cur is not _sentinel and end is not _sentinel:
             yield (cur, end)
-
-
-def iter_subclasses(cls, _seen=None):
-    """
-    iter_subclasses(cls)
-
-    Generator over all subclasses of a given class, in depth first order.
-
-    Examples
-    --------
-
-    >>> class A(object): pass
-    >>> class B(A): pass
-    >>> class C(A): pass
-    >>> class D(B,C): pass
-    >>> class E(D): pass
-    >>>
-    >>> for cls in iter_subclasses(A):
-    ...     print(cls.__name__)
-    B
-    D
-    E
-    C
-    >>> # get ALL (new-style) classes currently defined
-    >>> [cls.__name__ for cls in iter_subclasses(object)] #doctest: +ELLIPSIS
-    ['type', ...'tuple', ...]
-    """
-
-    if not isinstance(cls, type):
-        raise TypeError(
-            "iter_subclasses must be called with " "new-style classes, not %.100r" % cls
-        )
-    if _seen is None:
-        _seen = set()
-    try:
-        subs = cls.__subclasses__()
-    except TypeError:  # fails only when cls is type
-        subs = cls.__subclasses__(cls)
-    for sub in subs:
-        if sub not in _seen:
-            _seen.add(sub)
-            yield sub
-            for sub in iter_subclasses(sub, _seen):
-                yield sub
 
 
 def first_order_derivative(func, x0, dx=0.5):
@@ -678,6 +634,55 @@ def monotonize_times(
     s_mono = interp1d(_x[mask], _s[mask], fill_value="extrapolate")(x_mono)
 
     return s_mono, x_mono
+
+
+def warn_on_subclass(cls, include_subclasses):
+    """
+    Warn if any of the classes in `cls` is a subclass of any other class in
+    `cls`
+    """
+    if include_subclasses:
+        for i, cls1 in enumerate(cls):
+            for j, cls2 in enumerate(cls):
+                if i != j and issubclass(cls1, cls2):
+                    warnings.warn(
+                        (
+                            f"{cls1} is a subclass of {cls2}, any objects "
+                            "matching multiple classes will only be returned once"
+                        )
+                    )
+    else:
+        for i, cls1 in enumerate(cls):
+            for j, cls2 in enumerate(cls[:i]):
+                if cls1 == cls2:
+                    warnings.warn(
+                        (
+                            f"{cls1} occurs multiple times in list {cls}, any objects "
+                            "matching multiple classes will only be returned once"
+                        )
+                    )
+
+
+def prepare_iter_cls(cls, include_subclasses):
+    """Prepare `cls` and `include_subclasses` arguments for iterating time
+    points (`Part.iter_all()`, `TimePoint.iter_starting()`, `TimePoint.iter_ending()`,
+    `TimePoint.iter_next()`, `TimePoint.iter_prev()`).  This includes setting
+    appropriate default values, and and issuing a warning if a list/tuple
+    repeated classes or classes that are subclasses of each other.
+    """
+    if cls is None:
+        # set default values
+        cls = object  # better: TimedObject
+        include_subclasses = True
+    elif not isinstance(cls, type):
+        # convert iterable to tuple (for usage in issubclass(..., cls))
+        cls = tuple(cls)
+
+    if isinstance(cls, tuple):
+        # for tuple, warn if classes are repeated or subclasses of each other
+        warn_on_subclass(cls, include_subclasses)
+
+    return cls, include_subclasses
 
 
 if __name__ == "__main__":
