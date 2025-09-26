@@ -1048,6 +1048,22 @@ def save_musicxml(
 
     root = etree.Element("score-partwise")
 
+    # add work metadata
+    if score_data.work_title or score_data.work_number:
+        work_tag = etree.SubElement(root, "work")
+        if score_data.work_title:
+            work_title_tag = etree.SubElement(work_tag, "work_title")
+            work_title_tag.text = str(score_data.work_title)
+        if score_data.work_number:
+            work_number_tag = etree.SubElement(work_tag, "work_number")
+            work_number_tag.text = str(score_data.work_number)
+    if score_data.movement_title:
+        movement_title_tag = etree.SubElement(root, "movement_title")
+        movement_title_tag.text = str(score_data.movement_title)
+    if score_data.movement_number:
+        movement_number_tag = etree.SubElement(root, "movement_number")
+        movement_number_tag.text = str(score_data.movement_number)
+
     partlist_e = etree.SubElement(root, "part-list")
     state = {
         "note_id_counter": {},
