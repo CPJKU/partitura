@@ -6,6 +6,7 @@ This module contains methods for importing MusicXML files.
 
 import os
 from pathlib import Path
+import sys
 import warnings
 import zipfile
 
@@ -17,7 +18,17 @@ from lxml import etree
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
-import pkg_resources
+
+# Use importlib.resources for modern Python versions
+if sys.version_info >= (3, 9):
+    from importlib.resources import files
+else:
+    # Backport for Python 3.7-3.8
+    try:
+        from importlib_resources import files
+    except ImportError:
+        from importlib.resources import files
+
 from partitura.directions import parse_direction
 import partitura.score as score
 from partitura.score import assign_note_ids
@@ -31,7 +42,7 @@ from partitura.utils.misc import (
 
 __all__ = ["load_musicxml", "musicxml_to_notearray"]
 
-_MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
+_MUSICXML_SCHEMA = str(files("partitura") / "assets" / "musicxml.xsd")
 _XML_VALIDATOR = None
 DYN_DIRECTIONS = {
     "f": score.ConstantLoudnessDirection,
@@ -438,8 +449,9 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
                 end_time_id = np.searchsorted(end_times, o.start.t + 1)
                 part.add(o, None, end_times[end_time_id])
                 warnings.warn(
-                    "Found repeat without end\n"
-                    "Ending point {} is assumed".format(end_times[end_time_id])
+                    "Found repeat without end\nEnding point {} is assumed".format(
+                        end_times[end_time_id]
+                    )
                 )
 
         # complete unstarted repeats
@@ -458,8 +470,9 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
                 start_time_id = np.searchsorted(start_times, o.end.t) - 1
                 part.add(o, start_times[start_time_id], None)
                 warnings.warn(
-                    "Found repeat without start\n"
-                    "Starting point {} is assumed".format(start_times[start_time_id])
+                    "Found repeat without start\nStarting point {} is assumed".format(
+                        start_times[start_time_id]
+                    )
                 )
 
         # complete unstarted repeats in volta with start time of first repeat
@@ -468,8 +481,9 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
             start_time_id = np.searchsorted(start_times, o.end.t) - 1
             part.add(o, start_times[start_time_id], None)
             warnings.warn(
-                "Found repeat without start\n"
-                "Starting point {} is assumed".format(start_times[start_time_id])
+                "Found repeat without start\nStarting point {} is assumed".format(
+                    start_times[start_time_id]
+                )
             )
 
         # remove unfinished elements from the timeline
@@ -1600,9 +1614,9 @@ def handle_tuplets(notations, ongoing, note):
 
     # assert that starting tuplet times are before stopping tuplet times
     for start_tuplet, stop_tuplet in zip(starting_tuplets, stopping_tuplets):
-        assert (
-            start_tuplet.start_note.start.t <= stop_tuplet.end_note.start.t
-        ), "Tuplet start time is after tuplet stop time"
+        assert start_tuplet.start_note.start.t <= stop_tuplet.end_note.start.t, (
+            "Tuplet start time is after tuplet stop time"
+        )
 
     # check that tuplets start and end notes belong to the same voice
     for tuplet in starting_tuplets + stopping_tuplets:
@@ -1821,7 +1835,6 @@ def get_technical_notations(e: etree._Element) -> List[score.NoteTechnicalNotati
 
 
 def parse_fingering(e: etree._Element) -> score.Fingering:
-
     try:
         # There seems to be a few cases with fingerings encoded like 4_1.
         # This is not standard in MusicXML according to the documentation,
