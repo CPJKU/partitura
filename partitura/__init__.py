@@ -6,7 +6,22 @@ data, display rendered scores, and functions to estimate pitch
 spelling, voice assignment, and key signature.
 """
 
-import pkg_resources
+import sys
+
+# Use importlib.metadata and importlib.resources for modern Python versions
+if sys.version_info >= (3, 9):
+    from importlib.metadata import version
+    from importlib.resources import files
+else:
+    # Backport for Python 3.7-3.8
+    try:
+        from importlib_metadata import version
+    except ImportError:
+        from importlib.metadata import version
+    try:
+        from importlib_resources import files
+    except ImportError:
+        from importlib.resources import files
 
 from .io import load_score, load_performance, load_score_as_part, lp
 from .io.musescore import load_via_musescore
@@ -31,16 +46,14 @@ from .musicanalysis import make_note_features, compute_note_array, full_note_arr
 
 
 # define a version variable
-__version__ = pkg_resources.get_distribution("partitura").version
+__version__ = version("partitura")
 
 #: An example MusicXML file for didactic purposes
-EXAMPLE_MUSICXML = pkg_resources.resource_filename(
-    "partitura", "assets/score_example.musicxml"
-)
+EXAMPLE_MUSICXML = str(files("partitura") / "assets" / "score_example.musicxml")
 
-EXAMPLE_MIDI = pkg_resources.resource_filename("partitura", "assets/score_example.mid")
-EXAMPLE_MEI = pkg_resources.resource_filename("partitura", "assets/score_example.mei")
-EXAMPLE_KERN = pkg_resources.resource_filename("partitura", "assets/score_example.krn")
+EXAMPLE_MIDI = str(files("partitura") / "assets" / "score_example.mid")
+EXAMPLE_MEI = str(files("partitura") / "assets" / "score_example.mei")
+EXAMPLE_KERN = str(files("partitura") / "assets" / "score_example.krn")
 
 __all__ = [
     "load_score",

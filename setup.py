@@ -19,7 +19,16 @@ REQUIRES_PYTHON = ">=3.7"
 VERSION = "1.7.0"
 
 # What packages are required for this module to be executed?
-REQUIRED = ["numpy", "scipy", "lxml", "lark-parser", "xmlschema", "mido"]
+REQUIRED = [
+    "numpy",
+    "scipy",
+    "lxml",
+    "lark-parser",
+    "xmlschema",
+    "mido",
+    "importlib_metadata; python_version < '3.8'",
+    "importlib_resources; python_version < '3.9'",
+]
 
 # What packages are optional?
 EXTRAS = {}
