@@ -3,10 +3,7 @@
 
 import io
 import os
-import sys
-from shutil import rmtree
-
-from setuptools import find_packages, setup, Command
+from setuptools import find_packages, setup
 
 # Package meta-data.
 NAME = "partitura"
@@ -16,7 +13,7 @@ URL = "https://github.com/CPJKU/partitura"
 EMAIL = "partitura-users@googlegroups.com"
 AUTHOR = "Maarten Grachten, Carlos Cancino-Chacón, Silvan Peter, Emmanouil Karystinaios, Francesco Foscarin, Thassilo Gadermaier, Patricia Hu"
 REQUIRES_PYTHON = ">=3.7"
-VERSION = "1.7.0"
+VERSION = "1.7.1"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
