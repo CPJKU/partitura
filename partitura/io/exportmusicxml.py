@@ -777,6 +777,7 @@ def do_directions(part, start, end, counter):
         result.append(elem)
 
     tempos = part.iter_all(score.Tempo, start, end)
+    dynamics = part.iter_all(score.Dynamic, start, end)
     directions = part.iter_all(score.Direction, start, end, include_subclasses=True)
 
     for tempo in tempos:
@@ -790,6 +791,12 @@ def do_directions(part, start, end, counter):
             "sound", tempo="{}".format(int(to_quarter_tempo(unit, tempo.bpm)))
         )
         result.append((tempo.start.t, None, e3))
+
+    for dynamic in dynamics:
+        e3 = etree.Element(
+            "sound", dynamics="{}".format(dynamic.velocity)
+        )
+        result.append((dynamic.start.t, None, e3))
 
     for direction in directions:
         text = direction.raw_text or direction.text
