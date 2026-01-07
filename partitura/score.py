@@ -2820,8 +2820,8 @@ class Tempo(TimedObject):
     bpm : number
         The tempo indicated in rate per minute
     unit : str or None, optional
-        The unit to which the specified rate correspnds. This is a
-        string that expreses a duration category, such as "q" for
+        The unit to which the specified rate corresponds. This is a
+        string that expresses a duration category, such as "q" for
         quarter "h." for dotted half, and so on. When None, the unit
         is assumed to be quarters. Defaults to None.
 
@@ -2859,6 +2859,29 @@ class Tempo(TimedObject):
             return f"{super().__str__()} {self.unit}={self.bpm}"
         else:
             return f"{super().__str__()} bpm={self.bpm}"
+
+
+class Dynamic(TimedObject):
+    """A dynamic indication.
+
+    Parameters
+    ----------
+    velocity : number
+        Dynamic (or MIDI velocity) expressed as a percentage of the default forte value (90 for MIDI 1.0).
+
+    Attributes
+    ----------
+    velocity : number
+        See parameters
+
+    """
+
+    def __init__(self, velocity):
+        super().__init__()
+        self.velocity = velocity
+
+    def __str__(self):
+        return f"{super().__str__()} velocity={self.velocity}"
 
 
 class Staff(TimedObject):
