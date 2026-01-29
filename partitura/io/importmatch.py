@@ -516,7 +516,7 @@ def part_from_matchfile(
 
     # ___ these divs are relative to quarters;
     divs = np.lcm.reduce(np.unique(divs_arg))
-    onset_in_divs = np.r_[0, np.cumsum(divs * iois_in_quarters, dtype=int)][inv_idxs]
+    onset_in_divs = np.r_[0, np.cumsum(np.round(divs * iois_in_quarters), dtype=int)][inv_idxs]
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
     part.set_quarter_duration(0, divs)
