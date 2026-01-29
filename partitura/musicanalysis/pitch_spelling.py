@@ -8,6 +8,7 @@ References
 .. [4] Meredith, D. (2006). "The ps13 Pitch Spelling Algorithm". Journal
        of New Music Research, 35(2):121.
 """
+
 import numpy as np
 from collections import namedtuple
 from partitura.utils import ensure_notearray, get_time_units_from_note_array

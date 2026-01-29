@@ -3,6 +3,7 @@
 """
 This module contains methods for importing Humdrum Kern files.
 """
+
 import copy
 import re, sys
 import warnings
@@ -11,7 +12,6 @@ import numpy as np
 from math import inf, ceil
 import partitura.score as spt
 from partitura.utils import PathLike, get_document_name, symbolic_to_numeric_duration
-
 
 SIGN_TO_ACC = {
     "nn": 0,

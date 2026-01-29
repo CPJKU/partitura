@@ -3,6 +3,7 @@
 """
 This module contains generic class- and numerical-related utilities
 """
+
 import warnings
 from collections import defaultdict
 
@@ -11,7 +12,6 @@ from typing import Union, Callable, Optional, Tuple
 from textwrap import dedent
 import numpy as np
 from scipy.interpolate import interp1d as sc_interp1d
-
 
 __all__ = ["find_nearest", "iter_current_next", "partition"]
 
@@ -224,15 +224,9 @@ class ReplaceRefMixin(object):
                         if o_el in o_map:
                             o_list_new.append(o_map[o_el])
                         else:
-                            warnings.warn(
-                                dedent(
-                                    """reference not found in
+                            warnings.warn(dedent("""reference not found in
                             o_map: {} start={} end={}, substituting None
-                            """.format(
-                                        o_el, o_el.start, o_el.end
-                                    )
-                                )
-                            )
+                            """.format(o_el, o_el.start, o_el.end)))
                             o_list_new.append(None)
 
                     setattr(self, attr, o_list_new)
@@ -240,15 +234,9 @@ class ReplaceRefMixin(object):
                     if o in o_map:
                         o_new = o_map[o]
                     else:
-                        warnings.warn(
-                            dedent(
-                                """reference not found in o_map:
+                        warnings.warn(dedent("""reference not found in o_map:
                         {} start={} end={}, substituting None
-                        """.format(
-                                    o, o.start, o.end
-                                )
-                            )
-                        )
+                        """.format(o, o.start, o.end)))
                         o_new = None
                     setattr(self, attr, o_new)
 

@@ -3,6 +3,7 @@
 """
 This module contains methods for importing MIDI files.
 """
+
 import warnings
 
 from collections import defaultdict

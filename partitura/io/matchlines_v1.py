@@ -3,6 +3,7 @@
 """
 This module contains definitions for Matchfile lines for version >1.0.0
 """
+
 from __future__ import annotations
 
 import re

@@ -3,6 +3,7 @@
 """
 This module contains methods to synthesize a Partitura ScoreLike object to wav.
 """
+
 from typing import Union, Optional, Callable, Dict, Any
 import numpy as np
 from scipy.io import wavfile

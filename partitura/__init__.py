@@ -44,7 +44,6 @@ from .display import render
 from . import musicanalysis
 from .musicanalysis import make_note_features, compute_note_array, full_note_array
 
-
 # define a version variable
 __version__ = version("partitura")
 

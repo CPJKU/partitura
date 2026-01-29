@@ -3,6 +3,7 @@
 """
 This module contains methods for exporting MIDI files
 """
+
 import numpy as np
 
 from collections import defaultdict, OrderedDict

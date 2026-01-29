@@ -10,6 +10,7 @@ References
        editor, "Computer Music Modeling and Retrieval". Springer
        Berlin Heidelberg.
 """
+
 from collections import defaultdict
 from statistics import mode
 

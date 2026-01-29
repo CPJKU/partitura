@@ -3,6 +3,7 @@
 """
 This module contains methods for parsing Parangonada csv files
 """
+
 import os
 import numpy as np
 

@@ -3,6 +3,7 @@
 """
 This module contains methods for exporting MEI files.
 """
+
 import math
 from collections import defaultdict
 from lxml import etree
@@ -21,7 +22,6 @@ import numpy as np
 import warnings
 from partitura.utils.misc import deprecated_alias, PathLike
 from partitura.utils.music import MEI_DURS_TO_SYMBOLIC, estimate_symbolic_duration
-
 
 __all__ = ["save_mei"]
 

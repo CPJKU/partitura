@@ -8,6 +8,7 @@ References
 .. [2] Krumhansl, Carol L. (1990) "Cognitive foundations of musical pitch",
        Oxford University Press, New York.
 """
+
 import numpy as np
 from scipy.linalg import circulant
 from partitura.utils.music import ensure_notearray

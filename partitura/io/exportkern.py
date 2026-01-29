@@ -3,6 +3,7 @@
 """
 This module contains methods for exporting Kern files.
 """
+
 import math
 from collections import defaultdict
 

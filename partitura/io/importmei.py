@@ -3,6 +3,7 @@
 """
 This module contains methods for importing MEI files.
 """
+
 import os
 from collections import OrderedDict
 from lxml import etree

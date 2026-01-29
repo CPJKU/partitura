@@ -12,6 +12,7 @@ References
        Conference on Technologies for Music Notation and Representation
        (TENOR), Cambridge, UK.
 """
+
 import warnings
 
 import numpy as np
@@ -19,7 +20,6 @@ import scipy.spatial.distance as distance
 from scipy.interpolate import interp1d
 
 from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
-
 
 __all__ = ["estimate_tonaltension"]
 

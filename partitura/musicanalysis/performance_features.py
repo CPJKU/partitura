@@ -21,7 +21,6 @@ from partitura.musicanalysis.performance_codec import (
     encode_tempo,
 )
 
-
 __all__ = [
     "make_performance_features",
 ]
@@ -184,7 +183,7 @@ def compute_matched_score(
         include_midi_idx=include_midi_idx,
     )
 
-    (time_params, unique_onset_idxs) = encode_tempo(
+    time_params, unique_onset_idxs = encode_tempo(
         score_onsets=m_score["onset"],
         performed_onsets=m_score["p_onset"],
         score_durations=m_score["duration"],

@@ -4,6 +4,7 @@
 This module implements a codec to encode and decode expressive performances to a set of
 expressive parameters.
 """
+
 from typing import Union, Callable
 import numpy as np
 import numpy.lib.recfunctions as rfn
@@ -16,7 +17,6 @@ from partitura.musicanalysis import note_features
 from partitura.utils.misc import deprecated_alias
 from partitura.utils.generic import interp1d, monotonize_times, first_order_derivative
 from partitura.utils.music import ensure_notearray
-
 
 __all__ = ["encode_performance", "decode_performance", "to_matched_score"]
 
@@ -70,7 +70,7 @@ def encode_performance(
     m_score, snote_ids = to_matched_score(score, performance, alignment)
 
     # Get time-related parameters
-    (time_params, unique_onset_idxs) = encode_tempo(
+    time_params, unique_onset_idxs = encode_tempo(
         score_onsets=m_score["onset"],
         performed_onsets=m_score["p_onset"],
         score_durations=m_score["duration"],

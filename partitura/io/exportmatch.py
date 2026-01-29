@@ -7,6 +7,7 @@ Notes
 -----
 * The methods only export matchfiles version 1.0.0.
 """
+
 import numpy as np
 
 from typing import List, Optional, Iterable

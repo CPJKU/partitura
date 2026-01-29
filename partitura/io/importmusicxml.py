@@ -14,7 +14,6 @@ from typing import Union, Optional, List
 import numpy as np
 from lxml import etree
 
-
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
@@ -653,7 +652,7 @@ def _handle_measure(
             _handle_sound(e, position, part)
 
         elif e.tag == "note":
-            (position, prev_note, prev_beam) = _handle_note(
+            position, prev_note, prev_beam = _handle_note(
                 e, position, part, ongoing, prev_note, doc_order, prev_beam
             )
             doc_order += 1

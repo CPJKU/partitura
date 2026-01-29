@@ -3,6 +3,7 @@
 """
 This module contains methods for exporting MusicXML files.
 """
+
 import math
 from collections import defaultdict
 from lxml import etree

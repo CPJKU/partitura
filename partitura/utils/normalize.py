@@ -3,6 +3,7 @@
 """
 This module contains normalization utilities
 """
+
 import numpy as np
 from partitura.utils.globals import EPSILON
 

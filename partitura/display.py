@@ -20,7 +20,6 @@ from partitura.score import ScoreLike
 
 from partitura.utils.misc import PathLike, deprecated_alias
 
-
 __all__ = ["render"]
 
 # def ly_install_msg():
