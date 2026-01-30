@@ -716,7 +716,11 @@ def to_matched_score(
 
 
 def get_time_maps_from_alignment(
-    ppart_or_note_array, spart_or_note_array, alignment, remove_ornaments=True
+    ppart_or_note_array, 
+    spart_or_note_array, 
+    alignment, 
+    remove_ornaments=True,
+    onset_aggregation_fun=np.mean
 ):
     """
     Get time maps to convert performance time (in seconds) to score time (in beats)
@@ -735,6 +739,10 @@ def get_time_maps_from_alignment(
         (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
     remove_ornaments : bool (optional)
         Whether to consider or not ornaments (including grace notes)
+    onset_aggregation_fun: Callable (optional)
+        how to merge multiple performed onset times corresponding to a single
+        score onset into one time (average=np.mean, earliest=np.min, latest=np.max). 
+        default: np.mean
 
     Returns
     -------
@@ -761,14 +769,17 @@ def get_time_maps_from_alignment(
     # Get onsets and durations
     score_onsets = score_note_array[match_idx[:, 0]]["onset_beat"]
     score_durations = score_note_array[match_idx[:, 0]]["duration_beat"]
-
     perf_onsets = perf_note_array[match_idx[:, 1]]["onset_sec"]
-
-    # Use only unique onsets
+  
     score_unique_onsets = np.unique(score_onsets)
-
-    # Remove grace notes
     if remove_ornaments:
+        # keep only onsets where non-ornament notes exist
+        not_only_ornaments_at_onset = np.array([
+            sum(np.logical_and(score_onsets == u, score_durations > 0)) > 0
+            for u in score_unique_onsets
+        ])
+        score_unique_onsets = score_unique_onsets[not_only_ornaments_at_onset]
+
         # check that all onsets have a duration
         # ornaments (grace notes) do not have a duration
         score_unique_onset_idxs = [
@@ -785,7 +796,7 @@ def get_time_maps_from_alignment(
     # representing the "performeance time" of the position of the score
     # onsets
     eq_perf_onsets = np.array(
-        [np.mean(perf_onsets[u.astype(int)]) for u in score_unique_onset_idxs]
+        [onset_aggregation_fun(perf_onsets[u.astype(int)]) for u in score_unique_onset_idxs]
     )
 
     # Get maps
