@@ -720,7 +720,7 @@ def get_time_maps_from_alignment(
     spart_or_note_array, 
     alignment, 
     remove_ornaments=True,
-    onset_aggregation_fun=np.mean
+    onset_aggregation_fun=np.mean,
 ):
     """
     Get time maps to convert performance time (in seconds) to score time (in beats)
