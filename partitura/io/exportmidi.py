@@ -406,6 +406,12 @@ def save_score_midi(
         if not tempos:
             tempos[0] = MetaMessage("set_tempo", tempo=500000)
 
+        # note velocities
+        velocities = []
+        for vp in part.iter_all(score.Dynamic):
+            velocities.append((vp.start.t, round(90 * vp.velocity / 100)))
+        velocities = np.stack(velocities) if velocities else velocities
+
         if anacrusis_behavior == "time_sig_change":
             # Change time signature to match the duration of the measure
             # This ensure the beat and downbeats position are coherent
@@ -487,11 +493,15 @@ def save_score_midi(
             # key is a tuple (part_group, part, voice) that will be
             # converted into a (track, channel) pair.
             key = (pg, part, note.voice)
+            vel = velocity
+            if len(velocities) > 0:
+                vel_idx = np.searchsorted(velocities[:, 0], note.start.t, side="right") - 1
+                vel = int(velocities[vel_idx, 1])
             events[key][to_ppq(note.start.t)].append(
-                Message("note_on", note=note.midi_pitch)
+                Message("note_on", note=note.midi_pitch, velocity=vel)
             )
             events[key][to_ppq(note.start.t + note.duration_tied)].append(
-                Message("note_off", note=note.midi_pitch)
+                Message("note_off", note=note.midi_pitch, velocity=vel)
             )
             event_keys[key] = True
 

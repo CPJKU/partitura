@@ -355,6 +355,10 @@ class TestMIDIExportModes(unittest.TestCase):
         part.set_quarter_duration(0, 1)
         # 4/4 at t=0
         part.add(score.TimeSignature(4, 4), 0)
+        # global tempo
+        part.add(score.Tempo(bpm=60), 0)
+        # global dynamic (MIDI velocity 60)
+        part.add(score.Dynamic(velocity=66.66), 0)
 
         # ANACRUSIS
         # quarter note from t=0 to t=1
@@ -383,6 +387,12 @@ class TestMIDIExportModes(unittest.TestCase):
             if msg.type == "note_on":
                 self.assertEqual(t, 3)
                 break
+
+        for msg in mid.tracks[0]:
+            if msg.type == "set_tempo":
+                self.assertEqual(msg.tempo, 1000000)
+            elif msg.type in ("note_on", "note_off"):
+                self.assertEqual(msg.velocity, 60)
 
 
 def n_items_per_part_voice(pg, cls):

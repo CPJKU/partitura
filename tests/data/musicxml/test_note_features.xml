@@ -147,6 +147,15 @@
           </direction-type>
         <sound dynamics="106.67"/>
         </direction>
+      <direction placement="above">
+        <direction-type>
+          <metronome parentheses="no" default-x="-25.96" relative-y="20.00">
+            <beat-unit>quarter</beat-unit>
+            <per-minute>100</per-minute>
+            </metronome>
+          </direction-type>
+        <sound tempo="100"/>
+        </direction>
       <note>
         <rest/>
         <duration>1</duration>
