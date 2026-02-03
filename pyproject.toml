@@ -7,7 +7,7 @@ name = "partitura"
 version = "1.7.1"
 description = "A package for handling symbolic musical information"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = { text = "Apache 2.0" }
 
 authors = [
@@ -30,6 +30,9 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -41,8 +44,6 @@ dependencies = [
     "lark-parser",
     "xmlschema",
     "mido",
-    "importlib_metadata; python_version < '3.8'",
-    "importlib_resources; python_version < '3.9'",
 ]
 
 [project.optional-dependencies]
@@ -50,12 +51,12 @@ dev = [
     "pytest",
     "black",
     "nbsphinx",
-    "music21==8.3.0",
-    "Pillow==9.5.0",
-    "musescore==0.0.1",
-    "miditok==2.0.6",
-    "tokenizers==0.13.3",
-    "pandas==2.0.3",
+    "music21",
+    "Pillow",
+    "musescore",
+    "miditok",
+    "tokenizers",
+    "pandas",
 ]
 all = [
   "nbsphinx",
@@ -63,12 +64,12 @@ all = [
   "pyfluidsynth",
   "pytest",
   "black",
-  "music21==8.3.0",
-  "Pillow==9.5.0",
-  "musescore==0.0.1",
-  "miditok==2.0.6",
-  "tokenizers==0.13.3",
-  "pandas==2.0.3",
+  "music21",
+  "Pillow",
+  "musescore",
+  "miditok",
+  "tokenizers",
+  "pandas",
 ]
 
 [project.urls]
