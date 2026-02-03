@@ -1268,7 +1268,9 @@ def _add_dynamics_if_unique(position, part, dynamic):
     if point is not None:
         dynamics = point.starting_objects.get(score.Dynamic, [])
         if dynamic.velocity < 0:
-            warnings.warn(f"not adding dynamics indication with a negative value {dynamic.velocity}")
+            warnings.warn(
+                f"not adding dynamics indication with a negative value {dynamic.velocity}"
+            )
         elif len(dynamics) == 0:
             part.add(dynamic, position)
         else:

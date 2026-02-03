@@ -495,7 +495,9 @@ def save_score_midi(
             key = (pg, part, note.voice)
             vel = velocity
             if len(velocities) > 0:
-                vel_idx = np.searchsorted(velocities[:, 0], note.start.t, side="right") - 1
+                vel_idx = (
+                    np.searchsorted(velocities[:, 0], note.start.t, side="right") - 1
+                )
                 vel = int(velocities[vel_idx, 1])
             events[key][to_ppq(note.start.t)].append(
                 Message("note_on", note=note.midi_pitch, velocity=vel)

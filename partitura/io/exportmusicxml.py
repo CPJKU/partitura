@@ -794,9 +794,7 @@ def do_directions(part, start, end, counter):
         result.append((tempo.start.t, None, e3))
 
     for dynamic in dynamics:
-        e3 = etree.Element(
-            "sound", dynamics="{}".format(dynamic.velocity)
-        )
+        e3 = etree.Element("sound", dynamics="{}".format(dynamic.velocity))
         result.append((dynamic.start.t, None, e3))
 
     for direction in directions:
