@@ -2834,13 +2834,13 @@ class Tempo(TimedObject):
 
     """
 
-    def __init__(self, bpm, unit=None):
+    def __init__(self, bpm: float, unit: str | None = None):
         super().__init__()
         self.bpm = bpm
         self.unit = unit
 
     @property
-    def microseconds_per_quarter(self):
+    def microseconds_per_quarter(self) -> int:
         """The number of microseconds per quarter under this tempo.
 
         This is useful for MIDI representations.
@@ -2854,7 +2854,7 @@ class Tempo(TimedObject):
             np.round(60 * (10**6 / to_quarter_tempo(self.unit or "q", self.bpm)))
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.unit:
             return f"{super().__str__()} {self.unit}={self.bpm}"
         else:
@@ -2876,11 +2876,11 @@ class Dynamic(TimedObject):
 
     """
 
-    def __init__(self, velocity):
+    def __init__(self, velocity: float):
         super().__init__()
         self.velocity = velocity
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{super().__str__()} velocity={self.velocity}"
 
 

@@ -500,7 +500,7 @@ def save_score_midi(
                 Message("note_on", note=note.midi_pitch, velocity=vel)
             )
             events[key][to_ppq(note.start.t + note.duration_tied)].append(
-                Message("note_off", note=note.midi_pitch)
+                Message("note_off", note=note.midi_pitch, velocity=vel)
             )
             event_keys[key] = True
 
