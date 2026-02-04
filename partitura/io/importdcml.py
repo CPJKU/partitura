@@ -19,7 +19,7 @@ def read_note_tsv(note_tsv_path, metadata=None):
         data = data[~data["quarterbeats"].isna()]
     data["quarterbeats"] = (
         data["quarterbeats"].apply(eval)
-        if data.dtypes["quarterbeats"] == str or data.dtypes["quarterbeats"] == object
+        if data.dtypes["quarterbeats"] == "string" or data.dtypes["quarterbeats"] == "object"
         else data["quarterbeats"]
     )
     unique_durations = data["duration"].unique()
@@ -204,7 +204,7 @@ def read_measure_tsv(measure_tsv_path, part):
         data = data[~data["quarterbeats"].isna()]
     data["quarterbeats"] = (
         data["quarterbeats"].apply(eval)
-        if data.dtypes["quarterbeats"] == str or data.dtypes["quarterbeats"] == object
+        if data.dtypes["quarterbeats"] == "string" or data.dtypes["quarterbeats"] == "object"
         else data["quarterbeats"]
     )
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
@@ -239,7 +239,7 @@ def read_harmony_tsv(beat_tsv_path, part):
         data = data[~data["quarterbeats"].isna()]
     data["quarterbeats"] = (
         data["quarterbeats"].apply(eval)
-        if data.dtypes["quarterbeats"] == str or data.dtypes["quarterbeats"] == object
+        if data.dtypes["quarterbeats"] == "string" or data.dtypes["quarterbeats"] == "object"
         else data["quarterbeats"]
     )
     data["onset_div"] = np.array([int(qd * qdivs) for qd in data["quarterbeats"]])
