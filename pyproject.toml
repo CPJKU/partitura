@@ -44,6 +44,7 @@ dependencies = [
     "lark-parser",
     "xmlschema",
     "mido",
+    "typing-extensions",
 ]
 
 [project.optional-dependencies]
