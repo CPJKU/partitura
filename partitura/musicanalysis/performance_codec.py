@@ -655,8 +655,8 @@ def to_matched_score(
         )
 
     p_na = ensure_notearray(performance)
-    part_by_id = dict((n["id"], na[na["id"] == n["id"]]) for n in na)
-    ppart_by_id = dict((n["id"], p_na[p_na["id"] == n["id"]]) for n in p_na)
+    part_by_id = dict((n["id"], na[na["id"] == n["id"]][0]) for n in na)
+    ppart_by_id = dict((n["id"], p_na[p_na["id"] == n["id"]][0]) for n in p_na)
 
     # pair matched score and performance notes
     note_pairs = [
@@ -857,9 +857,9 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
 
             s_idx = np.where(spart_note_array["id"] == al["score_id"])[0]
 
-            if len(s_idx) > 0 and len(p_idx) > 0:
-                s_idx = int(s_idx)
-                p_idx = int(p_idx)
+            if len(s_idx) == 1 and len(p_idx) == 1:
+                s_idx = int(s_idx.item())
+                p_idx = int(p_idx.item())
                 matched_idxs.append((s_idx, p_idx))
 
     if len(matched_idxs) == 0:
