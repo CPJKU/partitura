@@ -1,5 +1,27 @@
 # Release Notes
 
+## Version 1.7.1
+
+This version introduces the following changes. As of this version, the minimum required Python version is Python 3.10. Use Partitura version ≤ 1.7.0 for Python 3.7 to 3.9.
+
+### New Features
+
+* Add GitHub Codespace support #474
+* Add work metadata to MusicXML export #473
+* Configurable aggregations for `get_time_maps_from_alignment` #479
+* Support `<sound>` tags in MusicXML with tempo and dynamics #477
+
+### Bug Fixes
+
+* Update version in docs #476
+
+### Other
+
+* Remove dependence on deprecated pkg_resources #476
+* Clean up tests (remove deprecated files and update tests to new options) #476
+* Deprecate setup.py in favor of pyproject.toml #481
+* Bump the minimum supported Python version to 3.10 #481
+
 ## Version 1.7.0
 
 This version introduces the following changes:
