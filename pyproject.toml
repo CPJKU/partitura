@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "partitura"
+version = "1.7.1"
+description = "A package for handling symbolic musical information"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10"
+license = { text = "Apache 2.0" }
+
+authors = [
+    { name = "Maarten Grachten" },
+    { name = "Carlos Cancino-Chacón" },
+    { name = "Silvan Peter" },
+    { name = "Emmanouil Karystinaios" },
+    { name = "Francesco Foscarin" },
+    { name = "Thassilo Gadermaier" },
+    { name = "Patricia Hu" },
+]
+
+maintainers = [
+    { email = "partitura-users@googlegroups.com" }
+]
+
+keywords = ["music", "notation", "musicxml", "midi"]
+
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "lxml",
+    "lark-parser",
+    "xmlschema",
+    "mido",
+    "typing-extensions",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "nbsphinx",
+    "music21",
+    "Pillow",
+    "musescore",
+    "miditok",
+    "tokenizers",
+    "pandas",
+]
+all = [
+  "nbsphinx",
+  "torch",
+  "pyfluidsynth",
+  "pytest",
+  "black",
+  "music21",
+  "Pillow",
+  "musescore",
+  "miditok",
+  "tokenizers",
+  "pandas",
+]
+
+[project.urls]
+Homepage = "https://github.com/CPJKU/partitura"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+exclude = ["tests"]
+
+[tool.setuptools.package-data]
+partitura = [
+    "assets/musicxml.xsd",
+    "assets/score_example.mid",
+    "assets/score_example.musicxml",
+    "assets/score_example.krn",
+    "assets/score_example.mei",
+]

@@ -268,7 +268,7 @@ class TestSynthExport(unittest.TestCase):
 
         for fn in WAV_TESTFILES:
             sr, original_audio = wavfile.read(fn)
-            with tempfile.TemporaryFile(suffix=".mid") as filename:
+            with tempfile.TemporaryFile(suffix=".wav") as filename:
 
                 save_wav(
                     input_data=self.score,
