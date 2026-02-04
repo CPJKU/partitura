@@ -116,9 +116,10 @@ def render_lilypond(
 
     prvw_sfx = ".preview.{}".format(fmt)
 
-    with TemporaryFile() as xml_fh, NamedTemporaryFile(
-        suffix=prvw_sfx, delete=False
-    ) as img_fh:
+    with (
+        TemporaryFile() as xml_fh,
+        NamedTemporaryFile(suffix=prvw_sfx, delete=False) as img_fh,
+    ):
         # save part to musicxml in file handle xml_fh
         save_musicxml(score_data, xml_fh)
         # rewind read pointer of file handle before we pass it to musicxml2ly

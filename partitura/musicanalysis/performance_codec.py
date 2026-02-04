@@ -103,7 +103,7 @@ def decode_performance(
     return_alignment=False,
     beat_normalization: str = "beat_period",  # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
     *args,
-    **kwargs
+    **kwargs,
 ) -> PerformedPart:
     """
     Given a Part (score) and a performance array return a PerformedPart.
@@ -160,7 +160,7 @@ def decode_performance(
         parameters=time_params,
         normalization=beat_normalization,
         *args,
-        **kwargs
+        **kwargs,
     )
 
     velocities = np.round(dynamics_params * 127.0)
@@ -205,7 +205,7 @@ def decode_time(
     parameters,
     normalization="beat_period",
     *args,
-    **kwargs
+    **kwargs,
 ):
     """
     Decode a performance into onsets and durations in seconds
