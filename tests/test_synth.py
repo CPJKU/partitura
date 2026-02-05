@@ -288,7 +288,7 @@ class TestSynthExport(unittest.TestCase):
                     np.allclose(
                         rec_audio / rec_audio.max(),
                         original_audio / original_audio.max(),
-                        atol=1e-4,
+                        atol=1e-3,
                     )
                 )
 

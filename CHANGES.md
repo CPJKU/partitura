@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 1.7.1
+## Version 1.8.0
 
 This version introduces the following changes. As of this version, the minimum required Python version is Python 3.10. Use Partitura version ≤ 1.7.0 for Python 3.7 to 3.9.
 
