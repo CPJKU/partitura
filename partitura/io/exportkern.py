@@ -18,7 +18,6 @@ import warnings
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
 from partitura.utils.misc import deprecated_alias, PathLike
 
-
 __all__ = ["save_kern"]
 
 
