@@ -6,6 +6,7 @@ This module contains methods for exporting Kern files.
 
 import math
 from collections import defaultdict
+from importlib.metadata import version
 
 import numpy
 
@@ -17,7 +18,11 @@ import warnings
 from partitura.utils import partition, iter_current_next, to_quarter_tempo
 from partitura.utils.misc import deprecated_alias, PathLike
 
+
 __all__ = ["save_kern"]
+
+
+VERSION = version("partitura")
 
 
 ACC_TO_SIGN = {
@@ -328,7 +333,7 @@ def save_kern(
     out_data = exporter.parse()
     out_data = exporter.trim(out_data)
     # Use numpy savetxt to save the file
-    footer = "Encoded using the Partitura Python package, version 1.6.0"
+    footer = f"Encoded using the Partitura Python package, version {VERSION}"
     if out is not None:
         np.savetxt(
             fname=out,

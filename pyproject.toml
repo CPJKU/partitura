@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "partitura"
-version = "1.7.1"
+version = "1.8.0"
 description = "A package for handling symbolic musical information"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
