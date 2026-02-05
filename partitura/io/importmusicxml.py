@@ -598,8 +598,10 @@ def _handle_measure(
             if print_obj == "no" or (notehead is not None and notehead.text == "none"):
                 # Still update position for invisible notes (to avoid problems with backups)
                 if e.tag == "note":
-                    duration = get_value_from_tag(e, "duration", int) or 0
-                    position += duration
+                    chord = e.find("chord")
+                    if chord is None:
+                        duration = get_value_from_tag(e, "duration", int) or 0
+                        position += duration
                 # Skip the object
                 continue
 
