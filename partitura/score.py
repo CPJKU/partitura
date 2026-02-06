@@ -3382,16 +3382,29 @@ class Phrase(TimedObject):
 class ChordSymbol(Harmony):
     """A harmony element in the score usually for Chord Symbols."""
 
-    def __init__(self, root, kind, bass=None):
+    def __init__(
+        self, root: str, kind: str | None, bass: str | None = None, alter: int = 0
+    ):
+        if not alter:
+            alter_symb = ""
+        elif alter > 0:
+            alter_symb = "#" * alter
+        else:
+            alter_symb = "b" * abs(alter)
+
         super().__init__(
-            text=root + (f"/{kind}" if kind else "") + (f"/{bass}" if bass else "")
+            text=root
+            + alter_symb
+            + (f"/{kind}" if kind else "")
+            + (f"/{bass}" if bass else "")
         )
         self.kind = kind
         self.root = root
         self.bass = bass
+        self.alter = alter
 
     def __str__(self):
-        return f'{super().__str__()} "{self.root + self.kind}"'
+        return f'{super().__str__()} "{self.root}/{self.alter}/{self.kind}"'
 
 
 class Interval(object):
