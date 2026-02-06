@@ -17,16 +17,7 @@ from lxml import etree
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
-
-# Use importlib.resources for modern Python versions
-if sys.version_info >= (3, 9):
-    from importlib.resources import files
-else:
-    # Backport for Python 3.7-3.8
-    try:
-        from importlib_resources import files
-    except ImportError:
-        from importlib.resources import files
+from importlib.resources import files
 
 from partitura.directions import parse_direction
 import partitura.score as score
