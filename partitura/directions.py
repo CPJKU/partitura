@@ -326,6 +326,10 @@ NEG: "non"i
 def regularize_form(children):
     return " ".join(unabbreviate(ch.lower()) for ch in children)
 
+def check_tree(tree, col_name = "column"):
+    meta = getattr(tree, "meta", None)
+    col = getattr(meta, col_name, None)
+    return col
 
 def create_directions(tree, string, start=None, end=None):
     """
@@ -334,9 +338,13 @@ def create_directions(tree, string, start=None, end=None):
 
     """
     if start is None:
-        start = tree.column - 1
+        col = check_tree(tree, "column")
+        if col is not None:
+            start = col - 1
     if end is None:
-        end = tree.end_column - 1
+        col = check_tree(tree, "end_column")
+        if col is not None:
+            end = col - 1
 
     if tree.data == "conj":
         return create_directions(tree.children[0], string) + create_directions(
