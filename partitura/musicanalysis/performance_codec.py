@@ -4,6 +4,7 @@
 This module implements a codec to encode and decode expressive performances to a set of
 expressive parameters.
 """
+
 from typing import Union, Callable
 import numpy as np
 import numpy.lib.recfunctions as rfn
@@ -16,7 +17,6 @@ from partitura.musicanalysis import note_features
 from partitura.utils.misc import deprecated_alias
 from partitura.utils.generic import interp1d, monotonize_times, first_order_derivative
 from partitura.utils.music import ensure_notearray
-
 
 __all__ = ["encode_performance", "decode_performance", "to_matched_score"]
 
@@ -70,7 +70,7 @@ def encode_performance(
     m_score, snote_ids = to_matched_score(score, performance, alignment)
 
     # Get time-related parameters
-    (time_params, unique_onset_idxs) = encode_tempo(
+    time_params, unique_onset_idxs = encode_tempo(
         score_onsets=m_score["onset"],
         performed_onsets=m_score["p_onset"],
         score_durations=m_score["duration"],
@@ -103,7 +103,7 @@ def decode_performance(
     return_alignment=False,
     beat_normalization: str = "beat_period",  # "beat_period_log", "beat_period_ratio", "beat_period_ratio_log", "beat_period_standardized"
     *args,
-    **kwargs
+    **kwargs,
 ) -> PerformedPart:
     """
     Given a Part (score) and a performance array return a PerformedPart.
@@ -160,7 +160,7 @@ def decode_performance(
         parameters=time_params,
         normalization=beat_normalization,
         *args,
-        **kwargs
+        **kwargs,
     )
 
     velocities = np.round(dynamics_params * 127.0)
@@ -205,7 +205,7 @@ def decode_time(
     parameters,
     normalization="beat_period",
     *args,
-    **kwargs
+    **kwargs,
 ):
     """
     Decode a performance into onsets and durations in seconds
@@ -655,8 +655,8 @@ def to_matched_score(
         )
 
     p_na = ensure_notearray(performance)
-    part_by_id = dict((n["id"], na[na["id"] == n["id"]]) for n in na)
-    ppart_by_id = dict((n["id"], p_na[p_na["id"] == n["id"]]) for n in p_na)
+    part_by_id = dict((n["id"], na[na["id"] == n["id"]][0]) for n in na)
+    ppart_by_id = dict((n["id"], p_na[p_na["id"] == n["id"]][0]) for n in p_na)
 
     # pair matched score and performance notes
     note_pairs = [
@@ -716,7 +716,11 @@ def to_matched_score(
 
 
 def get_time_maps_from_alignment(
-    ppart_or_note_array, spart_or_note_array, alignment, remove_ornaments=True
+    ppart_or_note_array,
+    spart_or_note_array,
+    alignment,
+    remove_ornaments=True,
+    onset_aggregation_fun=np.mean,
 ):
     """
     Get time maps to convert performance time (in seconds) to score time (in beats)
@@ -735,6 +739,10 @@ def get_time_maps_from_alignment(
         (see `partitura.io.importmatch.alignment_from_matchfile` for reference)
     remove_ornaments : bool (optional)
         Whether to consider or not ornaments (including grace notes)
+    onset_aggregation_fun: Callable (optional)
+        how to merge multiple performed onset times corresponding to a single
+        score onset into one time (average=np.mean, earliest=np.min, latest=np.max).
+        default: np.mean
 
     Returns
     -------
@@ -761,14 +769,19 @@ def get_time_maps_from_alignment(
     # Get onsets and durations
     score_onsets = score_note_array[match_idx[:, 0]]["onset_beat"]
     score_durations = score_note_array[match_idx[:, 0]]["duration_beat"]
-
     perf_onsets = perf_note_array[match_idx[:, 1]]["onset_sec"]
 
-    # Use only unique onsets
     score_unique_onsets = np.unique(score_onsets)
-
-    # Remove grace notes
     if remove_ornaments:
+        # keep only onsets where non-ornament notes exist
+        not_only_ornaments_at_onset = np.array(
+            [
+                sum(np.logical_and(score_onsets == u, score_durations > 0)) > 0
+                for u in score_unique_onsets
+            ]
+        )
+        score_unique_onsets = score_unique_onsets[not_only_ornaments_at_onset]
+
         # check that all onsets have a duration
         # ornaments (grace notes) do not have a duration
         score_unique_onset_idxs = [
@@ -785,7 +798,10 @@ def get_time_maps_from_alignment(
     # representing the "performeance time" of the position of the score
     # onsets
     eq_perf_onsets = np.array(
-        [np.mean(perf_onsets[u.astype(int)]) for u in score_unique_onset_idxs]
+        [
+            onset_aggregation_fun(perf_onsets[u.astype(int)])
+            for u in score_unique_onset_idxs
+        ]
     )
 
     # Get maps
@@ -841,9 +857,9 @@ def get_matched_notes(spart_note_array, ppart_note_array, alignment):
 
             s_idx = np.where(spart_note_array["id"] == al["score_id"])[0]
 
-            if len(s_idx) > 0 and len(p_idx) > 0:
-                s_idx = int(s_idx)
-                p_idx = int(p_idx)
+            if len(s_idx) == 1 and len(p_idx) == 1:
+                s_idx = int(s_idx.item())
+                p_idx = int(p_idx.item())
                 matched_idxs.append((s_idx, p_idx))
 
     if len(matched_idxs) == 0:

@@ -3,6 +3,7 @@
 """
 This module contains methods for importing and exporting symbolic music formats.
 """
+
 from typing import Union
 import os
 import urllib.request

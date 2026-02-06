@@ -3,6 +3,7 @@
 """
 This module contains methods to compute note-level features.
 """
+
 import sys
 import warnings
 import numpy as np

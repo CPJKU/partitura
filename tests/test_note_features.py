@@ -12,6 +12,7 @@ from tests import (
 )
 from partitura import load_musicxml, load_mei
 from partitura.musicanalysis import make_note_feats, compute_note_array
+from partitura.score import Tempo, Dynamic
 import numpy as np
 
 
@@ -74,6 +75,19 @@ class TestingNoteFeatureExtraction(unittest.TestCase):
             self.assertTrue(np.all(starttest), "measure start feature does not match")
             self.assertTrue(np.all(endtest), "measure end feature does not match")
 
+    def test_tempo_and_dynamics(self):
+        for fn in MUSICXML_NOTE_FEATURES:
+            score = load_musicxml(fn, force_note_ids=True)
+
+            tempos = list(score.parts[0].iter_all(Tempo))
+            self.assertEqual(tempos[0].start.t, 4, "tempo position does not match")
+            self.assertEqual(tempos[0].bpm, 100., "tempo bpm does not match")
+
+            dynamics = list(score.parts[0].iter_all(Dynamic))
+            self.assertEqual(dynamics[0].start.t, 0, "dynamic position does not match")
+            self.assertEqual(dynamics[0].velocity, 100., "dynamic velocity does not match")
+            self.assertEqual(dynamics[1].start.t, 4, "dynamic position does not match")
+            self.assertEqual(dynamics[1].velocity, 106.67, "dynamic velocity does not match")
 
 
 if __name__ == "__main__":

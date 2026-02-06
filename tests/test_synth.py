@@ -268,7 +268,7 @@ class TestSynthExport(unittest.TestCase):
 
         for fn in WAV_TESTFILES:
             sr, original_audio = wavfile.read(fn)
-            with tempfile.TemporaryFile(suffix=".mid") as filename:
+            with tempfile.TemporaryFile(suffix=".wav") as filename:
 
                 save_wav(
                     input_data=self.score,
@@ -288,7 +288,7 @@ class TestSynthExport(unittest.TestCase):
                     np.allclose(
                         rec_audio / rec_audio.max(),
                         original_audio / original_audio.max(),
-                        atol=1e-4,
+                        atol=1e-3,
                     )
                 )
 

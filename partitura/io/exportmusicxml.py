@@ -3,6 +3,7 @@
 """
 This module contains methods for exporting MusicXML files.
 """
+
 import math
 from collections import defaultdict
 from lxml import etree
@@ -777,6 +778,7 @@ def do_directions(part, start, end, counter):
         result.append(elem)
 
     tempos = part.iter_all(score.Tempo, start, end)
+    dynamics = part.iter_all(score.Dynamic, start, end)
     directions = part.iter_all(score.Direction, start, end, include_subclasses=True)
 
     for tempo in tempos:
@@ -790,6 +792,10 @@ def do_directions(part, start, end, counter):
             "sound", tempo="{}".format(int(to_quarter_tempo(unit, tempo.bpm)))
         )
         result.append((tempo.start.t, None, e3))
+
+    for dynamic in dynamics:
+        e3 = etree.Element("sound", dynamics="{}".format(dynamic.velocity))
+        result.append((dynamic.start.t, None, e3))
 
     for direction in directions:
         text = direction.raw_text or direction.text
@@ -907,6 +913,9 @@ def do_harmony(part, start, end):
         root_e = etree.SubElement(harmony_e, "root")
         root_step_e = etree.SubElement(root_e, "root-step")
         root_step_e.text = h.root
+        if h.alter != 0:
+            root_alter_e = etree.SubElement(root_e, "root-alter")
+            root_alter_e.text = str(h.alter)
         if h.bass is not None:
             bass_e = etree.SubElement(harmony_e, "bass")
             bass_step_e = etree.SubElement(bass_e, "bass-step")
@@ -1047,6 +1056,22 @@ def save_musicxml(
         )
 
     root = etree.Element("score-partwise")
+
+    # add work metadata
+    if score_data.work_title or score_data.work_number:
+        work_tag = etree.SubElement(root, "work")
+        if score_data.work_title:
+            work_title_tag = etree.SubElement(work_tag, "work_title")
+            work_title_tag.text = str(score_data.work_title)
+        if score_data.work_number:
+            work_number_tag = etree.SubElement(work_tag, "work_number")
+            work_number_tag.text = str(score_data.work_number)
+    if score_data.movement_title:
+        movement_title_tag = etree.SubElement(root, "movement_title")
+        movement_title_tag.text = str(score_data.movement_title)
+    if score_data.movement_number:
+        movement_number_tag = etree.SubElement(root, "movement_number")
+        movement_number_tag.text = str(score_data.movement_number)
 
     partlist_e = etree.SubElement(root, "part-list")
     state = {

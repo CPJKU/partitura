@@ -3,6 +3,7 @@
 """
 This module contains utilities for parsing and formatting match lines.
 """
+
 from __future__ import annotations
 
 from typing import Tuple, Any, Optional, Union, List, Dict, Callable

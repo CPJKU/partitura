@@ -24,7 +24,6 @@ from .performance_codec import encode_performance, decode_performance
 from .performance_features import make_performance_features
 from .note_array_to_score import note_array_to_score
 
-
 __all__ = [
     "estimate_voices",
     "estimate_key",

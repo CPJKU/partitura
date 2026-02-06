@@ -6,6 +6,7 @@ This module contains methods for importing MusicXML files.
 
 import os
 from pathlib import Path
+import sys
 import warnings
 import zipfile
 
@@ -13,11 +14,11 @@ from typing import Union, Optional, List
 import numpy as np
 from lxml import etree
 
-
 # lxml does XSD validation too but has problems with the MusicXML 3.1 XSD, so we use
 # the xmlschema package for validating MusicXML against the definition
 import xmlschema
-import pkg_resources
+from importlib.resources import files
+
 from partitura.directions import parse_direction
 import partitura.score as score
 from partitura.score import assign_note_ids
@@ -31,7 +32,7 @@ from partitura.utils.misc import (
 
 __all__ = ["load_musicxml", "musicxml_to_notearray"]
 
-_MUSICXML_SCHEMA = pkg_resources.resource_filename("partitura", "assets/musicxml.xsd")
+_MUSICXML_SCHEMA = str(files("partitura") / "assets" / "musicxml.xsd")
 _XML_VALIDATOR = None
 DYN_DIRECTIONS = {
     "f": score.ConstantLoudnessDirection,
@@ -438,8 +439,9 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
                 end_time_id = np.searchsorted(end_times, o.start.t + 1)
                 part.add(o, None, end_times[end_time_id])
                 warnings.warn(
-                    "Found repeat without end\n"
-                    "Ending point {} is assumed".format(end_times[end_time_id])
+                    "Found repeat without end\nEnding point {} is assumed".format(
+                        end_times[end_time_id]
+                    )
                 )
 
         # complete unstarted repeats
@@ -458,8 +460,9 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
                 start_time_id = np.searchsorted(start_times, o.end.t) - 1
                 part.add(o, start_times[start_time_id], None)
                 warnings.warn(
-                    "Found repeat without start\n"
-                    "Starting point {} is assumed".format(start_times[start_time_id])
+                    "Found repeat without start\nStarting point {} is assumed".format(
+                        start_times[start_time_id]
+                    )
                 )
 
         # complete unstarted repeats in volta with start time of first repeat
@@ -468,8 +471,9 @@ def _parse_parts(document, part_dict, ignore_invisible_objects=False):
             start_time_id = np.searchsorted(start_times, o.end.t) - 1
             part.add(o, start_times[start_time_id], None)
             warnings.warn(
-                "Found repeat without start\n"
-                "Starting point {} is assumed".format(start_times[start_time_id])
+                "Found repeat without start\nStarting point {} is assumed".format(
+                    start_times[start_time_id]
+                )
             )
 
         # remove unfinished elements from the timeline
@@ -585,8 +589,10 @@ def _handle_measure(
             if print_obj == "no" or (notehead is not None and notehead.text == "none"):
                 # Still update position for invisible notes (to avoid problems with backups)
                 if e.tag == "note":
-                    duration = get_value_from_tag(e, "duration", int) or 0
-                    position += duration
+                    chord = e.find("chord")
+                    if chord is None:
+                        duration = get_value_from_tag(e, "duration", int) or 0
+                        position += duration
                 # Skip the object
                 continue
 
@@ -639,7 +645,7 @@ def _handle_measure(
             _handle_sound(e, position, part)
 
         elif e.tag == "note":
-            (position, prev_note, prev_beam) = _handle_note(
+            position, prev_note, prev_beam = _handle_note(
                 e, position, part, ongoing, prev_note, doc_order, prev_beam
             )
             doc_order += 1
@@ -720,10 +726,14 @@ def _handle_harmony(e, position, part):
                 part.add(score.Cadence(cadence_annotation), position)
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
-        # TODO: handle kind text which is other kind of annotation also root
         kind = e.find("kind").get("text")
-        root = e.find("root").find("root-step").text
-        part.add(score.ChordSymbol(root=root, kind=kind), position)
+        # TODO: rather than the optional text attribute
+        # `e.find("kind").get("text")`, store the text content of the
+        # <kind> element `e.find("kind").text`
+        # This breaks bacwkard compatibility, so should be saved for major version update
+        root = e.find("root").findtext("root-step")
+        root_alter = int(e.find("root").findtext("root-alter") or 0)
+        part.add(score.ChordSymbol(root=root, alter=root_alter, kind=kind), position)
         text = None
     else:
         text = None
@@ -910,6 +920,8 @@ def _handle_direction(e, position, part, ongoing):
             part.add(score.DalSegno(), position)
         if get_value_from_attribute(sd, "segno", str) == "segno":
             part.add(score.Segno(), position)
+
+        _handle_sound(sd, position, part)
 
     # <direction-type> ... </...>
     direction_types = e.findall("direction-type")
@@ -1235,17 +1247,40 @@ def _add_tempo_if_unique(position, part, tempo):
     point = part.get_point(position)
     if point is not None:
         tempos = point.starting_objects.get(score.Tempo, [])
-        if tempos == []:
+        if len(tempos) == 0:
             part.add(tempo, position)
         else:
             warnings.warn("not adding duplicate or conflicting tempo indication")
 
 
+def _add_dynamics_if_unique(position, part, dynamic):
+    """
+    Add score.Dynamics object `dynamics` at `position` on `part` if and only if
+    there are no starting score.Dynamics objects at that position. score.Tempo
+    objects are generated by <sound dynamics=...> as well as textual directions
+    (e.g. "q=100"). This function avoids multiple synchronous dynamics indications
+    (whether redundant or conflicting)
+    """
+    point = part.get_point(position)
+    if point is not None:
+        dynamics = point.starting_objects.get(score.Dynamic, [])
+        if dynamic.velocity < 0:
+            warnings.warn(
+                f"not adding dynamics indication with a negative value {dynamic.velocity}"
+            )
+        elif len(dynamics) == 0:
+            part.add(dynamic, position)
+        else:
+            warnings.warn("not adding duplicate or conflicting dynamics indication")
+
+
 def _handle_sound(e, position, part):
     if "tempo" in e.attrib:
-        tempo = score.Tempo(int(e.attrib["tempo"]), "q")
-        # part.add_starting_object(position, tempo)
-        (position, part, tempo)
+        tempo = score.Tempo(float(e.attrib["tempo"]))
+        _add_tempo_if_unique(position, part, tempo)
+    elif "dynamics" in e.attrib:
+        dynamic = score.Dynamic(float(e.attrib["dynamics"]))
+        _add_dynamics_if_unique(position, part, dynamic)
 
 
 def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=None):
@@ -1821,7 +1856,6 @@ def get_technical_notations(e: etree._Element) -> List[score.NoteTechnicalNotati
 
 
 def parse_fingering(e: etree._Element) -> score.Fingering:
-
     try:
         # There seems to be a few cases with fingerings encoded like 4_1.
         # This is not standard in MusicXML according to the documentation,

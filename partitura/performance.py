@@ -7,7 +7,6 @@ MIDI-like format. A performance is defined at the highest level by a
 notes as well as continuous control parameters, such as sustain pedal.
 """
 
-
 from collections import defaultdict
 from typing import Union, List, Optional, Iterator, Iterable as Itertype
 import numpy as np

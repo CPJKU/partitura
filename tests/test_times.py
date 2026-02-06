@@ -1,15 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 This module contains tests for testing conversions from beats and quarters.
 """
+
 import unittest
-
 import partitura.score as score
-import partitura
 
 
-def test_time_pairs(part, time_pairs):
+def _test_time_pairs(part, time_pairs):
     bm = part.beat_map
     ibm = part.inv_beat_map
     qm = part.quarter_map
@@ -39,7 +36,7 @@ class TestBeatVsQuarterTimes(unittest.TestCase):
         # add missing measures
         score.add_measures(part)
         time_pairs = [(-1, -1), (0, 0), (4, 4)]
-        test_time_pairs(part, time_pairs)
+        _test_time_pairs(part, time_pairs)
 
     def test_times_2(self):
         # 6/8 anacrusis
@@ -57,4 +54,4 @@ class TestBeatVsQuarterTimes(unittest.TestCase):
         score.add_measures(part)
 
         time_pairs = [(-3, -1.5), (0, 0), (6, 3)]
-        test_time_pairs(part, time_pairs)
+        _test_time_pairs(part, time_pairs)

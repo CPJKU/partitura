@@ -4,6 +4,7 @@
 This module contains base classes for Match lines and utilities for
 parsing and formatting match lines.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Tuple, Any, Optional, Union, Dict, List, Iterable

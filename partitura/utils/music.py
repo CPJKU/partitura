@@ -3,6 +3,7 @@
 """
 This module contains music related utilities
 """
+
 from __future__ import annotations
 import copy
 from collections import defaultdict
@@ -18,7 +19,6 @@ from partitura.utils.globals import *
 import partitura
 from tempfile import TemporaryDirectory
 import os, math
-
 
 try:
     import miditok
