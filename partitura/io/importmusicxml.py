@@ -735,10 +735,14 @@ def _handle_harmony(e, position, part):
                 part.add(score.Cadence(cadence_annotation), position)
             part.add(score.RomanNumeral(text), position)
     elif e.find("kind") is not None and e.find("root") is not None:
-        # TODO: handle kind text which is other kind of annotation also root
         kind = e.find("kind").get("text")
-        root = e.find("root").find("root-step").text
-        part.add(score.ChordSymbol(root=root, kind=kind), position)
+        # TODO: rather than the optional text attribute
+        # `e.find("kind").get("text")`, store the text content of the
+        # <kind> element `e.find("kind").text`
+        # This breaks bacwkard compatibility, so should be saved for major version update
+        root = e.find("root").findtext("root-step")
+        root_alter = int(e.find("root").findtext("root-alter") or 0)
+        part.add(score.ChordSymbol(root=root, alter=root_alter, kind=kind), position)
         text = None
     else:
         text = None

@@ -913,6 +913,9 @@ def do_harmony(part, start, end):
         root_e = etree.SubElement(harmony_e, "root")
         root_step_e = etree.SubElement(root_e, "root-step")
         root_step_e.text = h.root
+        if h.alter != 0:
+            root_alter_e = etree.SubElement(root_e, "root-alter")
+            root_alter_e.text = str(h.alter)
         if h.bass is not None:
             bass_e = etree.SubElement(harmony_e, "bass")
             bass_step_e = etree.SubElement(bass_e, "bass-step")
