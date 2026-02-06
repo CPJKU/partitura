@@ -14,10 +14,14 @@ This version introduces the following changes. As of this version, the minimum r
 ### Bug Fixes
 
 * Update version in docs #476
+* Fix note shifting due to invisible note objects in MusicXML #484
+* Safe parsing of lark trees with missing column attributes #489
+* Fix handling of chord attributes #488
+* Safe pandas type checking in tests #486
 
 ### Other
 
-* Remove dependence on deprecated pkg_resources #476
+* Remove dependence on deprecated `pkg_resources` #476
 * Clean up tests (remove deprecated files and update tests to new options) #476
 * Deprecate setup.py in favor of pyproject.toml #481
 * Bump the minimum supported Python version to 3.10 #481
