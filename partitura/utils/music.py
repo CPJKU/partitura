@@ -2968,7 +2968,7 @@ def performance_notearray_from_score_notearray(
             )
 
         p_onsets = np.r_[0, np.cumsum(iois * bp[:-1])]
-        pnote_array["duration_sec"] = bp_duration * snote_array["duration_beat"]
+        pnote_array["duration_sec"] = bp_duration
 
     else:
         # convert bpm to beat period
