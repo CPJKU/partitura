@@ -586,7 +586,8 @@ def _handle_measure(
         if ignore_invisible_objects:
             print_obj = get_value_from_attribute(e, "print-object", str)
             notehead = e.find("notehead")  # Musescore mask notes with notehead="none"
-            if print_obj == "no" or (notehead is not None and notehead.text == "none"):
+            cue = e.find("cue") # cue notes are silent
+            if print_obj == "no" or (notehead is not None and notehead.text == "none") or cue is not None:
                 # Still update position for invisible notes (to avoid problems with backups)
                 if e.tag == "note":
                     chord = e.find("chord")
