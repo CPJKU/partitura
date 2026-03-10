@@ -725,6 +725,56 @@ class Part(object):
         return [e for e in self.iter_all(TempoDirection, include_subclasses=True)]
 
     @property
+    def tempo_directions_map(self):
+        """A function mapping timeline times to the ConstantTempoDirection
+        active at that time. The function can take scalar values or 
+        lists/arrays of values.
+        
+        Returns
+        -------
+        function
+            The mapping function
+        """
+        td_it = self.tempo_directions
+        
+        if len(td_it) == 0:
+            warnings.warn("No tempo directions found, returning None map")
+            return lambda t: np.full(np.asarray(t).shape, None) if np.ndim(t) > 0 else None
+        
+        measure_dur = self.measures[0].duration
+        fallback_dur = 2 * measure_dur
+
+        directions = np.zeros((len(td_it), 3))
+        for i, td in enumerate(td_it):
+            start = td.start.t
+            if td.end is not None:
+                end = td.end.t
+            elif i + 1 < len(td_it) and td_it[i + 1].start is not None:
+                end = td_it[i + 1].start.t
+            else:
+                end = start + fallback_dur
+            directions[i] = [start, end, i]
+
+        # index-to-object lookup — unchanged
+        idx_to_direction = {i: td for i, td in enumerate(td_it)}
+
+        inter_function_idx = interp1d(
+            directions[:, 0],   # x: start times
+            directions[:, 2],   # y: indices
+            kind="previous",
+            fill_value="extrapolate",
+            dtype=int,
+        )
+
+        def inter_function(t):
+            idx = inter_function_idx(t)
+            if np.ndim(idx) == 0:  # scalar
+                return idx_to_direction[int(idx)]
+            return np.array([idx_to_direction[int(i)] for i in idx])
+
+        return inter_function
+
+    @property
     def cadences(self):
         """Return a list of all cadences in the part
 
