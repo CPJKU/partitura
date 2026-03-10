@@ -713,6 +713,75 @@ class Part(object):
         return [e for e in self.iter_all(LoudnessDirection, include_subclasses=True)]
 
     @property
+    def constant_dynamics_map(self):
+        """A function mapping timeline times to the ConstantLoudnessDirection
+        active at that time. The function can take scalar values or
+        lists/arrays of values.
+        Returns
+        -------
+        function
+            The mapping function
+        """
+        cd_it = [e for e in self.dynamics if isinstance(e, ConstantLoudnessDirection)]
+        
+        if len(cd_it) == 0:
+            warnings.warn("No constant dynamics found, returning None map")
+            return lambda t: np.full(np.asarray(t).shape, None) if np.ndim(t) > 0 else None
+
+        fallback_dur = 2 * self.measures[0].duration
+        directions = np.zeros((len(cd_it), 3))
+        for i, cd in enumerate(cd_it):
+            start = cd.start.t
+            end = cd.end.t if cd.end is not None else (
+                cd_it[i + 1].start.t if i + 1 < len(cd_it) and cd_it[i + 1].start is not None
+                else start + fallback_dur
+            )
+            directions[i] = [start, end, i]
+
+        idx_to_direction = {i: cd for i, cd in enumerate(cd_it)}
+
+        inter_function_idx = interp1d(
+            directions[:, 0],
+            directions[:, 2],
+            kind="previous",
+            fill_value="extrapolate",
+            dtype=int,
+        )
+
+        def inter_function(t):
+            idx = inter_function_idx(t)
+            if np.ndim(idx) == 0:
+                return idx_to_direction[int(idx)]
+            return np.array([idx_to_direction[int(i)] for i in idx])
+
+        return inter_function
+    
+    @property
+    def variable_dynamics_map(self):
+        """A function mapping timeline times to variable Dynamics Markings (i.e., increasing and decreasing ones)
+        at that exact time, or None outside of marked regions.
+        Returns
+        -------
+        function
+            The mapping function
+        """
+        id_it = [e for e in self.dynamics if not isinstance(e, ConstantLoudnessDirection)]
+
+        if len(id_it) == 0:
+            warnings.warn("No impulsive dynamics found, returning None map")
+            return lambda t: np.full(np.asarray(t).shape, None) if np.ndim(t) > 0 else None
+
+        # build a lookup dict: start time -> object
+        time_to_direction = {d.start.t: d for d in id_it if d.start is not None}
+
+        def inter_function(t):
+            if np.ndim(t) == 0:  # scalar
+                return time_to_direction.get(int(t), None)
+            return np.array([time_to_direction.get(int(ti), None) for ti in t])
+
+        return inter_function
+
+    @property
     def tempo_directions(self):
         """Return a list of all tempo direction in the part
 
