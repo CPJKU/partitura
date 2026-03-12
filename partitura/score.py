@@ -799,9 +799,10 @@ class Part(object):
 
     @property
     def tempo_directions_map(self):
-        """A function mapping timeline times to the ConstantTempoDirection
-        active at that time. The function can take scalar values or 
-        lists/arrays of values.
+        """A function mapping timeline times to the TempoDirection
+        active at that time. Returns None for times before the first direction,
+        and fills forward after the last direction.
+        The function can take scalar values or lists/arrays of values.
         
         Returns
         -------
@@ -814,67 +815,34 @@ class Part(object):
             warnings.warn("No tempo directions found, returning None map")
             return lambda t: np.full(np.asarray(t).shape, None) if np.ndim(t) > 0 else None
         
-        measure_dur = self.measures[0].duration
-        fallback_dur = 2 * measure_dur
-
-        print(len(td_it), 'tempo directions')
-
+        fallback_dur = 2 * self.measures[0].duration
         directions = np.zeros((len(td_it), 3))
-        for i, td in enumerate(td_it):
-            start = td.start.t
-            if td.end is not None:
-                end = td.end.t
-            elif i + 1 < len(td_it) and td_it[i + 1].start is not None:
-                end = td_it[i + 1].start.t
-            else:
-                end = start + fallback_dur
+        for i, cd in enumerate(td_it):
+            start = cd.start.t
+            end = cd.end.t if cd.end is not None else (
+                td_it[i + 1].start.t if i + 1 < len(td_it) and td_it[i + 1].start is not None
+                else start + fallback_dur
+            )
             directions[i] = [start, end, i]
-            print(i, td, start, end) # TODOTODOTO
 
         # index-to-object lookup
         idx_to_direction = {i: td for i, td in enumerate(td_it)}
-        print('mapping:', idx_to_direction )
-
-        # inter_function_idx = interp1d(
-        #     directions[:, 0],   # x: start times
-        #     directions[:, 2],   # y: indices
-        #     kind="previous",
-        #     fill_value="extrapolate",
-        #     dtype=int,
-        # )
+        start_times = directions[:, 0]
+        max_idx = len(td_it) - 1
 
         def inter_function(t):
             scalar = np.ndim(t) == 0
             t = np.atleast_1d(np.asarray(t))
-            
-            start_times = directions[:, 0]  # [2, 4, 5]
-            
-            # searchsorted returns the index where t would be inserted
-            # 'right' means: for t==2, returns 1 (i.e. "after" index 0)
-            indices = np.searchsorted(start_times, t, side='right') - 1
-            
-            result = np.empty(len(t), dtype=object)
-            for j, idx in enumerate(indices):
-                if idx < 0:  # before first direction → None
-                    result[j] = None
-                else:        # at or after first direction → fill forward (clamped to last)
-                    result[j] = idx_to_direction[int(np.clip(idx, 0, len(cd_it) - 1))]
-            
-            return result[0] if scalar else result
 
-        # def inter_function(t):
-        #     idx = inter_function_idx(t)
-        #     if np.ndim(idx) == 0:
-        #         i = int(idx)
-        #         return idx_to_direction.get(i, None)
-        #     return np.array([idx_to_direction.get(int(i), None) for i in idx])
-        
-        # def inter_function(t):
-        #     idx = inter_function_idx(t)
-        #     print('idx', idx)
-        #     if np.ndim(idx) == 0:  # scalar
-        #         return idx_to_direction[int(idx)]
-        #     return np.array([idx_to_direction[int(i)] for i in idx])
+            indices = np.searchsorted(start_times, t, side='right') - 1
+            clipped = np.clip(indices, 0, max_idx)
+                
+            result = np.where(
+                indices < 0,
+                None,
+                np.array([idx_to_direction[i] for i in clipped], dtype=object)
+            )
+            return result[0] if scalar else result
 
         return inter_function
 
