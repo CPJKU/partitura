@@ -7,7 +7,7 @@ This module contains methods to compute note-level features.
 import sys
 import warnings
 import numpy as np
-from scipy.interpolate import interp1d
+from partitura.utils.generic import interp1d 
 import partitura.score as score
 
 import types
