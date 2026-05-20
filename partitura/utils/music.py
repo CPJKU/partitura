@@ -10,7 +10,7 @@ from collections import defaultdict
 import re
 import warnings
 import numpy as np
-from scipy.interpolate import interp1d
+from partitura.utils.generic import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
 from typing_extensions import deprecated

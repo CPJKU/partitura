@@ -14,7 +14,7 @@ from typing import Union, Tuple, Dict, Optional, Any, Callable, TYPE_CHECKING
 
 import numpy as np
 
-from scipy.interpolate import interp1d
+from partitura.utils.generic import interp1d
 
 
 from partitura.utils.music import (

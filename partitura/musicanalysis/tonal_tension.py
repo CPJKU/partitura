@@ -17,7 +17,7 @@ import warnings
 
 import numpy as np
 import scipy.spatial.distance as distance
-from scipy.interpolate import interp1d
+from partitura.utils.generic import interp1d
 
 from partitura.utils import get_time_units_from_note_array, ensure_notearray, add_field
 
