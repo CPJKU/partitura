@@ -489,7 +489,7 @@ def seconds_to_midi_ticks(
     midi_ticks = np.round(1e6 * ppq * time_in_seconds / mpq)
 
     if isinstance(time_in_seconds, np.ndarray):
-        return midi_ticks.astype(np.int)
+        return midi_ticks.astype(int)
     else:
         return int(midi_ticks)
 
