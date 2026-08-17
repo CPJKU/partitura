@@ -1371,15 +1371,17 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
     if chord is not None:
         # this note starts at the same position as the previous note, and has
         # same duration
-        if prev_note is None:
-            # Malformed MusicXML: a <chord> child on the first note of a part
-            # (or first after a backup/forward) leaves us with no anchor to
-            # copy timing from. Warn and continue, treating this note as a
-            # standalone — better than the bare AssertionError this used to
-            # raise, which crashed the whole load.
+        if not isinstance(prev_note, score.Note):
+            # Malformed MusicXML: a <chord> child with no note to anchor to,
+            # either the first note of a part (or first after a backup/forward),
+            # where prev_note is None, or one that follows a <rest>, where
+            # prev_note is a Rest and has no timing or is_grace_chord to copy.
+            # Warn and continue, treating this note as a standalone, which is
+            # better than the bare AttributeError this used to raise on a rest
+            # and crashed the whole load.
             warnings.warn(
-                "Found <chord> on a note with no preceding note (malformed "
-                "MusicXML); treating as a standalone note.",
+                "Found <chord> on a note with no preceding note to anchor to "
+                "(malformed MusicXML); treating as a standalone note.",
                 stacklevel=2,
             )
         else:

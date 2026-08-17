@@ -92,6 +92,35 @@ class TestMidiExportRobustness(unittest.TestCase):
             )
 
 
+_CHORD_AFTER_REST_XML = """\
+<?xml version="1.0" encoding="utf-8"?>
+<score-partwise version="3.0">
+  <part-list>
+    <score-part id="P1"><part-name>P</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <note>
+        <rest/>
+        <duration>4</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>
+"""
+
+
 class TestMusicXMLImportRobustness(unittest.TestCase):
     def test_chord_on_first_note_warns_and_continues(self):
         with tempfile.TemporaryDirectory() as td:
@@ -104,6 +133,22 @@ class TestMusicXMLImportRobustness(unittest.TestCase):
             na = s[0].note_array()
             self.assertEqual(len(na), 2)
             # ensure we surfaced a warning (rather than the old bare assert)
+            self.assertTrue(
+                any("chord" in str(item.message).lower() for item in w),
+                f"expected a chord-without-prev warning, got {[str(i.message) for i in w]}",
+            )
+
+    def test_chord_after_rest_warns_and_continues(self):
+        with tempfile.TemporaryDirectory() as td:
+            xml_path = Path(td) / "chord_after_rest.musicxml"
+            xml_path.write_text(_CHORD_AFTER_REST_XML)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                s = pt.load_musicxml(str(xml_path))
+            self.assertEqual(len(s), 1)
+            na = s[0].note_array()
+            # the rest carries no pitch; the chord note is kept as a standalone
+            self.assertEqual(len(na), 1)
             self.assertTrue(
                 any("chord" in str(item.message).lower() for item in w),
                 f"expected a chord-without-prev warning, got {[str(i.message) for i in w]}",
