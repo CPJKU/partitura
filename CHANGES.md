@@ -1,5 +1,11 @@
 # Release Notes
 
+## Unreleased
+
+### New Features
+
+* Add an optional, much faster `backend='symusic'` for `load_performance_midi` / `load_performance` (default `backend='auto'`, still falls back to the original `mido`-based parser when the compiled extension isn't available). It is built on a vendored copy of [minimidi](https://github.com/lzqlzzq/minimidi) -- the same low-level MIDI parser the `symusic` library uses internally -- rather than on `symusic` itself, so it adds no new runtime dependency and none of `symusic`'s SoundFont synthesis stack. Two documented, deliberate differences from the `mido` backend: its tempo map is built once globally from every tempo event in the file rather than accumulated sequentially per track (this only matters for files whose tempo changes appear exclusively in a track processed after the notes they should affect), and it does not populate `PerformedPart.meta_other`. Building the extension requires a C++20 compiler and the `3rdparty/minimidi` git submodule (`git submodule update --init`); if either is unavailable, `pip install partitura` still succeeds and everything falls back to `mido`.
+
 ## Version 1.8.0
 
 This version introduces the following changes. As of this version, the minimum required Python version is Python 3.10. Use Partitura version ≤ 1.7.0 for Python 3.7 to 3.9.

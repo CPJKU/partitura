@@ -1,0 +1,4 @@
+include setup.py
+recursive-include native *.cpp *.h *.hpp
+recursive-include 3rdparty/minimidi/include *.hpp *.h
+include 3rdparty/minimidi/LICENSE

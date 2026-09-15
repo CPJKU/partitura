@@ -4,6 +4,7 @@
 This module contains methods for importing MIDI files.
 """
 
+import os
 import warnings
 from collections import defaultdict
 from contextlib import nullcontext
@@ -28,6 +29,14 @@ from partitura.utils import (
 )
 from partitura.utils.music import midi_ticks_to_seconds
 import partitura.musicanalysis as analysis
+
+try:
+    from partitura import _symusic_midi
+
+    _HAS_FASTMIDI = True
+except ImportError:
+    _symusic_midi = None
+    _HAS_FASTMIDI = False
 
 __all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
 
@@ -75,6 +84,7 @@ def load_performance_midi(
     default_bpm: Union[int, float] = 120,
     merge_tracks: bool = False,
     quiet: bool = False,
+    backend: str = "auto",
 ) -> performance.Performance:
     """Load a musical performance from a MIDI file.
 
@@ -97,16 +107,67 @@ def load_performance_midi(
         Defaults to 120.
     merge_tracks: bool, optional
         For MIDI files, merges all tracks into a single track.
+    backend : {'auto', 'mido', 'symusic'}, optional
+        Which MIDI-parsing backend to use. ``'mido'`` uses the original
+        pure-Python parser. ``'symusic'`` uses an optional, much faster
+        compiled extension (built on the same low-level MIDI parser
+        ("minimidi") that the symusic library uses internally) and
+        raises a `RuntimeError` if that extension is not available or
+        if `filename` is an already-open `mido.MidiFile` (which the
+        fast backend cannot read from, since it parses from a path).
+        ``'auto'`` (the default) uses the fast backend when it is
+        available and `filename` is a path, and silently falls back to
+        ``'mido'`` otherwise.
+
+        The ``'symusic'`` backend is equivalent to ``'mido'`` for
+        virtually all files, with two documented differences: (1) its
+        tempo map is built once, globally, from every tempo event in
+        the file, rather than accumulated sequentially track-by-track,
+        which only matters for files with tempo changes that appear
+        exclusively in a track processed after the notes they should
+        affect; and (2) it does not populate `PerformedPart.meta_other`
+        (arbitrary, rarely-used MIDI meta messages).
 
     Returns
     -------
     :class:`partitura.performance.Performance`
         A Performance instance.
     """
+    if backend not in ("auto", "mido", "symusic"):
+        raise ValueError(
+            f"Unknown backend {backend!r}; expected one of 'auto', 'mido', 'symusic'"
+        )
+
+    is_path_input = not isinstance(filename, mido.MidiFile)
+
+    if backend == "symusic":
+        if not is_path_input:
+            raise ValueError(
+                "backend='symusic' requires a path, not an already-open mido.MidiFile"
+            )
+        if not _HAS_FASTMIDI:
+            raise RuntimeError(
+                "backend='symusic' was requested but the optional "
+                "partitura._symusic_midi extension is not built. Use "
+                "backend='mido' (or 'auto'), or reinstall partitura with "
+                "a C++ toolchain available."
+            )
+
+    use_fast = backend == "symusic" or (
+        backend == "auto" and _HAS_FASTMIDI and is_path_input
+    )
+
     ctx = warnings.catch_warnings() if quiet else nullcontext()
     with ctx:
         if quiet:
             warnings.simplefilter("ignore")
+
+        if use_fast:
+            return _load_performance_midi_fast(
+                filename,
+                default_bpm=default_bpm,
+                merge_tracks=merge_tracks,
+            )
 
         if isinstance(filename, mido.MidiFile):
             mid = filename
@@ -327,6 +388,114 @@ def load_performance_midi(
         )
 
         return perf
+
+
+def _load_performance_midi_fast(
+    filename: PathLike,
+    default_bpm: Union[int, float] = 120,
+    merge_tracks: bool = False,
+) -> performance.Performance:
+    """Fast path for `load_performance_midi`, using the optional compiled
+    `partitura._symusic_midi` extension (see native/fastmidi.cpp). Mirrors
+    the note on/off pairing and tempo-map logic of the `mido`-based path
+    above, but does not populate `meta_other`; see `load_performance_midi`'s
+    `backend` parameter docstring for the full list of differences.
+    """
+    doc_name = get_document_name(filename)
+    path = os.fspath(filename)
+    default_mpq = int(60 * (10**6 / default_bpm))
+
+    parsed = _symusic_midi.parse_performance(path, float(default_bpm), merge_tracks)
+    ppq = parsed["ppq"]
+
+    pps = []
+    for tr in parsed["tracks"]:
+        track_idx = int(tr["track_index"])
+        dropped = int(tr["dropped_note_offs"])
+        if dropped:
+            warnings.warn(
+                f"ignoring {dropped} MIDI note-off message(s) with no "
+                "matching note-on"
+            )
+
+        notes = [
+            dict(
+                id=f"n{k}",
+                midi_pitch=int(rec["midi_pitch"]),
+                note_on=float(rec["note_on"]),
+                note_on_tick=int(rec["note_on_tick"]),
+                note_off=float(rec["note_off"]),
+                note_off_tick=int(rec["note_off_tick"]),
+                track=int(rec["track"]),
+                channel=int(rec["channel"]),
+                velocity=int(rec["velocity"]),
+            )
+            for k, rec in enumerate(tr["notes"])
+        ]
+
+        controls = [
+            dict(
+                time=float(r["time"]),
+                time_tick=int(r["time_tick"]),
+                number=int(r["number"]),
+                value=int(r["value"]),
+                track=int(r["track"]),
+                channel=int(r["channel"]),
+            )
+            for r in tr["controls"]
+        ]
+
+        programs = [
+            dict(
+                time=float(r["time"]),
+                time_tick=int(r["time_tick"]),
+                program=int(r["program"]),
+                track=int(r["track"]),
+                channel=int(r["channel"]),
+            )
+            for r in tr["programs"]
+        ]
+
+        time_signatures = [
+            dict(
+                time=float(r["time"]),
+                time_tick=int(r["time_tick"]),
+                beats=int(r["beats"]),
+                beat_type=int(r["beat_type"]),
+                track=int(r["track"]),
+            )
+            for r in tr["time_signatures"]
+        ]
+
+        key_signatures = []
+        for r in tr["key_signatures"]:
+            fifths = int(r["fifths"])
+            mode = "minor" if int(r["mode"]) else "major"
+            key_signatures.append(
+                dict(
+                    time=float(r["time"]),
+                    time_tick=int(r["time_tick"]),
+                    key_name=fifths_mode_to_key_name(fifths, mode),
+                    fifths=fifths,
+                    mode=mode,
+                    track=int(r["track"]),
+                )
+            )
+
+        pp = performance.PerformedPart(
+            notes,
+            controls=controls,
+            programs=programs,
+            key_signatures=key_signatures,
+            time_signatures=time_signatures,
+            meta_other=[],
+            ppq=ppq,
+            mpq=default_mpq,
+            track=track_idx,
+        )
+        pps.append(pp)
+
+    return performance.Performance(id=doc_name, performedparts=pps)
 
 
 def adjust_time(tick: int, tempo_changes: List[Tuple[int, int]], ppq: int) -> float:

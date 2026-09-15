@@ -197,6 +197,7 @@ def load_performance(
     first_note_at_zero: bool = False,
     pedal_threshold: int = 64,
     quiet: bool = False,
+    backend: str = "auto",
 ) -> Performance:
     """
     Load a performance format supported by partitura. Currently the accepted formats
@@ -219,6 +220,10 @@ def load_performance(
     quiet : bool, optional
         If True, suppress all warnings emitted during parsing.
         Defaults to False.
+    backend : {'auto', 'mido', 'symusic'}, optional
+        Which MIDI-parsing backend to use for MIDI input; ignored for
+        matchfiles. See `partitura.io.importmidi.load_performance_midi`
+        for details. Defaults to ``'auto'``.
 
     Returns
     -------
@@ -241,6 +246,7 @@ def load_performance(
             default_bpm=default_bpm,
             merge_tracks=merge_tracks,
             quiet=quiet,
+            backend=backend,
         )
 
         # set threshold for sustain pedal

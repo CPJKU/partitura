@@ -47,8 +47,15 @@ https://github.com/CPJKU/partitura
 
 Once that you have already forked the repo, you can clone it:
 ```shell
-git clone https://github.com/YourUsername/partitura.git
+git clone --recurse-submodules https://github.com/YourUsername/partitura.git
 cd partitura
+```
+
+If you already cloned without `--recurse-submodules` (e.g. to build the
+optional fast MIDI-import extension, see `partitura/io/importmidi.py`),
+fetch the submodule with:
+```shell
+git submodule update --init
 ```
 
 ### Get latest Develop Branch

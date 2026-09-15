@@ -5,7 +5,11 @@ This module contains tests for importing MIDI files.
 """
 
 import os
+import glob
 import logging
+import random
+import time
+import warnings
 from collections import defaultdict, Counter
 from operator import itemgetter
 import unittest
@@ -16,7 +20,46 @@ from partitura import load_score_midi
 from partitura.utils import partition
 import partitura.score as score
 from partitura import load_performance_midi
+from partitura.io.importmidi import _HAS_FASTMIDI
 from tests import MIDIINPORT_TESTFILES
+
+
+def _dump_performance_for_comparison(perf):
+    """Reduce a `Performance` to plain, sorted, rounded tuples so that
+    output from different MIDI-import backends can be compared for
+    numerical equality regardless of note/event ordering or object identity.
+    """
+    out = []
+    for pp in perf:
+        notes = sorted(
+            (
+                n["midi_pitch"],
+                round(n["note_on"], 6),
+                round(n["note_off"], 6),
+                n["channel"],
+                n["track"],
+                n["velocity"],
+            )
+            for n in pp.notes
+        )
+        controls = sorted(
+            (round(c["time"], 6), c["number"], c["value"], c["track"], c["channel"])
+            for c in pp.controls
+        )
+        programs = sorted(
+            (round(p["time"], 6), p["program"], p["track"], p["channel"])
+            for p in pp.programs
+        )
+        key_signatures = sorted(
+            (round(k["time"], 6), k["fifths"], k["mode"], k["key_name"])
+            for k in pp.key_signatures
+        )
+        time_signatures = sorted(
+            (round(t["time"], 6), t["beats"], t["beat_type"])
+            for t in pp.time_signatures
+        )
+        out.append((notes, controls, programs, key_signatures, time_signatures))
+    return out
 
 LOGGER = logging.getLogger(__name__)
 
@@ -512,3 +555,274 @@ class TestLoadPerformanceMIDI(unittest.TestCase):
 
         self.assertEqual(key_signatures[1]['key_name'], 'G')
         self.assertAlmostEqual(key_signatures[1]['time'], 0.5, places=6)  # 120 BPM -> 0.5 seconds
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._symusic_midi extension is not built",
+)
+class TestLoadPerformanceMIDIBackends(unittest.TestCase):
+    """Verify that backend='symusic' agrees with backend='mido' on
+    notes, controls, programs, time signatures, and key signatures.
+    """
+
+    @staticmethod
+    def _make_test_file(path):
+        random.seed(1907)
+        mid = mido.MidiFile(ticks_per_beat=480)
+
+        meta_track = mido.MidiTrack()
+        mid.tracks.append(meta_track)
+        meta_track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
+        meta_track.append(
+            mido.MetaMessage("time_signature", numerator=3, denominator=4, time=0)
+        )
+        meta_track.append(mido.MetaMessage("key_signature", key="D", time=0))
+        meta_track.append(mido.MetaMessage("set_tempo", tempo=400000, time=960))
+        meta_track.append(mido.MetaMessage("key_signature", key="Am", time=960))
+
+        for tr_idx in range(2):
+            track = mido.MidiTrack()
+            mid.tracks.append(track)
+            channel = tr_idx
+            track.append(
+                mido.Message(
+                    "program_change", program=10 + tr_idx, channel=channel, time=0
+                )
+            )
+            events = []
+            time_cursor = 0
+            for i in range(60):
+                pitch = random.randint(40, 90)
+                dur = random.choice([120, 240, 480])
+                onset = time_cursor
+                time_cursor += random.choice([0, 120, 240])
+                events.append((onset, "note_on", pitch, 80))
+                events.append((onset + dur, "note_off", pitch, 0))
+                if i % 10 == 0:
+                    events.append((onset, "control_change", 64, random.randint(0, 127)))
+            events.sort(key=lambda e: e[0])
+            prev = 0
+            for onset, kind, a, b in events:
+                delta = onset - prev
+                prev = onset
+                if kind == "note_on":
+                    track.append(
+                        mido.Message(
+                            "note_on", note=a, velocity=b, channel=channel, time=delta
+                        )
+                    )
+                elif kind == "note_off":
+                    track.append(
+                        mido.Message(
+                            "note_off", note=a, velocity=b, channel=channel, time=delta
+                        )
+                    )
+                elif kind == "control_change":
+                    track.append(
+                        mido.Message(
+                            "control_change",
+                            control=a,
+                            value=b,
+                            channel=channel,
+                            time=delta,
+                        )
+                    )
+
+        mid.save(path)
+
+    def setUp(self):
+        self.tmpfile = NamedTemporaryFile(suffix=".mid", delete=False)
+        self._make_test_file(self.tmpfile.name)
+
+    def test_backends_agree_single_track(self):
+        perf_mido = load_performance_midi(self.tmpfile.name, backend="mido")
+        perf_fast = load_performance_midi(self.tmpfile.name, backend="symusic")
+        self.assertEqual(
+            _dump_performance_for_comparison(perf_mido),
+            _dump_performance_for_comparison(perf_fast),
+        )
+
+    def test_backends_agree_merged_tracks(self):
+        perf_mido = load_performance_midi(
+            self.tmpfile.name, backend="mido", merge_tracks=True
+        )
+        perf_fast = load_performance_midi(
+            self.tmpfile.name, backend="symusic", merge_tracks=True
+        )
+        self.assertEqual(
+            _dump_performance_for_comparison(perf_mido),
+            _dump_performance_for_comparison(perf_fast),
+        )
+
+    def test_auto_backend_matches_symusic(self):
+        perf_auto = load_performance_midi(self.tmpfile.name, backend="auto")
+        perf_fast = load_performance_midi(self.tmpfile.name, backend="symusic")
+        self.assertEqual(
+            _dump_performance_for_comparison(perf_auto),
+            _dump_performance_for_comparison(perf_fast),
+        )
+
+    def tearDown(self):
+        os.unlink(self.tmpfile.name)
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._symusic_midi extension is not built",
+)
+class TestLoadPerformanceMIDIAllTestFiles(unittest.TestCase):
+    """Compare backend='mido' and backend='symusic' on every *.mid/*.midi
+    file found anywhere under the tests/ directory tree, verifying that
+    both backends produce numerically identical PerformedPart output.
+    """
+
+    @staticmethod
+    def _all_midi_files():
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        files = set()
+        for pattern in ("*.mid", "*.midi", "*.MID", "*.MIDI"):
+            files.update(
+                glob.glob(os.path.join(tests_dir, "**", pattern), recursive=True)
+            )
+        return sorted(files)
+
+    def test_backends_numerically_identical(self):
+        midi_files = self._all_midi_files()
+        self.assertGreater(len(midi_files), 0, "no MIDI test files found")
+
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        for midi_file in midi_files:
+            rel_path = os.path.relpath(midi_file, tests_dir)
+            with self.subTest(midi_file=rel_path):
+                perf_mido = load_performance_midi(
+                    midi_file, backend="mido", quiet=True
+                )
+                perf_fast = load_performance_midi(
+                    midi_file, backend="symusic", quiet=True
+                )
+                self.assertEqual(
+                    _dump_performance_for_comparison(perf_mido),
+                    _dump_performance_for_comparison(perf_fast),
+                )
+
+
+class TestLoadPerformanceMIDIBackendDispatch(unittest.TestCase):
+    """Backend selection / error handling that doesn't require the compiled
+    extension to be available.
+    """
+
+    def setUp(self):
+        self.midi_file = mido.MidiFile()
+        track = mido.MidiTrack()
+        self.midi_file.tracks.append(track)
+        track.append(mido.Message("note_on", note=60, velocity=64, time=0))
+        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
+
+    def test_invalid_backend_raises(self):
+        with self.assertRaises(ValueError):
+            load_performance_midi(self.midi_file, backend="not-a-backend")
+
+    def test_symusic_backend_requires_path(self):
+        with self.assertRaises(ValueError):
+            load_performance_midi(self.midi_file, backend="symusic")
+
+    def test_mido_backend_accepts_midifile_object(self):
+        perf = load_performance_midi(self.midi_file, backend="mido")
+        self.assertEqual(len(perf[0].notes), 1)
+
+    def test_auto_backend_accepts_midifile_object(self):
+        perf = load_performance_midi(self.midi_file, backend="auto")
+        self.assertEqual(len(perf[0].notes), 1)
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._symusic_midi extension is not built",
+)
+class TestLoadPerformanceMIDISpeed(unittest.TestCase):
+    """Check that backend='symusic' is meaningfully faster than the
+    pure-Python backend='mido' path -- that's the whole point of the
+    fast backend, so a regression here is worth failing the build over.
+    """
+
+    # Measured speedups on this file size are consistently ~2-2.6x (see
+    # CHANGES.md); require a good deal less than that so the test isn't
+    # flaky under CI/shared-runner noise, while still catching a
+    # regression to "about the same speed" or slower.
+    MIN_SPEEDUP = 1.3
+    N_NOTES = 8000
+    N_REPEATS = 3
+
+    @classmethod
+    def setUpClass(cls):
+        random.seed(20240917)
+        mid = mido.MidiFile(ticks_per_beat=480)
+        track = mido.MidiTrack()
+        mid.tracks.append(track)
+        track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
+
+        events = []
+        t = 0
+        for _ in range(cls.N_NOTES):
+            pitch = random.randint(30, 100)
+            dur = random.choice([120, 240, 480])
+            onset = t
+            t += random.choice([0, 60, 120])
+            events.append((onset, "on", pitch))
+            events.append((onset + dur, "off", pitch))
+        events.sort(key=lambda e: e[0])
+
+        prev = 0
+        for onset, kind, pitch in events:
+            delta = onset - prev
+            prev = onset
+            if kind == "on":
+                track.append(
+                    mido.Message(
+                        "note_on", note=pitch, velocity=70, channel=0, time=delta
+                    )
+                )
+            else:
+                track.append(
+                    mido.Message(
+                        "note_off", note=pitch, velocity=0, channel=0, time=delta
+                    )
+                )
+
+        cls.tmpfile = NamedTemporaryFile(suffix=".mid", delete=False)
+        mid.save(cls.tmpfile.name)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.unlink(cls.tmpfile.name)
+
+    @staticmethod
+    def _best_of(backend, path, n_repeats):
+        best = float("inf")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for _ in range(n_repeats):
+                t0 = time.perf_counter()
+                load_performance_midi(path, backend=backend)
+                best = min(best, time.perf_counter() - t0)
+        return best
+
+    def test_symusic_backend_is_faster_than_mido(self):
+        mido_time = self._best_of("mido", self.tmpfile.name, self.N_REPEATS)
+        fast_time = self._best_of("symusic", self.tmpfile.name, self.N_REPEATS)
+
+        self.assertGreater(
+            fast_time,
+            0.0,
+            "measured a zero-duration import; timer resolution too coarse "
+            "to compare backends on this machine",
+        )
+        speedup = mido_time / fast_time
+        self.assertGreaterEqual(
+            speedup,
+            self.MIN_SPEEDUP,
+            f"backend='symusic' should be at least {self.MIN_SPEEDUP}x faster "
+            f"than backend='mido' on a {self.N_NOTES}-note file, but was only "
+            f"{speedup:.2f}x ({mido_time:.4f}s vs {fast_time:.4f}s)",
+        )
