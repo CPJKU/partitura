@@ -329,4 +329,87 @@ class TestPerformedNote(unittest.TestCase):
         with self.assertRaises(KeyError):
             del pnote["pitch"]
 
+    def test_validate_false_skips_validation(self):
+        """
+        With validate=False, out-of-range/malformed values must NOT raise
+        (unlike the validate=True default tested in test_validate_values),
+        but defaults must still be applied.
+        """
+        # would raise for pitch=128 with validate=True (see test_validate_values)
+        pnote = PerformedNote(
+            {"pitch": 128, "note_on": 10, "note_off": 20}, validate=False
+        )
+        self.assertEqual(pnote["pitch"], 128)
+
+        # would raise for note_off < note_on with validate=True
+        pnote = PerformedNote(
+            {"pitch": 60, "note_on": 10, "note_off": 5}, validate=False
+        )
+        self.assertEqual(pnote["note_off"], 5)
+
+        # defaults are still applied even when validation is skipped
+        pnote = PerformedNote(
+            {"pitch": 60, "note_on": 10, "note_off": 20}, validate=False
+        )
+        self.assertEqual(pnote["track"], 0)
+        self.assertEqual(pnote["channel"], 0)
+        self.assertEqual(pnote["velocity"], 60)
+        self.assertEqual(pnote["sound_off"], 20)
+
+    def test_validate_true_is_still_the_default(self):
+        """
+        validate defaults to True, so constructing without passing it at
+        all must behave exactly like the pre-existing validated path.
+        """
+        with self.assertRaises(ValueError):
+            PerformedNote({"pitch": 128, "note_on": 10, "note_off": 20})
+
+
+class TestPerformedPartValidateFlag(unittest.TestCase):
+    def test_validate_false_skips_validation_in_performed_part(self):
+        notes = [{"midi_pitch": 200, "note_on": 0, "note_off": 1, "velocity": 64}]
+        # validate=True (default) rejects the out-of-range pitch
+        with self.assertRaises(ValueError):
+            PerformedPart(notes)
+        # validate=False lets it through
+        ppart = PerformedPart(notes, validate=False)
+        self.assertEqual(ppart.notes[0]["pitch"], 200)
+
+    def test_validate_false_does_not_change_valid_notes(self):
+        """
+        For well-formed notes, validate=False and validate=True (the
+        default) must produce identical PerformedPart output -- this is
+        what backend='symusic'/backend='mido' MIDI import relies on.
+        """
+        notes = [
+            dict(
+                id="n0",
+                midi_pitch=60,
+                note_on=0.0,
+                note_on_tick=0,
+                note_off=1.0,
+                note_off_tick=480,
+                track=0,
+                channel=0,
+                velocity=64,
+            )
+        ]
+        ppart_validated = PerformedPart([dict(n) for n in notes])
+        ppart_fast = PerformedPart([dict(n) for n in notes], validate=False)
+        self.assertEqual(
+            ppart_validated.notes[0].pnote_dict, ppart_fast.notes[0].pnote_dict
+        )
+
+    def test_already_performed_note_instances_ignore_validate(self):
+        """
+        Notes that are already PerformedNote instances are passed through
+        as-is regardless of `validate` -- only plain-dict entries are
+        affected.
+        """
+        pnote = PerformedNote(
+            {"pitch": 60, "note_on": 0, "note_off": 1}, validate=False
+        )
+        ppart = PerformedPart([pnote], validate=True)
+        self.assertIs(ppart.notes[0], pnote)
+
 

@@ -53,6 +53,16 @@ class PerformedPart(object):
     mpq : int
         Microseconds per Quarter (mpq) tempo of the MIDI encoding.
         Defaults to 500000.
+    validate : bool
+        Whether to validate each note dictionary (pitch/velocity range,
+        note_on/note_off/tick ordering) while wrapping it in a
+        `PerformedNote`. Defaults to True. Set to False only when the
+        caller already knows the note data is well-formed (e.g. it was
+        derived directly from a MIDI file, where pitch/velocity are
+        guaranteed to be in range by the MIDI byte format itself) --
+        this skips the dominant per-note cost of construction for large
+        performances. Notes that are already `PerformedNote` instances
+        are unaffected either way.
 
     Attributes
     ----------
@@ -84,15 +94,15 @@ class PerformedPart(object):
         ppq: int = 480,
         mpq: int = 500000,
         track: int = 0,
+        validate: bool = True,
     ) -> None:
         super().__init__()
         self.id = id
         self.part_name = part_name
-        self.notes = list(
-            map(
-                lambda n: n if isinstance(n, PerformedNote) else PerformedNote(n), notes
-            )
-        )
+        self.notes = [
+            n if isinstance(n, PerformedNote) else PerformedNote(n, validate=validate)
+            for n in notes
+        ]
         self.controls = controls or []
         self.programs = programs or []
         self.time_signatures = time_signatures or []
@@ -220,6 +230,7 @@ class PerformedPart(object):
         note_array: np.ndarray,
         id: str = None,
         part_name: str = None,
+        validate: bool = True,
     ):
         """
         Create an instance of PerformedPart from a note_array.
@@ -269,7 +280,9 @@ class PerformedPart(object):
                 )
             )
 
-        return cls(id=id, part_name=part_name, notes=notes, controls=None)
+        return cls(
+            id=id, part_name=part_name, notes=notes, controls=None, validate=validate
+        )
 
 
 def adjust_note_offsets_with_sustain(
@@ -289,8 +302,11 @@ def adjust_note_offsets_with_sustain(
 
     # if there is no pedal info, assume pedal is off
     if len(pedal) == 0:
+        # sound_off == note_off trivially satisfies PerformedNote's
+        # sound_off >= note_off invariant, so a validated __setitem__ is
+        # unnecessary here.
         for note in notes:
-            note["sound_off"] = note["note_off"]
+            note._set_unchecked("sound_off", note["note_off"])
         return
 
     # sort, just in case
@@ -334,9 +350,11 @@ def adjust_note_offsets_with_sustain(
 
         offs[sorted_indices[:-1]] = adjusted_sound_offs
 
-    # adjust the sound off
+    # adjust the sound off. `max(offset, note_off)` always satisfies
+    # PerformedNote's sound_off >= note_off invariant by construction, so a
+    # validated __setitem__ is unnecessary here.
     for offset, note in zip(offs, notes):
-        note["sound_off"] = max(offset, note["note_off"])
+        note._set_unchecked("sound_off", max(offset, note["note_off"]))
 
 
 class PerformedNote:
@@ -351,22 +369,18 @@ class PerformedNote:
         "id", "pitch", "note_on", "note_off", "velocity", "track", "channel", "sound_off".
         If not provided, the default values will be used.
         Pitch, note_on, and note_off are required.
+    validate : bool
+        Whether to validate `pnote_dict`'s values (pitch/velocity range,
+        note_on/note_off/tick ordering). Defaults to True. Set to False
+        only when the caller already knows the values are well-formed --
+        defaults are still applied either way, only the validation pass
+        itself is skipped.
     """
 
-    def __init__(self, pnote_dict):
-        self.pnote_dict = pnote_dict
-        self.pnote_dict["id"] = self.pnote_dict.get("id", None)
-        self.pnote_dict["pitch"] = self.pnote_dict.get("pitch", self["midi_pitch"])
-        self.pnote_dict["note_on"] = self.pnote_dict.get("note_on", -1)
-        self.pnote_dict["note_off"] = self.pnote_dict.get("note_off", -1)
-        self.pnote_dict["sound_off"] = self.pnote_dict.get(
-            "sound_off", self["note_off"]
-        )
-        self.pnote_dict["track"] = self.pnote_dict.get("track", 0)
-        self.pnote_dict["channel"] = self.pnote_dict.get("channel", 0)
-        self.pnote_dict["velocity"] = self.pnote_dict.get("velocity", 60)
-        self._validate_values(pnote_dict)
-        self._accepted_keys = [
+    # Shared by every instance -- building a fresh list per note was pure
+    # per-note overhead, since nothing ever mutates it on an instance.
+    _accepted_keys = frozenset(
+        [
             "id",
             "pitch",
             "note_on",
@@ -378,6 +392,20 @@ class PerformedNote:
             "note_on_tick",
             "note_off_tick",
         ]
+    )
+
+    def __init__(self, pnote_dict, validate=True):
+        self.pnote_dict = pnote_dict
+        pnote_dict.setdefault("id", None)
+        pnote_dict.setdefault("pitch", self["midi_pitch"])
+        pnote_dict.setdefault("note_on", -1)
+        pnote_dict.setdefault("note_off", -1)
+        pnote_dict.setdefault("sound_off", pnote_dict["note_off"])
+        pnote_dict.setdefault("track", 0)
+        pnote_dict.setdefault("channel", 0)
+        pnote_dict.setdefault("velocity", 60)
+        if validate:
+            self._validate_values(pnote_dict)
 
     def __str__(self):
         return f"PerformedNote: {self['id']}"
@@ -419,6 +447,14 @@ class PerformedNote:
         if key not in self._accepted_keys:
             raise KeyError(f"Key {key} not accepted for PerformedNote")
         self._validate_values((key, value))
+        self.pnote_dict[key] = value
+
+    def _set_unchecked(self, key, value):
+        """Internal use only. Bypasses the `_accepted_keys`/validation
+        checks in `__setitem__`, for callers within this module that have
+        already established `value` is valid for `key` by construction.
+        Never expose this on the public dict-like interface.
+        """
         self.pnote_dict[key] = value
 
     def __delitem__(self, key):
@@ -643,7 +679,10 @@ class Performance(object):
 
         for i, ppart in enumerate(self):
             for note in ppart.notes:
-                note["track"] = track_map[(i, note.get("track", -1))]
+                # PerformedNote's _validate_values has no validator for
+                # "track" at all, so a validated __setitem__ here would
+                # check nothing -- write directly.
+                note._set_unchecked("track", track_map[(i, note.get("track", -1))])
 
             for control in ppart.controls:
                 control["track"] = track_map[(i, control.get("track", -1))]

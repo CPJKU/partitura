@@ -379,6 +379,13 @@ def load_performance_midi(
                     ppq=ppq,
                     mpq=default_mpq,
                     track=i,
+                    # MIDI pitch/velocity are 7-bit bytes (0-127) by the
+                    # wire format itself, and note_off (tick and adjusted
+                    # seconds) is always >= note_on by how the note on/off
+                    # pairing above walks messages in tick order -- these
+                    # notes are valid by construction, so the (otherwise
+                    # dominant) per-note validation pass is redundant here.
+                    validate=False,
                 )
                 pps.append(pp)
 
@@ -492,6 +499,10 @@ def _load_performance_midi_fast(
             ppq=ppq,
             mpq=default_mpq,
             track=track_idx,
+            # See the equivalent PerformedPart(...) call in
+            # load_performance_midi above: MIDI-derived note data is valid
+            # by construction, so validation here is redundant.
+            validate=False,
         )
         pps.append(pp)
 
