@@ -498,7 +498,23 @@ class TestScoreMidi(unittest.TestCase):
         na = score.note_array(include_time_signature=True)
         self.assertTrue(all([n==3 for n in na["ts_beats"]]))
         self.assertTrue(all([d==8 for d in na["ts_beat_type"]]))
-        
+
+    def test_estimate_key(self):
+        # regression test: load_score_midi(..., estimate_key=True) used to
+        # raise ValueError (estimate_key returns a single key-name string,
+        # not a 3-tuple, and a second, closely related bug in the same
+        # sanitize-time-signatures block iterated the wrong dict's keys
+        # once estimate_key's code cleared key_sigs_by_track).
+        scr = load_score_midi(
+            MIDIINPORT_TESTFILES[0], estimate_key=True, quiet=True
+        )
+        part = scr.parts[0]
+        key_sigs = list(part.iter_all(score.KeySignature))
+        self.assertEqual(len(key_sigs), 1)
+        self.assertEqual(key_sigs[0].start.t, 0)
+        self.assertIn(key_sigs[0].mode, ("major", "minor"))
+        self.assertIsInstance(key_sigs[0].name, str)
+
 class TestLoadPerformanceMIDI(unittest.TestCase):
     def setUp(self):
         # create test MIDI file with tempo changes, time signatures, and key signatures
@@ -926,3 +942,227 @@ class TestLoadScoreMIDIScaling(unittest.TestCase):
             f"{t_large:.4f}s), suggesting a regression back toward "
             f"superlinear Part timeline construction",
         )
+
+
+def _dump_score_for_comparison(scr):
+    """Reduce a Score to plain, sorted, rounded tuples so that output from
+    different MIDI-import backends can be compared for equality regardless
+    of object identity.
+    """
+
+    def dump_part(part):
+        na = part.note_array()
+        notes = sorted(
+            (
+                int(n["onset_div"]),
+                int(n["duration_div"]),
+                int(n["pitch"]),
+                None if n["voice"] is None else int(n["voice"]),
+            )
+            for n in na
+        )
+        time_sigs = sorted(
+            (ts.start.t, ts.beats, ts.beat_type)
+            for ts in part.iter_all(score.TimeSignature)
+        )
+        key_sigs = sorted(
+            (ks.start.t, ks.fifths, ks.mode)
+            for ks in part.iter_all(score.KeySignature)
+        )
+        tempos = sorted(
+            (t.start.t, round(t.bpm, 6)) for t in part.iter_all(score.Tempo)
+        )
+        return (part.id, part.part_name, notes, time_sigs, key_sigs, tempos)
+
+    def dump_structure(items):
+        out = []
+        for item in items:
+            if isinstance(item, score.PartGroup):
+                out.append(
+                    ("PartGroup", item.group_name, dump_structure(item.children))
+                )
+            else:
+                out.append(("Part", dump_part(item)))
+        return out
+
+    return dump_structure(scr.part_structure)
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._minimidi extension is not built",
+)
+class TestLoadScoreMIDIBackends(unittest.TestCase):
+    """Verify that backend='minimidi' agrees with backend='mido' on the
+    resulting Score structure: notes, part/voice/group assignment, part
+    names, time/key signatures, and tempo.
+    """
+
+    @staticmethod
+    def _make_test_file(path, with_meta_track=True, with_tempo_change=True):
+        random.seed(1907)
+        mid = mido.MidiFile(ticks_per_beat=480)
+
+        if with_meta_track:
+            meta_track = mido.MidiTrack()
+            mid.tracks.append(meta_track)
+            meta_track.append(mido.MetaMessage("track_name", name="Meta", time=0))
+            meta_track.append(
+                mido.MetaMessage("time_signature", numerator=3, denominator=4, time=0)
+            )
+            meta_track.append(mido.MetaMessage("key_signature", key="D", time=0))
+            meta_track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
+            if with_tempo_change:
+                meta_track.append(
+                    mido.MetaMessage("set_tempo", tempo=400000, time=960)
+                )
+
+        for tr_idx in range(2):
+            track = mido.MidiTrack()
+            mid.tracks.append(track)
+            track.append(
+                mido.MetaMessage("track_name", name=f"Track{tr_idx}", time=0)
+            )
+            if not with_meta_track and tr_idx == 0:
+                track.append(
+                    mido.MetaMessage(
+                        "time_signature", numerator=4, denominator=4, time=0
+                    )
+                )
+            channel = tr_idx
+            events = []
+            time_cursor = 0
+            for i in range(40):
+                pitch = random.randint(48, 84)
+                dur = random.choice([120, 240, 480])
+                onset = time_cursor
+                time_cursor += random.choice([120, 240])
+                events.append((onset, "note_on", pitch, 80))
+                events.append((onset + dur, "note_off", pitch, 0))
+            events.sort(key=lambda e: e[0])
+            prev = 0
+            for onset, kind, pitch, vel in events:
+                delta = onset - prev
+                prev = onset
+                track.append(
+                    mido.Message(
+                        kind, note=pitch, velocity=vel, channel=channel, time=delta
+                    )
+                )
+
+        mid.save(path)
+
+    def setUp(self):
+        self.tmpfile = NamedTemporaryFile(suffix=".mid", delete=False)
+        self._make_test_file(self.tmpfile.name)
+
+        self.tmpfile_no_meta = NamedTemporaryFile(suffix=".mid", delete=False)
+        self._make_test_file(self.tmpfile_no_meta.name, with_meta_track=False)
+
+    def tearDown(self):
+        os.unlink(self.tmpfile.name)
+        os.unlink(self.tmpfile_no_meta.name)
+
+    def _assert_backends_agree(self, path, **kwargs):
+        scr_mido = load_score_midi(path, backend="mido", quiet=True, **kwargs)
+        scr_fast = load_score_midi(path, backend="minimidi", quiet=True, **kwargs)
+        self.assertEqual(
+            _dump_score_for_comparison(scr_mido),
+            _dump_score_for_comparison(scr_fast),
+        )
+
+    def test_backends_agree_all_assign_modes(self):
+        for mode in range(6):
+            with self.subTest(part_voice_assign_mode=mode):
+                self._assert_backends_agree(
+                    self.tmpfile.name, part_voice_assign_mode=mode
+                )
+
+    def test_backends_agree_with_quantization(self):
+        self._assert_backends_agree(
+            self.tmpfile.name, part_voice_assign_mode=0, quantization_unit=120
+        )
+
+    def test_backends_agree_no_meta_track(self):
+        # exercises the "time/key sigs classified as global vs per-track"
+        # split when there's no dedicated note-less meta track.
+        self._assert_backends_agree(
+            self.tmpfile_no_meta.name, part_voice_assign_mode=0
+        )
+
+    def test_backends_agree_estimate_voice_info(self):
+        self._assert_backends_agree(
+            self.tmpfile.name, part_voice_assign_mode=2, estimate_voice_info=True
+        )
+
+    def test_backends_agree_estimate_key(self):
+        self._assert_backends_agree(
+            self.tmpfile.name, part_voice_assign_mode=0, estimate_key=True
+        )
+
+    def test_auto_backend_matches_minimidi(self):
+        scr_auto = load_score_midi(self.tmpfile.name, backend="auto", quiet=True)
+        scr_fast = load_score_midi(self.tmpfile.name, backend="minimidi", quiet=True)
+        self.assertEqual(
+            _dump_score_for_comparison(scr_auto),
+            _dump_score_for_comparison(scr_fast),
+        )
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._minimidi extension is not built",
+)
+class TestLoadScoreMIDIAllTestFiles(unittest.TestCase):
+    """Compare backend='mido' and backend='minimidi' on every *.mid/*.midi
+    file found anywhere under the tests/ directory tree.
+    """
+
+    def test_backends_numerically_identical(self):
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        midi_files = set()
+        for pattern in ("*.mid", "*.midi", "*.MID", "*.MIDI"):
+            midi_files.update(
+                glob.glob(os.path.join(tests_dir, "**", pattern), recursive=True)
+            )
+        midi_files = sorted(midi_files)
+        self.assertGreater(len(midi_files), 0, "no MIDI test files found")
+
+        for midi_file in midi_files:
+            rel_path = os.path.relpath(midi_file, tests_dir)
+            with self.subTest(midi_file=rel_path):
+                scr_mido = load_score_midi(midi_file, backend="mido", quiet=True)
+                scr_fast = load_score_midi(midi_file, backend="minimidi", quiet=True)
+                self.assertEqual(
+                    _dump_score_for_comparison(scr_mido),
+                    _dump_score_for_comparison(scr_fast),
+                )
+
+
+class TestLoadScoreMIDIBackendDispatch(unittest.TestCase):
+    """Backend selection / error handling that doesn't require the compiled
+    extension to be available.
+    """
+
+    def setUp(self):
+        self.midi_file = mido.MidiFile()
+        track = mido.MidiTrack()
+        self.midi_file.tracks.append(track)
+        track.append(mido.Message("note_on", note=60, velocity=64, time=0))
+        track.append(mido.Message("note_off", note=60, velocity=64, time=480))
+
+    def test_invalid_backend_raises(self):
+        with self.assertRaises(ValueError):
+            load_score_midi(self.midi_file, backend="not-a-backend")
+
+    def test_minimidi_backend_requires_path(self):
+        with self.assertRaises(ValueError):
+            load_score_midi(self.midi_file, backend="minimidi")
+
+    def test_mido_backend_accepts_midifile_object(self):
+        scr = load_score_midi(self.midi_file, backend="mido", quiet=True)
+        self.assertEqual(len(scr.parts), 1)
+
+    def test_auto_backend_accepts_midifile_object(self):
+        scr = load_score_midi(self.midi_file, backend="auto", quiet=True)
+        self.assertEqual(len(scr.parts), 1)

@@ -45,7 +45,12 @@ def is_url(input):
 
 @deprecated_alias(score_fn="filename")
 @deprecated_parameter("ensure_list")
-def load_score(filename: PathLike, force_note_ids="keep", quiet: bool = False) -> Score:
+def load_score(
+    filename: PathLike,
+    force_note_ids="keep",
+    quiet: bool = False,
+    backend: str = "auto",
+) -> Score:
     """
     Load a score format supported by partitura. Currently the accepted formats
     are MusicXML, MIDI, Kern and MEI, plus all formats for which
@@ -65,6 +70,11 @@ def load_score(filename: PathLike, force_note_ids="keep", quiet: bool = False) -
     quiet : bool, optional
         If True, suppress all warnings emitted during parsing.
         Defaults to False.
+    backend : {'auto', 'mido', 'minimidi'}, optional
+        Which MIDI-parsing backend to use for MIDI input; ignored for
+        other formats. See
+        `partitura.io.importmidi.load_score_midi` for details.
+        Defaults to ``'auto'``.
 
     Returns
     -------
@@ -108,6 +118,7 @@ def load_score(filename: PathLike, force_note_ids="keep", quiet: bool = False) -
             filename=filename,
             assign_note_ids=assign_note_ids,
             quiet=quiet,
+            backend=backend,
         )
     elif extension in [".mei"]:
         # Load MEI

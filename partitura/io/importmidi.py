@@ -413,7 +413,7 @@ def _load_performance_midi_fast(
     path = os.fspath(filename)
     default_mpq = int(60 * (10**6 / default_bpm))
 
-    parsed = _minimidi.parse_performance(path, float(default_bpm), merge_tracks)
+    parsed = _minimidi.parse_midi(path, float(default_bpm), merge_tracks)
     ppq = parsed["ppq"]
 
     pps = []
@@ -561,6 +561,7 @@ def load_score_midi(
     estimate_key: bool = False,
     assign_note_ids: bool = True,
     quiet: bool = False,
+    backend: str = "auto",
 ) -> score.Score:
     """Load a musical score from a MIDI file and return it as a Part
     instance.
@@ -638,12 +639,59 @@ or a list of these
     quiet : bool, optional
         If True, suppress all warnings emitted during parsing.
         Defaults to False.
+    backend : {'auto', 'mido', 'minimidi'}, optional
+        Which MIDI-parsing backend to use. ``'mido'`` uses the original
+        pure-Python parser. ``'minimidi'`` uses the same optional,
+        much faster compiled extension as `load_performance_midi` and
+        raises a `RuntimeError` if that extension is not available or
+        if `filename` is an already-open `mido.MidiFile`. ``'auto'``
+        (the default) uses the fast backend when available and
+        `filename` is a path, and silently falls back to ``'mido'``
+        otherwise. The ``'minimidi'`` backend is equivalent to
+        ``'mido'`` for virtually all files, subject to the same
+        documented tempo-map difference as `load_performance_midi`'s
+        `backend` parameter (built once, globally, from every tempo
+        event in the file, rather than accumulated sequentially
+        track-by-track).
     """
+    if backend not in ("auto", "mido", "minimidi"):
+        raise ValueError(
+            f"Unknown backend {backend!r}; expected one of 'auto', 'mido', 'minimidi'"
+        )
+
+    is_path_input = not isinstance(filename, mido.MidiFile)
+
+    if backend == "minimidi":
+        if not is_path_input:
+            raise ValueError(
+                "backend='minimidi' requires a path, not an already-open mido.MidiFile"
+            )
+        if not _HAS_FASTMIDI:
+            raise RuntimeError(
+                "backend='minimidi' was requested but the optional "
+                "partitura._minimidi extension is not built. Use "
+                "backend='mido' (or 'auto'), or reinstall partitura with "
+                "a C++ toolchain available."
+            )
+
+    use_fast = backend == "minimidi" or (
+        backend == "auto" and _HAS_FASTMIDI and is_path_input
+    )
 
     ctx = warnings.catch_warnings() if quiet else nullcontext()
     with ctx:
         if quiet:
             warnings.simplefilter("ignore")
+
+        if use_fast:
+            return _load_score_midi_fast(
+                filename,
+                part_voice_assign_mode=part_voice_assign_mode,
+                quantization_unit=quantization_unit,
+                estimate_voice_info=estimate_voice_info,
+                estimate_key=estimate_key,
+                assign_note_ids=assign_note_ids,
+            )
 
         if isinstance(filename, mido.MidiFile):
             mid = filename
@@ -751,160 +799,311 @@ or a list of these
                 if len(ch_notes) > 0:
                     notes_by_track_ch[(track_nr, ch)] = ch_notes
 
-        tr_ch_keys = sorted(notes_by_track_ch.keys())
-        group_part_voice_keys, part_names, group_names = assign_group_part_voice(
-            part_voice_assign_mode, tr_ch_keys, track_names_by_track
+        return _build_score_from_track_data(
+            divs=divs,
+            doc_name=doc_name,
+            notes_by_track_ch=notes_by_track_ch,
+            time_sigs_by_track=time_sigs_by_track,
+            key_sigs_by_track=key_sigs_by_track,
+            track_names_by_track=track_names_by_track,
+            global_time_sigs=global_time_sigs,
+            global_key_sigs=global_key_sigs,
+            global_tempos=global_tempos,
+            part_voice_assign_mode=part_voice_assign_mode,
+            estimate_voice_info=estimate_voice_info,
+            estimate_key=estimate_key,
+            assign_note_ids=assign_note_ids,
         )
 
-        # for key and time sigs:
-        track_to_part_mapping = make_track_to_part_mapping(
-            tr_ch_keys, group_part_voice_keys
+
+def _build_score_from_track_data(
+    divs,
+    doc_name,
+    notes_by_track_ch,
+    time_sigs_by_track,
+    key_sigs_by_track,
+    track_names_by_track,
+    global_time_sigs,
+    global_key_sigs,
+    global_tempos,
+    part_voice_assign_mode,
+    estimate_voice_info,
+    estimate_key,
+    assign_note_ids,
+) -> score.Score:
+    """Shared tail of `load_score_midi`: turns raw per-`(track, channel)`
+    note lists and per-track meta info -- however they were parsed, by
+    `mido` or by the `_minimidi` extension -- into a `partitura.score.Score`.
+    Identical to what `load_score_midi` did inline before `backend` was
+    added; kept as a single implementation so both backends produce the
+    same part/voice assignment, pitch spelling, and measure/tie/tuplet
+    structure.
+    """
+    tr_ch_keys = sorted(notes_by_track_ch.keys())
+    group_part_voice_keys, part_names, group_names = assign_group_part_voice(
+        part_voice_assign_mode, tr_ch_keys, track_names_by_track
+    )
+
+    # for key and time sigs:
+    track_to_part_mapping = make_track_to_part_mapping(
+        tr_ch_keys, group_part_voice_keys
+    )
+
+    # pairs of (part, voice) for each note
+    part_voice_list = [
+        [part, voice]
+        for tr_ch, (_, part, voice) in zip(tr_ch_keys, group_part_voice_keys)
+        for i in range(len(notes_by_track_ch[tr_ch]))
+    ]
+
+    # pitch spelling, voice estimation and key estimation are done on a
+    # structured array (onset, pitch, duration) of all notes in the piece
+    # jointly, so we concatenate all notes
+    # note_list = sorted(note for notes in
+    # (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
+    note_list = [
+        note
+        for notes in (notes_by_track_ch[key] for key in tr_ch_keys)
+        for note in notes
+    ]
+    note_array = np.array(
+        note_list,
+        dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
+    )
+
+    warnings.warn("pitch spelling")
+    spelling_global = analysis.estimate_spelling(note_array)
+
+    if estimate_voice_info:
+        warnings.warn("voice estimation", stacklevel=2)
+        # TODO: deal with zero duration notes in note_array.
+        # Zero duration notes are currently deleted
+        estimated_voices = analysis.estimate_voices(note_array)
+        assert len(part_voice_list) == len(estimated_voices)
+        for part_voice, voice_est in zip(part_voice_list, estimated_voices):
+            if part_voice[1] is None:
+                part_voice[1] = voice_est
+
+    if estimate_key:
+        warnings.warn("key estimation", stacklevel=2)
+        # estimate_key returns a single key-name string (e.g. "Am", "C"),
+        # not a (mode, fifths) pair -- matches the (t, name) shape
+        # global_key_sigs/create_part already expect elsewhere.
+        key_name = analysis.estimate_key(note_array)
+        key_sigs_by_track = {}
+        global_key_sigs = [(0, key_name)]
+
+    if assign_note_ids:
+        note_ids = ["n{}".format(i) for i in range(len(note_array))]
+    else:
+        note_ids = [None for i in range(len(note_array))]
+
+    ## sanitize time signature, when they are only present in one track, and no global is set
+    # find the number of ts per each track
+    number_of_time_sig_per_track = [
+        len(ts_list) for ts_list in time_sigs_by_track.values()
+    ]
+    # if one track has 0 ts, and another has !=0 ts, and no global_time_sigs is present, sanitize
+    # all key signatures are copied to global, and the track ts are removed
+    if (
+        len(global_time_sigs) == 0
+        and min(number_of_time_sig_per_track) == 0
+        and max(number_of_time_sig_per_track) != 0
+    ):
+        warnings.warn(
+            "Sanitizing time signatures. They will be shared across all tracks."
         )
+        for ts in [
+            ts for ts_track in time_sigs_by_track.values() for ts in ts_track
+        ]:  # flattening all track time signatures to a list of ts
+            global_time_sigs.append(ts)
+        # now clear all track_ts
+        time_sigs_by_track.clear()
 
-        # pairs of (part, voice) for each note
-        part_voice_list = [
-            [part, voice]
-            for tr_ch, (_, part, voice) in zip(tr_ch_keys, group_part_voice_keys)
-            for i in range(len(notes_by_track_ch[tr_ch]))
-        ]
-
-        # pitch spelling, voice estimation and key estimation are done on a
-        # structured array (onset, pitch, duration) of all notes in the piece
-        # jointly, so we concatenate all notes
-        # note_list = sorted(note for notes in
-        # (notes_by_track_ch[key] for key in tr_ch_keys) for note in notes)
-        note_list = [
-            note
-            for notes in (notes_by_track_ch[key] for key in tr_ch_keys)
-            for note in notes
-        ]
-        note_array = np.array(
-            note_list,
-            dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)],
-        )
-
-        warnings.warn("pitch spelling")
-        spelling_global = analysis.estimate_spelling(note_array)
-
-        if estimate_voice_info:
-            warnings.warn("voice estimation", stacklevel=2)
-            # TODO: deal with zero duration notes in note_array.
-            # Zero duration notes are currently deleted
-            estimated_voices = analysis.estimate_voices(note_array)
-            assert len(part_voice_list) == len(estimated_voices)
-            for part_voice, voice_est in zip(part_voice_list, estimated_voices):
-                if part_voice[1] is None:
-                    part_voice[1] = voice_est
-
-        if estimate_key:
-            warnings.warn("key estimation", stacklevel=2)
-            _, mode, fifths = analysis.estimate_key(note_array)
-            key_sigs_by_track = {}
-            global_key_sigs = [(0, fifths_mode_to_key_name(fifths, mode))]
-
-        if assign_note_ids:
-            note_ids = ["n{}".format(i) for i in range(len(note_array))]
-        else:
-            note_ids = [None for i in range(len(note_array))]
-
-        ## sanitize time signature, when they are only present in one track, and no global is set
-        # find the number of ts per each track
-        number_of_time_sig_per_track = [
-            len(time_sigs_by_track[t]) for t in key_sigs_by_track.keys()
-        ]
-        # if one track has 0 ts, and another has !=0 ts, and no global_time_sigs is present, sanitize
-        # all key signatures are copied to global, and the track ts are removed
-        if (
-            len(global_time_sigs) == 0
-            and min(number_of_time_sig_per_track) == 0
-            and max(number_of_time_sig_per_track) != 0
-        ):
-            warnings.warn(
-                "Sanitizing time signatures. They will be shared across all tracks."
-            )
-            for ts in [
-                ts for ts_track in time_sigs_by_track.values() for ts in ts_track
-            ]:  # flattening all track time signatures to a list of ts
-                global_time_sigs.append(ts)
-            # now clear all track_ts
-            time_sigs_by_track.clear()
-
-        # use a list to preserve all time sigs in order
-        time_sigs_by_part = defaultdict(list)
-        for tr, ts_list in time_sigs_by_track.items():
-            for ts in ts_list:
-                for part in track_to_part_mapping[tr]:
-                    time_sigs_by_part[part].append(ts)
-        for ts in global_time_sigs:
-            for part in set(part for _, part, _ in group_part_voice_keys):
+    # use a list to preserve all time sigs in order
+    time_sigs_by_part = defaultdict(list)
+    for tr, ts_list in time_sigs_by_track.items():
+        for ts in ts_list:
+            for part in track_to_part_mapping[tr]:
                 time_sigs_by_part[part].append(ts)
+    for ts in global_time_sigs:
+        for part in set(part for _, part, _ in group_part_voice_keys):
+            time_sigs_by_part[part].append(ts)
 
-        # use a list to preserve all key sigs in order
-        key_sigs_by_part = defaultdict(list)
-        for tr, ks_list in key_sigs_by_track.items():
-            for ks in ks_list:
-                for part in track_to_part_mapping[tr]:
-                    key_sigs_by_part[part].append(ks)
-        for ks in global_key_sigs:
-            for part in set(part for _, part, _ in group_part_voice_keys):
+    # use a list to preserve all key sigs in order
+    key_sigs_by_part = defaultdict(list)
+    for tr, ks_list in key_sigs_by_track.items():
+        for ks in ks_list:
+            for part in track_to_part_mapping[tr]:
                 key_sigs_by_part[part].append(ks)
+    for ks in global_key_sigs:
+        for part in set(part for _, part, _ in group_part_voice_keys):
+            key_sigs_by_part[part].append(ks)
 
-        # names_by_part = defaultdict(set)
-        # for tr_ch, pg_p_v in zip(tr_ch_keys, group_part_voice_keys):
-        #     print(tr_ch, pg_p_v)
-        # for tr, name in track_names_by_track.items():
-        #     print(tr, track_to_part_mapping, name)
-        #     for part in track_to_part_mapping[tr]:
-        #         names_by_part[part] = name
+    notes_by_part = defaultdict(list)
+    for (part, voice), note, spelling, note_id in zip(
+        part_voice_list, note_list, spelling_global, note_ids
+    ):
+        notes_by_part[part].append((note, voice, spelling, note_id))
 
-        notes_by_part = defaultdict(list)
-        for (part, voice), note, spelling, note_id in zip(
-            part_voice_list, note_list, spelling_global, note_ids
-        ):
-            notes_by_part[part].append((note, voice, spelling, note_id))
+    partlist = []
+    part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
+    part_groups = {}
+    for part_nr, note_info in notes_by_part.items():
+        notes, voices, spellings, note_ids = zip(*note_info)
+        part = create_part(
+            divs,
+            notes,
+            spellings,
+            voices,
+            note_ids,
+            sorted(time_sigs_by_part[part_nr], key=itemgetter(0)),
+            sorted(key_sigs_by_part[part_nr], key=itemgetter(0)),
+            part_id="P{}".format(part_nr + 1),
+            part_name=part_names.get(part_nr, None),
+        )
+        # if this part has an associated part_group number we create a PartGroup
+        # if necessary, and add the part to that. The newly created PartGroup is
+        # then added to the partlist.
+        pg_nr = part_to_part_group[part_nr]
+        if pg_nr is None:
+            partlist.append(part)
+        else:
+            if pg_nr not in part_groups:
+                part_groups[pg_nr] = score.PartGroup(
+                    group_name=group_names.get(pg_nr, None)
+                )
+                partlist.append(part_groups[pg_nr])
+            part_groups[pg_nr].children.append(part)
 
-        partlist = []
-        part_to_part_group = dict((p, pg) for pg, p, _ in group_part_voice_keys)
-        part_groups = {}
-        for part_nr, note_info in notes_by_part.items():
-            notes, voices, spellings, note_ids = zip(*note_info)
-            part = create_part(
-                divs,
-                notes,
-                spellings,
-                voices,
-                note_ids,
-                sorted(time_sigs_by_part[part_nr], key=itemgetter(0)),
-                sorted(key_sigs_by_part[part_nr], key=itemgetter(0)),
-                part_id="P{}".format(part_nr + 1),
-                part_name=part_names.get(part_nr, None),
+    # add tempos to first part
+    part = next(score.iter_parts(partlist))
+    for t, qpm in global_tempos:
+        part.add(score.Tempo(qpm, unit="q"), t)
+
+    # TODO: Add info (composer, etc.)
+    scr = score.Score(
+        id=doc_name,
+        partlist=partlist,
+    )
+
+    return scr
+
+
+def _load_score_midi_fast(
+    filename: PathLike,
+    part_voice_assign_mode: Optional[int] = 0,
+    quantization_unit: Optional[int] = None,
+    estimate_voice_info: bool = False,
+    estimate_key: bool = False,
+    assign_note_ids: bool = True,
+) -> score.Score:
+    """Fast path for `load_score_midi`, using the optional compiled
+    `partitura._minimidi` extension (see native/fastmidi.cpp). Reconstructs
+    the same raw per-(track, channel) note lists and per-track meta info
+    that the `mido`-based path builds (`load_score_midi`'s message loop),
+    then hands them to the same `_build_score_from_track_data`. `mpq`/qpm
+    tempo conversion, time/key-signature-to-global-vs-per-track
+    classification, and quantization all mirror that loop exactly; see
+    `load_score_midi`'s `backend` parameter docstring for the one
+    documented behavior difference (tempo map is global, not sequential).
+    """
+    doc_name = get_document_name(filename)
+    path = os.fspath(filename)
+
+    parsed = _minimidi.parse_midi(path, 120.0, False)
+    divs = int(parsed["ppq"])
+    num_tracks = int(parsed["num_tracks"])
+    track_names = parsed["track_names"]
+
+    def maybe_quantize(t):
+        return quantize(int(t), quantization_unit) if quantization_unit else int(t)
+
+    # notes_by_track_ch, and which original track indices have any notes at
+    # all -- mirrors load_score_midi's `if not notes: ... else: ...` split
+    # (importmidi.py), which determines whether a track's time/key
+    # signatures are global or per-track.
+    notes_by_track_ch = {}
+    tracks_with_notes = set()
+    dropped_total = 0
+    for tr in parsed["tracks"]:
+        track_idx = int(tr["track_index"])
+        dropped_total += int(tr["dropped_note_offs"])
+        notes_by_channel = defaultdict(list)
+        for rec in tr["notes"]:
+            onset_tick = maybe_quantize(rec["note_on_tick"])
+            offset_tick = maybe_quantize(rec["note_off_tick"])
+            notes_by_channel[int(rec["channel"])].append(
+                (onset_tick, int(rec["midi_pitch"]), offset_tick - onset_tick)
             )
-            # if this part has an associated part_group number we create a PartGroup
-            # if necessary, and add the part to that. The newly created PartGroup is
-            # then added to the partlist.
-            pg_nr = part_to_part_group[part_nr]
-            if pg_nr is None:
-                partlist.append(part)
-            else:
-                if pg_nr not in part_groups:
-                    part_groups[pg_nr] = score.PartGroup(
-                        group_name=group_names.get(pg_nr, None)
-                    )
-                    partlist.append(part_groups[pg_nr])
-                part_groups[pg_nr].children.append(part)
+        if notes_by_channel:
+            tracks_with_notes.add(track_idx)
+            for ch, ch_notes in notes_by_channel.items():
+                notes_by_track_ch[(track_idx, ch)] = ch_notes
 
-        # add tempos to first part
-        part = next(score.iter_parts(partlist))
-        for t, qpm in global_tempos:
-            part.add(score.Tempo(qpm, unit="q"), t)
-
-        # TODO: Add info (composer, etc.)
-        scr = score.Score(
-            id=doc_name,
-            partlist=partlist,
+    if dropped_total:
+        warnings.warn(
+            f"ignoring {dropped_total} MIDI note-off message(s) with no "
+            "matching note-on"
         )
 
-        return scr
+    # Every track with notes gets an entry here, even an empty list --
+    # matching load_score_midi's unconditional
+    # `time_sigs_by_track[track_nr] = time_sigs` / `key_sigs_by_track[...]
+    # = key_sigs` assignment for every note-having track (importmidi.py),
+    # which the "sanitize time signatures" step below relies on (it
+    # iterates `key_sigs_by_track.keys()` to look up `time_sigs_by_track`).
+    time_sigs_by_track = {t: [] for t in tracks_with_notes}
+    global_time_sigs = []
+    for rec in parsed["all_time_signatures"]:
+        track_idx = int(rec["track"])
+        t = maybe_quantize(rec["time_tick"])
+        ts = (t, int(rec["beats"]), int(rec["beat_type"]))
+        if track_idx in tracks_with_notes:
+            time_sigs_by_track[track_idx].append(ts)
+        else:
+            global_time_sigs.append(ts)
+
+    key_sigs_by_track = {t: [] for t in tracks_with_notes}
+    global_key_sigs = []
+    for rec in parsed["all_key_signatures"]:
+        track_idx = int(rec["track"])
+        t = maybe_quantize(rec["time_tick"])
+        mode = "minor" if rec["mode"] else "major"
+        key_name = fifths_mode_to_key_name(int(rec["fifths"]), mode)
+        ks = (t, key_name)
+        if track_idx in tracks_with_notes:
+            key_sigs_by_track[track_idx].append(ks)
+        else:
+            global_key_sigs.append(ks)
+
+    # only tracks with notes get a name, matching load_score_midi's
+    # `track_names_by_track[track_nr] = track.name` (only set in the
+    # `else` branch of `if not notes:`).
+    track_names_by_track = {
+        i: str(track_names[i]) for i in range(num_tracks) if i in tracks_with_notes
+    }
+
+    global_tempos = [
+        (maybe_quantize(rec["tick"]), 60 * 1e6 / int(rec["mpq"]))
+        for rec in parsed["tempos"]
+    ]
+
+    return _build_score_from_track_data(
+        divs=divs,
+        doc_name=doc_name,
+        notes_by_track_ch=notes_by_track_ch,
+        time_sigs_by_track=time_sigs_by_track,
+        key_sigs_by_track=key_sigs_by_track,
+        track_names_by_track=track_names_by_track,
+        global_time_sigs=global_time_sigs,
+        global_key_sigs=global_key_sigs,
+        global_tempos=global_tempos,
+        part_voice_assign_mode=part_voice_assign_mode,
+        estimate_voice_info=estimate_voice_info,
+        estimate_key=estimate_key,
+        assign_note_ids=assign_note_ids,
+    )
 
 
 def make_track_to_part_mapping(tr_ch_keys, group_part_voice_keys):
