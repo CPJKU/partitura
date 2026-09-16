@@ -826,3 +826,103 @@ class TestLoadPerformanceMIDISpeed(unittest.TestCase):
             f"than backend='mido' on a {self.N_NOTES}-note file, but was only "
             f"{speedup:.2f}x ({mido_time:.4f}s vs {fast_time:.4f}s)",
         )
+
+
+class TestLoadScoreMIDIScaling(unittest.TestCase):
+    """Check that load_score_midi's timeline construction (Part.add(),
+    backed by a sortedcontainers.SortedKeyList) scales close to linearly
+    with note count, rather than the near-quadratic blowup it used to
+    have from Part._add_point()'s O(n) np.insert on every new timepoint
+    (see CHANGES.md): 2,000 -> 32,000 notes (16x) used to take ~31x
+    longer; it should now take close to 16x longer.
+    """
+
+    N_REPEATS = 2
+    # generous margin: true linear scaling would give ~4x for 4x notes;
+    # the old O(n^2) behavior gave ~9-16x for 4x notes at this scale.
+    # Require well under that gap without being flaky on a noisy machine.
+    MAX_SLOWDOWN_FOR_4X_NOTES = 8.0
+
+    @staticmethod
+    def _make_midi_file(n_notes, seed=20240917):
+        random.seed(seed)
+        mid = mido.MidiFile(ticks_per_beat=480)
+        track = mido.MidiTrack()
+        mid.tracks.append(track)
+        track.append(mido.MetaMessage("set_tempo", tempo=500000, time=0))
+        track.append(
+            mido.MetaMessage("time_signature", numerator=4, denominator=4, time=0)
+        )
+
+        events = []
+        t = 0
+        for i in range(n_notes):
+            pitch = 60 + (i % 24)
+            dur = 240
+            onset = t
+            t += 240
+            events.append((onset, "on", pitch))
+            events.append((onset + dur, "off", pitch))
+        events.sort(key=lambda e: e[0])
+
+        prev = 0
+        for onset, kind, pitch in events:
+            delta = onset - prev
+            prev = onset
+            if kind == "on":
+                track.append(
+                    mido.Message(
+                        "note_on", note=pitch, velocity=70, channel=0, time=delta
+                    )
+                )
+            else:
+                track.append(
+                    mido.Message(
+                        "note_off", note=pitch, velocity=0, channel=0, time=delta
+                    )
+                )
+
+        tmpfile = NamedTemporaryFile(suffix=".mid", delete=False)
+        mid.save(tmpfile.name)
+        return tmpfile.name
+
+    @classmethod
+    def _best_of(cls, path, n_repeats):
+        best = float("inf")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for _ in range(n_repeats):
+                t0 = time.perf_counter()
+                load_score_midi(path, quiet=True)
+                best = min(best, time.perf_counter() - t0)
+        return best
+
+    def test_scaling_is_close_to_linear(self):
+        n_small = 2000
+        n_large = n_small * 4
+
+        path_small = self._make_midi_file(n_small)
+        path_large = self._make_midi_file(n_large)
+        try:
+            t_small = self._best_of(path_small, self.N_REPEATS)
+            t_large = self._best_of(path_large, self.N_REPEATS)
+        finally:
+            os.unlink(path_small)
+            os.unlink(path_large)
+
+        self.assertGreater(
+            t_small,
+            0.0,
+            "measured a zero-duration import; timer resolution too coarse "
+            "to measure scaling on this machine",
+        )
+        slowdown = t_large / t_small
+        self.assertLessEqual(
+            slowdown,
+            self.MAX_SLOWDOWN_FOR_4X_NOTES,
+            f"load_score_midi should scale close to linearly with note "
+            f"count (4x notes -> ~4x time), but {n_small} -> {n_large} "
+            f"notes was {slowdown:.2f}x slower ({t_small:.4f}s -> "
+            f"{t_large:.4f}s), suggesting a regression back toward "
+            f"superlinear Part timeline construction",
+        )

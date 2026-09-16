@@ -25,6 +25,7 @@ import warnings
 import sys
 import numpy as np
 import re
+from sortedcontainers import SortedKeyList
 from scipy.interpolate import PPoly
 from typing import Union, List, Optional, Iterator, Any, Iterable as Itertype, Type
 import difflib
@@ -98,8 +99,11 @@ class Part(object):
         self.part_name = part_name
         self.part_abbreviation = part_abbreviation
 
-        # timeline init
-        self._points = np.array([], dtype=TimePoint)
+        # timeline init. A SortedKeyList (keyed by TimePoint.t) gives
+        # amortized ~O(sqrt n) insert/delete instead of the O(n) full-array
+        # copy that np.insert/np.delete require on every timeline
+        # insertion/removal -- see CHANGES.md for the scaling this fixes.
+        self._points = SortedKeyList(key=lambda tp: tp.t)
         self._quarter_times = [0]
         self._quarter_durations = [quarter_duration]
         self._quarter_map = self.quarter_duration_map
@@ -1045,8 +1049,8 @@ class Part(object):
             t_next = times[i + 1]
 
         # update quarter attribute of all timepoints in the range [t, t_next]
-        start_idx = np.searchsorted(self._points, TimePoint(t))
-        end_idx = np.searchsorted(self._points, TimePoint(t_next))
+        start_idx = self._points.bisect_key_left(t)
+        end_idx = self._points.bisect_key_left(t_next)
         for tp in self._points[start_idx:end_idx]:
             tp.quarter = quarter
 
@@ -1057,9 +1061,9 @@ class Part(object):
         # Add `TimePoint` object `tp` to the part, unless there is
         # already a timepoint at the same time.
 
-        i = np.searchsorted(self._points, tp)
+        i = self._points.bisect_key_left(tp.t)
         if i == len(self._points) or self._points[i].t != tp.t:
-            self._points = np.insert(self._points, i, tp)
+            self._points.add(tp)
             if i > 0:
                 self._points[i - 1].next = self._points[i]
                 self._points[i].prev = self._points[i - 1]
@@ -1093,7 +1097,7 @@ class Part(object):
         return max_staves
 
     def _remove_point(self, tp: TimePoint):
-        i = np.searchsorted(self._points, tp)
+        i = self._points.bisect_key_left(tp.t)
         if i < len(self._points) and self._points[i] == tp:
             # If not on boundary, link prev and next points together
             if i > 0 and i < len(self._points) - 1:
@@ -1110,7 +1114,7 @@ class Part(object):
             else:
                 pass
             # Actually delete the point
-            self._points = np.delete(self._points, i)
+            del self._points[i]
         else:
             raise ValueError(f"Trying to remove a non-existing timepoint {tp}")
 
@@ -1124,7 +1128,7 @@ class Part(object):
                 "TimePoints should have non-negative integer values"
             )
 
-        i = np.searchsorted(self._points, TimePoint(t))
+        i = self._points.bisect_key_left(t)
         if i < len(self._points) and self._points[i].t == t:
             return self._points[i]
         else:
@@ -1285,14 +1289,14 @@ class Part(object):
         else:
             if not isinstance(start, TimePoint):
                 start = TimePoint(start)
-            start_idx = np.searchsorted(self._points, start)
+            start_idx = self._points.bisect_key_left(start.t)
 
         if end is None:
             end_idx = len(self._points)
         else:
             if not isinstance(end, TimePoint):
                 end = TimePoint(end)
-            end_idx = np.searchsorted(self._points, end)
+            end_idx = self._points.bisect_key_left(end.t)
 
         # handle default value, warn on potential issues
         cls, include_subclasses = prepare_iter_cls(cls, include_subclasses)

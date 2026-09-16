@@ -45,6 +45,7 @@ dependencies = [
     "xmlschema",
     "mido",
     "typing-extensions",
+    "sortedcontainers",
 ]
 
 [project.optional-dependencies]
