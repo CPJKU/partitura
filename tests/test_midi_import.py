@@ -559,10 +559,10 @@ class TestLoadPerformanceMIDI(unittest.TestCase):
 
 @unittest.skipUnless(
     _HAS_FASTMIDI,
-    "the optional partitura._symusic_midi extension is not built",
+    "the optional partitura._minimidi extension is not built",
 )
 class TestLoadPerformanceMIDIBackends(unittest.TestCase):
-    """Verify that backend='symusic' agrees with backend='mido' on
+    """Verify that backend='minimidi' agrees with backend='mido' on
     notes, controls, programs, time signatures, and key signatures.
     """
 
@@ -637,7 +637,7 @@ class TestLoadPerformanceMIDIBackends(unittest.TestCase):
 
     def test_backends_agree_single_track(self):
         perf_mido = load_performance_midi(self.tmpfile.name, backend="mido")
-        perf_fast = load_performance_midi(self.tmpfile.name, backend="symusic")
+        perf_fast = load_performance_midi(self.tmpfile.name, backend="minimidi")
         self.assertEqual(
             _dump_performance_for_comparison(perf_mido),
             _dump_performance_for_comparison(perf_fast),
@@ -648,16 +648,16 @@ class TestLoadPerformanceMIDIBackends(unittest.TestCase):
             self.tmpfile.name, backend="mido", merge_tracks=True
         )
         perf_fast = load_performance_midi(
-            self.tmpfile.name, backend="symusic", merge_tracks=True
+            self.tmpfile.name, backend="minimidi", merge_tracks=True
         )
         self.assertEqual(
             _dump_performance_for_comparison(perf_mido),
             _dump_performance_for_comparison(perf_fast),
         )
 
-    def test_auto_backend_matches_symusic(self):
+    def test_auto_backend_matches_minimidi(self):
         perf_auto = load_performance_midi(self.tmpfile.name, backend="auto")
-        perf_fast = load_performance_midi(self.tmpfile.name, backend="symusic")
+        perf_fast = load_performance_midi(self.tmpfile.name, backend="minimidi")
         self.assertEqual(
             _dump_performance_for_comparison(perf_auto),
             _dump_performance_for_comparison(perf_fast),
@@ -669,10 +669,10 @@ class TestLoadPerformanceMIDIBackends(unittest.TestCase):
 
 @unittest.skipUnless(
     _HAS_FASTMIDI,
-    "the optional partitura._symusic_midi extension is not built",
+    "the optional partitura._minimidi extension is not built",
 )
 class TestLoadPerformanceMIDIAllTestFiles(unittest.TestCase):
-    """Compare backend='mido' and backend='symusic' on every *.mid/*.midi
+    """Compare backend='mido' and backend='minimidi' on every *.mid/*.midi
     file found anywhere under the tests/ directory tree, verifying that
     both backends produce numerically identical PerformedPart output.
     """
@@ -699,7 +699,7 @@ class TestLoadPerformanceMIDIAllTestFiles(unittest.TestCase):
                     midi_file, backend="mido", quiet=True
                 )
                 perf_fast = load_performance_midi(
-                    midi_file, backend="symusic", quiet=True
+                    midi_file, backend="minimidi", quiet=True
                 )
                 self.assertEqual(
                     _dump_performance_for_comparison(perf_mido),
@@ -723,9 +723,9 @@ class TestLoadPerformanceMIDIBackendDispatch(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_performance_midi(self.midi_file, backend="not-a-backend")
 
-    def test_symusic_backend_requires_path(self):
+    def test_minimidi_backend_requires_path(self):
         with self.assertRaises(ValueError):
-            load_performance_midi(self.midi_file, backend="symusic")
+            load_performance_midi(self.midi_file, backend="minimidi")
 
     def test_mido_backend_accepts_midifile_object(self):
         perf = load_performance_midi(self.midi_file, backend="mido")
@@ -738,10 +738,10 @@ class TestLoadPerformanceMIDIBackendDispatch(unittest.TestCase):
 
 @unittest.skipUnless(
     _HAS_FASTMIDI,
-    "the optional partitura._symusic_midi extension is not built",
+    "the optional partitura._minimidi extension is not built",
 )
 class TestLoadPerformanceMIDISpeed(unittest.TestCase):
-    """Check that backend='symusic' is meaningfully faster than the
+    """Check that backend='minimidi' is meaningfully faster than the
     pure-Python backend='mido' path -- that's the whole point of the
     fast backend, so a regression here is worth failing the build over.
     """
@@ -808,9 +808,9 @@ class TestLoadPerformanceMIDISpeed(unittest.TestCase):
                 best = min(best, time.perf_counter() - t0)
         return best
 
-    def test_symusic_backend_is_faster_than_mido(self):
+    def test_minimidi_backend_is_faster_than_mido(self):
         mido_time = self._best_of("mido", self.tmpfile.name, self.N_REPEATS)
-        fast_time = self._best_of("symusic", self.tmpfile.name, self.N_REPEATS)
+        fast_time = self._best_of("minimidi", self.tmpfile.name, self.N_REPEATS)
 
         self.assertGreater(
             fast_time,
@@ -822,7 +822,7 @@ class TestLoadPerformanceMIDISpeed(unittest.TestCase):
         self.assertGreaterEqual(
             speedup,
             self.MIN_SPEEDUP,
-            f"backend='symusic' should be at least {self.MIN_SPEEDUP}x faster "
+            f"backend='minimidi' should be at least {self.MIN_SPEEDUP}x faster "
             f"than backend='mido' on a {self.N_NOTES}-note file, but was only "
             f"{speedup:.2f}x ({mido_time:.4f}s vs {fast_time:.4f}s)",
         )

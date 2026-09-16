@@ -379,7 +379,7 @@ class TestPerformedPartValidateFlag(unittest.TestCase):
         """
         For well-formed notes, validate=False and validate=True (the
         default) must produce identical PerformedPart output -- this is
-        what backend='symusic'/backend='mido' MIDI import relies on.
+        what backend='minimidi'/backend='mido' MIDI import relies on.
         """
         notes = [
             dict(

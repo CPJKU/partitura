@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Builds the optional `partitura._symusic_midi` fast MIDI-import extension.
+Builds the optional `partitura._minimidi` fast MIDI-import extension.
 
 All other package metadata lives in pyproject.toml; this file exists only
 to declare the optional C++ extension, since setuptools cannot express
@@ -28,7 +28,7 @@ def _fast_midi_extension():
         return [], {}
 
     ext = Pybind11Extension(
-        "partitura._symusic_midi",
+        "partitura._minimidi",
         sources=[os.path.join("native", "fastmidi.cpp")],
         include_dirs=[minimidi_include],
         cxx_std=20,

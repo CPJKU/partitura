@@ -220,7 +220,7 @@ def load_performance(
     quiet : bool, optional
         If True, suppress all warnings emitted during parsing.
         Defaults to False.
-    backend : {'auto', 'mido', 'symusic'}, optional
+    backend : {'auto', 'mido', 'minimidi'}, optional
         Which MIDI-parsing backend to use for MIDI input; ignored for
         matchfiles. See `partitura.io.importmidi.load_performance_midi`
         for details. Defaults to ``'auto'``.

@@ -31,11 +31,11 @@ from partitura.utils.music import midi_ticks_to_seconds
 import partitura.musicanalysis as analysis
 
 try:
-    from partitura import _symusic_midi
+    from partitura import _minimidi
 
     _HAS_FASTMIDI = True
 except ImportError:
-    _symusic_midi = None
+    _minimidi = None
     _HAS_FASTMIDI = False
 
 __all__ = ["load_score_midi", "load_performance_midi", "midi_to_notearray"]
@@ -107,19 +107,20 @@ def load_performance_midi(
         Defaults to 120.
     merge_tracks: bool, optional
         For MIDI files, merges all tracks into a single track.
-    backend : {'auto', 'mido', 'symusic'}, optional
+    backend : {'auto', 'mido', 'minimidi'}, optional
         Which MIDI-parsing backend to use. ``'mido'`` uses the original
-        pure-Python parser. ``'symusic'`` uses an optional, much faster
-        compiled extension (built on the same low-level MIDI parser
-        ("minimidi") that the symusic library uses internally) and
-        raises a `RuntimeError` if that extension is not available or
-        if `filename` is an already-open `mido.MidiFile` (which the
-        fast backend cannot read from, since it parses from a path).
+        pure-Python parser. ``'minimidi'`` uses an optional, much faster
+        compiled extension (built directly on "minimidi", the same
+        low-level MIDI parser that the symusic library uses internally
+        -- partitura does not depend on symusic itself) and raises a
+        `RuntimeError` if that extension is not available or if
+        `filename` is an already-open `mido.MidiFile` (which the fast
+        backend cannot read from, since it parses from a path).
         ``'auto'`` (the default) uses the fast backend when it is
         available and `filename` is a path, and silently falls back to
         ``'mido'`` otherwise.
 
-        The ``'symusic'`` backend is equivalent to ``'mido'`` for
+        The ``'minimidi'`` backend is equivalent to ``'mido'`` for
         virtually all files, with two documented differences: (1) its
         tempo map is built once, globally, from every tempo event in
         the file, rather than accumulated sequentially track-by-track,
@@ -133,27 +134,27 @@ def load_performance_midi(
     :class:`partitura.performance.Performance`
         A Performance instance.
     """
-    if backend not in ("auto", "mido", "symusic"):
+    if backend not in ("auto", "mido", "minimidi"):
         raise ValueError(
-            f"Unknown backend {backend!r}; expected one of 'auto', 'mido', 'symusic'"
+            f"Unknown backend {backend!r}; expected one of 'auto', 'mido', 'minimidi'"
         )
 
     is_path_input = not isinstance(filename, mido.MidiFile)
 
-    if backend == "symusic":
+    if backend == "minimidi":
         if not is_path_input:
             raise ValueError(
-                "backend='symusic' requires a path, not an already-open mido.MidiFile"
+                "backend='minimidi' requires a path, not an already-open mido.MidiFile"
             )
         if not _HAS_FASTMIDI:
             raise RuntimeError(
-                "backend='symusic' was requested but the optional "
-                "partitura._symusic_midi extension is not built. Use "
+                "backend='minimidi' was requested but the optional "
+                "partitura._minimidi extension is not built. Use "
                 "backend='mido' (or 'auto'), or reinstall partitura with "
                 "a C++ toolchain available."
             )
 
-    use_fast = backend == "symusic" or (
+    use_fast = backend == "minimidi" or (
         backend == "auto" and _HAS_FASTMIDI and is_path_input
     )
 
@@ -403,7 +404,7 @@ def _load_performance_midi_fast(
     merge_tracks: bool = False,
 ) -> performance.Performance:
     """Fast path for `load_performance_midi`, using the optional compiled
-    `partitura._symusic_midi` extension (see native/fastmidi.cpp). Mirrors
+    `partitura._minimidi` extension (see native/fastmidi.cpp). Mirrors
     the note on/off pairing and tempo-map logic of the `mido`-based path
     above, but does not populate `meta_other`; see `load_performance_midi`'s
     `backend` parameter docstring for the full list of differences.
@@ -412,7 +413,7 @@ def _load_performance_midi_fast(
     path = os.fspath(filename)
     default_mpq = int(60 * (10**6 / default_bpm))
 
-    parsed = _symusic_midi.parse_performance(path, float(default_bpm), merge_tracks)
+    parsed = _minimidi.parse_performance(path, float(default_bpm), merge_tracks)
     ppq = parsed["ppq"]
 
     pps = []
