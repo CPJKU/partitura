@@ -426,67 +426,75 @@ def _load_performance_midi_fast(
                 "matching note-on"
             )
 
+        # `tr["notes"]`/etc. are numpy structured arrays produced by our own
+        # C++ parser (native/fastmidi.cpp), not arbitrary user input -- the
+        # int()/float() coercion that PerformedNote's validators need to
+        # trust user-supplied dicts is unnecessary overhead here: numpy
+        # scalar types (np.int32/np.float64/...) already behave correctly
+        # as dict values throughout partitura (arithmetic, comparisons,
+        # MIDI export, note_array() construction), so we pass them through
+        # as-is. `id` and `key_name` remain plain Python str.
         notes = [
             dict(
                 id=f"n{k}",
-                midi_pitch=int(rec["midi_pitch"]),
-                note_on=float(rec["note_on"]),
-                note_on_tick=int(rec["note_on_tick"]),
-                note_off=float(rec["note_off"]),
-                note_off_tick=int(rec["note_off_tick"]),
-                track=int(rec["track"]),
-                channel=int(rec["channel"]),
-                velocity=int(rec["velocity"]),
+                midi_pitch=rec["midi_pitch"],
+                note_on=rec["note_on"],
+                note_on_tick=rec["note_on_tick"],
+                note_off=rec["note_off"],
+                note_off_tick=rec["note_off_tick"],
+                track=rec["track"],
+                channel=rec["channel"],
+                velocity=rec["velocity"],
             )
             for k, rec in enumerate(tr["notes"])
         ]
 
         controls = [
             dict(
-                time=float(r["time"]),
-                time_tick=int(r["time_tick"]),
-                number=int(r["number"]),
-                value=int(r["value"]),
-                track=int(r["track"]),
-                channel=int(r["channel"]),
+                time=r["time"],
+                time_tick=r["time_tick"],
+                number=r["number"],
+                value=r["value"],
+                track=r["track"],
+                channel=r["channel"],
             )
             for r in tr["controls"]
         ]
 
         programs = [
             dict(
-                time=float(r["time"]),
-                time_tick=int(r["time_tick"]),
-                program=int(r["program"]),
-                track=int(r["track"]),
-                channel=int(r["channel"]),
+                time=r["time"],
+                time_tick=r["time_tick"],
+                program=r["program"],
+                track=r["track"],
+                channel=r["channel"],
             )
             for r in tr["programs"]
         ]
 
         time_signatures = [
             dict(
-                time=float(r["time"]),
-                time_tick=int(r["time_tick"]),
-                beats=int(r["beats"]),
-                beat_type=int(r["beat_type"]),
-                track=int(r["track"]),
+                time=r["time"],
+                time_tick=r["time_tick"],
+                beats=r["beats"],
+                beat_type=r["beat_type"],
+                track=r["track"],
             )
             for r in tr["time_signatures"]
         ]
 
         key_signatures = []
         for r in tr["key_signatures"]:
-            fifths = int(r["fifths"])
-            mode = "minor" if int(r["mode"]) else "major"
+            fifths = r["fifths"]
+            mode = "minor" if r["mode"] else "major"
             key_signatures.append(
                 dict(
-                    time=float(r["time"]),
-                    time_tick=int(r["time_tick"]),
+                    time=r["time"],
+                    time_tick=r["time_tick"],
                     key_name=fifths_mode_to_key_name(fifths, mode),
                     fifths=fifths,
                     mode=mode,
-                    track=int(r["track"]),
+                    track=r["track"],
                 )
             )
 

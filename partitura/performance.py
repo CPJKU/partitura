@@ -286,12 +286,14 @@ class PerformedPart(object):
 
 
 def adjust_note_offsets_with_sustain(
-    notes: List[dict],
+    notes: List["PerformedNote"],
     controls: List[dict],
     threshold=64,
 ) -> None:
-    # get all note offsets
-    offs = np.fromiter((n["note_off"] for n in notes), dtype=float)
+    # `notes` is always PerformedPart.notes here (a List[PerformedNote]) --
+    # read via .pnote_dict directly rather than PerformedNote.__getitem__,
+    # which is pure per-call dispatch overhead we don't need internally.
+    offs = np.fromiter((n.pnote_dict["note_off"] for n in notes), dtype=float)
     first_off = np.min(offs)
     last_off = np.max(offs)
 
@@ -306,7 +308,7 @@ def adjust_note_offsets_with_sustain(
         # sound_off >= note_off invariant, so a validated __setitem__ is
         # unnecessary here.
         for note in notes:
-            note._set_unchecked("sound_off", note["note_off"])
+            note._set_unchecked("sound_off", note.pnote_dict["note_off"])
         return
 
     # sort, just in case
@@ -336,8 +338,11 @@ def adjust_note_offsets_with_sustain(
     )
 
     # adjust offset times of notes that have a reonset while the sustain pedal is on
-    pitches = np.array([n["midi_pitch"] for n in notes])
-    note_ons = np.array([n["note_on"] for n in notes])
+    # ("midi_pitch" is, unlike the other keys read in this function, never
+    # defaulted by PerformedNote -- it's absent whenever a note was built
+    # from "pitch" instead, so this one still needs a safe .get()).
+    pitches = np.array([n.pnote_dict.get("midi_pitch") for n in notes])
+    note_ons = np.array([n.pnote_dict["note_on"] for n in notes])
 
     for pitch in np.unique(pitches):
         pitch_indices = np.where(pitches == pitch)[0]
@@ -659,9 +664,17 @@ class Performance(object):
         self.performedparts is unique (i.e., that a track number does not appear
         in multiple `PerformedPart` instances)
         """
+        # note.pnote_dict.get(...) skips PerformedNote.get()'s extra call
+        # frame; "track" is always present (defaulted in __init__), but
+        # .get() with the -1 fallback is kept for parity with controls/
+        # programs, which are plain dicts and may genuinely lack it.
         unique_track_ids = list(
             set(
-                [(i, n.get("track", -1)) for i, pp in enumerate(self) for n in pp.notes]
+                [
+                    (i, n.pnote_dict.get("track", -1))
+                    for i, pp in enumerate(self)
+                    for n in pp.notes
+                ]
                 + [
                     (i, c.get("track", -1))
                     for i, pp in enumerate(self)
@@ -682,7 +695,9 @@ class Performance(object):
                 # PerformedNote's _validate_values has no validator for
                 # "track" at all, so a validated __setitem__ here would
                 # check nothing -- write directly.
-                note._set_unchecked("track", track_map[(i, note.get("track", -1))])
+                note._set_unchecked(
+                    "track", track_map[(i, note.pnote_dict.get("track", -1))]
+                )
 
             for control in ppart.controls:
                 control["track"] = track_map[(i, control.get("track", -1))]

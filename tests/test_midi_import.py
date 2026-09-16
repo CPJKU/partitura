@@ -746,11 +746,11 @@ class TestLoadPerformanceMIDISpeed(unittest.TestCase):
     fast backend, so a regression here is worth failing the build over.
     """
 
-    # Measured speedups on this file size are consistently ~2.5-2.65x (see
+    # Measured speedups on this file size are consistently ~3.0-3.2x (see
     # CHANGES.md); require a good deal less than that so the test isn't
     # flaky under CI/shared-runner noise, while still catching a
     # regression back toward "about the same speed" or slower.
-    MIN_SPEEDUP = 1.8
+    MIN_SPEEDUP = 2.2
     N_NOTES = 8000
     N_REPEATS = 3
 
