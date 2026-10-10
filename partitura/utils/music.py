@@ -10,6 +10,7 @@ from collections import defaultdict
 import re
 import warnings
 import numpy as np
+import numpy.lib.recfunctions as rfn
 from scipy.interpolate import interp1d
 from scipy.sparse import csc_matrix
 from typing import Union, Callable, Optional, TYPE_CHECKING, Tuple, Dict, Any, List
@@ -2654,10 +2655,10 @@ def note_array_from_note_list(
                         else:
                             local_order_val += 1
 
-        note_array = np.lib.recfunctions.drop_fields(note_array, "is_grace_chord")
-        note_array = np.lib.recfunctions.drop_fields(note_array, "doc_order")
+        note_array = rfn.drop_fields(note_array, "is_grace_chord")
+        note_array = rfn.drop_fields(note_array, "doc_order")
         if not include_staff:
-            note_array = np.lib.recfunctions.drop_fields(note_array, "staff")
+            note_array = rfn.drop_fields(note_array, "staff")
 
     return note_array
 
