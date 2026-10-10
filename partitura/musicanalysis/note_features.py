@@ -7,6 +7,7 @@ This module contains methods to compute note-level features.
 import sys
 import warnings
 import numpy as np
+import numpy.lib.recfunctions as rfn
 from scipy.interpolate import interp1d
 import partitura.score as score
 
@@ -436,7 +437,7 @@ def compute_note_array(
         feature_data_struct = make_note_feats(
             part, feature_functions, add_idx=True, force_fixed_size=force_fixed_size
         )
-        note_array_joined = np.lib.recfunctions.join_by("id", na, feature_data_struct)
+        note_array_joined = rfn.join_by("id", na, feature_data_struct)
         note_array = note_array_joined.data
         sort_idx = np.lexsort(
             (note_array["duration_div"], note_array["pitch"], note_array["onset_div"])
