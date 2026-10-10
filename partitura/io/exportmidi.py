@@ -4,6 +4,7 @@
 This module contains methods for exporting MIDI files
 """
 
+import io
 import warnings
 
 import numpy as np
@@ -12,6 +13,14 @@ from collections import defaultdict, OrderedDict
 from typing import Optional, Iterable
 
 from mido import MidiFile, MidiTrack, Message, MetaMessage, merge_tracks
+
+try:
+    from partitura import _minimidi
+
+    _HAS_FASTMIDI = True
+except ImportError:
+    _minimidi = None
+    _HAS_FASTMIDI = False
 
 # SMF type-1 / type-0 headers store ticks-per-beat in a signed 16-bit field,
 # so the largest representable ppq is 32767. Without a cap, scores with many
@@ -98,6 +107,245 @@ def get_ppq(parts):
     return ppq
 
 
+# Must match `EventRecord` / `EventKind` in native/fastmidi.cpp.
+_EVENT_DTYPE = np.dtype(
+    [
+        ("tick", "<i8"),
+        ("kind", "<i4"),
+        ("channel", "<i4"),
+        ("a", "<i4"),
+        ("b", "<i4"),
+    ]
+)
+(
+    _NOTE_ON,
+    _NOTE_OFF,
+    _CONTROL,
+    _PROGRAM,
+    _TIME_SIG,
+    _KEY_SIG,
+    _RAW_META,
+) = range(7)
+
+
+def _check_range(name, values, lo, hi):
+    # mido validates these when building each Message; the raw minimidi
+    # writer does not, so check up front (vectorized) and raise the same
+    # kind of error.
+    values = np.asarray(values)
+    if values.size and (values.min() < lo or values.max() > hi):
+        raise ValueError(f"{name} must be between {lo} and {hi}")
+
+
+class _EventCollector:
+    """Accumulates tick-converted events per output track, in insertion
+    order, mirroring the `track_events[track][tick]` bookkeeping of the
+    mido-based exporter (events sharing a tick keep their insertion order
+    because the writer stable-sorts by tick).
+    """
+
+    def __init__(self):
+        self.blocks = defaultdict(list)
+        self.raw_metas = []
+        self.min_tick = None
+
+    def add(self, tracks, ticks, kind, channel, a, b):
+        ticks = np.asarray(ticks, dtype=np.int64)
+        if ticks.size == 0:
+            return
+        if ticks.min() < 0:
+            raise ValueError("MIDI event times must be non-negative")
+        events = np.empty(ticks.size, dtype=_EVENT_DTYPE)
+        events["tick"] = ticks
+        events["kind"] = kind
+        events["channel"] = channel
+        events["a"] = a
+        events["b"] = b
+        tracks = np.asarray(tracks, dtype=np.int64)
+        tmin = int(ticks.min())
+        self.min_tick = tmin if self.min_tick is None else min(self.min_tick, tmin)
+        if (tracks == tracks[0]).all():
+            # common case (single track): skip sorting/splitting by track
+            self.blocks[int(tracks[0])].append(events)
+            return
+        for tr in np.unique(tracks):
+            self.blocks[int(tr)].append(events[tracks == tr])
+
+
+def _seconds_to_ticks(times, ppq, mpq):
+    # same arithmetic (and operation order) as the mido-based exporter's
+    # int(np.round(10**6 * ppq * t / mpq)), so ticks are identical
+    return np.round((10**6 * ppq) * np.asarray(times, dtype=float) / mpq).astype(
+        np.int64
+    )
+
+
+def _build_midi_bytes_minimidi(
+    performed_parts, mpq, ppq, default_velocity, merge_tracks_save
+):
+    """Serialize `performed_parts` to the bytes of a Standard MIDI File
+    using the compiled `_minimidi` extension. Mirrors the event layout and
+    ordering of the mido-based path in `save_performance_midi`.
+    """
+    if not 0 < ppq <= SMF_MAX_PPQ:
+        raise ValueError(f"ppq must be between 1 and {SMF_MAX_PPQ}")
+
+    col = _EventCollector()
+
+    for pp in performed_parts:
+        # --- meta_other: arbitrary meta messages, encoded by mido and
+        # passed through as raw [type, length, payload...] bytes
+        if pp.meta_other:
+            raw_idx = []
+            for c in pp.meta_other:
+                msg_info = {
+                    k: v for k, v in c.items() if k not in ("time", "time_tick", "track")
+                }
+                raw_idx.append(len(col.raw_metas))
+                col.raw_metas.append(bytes(MetaMessage(**msg_info).bytes()[1:]))
+            col.add(
+                [c.get("track", 0) for c in pp.meta_other],
+                _seconds_to_ticks([c["time"] for c in pp.meta_other], ppq, mpq),
+                _RAW_META,
+                0,
+                raw_idx,
+                0,
+            )
+
+        # --- key signatures
+        if pp.key_signatures:
+            fifths, minor = [], []
+            for c in pp.key_signatures:
+                f, mode = c.get("fifths", 0), c.get("mode", None)
+                # validates fifths/mode exactly like the mido-based path
+                fifths_mode_to_key_name(fifths=f, mode=mode)
+                fifths.append(f)
+                minor.append(1 if mode in ("minor", -1) else 0)
+            col.add(
+                [c.get("track", 0) for c in pp.key_signatures],
+                _seconds_to_ticks([c["time"] for c in pp.key_signatures], ppq, mpq),
+                _KEY_SIG,
+                0,
+                fifths,
+                minor,
+            )
+
+        # --- time signatures
+        if pp.time_signatures:
+            beats = np.array([c.get("beats", 4) for c in pp.time_signatures])
+            beat_type = np.array([c.get("beat_type", 4) for c in pp.time_signatures])
+            _check_range("time signature numerator", beats, 0, 255)
+            if np.any(beat_type < 1) or np.any(beat_type & (beat_type - 1)):
+                raise ValueError("time signature denominator must be a power of two")
+            col.add(
+                [c.get("track", 0) for c in pp.time_signatures],
+                _seconds_to_ticks([c["time"] for c in pp.time_signatures], ppq, mpq),
+                _TIME_SIG,
+                0,
+                beats,
+                beat_type,
+            )
+
+        # (track, channel) pairs of this part's notes and controls, for the
+        # default program_change insertion below
+        track_channel = []
+
+        # --- control changes
+        if pp.controls:
+            tracks = np.array([c.get("track", 0) for c in pp.controls])
+            channels = np.array([c.get("channel", 0) for c in pp.controls])
+            numbers = np.array([c["number"] for c in pp.controls])
+            values = np.array([c["value"] for c in pp.controls])
+            _check_range("control number", numbers, 0, 127)
+            _check_range("control value", values, 0, 127)
+            _check_range("channel", channels, 0, 15)
+            col.add(
+                tracks,
+                _seconds_to_ticks([c["time"] for c in pp.controls], ppq, mpq),
+                _CONTROL,
+                channels,
+                numbers,
+                values,
+            )
+            track_channel.append(np.column_stack((tracks, channels)))
+
+        # --- notes (note_on / note_off interleaved per note, as in the
+        # mido-based path)
+        if pp.notes:
+            rows = [
+                (
+                    d["midi_pitch"],
+                    d["note_on"],
+                    d["note_off"],
+                    d.get("velocity", default_velocity),
+                    d.get("channel", 0),
+                    d.get("track", 0),
+                )
+                for d in (n.pnote_dict for n in pp.notes)
+            ]
+            arr = np.array(rows, dtype=float)
+            pitch, vel, channels, tracks = (
+                arr[:, 0].astype(np.int64),
+                arr[:, 3].astype(np.int64),
+                arr[:, 4].astype(np.int64),
+                arr[:, 5].astype(np.int64),
+            )
+            _check_range("note pitch", pitch, 0, 127)
+            _check_range("note velocity", vel, 0, 127)
+            _check_range("channel", channels, 0, 15)
+
+            n_notes = len(rows)
+            ticks = np.empty(2 * n_notes, dtype=np.int64)
+            ticks[0::2] = _seconds_to_ticks(arr[:, 1], ppq, mpq)
+            ticks[1::2] = _seconds_to_ticks(arr[:, 2], ppq, mpq)
+            kinds = np.tile(np.array([_NOTE_ON, _NOTE_OFF]), n_notes)
+            velocities = np.zeros(2 * n_notes, dtype=np.int64)
+            velocities[0::2] = vel
+            col.add(
+                np.repeat(tracks, 2),
+                ticks,
+                kinds,
+                np.repeat(channels, 2),
+                np.repeat(pitch, 2),
+                velocities,
+            )
+            track_channel.append(np.column_stack((tracks, channels)))
+
+        # --- program changes
+        if pp.programs:
+            channels = np.array([p.get("channel", 0) for p in pp.programs])
+            programs = np.array([int(p["program"]) for p in pp.programs])
+            _check_range("program", programs, 0, 127)
+            _check_range("channel", channels, 0, 15)
+            col.add(
+                [p.get("track", 0) for p in pp.programs],
+                _seconds_to_ticks([p["time"] for p in pp.programs], ppq, mpq),
+                _PROGRAM,
+                channels,
+                programs,
+                0,
+            )
+        elif track_channel:
+            # default program (to each track/channel), placed at the earliest
+            # tick of any event written so far, after the events already there
+            pairs = np.unique(np.concatenate(track_channel), axis=0)
+            col.add(
+                pairs[:, 0],
+                np.full(len(pairs), col.min_tick),
+                _PROGRAM,
+                pairs[:, 1],
+                0,
+                0,
+            )
+
+    track_arrays = [np.concatenate(col.blocks[i]) for i in sorted(col.blocks)]
+    midi_type = 0 if len(track_arrays) == 1 else 1
+    if merge_tracks_save and len(track_arrays) > 1:
+        track_arrays = [np.concatenate(track_arrays)]
+
+    return _minimidi.write_midi(track_arrays, col.raw_metas, ppq, mpq, midi_type)
+
+
 @deprecated_alias(performed_part="performance_data")
 def save_performance_midi(
     performance_data: PerformanceLike,
@@ -106,6 +354,7 @@ def save_performance_midi(
     ppq: int = 480,
     default_velocity: int = 64,
     merge_tracks_save: Optional[bool] = False,
+    backend: str = "auto",
 ) -> Optional[MidiFile]:
     """Save a :class:`~partitura.performance.PerformedPart` or
     a :class:`~partitura.performance.Performance` as a MIDI file
@@ -128,6 +377,19 @@ def save_performance_midi(
         notes without a specified velocity. Defaults to 64.
     merge_tracks_save : bool, optional
         Determines whether midi tracks are merged when exporting to a midi file. Defaults to False.
+    backend : {'auto', 'mido', 'minimidi'}, optional
+        Which library serializes the MIDI file. ``'mido'`` builds
+        `mido` messages and is the original implementation.
+        ``'minimidi'`` uses the optional, much faster compiled
+        extension (the same one as `load_performance_midi`'s
+        ``'minimidi'`` backend) and raises a `RuntimeError` if it is
+        not available. ``'auto'`` (the default) uses the compiled
+        extension when available and `mido` otherwise. Both backends
+        write the same events in the same order; the files are not
+        byte-identical (minimidi uses running status and always writes
+        its end-of-track marker one tick after the last event), but
+        read back to the same notes, controls, programs and
+        signatures.
 
     Returns
     -------
@@ -135,6 +397,18 @@ def save_performance_midi(
         If no output is specified using `out`, the function returns
         a `MidiFile` object. Otherwise, the function returns None.
     """
+    if backend not in ("auto", "mido", "minimidi"):
+        raise ValueError(
+            f"Unknown backend {backend!r}; expected one of 'auto', 'mido', 'minimidi'"
+        )
+    if backend == "minimidi" and not _HAS_FASTMIDI:
+        raise RuntimeError(
+            "backend='minimidi' was requested but the optional "
+            "partitura._minimidi extension is not built. Use "
+            "backend='mido' (or 'auto'), or reinstall partitura with "
+            "a C++ toolchain available."
+        )
+    use_fast = backend == "minimidi" or (backend == "auto" and _HAS_FASTMIDI)
 
     if isinstance(performance_data, Performance):
         performed_parts = performance_data.performedparts
@@ -153,6 +427,20 @@ def save_performance_midi(
             "`performance_data` should be a `Performance`, a `PerformedPart`,"
             f" or a list of  `PerformedPart` instances but is {type(performance_data)}"
         )
+
+    if use_fast:
+        data = _build_midi_bytes_minimidi(
+            performed_parts, mpq, ppq, default_velocity, merge_tracks_save
+        )
+        if out is None:
+            # keep the return type of the mido-based path
+            return MidiFile(file=io.BytesIO(data))
+        if hasattr(out, "write"):
+            out.write(data)
+        else:
+            with open(out, "wb") as f:
+                f.write(data)
+        return
 
     track_events = defaultdict(lambda: defaultdict(list))
     for performed_part in performed_parts:

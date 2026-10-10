@@ -3,7 +3,12 @@
 """
 This module cotains tests for exporting MIDI file methods.
 """
+import glob
+import io
 import logging
+import random
+import time
+import warnings
 from collections import defaultdict, Counter, OrderedDict
 import unittest
 from tempfile import TemporaryFile
@@ -17,6 +22,7 @@ from partitura.utils import partition
 import partitura.score as score
 
 from partitura.performance import PerformedPart, Performance
+from partitura.io.exportmidi import _HAS_FASTMIDI
 from tests import MIDIEXPORT_TESTFILES
 
 LOGGER = logging.getLogger(__name__)
@@ -528,3 +534,282 @@ class TestIncompleteMeasures(unittest.TestCase):
         self.assertTrue(cumulative_position==3)
 
 
+def _dump_midifile_for_comparison(mf):
+    """Reduce a mido.MidiFile to (type, ticks_per_beat, per-track lists of
+    (absolute tick, message fields)), ignoring end_of_track: minimidi always
+    writes its end-of-track marker one tick after the last event, mido at
+    the last event, which carries no musical information.
+    """
+    tracks = []
+    for track in mf.tracks:
+        t, msgs = 0, []
+        for msg in track:
+            t += msg.time
+            if msg.type == "end_of_track":
+                continue
+            fields = msg.dict()
+            fields.pop("time")
+            msgs.append((t, tuple(sorted(fields.items()))))
+        tracks.append(msgs)
+    return mf.type, mf.ticks_per_beat, tracks
+
+
+def _make_awkward_performance(seed, with_programs, with_meta):
+    """Multi-track/channel performance with controls, signatures, retriggered
+    same-pitch notes at a shared tick, and optionally programs / meta_other.
+    """
+    rng = random.Random(seed)
+    parts = []
+    for track in range(3):
+        notes = []
+        for k in range(60):
+            on = rng.choice([0.0, 0.25, 0.5, 0.75, 1.0]) + rng.random() * 3
+            if k % 7 == 0:
+                notes.append(
+                    dict(id=f"a{k}", midi_pitch=60, note_on=1.0, note_off=1.5,
+                         track=track, channel=track)
+                )
+                notes.append(
+                    dict(id=f"b{k}", midi_pitch=60, note_on=1.5, note_off=2.0,
+                         track=track, channel=track)
+                )
+            notes.append(
+                dict(id=f"n{k}", midi_pitch=rng.randint(30, 100), note_on=on,
+                     note_off=on + rng.random(), velocity=rng.randint(1, 127),
+                     track=track, channel=rng.randint(0, 3))
+            )
+        controls = [
+            dict(time=rng.random() * 3, time_tick=0, number=64,
+                 value=rng.randint(0, 127), track=track, channel=0)
+            for _ in range(10)
+        ]
+        programs = (
+            [dict(time=0.0, time_tick=0, program=5 + track, track=track, channel=track)]
+            if with_programs
+            else []
+        )
+        time_sigs = (
+            [dict(time=0.0, time_tick=0, beats=3, beat_type=4, track=track),
+             dict(time=2.0, time_tick=0, beats=6, beat_type=8, track=track)]
+            if track == 0
+            else []
+        )
+        key_sigs = (
+            [dict(time=0.0, time_tick=0, fifths=-3, mode="minor", track=track),
+             dict(time=1.0, time_tick=0, fifths=2, mode="major", track=track)]
+            if track == 0
+            else []
+        )
+        meta = (
+            [dict(type="track_name", name=f"Track {track}", time=0.0, track=track),
+             dict(type="smpte_offset", frame_rate=24, hours=1, minutes=2, seconds=3,
+                  frames=4, sub_frames=5, time=0.5, track=track),
+             dict(type="marker", text="A", time=1.25, track=track)]
+            if with_meta
+            else []
+        )
+        parts.append(
+            PerformedPart(notes, controls=controls, programs=programs,
+                          time_signatures=time_sigs, key_signatures=key_sigs,
+                          meta_other=meta, track=track)
+        )
+    return Performance(parts)
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._minimidi extension is not built",
+)
+class TestSavePerformanceMIDIBackends(unittest.TestCase):
+    """backend='minimidi' must write the same events, in the same order, as
+    backend='mido'."""
+
+    def _assert_backends_agree(self, perf, **kwargs):
+        mf_mido = save_performance_midi(perf, None, backend="mido", **kwargs)
+        mf_fast = save_performance_midi(perf, None, backend="minimidi", **kwargs)
+        self.assertEqual(
+            _dump_midifile_for_comparison(mf_mido),
+            _dump_midifile_for_comparison(mf_fast),
+        )
+
+    def test_backends_agree_awkward_performances(self):
+        for seed in range(3):
+            for with_programs in (False, True):
+                for with_meta in (False, True):
+                    for merge in (False, True):
+                        with self.subTest(
+                            seed=seed,
+                            with_programs=with_programs,
+                            with_meta=with_meta,
+                            merge_tracks_save=merge,
+                        ):
+                            perf = _make_awkward_performance(
+                                seed, with_programs, with_meta
+                            )
+                            self._assert_backends_agree(
+                                perf, merge_tracks_save=merge
+                            )
+
+    def test_backends_agree_custom_ppq_mpq_velocity(self):
+        perf = _make_awkward_performance(0, False, False)
+        # a note without a velocity must get default_velocity on both
+        perf[0].notes[0].pnote_dict.pop("velocity", None)
+        self._assert_backends_agree(perf, ppq=96, mpq=400000, default_velocity=90)
+
+    def test_round_trip_all_test_files(self):
+        # load every MIDI fixture with each import backend, save with each
+        # export backend: the written events must agree.
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        midi_files = sorted(
+            set(glob.glob(os.path.join(tests_dir, "**", "*.mid"), recursive=True))
+            | set(glob.glob(os.path.join(tests_dir, "**", "*.midi"), recursive=True))
+        )
+        self.assertGreater(len(midi_files), 0)
+        for midi_file in midi_files:
+            for load_backend in ("mido", "minimidi"):
+                with self.subTest(
+                    midi_file=os.path.relpath(midi_file, tests_dir),
+                    load_backend=load_backend,
+                ):
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        perf = load_performance_midi(midi_file, backend=load_backend)
+                    self._assert_backends_agree(perf)
+
+    def test_minimidi_output_reloads_to_same_notes(self):
+        # non-overlapping notes per (channel, pitch), so reloading re-pairs
+        # them unambiguously; times are quantized to ticks on export.
+        notes = [
+            dict(id=f"n{k}", midi_pitch=30 + k % 60, note_on=0.1 * k,
+                 note_off=0.1 * k + 0.05, velocity=40 + k % 80, track=0,
+                 channel=k % 3)
+            for k in range(200)
+        ]
+        perf = Performance([PerformedPart(notes)])
+        tick = 500000 / 480 / 1e6  # seconds per tick at the default mpq/ppq
+        with TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "out.mid")
+            save_performance_midi(perf, path, backend="minimidi")
+            reloaded = load_performance_midi(path, backend="mido", quiet=True)
+
+        def key(n):
+            return (n["note_on"], n["midi_pitch"], n["channel"])
+
+        got = sorted(reloaded[0].notes, key=key)
+        want = sorted(perf[0].notes, key=key)
+        self.assertEqual(len(got), len(want))
+        for g, w in zip(got, want):
+            self.assertEqual(g["midi_pitch"], w["midi_pitch"])
+            self.assertEqual(g["channel"], w["channel"])
+            self.assertEqual(g["velocity"], w["velocity"])
+            self.assertAlmostEqual(g["note_on"], w["note_on"], delta=tick)
+            self.assertAlmostEqual(g["note_off"], w["note_off"], delta=tick)
+
+    def test_out_path_file_like_and_none(self):
+        perf = _make_awkward_performance(2, True, True)
+        expected = _dump_midifile_for_comparison(
+            save_performance_midi(perf, None, backend="mido")
+        )
+        # out=None keeps returning a mido.MidiFile
+        mf = save_performance_midi(perf, None, backend="minimidi")
+        self.assertIsInstance(mf, mido.MidiFile)
+        self.assertEqual(_dump_midifile_for_comparison(mf), expected)
+        # path
+        with TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "out.mid")
+            self.assertIsNone(save_performance_midi(perf, path, backend="minimidi"))
+            self.assertEqual(
+                _dump_midifile_for_comparison(mido.MidiFile(path)), expected
+            )
+        # file-like
+        buf = io.BytesIO()
+        save_performance_midi(perf, buf, backend="minimidi")
+        buf.seek(0)
+        self.assertEqual(
+            _dump_midifile_for_comparison(mido.MidiFile(file=buf)), expected
+        )
+
+    def test_out_of_range_values_raise(self):
+        def perf_with(**note_kwargs):
+            note = dict(id="n0", midi_pitch=60, note_on=0.0, note_off=1.0)
+            note.update(note_kwargs)
+            return PerformedPart([note], validate=False)
+
+        for kwargs in (
+            dict(midi_pitch=128),
+            dict(midi_pitch=-1),
+            dict(velocity=128),
+            dict(channel=16),
+        ):
+            with self.subTest(**kwargs):
+                with self.assertRaises(ValueError):
+                    save_performance_midi(
+                        perf_with(**kwargs), None, backend="minimidi"
+                    )
+
+
+class TestSavePerformanceMIDIBackendDispatch(unittest.TestCase):
+    def setUp(self):
+        self.ppart = PerformedPart(
+            [dict(id="n0", midi_pitch=60, note_on=0.0, note_off=1.0)]
+        )
+
+    def test_invalid_backend_raises(self):
+        with self.assertRaises(ValueError):
+            save_performance_midi(self.ppart, None, backend="not-a-backend")
+
+    def test_mido_and_auto_backends_return_midifile(self):
+        for backend in ("mido", "auto"):
+            mf = save_performance_midi(self.ppart, None, backend=backend)
+            self.assertIsInstance(mf, mido.MidiFile)
+
+
+@unittest.skipUnless(
+    _HAS_FASTMIDI,
+    "the optional partitura._minimidi extension is not built",
+)
+class TestSavePerformanceMIDISpeed(unittest.TestCase):
+    """The minimidi export backend should be much faster than mido's."""
+
+    # measured ~19-24x on this size; require far less so the test is not
+    # flaky on a noisy machine while still catching a regression to
+    # "about the same speed".
+    MIN_SPEEDUP = 4.0
+    N_NOTES = 8000
+    N_REPEATS = 3
+
+    def test_minimidi_export_is_faster_than_mido(self):
+        rng = random.Random(7)
+        notes = []
+        t = 0.0
+        for k in range(self.N_NOTES):
+            dur = rng.choice([0.1, 0.2, 0.4])
+            notes.append(
+                dict(id=f"n{k}", midi_pitch=rng.randint(30, 100), note_on=t,
+                     note_off=t + dur, velocity=70, track=0, channel=0)
+            )
+            t += rng.choice([0.0, 0.05, 0.1])
+        perf = Performance([PerformedPart(notes, validate=False)])
+
+        def best(backend):
+            # write to a buffer: with out=None the minimidi path re-parses
+            # its bytes with mido to return a MidiFile, which would measure
+            # mido's parser rather than the export.
+            best_time = float("inf")
+            for _ in range(self.N_REPEATS):
+                buf = io.BytesIO()
+                t0 = time.perf_counter()
+                save_performance_midi(perf, buf, backend=backend)
+                best_time = min(best_time, time.perf_counter() - t0)
+            return best_time
+
+        t_mido, t_fast = best("mido"), best("minimidi")
+        self.assertGreater(t_fast, 0.0)
+        speedup = t_mido / t_fast
+        self.assertGreaterEqual(
+            speedup,
+            self.MIN_SPEEDUP,
+            f"backend='minimidi' should be at least {self.MIN_SPEEDUP}x faster "
+            f"than backend='mido' for {self.N_NOTES} notes, but was only "
+            f"{speedup:.1f}x ({t_mido:.4f}s vs {t_fast:.4f}s)",
+        )

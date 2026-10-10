@@ -80,6 +80,27 @@ struct TempoRecord {
     int32_t mpq;
 };
 
+// One MIDI event handed to write_midi() by save_performance_midi's
+// backend='minimidi' path, already converted to ticks. The meaning of
+// `a`/`b` depends on `kind` (see EventKind).
+struct EventRecord {
+    int64_t tick;
+    int32_t kind;
+    int32_t channel;
+    int32_t a;
+    int32_t b;
+};
+
+enum EventKind : int32_t {
+    kNoteOn = 0,      // a = pitch, b = velocity
+    kNoteOff = 1,     // a = pitch, b = velocity
+    kControl = 2,     // a = controller number, b = value
+    kProgram = 3,     // a = program
+    kTimeSig = 4,     // a = numerator, b = denominator
+    kKeySig = 5,      // a = fifths, b = 1 if minor else 0
+    kRawMeta = 6,     // a = index into write_midi()'s raw_metas
+};
+
 // ---------------------------------------------------------------------
 // Tempo map: converts absolute MIDI ticks to seconds via a single,
 // order-independent, piecewise-linear breakpoint table built from every
@@ -399,6 +420,78 @@ py::dict parse_midi(const std::string& path, double default_bpm, bool merge_trac
     return out;
 }
 
+using EventArray = py::array_t<EventRecord, py::array::c_style | py::array::forcecast>;
+
+// Serializes already tick-converted, insertion-ordered events into a
+// Standard MIDI File. minimidi's to_bytes() stable-sorts each track by tick
+// and appends the end-of-track marker, so the caller only has to emit events
+// in the order they should appear among events sharing a tick.
+//
+// `tracks` holds one EventRecord array per output track; the global tempo is
+// written at tick 0 of the first track. `raw_metas` holds fully encoded meta
+// events, [type, length, payload...] (i.e. mido's MetaMessage.bytes()
+// without the leading 0xFF), referenced by kRawMeta events.
+py::bytes write_midi(
+    const std::vector<EventArray>& tracks,
+    const std::vector<std::string>& raw_metas,
+    int ppq,
+    uint32_t mpq,
+    int midi_type
+) {
+    mm::Tracks<> out_tracks;
+    out_tracks.reserve(tracks.size());
+
+    for (size_t ti = 0; ti < tracks.size(); ++ti) {
+        mm::Track<> track;
+        auto& msgs = track.messages;
+        const EventRecord* events = tracks[ti].data();
+        const size_t n = static_cast<size_t>(tracks[ti].size());
+        msgs.reserve(n + 1);
+
+        if (ti == 0) msgs.push_back(mm::SetTempo<>(0, mpq));
+
+        for (size_t i = 0; i < n; ++i) {
+            const EventRecord& e = events[i];
+            const uint32_t tick = static_cast<uint32_t>(e.tick);
+            const uint8_t channel = static_cast<uint8_t>(e.channel);
+            switch (e.kind) {
+                case kNoteOn:
+                    msgs.push_back(mm::NoteOn<>(tick, channel, static_cast<uint8_t>(e.a), static_cast<uint8_t>(e.b)));
+                    break;
+                case kNoteOff:
+                    msgs.push_back(mm::NoteOff<>(tick, channel, static_cast<uint8_t>(e.a), static_cast<uint8_t>(e.b)));
+                    break;
+                case kControl:
+                    msgs.push_back(mm::ControlChange<>(tick, channel, static_cast<uint8_t>(e.a), static_cast<uint8_t>(e.b)));
+                    break;
+                case kProgram:
+                    msgs.push_back(mm::ProgramChange<>(tick, channel, static_cast<uint8_t>(e.a)));
+                    break;
+                case kTimeSig:
+                    msgs.push_back(mm::TimeSignature<>(tick, static_cast<uint8_t>(e.a), static_cast<uint8_t>(e.b)));
+                    break;
+                case kKeySig:
+                    msgs.push_back(mm::KeySignature<>(tick, static_cast<int8_t>(e.a), static_cast<uint8_t>(e.b)));
+                    break;
+                case kRawMeta: {
+                    const std::string& raw = raw_metas.at(static_cast<size_t>(e.a));
+                    const auto* begin = reinterpret_cast<const uint8_t*>(raw.data());
+                    msgs.emplace_back(tick, static_cast<uint8_t>(0xFF), begin, begin + raw.size());
+                    break;
+                }
+                default:
+                    throw std::invalid_argument("write_midi: unknown event kind " + std::to_string(e.kind));
+            }
+        }
+        out_tracks.push_back(std::move(track));
+    }
+
+    const auto format = midi_type == 0 ? mm::MidiFormat::SingleTrack : mm::MidiFormat::MultiTrack;
+    mm::MidiFile<> midi(std::move(out_tracks), format, 0, static_cast<uint16_t>(ppq));
+    const auto bytes = midi.to_bytes();
+    return py::bytes(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+}
+
 }  // namespace
 
 PYBIND11_MODULE(_minimidi, m) {
@@ -411,12 +504,24 @@ PYBIND11_MODULE(_minimidi, m) {
     PYBIND11_NUMPY_DTYPE(TimeSignatureRecord, time, time_tick, beats, beat_type, track);
     PYBIND11_NUMPY_DTYPE(KeySignatureRecord, time, time_tick, fifths, mode, track);
     PYBIND11_NUMPY_DTYPE(TempoRecord, tick, mpq);
+    PYBIND11_NUMPY_DTYPE(EventRecord, tick, kind, channel, a, b);
 
     m.doc() =
-        "Fast MIDI parsing backend for partitura, built on the vendored "
-        "minimidi parser (see native/fastmidi.cpp). Serves both "
-        "load_performance_midi (seconds-based) and load_score_midi "
-        "(ticks-based) backend='minimidi' paths.";
+        "Fast MIDI reading and writing backend for partitura, built on the "
+        "vendored minimidi library (see native/fastmidi.cpp). Serves the "
+        "backend='minimidi' paths of load_performance_midi (seconds-based), "
+        "load_score_midi (ticks-based) and save_performance_midi.";
+    m.def(
+        "write_midi",
+        &write_midi,
+        py::arg("tracks"),
+        py::arg("raw_metas"),
+        py::arg("ppq"),
+        py::arg("mpq"),
+        py::arg("midi_type"),
+        "Serialize per-track EventRecord arrays (ticks, insertion-ordered) "
+        "into the bytes of a Standard MIDI File."
+    );
     m.def(
         "parse_midi",
         &parse_midi,
