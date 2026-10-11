@@ -146,7 +146,7 @@ def save_performance_midi(
                 "`performance_data` should be a `Performance`, a `PerformedPart`,"
                 " or a list of  `PerformedPart` instances"
             )
-        performed_parts = performed_parts
+        performed_parts = list(performance_data)
 
     else:
         raise ValueError(

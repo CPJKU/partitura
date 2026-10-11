@@ -434,6 +434,25 @@ class TestExportPerformanceMIDI(unittest.TestCase):
 
         self.assertEqual(ppart.num_tracks, len(mf_from_ppart.tracks))
 
+    def test_save_list_of_performed_parts(self):
+        # regression test: a plain list of PerformedParts used to raise
+        # UnboundLocalError (`performed_parts = performed_parts`).
+        ppart_a = PerformedPart(
+            [dict(id="a", midi_pitch=60, note_on=0.0, note_off=1.0, track=0)]
+        )
+        ppart_b = PerformedPart(
+            [dict(id="b", midi_pitch=64, note_on=0.5, note_off=1.5, track=1)]
+        )
+        mf = save_performance_midi([ppart_a, ppart_b], None)
+        pitches = sorted(
+            m.note for tr in mf.tracks for m in tr if m.type == "note_on"
+        )
+        self.assertEqual(pitches, [60, 64])
+        self.assertEqual(len(mf.tracks), 2)
+
+        with self.assertRaises(ValueError):
+            save_performance_midi([ppart_a, "not a performed part"], None)
+
     def test_save_multiple_track(self):
         n_tracks = RNG.randint(2, 10, 10)
         for nt in n_tracks:
