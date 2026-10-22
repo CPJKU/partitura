@@ -1910,16 +1910,15 @@ def get_technical_notations(e: etree._Element) -> List[score.NoteTechnicalNotati
 
 def parse_fingering(e: etree._Element) -> score.Fingering:
     try:
-        # There seems to be a few cases with fingerings encoded like 4_1.
-        # This is not standard in MusicXML according to the documentation,
-        # but since it appears in files from the web, and can be displayed
-        # with MuseScore, the solution for now is just to take the fist value.
+        # Fingerings can contain text or multiple numbers, such as 4_1.
+        # For now, only the first number can be represented by Fingering.
         finger_info = parse_ints(e.text)
-    except Exception as e:
-        # Do not raise an error if fingering info cannot be parsed, insted
+        finger_number = finger_info[0]
+    except (TypeError, ValueError, IndexError):
+        # Do not raise an error if fingering info cannot be parsed; instead
         # just set it as None.
         warnings.warn(f"Cannot parse fingering info for {e.text}!")
-        finger_info = [None]
+        finger_number = None
 
     is_alternate = e.attrib.get("alternate", False)
     is_substitution = e.attrib.get("substitution", False)
@@ -1927,7 +1926,7 @@ def parse_fingering(e: etree._Element) -> score.Fingering:
 
     # If there is more than one finger, only take the first one
     fingering = score.Fingering(
-        fingering=finger_info[0],
+        fingering=finger_number,
         is_substitution=is_alternate,
         is_alternate=is_alternate,
         placement=placement,
