@@ -1988,6 +1988,7 @@ class GenericNote(TimedObject):
         # maintain a list of attributes to update when cloning this instance
         self._ref_attrs.extend(
             [
+                "fermata",
                 "tie_prev",
                 "tie_next",
                 "slur_stops",
@@ -2261,6 +2262,7 @@ class Note(GenericNote):
         self.alter = alter
         self.is_grace_chord = is_grace_chord
         self.beam = None
+        self._ref_attrs.append("beam")
 
     def assign_beam(self, beam):
         self.beam = beam
@@ -2336,6 +2338,8 @@ class UnpitchedNote(GenericNote):
         if self.beam is not None:
             self.beam.append(self)
 
+        self._ref_attrs.append("beam")
+
     def __str__(self):
         return " ".join(
             (
@@ -2372,6 +2376,7 @@ class Beam(TimedObject):
         super().__init__()
         self.id = id
         self.notes = []
+        self._ref_attrs.append("notes")
 
     def append(self, note):
         note.beam = self
@@ -2820,6 +2825,7 @@ class Fermata(TimedObject):
         super().__init__()
         # ref(erent) can be a note or a barline
         self.ref = ref
+        self._ref_attrs.append("ref")
 
     def __str__(self):
         return f"{super().__str__()} ref={self.ref}"
