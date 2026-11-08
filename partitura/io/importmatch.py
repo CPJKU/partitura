@@ -238,7 +238,9 @@ def load_match(
         mf = load_matchfile(filename)
 
         # Generate PerformedPart
-        ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero, clip_velocities)
+        ppart = performed_part_from_match(
+            mf, pedal_threshold, first_note_at_zero, clip_velocities
+        )
 
         performance = Performance(
             id=get_document_name(filename),
