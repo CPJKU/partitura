@@ -211,7 +211,6 @@ def load_match(
         Defaults to False.
     clip_velocities : bool, optional
         When True the velocity values are clipped to a range of 0 - 127.
-        This can fix issues with a miscalibrated performance recording device.
         Defaults to True.
     offset_duration_whole: Boolean, optional
         A flag for the type of offset and duration given in the matchfile.
@@ -348,7 +347,6 @@ def performed_part_from_match(
         are shifted to make the first note_on time equal zero.
     clip_velocities : bool, optional
         When True the velocity values are clipped to a range of 0 - 127.
-        This can fix issues with a miscalibrated performance recording device.
         Defaults to True.
 
     Returns
@@ -379,6 +377,8 @@ def performed_part_from_match(
         channels.add(channel)
         velocity = note.Velocity
         if clip_velocities:
+            if velocity > 127 or velocity < 0:
+                warnings.warn(f"Clipping invalid velocity value ({velocity}).")
             velocity = np.clip(velocity, 0, 127)
         notes.append(
             dict(
