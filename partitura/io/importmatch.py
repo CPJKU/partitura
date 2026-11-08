@@ -188,6 +188,7 @@ def load_match(
     create_score: bool = False,
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
+    clip_velocities: bool = True,
     offset_duration_whole: bool = True,
     quiet: bool = False,
 ) -> Tuple[Union[Performance, list, Score]]:
@@ -208,6 +209,9 @@ def load_match(
         When True the note_on and note_off times in the performance
         are shifted to make the first note_on time equal zero.
         Defaults to False.
+    clip_velocities : bool, optional
+        When True the velocity values are clipped to a range of 0 - 127.
+        Defaults to True.
     offset_duration_whole: Boolean, optional
         A flag for the type of offset and duration given in the matchfile.
         When true, the function expects the values to be given in whole
@@ -234,7 +238,7 @@ def load_match(
         mf = load_matchfile(filename)
 
         # Generate PerformedPart
-        ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero)
+        ppart = performed_part_from_match(mf, pedal_threshold, first_note_at_zero, clip_velocities)
 
         performance = Performance(
             id=get_document_name(filename),
@@ -326,6 +330,7 @@ def performed_part_from_match(
     mf: MatchFile,
     pedal_threshold: int = 64,
     first_note_at_zero: bool = False,
+    clip_velocities: bool = True,
 ) -> PerformedPart:
     """
     Make PerformedPart from performance info in a MatchFile
@@ -340,6 +345,9 @@ def performed_part_from_match(
     first_note_at_zero : bool, optional
         When True the note_on and note_off times in the performance
         are shifted to make the first note_on time equal zero.
+    clip_velocities : bool, optional
+        When True the velocity values are clipped to a range of 0 - 127.
+        Defaults to True.
 
     Returns
     -------
@@ -367,6 +375,10 @@ def performed_part_from_match(
         tracks.add(track)
         channel = getattr(note, "Channel", 0)
         channels.add(channel)
+        velocity = note.Velocity
+        if clip_velocities and (velocity > 127 or velocity < 0):
+            warnings.warn(f"Clipping invalid velocity value ({velocity}).")
+            velocity = np.clip(velocity, 0, 127)
         notes.append(
             dict(
                 id=format_pnote_id(note.Id),
@@ -376,7 +388,7 @@ def performed_part_from_match(
                 note_on_tick=note.Onset,
                 note_off_tick=note.Offset,
                 sound_off=midi_ticks_to_seconds(note.Offset, mpq, ppq),
-                velocity=note.Velocity,
+                velocity=velocity,
                 track=track,
                 channel=channel,
             )
