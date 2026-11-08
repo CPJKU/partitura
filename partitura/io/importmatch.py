@@ -376,9 +376,8 @@ def performed_part_from_match(
         channel = getattr(note, "Channel", 0)
         channels.add(channel)
         velocity = note.Velocity
-        if clip_velocities:
-            if velocity > 127 or velocity < 0:
-                warnings.warn(f"Clipping invalid velocity value ({velocity}).")
+        if clip_velocities and (velocity > 127 or velocity < 0):
+            warnings.warn(f"Clipping invalid velocity value ({velocity}).")
             velocity = np.clip(velocity, 0, 127)
         notes.append(
             dict(
