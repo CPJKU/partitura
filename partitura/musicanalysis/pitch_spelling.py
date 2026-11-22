@@ -63,11 +63,17 @@ def estimate_spelling(note_info, method="ps13s1", **kwargs):
     """
     if method == "ps13s1":
         ps = ps13s1
-    step, alter, octave = ps(ensure_notearray(note_info), **kwargs)
+    note_array = ensure_notearray(note_info)
 
     spelling = np.empty(
-        len(step), dtype=[("step", "U1"), ("alter", int), ("octave", int)]
+        len(note_array), dtype=[("step", "U1"), ("alter", int), ("octave", int)]
     )
+
+    if len(note_array) == 0:
+        # No notes to spell (e.g. a MIDI file without note events).
+        return spelling
+
+    step, alter, octave = ps(note_array, **kwargs)
 
     spelling["step"] = step
     spelling["alter"] = alter

@@ -450,7 +450,7 @@ class Part(object):
                 fill_value="extrapolate",
             )
 
-            lin_poly_coeff = np.row_stack(
+            lin_poly_coeff = np.vstack(
                 (np.ones(bar_durations.shape[0]), np.zeros(bar_durations.shape[0]))
             )
             inter_function = PPoly(lin_poly_coeff, barlines)

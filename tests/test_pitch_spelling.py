@@ -39,3 +39,13 @@ class TestKeyEstimation(unittest.TestCase):
         spelling = estimate_spelling(self.score[0].note_array())
         comparisons = compare_spelling(spelling, self.score[0].notes)
         self.assertTrue(np.all(comparisons), "Incorrect spelling")
+
+    def test_empty_note_array(self):
+        # An empty note array (e.g. a MIDI file without note events) used to
+        # raise IndexError instead of returning an empty spelling.
+        empty = np.array(
+            [], dtype=[("onset_div", int), ("pitch", int), ("duration_div", int)]
+        )
+        spelling = estimate_spelling(empty)
+        self.assertEqual(len(spelling), 0)
+        self.assertEqual(spelling.dtype.names, ("step", "alter", "octave"))

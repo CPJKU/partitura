@@ -1371,20 +1371,24 @@ def _handle_note(e, position, part, ongoing, prev_note, doc_order, prev_beam=Non
     if chord is not None:
         # this note starts at the same position as the previous note, and has
         # same duration
-        if prev_note is None:
-            # Malformed MusicXML: a <chord> child on the first note of a part
-            # (or first after a backup/forward) leaves us with no anchor to
-            # copy timing from. Warn and continue, treating this note as a
-            # standalone — better than the bare AssertionError this used to
-            # raise, which crashed the whole load.
+        if not isinstance(prev_note, (score.Note, score.UnpitchedNote)):
+            # Malformed MusicXML: a <chord> child with no pitched or unpitched
+            # note to anchor to, either the first note of a part (or first after
+            # a backup/forward), where prev_note is None, or one that follows a
+            # <rest>, where prev_note is a Rest with no timing to copy. Warn and
+            # continue, treating this note as a standalone, which is better than
+            # the bare AttributeError this used to raise on a rest and crashed
+            # the whole load.
             warnings.warn(
-                "Found <chord> on a note with no preceding note (malformed "
-                "MusicXML); treating as a standalone note.",
+                "Found <chord> on a note with no preceding note to anchor to "
+                "(malformed MusicXML); treating as a standalone note.",
                 stacklevel=2,
             )
         else:
             is_grace_chord = True
-            if prev_note.is_grace_chord == False:
+            # UnpitchedNote (percussion) can also be wrapped by <chord> tags but
+            # has no is_grace_chord attribute, so read it defensively.
+            if getattr(prev_note, "is_grace_chord", False) == False:
                 prev_note.is_grace_chord = True
             position = prev_note.start.t
             duration = prev_note.duration
@@ -1906,16 +1910,15 @@ def get_technical_notations(e: etree._Element) -> List[score.NoteTechnicalNotati
 
 def parse_fingering(e: etree._Element) -> score.Fingering:
     try:
-        # There seems to be a few cases with fingerings encoded like 4_1.
-        # This is not standard in MusicXML according to the documentation,
-        # but since it appears in files from the web, and can be displayed
-        # with MuseScore, the solution for now is just to take the fist value.
+        # Fingerings can contain text or multiple numbers, such as 4_1.
+        # For now, only the first number can be represented by Fingering.
         finger_info = parse_ints(e.text)
-    except Exception as e:
-        # Do not raise an error if fingering info cannot be parsed, insted
+        finger_number = finger_info[0]
+    except (TypeError, ValueError, IndexError):
+        # Do not raise an error if fingering info cannot be parsed; instead
         # just set it as None.
         warnings.warn(f"Cannot parse fingering info for {e.text}!")
-        finger_info = [None]
+        finger_number = None
 
     is_alternate = e.attrib.get("alternate", False)
     is_substitution = e.attrib.get("substitution", False)
@@ -1923,7 +1926,7 @@ def parse_fingering(e: etree._Element) -> score.Fingering:
 
     # If there is more than one finger, only take the first one
     fingering = score.Fingering(
-        fingering=finger_info[0],
+        fingering=finger_number,
         is_substitution=is_alternate,
         is_alternate=is_alternate,
         placement=placement,

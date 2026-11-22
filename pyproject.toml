@@ -41,7 +41,7 @@ dependencies = [
     "numpy",
     "scipy",
     "lxml",
-    "lark-parser",
+    "lark",
     "xmlschema",
     "mido",
     "typing-extensions",

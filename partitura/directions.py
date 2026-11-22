@@ -23,7 +23,7 @@ except ImportError:
     warnings.warn(
         '''package "lark" not found; Textual directions will not be
 parsed to form `score.Direction` objects but included as `score.Words`
-instead; Install using "pip install lark-parser"''',
+instead; Install using "pip install lark"''',
         ImportWarning,
         stacklevel=2,
     )
