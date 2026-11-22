@@ -18,7 +18,6 @@ from scipy.interpolate import interp1d
 
 
 from partitura.utils.music import (
-    A4,
     ensure_notearray,
     get_time_units_from_note_array,
     midi_pitch_to_frequency,
