@@ -6242,19 +6242,23 @@ Roman2Interval_Min = {
 }
 
 
-# TODO(maintainers): `process_local_key` is defined twice in this module (the
+# TODO: `process_local_key` is defined twice in this module (the
 # two versions below differ slightly). Python uses the LAST definition, so the
 # first one is currently dead code. Which version should be kept, and which
 # should be removed?
 #
-#   * Version 1 (this one, added Jul 2024): parameters `loc_k_text`/`glob_k_text`;
+#   * Version 1 (this one, added Jul 2024 according to git): parameters `loc_k_text`/`glob_k_text`;
 #     does NOT strip non-letter characters from the local key.
-#   * Version 2 (below, added Apr 2024, currently the one in use): parameters
+#     Commit f93d11b ("Solved review comment on local key processing"),
+#     PR https://github.com/CPJKU/partitura/pull/345
+#     (review discussion r1660683407).
+#   * Version 2 (below, added Apr 2024 according to git, currently the one in use): parameters
 #     `loc_k`/`glob_k`; additionally keeps only letters in the local key
 #     (`re.sub(r"[^a-zA-Z]", "", local_key)`).
-#
-# All callers in this repository pass the two key arguments positionally, so
-# the parameter names only matter for external code using keyword arguments.
+#     Commit 7ddbc59 ("function for processing local_key relative to global."),
+#     PR https://github.com/CPJKU/partitura/pull/345.
+#   Both commits were merged through PR #345 (`dcml_annotation_parser`, merge
+#   commit cd499eb, Jul 2024).
 def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
     local_key_sharps = loc_k_text.count("#")
     local_key_flats = loc_k_text.count("b")
