@@ -653,18 +653,6 @@ class Part(object):
         return [e for e in self.iter_all(Rest, include_subclasses=False)]
 
     @property
-    def cadences(self):
-        """Return a list of all cadence objects in the part
-
-        Returns
-        -------
-        list
-            List of Cadence objects
-
-        """
-        return [e for e in self.iter_all(Cadence)]
-
-    @property
     def repeats(self):
         """Return a list of all Repeat objects in the part
 
@@ -3176,30 +3164,6 @@ class OctaveShiftDirection(TimedObject):
         return f'{super().__str__()} "{self.shift_type}"'
 
 
-class Cadence(TimedObject):
-    """A cadence element in the score usually for Cadences."""
-
-    def __init__(self, text, local_key=None):
-        super().__init__()
-        self.text = text
-        self._filter_cadence_type()
-        self.local_key = local_key
-
-    def _filter_cadence_type(self):
-        """Cadence should be one of PAC, IAC, HC, DC, EC, PC, or None"""
-        # capitalize text
-        self.text = self.text.upper()
-        # Filter alphabet characters only.
-        self.text = re.findall(r"[A-Z]+", self.text)[0]
-        self.text = "IAC" if "IAC" in self.text else self.text
-        if self.text not in ["PAC", "IAC", "HC", "DC", "EC", "PC"]:
-            warnings.warn(f"Cadence type {self.text} not found. Setting to None")
-            self.text = None
-
-    def __str__(self):
-        return f'{super().__str__()} "{self.text}"'
-
-
 class Harmony(TimedObject):
     """A harmony element in the score not currently used.
 
@@ -5681,139 +5645,6 @@ def make_score_variants(part):
     return svs
 
 
-def _fill_rests_within_measure(measure: Measure, part: Part) -> None:
-    start_time = measure.start.t
-    end_time = measure.end.t
-    notes = np.array(list(part.iter_all(GenericNote, start_time, end_time)))
-    voc_staff = np.array([[n.voice, n.staff] for n in notes])
-    un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
-    for i in range(un_voc_staff):
-        note_mask = inverse_map == i
-        notes_per_vocstaff = notes[note_mask]
-        # get note with min start.t
-        min_start_note = notes_per_vocstaff[np.argmin(notes_per_vocstaff.start.t)]
-        if min_start_note.start.t > start_time:
-            sym_dur = estimate_symbolic_duration(
-                min_start_note.start.t - start_time, part._quarter_durations[0]
-            )
-            rest = Rest(
-                symbolic_duration=sym_dur,
-                staff=min_start_note.staff,
-                voice=min_start_note.voice,
-            )
-            part.add(rest, start_time, min_start_note.start.t)
-
-        min_end_note = notes_per_vocstaff[
-            np.argmin(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
-        ]
-        if min_end_note.end.t < end_time:
-            sym_dur = estimate_symbolic_duration(
-                end_time - min_end_note.end.t, part._quarter_durations[0]
-            )
-            rest = Rest(
-                symbolic_duration=sym_dur,
-                staff=min_end_note.staff,
-                voice=min_end_note.voice,
-            )
-            part.add(rest, min_end_note.end.t, end_time)
-
-
-def _fill_rests_global(
-    measure: Measure, part: Part, unique_voc_staff: np.ndarray
-) -> None:
-    start_time = measure.start.t
-    end_time = measure.end.t
-    if end_time - start_time == 0:
-        return
-    notes = np.array(
-        list(part.iter_all(GenericNote, start_time, end_time, include_subclasses=True))
-    )
-    voc_staff = np.array([[n.voice, n.staff] for n in notes])
-    un_voc_staff, inverse_map = np.unique(voc_staff, axis=0, return_inverse=True)
-    for i in range(un_voc_staff.shape[0]):
-        note_mask = inverse_map == i
-        notes_per_vocstaff = notes[note_mask]
-        # get note with min start.t
-        min_start_note = notes_per_vocstaff[
-            np.argmin(np.vectorize(lambda x: x.start.t)(notes_per_vocstaff))
-        ]
-        if min_start_note.start.t > start_time:
-            sym_dur = estimate_symbolic_duration(
-                min_start_note.start.t - start_time, part._quarter_durations[0]
-            )
-            rest = Rest(
-                symbolic_duration=sym_dur,
-                staff=min_start_note.staff,
-                voice=min_start_note.voice,
-            )
-            part.add(rest, start_time, min_start_note.start.t)
-
-        min_end_note = notes_per_vocstaff[
-            np.argmax(np.vectorize(lambda x: x.end.t)(notes_per_vocstaff))
-        ]
-        if min_end_note.end.t < end_time:
-            sym_dur = estimate_symbolic_duration(
-                end_time - min_end_note.end.t, part._quarter_durations[0]
-            )
-            rest = Rest(
-                symbolic_duration=sym_dur,
-                staff=min_end_note.staff,
-                voice=min_end_note.voice,
-            )
-            part.add(rest, min_end_note.end.t, end_time)
-
-    if un_voc_staff.shape[0] != unique_voc_staff.shape[0]:
-        if un_voc_staff.shape[0] == 0:
-            diff = unique_voc_staff
-        else:
-            # View `un_voc_staff` and `unique_voc_staff` as 1-D structured arrays
-            x_sa = un_voc_staff.view([("", un_voc_staff.dtype)] * un_voc_staff.shape[1])
-            y_sa = unique_voc_staff.view(
-                [("", unique_voc_staff.dtype)] * unique_voc_staff.shape[1]
-            )
-            # Find rows in `unique_voc_staff` that are not in `un_voc_staff`
-            diff = np.setdiff1d(y_sa, x_sa)
-        for voice, staff in diff:
-            sym_dur = estimate_symbolic_duration(
-                end_time - start_time, part._quarter_durations[0]
-            )
-            rest = Rest(symbolic_duration=sym_dur, staff=staff, voice=voice)
-            part.add(rest, start_time, end_time)
-
-
-def fill_rests(score_data: ScoreLike, measurewise=True) -> None:
-    """
-    Fill rests in a score when a voice starts in a middle of a measure and no rest precedes.
-
-    When measurewise is True, the voices are searched within a measure.
-    When measurewise is False, the rests are filled globally in the score for all voices and staffs.
-
-    Parameters
-    ----------
-    score_data: ScoreLike
-        The score to fill rests
-    measurewise: bool
-        If True, fill rests within a measure. If False, fill rests globally in the score.
-    """
-    if isinstance(score_data, Score):
-        partlist = score_data.parts
-    else:
-        partlist = [score_data]
-    for part in partlist:
-        measures = part.measures
-        if measurewise:
-            for measure in measures:
-                _fill_rests_within_measure(measure, part)
-        else:
-            note_array = part.note_array(include_staff=True)
-            unique_vocstaff = np.unique(
-                np.array([note_array["voice"], note_array["staff"]], dtype=np.int64),
-                axis=1,
-            )
-            for measure in measures:
-                _fill_rests_global(measure, part, unique_vocstaff.T)
-
-
 def merge_parts(parts, reassign="voice"):
     """Merge list of parts or PartGroup into a single part.
      All parts are expected to have the same time signature
@@ -6362,45 +6193,6 @@ def is_a_within_b(a, b, wholly=False):
     return contained
 
 
-def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
-    local_key_sharps = loc_k_text.count("#")
-    local_key_flats = loc_k_text.count("b")
-    local_key = loc_k_text.replace("#", "").replace("b", "")
-    local_key_is_minor = local_key.islower()
-    local_key = local_key.lower()
-    global_key_is_minor = glob_k_text.islower()
-    if (
-        local_key_is_minor == global_key_is_minor
-        and local_key == "i"
-        and local_key_sharps - local_key_flats == 0
-        and (not return_step_alter)
-    ):
-        return glob_k_text
-    g_key = "minor" if glob_k_text.islower() else "major"
-    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
-    transposition_interval = Interval(num, qual)
-    transposition_interval = transposition_interval.change_quality(
-        local_key_sharps - local_key_flats
-    )
-    key_step = re.search(r"[a-gA-G]", glob_k_text).group(0)
-    key_alter = (
-        re.search(r"[#b]", glob_k_text).group(0)
-        if re.search(r"[#b]", glob_k_text)
-        else ""
-    )
-    key_alter = key_alter.replace("b", "-")
-    key_alter = ALT_TO_INT[key_alter]
-    key_step, key_alter, _ = transpose_note_attributes(
-        transposition_interval, key_step, key_alter
-    )
-    if return_step_alter:
-        return key_step, key_alter
-    local_key = (
-        key_step.lower() if local_key_is_minor else key_step.upper()
-    ) + INT_TO_ALT[key_alter]
-    return local_key
-
-
 Roman2Interval_Maj = {
     "I": Interval(1, "P"),
     "II": Interval(2, "M"),
@@ -6448,6 +6240,62 @@ Roman2Interval_Min = {
     "Fr7": Interval(4, "A"),
     "It": Interval(4, "A"),
 }
+
+
+# TODO: `process_local_key` is defined twice in this module (the
+# two versions below differ slightly). Python uses the LAST definition, so the
+# first one is currently dead code. Which version should be kept, and which
+# should be removed?
+#
+#   * Version 1 (this one, added Jul 2024 according to git): parameters `loc_k_text`/`glob_k_text`;
+#     does NOT strip non-letter characters from the local key.
+#     Commit f93d11b ("Solved review comment on local key processing"),
+#     PR https://github.com/CPJKU/partitura/pull/345
+#     (review discussion r1660683407).
+#   * Version 2 (below, added Apr 2024 according to git, currently the one in use): parameters
+#     `loc_k`/`glob_k`; additionally keeps only letters in the local key
+#     (`re.sub(r"[^a-zA-Z]", "", local_key)`).
+#     Commit 7ddbc59 ("function for processing local_key relative to global."),
+#     PR https://github.com/CPJKU/partitura/pull/345.
+#   Both commits were merged through PR #345 (`dcml_annotation_parser`, merge
+#   commit cd499eb, Jul 2024).
+def process_local_key(loc_k_text, glob_k_text, return_step_alter=False):
+    local_key_sharps = loc_k_text.count("#")
+    local_key_flats = loc_k_text.count("b")
+    local_key = loc_k_text.replace("#", "").replace("b", "")
+    local_key_is_minor = local_key.islower()
+    local_key = local_key.lower()
+    global_key_is_minor = glob_k_text.islower()
+    if (
+        local_key_is_minor == global_key_is_minor
+        and local_key == "i"
+        and local_key_sharps - local_key_flats == 0
+        and (not return_step_alter)
+    ):
+        return glob_k_text
+    g_key = "minor" if glob_k_text.islower() else "major"
+    num, qual = LOCAL_KEY_TRASPOSITIONS_DCML[g_key][local_key]
+    transposition_interval = Interval(num, qual)
+    transposition_interval = transposition_interval.change_quality(
+        local_key_sharps - local_key_flats
+    )
+    key_step = re.search(r"[a-gA-G]", glob_k_text).group(0)
+    key_alter = (
+        re.search(r"[#b]", glob_k_text).group(0)
+        if re.search(r"[#b]", glob_k_text)
+        else ""
+    )
+    key_alter = key_alter.replace("b", "-")
+    key_alter = ALT_TO_INT[key_alter]
+    key_step, key_alter, _ = transpose_note_attributes(
+        transposition_interval, key_step, key_alter
+    )
+    if return_step_alter:
+        return key_step, key_alter
+    local_key = (
+        key_step.lower() if local_key_is_minor else key_step.upper()
+    ) + INT_TO_ALT[key_alter]
+    return local_key
 
 
 def process_local_key(loc_k, glob_k, return_step_alter=False):
