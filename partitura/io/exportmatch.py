@@ -5,12 +5,12 @@ This module contains methods for exporting matchfiles.
 
 Notes
 -----
-* The methods only export matchfiles version 1.0.0.
+* The methods only export matchfiles version 1.0.0 and higher.
 """
 
 import numpy as np
 
-from typing import List, Optional, Iterable, Union
+from typing import List, Optional, Iterable, Tuple, Union
 
 from collections import defaultdict
 
@@ -46,6 +46,7 @@ from partitura.io.matchfile_utils import (
     MatchTimeSignature,
     MatchTempoIndication,
     Version,
+    format_pnote_id,
 )
 
 from partitura import score
@@ -86,6 +87,8 @@ def matchfile_from_alignment(
     omitted_sections: Optional[List[dict]] = [],
     sort_alignment: Optional[Union[str, bool]] = "default",
     debug: bool = False,
+    note_types: Optional[List[Tuple[str, str]]] = None,
+    score_attributes: Optional[List[List[str]]] = None,
 ) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
@@ -132,6 +135,15 @@ def matchfile_from_alignment(
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
+    note_types : list of tuple or None, optional
+        The types of the notes for each element of the alignment, as returned by
+        `load_match` with `return_alignment_info` = True. This determines which notes are
+        virtual. If None, all notes except those in the first match containing them are virtual.
+    score_attributes : list of list or None, optional
+        The score attributes for each element of the alignment, as returned by `load_match`
+        with `return_alignment_info` = True. They are added to the attributes of the score
+        note (and to the `score_attributes_list` of the element of the alignment).
+
     Returns
     -------
     matchfile : MatchFile
@@ -139,6 +151,13 @@ def matchfile_from_alignment(
     """
     if version < Version(1, 0, 0):
         raise ValueError("Version should >= 1.0.0")
+
+    for info in (note_types, score_attributes):
+        if info is not None and len(info) != len(alignment):
+            raise ValueError(
+                "`note_types` and `score_attributes` should have the same "
+                "length as `alignment`"
+            )
 
     if not assume_part_unfolded:
         # unfold score according to alignment
@@ -498,19 +517,46 @@ def matchfile_from_alignment(
 
     aligned_snotes, aligned_pnotes = [], []
 
-    for al_note in alignment:
+    # notes that should be specified in a certain match (instead of the first one)
+    specified_snotes, specified_pnotes = set(), set()
+    for al_note, (snote_type, pnote_type) in zip(alignment, note_types or []):
+        if al_note["label"] == "match":
+            if snote_type == "snote":
+                specified_snotes.add(al_note["score_id"])
+            if pnote_type == "note":
+                specified_pnotes.add(al_note["performance_id"])
+
+    for al_idx, al_note in enumerate(alignment):
         label = al_note["label"]
 
+        attributes_list = []
+        virtual_snote, virtual_pnote = False, False
+        if version > Version(1, 0, 0):
+            attributes_list += al_note.get("score_attributes_list", [])
+            if score_attributes is not None:
+                attributes_list += score_attributes[al_idx]
+
+            if label == "match":
+                virtual_snote = al_note["score_id"] in aligned_snotes
+                virtual_pnote = al_note["performance_id"] in aligned_pnotes
+                if note_types is not None:
+                    snote_type, pnote_type = note_types[al_idx]
+                    virtual_snote |= (
+                        snote_type == "virtualSnote"
+                        and al_note["score_id"] in specified_snotes
+                    )
+                    virtual_pnote |= (
+                        pnote_type == "virtualPnote"
+                        and al_note["performance_id"] in specified_pnotes
+                    )
+
         if label == "match":
-            if (
-                al_note["score_id"] not in aligned_snotes
-                and al_note["performance_id"] not in aligned_pnotes
-            ):  # always true when using old_format
+            if not virtual_snote and not virtual_pnote:
+                # always true when using old_format
                 # SNOTE - PNOTE
                 snote = score_info[al_note["score_id"]]
                 if version > Version(1, 0, 0):
-                    attributes_list = al_note.get("score_attributes_list", [])
-                    snote.ScoreAttributesList += attributes_list
+                    add_score_attributes(snote.ScoreAttributesList, attributes_list)
                     aligned_snotes.append(al_note["score_id"])
                     aligned_pnotes.append(al_note["performance_id"])
                 pnote = perf_info[al_note["performance_id"]]
@@ -520,15 +566,12 @@ def matchfile_from_alignment(
                 note_lines.append(snote_note_line)
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
                 sort_ptime.append(pnote_sort_info[al_note["performance_id"]])
-            elif (
-                al_note["score_id"] in aligned_snotes
-                and al_note["performance_id"] not in aligned_pnotes
-            ):
+            elif virtual_snote and not virtual_pnote:
                 # VIRTUAL_SNOTE - PNOTE
                 virtualSnote = MatchVirtualSnote(
                     version=version,
                     anchor=al_note["score_id"],
-                    attributes_list=al_note.get("score_attributes_list", []),
+                    attributes_list=add_score_attributes([], attributes_list),
                 )
                 pnote = perf_info[al_note["performance_id"]]
                 virtualSnote_note_line = MatchVirtualSnoteNote(
@@ -538,17 +581,13 @@ def matchfile_from_alignment(
                 aligned_pnotes.append(al_note["performance_id"])
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
                 sort_ptime.append(pnote_sort_info[al_note["performance_id"]])
-            elif (
-                al_note["score_id"] not in aligned_snotes
-                and al_note["performance_id"] in aligned_pnotes
-            ):
+            elif not virtual_snote and virtual_pnote:
                 # SNOTE - VIRTUAL_PNOTE
                 snote = score_info[al_note["score_id"]]
-                attributes_list = al_note.get("score_attributes_list", [])
-                snote.ScoreAttributesList += attributes_list
+                add_score_attributes(snote.ScoreAttributesList, attributes_list)
                 virtualnote = MatchVirtualPNote(
                     version=version,
-                    id=al_note["performance_id"],
+                    id=format_pnote_id(al_note["performance_id"]),
                 )
                 snote_virtualnote_line = MatchSnoteVirtualNote(
                     version=version, snote=snote, note=virtualnote
@@ -557,19 +596,16 @@ def matchfile_from_alignment(
                 aligned_snotes.append(al_note["score_id"])
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
                 sort_ptime.append(pnote_sort_info[al_note["performance_id"]])
-            elif (
-                al_note["score_id"] in aligned_snotes
-                and al_note["performance_id"] in aligned_pnotes
-            ):
+            else:
                 # VIRTUAL_SNOTE - VIRTUAL_PNOTE
                 virtualSnote = MatchVirtualSnote(
                     version=version,
                     anchor=al_note["score_id"],
-                    attributes_list=al_note.get("score_attributes_list", []),
+                    attributes_list=add_score_attributes([], attributes_list),
                 )
                 virtualnote = MatchVirtualPNote(
                     version=version,
-                    id=al_note["performance_id"],
+                    id=format_pnote_id(al_note["performance_id"]),
                 )
                 virtualSnote_virtualnote_line = MatchVirtualSnoteVirtualNote(
                     version=version, snote=virtualSnote, note=virtualnote
@@ -582,11 +618,11 @@ def matchfile_from_alignment(
             skip_deletion = False
             snote = score_info[al_note["score_id"]]
             if version > Version(1, 0, 0):
-                for (
-                    om_sec
-                ) in omitted_sections:  # nothing gets skipped if omitted_sections = []
+                # nothing gets skipped if there are no omitted sections
+                for om_sec in omitted_sections or []:
+                    # the end of a section is the start of the next one
                     if (
-                        snote.OnsetInBeats > om_sec["start_in_beats_unfolded"]
+                        snote.OnsetInBeats >= om_sec["start_in_beats_unfolded"]
                         and snote.OnsetInBeats < om_sec["end_in_beats_unfolded"]
                     ):
                         skip_deletion = True
@@ -595,9 +631,7 @@ def matchfile_from_alignment(
             if not skip_deletion:
                 if al_note["score_id"] in voice_overlap_note_ids:
                     snote.ScoreAttributesList.append("voice_overlap")
-                if version > Version(1, 0, 0):
-                    attributes_list = al_note.get("score_attributes_list", [])
-                    snote.ScoreAttributesList += attributes_list
+                add_score_attributes(snote.ScoreAttributesList, attributes_list)
                 deletion_line = MatchSnoteDeletion(version=version, snote=snote)
                 note_lines.append(deletion_line)
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
@@ -714,6 +748,33 @@ def matchfile_from_alignment(
     return matchfile
 
 
+def add_score_attributes(
+    attributes_list: List[str],
+    new_attributes: List[str],
+) -> List[str]:
+    """
+    Add attributes to a list of attributes (in place), unless they are already
+    in the list.
+
+    Parameters
+    ----------
+    attributes_list : List[str]
+        The list of attributes (e.g., of a score note).
+    new_attributes : List[str]
+        The attributes to be added.
+
+    Returns
+    -------
+    attributes_list : List[str]
+        The list of attributes including the new ones.
+    """
+    for attribute in new_attributes:
+        if attribute not in attributes_list:
+            attributes_list.append(attribute)
+
+    return attributes_list
+
+
 @deprecated_alias(spart="score_data", ppart="performance_data")
 def save_match(
     alignment: List[dict],
@@ -732,6 +793,8 @@ def save_match(
     sections: Optional[List[dict]] = [],
     omitted_sections: Optional[List[dict]] = [],
     sort_alignment: Optional[Union[str, bool]] = "default",
+    note_types: Optional[List[Tuple[str, str]]] = None,
+    score_attributes: Optional[List[List[str]]] = None,
 ) -> Optional[MatchFile]:
     """
     Save an Alignment of a PerformedPart to a Part in a match file.
@@ -777,6 +840,15 @@ def save_match(
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
+    note_types : list of tuple or None, optional
+        The types of the notes for each element of the alignment, as returned by
+        `load_match` with `return_alignment_info` = True. This determines which notes are
+        virtual. If None, all notes except those in the first match containing them are virtual.
+    score_attributes : list of list or None, optional
+        The score attributes for each element of the alignment, as returned by `load_match`
+        with `return_alignment_info` = True. They are added to the attributes of the score
+        note (and to the `score_attributes_list` of the element of the alignment).
+
     Returns
     -------
     matchfile: MatchFile
@@ -825,6 +897,8 @@ def save_match(
         sections=sections,
         omitted_sections=omitted_sections,
         sort_alignment=sort_alignment,
+        note_types=note_types,
+        score_attributes=score_attributes,
     )
 
     if out is not None:
