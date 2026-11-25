@@ -7,6 +7,7 @@ This module contains methods for exporting MusicXML files.
 import math
 from collections import defaultdict
 from lxml import etree
+import numpy as np
 import partitura.score as score
 from operator import itemgetter
 from typing import Optional
@@ -967,19 +968,144 @@ def do_harmony(part, start, end):
     return result
 
 
+def get_omitted_measures(part):
+    """
+    Get the measures without notes that are in an omitted section (at least
+    partially), as a list of lists of consecutive measures.
+    """
+    omitted_times = [(o.start.t, o.end.t) for o in part.omitted_sections if o.end]
+    note_times = np.array(
+        [
+            (note.start.t, note.end.t)
+            for note in part.iter_all(score.GenericNote, include_subclasses=True)
+        ]
+    ).reshape(-1, 2)
+
+    omitted_measures = [[]]
+    for measure in part.measures if len(omitted_times) > 0 else []:
+        start, end = measure.start.t, measure.end.t
+        # notes with no duration are grace notes
+        has_notes = np.any(
+            (note_times[:, 0] < end)
+            & ((note_times[:, 1] > start) | (note_times[:, 0] >= start))
+        )
+        if not has_notes and any(o[0] < end and o[1] > start for o in omitted_times):
+            omitted_measures[-1].append(measure)
+        elif len(omitted_measures[-1]) > 0:
+            omitted_measures.append([])
+
+    return [measures for measures in omitted_measures if len(measures) > 0]
+
+
+def make_words_el(text, **attributes):
+    direction_e = etree.Element("direction", placement="above")
+    type_e = etree.SubElement(direction_e, "direction-type")
+    attributes = {name.replace("_", "-"): value for name, value in attributes.items()}
+    etree.SubElement(type_e, "words", attributes).text = text
+
+    return direction_e
+
+
+def do_omitted_measure(part, measure, omitted_measures):
+    """
+    Make the contents of a measure in an omitted section. All `omitted_measures`
+    are displayed as a single one, so they need to have the same time signature.
+    """
+    first = omitted_measures[0]
+    contents = []
+
+    for _, _, attr_e in do_attributes(part, measure.start, measure.end):
+        if measure is not first:
+            for e in attr_e.xpath("*[not(self::divisions)]"):
+                attr_e.remove(e)
+        if len(attr_e) > 0:
+            contents.append(attr_e)
+
+    if measure is first:
+        contents.append(make_words_el("omitted", enclosure="rectangle"))
+
+        if len(omitted_measures) > 1:
+            # some software ignores all elements between this one and the rests
+            attr_e = etree.Element("attributes")
+            style_e = etree.SubElement(attr_e, "measure-style")
+            rest_e = etree.SubElement(style_e, "multiple-rest")
+            rest_e.text = "{}".format(len(omitted_measures))
+            contents.append(attr_e)
+
+    duration = measure.end.t - measure.start.t
+    time_sig = next(first.start.iter_prev(score.TimeSignature, eq=True), None)
+    if time_sig is not None:
+        quarters = 4 * time_sig.beats / time_sig.beat_type
+        duration = quarters * part.quarter_duration_map(measure.start.t)
+
+    n_of_staves = part.number_of_staves
+    for staff in range(1, n_of_staves + 1):
+        if staff > 1:
+            backup_e = etree.Element("backup")
+            etree.SubElement(backup_e, "duration").text = "{:d}".format(int(duration))
+            contents.append(backup_e)
+        note_e = etree.Element("note")
+        etree.SubElement(note_e, "rest", measure="yes")
+        etree.SubElement(note_e, "duration").text = "{:d}".format(int(duration))
+        etree.SubElement(note_e, "voice").text = "{}".format(staff)
+        if n_of_staves > 1:
+            etree.SubElement(note_e, "staff").text = "{}".format(staff)
+        contents.append(note_e)
+
+    return contents
+
+
+def update_measure_after_omitted(part, contents, measure, shown):
+    """
+    Update the contents (in place) of the measure after omitted measures, such that
+    key and time signatures are displayed if they are not the same as the
+    ones at `shown`, which are the last ones that were displayed. The number of the
+    measure is displayed as a text, since software only does so for some measures.
+    """
+    attr_e = etree.Element("attributes")
+
+    for cls, tag, value in (
+        (score.KeySignature, "key", lambda x: (x.fifths, x.mode)),
+        (score.TimeSignature, "time", lambda x: (x.beats, x.beat_type)),
+    ):
+        for e in contents:
+            if e.tag == "attributes" and e.find(tag) is not None:
+                e.remove(e.find(tag))
+        last = next(measure.start.iter_prev(cls, eq=True), None)
+        last_shown = next(shown.iter_prev(cls, eq=True), None)
+        if last is not None and (
+            last_shown is None or value(last) != value(last_shown)
+        ):
+            for _, _, e in do_attributes(part, last.start, last.start.next):
+                attr_e.extend(e.findall(tag))
+
+    contents[:] = [e for e in contents if e.tag != "attributes" or len(e) > 0]
+    if len(attr_e) > 0:
+        contents.insert(0, attr_e)
+
+    if measure.name is not None:
+        number_e = make_words_el(measure.name, font_size="8", font_style="italic")
+        first = [e.tag in ("attributes", "barline", "print") for e in contents]
+        contents.insert((first + [False]).index(False), number_e)
+
+
 def do_attributes(part, start, end):
     """
     Produce xml objects for non-note measure content
 
     Parameters
     ----------
-    others: type
-        Description of `others`
+    part : score.Part
+        The part
+    start : score.TimePoint
+        The start of the measure (or segment)
+    end : score.TimePoint
+        The end of the measure (or segment)
 
     Returns
     -------
-    type
-        Description of return value
+    list
+        A list of tuples with the start time, duration and xml object
     """
 
     by_start = defaultdict(list)
@@ -1061,6 +1187,7 @@ def do_attributes(part, start, end):
 def save_musicxml(
     score_data: score.ScoreLike,
     out: Optional[PathLike] = None,
+    merge_omitted_sections: bool = True,
 ) -> Optional[str]:
     """
     Save a one or more Part or PartGroup instances in MusicXML format.
@@ -1073,6 +1200,12 @@ def save_musicxml(
         a list of these.
     out: str, file-like object, or None, optional
         Output file
+    merge_omitted_sections: bool, optional
+        If True, consecutive measures without notes in omitted sections are displayed
+        as a single one (labelled "omitted"). Changes of the key and time signature
+        are only displayed after these measures (with the measure number), so that time
+        positions are not the same as in the score. If False, all measures are written as
+        they are in the score. Defaults to True
 
     Returns
     -------
@@ -1183,6 +1316,11 @@ def save_musicxml(
         # write the part itself
 
         part_e = etree.SubElement(root, "part", id=part.id)
+        omitted = {}
+        if merge_omitted_sections:
+            for measures in get_omitted_measures(part):
+                omitted.update((measure.start.t, measures) for measure in measures)
+        last_omitted = None
 
         for measure in part.iter_all(score.Measure):
             part_e.append(etree.Comment(MEASURE_SEP_COMMENT))
@@ -1192,9 +1330,17 @@ def save_musicxml(
                 attrib["number"] = str(measure.name)
 
             measure_e = etree.SubElement(part_e, "measure", **attrib)
-            contents = linearize_measure_contents(
-                part, measure.start, measure.end, state
-            )
+            if measure.start.t in omitted:
+                last_omitted = omitted[measure.start.t]
+                contents = do_omitted_measure(part, measure, last_omitted)
+            else:
+                contents = linearize_measure_contents(
+                    part, measure.start, measure.end, state
+                )
+                if last_omitted is not None:
+                    shown = last_omitted[0].start
+                    update_measure_after_omitted(part, contents, measure, shown)
+                    last_omitted = None
             measure_e.extend(contents)
 
     close_group_stack()

@@ -24,6 +24,7 @@ from tests import (
 )
 
 from partitura import load_musicxml, save_musicxml
+from partitura.io.importmusicxml import validate_musicxml
 from partitura.directions import parse_direction
 from partitura.utils import show_diff
 import partitura.score as score
@@ -63,6 +64,171 @@ class TestIncompleteMeasures(unittest.TestCase):
         self.assertEqual(
             [(m.name, m.end.t - m.start.t) for m in loaded_part.measures],
             [(m.name, m.end.t - m.start.t) for m in part.measures],
+        )
+
+
+class TestOmittedSections(unittest.TestCase):
+    """
+    Test the export of scores with omitted sections
+    """
+
+    def make_part(self, notes, omitted, time_signatures=(), key_signatures=()):
+        """
+        Make a part with 10 measures. The measures in `notes` start with a quarter
+        note. Signatures are tuples starting with the number of the measure.
+        """
+        time_signatures = {1: (4, 4), **{m: ts for m, *ts in time_signatures}}
+        part = score.Part("P1", quarter_duration=2)
+        for staff in (1, 2):
+            part.add(score.Clef(staff, "G", 2, 0), 0)
+
+        starts = [0]
+        for m in range(1, 11):
+            if m in time_signatures:
+                beats, beat_type = time_signatures[m]
+                part.add(score.TimeSignature(beats, beat_type), starts[-1])
+            for ks_measure, fifths in key_signatures:
+                if ks_measure == m:
+                    part.add(score.KeySignature(fifths, "major"), starts[-1])
+            if m in notes:
+                note = score.Note("C", 4, id=f"n{m}", voice=1, staff=1)
+                part.add(note, starts[-1], starts[-1] + 2)
+            starts.append(starts[-1] + beats * 8 // beat_type)
+            part.add(score.Measure(number=m, name=str(m)), starts[-2], starts[-1])
+        for first, last in omitted:
+            part.add(score.OmittedSection(), starts[first - 1], starts[last])
+
+        return part
+
+    def export(self, part, **kwargs):
+        """
+        Get dictionaries with the labels, multiple-measure rests, durations of
+        the whole-measure rests, time and key signatures of each measure
+        """
+        labels, multiple_rests, rests, times, keys = {}, {}, {}, {}, {}
+        measures = etree.fromstring(save_musicxml(part, **kwargs)).findall(".//measure")
+        # no measure is left out
+        self.assertEqual(len(measures), 10)
+        for m, measure_e in enumerate(measures, 1):
+            for e in measure_e.findall("direction/direction-type/words"):
+                labels[m] = e.text
+            for e in measure_e.findall(".//multiple-rest"):
+                multiple_rests[m] = int(e.text)
+            for e in measure_e.findall("note/rest[@measure='yes']"):
+                duration = int(e.getparent().findtext("duration"))
+                rests.setdefault(m, []).append(duration)
+            for e in measure_e.findall("attributes/time"):
+                times[m] = (int(e.findtext("beats")), int(e.findtext("beat-type")))
+            for e in measure_e.findall("attributes/key"):
+                keys[m] = int(e.findtext("fifths"))
+
+        return labels, multiple_rests, rests, times, keys
+
+    def test_omitted_section(self):
+        part = self.make_part([1, 10], [(2, 9)])
+        n_objects = len(list(part.iter_all()))
+        labels, multiple_rests, rests, times, _ = self.export(part)
+        # the number of the measure after the omitted ones is displayed
+        self.assertEqual(labels, {2: "omitted", 10: "10"})
+        self.assertEqual(multiple_rests, {2: 8})
+        self.assertEqual(rests, {m: [8, 8] for m in range(2, 10)})
+        self.assertEqual(times, {1: (4, 4)})
+        # the part is not changed
+        self.assertEqual(len(list(part.iter_all())), n_objects)
+
+        # a single measure
+        labels, multiple_rests, rests, _, _ = self.export(
+            self.make_part([1, 3, 4, 5, 6, 7, 8, 9, 10], [(2, 2)])
+        )
+        self.assertEqual((labels, multiple_rests), ({2: "omitted", 3: "3"}, {}))
+        self.assertEqual(rests, {2: [8, 8]})
+
+    def test_no_omitted_section(self):
+        for part in (
+            self.make_part([1, 10], []),
+            self.make_part(list(range(1, 11)), [(1, 10)]),
+        ):
+            self.assertEqual(self.export(part), ({}, {}, {}, {1: (4, 4)}, {}))
+
+    def test_several_omitted_sections(self):
+        # measures with notes are not displayed as omitted
+        part = self.make_part([1, 5, 10], [(1, 10)])
+        labels, multiple_rests, rests, _, _ = self.export(part)
+        self.assertEqual(labels, {2: "omitted", 5: "5", 6: "omitted", 10: "10"})
+        self.assertEqual(multiple_rests, {2: 3, 6: 4})
+        self.assertEqual(sorted(rests), [2, 3, 4, 6, 7, 8, 9])
+
+        # empty measures that are not omitted
+        part = self.make_part([1, 10], [(2, 3), (6, 8)])
+        labels, multiple_rests, rests, _, _ = self.export(part)
+        self.assertEqual(multiple_rests, {2: 2, 6: 3})
+        self.assertEqual(sorted(rests), [2, 3, 6, 7, 8])
+
+    def test_signatures(self):
+        """
+        Signatures are only displayed after the omitted section if they changed
+        """
+        times = [(4, 2, 4), (5, 4, 4), (7, 3, 4)]
+        part = self.make_part([1, 9, 10], [(2, 8)], times, [(1, 0), (3, 2), (6, -1)])
+        labels, multiple_rests, rests, times, keys = self.export(part)
+        self.assertEqual(labels, {2: "omitted", 9: "9"})
+        self.assertEqual(multiple_rests, {2: 7})
+        # all measures are displayed in the time signature of the first one
+        self.assertEqual(rests, {m: [8, 8] for m in range(2, 9)})
+        self.assertEqual(times, {1: (4, 4), 9: (3, 4)})
+        self.assertEqual(keys, {1: 0, 9: -1})
+
+        # back to the same signatures, at the end of and after the section
+        for measure in (8, 9):
+            part = self.make_part(
+                [1, 9, 10],
+                [(2, 8)],
+                [(4, 2, 4), (measure, 4, 4)],
+                [(1, 0), (3, 2), (measure, 0)],
+            )
+            _, _, _, times, keys = self.export(part)
+            self.assertEqual((times, keys), ({1: (4, 4)}, {1: 0}))
+
+        # signatures at the start of the section and of the next measure
+        part = self.make_part(
+            [1, 9, 10], [(2, 8)], [(2, 3, 4), (9, 2, 4)], [(2, 1), (9, 3)]
+        )
+        _, _, rests, times, keys = self.export(part)
+        self.assertEqual(rests, {m: [6, 6] for m in range(2, 9)})
+        self.assertEqual(times, {1: (4, 4), 2: (3, 4), 9: (2, 4)})
+        self.assertEqual(keys, {2: 1, 9: 3})
+
+    def test_not_merged(self):
+        """
+        Measures are written as they are in the score
+        """
+        times = [(4, 2, 4), (7, 3, 4)]
+        part = self.make_part([1, 9, 10], [(2, 8)], times)
+        exported = self.export(part, merge_omitted_sections=False)
+        self.assertEqual(exported, ({}, {}, {}, {1: (4, 4), 4: (2, 4), 7: (3, 4)}, {}))
+
+    def test_order_and_validity(self):
+        """
+        Some software ignores the label after the multiple-measure rest
+        """
+        part = self.make_part([1, 10], [(2, 9)], [(2, 3, 4), (5, 4, 4)], [(6, 2)])
+        with TemporaryDirectory() as tmpdir:
+            for merge in (True, False):
+                fn = os.path.join(tmpdir, "test.musicxml")
+                save_musicxml(part, fn, merge_omitted_sections=merge)
+                self.assertTrue(validate_musicxml(fn))
+        measure_e = etree.fromstring(save_musicxml(part)).findall(".//measure")[1]
+        self.assertEqual(
+            [e.tag for e in measure_e],
+            ["attributes", "direction", "attributes", "note", "backup", "note"],
+        )
+        self.assertIsNotNone(measure_e[0].find("time"))
+        self.assertIsNotNone(measure_e[2].find("measure-style/multiple-rest"))
+
+        # signatures, number, and note of the measure after the omitted ones
+        measure_e = etree.fromstring(save_musicxml(part)).findall(".//measure")[-1]
+        self.assertEqual(
+            [e.tag for e in measure_e], ["attributes", "direction", "note", "forward"]
         )
 
 
