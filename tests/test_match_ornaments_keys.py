@@ -10,6 +10,9 @@ from tempfile import TemporaryDirectory
 
 from partitura.io.exportmatch import save_match
 from partitura.io.importmatch import load_match, load_matchfile
+from partitura.io.matchfile_utils import MatchKeySignature
+from partitura.score import KeySignature
+from partitura.utils.music import fifths_mode_to_key_name
 
 
 ORNAMENT_LINES = [
@@ -70,6 +73,54 @@ class TestOrnaments(unittest.TestCase):
             self.assertEqual(
                 [a["type"] for a in alignment2 if "type" in a], [["trill"], ["trill"]]
             )
+
+
+class TestKeySignatures(unittest.TestCase):
+    """
+    Test key signatures in version 1.0.0 and higher
+    """
+
+    def test_match_key_signature_v1(self):
+        """
+        Key names in version 1.0.0 and higher
+        """
+        keys = [(f, m) for f in range(-7, 8) for m in ("major", "minor")]
+        for fifths, mode in keys:
+            key_name = fifths_mode_to_key_name(fifths, mode)
+            ks = MatchKeySignature.from_string(key_name)
+            self.assertEqual((ks.fifths, ks.mode), (fifths, mode), key_name)
+            self.assertIsNone(ks.fifths_alt)
+            self.assertEqual(ks.fmt, "v1.0.0")
+            self.assertEqual(str(ks), key_name)
+
+        for line, *key in (
+            ("E/C#m", 4, "major", 4, "minor"),
+            ("Bb/Gm", -2, "major", -2, "minor"),
+            ("E/C#", 4, "major", 7, "major"),
+        ):
+            ks = MatchKeySignature.from_string(line)
+            self.assertEqual([ks.fifths, ks.mode, ks.fifths_alt, ks.mode_alt], key)
+            self.assertEqual(str(ks), line)
+
+        with self.assertRaises(ValueError):
+            MatchKeySignature.from_string("H")
+
+    def test_load_key_signature(self):
+        """
+        Key signatures in the score created from a match file
+        """
+        with TemporaryDirectory() as tmpdir:
+            fn = os.path.join(tmpdir, "test.match")
+            for key_name, key in (
+                ("Bb", (-2, "major")),
+                ("Am", (0, "minor")),
+                ("F#m", (3, "minor")),
+            ):
+                with open(fn, "w") as f:
+                    f.write("\n".join(ORNAMENT_LINES).replace("ature,C", f"ature,{key_name}"))
+                _, _, scr = load_match(fn, create_score=True)
+                key_sigs = list(scr[0].iter_all(KeySignature))
+                self.assertEqual([(k.fifths, k.mode) for k in key_sigs], [key])
 
 
 if __name__ == "__main__":

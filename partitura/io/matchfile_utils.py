@@ -44,6 +44,9 @@ key_signature_pattern = re.compile(
     )
 )
 
+# Key names starting from version 1.0.0, e.g., "Bb" or "C#m"
+key_name_pattern = re.compile(r"^(?P<step>[A-Ga-g])(?P<alter>[#b]*)(?P<minor>m?)$")
+
 pitch_class_pattern = re.compile("(?P<step>[A-Ga-g])(?P<alter>[#bn]*)")
 
 number_pattern = re.compile(r"\d+")
@@ -712,19 +715,24 @@ class MatchKeySignature(MatchParameter):
 
     @classmethod
     def _parse_key_signature(cls, kstr: str) -> MatchKeySignature:
-        # import pdb
-        # pdb.set_trace()
-        ksinfo = key_signature_pattern.search(kstr)
+        key_names = [key_name_pattern.match(k.strip()) for k in kstr.split("/")]
 
-        if ksinfo is None:
+        if len(key_names) <= 2 and all(k is not None for k in key_names):
             fmt = "v1.0.0"
-            ksinfo = kstr.split("/")
-            fifths1, mode1 = key_name_to_fifths_mode(ksinfo[0].upper())
-            fifths2, mode2 = None, None
-            if len(ksinfo) == 2:
-                fifths2, mode2 = key_name_to_fifths_mode(ksinfo[1].upper())
+            # only the step can be lowercase, since "b" and "m" have a meaning
+            fifths_modes = [
+                key_name_to_fifths_mode(
+                    f"{k.group('step').upper()}{k.group('alter')}{k.group('minor')}"
+                )
+                for k in key_names
+            ]
+            fifths1, mode1 = fifths_modes[0]
+            fifths2, mode2 = fifths_modes[1] if len(fifths_modes) == 2 else (None, None)
         else:
             fmt = "v0.3.0"
+            ksinfo = key_signature_pattern.search(kstr)
+            if ksinfo is None:
+                raise ValueError(f"Invalid key signature: {kstr}")
             step1, alter1, mode1, step2, alter2, mode2 = ksinfo.groups()
             mode1_str = "m" if mode1.lower() in ("minor", "min") else ""
             fifths1, mode1 = key_name_to_fifths_mode(
