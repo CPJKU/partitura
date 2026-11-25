@@ -6,7 +6,8 @@ This module contains test functions for MusicXML import and export.
 
 import logging
 import unittest
-from tempfile import TemporaryFile
+import os
+from tempfile import TemporaryDirectory, TemporaryFile
 from fractions import Fraction
 
 from tests import (
@@ -29,6 +30,40 @@ import partitura.score as score
 from lxml import etree
 
 LOGGER = logging.getLogger(__name__)
+
+
+class TestIncompleteMeasures(unittest.TestCase):
+    """
+    Measures should keep their duration, even if they are incomplete or empty
+    """
+
+    def test_incomplete_measures(self):
+        part = score.Part("P1", quarter_duration=2)
+        part.add(score.TimeSignature(4, 4), 0)
+        for i in range(4):
+            part.add(score.Measure(number=i + 1, name=str(i + 1)), 8 * i, 8 * i + 8)
+        # the first measure is incomplete, the second one complete, the others empty
+        for i, (start, end) in enumerate(((0, 2), (8, 16))):
+            note = score.Note("C", 4, id=f"n{i}", voice=1, staff=1)
+            part.add(note, start, end)
+
+        xml = save_musicxml(part)
+        self.assertEqual(
+            [
+                [int(e.findtext("duration")) for e in measure_e.findall("forward")]
+                for measure_e in etree.fromstring(xml).findall(".//measure")
+            ],
+            [[6], [], [8], [8]],
+        )
+
+        with TemporaryDirectory() as tmpdir:
+            fn = os.path.join(tmpdir, "test.musicxml")
+            save_musicxml(part, fn)
+            loaded_part = load_musicxml(fn)[0]
+        self.assertEqual(
+            [(m.name, m.end.t - m.start.t) for m in loaded_part.measures],
+            [(m.name, m.end.t - m.start.t) for m in part.measures],
+        )
 
 
 class TestDirectionParser(unittest.TestCase):

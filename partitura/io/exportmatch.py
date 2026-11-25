@@ -652,7 +652,12 @@ def matchfile_from_alignment(
                 version=version,
                 anchor=snote.Anchor,
                 note=note,
-                ornament_type=[ornament_type],
+                # this is a list in alignments loaded from a match file
+                ornament_type=(
+                    [ornament_type]
+                    if isinstance(ornament_type, str)
+                    else list(ornament_type)
+                ),
             )
 
             note_lines.append(ornament_line)

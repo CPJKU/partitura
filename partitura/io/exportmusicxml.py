@@ -342,7 +342,39 @@ def linearize_measure_contents(part, start, end, state):
             linearize_segment_contents(part, splits[i - 1], splits[i], state)
         )
 
+    fill_measure_contents(contents, end.t - start.t)
+
     return contents
+
+
+def fill_measure_contents(contents, duration):
+    """
+    Add a <forward> element (in place) if the contents end before the end of the
+    measure. The duration of a measure is not specified in MusicXML, so it
+    would be too short otherwise.
+
+    Parameters
+    ----------
+    contents : list
+        The contents of the measure in document order
+    duration : int
+        The duration of the measure in divs
+    """
+    pos = max_pos = 0
+    for e in contents:
+        if e.tag not in ("note", "forward", "backup") or e.find("chord") is not None:
+            continue
+        # grace notes have no duration
+        e_dur = int(e.findtext("duration", "0"))
+        pos += -e_dur if e.tag == "backup" else e_dur
+        max_pos = max(max_pos, pos)
+
+    if max_pos < duration:
+        forward_e = etree.Element("forward")
+        etree.SubElement(forward_e, "duration").text = "{:d}".format(
+            int(duration - pos)
+        )
+        contents.append(forward_e)
 
 
 def remove_voice_polyphony_single(notes, voice_spans):

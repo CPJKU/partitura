@@ -4509,7 +4509,8 @@ def tie_notes(part):
     failed = 0
     succeeded = 0
     for i, note in enumerate(list(part.iter_all(Note))):
-        if note.symbolic_duration is None:
+        # the symbolic duration is empty if it cannot be estimated
+        if not note.symbolic_duration and note.duration > 0:
             splits = find_tie_split(
                 note.start.t, note.end.t, int(divs_map(note.start.t)), max_splits
             )
@@ -4574,7 +4575,7 @@ def split_note(part, note, splits):
     # TODO: we shouldn't do this, but for now it's a good sanity check
     assert len(splits) > 0
     # TODO: we shouldn't do this, but for now it's a good sanity check
-    assert note.symbolic_duration is None
+    assert not note.symbolic_duration
     part.remove(note)
     orig_tie_next = note.tie_next
     slur_stops = note.slur_stops
@@ -4608,6 +4609,8 @@ def split_note(part, note, splits):
         part.add(cur_note, start, end)
 
     cur_note.tie_next = orig_tie_next
+    if orig_tie_next is not None:
+        orig_tie_next.tie_prev = cur_note
 
     if cur_note != note:
         for slur in slur_stops:

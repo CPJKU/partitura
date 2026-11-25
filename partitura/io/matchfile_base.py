@@ -1399,6 +1399,7 @@ note_classes = (
     BaseSnoteNoteLine,
     VirtualSnoteNoteLine,
     BaseInsertionLine,
+    BaseOrnamentLine,
 )
 
 # classes that contain a score note aligned to a performed note. Either
