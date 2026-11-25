@@ -1368,7 +1368,12 @@ class BaseSoftPedalLine(BasePedalLine):
 snote_classes = (BaseSnoteLine, BaseSnoteNoteLine, BaseDeletionLine)
 
 # classes that contain performed notes.
-note_classes = (BaseNoteLine, BaseSnoteNoteLine, BaseInsertionLine)
+note_classes = (
+    BaseNoteLine,
+    BaseSnoteNoteLine,
+    BaseInsertionLine,
+    BaseOrnamentLine,
+)
 
 
 class MatchFile(object):
