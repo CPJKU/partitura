@@ -677,6 +677,18 @@ class Part(object):
         return [e for e in self.iter_all(Repeat, include_subclasses=False)]
 
     @property
+    def omitted_sections(self):
+        """Return a list of all OmittedSection objects in the part
+
+        Returns
+        -------
+        list
+            List of OmittedSection objects
+
+        """
+        return [e for e in self.iter_all(OmittedSection, include_subclasses=False)]
+
+    @property
     def key_sigs(self):
         """Return a list of all Key Signature objects in the part
 
@@ -2914,6 +2926,36 @@ class Measure(TimedObject):
             return None
 
     # TODO: add `incomplete` or `anacrusis` property
+
+
+class OmittedSection(TimedObject):
+    """A section of the score whose contents are missing, designated by its
+    start and end times (e.g., the score notes of sections that were not
+    performed are not listed in match files).
+
+    Parameters
+    ----------
+    id : str, optional
+        The ID of the section. Defaults to None
+    attributes : list of str, optional
+        Attributes describing the section. Defaults to None
+
+    Attributes
+    ----------
+    id : str
+        See parameters
+    attributes : list of str
+        See parameters
+
+    """
+
+    def __init__(self, id=None, attributes=None):
+        super().__init__()
+        self.id = id
+        self.attributes = list(attributes or [])
+
+    def __str__(self):
+        return f"{super().__str__()} id={self.id} attributes={self.attributes}"
 
 
 class TimeSignature(TimedObject):

@@ -5,6 +5,7 @@ This module contains methods for parsing matchfiles
 """
 
 import os
+from collections import defaultdict
 from contextlib import nullcontext
 from typing import Union, Tuple, Optional, Callable, List
 import warnings
@@ -656,13 +657,25 @@ def part_from_matchfile(
     part : partitura.score.Part
         An instance of `Part` containing score information.
 
+    Notes
+    -----
+    * The score notes in omitted sections are not listed in the match file, so
+      the measures in these sections are empty (unless they contain notes that
+      are aligned, e.g., by means of virtual notes). The omitted sections are
+      represented as `OmittedSection` objects in the part.
     """
     part = score.Part("P1", mf.info("piece"))
     snotes = sort_snotes(mf.snotes)
 
     ts = mf.time_signatures
-    min_time = snotes[0].OnsetInBeats  # sorted by OnsetInBeats
-    max_time = max(n.OffsetInBeats for n in snotes)
+    omitted_sections = mf.omitted_sections
+    min_time = min(n.OnsetInBeats for n in snotes)
+    max_time = max(
+        [n.OffsetInBeats for n in snotes]
+        + [s.EndInBeatsUnfolded for s in omitted_sections]
+        + [ts_beat_time for ts_beat_time, _, _ in ts]
+    )
+    beats_to_quarters = make_beats_to_quarters_map(ts)
     (
         beats_map_from_beats,
         beats_map_from_quarters,
@@ -686,18 +699,13 @@ def part_from_matchfile(
         * (note.Duration.tuple_div or 1)
         for note in snotes
     ]
+    # time signatures in omitted sections need to be considered as well
+    divs_arg += [max(int(tsg.denominator / 4), 1) for _, _, tsg in ts]
 
     onset_in_beats = np.array([note.OnsetInBeats for note in snotes])
     unique_onsets, inv_idxs = np.unique(onset_in_beats, return_inverse=True)
 
-    iois_in_beats = np.diff(unique_onsets)
-    beat_to_quarter = 4 / beat_type_map_from_beats(onset_in_beats)
-
-    iois_in_quarters_offset = np.r_[
-        beat_to_quarter[0] * onset_in_beats[0],
-        (4 / beat_type_map_from_beats(unique_onsets[:-1])) * iois_in_beats,
-    ]
-    onset_in_quarters = np.cumsum(iois_in_quarters_offset)
+    onset_in_quarters = beats_to_quarters(unique_onsets)
     iois_in_quarters = np.diff(onset_in_quarters)
 
     # ___ these divs are relative to quarters;
@@ -708,54 +716,61 @@ def part_from_matchfile(
     onset_in_quarters = onset_in_quarters[inv_idxs]
 
     part.set_quarter_duration(0, divs)
-    bars = np.unique([n.Measure for n in snotes])
-    t = min_time
-    t = t * 4 / beat_type_map_from_beats(min_time)
-    offset = t
-    bar_times = {}
 
-    if t > 0:
-        # if we have an incomplete first measure that isn't an anacrusis
-        # measure, add a rest (dummy)
-        # if starting beat is above zero, add padding
-        rest = score.Rest()
-        part.add(rest, start=0, end=t * divs)
-        onset_in_divs += round(t * divs)
-        offset = 0
-        t = t - t % beats_map_from_beats(min_time)
+    # position of the first note and start of the score in quarters
+    t = float(beats_to_quarters(min_time))
+    offset = min(
+        [t, 0]
+        + [float(beats_to_quarters(s.StartInBeatsUnfolded)) for s in omitted_sections]
+    )
+    onset_in_divs += int(round((t - offset) * divs))
 
-    for b_name in bars:
-        notes_in_this_bar = [
-            (ni, n) for ni, n in enumerate(snotes) if n.Measure == b_name
-        ]
-        a_note_in_this_bar = notes_in_this_bar[0][1]
-        a_note_id_in_this_bar = notes_in_this_bar[0][0]
-        bar_offset = (
-            (a_note_in_this_bar.Beat - 1)
-            * 4
-            / beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
-        )
+    # start of the bar according to each note
+    note_bar_times = []
+    for note, note_onset in zip(snotes, onset_in_quarters):
+        beat_type = beat_type_map_from_beats(note.OnsetInBeats)
+        bar_offset = (note.Beat - 1) * 4 / beat_type
         on_off_scale = 1
         if not match_offset_duration_in_whole:
-            on_off_scale = beat_type_map_from_beats(a_note_in_this_bar.OnsetInBeats)
+            on_off_scale = beat_type
         beat_offset = (
             4
             / on_off_scale
-            * a_note_in_this_bar.Offset.numerator
-            / (
-                a_note_in_this_bar.Offset.denominator
-                * (a_note_in_this_bar.Offset.tuple_div or 1)
-            )
+            * note.Offset.numerator
+            / (note.Offset.denominator * (note.Offset.tuple_div or 1))
         )
+        note_bar_times.append(float(note_onset - bar_offset - beat_offset))
 
-        barline_in_quarters = (
-            onset_in_quarters[a_note_id_in_this_bar] - bar_offset - beat_offset
-        )
-        bar_times[b_name] = barline_in_quarters
+    # list of (start in quarters, measure number) for each bar, and the index
+    # of the bar of each note.
+    bars, bar_idxs = get_bars_from_snotes(
+        snotes=snotes,
+        onset_in_quarters=onset_in_quarters,
+        note_bar_times=note_bar_times,
+        bar_duration=lambda x: (
+            beats_map_from_quarters(x) * 4 / beat_type_map_from_quarters(x)
+        ),
+    )
+
+    # sort notes by bar (if there are repeated measure numbers, the
+    # notes in these measures are not in order).
+    bar_order = np.argsort(bar_idxs, kind="stable")
+    snotes = [snotes[i] for i in bar_order]
+    onset_in_divs = onset_in_divs[bar_order]
+    bar_idxs = bar_idxs[bar_order]
+
+    def position_in_divs(bar: int, beat_time: float) -> int:
+        # Position of a time or key signature. Start of the (closest) bar with
+        # this number, or the position in beats if there are no notes in this bar
+        time = float(beats_to_quarters(beat_time))
+        bar_times = [bar_time for bar_time, bar_name in bars if bar_name == bar]
+        if len(bar_times) > 0:
+            time = min(bar_times, key=lambda x: abs(x - time))
+        return max(0, int(round(divs * (time - offset))))
 
     for ni, note in enumerate(snotes):
         # start of bar in quarter units
-        bar_start = bar_times[note.Measure]
+        bar_start = bars[bar_idxs[ni]][0]
 
         on_off_scale = 1
         # on_off_scale = 1 means duration and beat offset are given in
@@ -924,42 +939,55 @@ def part_from_matchfile(
                     )
                 )
     # add time signatures
-    for ts_beat_time, ts_bar, tsg in ts:
+    for i, (ts_beat_time, ts_bar, tsg) in enumerate(ts):
         ts_beats = tsg.numerator
         ts_beat_type = tsg.denominator
-        # check if time signature is in a known measure (from notes)
-        if ts_bar in bar_times.keys():
-            bar_start_divs = int(divs * (bar_times[ts_bar] - offset))  # in quarters
-            bar_start_divs = max(0, bar_start_divs)
-        else:
-            bar_start_divs = 0
-        part.add(score.TimeSignature(ts_beats, ts_beat_type), bar_start_divs)
+        ts_divs = position_in_divs(ts_bar, ts_beat_time)
+        if i == 0 and ts_bar not in [bar_name for _, bar_name in bars]:
+            # first bar has no notes
+            ts_divs = 0
+        part.add(score.TimeSignature(ts_beats, ts_beat_type), ts_divs)
     # add key signatures
-    for ks_beat_time, ks_bar, keys in mf.key_signatures:
-        if ks_bar in bar_times.keys():
-            bar_start_divs = int(divs * (bar_times[ks_bar] - offset))  # in quarters
-            bar_start_divs = max(0, bar_start_divs)
-        else:
-            bar_start_divs = 0
-
+    for i, (ks_beat_time, ks_bar, keys) in enumerate(mf.key_signatures):
+        ks_divs = position_in_divs(ks_bar, ks_beat_time)
+        if i == 0 and ks_bar not in [bar_name for _, bar_name in bars]:
+            ks_divs = 0
         # TODO
         # * use key estimation if there are multiple defined keys
         # fifths, mode = key_name_to_fifths_mode(key_name)
-        part.add(score.KeySignature(keys.fifths, keys.mode), ks_bar)
+        part.add(score.KeySignature(keys.fifths, keys.mode), ks_divs)
 
     add_staffs(part)
     # add_clefs(part)
 
-    prev_measure = None
-    for measure_counter, measure_name in enumerate(bar_times.keys()):
-        barline_in_quarters = bar_times[measure_name]
+    # add bars without notes. The measure numbers of time and key signatures
+    # at the start of a bar are known, even if there are no notes in this bar
+    signature_bars = [
+        (float(beats_to_quarters(line.TimeInBeats)), int(line.Measure))
+        for line in mf.time_sig_lines + mf.key_sig_lines
+        if hasattr(line, "Beat") and line.Beat == 1 and float(line.Offset) == 0
+    ]
+    bars = add_empty_bars(
+        bars=bars,
+        signature_bars=signature_bars,
+        ts=ts,
+        beats_to_quarters=beats_to_quarters,
+        start=offset,
+        end=max(
+            [float(beats_to_quarters(s.EndInBeatsUnfolded)) for s in omitted_sections],
+            default=None,
+        ),
+    )
+
+    measures = []
+    for barline_in_quarters, measure_name in bars:
         barline_in_divs = int(round(divs * (barline_in_quarters - offset)))
         if barline_in_divs < 0:
             barline_in_divs = 0
-        if prev_measure is not None:
-            part.add(prev_measure, None, barline_in_divs)
-        prev_measure = score.Measure(number=measure_counter + 1, name=str(measure_name))
-        part.add(prev_measure, barline_in_divs)
+        if len(measures) > 0:
+            part.add(measures[-1], None, barline_in_divs)
+        measures.append(score.Measure(name=str(measure_name)))
+        part.add(measures[-1], barline_in_divs)
     last_closing_barline = barline_in_divs + int(
         round(
             divs
@@ -968,10 +996,34 @@ def part_from_matchfile(
             / beat_type_map_from_quarters(barline_in_quarters)
         )
     )
-    part.add(prev_measure, None, last_closing_barline)
+    part.add(measures[-1], None, last_closing_barline)
+
+    # add omitted sections
+    for section in omitted_sections:
+        section_start, section_end = (
+            max(0, int(round(divs * (float(beats_to_quarters(beats)) - offset))))
+            for beats in (section.StartInBeatsUnfolded, section.EndInBeatsUnfolded)
+        )
+        part.add(
+            score.OmittedSection(
+                id=section.id,
+                attributes=[a for a in section.SectionAttrList if a != ""],
+            ),
+            section_start,
+            section_end,
+        )
+
+    add_rests_in_empty_bars(part, measures)
 
     # add the rest of the measures automatically
     score.add_measures(part)
+
+    # `add_measures` numbers the measures consecutively, but repeated measures
+    # should have the same number (which always starts with 1).
+    first_measure_name = min(measure_name for _, measure_name in bars)
+    for measure, (_, measure_name) in zip(measures, bars):
+        measure.number = int(measure_name - first_measure_name + 1)
+
     score.tie_notes(part)
     score.find_tuplets(part)
 
@@ -1058,6 +1110,278 @@ def make_timesig_maps(
     )
 
     return beats_map, qbeats_map, beat_type_map, qbeat_type_map, start_q, end_q
+
+
+def make_beats_to_quarters_map(
+    ts: List[Tuple[float, int, MatchTimeSignature]],
+) -> Callable:
+    """
+    Create a map from score time in beats to score time in quarters.
+
+    Parameters
+    ----------
+    ts : List[Tuple[float, int, MatchTimeSignature]]
+        A list of tuples containing position in beats, measure and
+        MatchTimeSignature instances
+
+    Returns
+    -------
+    beats_to_quarters : callable
+    """
+    ts_beats = np.array([t for t, _, _ in ts], dtype=float)
+    quarters_per_beat = np.array([4 / tsg.denominator for _, _, tsg in ts])
+    ts_quarters = np.cumsum(
+        np.r_[
+            ts_beats[0] * quarters_per_beat[0],
+            np.diff(ts_beats) * quarters_per_beat[:-1],
+        ]
+    )
+
+    def beats_to_quarters(beats: Union[float, np.ndarray]) -> np.ndarray:
+        idx = np.searchsorted(ts_beats, beats, side="right") - 1
+        idx = np.clip(idx, 0, None)
+        return ts_quarters[idx] + (beats - ts_beats[idx]) * quarters_per_beat[idx]
+
+    return beats_to_quarters
+
+
+def get_bars_from_snotes(
+    snotes: List[BaseSnoteLine],
+    onset_in_quarters: np.ndarray,
+    note_bar_times: List[float],
+    bar_duration: Callable[[float], float],
+) -> Tuple[List[Tuple[float, int]], np.ndarray]:
+    """
+    Get the bars which contain score notes.
+
+    Parameters
+    ----------
+    snotes : List[BaseSnoteLine]
+        The score notes
+    onset_in_quarters : np.ndarray
+        The score onset of each note in quarters.
+    note_bar_times : List[float]
+        The start (in quarters) of the bar of each note, according to the
+        onset and the position in the bar of this note.
+    bar_duration : Callable
+        A map from score time in quarters to the (nominal) duration
+        of the bar at this time in quarters.
+
+    Returns
+    -------
+    bars : List[Tuple[float, int]]
+        A list of tuples with the start (in quarters) and the measure number of
+        each bar, sorted by time.
+    bar_idxs : np.ndarray
+        The index of the bar of each note.
+
+    Notes
+    -----
+    * In unfolded scores the same measure number can occur several times. The
+      notes of these measures are told apart by the start of the bar.
+    """
+    notes_in_measure = defaultdict(list)
+    for ni, note in enumerate(snotes):
+        notes_in_measure[note.Measure].append(ni)
+
+    # tuples of bar start, measure number, notes in this bar
+    bars = []
+    for measure, note_idxs in sorted(notes_in_measure.items()):
+        # split notes into candidates for a repetition of the measure
+        by_time = sorted(note_idxs, key=lambda ni: note_bar_times[ni])
+        occurrences = [[by_time[0]]]
+        for prev, ni in zip(by_time[:-1], by_time[1:]):
+            time, prev_time = note_bar_times[ni], note_bar_times[prev]
+            if time - prev_time >= 0.5 * bar_duration(prev_time):
+                occurrences.append([])
+            occurrences[-1].append(ni)
+
+        # If there are notes of a candidate that sound after the next one
+        # started, these are not repetitions but the result of imprecise onsets.
+        if any(
+            max(onset_in_quarters[ni] for ni in current)
+            > min(note_bar_times[ni] for ni in following)
+            for current, following in zip(occurrences[:-1], occurrences[1:])
+        ):
+            occurrences = [note_idxs]
+
+        for occurrence in occurrences:
+            # the first note in a bar determines its start
+            first = min(occurrence)
+            bars.append((note_bar_times[first], int(measure), occurrence))
+
+    bars.sort(key=lambda bar: bar[:2])
+
+    bar_idxs = np.empty(len(snotes), dtype=int)
+    for bar_idx, (_, _, note_idxs) in enumerate(bars):
+        bar_idxs[note_idxs] = bar_idx
+
+    return [bar[:2] for bar in bars], bar_idxs
+
+
+def add_empty_bars(
+    bars: List[Tuple[float, int]],
+    signature_bars: List[Tuple[float, int]],
+    ts: List[Tuple[float, int, MatchTimeSignature]],
+    beats_to_quarters: Callable,
+    start: float,
+    end: Optional[float] = None,
+) -> List[Tuple[float, int]]:
+    """
+    Add bars without notes (e.g., bars in omitted sections), which are missing
+    from a list of bars.
+
+    Parameters
+    ----------
+    bars : List[Tuple[float, int]]
+        A list of tuples with the start (in quarters) and the measure number of
+        each bar, sorted by time.
+    signature_bars : List[Tuple[float, int]]
+        A list of tuples with the start (in quarters) and the measure number of
+        the bars in which there is a time or key signature.
+    ts : List[Tuple[float, int, MatchTimeSignature]]
+        A list of tuples containing position in beats, measure and
+        MatchTimeSignature instances
+    beats_to_quarters : Callable
+        A map from score time in beats to score time in quarters.
+    start : float
+        Start of the score in quarters.
+    end : float, optional
+        Bars are added after the last bar until this time (in quarters).
+
+    Returns
+    -------
+    all_bars : List[Tuple[float, int]]
+        A list of bars including bars without notes.
+
+    Notes
+    -----
+    * There are no bars missing between bars with consecutive measure numbers,
+      irrespective of their duration (which can be irregular).
+    * If the measure number does not increase (i.e., at a repeat), the number
+      of missing bars is determined by their duration, and they are numbered as
+      a continuation of the last bar before the repeat.
+    """
+    eps = 1e-3
+    bars = list(bars)
+    ts_times = np.array([float(beats_to_quarters(t)) for t, _, _ in ts])
+    bar_durations = [4 * tsg.numerator / tsg.denominator for _, _, tsg in ts]
+
+    def previous_barline(time: float) -> float:
+        # there is always a barline where the time signature changes
+        idx = max(np.searchsorted(ts_times, time - eps) - 1, 0)
+        barline = time - bar_durations[idx]
+        if barline < ts_times[idx] < time - eps:
+            barline = ts_times[idx]
+        return float(barline)
+
+    def next_barline(time: float) -> float:
+        idx = max(np.searchsorted(ts_times, time + eps) - 1, 0)
+        barline = time + bar_durations[idx]
+        if idx + 1 < len(ts_times):
+            barline = min(barline, ts_times[idx + 1])
+        return float(barline)
+
+    # add bars of time and key signatures, if they fit in between the other bars
+    for bar_time, bar_name in sorted(set(signature_bars)):
+        if bar_time <= start + eps or (end is None and bar_time > bars[-1][0]):
+            continue
+        idx = int(np.searchsorted([time for time, _ in bars], bar_time))
+        prev_time, prev_name = bars[idx - 1] if idx > 0 else (start, -np.inf)
+        next_time, next_name = bars[idx] if idx < len(bars) else (end, np.inf)
+        if not prev_time + eps < bar_time < next_time - eps:
+            continue
+        after_prev, before_next = prev_name < bar_name, bar_name < next_name
+        # at a repeat, the bar can be on either side of the repeat sign
+        is_repeat = next_name <= prev_name
+        if (after_prev and before_next) or (is_repeat and (after_prev or before_next)):
+            bars.insert(idx, (bar_time, bar_name))
+
+    all_bars = []
+
+    # bars before the first bar
+    first_time, first_name = bars[0]
+    barlines = []
+    barline = first_time
+    while barline > start + eps:
+        barline = max(previous_barline(barline), start)
+        barlines.insert(0, barline)
+    first_name -= len(barlines)
+    if first_name < 0:
+        # the first bar is already a repetition
+        first_name = 1
+    all_bars += [(barline, first_name + i) for i, barline in enumerate(barlines)]
+
+    # Bars between bars. Barlines are computed backwards, since
+    # the duration of the last bar before the gap can be irregular.
+    for (bar_time, bar_name), (next_time, next_name) in zip(bars[:-1], bars[1:]):
+        all_bars.append((bar_time, bar_name))
+        n_missing = next_name - bar_name - 1 if next_name > bar_name else np.inf
+        barlines = []
+        barline = previous_barline(next_time)
+        while barline > bar_time + eps and len(barlines) < n_missing:
+            barlines.insert(0, barline)
+            barline = previous_barline(barline)
+        all_bars += [(barline, bar_name + i + 1) for i, barline in enumerate(barlines)]
+
+    # bars after the last bar
+    bar_time, bar_name = bars[-1]
+    all_bars.append((bar_time, bar_name))
+    if end is not None:
+        bar_time = next_barline(bar_time)
+        while bar_time < end - eps:
+            bar_name += 1
+            all_bars.append((bar_time, bar_name))
+            bar_time = next_barline(bar_time)
+
+    return all_bars
+
+
+def add_rests_in_empty_bars(part: Part, measures: List[score.Measure]) -> None:
+    """
+    Add rests (in place) to measures without notes, and before the first note
+    if it is not at the start of a measure. Omitted sections are not rests.
+
+    Parameters
+    ----------
+    part : Part
+        The part
+    measures : List[score.Measure]
+        The measures of the part
+    """
+    note_times = np.array(
+        [
+            (note.start.t, note.end.t)
+            for note in part.iter_all(score.GenericNote, include_subclasses=True)
+        ]
+    )
+    first_onset = note_times[:, 0].min()
+    omitted_times = [
+        (section.start.t, section.end.t) for section in part.omitted_sections
+    ]
+
+    for measure in measures:
+        start, end = measure.start.t, measure.end.t
+
+        if start <= first_onset < end:
+            rest_start = max(
+                [start]
+                + [o_end for o_start, o_end in omitted_times if o_start < first_onset]
+            )
+            if rest_start < first_onset:
+                part.add(score.Rest(voice=1, staff=1), rest_start, first_onset)
+
+        # notes with no duration are grace notes
+        has_notes = np.any(
+            (note_times[:, 0] < end)
+            & ((note_times[:, 1] > start) | (note_times[:, 0] >= start))
+        )
+        is_omitted = any(
+            o_start < end and o_end > start for o_start, o_end in omitted_times
+        )
+        if start < end and not has_notes and not is_omitted:
+            for staff in (1, 2):
+                part.add(score.Rest(voice=staff, staff=staff), start, end)
 
 
 def add_staffs(part: Part, split: int = 55, only_missing: bool = True) -> None:

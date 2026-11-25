@@ -64,6 +64,7 @@ from partitura.utils.music import (
 )
 
 from partitura import load_score, load_performance
+from partitura import score
 from partitura.io.importmatch import load_match, get_version, load_matchfile
 
 RNG = np.random.RandomState(1984)
@@ -1143,6 +1144,16 @@ def make_line(measure, beat, onset, nid, attributes="v1,staff1", time=0):
     )
 
 
+def get_measures(part):
+    """
+    Get (name, start in beats, end in beats) of the measures in a part
+    """
+    return [
+        (m.name, float(part.beat_map(m.start.t)), float(part.beat_map(m.end.t)))
+        for m in part.iter_all(score.Measure)
+    ]
+
+
 class TestNonUniqueAlignments(unittest.TestCase):
     """
     Test loading match files with virtual notes and sections (version 1.1.0)
@@ -1238,6 +1249,12 @@ class TestNonUniqueAlignments(unittest.TestCase):
             note_types, [("snote", "note"), ("snote", "virtualPnote")] * 3
         )
         self.assertEqual(score_attributes, [["v1", "staff1"]] * 6)
+
+        # there are no notes in bars 2 to 8
+        self.assertEqual(
+            get_measures(scr[0]),
+            [(str(i + 1), 4.0 * i, 4.0 * (i + 1)) for i in range(9)],
+        )
 
     def test_virtual_snotes_and_virtual_pnotes(self):
         """
@@ -1498,6 +1515,256 @@ class TestNonUniqueAlignments(unittest.TestCase):
         self.assertEqual(len(messages), 2)
         self.assertEqual(len(mf.insertions), 0)
         self.assertEqual(len(mf.deletions), 0)
+
+    def test_score_with_omitted_sections(self):
+        """
+        Omitted sections should result in empty bars
+        """
+        bars = [(str(i + 1), 4.0 * i, 4.0 * (i + 1)) for i in range(4)]
+
+        for lines, onsets, measures in (
+            # in the middle
+            (
+                [
+                    "omittedSection(o,4.0,12.0,4.0,12.0,[]).",
+                    make_line(1, 1, 0.0, "n1"),
+                    make_line(4, 1, 12.0, "n2"),
+                ],
+                [0.0, 12.0],
+                bars,
+            ),
+            # at the beginning
+            (
+                [
+                    "omittedSection(o,0.0,12.0,0.0,12.0,[]).",
+                    make_line(4, 1, 12.0, "n1"),
+                ],
+                [12.0],
+                bars,
+            ),
+            # at the beginning, with anacrusis
+            (
+                [
+                    "omittedSection(o,-1.0,8.0,-1.0,8.0,[]).",
+                    make_line(3, 1, 8.0, "n1"),
+                ],
+                [8.0],
+                [("0", -1.0, 0.0)] + bars[:3],
+            ),
+            # at the end (not at a barline)
+            (
+                [
+                    "omittedSection(o,1.0,14.0,1.0,14.0,[]).",
+                    make_line(1, 1, 0.0, "n1"),
+                ],
+                [0.0],
+                bars,
+            ),
+        ):
+            _, (_, _, scr, *_) = self.load(lines)
+            part = scr[0]
+            self.assertEqual(get_measures(part), measures)
+            self.assertEqual(list(part.note_array()["onset_beat"]), onsets)
+            self.assertEqual(
+                [m.number for m in part.iter_all(score.Measure)],
+                list(range(1, len(measures) + 1)),
+            )
+            # omitted sections are not rests
+            self.assertEqual(len(list(part.iter_all(score.Rest))), 0)
+
+        # only the part after the omitted section is a rest
+        _, (_, _, scr, *_) = self.load(
+            ["omittedSection(o,0.0,8.0,0.0,8.0,[]).", make_line(3, 3, 10.0, "n1")]
+        )
+        rests = list(scr[0].iter_all(score.Rest))
+        self.assertEqual(len(rests), 1)
+        self.assertEqual(scr[0].beat_map([rests[0].start.t, rests[0].end.t]).tolist(), [8.0, 10.0])
+
+    def test_score_omitted_section_objects(self):
+        """
+        The score should know which sections are omitted
+        """
+        _, (_, _, scr, *_) = self.load(
+            [
+                "omittedSection(os1,5.5,12.0,5.5,12.0,[not_performed,x]).",
+                "omittedSection(os2,16.0,24.0,16.0,24.0,[]).",
+                make_line(1, 1, 0.0, "n1"),
+                make_line(4, 1, 12.0, "n2"),
+            ]
+        )
+        part = scr[0]
+        self.assertEqual(
+            [
+                (o.id, o.attributes, *part.beat_map([o.start.t, o.end.t]).tolist())
+                for o in part.omitted_sections
+            ],
+            [
+                ("os1", ["not_performed", "x"], 5.5, 12.0),
+                ("os2", [], 16.0, 24.0),
+            ],
+        )
+        self.assertIn("os1", str(part.omitted_sections[0]))
+
+        # there are none in other scores
+        _, (_, _, scr, *_) = self.load(REHEARSAL_LINES, time_signature="3/4")
+        self.assertEqual(scr[0].omitted_sections, [])
+
+    def test_score_rests_in_empty_bars(self):
+        """
+        Bars without notes are rests, unless they are omitted
+        """
+
+        def get_rests(lines):
+            _, (_, _, scr, *_) = self.load(lines)
+            part = scr[0]
+            return [
+                (r.staff, *part.beat_map([r.start.t, r.end.t]).tolist())
+                for r in part.rests
+            ]
+
+        whole_note = (
+            "snote(n1,[C,n],4,1:1,0,2,0.0,8.0,[v1,staff1])-note(n1,60,0,9,64,0,0)."
+        )
+
+        # rests do not cross barlines
+        self.assertEqual(
+            get_rests([make_line(3, 2, 9.0, "n1")]),
+            [(1, 0.0, 4.0), (2, 0.0, 4.0), (1, 4.0, 8.0), (2, 4.0, 8.0)]
+            + [(1, 8.0, 9.0)],
+        )
+        # also if an omitted section starts with (or after) the first note
+        for start in (9.0, 10.0):
+            self.assertEqual(
+                len(
+                    get_rests(
+                        [
+                            f"omittedSection(o,{start},20.0,{start},20.0,[]).",
+                            make_line(3, 2, 9.0, "n1"),
+                        ]
+                    )
+                ),
+                5,
+            )
+        # in the middle
+        self.assertEqual(
+            get_rests([make_line(1, 1, 0.0, "n1"), make_line(3, 1, 8.0, "n2")]),
+            [(1, 4.0, 8.0), (2, 4.0, 8.0)],
+        )
+        # this is not a rest, since the note is still sounding
+        self.assertEqual(get_rests([whole_note, make_line(3, 1, 8.0, "n2")]), [])
+
+    def test_score_signatures_in_omitted_sections(self):
+        """
+        Time and key signatures in omitted sections should be preserved
+        """
+        _, (_, _, scr, *_) = self.load(
+            [
+                "omittedSection(o,4.0,21.0,4.0,21.0,[]).",
+                make_line(1, 1, 0.0, "n1"),
+                # bar 3 is 3/2, bar 4 and 5 are 3/8
+                make_line(6, 1, 21.0, "n2"),
+            ],
+            scoreprops=[
+                "scoreprop(timeSignature,3/2,3:1,0,8.0000).",
+                "scoreprop(timeSignature,3/8,4:1,0,11.0000).",
+                "scoreprop(timeSignature,4/4,6:1,0,21.0000).",
+                "scoreprop(keySignature,D,4:1,0,11.0000).",
+            ],
+        )
+        part = scr[0]
+        self.assertEqual(
+            [
+                (float(part.quarter_map(t.start.t)), t.beats, t.beat_type)
+                for t in part.iter_all(score.TimeSignature)
+            ],
+            [(0.0, 4, 4), (8.0, 3, 2), (14.0, 3, 8), (19.0, 4, 4)],
+        )
+        self.assertEqual(
+            [
+                (float(part.quarter_map(k.start.t)), k.fifths)
+                for k in part.iter_all(score.KeySignature)
+            ],
+            [(0.0, 0), (14.0, 2)],
+        )
+        self.assertEqual(
+            [
+                (m.name, float(part.quarter_map(m.start.t)))
+                for m in part.iter_all(score.Measure)
+            ],
+            # There are 5 quarters (10 eighth notes) instead of 3 for bar 4
+            # and 5. The bars with known positions should still be correct.
+            [
+                ("1", 0.0),
+                ("2", 4.0),
+                ("3", 8.0),
+                ("4", 14.0),
+                ("5", 17.5),
+                ("6", 19.0),
+            ],
+        )
+        na = part.note_array()
+        self.assertEqual(list(na["onset_beat"]), [0.0, 21.0])
+        self.assertEqual(list(na["onset_quarter"]), [0.0, 19.0])
+
+    def test_score_irregular_bars(self):
+        """
+        Irregular bars should not be confused with bars without notes
+        """
+        # bar 2 is a cadenza
+        _, (_, _, scr, *_) = self.load(
+            [
+                make_line(1, 1, 0.0, "n1"),
+                make_line(2, 1, 4.0, "n2"),
+                make_line(3, 1, 24.0, "n3"),
+            ],
+        )
+        self.assertEqual(
+            get_measures(scr[0]),
+            [("1", 0.0, 4.0), ("2", 4.0, 24.0), ("3", 24.0, 28.0)],
+        )
+
+    def test_score_repeated_measure_numbers(self):
+        """
+        The same measure number can occur several times in unfolded scores
+        """
+        for bars in (
+            [1, 2, 3, 1, 2, 3, 4],
+            [1, 2, 2, 3],
+            [1, 2, 3, 2, 3, 2, 3, 4],
+        ):
+            lines = []
+            for i, bar in enumerate(bars):
+                lines.append(make_line(bar, 1, 4.0 * i, f"n{2 * i}"))
+                lines.append(make_line(bar, 3, 4.0 * i + 2, f"n{2 * i + 1}"))
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                # the order of the lines does not matter
+                _, (_, _, scr, *_) = self.load(lines[::-1])
+            part = scr[0]
+            self.assertEqual(
+                get_measures(part),
+                [(str(b), 4.0 * i, 4.0 * (i + 1)) for i, b in enumerate(bars)],
+            )
+            self.assertEqual([m.number for m in part.iter_all(score.Measure)], bars)
+            na = part.note_array()
+            self.assertEqual(
+                list(na["id"]), [f"n{i}" for i in range(2 * len(bars))]
+            )
+            self.assertEqual(
+                list(na["onset_beat"]), [2.0 * i for i in range(2 * len(bars))]
+            )
+
+        # the first repetition is omitted
+        _, (_, _, scr, *_) = self.load(
+            [
+                "omittedSection(o,0.0,8.0,0.0,8.0,[]).",
+                make_line(1, 1, 8.0, "n1"),
+                make_line(2, 1, 12.0, "n2"),
+            ]
+        )
+        self.assertEqual(
+            [m.name for m in scr[0].iter_all(score.Measure)], ["1", "2", "1", "2"]
+        )
 
 
 class TestMatchLinesV0(unittest.TestCase):

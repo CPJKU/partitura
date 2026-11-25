@@ -9,13 +9,14 @@ import re
 import os
 from tempfile import TemporaryDirectory
 
-from tests import MOZART_VARIATION_FILES
+from tests import MOZART_VARIATION_FILES, MUSICXML_UNFOLD_COMPLEX
 
 from partitura.io.exportmatch import matchfile_from_alignment, save_match
 from partitura.io.importmatch import load_match
 from partitura.io.matchfile_utils import Version
 from partitura.io.matchlines_v1 import MatchSection, MatchOmittedSection
 from partitura import load_score
+from partitura import score as ptscore
 from partitura.performance import PerformedPart
 
 
@@ -638,3 +639,51 @@ class TestExportMatch(unittest.TestCase):
         snote = next(sn for sn in mf.snotes if sn.Anchor == sna["id"][1])
         self.assertEqual(snote.ScoreAttributesList.count("v1"), 1)
         self.assertEqual(snote.ScoreAttributesList.count("attribute"), 1)
+
+    def test_unfolded_score_round_trip(self):
+        """
+        Test that the measures of an unfolded score (with repeated measure
+        numbers) are the same after loading the match file.
+        """
+        for fn, _ in MUSICXML_UNFOLD_COMPLEX:
+            part = ptscore.unfold_part_maximal(load_score(fn)[0])
+            sna = part.note_array()
+            ppart = PerformedPart(
+                notes=[
+                    dict(
+                        id=f"n{i}",
+                        midi_pitch=int(note["pitch"]),
+                        note_on=float(note["onset_beat"] - sna["onset_beat"].min()),
+                        note_off=float(
+                            note["onset_beat"] - sna["onset_beat"].min() + 0.5
+                        ),
+                        velocity=64,
+                    )
+                    for i, note in enumerate(sna)
+                ]
+            )
+            alignment = [
+                dict(label="match", score_id=str(sid), performance_id=f"n{i}")
+                for i, sid in enumerate(sna["id"])
+            ]
+            with TemporaryDirectory() as tmpdir:
+                out = os.path.join(tmpdir, "test.match")
+                save_match(alignment, ppart, part, out=out)
+                _, _, loaded_score = load_match(out, create_score=True)
+
+            def get_measures(part):
+                return [
+                    (m.number, *part.beat_map([m.start.t, m.end.t]).tolist())
+                    for m in part.iter_all(ptscore.Measure)
+                ]
+
+            measures = get_measures(part)
+            # make sure that there are repeated measures
+            self.assertLess(len(set(m[0] for m in measures)), len(measures))
+            self.assertEqual(get_measures(loaded_score[0]), measures)
+
+            loaded_sna = loaded_score[0].note_array()
+            self.assertEqual(
+                dict(zip(loaded_sna["id"], loaded_sna["onset_beat"])),
+                dict(zip(sna["id"], sna["onset_beat"])),
+            )
