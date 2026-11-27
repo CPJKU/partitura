@@ -75,7 +75,9 @@ class AlignmentInfo:
         ("snote", "note") or ("virtualSnote", "note") (see
         `note_alignment_info_from_matchfile`).
     score_attributes : List[List[str]]
-        The score attributes for each element of the alignment.
+        The score attributes for each element of the alignment. To save them
+        with `save_match`, add them to the elements of the alignment as
+        `score_attributes_list`.
     sections : List[dict]
         The sections in the match file (see `sections_from_matchfile`).
     omitted_sections : List[dict]

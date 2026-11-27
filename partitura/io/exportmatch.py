@@ -51,7 +51,6 @@ from partitura.io.matchfile_utils import (
 
 from partitura import score
 from partitura.io.matchfile_base import MatchFile
-from partitura.io.importmatch import AlignmentInfo
 
 from partitura.utils.music import (
     seconds_to_midi_ticks,
@@ -88,7 +87,6 @@ def matchfile_from_alignment(
     omitted_sections: Optional[List[dict]] = None,
     sort_alignment: Optional[Union[str, bool]] = "default",
     debug: bool = False,
-    alignment_info: Optional[AlignmentInfo] = None,
 ) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
@@ -99,6 +97,10 @@ def matchfile_from_alignment(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
+        In version 1.1.0 or higher, the first match of each note in the list is
+        saved with the full note, later matches of the same note with a virtual
+        note. The attributes in `score_attributes_list` of each element (if
+        any) are added to the attributes of the line.
     ppart : partitura.performance.PerformedPart
         An instance of `PerformedPart` containing performance information.
     spart : partitura.score.Part
@@ -138,12 +140,6 @@ def matchfile_from_alignment(
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
-    alignment_info : AlignmentInfo or None, optional
-        Information about the alignment, as returned by `load_match` with
-        `return_alignment_info` = True. The types of the notes determine which notes are
-        virtual (otherwise, all notes except those in the first match containing them are
-        virtual). The score attributes are added to the attributes of the score notes. Its
-        sections and omitted sections are used if `sections` and `omitted_sections` are None.
 
     Returns
     -------
@@ -162,23 +158,6 @@ def matchfile_from_alignment(
                     "Notes with several matches can only be saved in match files "
                     "version 1.1.0 or higher."
                 )
-
-    note_types, score_attributes = None, None
-    if alignment_info is not None:
-        # empty lists mean that there is no information
-        note_types = alignment_info.note_types or None
-        score_attributes = alignment_info.score_attributes or None
-        if sections is None:
-            sections = alignment_info.sections
-        if omitted_sections is None:
-            omitted_sections = alignment_info.omitted_sections
-
-    for info in (note_types, score_attributes):
-        if info is not None and len(info) != len(alignment):
-            raise ValueError(
-                "The note types and score attributes in `alignment_info` should "
-                "have the same length as `alignment`"
-            )
 
     if not assume_part_unfolded:
         # unfold score according to alignment
@@ -538,38 +517,17 @@ def matchfile_from_alignment(
 
     aligned_snotes, aligned_pnotes = [], []
 
-    # notes that should be specified in a certain match (instead of the first one)
-    specified_snotes, specified_pnotes = set(), set()
-    for al_note, (snote_type, pnote_type) in zip(alignment, note_types or []):
-        if al_note["label"] == "match":
-            if snote_type == "snote":
-                specified_snotes.add(al_note["score_id"])
-            if pnote_type == "note":
-                specified_pnotes.add(al_note["performance_id"])
-
-    for al_idx, al_note in enumerate(alignment):
+    for al_note in alignment:
         label = al_note["label"]
 
         attributes_list = []
         virtual_snote, virtual_pnote = False, False
         if version > Version(1, 0, 0):
             attributes_list += al_note.get("score_attributes_list", [])
-            if score_attributes is not None:
-                attributes_list += score_attributes[al_idx]
 
             if label == "match":
                 virtual_snote = al_note["score_id"] in aligned_snotes
                 virtual_pnote = al_note["performance_id"] in aligned_pnotes
-                if note_types is not None:
-                    snote_type, pnote_type = note_types[al_idx]
-                    virtual_snote |= (
-                        snote_type == "virtualSnote"
-                        and al_note["score_id"] in specified_snotes
-                    )
-                    virtual_pnote |= (
-                        pnote_type == "virtualPnote"
-                        and al_note["performance_id"] in specified_pnotes
-                    )
 
         if label == "match":
             if not virtual_snote and not virtual_pnote:
@@ -814,7 +772,6 @@ def save_match(
     sections: Optional[List[dict]] = None,
     omitted_sections: Optional[List[dict]] = None,
     sort_alignment: Optional[Union[str, bool]] = "default",
-    alignment_info: Optional[AlignmentInfo] = None,
 ) -> Optional[MatchFile]:
     """
     Save an Alignment of a PerformedPart to a Part in a match file.
@@ -824,6 +781,10 @@ def save_match(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
+        In version 1.1.0 or higher, the first match of each note in the list is
+        saved with the full note, later matches of the same note with a virtual
+        note. The attributes in `score_attributes_list` of each element (if
+        any) are added to the attributes of the line.
     performance_data : `PerformanceLike
         The performance information as a `Performance`
     score_data : `ScoreLike`
@@ -863,12 +824,6 @@ def save_match(
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
-    alignment_info : AlignmentInfo or None, optional
-        Information about the alignment, as returned by `load_match` with
-        `return_alignment_info` = True. The types of the notes determine which notes are
-        virtual (otherwise, all notes except those in the first match containing them are
-        virtual). The score attributes are added to the attributes of the score notes. Its
-        sections and omitted sections are used if `sections` and `omitted_sections` are None.
 
     Returns
     -------
@@ -918,7 +873,6 @@ def save_match(
         sections=sections,
         omitted_sections=omitted_sections,
         sort_alignment=sort_alignment,
-        alignment_info=alignment_info,
     )
 
     if out is not None:
