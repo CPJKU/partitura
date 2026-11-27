@@ -56,6 +56,8 @@ from partitura.io.matchfile_utils import (
     MatchKeySignature,
     to_camel_case,
     to_snake_case,
+    interpret_as_list,
+    format_list,
 )
 
 from partitura.utils.music import (
@@ -64,7 +66,12 @@ from partitura.utils.music import (
 )
 
 from partitura import load_score, load_performance
-from partitura.io.importmatch import load_match, get_version, load_matchfile
+from partitura.io.importmatch import (
+    AlignmentInfo,
+    load_match,
+    get_version,
+    load_matchfile,
+)
 
 RNG = np.random.RandomState(1984)
 
@@ -1076,8 +1083,8 @@ class TestMatchLinesV1(unittest.TestCase):
 
 
 # Examples in Chiruthapudi et al. (2026) "A Flexible Encoding Model for
-# Non-Unique Note Alignments". The notes in Figure 6 have no velocity in the
-# paper, although it is required by the format.
+# Non-Unique Note Alignments". The velocity of the notes in Figure 6 is missing
+# in the paper.
 REHEARSAL_LINES = """
 section(s1,160.0,180.0,40.0,60.0,7586,9255,[rehearsal]).
 snote(n1,[D,n],4,1:1,0,1/4,0.0000,1.0000,[v1,staff1])-note(n1,62,7586,8023,55,0,0).
@@ -1154,11 +1161,18 @@ class TestNonUniqueAlignments(unittest.TestCase):
             mf = load_matchfile(fn)
             # all lines are parsed
             self.assertEqual(len(mf.lines), n_lines)
-            return mf, load_match(
-                fn,
-                create_score=True,
-                return_alignment_info=True,
-                return_sections=True,
+            perf, alignment, scr, info = load_match(
+                fn, create_score=True, return_alignment_info=True
+            )
+            self.assertIsInstance(info, AlignmentInfo)
+            return mf, (
+                perf,
+                alignment,
+                scr,
+                info.note_types,
+                info.score_attributes,
+                info.sections,
+                info.omitted_sections,
             )
 
     def test_virtual_snotes(self):
@@ -1189,7 +1203,8 @@ class TestNonUniqueAlignments(unittest.TestCase):
         )
         self.assertEqual(
             score_attributes,
-            [["v1", "staff1"]] * 3 + [['"rehearsal repetition"', "c1"]] * 3,
+            # the quotes are removed
+            [["v1", "staff1"]] * 3 + [["rehearsal repetition", "c1"]] * 3,
         )
 
         self.assertEqual([s["id"] for s in sections], ["s1", "s2"])
@@ -1375,14 +1390,36 @@ class TestNonUniqueAlignments(unittest.TestCase):
         self.assertEqual(len(alignment), len(note_types))
         self.assertEqual(len(alignment), len(score_attributes))
 
+    def test_virtual_notes_of_deletions(self):
+        """
+        Virtual notes should point to notes that are aligned
+        """
+        lines = [
+            make_line(1, 1, 0.0, "n1"),
+            "snote(n2,[C,n],4,1:2,0,1/4,1.0,2.0,[v1])-deletion.",
+            "virtualSnote(n2,[a])-note(n3,60,200,300,64,0,0).",
+            "insertion-note(n4,60,400,500,64,0,0).",
+            "snote(n5,[C,n],4,1:3,0,1/4,2.0,3.0,[v1])-virtualPnote(n4).",
+        ]
+        with TemporaryDirectory() as tmpdir:
+            fn, _ = write_matchfile(tmpdir, lines)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                load_matchfile(fn)
+        messages = [str(warning.message) for warning in w]
+        self.assertEqual(len(messages), 2)
+        self.assertIn("virtual score notes pointing to deletions: n2", messages[0])
+        self.assertIn(
+            "virtual performance notes pointing to insertions: n4", messages[1]
+        )
+
     def test_alignment_info_old_versions(self):
         """
         The types and attributes are available for all versions
         """
         for fn in MATCH_IMPORT_EXPORT_TESTFILES + [MOZART_VARIATION_FILES["match"]]:
-            _, alignment, note_types, score_attributes = load_match(
-                fn, return_alignment_info=True
-            )
+            _, alignment, info = load_match(fn, return_alignment_info=True)
+            note_types, score_attributes = info.note_types, info.score_attributes
             self.assertEqual(load_match(fn)[1], alignment)
             self.assertEqual(len(alignment), len(note_types))
             self.assertEqual(len(alignment), len(score_attributes))
@@ -1410,9 +1447,10 @@ class TestNonUniqueAlignments(unittest.TestCase):
             # sections are only returned if requested
             self.assertEqual(len(load_match(fn)), 2)
             self.assertEqual(len(load_match(fn, create_score=True)), 3)
-            self.assertEqual(len(load_match(fn, return_alignment_info=True)), 4)
+            self.assertEqual(len(load_match(fn, return_alignment_info=True)), 3)
 
-            perf, alignment, sections, omitted = load_match(fn, return_sections=True)
+            perf, alignment, info = load_match(fn, return_alignment_info=True)
+            sections, omitted = info.sections, info.omitted_sections
             self.assertEqual(
                 omitted,
                 [
@@ -1432,9 +1470,10 @@ class TestNonUniqueAlignments(unittest.TestCase):
             self.assertEqual(sections[0]["end_in_perf_time"], 2000)
 
             # the performance time of the section is shifted with the notes
-            perf, _, sections, _ = load_match(
-                fn, return_sections=True, first_note_at_zero=True
+            perf, _, info = load_match(
+                fn, return_alignment_info=True, first_note_at_zero=True
             )
+            sections = info.sections
             self.assertEqual(perf.note_array()["onset_tick"][0], 0)
             self.assertEqual(sections[0]["start_in_perf_time"], 0)
             self.assertEqual(sections[0]["end_in_perf_time"], 1000)
@@ -1445,7 +1484,8 @@ class TestNonUniqueAlignments(unittest.TestCase):
                 ["section(0.0,4.0,0.0,4.0,[volta end]).", lines[-1]],
                 version="1.0.0",
             )
-            _, _, sections, omitted = load_match(fn, return_sections=True)
+            _, _, info = load_match(fn, return_alignment_info=True)
+            sections, omitted = info.sections, info.omitted_sections
             self.assertEqual(omitted, [])
             self.assertEqual(len(sections), 1)
             self.assertEqual(sections[0]["section_attr_list"], ["volta end"])
@@ -2475,6 +2515,26 @@ class TestMatchUtils(unittest.TestCase):
             for component in ks.other_components:
                 key_name = fifths_mode_to_key_name(component.fifths, component.mode)
                 self.assertTrue(str(component).startswith(key_name))
+
+    def test_lists_with_quotes(self):
+        """
+        Values in quotes can contain commas, and the quotes are removed
+        """
+        for string, values in (
+            ('["rehearsal repetition",c1]', ["rehearsal repetition", "c1"]),
+            ('["a, b", c]', ["a, b", "c"]),
+            ('[v1,"staff1"]', ["v1", "staff1"]),
+            ("[v1,staff1]", ["v1", "staff1"]),
+        ):
+            self.assertEqual(interpret_as_list(string), values)
+
+        for values, string in (
+            (["rehearsal repetition", "c1"], "[rehearsal repetition,c1]"),
+            (["a, b", "c"], '["a, b",c]'),
+            (['say "a"'], '["say ""a"""]'),
+        ):
+            self.assertEqual(format_list(values), string)
+            self.assertEqual(interpret_as_list(string), values)
 
     def test_validate_match_ids_removes_duplicates(self):
         """

@@ -10,7 +10,7 @@ Notes
 
 import numpy as np
 
-from typing import List, Optional, Iterable, Tuple, Union
+from typing import List, Optional, Iterable, Union
 
 from collections import defaultdict
 
@@ -51,6 +51,7 @@ from partitura.io.matchfile_utils import (
 
 from partitura import score
 from partitura.io.matchfile_base import MatchFile
+from partitura.io.importmatch import AlignmentInfo
 
 from partitura.utils.music import (
     seconds_to_midi_ticks,
@@ -83,12 +84,11 @@ def matchfile_from_alignment(
     tempo_indication: Optional[str] = None,
     diff_score_version_notes: Optional[list] = None,
     version: Version = LATEST_VERSION,
-    sections: Optional[List[dict]] = [],
-    omitted_sections: Optional[List[dict]] = [],
+    sections: Optional[List[dict]] = None,
+    omitted_sections: Optional[List[dict]] = None,
     sort_alignment: Optional[Union[str, bool]] = "default",
     debug: bool = False,
-    note_types: Optional[List[Tuple[str, str]]] = None,
-    score_attributes: Optional[List[List[str]]] = None,
+    alignment_info: Optional[AlignmentInfo] = None,
 ) -> MatchFile:
     """
     Generate a MatchFile object from an Alignment, a PerformedPart and
@@ -106,7 +106,8 @@ def matchfile_from_alignment(
     mpq : int
         Microseconds per quarter note.
     ppq: int
-        Parts per quarter note.
+        Parts per quarter note (MIDI ticks). Use the values of the MIDI file of the
+        performance for `ppq` and `mpq`.
     performer : str or None
         Name(s) of the performer(s) of the `PerformedPart`.
     composer : str or None
@@ -130,19 +131,19 @@ def matchfile_from_alignment(
         Version of the match file. For now only versions higher or equal to 1.0.0 are supported.
     sections : list of dict or None
         List of sections: each dict with 'id', 'start_in_beats_unfolded', etc.
+        'start_in_perf_time' and 'end_in_perf_time' are in MIDI ticks, with `ppq`
+        ticks per quarter note (like the performed notes in the match file).
     omitted_sections : list of dict or None
         List of omitted sections.
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
-    note_types : list of tuple or None, optional
-        The types of the notes for each element of the alignment, as returned by
-        `load_match` with `return_alignment_info` = True. This determines which notes are
-        virtual. If None, all notes except those in the first match containing them are virtual.
-    score_attributes : list of list or None, optional
-        The score attributes for each element of the alignment, as returned by `load_match`
-        with `return_alignment_info` = True. They are added to the attributes of the score
-        note (and to the `score_attributes_list` of the element of the alignment).
+    alignment_info : AlignmentInfo or None, optional
+        Information about the alignment, as returned by `load_match` with
+        `return_alignment_info` = True. The types of the notes determine which notes are
+        virtual (otherwise, all notes except those in the first match containing them are
+        virtual). The score attributes are added to the attributes of the score notes. Its
+        sections and omitted sections are used if `sections` and `omitted_sections` are None.
 
     Returns
     -------
@@ -152,11 +153,31 @@ def matchfile_from_alignment(
     if version < Version(1, 0, 0):
         raise ValueError("Version should >= 1.0.0")
 
+    if version < Version(1, 1, 0):
+        matches = [al_note for al_note in alignment if al_note["label"] == "match"]
+        for key in ("score_id", "performance_id"):
+            note_ids = [al_note[key] for al_note in matches]
+            if len(set(note_ids)) < len(note_ids):
+                raise ValueError(
+                    "Notes with several matches can only be saved in match files "
+                    "version 1.1.0 or higher."
+                )
+
+    note_types, score_attributes = None, None
+    if alignment_info is not None:
+        # empty lists mean that there is no information
+        note_types = alignment_info.note_types or None
+        score_attributes = alignment_info.score_attributes or None
+        if sections is None:
+            sections = alignment_info.sections
+        if omitted_sections is None:
+            omitted_sections = alignment_info.omitted_sections
+
     for info in (note_types, score_attributes):
         if info is not None and len(info) != len(alignment):
             raise ValueError(
-                "`note_types` and `score_attributes` should have the same "
-                "length as `alignment`"
+                "The note types and score attributes in `alignment_info` should "
+                "have the same length as `alignment`"
             )
 
     if not assume_part_unfolded:
@@ -790,11 +811,10 @@ def save_match(
     performance_filename: Optional[PathLike] = None,
     assume_unfolded: bool = True,
     version: tuple = (LATEST_VERSION.major, LATEST_VERSION.minor, LATEST_VERSION.patch),
-    sections: Optional[List[dict]] = [],
-    omitted_sections: Optional[List[dict]] = [],
+    sections: Optional[List[dict]] = None,
+    omitted_sections: Optional[List[dict]] = None,
     sort_alignment: Optional[Union[str, bool]] = "default",
-    note_types: Optional[List[Tuple[str, str]]] = None,
-    score_attributes: Optional[List[List[str]]] = None,
+    alignment_info: Optional[AlignmentInfo] = None,
 ) -> Optional[MatchFile]:
     """
     Save an Alignment of a PerformedPart to a Part in a match file.
@@ -813,9 +833,10 @@ def save_match(
     out : str
         Out to export the matchfile.
     mpq : int
-        Milliseconds per quarter note.
+        Microseconds per quarter note.
     ppq: int
-        Parts per quarter note.
+        Parts per quarter note (MIDI ticks). Use the values of the MIDI file of the
+        performance for `ppq` and `mpq`.
     performer : str or None
         Name(s) of the performer(s) of the `PerformedPart`.
     composer : str or None
@@ -835,19 +856,19 @@ def save_match(
         Version of the match file. For now only versions higher or equal to 1.0.0 are supported.
     sections : list of dict or None
         List of sections: each dict with 'id', 'start_in_beats_unfolded', etc.
+        'start_in_perf_time' and 'end_in_perf_time' are in MIDI ticks, with `ppq`
+        ticks per quarter note (like the performed notes in the match file).
     omitted_sections : list of dict or None
         List of omitted sections.
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
-    note_types : list of tuple or None, optional
-        The types of the notes for each element of the alignment, as returned by
-        `load_match` with `return_alignment_info` = True. This determines which notes are
-        virtual. If None, all notes except those in the first match containing them are virtual.
-    score_attributes : list of list or None, optional
-        The score attributes for each element of the alignment, as returned by `load_match`
-        with `return_alignment_info` = True. They are added to the attributes of the score
-        note (and to the `score_attributes_list` of the element of the alignment).
+    alignment_info : AlignmentInfo or None, optional
+        Information about the alignment, as returned by `load_match` with
+        `return_alignment_info` = True. The types of the notes determine which notes are
+        virtual (otherwise, all notes except those in the first match containing them are
+        virtual). The score attributes are added to the attributes of the score notes. Its
+        sections and omitted sections are used if `sections` and `omitted_sections` are None.
 
     Returns
     -------
@@ -897,8 +918,7 @@ def save_match(
         sections=sections,
         omitted_sections=omitted_sections,
         sort_alignment=sort_alignment,
-        note_types=note_types,
-        score_attributes=score_attributes,
+        alignment_info=alignment_info,
     )
 
     if out is not None:
