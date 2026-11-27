@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from tests import MOZART_VARIATION_FILES, MUSICXML_UNFOLD_COMPLEX
 
 from partitura.io.exportmatch import matchfile_from_alignment, save_match
-from partitura.io.importmatch import AlignmentInfo, load_match
+from partitura.io.importmatch import load_match
 from partitura.io.matchfile_utils import Version
 from partitura.io.matchlines_v1 import MatchSection, MatchOmittedSection
 from partitura import load_score
@@ -465,21 +465,37 @@ class TestExportMatch(unittest.TestCase):
                     elif note_type[0] == "snote":
                         self.assertTrue(set(attributes) < set(sa))
 
-                # and once more
-                out2 = os.path.join(tmpdir, "second.match")
-                save_match(
-                    loaded_alignment,
-                    loaded_perf,
-                    score,
-                    out=out2,
-                    sort_alignment=sort_alignment,
-                    alignment_info=info,
-                )
-                self.assertEqual(read(out), read(out2))
+                # and twice more, with the attributes in the alignment. The
+                # first match of a note in the alignment gets the full line,
+                # which changes here when sorting by time (see above).
+                previous, saved = out, []
+                for i in range(2):
+                    loaded_perf, loaded_alignment, info = load_match(
+                        previous, return_alignment_info=True
+                    )
+                    for al, attributes in zip(loaded_alignment, info.score_attributes):
+                        al["score_attributes_list"] = attributes
+                    previous = os.path.join(tmpdir, f"again_{i}.match")
+                    save_match(
+                        loaded_alignment,
+                        loaded_perf,
+                        score,
+                        out=previous,
+                        sort_alignment=sort_alignment,
+                        sections=info.sections,
+                        omitted_sections=info.omitted_sections,
+                    )
+                    self.assertEqual(
+                        pairs(load_match(previous)[1]), pairs(new_alignment)
+                    )
+                    saved.append(read(previous))
+                self.assertEqual(saved[0], saved[1])
+                if not sort_alignment:
+                    self.assertEqual(read(out), saved[0])
 
-    def test_note_types(self):
+    def test_virtual_notes(self):
         """
-        Test that the types determine which notes are virtual
+        Test that later matches of the same notes are virtual
         """
         score = load_score(MOZART_VARIATION_FILES["musicxml"])
         performance, alignment = load_match(MOZART_VARIATION_FILES["match"])
@@ -492,15 +508,11 @@ class TestExportMatch(unittest.TestCase):
             for sid, pid in ((s1, p1), (s2, p1), (s1, p2), (s2, p2))
         ]
 
-        def get_types(note_types, score_attributes=None, **kwargs):
+        def get_types(alignment, **kwargs):
             mf = matchfile_from_alignment(
-                alignment=new_alignment,
+                alignment=alignment,
                 ppart=performance[0],
                 spart=score[0],
-                alignment_info=AlignmentInfo(
-                    note_types=note_types or [],
-                    score_attributes=score_attributes or [],
-                ),
                 sort_alignment=False,
                 **kwargs,
             )
@@ -522,19 +534,13 @@ class TestExportMatch(unittest.TestCase):
             ("virtualSnote", "note"),
             ("virtualSnote", "virtualPnote"),
         ]
-        self.assertEqual(get_types(None), first_come)
-        self.assertEqual(get_types(first_come), first_come)
-        self.assertEqual(get_types(first_come[::-1]), first_come[::-1])
-
-        # each note should be specified exactly once
-        self.assertEqual(
-            get_types([("virtualSnote", "virtualPnote")] * 4), first_come
-        )
-        self.assertEqual(get_types([("snote", "note")] * 4), first_come)
+        # the order in the alignment decides which match is the first one
+        self.assertEqual(get_types(new_alignment), first_come)
+        self.assertEqual(get_types(new_alignment[::-1]), first_come)
 
         # older versions do not have virtual notes
         with self.assertRaises(ValueError):
-            get_types(first_come, version=Version(1, 0, 0))
+            get_types(new_alignment, version=Version(1, 0, 0))
         with self.assertRaises(ValueError):
             save_match(new_alignment, performance, score, version=(1, 0, 0))
         # but unique alignments are fine
@@ -543,10 +549,6 @@ class TestExportMatch(unittest.TestCase):
             len(save_match(new_alignment[:1], performance, score).lines),
         )
 
-        with self.assertRaises(ValueError):
-            get_types(first_come[:3])
-        with self.assertRaises(ValueError):
-            get_types(first_come, score_attributes=[[]])
 
     def test_deletions_in_omitted_sections(self):
         """
