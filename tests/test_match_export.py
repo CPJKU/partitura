@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from tests import MOZART_VARIATION_FILES, MUSICXML_UNFOLD_COMPLEX
 
 from partitura.io.exportmatch import matchfile_from_alignment, save_match
-from partitura.io.importmatch import load_match
+from partitura.io.importmatch import AlignmentInfo, load_match
 from partitura.io.matchfile_utils import Version
 from partitura.io.matchlines_v1 import MatchSection, MatchOmittedSection
 from partitura import load_score
@@ -425,14 +425,11 @@ class TestExportMatch(unittest.TestCase):
                     omitted_sections=omitted_sections,
                     sort_alignment=sort_alignment,
                 )
-                (
-                    loaded_perf,
-                    loaded_alignment,
-                    note_types,
-                    score_attributes,
-                    loaded_sections,
-                    loaded_omitted,
-                ) = load_match(out, return_alignment_info=True, return_sections=True)
+                loaded_perf, loaded_alignment, info = load_match(
+                    out, return_alignment_info=True
+                )
+                note_types, score_attributes = info.note_types, info.score_attributes
+                loaded_sections, loaded_omitted = info.sections, info.omitted_sections
 
                 self.assertEqual(
                     len(loaded_perf.note_array()), len(performance.note_array())
@@ -441,7 +438,7 @@ class TestExportMatch(unittest.TestCase):
                 self.assertEqual(loaded_sections, sections)
                 self.assertEqual(loaded_omitted, omitted_sections)
 
-                info = {
+                info_by_ids = {
                     (al.get("score_id"), al.get("performance_id")): (nt, sa)
                     for al, nt, sa in zip(
                         loaded_alignment, note_types, score_attributes
@@ -460,7 +457,7 @@ class TestExportMatch(unittest.TestCase):
                         ("-", "note"),
                     ],
                 ):
-                    nt, sa = info[(al.get("score_id"), al.get("performance_id"))]
+                    nt, sa = info_by_ids[(al.get("score_id"), al.get("performance_id"))]
                     self.assertEqual(nt, note_type)
                     attributes = al.get("score_attributes_list", [])
                     if note_type[0] == "virtualSnote":
@@ -475,11 +472,8 @@ class TestExportMatch(unittest.TestCase):
                     loaded_perf,
                     score,
                     out=out2,
-                    sections=loaded_sections,
-                    omitted_sections=loaded_omitted,
                     sort_alignment=sort_alignment,
-                    note_types=note_types,
-                    score_attributes=score_attributes,
+                    alignment_info=info,
                 )
                 self.assertEqual(read(out), read(out2))
 
@@ -498,12 +492,15 @@ class TestExportMatch(unittest.TestCase):
             for sid, pid in ((s1, p1), (s2, p1), (s1, p2), (s2, p2))
         ]
 
-        def get_types(note_types, **kwargs):
+        def get_types(note_types, score_attributes=None, **kwargs):
             mf = matchfile_from_alignment(
                 alignment=new_alignment,
                 ppart=performance[0],
                 spart=score[0],
-                note_types=note_types,
+                alignment_info=AlignmentInfo(
+                    note_types=note_types or [],
+                    score_attributes=score_attributes or [],
+                ),
                 sort_alignment=False,
                 **kwargs,
             )
@@ -536,8 +533,14 @@ class TestExportMatch(unittest.TestCase):
         self.assertEqual(get_types([("snote", "note")] * 4), first_come)
 
         # older versions do not have virtual notes
+        with self.assertRaises(ValueError):
+            get_types(first_come, version=Version(1, 0, 0))
+        with self.assertRaises(ValueError):
+            save_match(new_alignment, performance, score, version=(1, 0, 0))
+        # but unique alignments are fine
         self.assertEqual(
-            get_types(first_come, version=Version(1, 0, 0)), [("snote", "note")] * 4
+            len(save_match(new_alignment[:1], performance, score, version=(1, 0, 0)).lines),
+            len(save_match(new_alignment[:1], performance, score).lines),
         )
 
         with self.assertRaises(ValueError):

@@ -7,6 +7,7 @@ This module contains utilities for parsing and formatting match lines.
 from __future__ import annotations
 
 from typing import Tuple, Any, Optional, Union, List, Dict, Callable
+import csv
 import re
 
 import numpy as np
@@ -565,11 +566,17 @@ def interpret_as_list(value: str) -> List[str]:
     if content is not None:
         # string includes square brackets
         vals_string = content.group("attributes")
-        content_list = [v.strip() for v in vals_string.split(",")]
-
     else:
         # value is not inside square brackets
-        content_list = [v.strip() for v in value.split(",")]
+        vals_string = value
+
+    if '"' in vals_string:
+        # values in quotes can contain commas, and the quotes are removed
+        values = next(csv.reader([vals_string], skipinitialspace=True))
+    else:
+        values = vals_string.split(",")
+
+    content_list = [v.strip() for v in values]
 
     return content_list
 
@@ -585,7 +592,14 @@ def interpret_as_list_fractional(value: str) -> List[FractionalSymbolicDuration]
 
 
 def format_list(value: List[Any]) -> str:
-    formatted_string = f"[{','.join([str(v) for v in value])}]"
+    def format_value(v):
+        v = str(v)
+        # values with commas or quotes need to be in quotes
+        if "," in v or '"' in v:
+            v = '"{}"'.format(v.replace('"', '""'))
+        return v
+
+    formatted_string = f"[{','.join([format_value(v) for v in value])}]"
     return formatted_string
 
 

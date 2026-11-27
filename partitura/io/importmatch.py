@@ -7,6 +7,7 @@ This module contains methods for parsing matchfiles
 import os
 from collections import defaultdict
 from contextlib import nullcontext
+from dataclasses import dataclass, field
 from typing import Union, Tuple, Optional, Callable, List
 import warnings
 from functools import partial
@@ -59,7 +60,33 @@ from partitura.utils.misc import deprecated_alias, PathLike, get_document_name
 
 from partitura.utils.generic import interp1d, iter_current_next
 
-__all__ = ["load_match"]
+__all__ = ["load_match", "AlignmentInfo"]
+
+
+@dataclass
+class AlignmentInfo:
+    """
+    Information about an alignment loaded from a match file, in addition to
+    the alignment itself.
+
+    Attributes
+    ----------
+    note_types : List[Tuple[str, str]]
+        The types of the notes for each element of the alignment, e.g.,
+        ("snote", "note") or ("virtualSnote", "note") (see
+        `note_alignment_info_from_matchfile`).
+    score_attributes : List[List[str]]
+        The score attributes for each element of the alignment.
+    sections : List[dict]
+        The sections in the match file (see `sections_from_matchfile`).
+    omitted_sections : List[dict]
+        The omitted sections in the match file.
+    """
+
+    note_types: List[Tuple[str, str]] = field(default_factory=list)
+    score_attributes: List[List[str]] = field(default_factory=list)
+    sections: List[dict] = field(default_factory=list)
+    omitted_sections: List[dict] = field(default_factory=list)
 
 
 def get_version(line: str) -> Version:
@@ -202,8 +229,7 @@ def load_match(
     offset_duration_whole: bool = True,
     quiet: bool = False,
     return_alignment_info: bool = False,
-    return_sections: bool = False,
-) -> Tuple[Union[Performance, list, Score]]:
+) -> Tuple[Union[Performance, list, Score, AlignmentInfo]]:
     """
     Load a matchfile.
 
@@ -234,10 +260,8 @@ def load_match(
         Defaults to False.
     return_alignment_info : bool, optional
         When True also return the types and the score attributes of the notes
-        in the alignment. Defaults to False.
-    return_sections : bool, optional
-        When True also return the sections and the omitted sections in the
-        match file. Defaults to False.
+        in the alignment, and the sections and omitted sections in the match file.
+        Defaults to False.
 
     Returns
     -------
@@ -246,22 +270,11 @@ def load_match(
         The score--performance alignment, a list of dictionaries
     scr : :class:partitura.score.Score
         The score. This item is only returned when `create_score` = True.
-    note_types : list
-        The types of the notes for each element of the alignment, a list
-        of tuples like ("snote", "note") or ("virtualSnote", "note") (see
-        `note_alignment_info_from_matchfile`). This item is only returned when
+    alignment_info : AlignmentInfo
+        The types and the score attributes of the notes for each element of
+        the alignment, and the sections and omitted sections (see
+        `AlignmentInfo`). This item is only returned when
         `return_alignment_info` = True.
-    score_attributes : list
-        The score attributes for each element of the alignment, a list of
-        lists of strings. This item is only returned when
-        `return_alignment_info` = True.
-    sections : list
-        The sections in the match file, a list of dictionaries (see
-        `sections_from_matchfile`). This item is only returned when
-        `return_sections` = True.
-    omitted_sections : list
-        The omitted sections in the match file, a list of dictionaries. This item
-        is only returned when `return_sections` = True.
     """
     ctx = warnings.catch_warnings() if quiet else nullcontext()
     with ctx:
@@ -298,10 +311,15 @@ def load_match(
             result += (scr,)
 
         if return_alignment_info:
-            result += (note_types, score_attributes)
-
-        if return_sections:
-            result += sections_from_matchfile(mf, first_note_at_zero)
+            sections, omitted_sections = sections_from_matchfile(mf, first_note_at_zero)
+            result += (
+                AlignmentInfo(
+                    note_types=note_types,
+                    score_attributes=score_attributes,
+                    sections=sections,
+                    omitted_sections=omitted_sections,
+                ),
+            )
 
         return result
 
@@ -1504,6 +1522,26 @@ def validate_match_ids(mf):
             warnings.warn(
                 f"Matchfile contains virtual {note_type} notes pointing to notes "
                 f"that are not in the matchfile: {', '.join(sorted(missing_ids))}."
+            )
+
+    # Check if the virtual notes point to notes that are aligned
+    deleted_sids = set(
+        line.snote.Anchor for line in mf.lines if isinstance(line, BaseDeletionLine)
+    )
+    inserted_pids = set(
+        format_pnote_id(line.note.Id)
+        for line in mf.lines
+        if isinstance(line, BaseInsertionLine)
+    )
+    for note_type, not_aligned_ids in (
+        ("score", virtual_sids & deleted_sids),
+        ("performance", virtual_pids & inserted_pids),
+    ):
+        if len(not_aligned_ids) > 0:
+            warnings.warn(
+                f"Matchfile contains virtual {note_type} notes pointing to "
+                f"{'deletions' if note_type == 'score' else 'insertions'}: "
+                f"{', '.join(sorted(not_aligned_ids))}."
             )
 
 
