@@ -38,6 +38,8 @@ from partitura.io.matchfile_base import (
     BaseOrnamentLine,
     BaseSustainPedalLine,
     BaseSoftPedalLine,
+    BaseSectionLine,
+    BaseOmittedSectionLine,
 )
 
 from partitura.io.matchfile_utils import (
@@ -486,7 +488,7 @@ SECTION_LINE = {
 }
 
 
-class MatchSection(MatchLine):
+class MatchSection(BaseSectionLine):
     """
     Class for specifiying structural information (i.e., sections).
 
@@ -622,11 +624,12 @@ class MatchSection(MatchLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
 
-class MatchOmittedSection(MatchLine):
+class MatchOmittedSection(BaseOmittedSectionLine):
     """
-    Class for specifiying structural information (i.e., sections).
+    Class for specifiying sections of the score that were not performed. The
+    score notes in these sections are not listed in the match file.
 
-    section(StartInBeatsUnfolded,EndInBeatsUnfolded,StartInBeatsOriginal,EndInBeatsOriginal,RepeatEndType).
+    omittedSection(id,StartInBeatsUnfolded,EndInBeatsUnfolded,StartInBeatsOriginal,EndInBeatsOriginal,SectionAttrList).
 
     Parameters
     ----------
@@ -697,25 +700,25 @@ class MatchOmittedSection(MatchLine):
         matchline: str,
         pos: int = 0,
         version: Version = LATEST_VERSION,
-    ) -> MatchSection:
+    ) -> MatchOmittedSection:
+        match_pattern = cls.pattern.search(matchline, pos=pos)
+
+        if match_pattern is None:
+            raise MatchError("Input match line does not fit the expected pattern.")
+
         if version < Version(1, 1, 0):
             raise ValueError(f"{version} < Version(1, 1, 0)")
 
-        match_pattern = cls.pattern.search(matchline, pos=pos)
         class_dict = SECTION_LINE[version]
 
-        if match_pattern is not None:
-            kwargs = dict(
-                [
-                    (to_snake_case(fn), class_dict[fn][0](match_pattern.group(fn)))
-                    for fn in cls.field_names
-                ]
-            )
+        kwargs = dict(
+            [
+                (to_snake_case(fn), class_dict[fn][0](match_pattern.group(fn)))
+                for fn in cls.field_names
+            ]
+        )
 
-            return cls(version=version, **kwargs)
-
-        else:
-            raise MatchError("Input match line does not fit the expected pattern.")
+        return cls(version=version, **kwargs)
 
 
 STIME_LINE = {
@@ -1064,8 +1067,9 @@ class MatchNote(BaseNoteLine):
         "note({Id},{MidiPitch},{Onset},{Offset},{Velocity},{Channel},{Track})."
     )
 
+    # the word boundary avoids matching the "note(" in "virtualSnote("
     pattern = re.compile(
-        r"note\((?P<Id>[^,]+),"
+        r"\bnote\((?P<Id>[^,]+),"
         r"(?P<MidiPitch>[^,]+),"
         r"(?P<Onset>[^,]+),"
         r"(?P<Offset>[^,]+),"
@@ -1160,9 +1164,10 @@ class MatchNote(BaseNoteLine):
 class MatchVirtualPNote(VirtualNoteLine):
     field_names = ("Id",)
 
-    out_pattern = "virtualPnote({Id},)."
+    out_pattern = "virtualPnote({Id})."
 
-    pattern = re.compile(r"virtualPnote\((?P<Id>[^,]+),")
+    # files written with partitura 1.9.0 have a trailing comma after the Id
+    pattern = re.compile(r"virtualPnote\((?P<Id>[^,)]+),?\)")
 
     def __init__(
         self,
@@ -1756,6 +1761,7 @@ FROM_MATCHLINE_METHODS = [
     MatchInfo.from_matchline,
     MatchScoreProp.from_matchline,
     MatchSection.from_matchline,
+    MatchOmittedSection.from_matchline,
     MatchStimePtime.from_matchline,
 ]
 

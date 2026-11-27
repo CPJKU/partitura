@@ -3,9 +3,13 @@
 """
 This module contains test functions for Matchfile import
 """
+import os
 import unittest
+import warnings
 import numpy as np
 import re
+
+from tempfile import TemporaryDirectory
 
 from tests import MATCH_IMPORT_EXPORT_TESTFILES, MOZART_VARIATION_FILES
 
@@ -52,6 +56,8 @@ from partitura.io.matchfile_utils import (
     MatchKeySignature,
     to_camel_case,
     to_snake_case,
+    interpret_as_list,
+    format_list,
 )
 
 from partitura.utils.music import (
@@ -60,7 +66,12 @@ from partitura.utils.music import (
 )
 
 from partitura import load_score, load_performance
-from partitura.io.importmatch import load_match, get_version, load_matchfile
+from partitura.io.importmatch import (
+    AlignmentInfo,
+    load_match,
+    get_version,
+    load_matchfile,
+)
 
 RNG = np.random.RandomState(1984)
 
@@ -1047,13 +1058,20 @@ class TestMatchLinesV1(unittest.TestCase):
         )
         
         # Test MatchVirtualPNote
-        vp_line = "virtualPnote(vpn1,)."
+        vp_line = "virtualPnote(vpn1)."
         vp = MatchVirtualPNote.from_matchline(vp_line, version=Version(1, 1, 0))
         self.assertEqual(vp.matchline, vp_line)
         self.assertEqual(vp.Id, "vpn1")
-        
+
+        # Files written with partitura 1.9.0 have a trailing comma
+        vp = MatchVirtualPNote.from_matchline(
+            "virtualPnote(vpn1,).", version=Version(1, 1, 0)
+        )
+        self.assertEqual(vp.matchline, vp_line)
+        self.assertEqual(vp.Id, "vpn1")
+
         # Test MatchSnoteVirtualNote (Standard Snote aligned to a Virtual Pnote)
-        sv_line = "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])-virtualPnote(vpn1,)."
+        sv_line = "snote(n1,[B,n],3,0:2,1/8,1/8,-0.5000,0.0000,[v1])-virtualPnote(vpn1)."
         mo = MatchSnoteVirtualNote.from_matchline(sv_line, version=Version(1, 1, 0))
         self.assertEqual(mo.matchline, sv_line)
         self.assertEqual(mo.note.Id, "vpn1")
@@ -1062,6 +1080,464 @@ class TestMatchLinesV1(unittest.TestCase):
         # Version validation checks
         with self.assertRaises(ValueError):
             MatchVirtualPNote.from_matchline(vp_line, version=Version(1, 0, 0))
+
+
+# Examples in Chiruthapudi et al. (2026) "A Flexible Encoding Model for
+# Non-Unique Note Alignments". The velocity of the notes in Figure 6 is missing
+# in the paper.
+REHEARSAL_LINES = """
+section(s1,160.0,180.0,40.0,60.0,7586,9255,[rehearsal]).
+snote(n1,[D,n],4,1:1,0,1/4,0.0000,1.0000,[v1,staff1])-note(n1,62,7586,8023,55,0,0).
+snote(n2,[F,#],4,1:2,0,1/4,1.0000,2.0000,[v1,staff1])-note(n2,66,8191,8675,60,0,0).
+snote(n3,[A,n],4,1:3,0,1/4,2.0000,3.0000,[v1,staff1])-note(n3,69,8798,9255,65,0,0).
+section(s2,160.0,180.0,40.0,60.0,9387,11183,[rehearsal_repetition]).
+virtualSnote(n1,["rehearsal repetition",c1])-note(n4,62,9387,9886,73,0,0).
+virtualSnote(n2,["rehearsal repetition",c1])-note(n5,66,10012,10564,53,0,0).
+virtualSnote(n3,["rehearsal repetition",c1])-note(n6,69,10712,11183,43,0,0).
+"""
+
+IDENTICAL_BARS_LINES = """
+snote(n1,[E,n],4,1:1,0,1/8,0.0000,0.5000,[v1,staff1])-note(n1,64,1586,2023,55,0,0).
+snote(n65,[E,n],4,9:1,0,1/8,32.0000,32.5000,[v1,staff1])-virtualPnote(n1).
+snote(n2,[F,n],4,1:1,1/8,1/8,0.5000,1.0000,[v1,staff1])-note(n2,65,2191,2675,60,0,0).
+snote(n66,[F,n],4,9:1,1/8,1/8,32.5000,33.0000,[v1,staff1])-virtualPnote(n2).
+snote(n3,[G,n],4,1:2,0,1/8,1.0000,1.5000,[v1,staff1])-note(n3,67,2798,3255,65,0,0).
+snote(n67,[G,n],4,9:2,0,1/8,33.0000,33.5000,[v1,staff1])-virtualPnote(n3).
+"""
+
+BASSO_CONTINUO_LINES = """
+snote(n76,[F,n],3,1:1,1/4,1/8,0.5000,0.7500,[v1,staff2])-note(n14,53,2976,3262,64,1,0).
+virtualSnote(n76,[realization])-note(n12,69,2964,3428,64,1,0).
+virtualSnote(n76,[realization])-note(n13,65,2970,3396,64,1,0).
+virtualSnote(n76,[realization])-note(n15,60,2984,3354,64,1,0).
+snote(n77,[E,b],3,1:1,3/8,1/8,0.7500,1.0000,[v1,staff2])-note(n16,51,3221,3382,64,1,0).
+virtualSnote(n77,[sustained_realization])-virtualPnote(n12).
+virtualSnote(n77,[sustained_realization])-virtualPnote(n13).
+virtualSnote(n77,[sustained_realization])-virtualPnote(n14).
+virtualSnote(n77,[sustained_realization])-virtualPnote(n15).
+"""
+
+
+def write_matchfile(
+    dirname, lines, time_signature="4/4", version="1.1.0", scoreprops=()
+):
+    """
+    Write a match file with the given lines
+    """
+    header = [
+        f"info(matchFileVersion,{version}).",
+        "info(piece,-).",
+        "info(midiClockUnits,480).",
+        "info(midiClockRate,500000).",
+        "scoreprop(keySignature,C,1:1,0,0.0000).",
+        f"scoreprop(timeSignature,{time_signature},1:1,0,0.0000).",
+    ]
+    fn = os.path.join(dirname, "test.match")
+    if isinstance(lines, str):
+        lines = lines.strip().splitlines()
+    with open(fn, "w") as f:
+        f.write("\n".join(header + list(scoreprops) + list(lines)))
+    return fn, len(header) + len(scoreprops) + len(lines)
+
+
+def make_line(measure, beat, onset, nid, attributes="v1,staff1", time=0):
+    """
+    Make a match for a quarter note with the same ID in score and performance
+    """
+    return (
+        f"snote({nid},[C,n],4,{measure}:{beat},0,1/4,{onset:.4f},{onset + 1:.4f},"
+        f"[{attributes}])-note({nid},60,{time},{time + 100},64,0,0)."
+    )
+
+
+class TestNonUniqueAlignments(unittest.TestCase):
+    """
+    Test loading match files with virtual notes and sections (version 1.1.0)
+    """
+
+    def load(self, lines, **kwargs):
+        with TemporaryDirectory() as tmpdir:
+            fn, n_lines = write_matchfile(tmpdir, lines, **kwargs)
+            mf = load_matchfile(fn)
+            # all lines are parsed
+            self.assertEqual(len(mf.lines), n_lines)
+            perf, alignment, scr, info = load_match(
+                fn, create_score=True, return_alignment_info=True
+            )
+            self.assertIsInstance(info, AlignmentInfo)
+            return mf, (
+                perf,
+                alignment,
+                scr,
+                info.note_types,
+                info.score_attributes,
+                info.sections,
+                info.omitted_sections,
+            )
+
+    def test_virtual_snotes(self):
+        """
+        Several performance notes aligned to the same score note (Figure 2)
+        """
+        mf, loaded = self.load(REHEARSAL_LINES, time_signature="3/4")
+        perf, alignment, scr, note_types, score_attributes, sections, _ = loaded
+
+        pna = perf.note_array()
+        self.assertEqual(list(pna["id"]), ["n1", "n2", "n3", "n4", "n5", "n6"])
+        self.assertEqual(list(pna["pitch"]), [62, 66, 69, 62, 66, 69])
+        self.assertEqual(list(scr.note_array()["id"]), ["n1", "n2", "n3"])
+
+        self.assertEqual(
+            alignment,
+            [
+                dict(
+                    label="match",
+                    score_id=f"n{i % 3 + 1}",
+                    performance_id=f"n{i + 1}",
+                )
+                for i in range(6)
+            ],
+        )
+        self.assertEqual(
+            note_types, [("snote", "note")] * 3 + [("virtualSnote", "note")] * 3
+        )
+        self.assertEqual(
+            score_attributes,
+            # the quotes are removed
+            [["v1", "staff1"]] * 3 + [["rehearsal repetition", "c1"]] * 3,
+        )
+
+        self.assertEqual([s["id"] for s in sections], ["s1", "s2"])
+        self.assertEqual(
+            sections[1],
+            dict(
+                id="s2",
+                start_in_beats_unfolded=160.0,
+                end_in_beats_unfolded=180.0,
+                start_in_beats_original=40.0,
+                end_in_beats_original=60.0,
+                start_in_perf_time=9387,
+                end_in_perf_time=11183,
+                section_attr_list=["rehearsal_repetition"],
+            ),
+        )
+
+    def test_virtual_pnotes(self):
+        """
+        Several score notes aligned to the same performance note (Figure 4)
+        """
+        mf, loaded = self.load(IDENTICAL_BARS_LINES)
+        perf, alignment, scr, note_types, score_attributes, _, _ = loaded
+
+        self.assertEqual(list(perf.note_array()["id"]), ["n1", "n2", "n3"])
+
+        sna = scr.note_array()
+        self.assertEqual(list(sna["id"]), ["n1", "n2", "n3", "n65", "n66", "n67"])
+        self.assertTrue(
+            np.allclose(sna["onset_beat"], [0.0, 0.5, 1.0, 32.0, 32.5, 33.0])
+        )
+
+        self.assertEqual(
+            [(al["score_id"], al["performance_id"]) for al in alignment],
+            [
+                ("n1", "n1"),
+                ("n65", "n1"),
+                ("n2", "n2"),
+                ("n66", "n2"),
+                ("n3", "n3"),
+                ("n67", "n3"),
+            ],
+        )
+        self.assertTrue(all(al["label"] == "match" for al in alignment))
+        self.assertEqual(
+            note_types, [("snote", "note"), ("snote", "virtualPnote")] * 3
+        )
+        self.assertEqual(score_attributes, [["v1", "staff1"]] * 6)
+
+    def test_virtual_snotes_and_virtual_pnotes(self):
+        """
+        N-to-M alignments (Figure 6)
+        """
+        mf, loaded = self.load(BASSO_CONTINUO_LINES, time_signature="2/2")
+        perf, alignment, scr, note_types, score_attributes, _, _ = loaded
+        self.assertEqual(
+            sorted(perf.note_array()["id"]), ["n12", "n13", "n14", "n15", "n16"]
+        )
+        self.assertEqual(list(scr.note_array()["id"]), ["n76", "n77"])
+
+        pairs = [
+            ("n76", "n14"),
+            ("n76", "n12"),
+            ("n76", "n13"),
+            ("n76", "n15"),
+            ("n77", "n16"),
+            ("n77", "n12"),
+            ("n77", "n13"),
+            ("n77", "n14"),
+            ("n77", "n15"),
+        ]
+        self.assertEqual(
+            [(al["score_id"], al["performance_id"]) for al in alignment], pairs
+        )
+        self.assertEqual(
+            note_types,
+            [("snote", "note")]
+            + [("virtualSnote", "note")] * 3
+            + [("snote", "note")]
+            + [("virtualSnote", "virtualPnote")] * 4,
+        )
+        self.assertEqual(
+            score_attributes,
+            [["v1", "staff2"]]
+            + [["realization"]] * 3
+            + [["v1", "staff2"]]
+            + [["sustained_realization"]] * 4,
+        )
+        # virtual notes are resolved
+        self.assertEqual([(sn.Anchor, n.Id) for sn, n in mf.note_pairs], pairs)
+        self.assertTrue(all(isinstance(sn, MatchSnoteV1) for sn, _ in mf.note_pairs))
+        self.assertTrue(all(isinstance(n, MatchNoteV1) for _, n in mf.note_pairs))
+        # virtual notes are not notes
+        self.assertEqual([sn.Anchor for sn in mf.snotes], ["n76", "n77"])
+        self.assertEqual([sn.Anchor for sn in mf.iter_snotes()], ["n76", "n77"])
+        self.assertEqual(
+            [n.Id for n in mf.notes], ["n14", "n12", "n13", "n15", "n16"]
+        )
+        self.assertEqual([n.Id for n in mf.iter_notes()], [n.Id for n in mf.notes])
+
+    def test_alignment_order(self):
+        """
+        The alignment, the types and the attributes follow the order of the
+        lines in the file, also if a line specifying a note comes after the
+        virtual notes pointing to it (e.g., if sorted by performance time).
+        """
+        _, loaded = self.load(BASSO_CONTINUO_LINES, time_signature="2/2")
+        lines = BASSO_CONTINUO_LINES.strip().splitlines()
+        _, reverse = self.load(lines[::-1], time_signature="2/2")
+
+        for idx in (1, 3, 4):
+            self.assertEqual(len(loaded[idx]), len(lines))
+            self.assertEqual(reverse[idx], loaded[idx][::-1])
+
+    def test_alignment_info(self):
+        """
+        There are types and attributes for each element in the alignment
+        """
+        lines = [
+            make_line(1, 1, 0.0, "n1", "v1,staff1,staccato,section_s1,pitch_error"),
+            "section(s1,0.0,4.0,0.0,4.0,0,100,[rehearsal]).",
+            "snote(n2,[C,n],4,1:2,0,1/4,1.0,2.0,[v1,skip])-deletion.",
+            "insertion-note(n2,60,200,300,64,0,0).",
+            "virtualSnote(n1,[])-note(n3,60,300,400,64,0,0).",
+            "sustain(350,127).",
+            # this looks like a note, since it has the same number of fields
+            "virtualSnote(n1,[a,b,c,d,e,f])-note(n4,60,400,500,64,0,0).",
+            "virtualSnote(n1,[a,b,c,d,e,f])-virtualPnote(n2).",
+            "ornament(n1,[trill])-note(n5,60,500,600,64,0,0).",
+            "snote(n6,[C,n],4,1:3,0,1/4,2.0,3.0,[])-virtualPnote(n1).",
+            # tied notes are not part of the alignment
+            "snote(n7,[C,n],4,1:4,0,1/4,3.0,4.0,[v1,leftOutTied])-deletion.",
+        ]
+        _, (_, alignment, _, note_types, score_attributes, _, _) = self.load(lines)
+
+        def match(score_id, performance_id):
+            return dict(
+                label="match", score_id=score_id, performance_id=performance_id
+            )
+
+        self.assertEqual(
+            list(zip(alignment, note_types, score_attributes)),
+            [
+                (
+                    match("n1", "n1"),
+                    ("snote", "note"),
+                    ["v1", "staff1", "staccato", "section_s1", "pitch_error"],
+                ),
+                (
+                    dict(label="deletion", score_id="n2"),
+                    ("snote", "-"),
+                    ["v1", "skip"],
+                ),
+                (
+                    dict(label="insertion", performance_id="n2"),
+                    ("-", "note"),
+                    [],
+                ),
+                (match("n1", "n3"), ("virtualSnote", "note"), []),
+                (
+                    match("n1", "n4"),
+                    ("virtualSnote", "note"),
+                    ["a", "b", "c", "d", "e", "f"],
+                ),
+                (
+                    match("n1", "n2"),
+                    ("virtualSnote", "virtualPnote"),
+                    ["a", "b", "c", "d", "e", "f"],
+                ),
+                (
+                    dict(
+                        label="ornament",
+                        score_id="n1",
+                        performance_id="n5",
+                        type=["trill"],
+                    ),
+                    ("ornament", "note"),
+                    [],
+                ),
+                (match("n6", "n1"), ("snote", "virtualPnote"), []),
+            ],
+        )
+        self.assertEqual(len(alignment), len(note_types))
+        self.assertEqual(len(alignment), len(score_attributes))
+
+    def test_virtual_notes_of_deletions(self):
+        """
+        Virtual notes should point to notes that are aligned
+        """
+        lines = [
+            make_line(1, 1, 0.0, "n1"),
+            "snote(n2,[C,n],4,1:2,0,1/4,1.0,2.0,[v1])-deletion.",
+            "virtualSnote(n2,[a])-note(n3,60,200,300,64,0,0).",
+            "insertion-note(n4,60,400,500,64,0,0).",
+            "snote(n5,[C,n],4,1:3,0,1/4,2.0,3.0,[v1])-virtualPnote(n4).",
+        ]
+        with TemporaryDirectory() as tmpdir:
+            fn, _ = write_matchfile(tmpdir, lines)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                load_matchfile(fn)
+        messages = [str(warning.message) for warning in w]
+        self.assertEqual(len(messages), 2)
+        self.assertIn("virtual score notes pointing to deletions: n2", messages[0])
+        self.assertIn(
+            "virtual performance notes pointing to insertions: n4", messages[1]
+        )
+
+    def test_alignment_info_old_versions(self):
+        """
+        The types and attributes are available for all versions
+        """
+        for fn in MATCH_IMPORT_EXPORT_TESTFILES + [MOZART_VARIATION_FILES["match"]]:
+            _, alignment, info = load_match(fn, return_alignment_info=True)
+            note_types, score_attributes = info.note_types, info.score_attributes
+            self.assertEqual(load_match(fn)[1], alignment)
+            self.assertEqual(len(alignment), len(note_types))
+            self.assertEqual(len(alignment), len(score_attributes))
+            types = dict(
+                match=("snote", "note"),
+                deletion=("snote", "-"),
+                insertion=("-", "note"),
+                ornament=("ornament", "note"),
+            )
+            for al, note_type in zip(alignment, note_types):
+                self.assertEqual(note_type, types[al["label"]])
+
+    def test_sections(self):
+        """
+        Test loading sections and omitted sections
+        """
+        lines = [
+            "omittedSection(os1,4.0,8.5,0.0,4.5,[not_rehearsed]).",
+            "section(s1,0.0,4.0,0.0,4.0,1000,2000,[]).",
+            make_line(1, 1, 0.0, "n1", time=1000),
+        ]
+        with TemporaryDirectory() as tmpdir:
+            fn, _ = write_matchfile(tmpdir, lines)
+
+            # sections are only returned if requested
+            self.assertEqual(len(load_match(fn)), 2)
+            self.assertEqual(len(load_match(fn, create_score=True)), 3)
+            self.assertEqual(len(load_match(fn, return_alignment_info=True)), 3)
+
+            perf, alignment, info = load_match(fn, return_alignment_info=True)
+            sections, omitted = info.sections, info.omitted_sections
+            self.assertEqual(
+                omitted,
+                [
+                    dict(
+                        id="os1",
+                        start_in_beats_unfolded=4.0,
+                        end_in_beats_unfolded=8.5,
+                        start_in_beats_original=0.0,
+                        end_in_beats_original=4.5,
+                        section_attr_list=["not_rehearsed"],
+                    )
+                ],
+            )
+            self.assertEqual(len(sections), 1)
+            self.assertEqual(sections[0]["section_attr_list"], [])
+            self.assertEqual(sections[0]["start_in_perf_time"], 1000)
+            self.assertEqual(sections[0]["end_in_perf_time"], 2000)
+
+            # the performance time of the section is shifted with the notes
+            perf, _, info = load_match(
+                fn, return_alignment_info=True, first_note_at_zero=True
+            )
+            sections = info.sections
+            self.assertEqual(perf.note_array()["onset_tick"][0], 0)
+            self.assertEqual(sections[0]["start_in_perf_time"], 0)
+            self.assertEqual(sections[0]["end_in_perf_time"], 1000)
+
+            # sections in version 1.0.0
+            fn, _ = write_matchfile(
+                tmpdir,
+                ["section(0.0,4.0,0.0,4.0,[volta end]).", lines[-1]],
+                version="1.0.0",
+            )
+            _, _, info = load_match(fn, return_alignment_info=True)
+            sections, omitted = info.sections, info.omitted_sections
+            self.assertEqual(omitted, [])
+            self.assertEqual(len(sections), 1)
+            self.assertEqual(sections[0]["section_attr_list"], ["volta end"])
+            self.assertIsNone(sections[0]["id"])
+            self.assertIsNone(sections[0]["start_in_perf_time"])
+
+    def test_validate_virtual_notes(self):
+        """
+        Virtual notes should point to notes in the match file
+        """
+
+        def get_warnings(lines):
+            with TemporaryDirectory() as tmpdir:
+                fn, _ = write_matchfile(tmpdir, lines)
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    mf = load_matchfile(fn)
+            return mf, [str(warning.message) for warning in w]
+
+        for lines in (REHEARSAL_LINES, IDENTICAL_BARS_LINES, BASSO_CONTINUO_LINES):
+            self.assertEqual(get_warnings(lines)[1], [])
+
+        _, messages = get_warnings(
+            [
+                make_line(1, 1, 0.0, "n1"),
+                "virtualSnote(missing_s,[])-note(n2,60,1,2,64,0,0).",
+                "virtualSnote(n1,[])-virtualPnote(missing_p).",
+            ]
+        )
+        self.assertEqual(len(messages), 2)
+        self.assertIn("missing_s", messages[0])
+        self.assertIn("missing_p", messages[1])
+
+        # partitura 1.9.0 did not add an "n" to the IDs of virtual notes
+        _, messages = get_warnings(
+            [make_line(1, 1, 0.0, "n1"), "virtualSnote(n1,[])-virtualPnote(1,)."]
+        )
+        self.assertEqual(messages, [])
+
+        # notes aligned by means of a virtual note are not insertions or deletions
+        mf, messages = get_warnings(
+            [
+                make_line(1, 1, 0.0, "n1"),
+                "virtualSnote(n1,[])-note(n2,60,1,2,64,0,0).",
+                "insertion-note(n2,60,1,2,64,0,0).",
+                "snote(n3,[C,n],4,1:2,0,1/4,1.0,2.0,[v1])-virtualPnote(n1).",
+                "snote(n3,[C,n],4,1:2,0,1/4,1.0,2.0,[v1])-deletion.",
+            ]
+        )
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(len(mf.insertions), 0)
+        self.assertEqual(len(mf.deletions), 0)
 
 
 class TestMatchLinesV0(unittest.TestCase):
@@ -2040,6 +2516,26 @@ class TestMatchUtils(unittest.TestCase):
                 key_name = fifths_mode_to_key_name(component.fifths, component.mode)
                 self.assertTrue(str(component).startswith(key_name))
 
+    def test_lists_with_quotes(self):
+        """
+        Values in quotes can contain commas, and the quotes are removed
+        """
+        for string, values in (
+            ('["rehearsal repetition",c1]', ["rehearsal repetition", "c1"]),
+            ('["a, b", c]', ["a, b", "c"]),
+            ('[v1,"staff1"]', ["v1", "staff1"]),
+            ("[v1,staff1]", ["v1", "staff1"]),
+        ):
+            self.assertEqual(interpret_as_list(string), values)
+
+        for values, string in (
+            (["rehearsal repetition", "c1"], "[rehearsal repetition,c1]"),
+            (["a, b", "c"], '["a, b",c]'),
+            (['say "a"'], '["say ""a"""]'),
+        ):
+            self.assertEqual(format_list(values), string)
+            self.assertEqual(interpret_as_list(string), values)
+
     def test_validate_match_ids_removes_duplicates(self):
         """
         Test that validate_match_ids successfully catches duplicate insertions
@@ -2083,6 +2579,7 @@ class TestMatchUtils(unittest.TestCase):
             
         # The function removes ALL instances of the duplicates, so lines should be 0
         self.assertEqual(len(mf.lines), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

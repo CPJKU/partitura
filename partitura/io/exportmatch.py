@@ -5,7 +5,7 @@ This module contains methods for exporting matchfiles.
 
 Notes
 -----
-* The methods only export matchfiles version 1.0.0.
+* The methods only export matchfiles version 1.0.0 and higher.
 """
 
 import numpy as np
@@ -46,6 +46,7 @@ from partitura.io.matchfile_utils import (
     MatchTimeSignature,
     MatchTempoIndication,
     Version,
+    format_pnote_id,
 )
 
 from partitura import score
@@ -82,8 +83,8 @@ def matchfile_from_alignment(
     tempo_indication: Optional[str] = None,
     diff_score_version_notes: Optional[list] = None,
     version: Version = LATEST_VERSION,
-    sections: Optional[List[dict]] = [],
-    omitted_sections: Optional[List[dict]] = [],
+    sections: Optional[List[dict]] = None,
+    omitted_sections: Optional[List[dict]] = None,
     sort_alignment: Optional[Union[str, bool]] = "default",
     debug: bool = False,
 ) -> MatchFile:
@@ -96,6 +97,10 @@ def matchfile_from_alignment(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
+        In version 1.1.0 or higher, the first match of each note in the list is
+        saved with the full note, later matches of the same note with a virtual
+        note. The attributes in `score_attributes_list` of each element (if
+        any) are added to the attributes of the line.
     ppart : partitura.performance.PerformedPart
         An instance of `PerformedPart` containing performance information.
     spart : partitura.score.Part
@@ -103,7 +108,8 @@ def matchfile_from_alignment(
     mpq : int
         Microseconds per quarter note.
     ppq: int
-        Parts per quarter note.
+        Parts per quarter note (MIDI ticks). Use the values of the MIDI file of the
+        performance for `ppq` and `mpq`.
     performer : str or None
         Name(s) of the performer(s) of the `PerformedPart`.
     composer : str or None
@@ -127,11 +133,14 @@ def matchfile_from_alignment(
         Version of the match file. For now only versions higher or equal to 1.0.0 are supported.
     sections : list of dict or None
         List of sections: each dict with 'id', 'start_in_beats_unfolded', etc.
+        'start_in_perf_time' and 'end_in_perf_time' are in MIDI ticks, with `ppq`
+        ticks per quarter note (like the performed notes in the match file).
     omitted_sections : list of dict or None
         List of omitted sections.
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
+
     Returns
     -------
     matchfile : MatchFile
@@ -139,6 +148,16 @@ def matchfile_from_alignment(
     """
     if version < Version(1, 0, 0):
         raise ValueError("Version should >= 1.0.0")
+
+    if version < Version(1, 1, 0):
+        matches = [al_note for al_note in alignment if al_note["label"] == "match"]
+        for key in ("score_id", "performance_id"):
+            note_ids = [al_note[key] for al_note in matches]
+            if len(set(note_ids)) < len(note_ids):
+                raise ValueError(
+                    "Notes with several matches can only be saved in match files "
+                    "version 1.1.0 or higher."
+                )
 
     if not assume_part_unfolded:
         # unfold score according to alignment
@@ -501,16 +520,22 @@ def matchfile_from_alignment(
     for al_note in alignment:
         label = al_note["label"]
 
+        attributes_list = []
+        virtual_snote, virtual_pnote = False, False
+        if version > Version(1, 0, 0):
+            attributes_list += al_note.get("score_attributes_list", [])
+
+            if label == "match":
+                virtual_snote = al_note["score_id"] in aligned_snotes
+                virtual_pnote = al_note["performance_id"] in aligned_pnotes
+
         if label == "match":
-            if (
-                al_note["score_id"] not in aligned_snotes
-                and al_note["performance_id"] not in aligned_pnotes
-            ):  # always true when using old_format
+            if not virtual_snote and not virtual_pnote:
+                # always true when using old_format
                 # SNOTE - PNOTE
                 snote = score_info[al_note["score_id"]]
                 if version > Version(1, 0, 0):
-                    attributes_list = al_note.get("score_attributes_list", [])
-                    snote.ScoreAttributesList += attributes_list
+                    add_score_attributes(snote.ScoreAttributesList, attributes_list)
                     aligned_snotes.append(al_note["score_id"])
                     aligned_pnotes.append(al_note["performance_id"])
                 pnote = perf_info[al_note["performance_id"]]
@@ -520,15 +545,12 @@ def matchfile_from_alignment(
                 note_lines.append(snote_note_line)
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
                 sort_ptime.append(pnote_sort_info[al_note["performance_id"]])
-            elif (
-                al_note["score_id"] in aligned_snotes
-                and al_note["performance_id"] not in aligned_pnotes
-            ):
+            elif virtual_snote and not virtual_pnote:
                 # VIRTUAL_SNOTE - PNOTE
                 virtualSnote = MatchVirtualSnote(
                     version=version,
                     anchor=al_note["score_id"],
-                    attributes_list=al_note.get("score_attributes_list", []),
+                    attributes_list=add_score_attributes([], attributes_list),
                 )
                 pnote = perf_info[al_note["performance_id"]]
                 virtualSnote_note_line = MatchVirtualSnoteNote(
@@ -538,17 +560,13 @@ def matchfile_from_alignment(
                 aligned_pnotes.append(al_note["performance_id"])
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
                 sort_ptime.append(pnote_sort_info[al_note["performance_id"]])
-            elif (
-                al_note["score_id"] not in aligned_snotes
-                and al_note["performance_id"] in aligned_pnotes
-            ):
+            elif not virtual_snote and virtual_pnote:
                 # SNOTE - VIRTUAL_PNOTE
                 snote = score_info[al_note["score_id"]]
-                attributes_list = al_note.get("score_attributes_list", [])
-                snote.ScoreAttributesList += attributes_list
+                add_score_attributes(snote.ScoreAttributesList, attributes_list)
                 virtualnote = MatchVirtualPNote(
                     version=version,
-                    id=al_note["performance_id"],
+                    id=format_pnote_id(al_note["performance_id"]),
                 )
                 snote_virtualnote_line = MatchSnoteVirtualNote(
                     version=version, snote=snote, note=virtualnote
@@ -557,19 +575,16 @@ def matchfile_from_alignment(
                 aligned_snotes.append(al_note["score_id"])
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
                 sort_ptime.append(pnote_sort_info[al_note["performance_id"]])
-            elif (
-                al_note["score_id"] in aligned_snotes
-                and al_note["performance_id"] in aligned_pnotes
-            ):
+            else:
                 # VIRTUAL_SNOTE - VIRTUAL_PNOTE
                 virtualSnote = MatchVirtualSnote(
                     version=version,
                     anchor=al_note["score_id"],
-                    attributes_list=al_note.get("score_attributes_list", []),
+                    attributes_list=add_score_attributes([], attributes_list),
                 )
                 virtualnote = MatchVirtualPNote(
                     version=version,
-                    id=al_note["performance_id"],
+                    id=format_pnote_id(al_note["performance_id"]),
                 )
                 virtualSnote_virtualnote_line = MatchVirtualSnoteVirtualNote(
                     version=version, snote=virtualSnote, note=virtualnote
@@ -582,11 +597,11 @@ def matchfile_from_alignment(
             skip_deletion = False
             snote = score_info[al_note["score_id"]]
             if version > Version(1, 0, 0):
-                for (
-                    om_sec
-                ) in omitted_sections:  # nothing gets skipped if omitted_sections = []
+                # nothing gets skipped if there are no omitted sections
+                for om_sec in omitted_sections or []:
+                    # the end of a section is the start of the next one
                     if (
-                        snote.OnsetInBeats > om_sec["start_in_beats_unfolded"]
+                        snote.OnsetInBeats >= om_sec["start_in_beats_unfolded"]
                         and snote.OnsetInBeats < om_sec["end_in_beats_unfolded"]
                     ):
                         skip_deletion = True
@@ -595,9 +610,7 @@ def matchfile_from_alignment(
             if not skip_deletion:
                 if al_note["score_id"] in voice_overlap_note_ids:
                     snote.ScoreAttributesList.append("voice_overlap")
-                if version > Version(1, 0, 0):
-                    attributes_list = al_note.get("score_attributes_list", [])
-                    snote.ScoreAttributesList += attributes_list
+                add_score_attributes(snote.ScoreAttributesList, attributes_list)
                 deletion_line = MatchSnoteDeletion(version=version, snote=snote)
                 note_lines.append(deletion_line)
                 sort_stime.append(snote_sort_info[al_note["score_id"]])
@@ -714,6 +727,33 @@ def matchfile_from_alignment(
     return matchfile
 
 
+def add_score_attributes(
+    attributes_list: List[str],
+    new_attributes: List[str],
+) -> List[str]:
+    """
+    Add attributes to a list of attributes (in place), unless they are already
+    in the list.
+
+    Parameters
+    ----------
+    attributes_list : List[str]
+        The list of attributes (e.g., of a score note).
+    new_attributes : List[str]
+        The attributes to be added.
+
+    Returns
+    -------
+    attributes_list : List[str]
+        The list of attributes including the new ones.
+    """
+    for attribute in new_attributes:
+        if attribute not in attributes_list:
+            attributes_list.append(attribute)
+
+    return attributes_list
+
+
 @deprecated_alias(spart="score_data", ppart="performance_data")
 def save_match(
     alignment: List[dict],
@@ -729,8 +769,8 @@ def save_match(
     performance_filename: Optional[PathLike] = None,
     assume_unfolded: bool = True,
     version: tuple = (LATEST_VERSION.major, LATEST_VERSION.minor, LATEST_VERSION.patch),
-    sections: Optional[List[dict]] = [],
-    omitted_sections: Optional[List[dict]] = [],
+    sections: Optional[List[dict]] = None,
+    omitted_sections: Optional[List[dict]] = None,
     sort_alignment: Optional[Union[str, bool]] = "default",
 ) -> Optional[MatchFile]:
     """
@@ -741,6 +781,10 @@ def save_match(
     alignment : list
         A list of dictionaries containing alignment information.
         See `partitura.io.importmatch.alignment_from_matchfile`.
+        In version 1.1.0 or higher, the first match of each note in the list is
+        saved with the full note, later matches of the same note with a virtual
+        note. The attributes in `score_attributes_list` of each element (if
+        any) are added to the attributes of the line.
     performance_data : `PerformanceLike
         The performance information as a `Performance`
     score_data : `ScoreLike`
@@ -750,9 +794,10 @@ def save_match(
     out : str
         Out to export the matchfile.
     mpq : int
-        Milliseconds per quarter note.
+        Microseconds per quarter note.
     ppq: int
-        Parts per quarter note.
+        Parts per quarter note (MIDI ticks). Use the values of the MIDI file of the
+        performance for `ppq` and `mpq`.
     performer : str or None
         Name(s) of the performer(s) of the `PerformedPart`.
     composer : str or None
@@ -772,11 +817,14 @@ def save_match(
         Version of the match file. For now only versions higher or equal to 1.0.0 are supported.
     sections : list of dict or None
         List of sections: each dict with 'id', 'start_in_beats_unfolded', etc.
+        'start_in_perf_time' and 'end_in_perf_time' are in MIDI ticks, with `ppq`
+        ticks per quarter note (like the performed notes in the match file).
     omitted_sections : list of dict or None
         List of omitted sections.
     sort_alignment : str, bool, or None, optional
         Chronological alignment sorting method: "ptime" (performance time), "stime" (score time),
         "default" ("ptime" if version > 1.0.0, else "stime"), or False/None (keep original order).
+
     Returns
     -------
     matchfile: MatchFile

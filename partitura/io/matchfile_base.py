@@ -33,6 +33,7 @@ from partitura.io.matchfile_utils import (
     interpret_as_list,
     interpret_as_list_int,
     format_list,
+    format_pnote_id,
     MatchKeySignature,
     MatchTimeSignature,
 )
@@ -638,22 +639,18 @@ class BaseSnoteLine(MatchLine):
             raise MatchError("Input match line does not fit the expected pattern.")
 
 
-# deprecate bar for measure
 class VirtualSnoteLine(MatchLine):
     """
-    Base class to represent score notes.
+    Base class to represent virtual score notes, i.e., pointers to a score note
+    which is fully specified in another line of the match file.
 
     Parameters
     ----------
     version: Version
     anchor: str
+        The ID of the score note this virtual note points to.
     attributes_list: List[str]
-
-    Attributes
-    ----------
-
-    Notes
-    -----
+        Attributes describing the type of connection.
     """
 
     # All derived classes should include
@@ -761,6 +758,17 @@ class BaseNoteLine(MatchLine):
 
 
 class VirtualNoteLine(MatchLine):
+    """
+    Base class to represent virtual performance notes, i.e., pointers to a
+    performed note which is fully specified in another line of the match file.
+
+    Parameters
+    ----------
+    version: Version
+    id: str
+        The ID of the performed note this virtual note points to.
+    """
+
     # All derived classes should include at least
     # these field names
     field_names = ("Id",)
@@ -1362,13 +1370,45 @@ class BaseSoftPedalLine(BasePedalLine):
         super().__init__(version=version, time=time, value=value)
 
 
+class BaseSectionLine(MatchLine):
+    """
+    Base class for lines describing a section of the score.
+    """
+
+
+class BaseOmittedSectionLine(MatchLine):
+    """
+    Base class for lines describing a section of the score that was not
+    performed, and whose score notes are not listed in the match file.
+    """
+
+
 ## MatchFile
 
-# classes that contain score notes
-snote_classes = (BaseSnoteLine, BaseSnoteNoteLine, BaseDeletionLine)
+# classes that contain (fully specified) score notes
+snote_classes = (
+    BaseSnoteLine,
+    BaseSnoteNoteLine,
+    BaseSnoteVirtualNoteLine,
+    BaseDeletionLine,
+)
 
-# classes that contain performed notes.
-note_classes = (BaseNoteLine, BaseSnoteNoteLine, BaseInsertionLine)
+# classes that contain (fully specified) performed notes.
+note_classes = (
+    BaseNoteLine,
+    BaseSnoteNoteLine,
+    VirtualSnoteNoteLine,
+    BaseInsertionLine,
+)
+
+# classes that contain a score note aligned to a performed note. Either
+# of the notes can be a virtual note.
+note_pair_classes = (
+    BaseSnoteNoteLine,
+    BaseSnoteVirtualNoteLine,
+    VirtualSnoteNoteLine,
+    VirtualSnoteVirtualNoteLine,
+)
 
 
 class MatchFile(object):
@@ -1391,12 +1431,27 @@ class MatchFile(object):
     @property
     def note_pairs(self) -> List[Tuple[BaseSnoteLine, BaseNoteLine]]:
         """
-        Return all(snote, note) tuples
-
+        Return all (snote, note) tuples. Virtual notes are replaced by the
+        notes they point to (pairs for which there is no such note are left out).
         """
-        return [
-            (x.snote, x.note) for x in self.lines if isinstance(x, BaseSnoteNoteLine)
-        ]
+        snotes = dict((n.Anchor, n) for n in self.snotes)
+        notes = dict((format_pnote_id(n.Id), n) for n in self.notes)
+
+        note_pairs = []
+        for line in self.lines:
+            if not isinstance(line, note_pair_classes):
+                continue
+
+            snote, note = line.snote, line.note
+            if isinstance(snote, VirtualSnoteLine):
+                snote = snotes.get(snote.Anchor)
+            if isinstance(note, VirtualNoteLine):
+                note = notes.get(format_pnote_id(note.Id))
+
+            if snote is not None and note is not None:
+                note_pairs.append((snote, note))
+
+        return note_pairs
 
     @property
     def notes(self) -> List[BaseNoteLine]:
@@ -1422,10 +1477,10 @@ class MatchFile(object):
 
     def iter_snotes(self) -> BaseSnoteLine:
         """
-        Iterate over all performed notes (as MatchNote objects)
+        Iterate over all score notes (as MatchSnote objects)
         """
         for x in self.lines:
-            if hasattr(x, "snote"):
+            if isinstance(x, snote_classes):
                 yield x.snote
 
     @property
@@ -1443,6 +1498,14 @@ class MatchFile(object):
     @property
     def deletions(self) -> List[BaseSnoteLine]:
         return [x.snote for x in self.lines if isinstance(x, BaseDeletionLine)]
+
+    @property
+    def sections(self) -> List[BaseSectionLine]:
+        return [line for line in self.lines if isinstance(line, BaseSectionLine)]
+
+    @property
+    def omitted_sections(self) -> List[BaseOmittedSectionLine]:
+        return [line for line in self.lines if isinstance(line, BaseOmittedSectionLine)]
 
     @property
     def _info(self) -> List[BaseInfoLine]:

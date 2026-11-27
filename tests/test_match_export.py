@@ -16,6 +16,7 @@ from partitura.io.importmatch import load_match
 from partitura.io.matchfile_utils import Version
 from partitura.io.matchlines_v1 import MatchSection, MatchOmittedSection
 from partitura import load_score
+from partitura.performance import PerformedPart
 
 
 class TestExportMatch(unittest.TestCase):
@@ -315,3 +316,330 @@ class TestExportMatch(unittest.TestCase):
             self.assertIn(MatchVirtualSnoteNote, parsed_types, "Failed to parse MatchVirtualSnoteNote")
             self.assertIn(MatchSnoteVirtualNote, parsed_types, "Failed to parse MatchSnoteVirtualNote")
             self.assertIn(MatchVirtualSnoteVirtualNote, parsed_types, "Failed to parse MatchVirtualSnoteVirtualNote")
+
+    def test_non_unique_alignment_round_trip(self):
+        """
+        Test that nothing is lost when loading and saving match files
+        with virtual notes and sections.
+        """
+        score = load_score(MOZART_VARIATION_FILES["musicxml"])
+        performance, alignment = load_match(MOZART_VARIATION_FILES["match"])
+        matches = [a for a in alignment if a["label"] == "match"]
+        sids = [a["score_id"] for a in matches]
+        pids = [a["performance_id"] for a in matches]
+
+        new_alignment = [
+            dict(a, score_attributes_list=["section_s1"]) for a in matches[4:]
+        ]
+        new_alignment += [a for a in alignment if a["label"] != "match"]
+        new_alignment += [
+            # score notes with several performance notes. The first performance
+            # notes are virtual, so these lines are written before the
+            # line specifying the score note if sorting by time.
+            dict(label="match", score_id=sids[0], performance_id=pids[3]),
+            dict(
+                label="match",
+                score_id=sids[0],
+                performance_id=pids[0],
+                score_attributes_list=["rehearsal_repetition", "pitch_error"],
+            ),
+            dict(label="match", score_id=sids[0], performance_id=pids[1]),
+            # performance notes with several score notes
+            dict(
+                label="match",
+                score_id=sids[1],
+                performance_id=pids[1],
+                score_attributes_list=["musically_identical_to_score_id_x"],
+            ),
+            # both
+            dict(
+                label="match",
+                score_id=sids[1],
+                performance_id=pids[0],
+                score_attributes_list=["sustained_realization"],
+            ),
+            dict(
+                label="deletion",
+                score_id=sids[2],
+                score_attributes_list=["not_played"],
+            ),
+            dict(label="deletion", score_id=sids[3]),
+            dict(label="insertion", performance_id=pids[2]),
+        ]
+        sections = [
+            dict(
+                id="s1",
+                start_in_beats_unfolded=0.0,
+                end_in_beats_unfolded=4.0,
+                start_in_beats_original=0.0,
+                end_in_beats_original=4.0,
+                start_in_perf_time=10,
+                end_in_perf_time=2000,
+                section_attr_list=["rehearsal", "left_hand"],
+            ),
+            dict(
+                id="s2",
+                start_in_beats_unfolded=2.0,
+                end_in_beats_unfolded=4.0,
+                start_in_beats_original=2.0,
+                end_in_beats_original=4.0,
+                start_in_perf_time=2000,
+                end_in_perf_time=3000,
+                section_attr_list=[],
+            ),
+        ]
+        omitted_sections = [
+            dict(
+                id="os1",
+                start_in_beats_unfolded=100.0,
+                end_in_beats_unfolded=120.0,
+                start_in_beats_original=50.0,
+                end_in_beats_original=70.0,
+                section_attr_list=["not_rehearsed"],
+            )
+        ]
+
+        def pairs(alignment, *info):
+            return sorted(
+                [
+                    (al["label"], al.get("score_id", ""), al.get("performance_id", ""))
+                    + tuple(x)
+                    for al, *x in zip(alignment, *info)
+                ]
+            )
+
+        def read(fn):
+            with open(fn) as f:
+                return f.read()
+
+        for sort_alignment in ("ptime", "stime", False):
+            with TemporaryDirectory() as tmpdir:
+                out = os.path.join(tmpdir, "first.match")
+                save_match(
+                    new_alignment,
+                    performance,
+                    score,
+                    out=out,
+                    sections=sections,
+                    omitted_sections=omitted_sections,
+                    sort_alignment=sort_alignment,
+                )
+                loaded_perf, loaded_alignment, info = load_match(
+                    out, return_alignment_info=True
+                )
+                note_types, score_attributes = info.note_types, info.score_attributes
+                loaded_sections, loaded_omitted = info.sections, info.omitted_sections
+
+                self.assertEqual(
+                    len(loaded_perf.note_array()), len(performance.note_array())
+                )
+                self.assertEqual(pairs(loaded_alignment), pairs(new_alignment))
+                self.assertEqual(loaded_sections, sections)
+                self.assertEqual(loaded_omitted, omitted_sections)
+
+                info_by_ids = {
+                    (al.get("score_id"), al.get("performance_id")): (nt, sa)
+                    for al, nt, sa in zip(
+                        loaded_alignment, note_types, score_attributes
+                    )
+                }
+                for al, note_type in zip(
+                    new_alignment[-8:],
+                    [
+                        ("snote", "note"),
+                        ("virtualSnote", "note"),
+                        ("virtualSnote", "note"),
+                        ("snote", "virtualPnote"),
+                        ("virtualSnote", "virtualPnote"),
+                        ("snote", "-"),
+                        ("snote", "-"),
+                        ("-", "note"),
+                    ],
+                ):
+                    nt, sa = info_by_ids[(al.get("score_id"), al.get("performance_id"))]
+                    self.assertEqual(nt, note_type)
+                    attributes = al.get("score_attributes_list", [])
+                    if note_type[0] == "virtualSnote":
+                        self.assertEqual(sa, attributes)
+                    elif note_type[0] == "snote":
+                        self.assertTrue(set(attributes) < set(sa))
+
+                # and twice more, with the attributes in the alignment. The
+                # first match of a note in the alignment gets the full line,
+                # which changes here when sorting by time (see above).
+                previous, saved = out, []
+                for i in range(2):
+                    loaded_perf, loaded_alignment, info = load_match(
+                        previous, return_alignment_info=True
+                    )
+                    for al, attributes in zip(loaded_alignment, info.score_attributes):
+                        al["score_attributes_list"] = attributes
+                    previous = os.path.join(tmpdir, f"again_{i}.match")
+                    save_match(
+                        loaded_alignment,
+                        loaded_perf,
+                        score,
+                        out=previous,
+                        sort_alignment=sort_alignment,
+                        sections=info.sections,
+                        omitted_sections=info.omitted_sections,
+                    )
+                    self.assertEqual(
+                        pairs(load_match(previous)[1]), pairs(new_alignment)
+                    )
+                    saved.append(read(previous))
+                self.assertEqual(saved[0], saved[1])
+                if not sort_alignment:
+                    self.assertEqual(read(out), saved[0])
+
+    def test_virtual_notes(self):
+        """
+        Test that later matches of the same notes are virtual
+        """
+        score = load_score(MOZART_VARIATION_FILES["musicxml"])
+        performance, alignment = load_match(MOZART_VARIATION_FILES["match"])
+        matches = [a for a in alignment if a["label"] == "match"]
+        (s1, s2), (p1, p2) = [
+            [a[key] for a in matches[:2]] for key in ("score_id", "performance_id")
+        ]
+        new_alignment = [
+            dict(label="match", score_id=sid, performance_id=pid)
+            for sid, pid in ((s1, p1), (s2, p1), (s1, p2), (s2, p2))
+        ]
+
+        def get_types(alignment, **kwargs):
+            mf = matchfile_from_alignment(
+                alignment=alignment,
+                ppart=performance[0],
+                spart=score[0],
+                sort_alignment=False,
+                **kwargs,
+            )
+            names = dict(
+                MatchSnote="snote",
+                MatchVirtualSnote="virtualSnote",
+                MatchNote="note",
+                MatchVirtualPNote="virtualPnote",
+            )
+            return [
+                (names[type(ln.snote).__name__], names[type(ln.note).__name__])
+                for ln in mf.lines
+                if hasattr(ln, "snote")
+            ]
+
+        first_come = [
+            ("snote", "note"),
+            ("snote", "virtualPnote"),
+            ("virtualSnote", "note"),
+            ("virtualSnote", "virtualPnote"),
+        ]
+        # the order in the alignment decides which match is the first one
+        self.assertEqual(get_types(new_alignment), first_come)
+        self.assertEqual(get_types(new_alignment[::-1]), first_come)
+
+        # older versions do not have virtual notes
+        with self.assertRaises(ValueError):
+            get_types(new_alignment, version=Version(1, 0, 0))
+        with self.assertRaises(ValueError):
+            save_match(new_alignment, performance, score, version=(1, 0, 0))
+        # but unique alignments are fine
+        self.assertEqual(
+            len(save_match(new_alignment[:1], performance, score, version=(1, 0, 0)).lines),
+            len(save_match(new_alignment[:1], performance, score).lines),
+        )
+
+
+    def test_deletions_in_omitted_sections(self):
+        """
+        Test that deletions are only left out if they are in an omitted section
+        (including its start, but not its end).
+        """
+        score = load_score(MOZART_VARIATION_FILES["musicxml"])
+        performance, alignment = load_match(MOZART_VARIATION_FILES["match"])
+        sna = score.note_array()
+
+        start, end = np.unique(sna["onset_beat"])[[4, 12]]
+        omitted = sna["id"][(sna["onset_beat"] >= start) & (sna["onset_beat"] < end)]
+        at_end = sna["id"][sna["onset_beat"] == end]
+        self.assertTrue(np.any(sna["onset_beat"] == start))
+
+        # nothing but the first 4 notes was performed
+        matched = [a for a in alignment if a["label"] == "match"][:4]
+        matched_ids = [a["score_id"] for a in matched]
+        self.assertFalse(np.any(np.isin(matched_ids, omitted)))
+        new_alignment = matched + [
+            dict(label="deletion", score_id=sid)
+            for sid in sna["id"]
+            if sid not in matched_ids
+        ]
+
+        def get_deletions(omitted_sections):
+            mf = matchfile_from_alignment(
+                alignment=new_alignment,
+                ppart=performance[0],
+                spart=score[0],
+                omitted_sections=omitted_sections,
+            )
+            return set(n.Anchor for n in mf.deletions)
+
+        all_deletions = get_deletions([])
+        self.assertEqual(len(all_deletions), len(sna) - 4)
+        self.assertEqual(get_deletions(None), all_deletions)
+
+        deletions = get_deletions(
+            [
+                dict(
+                    id="os1",
+                    start_in_beats_unfolded=start,
+                    end_in_beats_unfolded=end,
+                    start_in_beats_original=start,
+                    end_in_beats_original=end,
+                    section_attr_list=[],
+                )
+            ]
+        )
+        self.assertEqual(all_deletions - deletions, set(omitted))
+        self.assertTrue(set(at_end) <= deletions)
+
+    def test_virtual_note_ids(self):
+        """
+        Test that virtual notes have the same IDs as the notes they point to, and
+        that attributes of the score are not repeated.
+        """
+        score = load_score(MOZART_VARIATION_FILES["musicxml"])
+        sna = score.note_array()
+        ppart = PerformedPart(
+            notes=[
+                dict(id=i, midi_pitch=60, note_on=i, note_off=i + 0.5, velocity=64)
+                for i in range(2)
+            ]
+        )
+        mf = matchfile_from_alignment(
+            alignment=[
+                dict(label="match", score_id=sna["id"][0], performance_id=0),
+                dict(
+                    label="match",
+                    score_id=sna["id"][1],
+                    performance_id=1,
+                    score_attributes_list=["v1", "attribute"],
+                ),
+                dict(label="match", score_id=sna["id"][2], performance_id=0),
+                dict(label="match", score_id=sna["id"][0], performance_id=1),
+            ],
+            ppart=ppart,
+            spart=score[0],
+        )
+        self.assertEqual(
+            sorted((sn.Anchor, n.Id) for sn, n in mf.note_pairs),
+            sorted(
+                [
+                    (sna["id"][0], "n0"),
+                    (sna["id"][1], "n1"),
+                    (sna["id"][2], "n0"),
+                    (sna["id"][0], "n1"),
+                ]
+            ),
+        )
+        snote = next(sn for sn in mf.snotes if sn.Anchor == sna["id"][1])
+        self.assertEqual(snote.ScoreAttributesList.count("v1"), 1)
+        self.assertEqual(snote.ScoreAttributesList.count("attribute"), 1)

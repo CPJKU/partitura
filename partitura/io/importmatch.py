@@ -6,6 +6,7 @@ This module contains methods for parsing matchfiles
 
 import os
 from contextlib import nullcontext
+from dataclasses import dataclass, field
 from typing import Union, Tuple, Optional, Callable, List
 import warnings
 from functools import partial
@@ -36,6 +37,10 @@ from partitura.io.matchfile_base import (
     BaseDeletionLine,
     BaseInsertionLine,
     BaseOrnamentLine,
+    BaseOmittedSectionLine,
+    VirtualSnoteLine,
+    VirtualNoteLine,
+    note_pair_classes,
 )
 
 from partitura.io.matchfile_utils import (
@@ -54,7 +59,35 @@ from partitura.utils.misc import deprecated_alias, PathLike, get_document_name
 
 from partitura.utils.generic import interp1d, iter_current_next
 
-__all__ = ["load_match"]
+__all__ = ["load_match", "AlignmentInfo"]
+
+
+@dataclass
+class AlignmentInfo:
+    """
+    Information about an alignment loaded from a match file, in addition to
+    the alignment itself.
+
+    Attributes
+    ----------
+    note_types : List[Tuple[str, str]]
+        The types of the notes for each element of the alignment, e.g.,
+        ("snote", "note") or ("virtualSnote", "note") (see
+        `note_alignment_info_from_matchfile`).
+    score_attributes : List[List[str]]
+        The score attributes for each element of the alignment. To save them
+        with `save_match`, add them to the elements of the alignment as
+        `score_attributes_list`.
+    sections : List[dict]
+        The sections in the match file (see `sections_from_matchfile`).
+    omitted_sections : List[dict]
+        The omitted sections in the match file.
+    """
+
+    note_types: List[Tuple[str, str]] = field(default_factory=list)
+    score_attributes: List[List[str]] = field(default_factory=list)
+    sections: List[dict] = field(default_factory=list)
+    omitted_sections: List[dict] = field(default_factory=list)
 
 
 def get_version(line: str) -> Version:
@@ -105,9 +138,14 @@ def parse_matchline(
     * ScoreNote-deletion.
     * ScoreNote-PlayedNote.
     * ScoreNote-trailing_score_note.
+    * ScoreNote-VirtualPlayedNote.
+    * VirtualScoreNote-PlayedNote.
+    * VirtualScoreNote-VirtualPlayedNote.
     * trailing_played_note-PlayedNote.
     * trill(Anchor)-PlayedNote.
     * meta(Attribute, Value, Bar, Beat).
+    * section(...).
+    * omittedSection(...).
     * sustain(Time, Value)
     * soft(Time, Value)
 
@@ -191,7 +229,8 @@ def load_match(
     clip_velocities: bool = True,
     offset_duration_whole: bool = True,
     quiet: bool = False,
-) -> Tuple[Union[Performance, list, Score]]:
+    return_alignment_info: bool = False,
+) -> Tuple[Union[Performance, list, Score, AlignmentInfo]]:
     """
     Load a matchfile.
 
@@ -220,6 +259,10 @@ def load_match(
     quiet : bool, optional
         If True, suppress all warnings emitted during parsing.
         Defaults to False.
+    return_alignment_info : bool, optional
+        When True also return the types and the score attributes of the notes
+        in the alignment, and the sections and omitted sections in the match file.
+        Defaults to False.
 
     Returns
     -------
@@ -228,6 +271,11 @@ def load_match(
         The score--performance alignment, a list of dictionaries
     scr : :class:partitura.score.Score
         The score. This item is only returned when `create_score` = True.
+    alignment_info : AlignmentInfo
+        The types and the score attributes of the notes for each element of
+        the alignment, and the sections and omitted sections (see
+        `AlignmentInfo`). This item is only returned when
+        `return_alignment_info` = True.
     """
     ctx = warnings.catch_warnings() if quiet else nullcontext()
     with ctx:
@@ -256,12 +304,25 @@ def load_match(
 
             scr = score.Score(id=get_document_name(filename), partlist=[spart])
         # Alignment
-        alignment = alignment_from_matchfile(mf)
+        alignment, note_types, score_attributes = note_alignment_info_from_matchfile(mf)
+
+        result = (performance, alignment)
 
         if create_score:
-            return performance, alignment, scr
-        else:
-            return performance, alignment
+            result += (scr,)
+
+        if return_alignment_info:
+            sections, omitted_sections = sections_from_matchfile(mf, first_note_at_zero)
+            result += (
+                AlignmentInfo(
+                    note_types=note_types,
+                    score_attributes=score_attributes,
+                    sections=sections,
+                    omitted_sections=omitted_sections,
+                ),
+            )
+
+        return result
 
 
 def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
@@ -277,34 +338,91 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
     -------
     results : List[dict]
         An alignmnet as a list of dictionaries for each note.
+
+    Notes
+    -----
+    * Alignments can be non-unique (from version 1.1.0 on), i.e., there can be
+      several matches with the same `score_id` and/or `performance_id`. See
+      `note_alignment_info_from_matchfile` for telling them apart.
     """
-    result = []
+    alignment, _, _ = note_alignment_info_from_matchfile(mf)
+
+    return alignment
+
+
+# alias
+alignment_from_matchfile = note_alignment_from_matchfile
+
+
+def note_alignment_info_from_matchfile(
+    mf: MatchFile,
+) -> Tuple[List[dict], List[Tuple[str, str]], List[List[str]]]:
+    """
+    Get a note-level alignment from a MatchFile instance, and the types and
+    the score attributes of the notes in each match line.
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A score-to-performance alignment
+
+    Returns
+    -------
+    alignment : List[dict]
+        An alignment as a list of dictionaries for each note, in the order
+        of the lines in the match file (which is sorted by performance time
+        by default, see `save_match`).
+    note_types : List[Tuple[str, str]]
+        The types of the score note and the performance note for each element
+        of the alignment:
+
+        * `("snote", "note")`, `("virtualSnote", "note")`,
+          `("snote", "virtualPnote")` or `("virtualSnote", "virtualPnote")`
+          for matches
+        * `("snote", "-")` for deletions
+        * `("-", "note")` for insertions
+        * `("ornament", "note")` for ornaments
+    score_attributes : List[List[str]]
+        The attributes of the score note (or virtual score note) for each
+        element of the alignment. The list is empty if there are none.
+    """
+    alignment = []
+    note_types = []
+    score_attributes = []
 
     for line in mf.lines:
-        if isinstance(line, BaseSnoteNoteLine):
-            result.append(
-                dict(
-                    label="match",
-                    score_id=str(line.snote.Anchor),
-                    performance_id=format_pnote_id(line.note.Id),
-                )
+        if isinstance(line, note_pair_classes):
+            al_note = dict(
+                label="match",
+                score_id=str(line.snote.Anchor),
+                performance_id=format_pnote_id(line.note.Id),
+            )
+            is_virtual_snote = isinstance(line.snote, VirtualSnoteLine)
+            is_virtual_pnote = isinstance(line.note, VirtualNoteLine)
+            note_type = (
+                "virtualSnote" if is_virtual_snote else "snote",
+                "virtualPnote" if is_virtual_pnote else "note",
+            )
+            attributes = (
+                line.snote.AttributesList
+                if is_virtual_snote
+                else line.snote.ScoreAttributesList
             )
 
-        elif isinstance(
-            line,
-            BaseDeletionLine,
-        ):
+        elif isinstance(line, BaseDeletionLine):
             if "leftOutTied" in line.snote.ScoreAttributesList:
                 continue
-            else:
-                result.append(dict(label="deletion", score_id=str(line.snote.Anchor)))
-        elif isinstance(
-            line,
-            BaseInsertionLine,
-        ):
-            result.append(
-                dict(label="insertion", performance_id=format_pnote_id(line.note.Id))
+            al_note = dict(label="deletion", score_id=str(line.snote.Anchor))
+            note_type = ("snote", "-")
+            attributes = line.snote.ScoreAttributesList
+
+        elif isinstance(line, BaseInsertionLine):
+            al_note = dict(
+                label="insertion", performance_id=format_pnote_id(line.note.Id)
             )
+            note_type = ("-", "note")
+            attributes = []
+
         elif isinstance(line, BaseOrnamentLine):
             if isinstance(line, MatchTrillNoteV0):
                 ornament_type = "trill"
@@ -312,20 +430,81 @@ def note_alignment_from_matchfile(mf: MatchFile) -> List[dict]:
                 ornament_type = line.OrnamentType
             else:
                 ornament_type = "generic_ornament"
-            result.append(
-                dict(
-                    label="ornament",
-                    score_id=str(line.Anchor),
-                    performance_id=format_pnote_id(line.note.Id),
-                    type=ornament_type,
-                )
+            al_note = dict(
+                label="ornament",
+                score_id=str(line.Anchor),
+                performance_id=format_pnote_id(line.note.Id),
+                type=ornament_type,
             )
+            note_type = ("ornament", "note")
+            attributes = []
 
-    return result
+        else:
+            continue
+
+        alignment.append(al_note)
+        note_types.append(note_type)
+        # empty lists in the match file are parsed as [""]
+        score_attributes.append([a for a in attributes if a != ""])
+
+    return alignment, note_types, score_attributes
 
 
-# alias
-alignment_from_matchfile = note_alignment_from_matchfile
+def sections_from_matchfile(
+    mf: MatchFile,
+    first_note_at_zero: bool = False,
+) -> Tuple[List[dict], List[dict]]:
+    """
+    Get the sections and the omitted sections in a MatchFile instance, in the
+    format used by `save_match`.
+
+    Parameters
+    ----------
+    mf : MatchFile
+        A MatchFile instance
+    first_note_at_zero : bool, optional
+        When True the performance times are shifted to make the first
+        note_on time equal zero (see `performed_part_from_match`).
+
+    Returns
+    -------
+    sections : List[dict]
+        A list of dictionaries for each section. For match files before version
+        1.1.0, `id`, `start_in_perf_time` and `end_in_perf_time` are None and
+        `section_attr_list` is the type of the repeat end.
+    omitted_sections : List[dict]
+        A list of dictionaries for each omitted section.
+    """
+    offset_tick = 0
+    if first_note_at_zero and len(mf.notes) > 0:
+        offset_tick = max(0, min(note.Onset for note in mf.notes))
+
+    sections, omitted_sections = [], []
+    for line in mf.sections + mf.omitted_sections:
+        section = dict(
+            id=getattr(line, "id", None),
+            start_in_beats_unfolded=line.StartInBeatsUnfolded,
+            end_in_beats_unfolded=line.EndInBeatsUnfolded,
+            start_in_beats_original=line.StartInBeatsOriginal,
+            end_in_beats_original=line.EndInBeatsOriginal,
+        )
+        if isinstance(line, BaseOmittedSectionLine):
+            omitted_sections.append(section)
+        else:
+            start, end = None, None
+            if line.version >= Version(1, 1, 0):
+                start = line.StartInPerfTime - offset_tick
+                end = line.EndInPerfTime - offset_tick
+            section.update(start_in_perf_time=start, end_in_perf_time=end)
+            sections.append(section)
+
+        # empty lists in the match file are parsed as [""]
+        attributes = getattr(
+            line, "SectionAttrList", getattr(line, "RepeatEndType", [])
+        )
+        section["section_attr_list"] = [a for a in attributes if a != ""]
+
+    return sections, omitted_sections
 
 
 def performed_part_from_match(
@@ -943,6 +1122,9 @@ def validate_match_ids(mf):
     This function will:
     - remove all deletions with a score ID that occurs in multiple lines.
     - remove all insertions with a performance ID that occurs in multiple lines.
+    - warn about virtual notes that point to notes that are not in the match file.
+
+    Virtual notes are pointers to other notes, and thus not duplicates.
 
     Handles cases with conflicting match/insertion(s) and match/deletion(s) tuples
     with any number of insertions or deletions and a single match by keeping
@@ -995,6 +1177,50 @@ def validate_match_ids(mf):
             "Removing {} insertions.".format(len(indices_to_del))
         )
         mf.lines = np.delete(mf.lines, indices_to_del)
+
+    # Check if the virtual notes point to existing notes
+    note_pairs = [line for line in mf.lines if isinstance(line, note_pair_classes)]
+    virtual_sids = set(
+        line.snote.Anchor
+        for line in note_pairs
+        if isinstance(line.snote, VirtualSnoteLine)
+    )
+    virtual_pids = set(
+        format_pnote_id(line.note.Id)
+        for line in note_pairs
+        if isinstance(line.note, VirtualNoteLine)
+    )
+    sids = set(n.Anchor for n in mf.snotes)
+    pids = set(format_pnote_id(n.Id) for n in mf.notes)
+    for note_type, missing_ids in (
+        ("score", virtual_sids - sids),
+        ("performance", virtual_pids - pids),
+    ):
+        if len(missing_ids) > 0:
+            warnings.warn(
+                f"Matchfile contains virtual {note_type} notes pointing to notes "
+                f"that are not in the matchfile: {', '.join(sorted(missing_ids))}."
+            )
+
+    # Check if the virtual notes point to notes that are aligned
+    deleted_sids = set(
+        line.snote.Anchor for line in mf.lines if isinstance(line, BaseDeletionLine)
+    )
+    inserted_pids = set(
+        format_pnote_id(line.note.Id)
+        for line in mf.lines
+        if isinstance(line, BaseInsertionLine)
+    )
+    for note_type, not_aligned_ids in (
+        ("score", virtual_sids & deleted_sids),
+        ("performance", virtual_pids & inserted_pids),
+    ):
+        if len(not_aligned_ids) > 0:
+            warnings.warn(
+                f"Matchfile contains virtual {note_type} notes pointing to "
+                f"{'deletions' if note_type == 'score' else 'insertions'}: "
+                f"{', '.join(sorted(not_aligned_ids))}."
+            )
 
 
 if __name__ == "__main__":
